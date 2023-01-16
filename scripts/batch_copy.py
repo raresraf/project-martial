@@ -35,22 +35,25 @@ def main(_):
     print(FLAGS.walk_root)
     for root, _, files in os.walk(FLAGS.walk_root):
         for file in files:
-            if file == FLAGS.match_file_name:
-                src_full_path = os.path.join(root, file)
-                target_path = remove_prefix(remove_prefix(
-                    src_full_path, FLAGS.walk_root), "/")
-                absolute_target_path = os.path.join(
-                    FLAGS.target_dir, target_path)
-                if FLAGS.dry_run:
-                    print(
-                        f'[dry-run] COPY {src_full_path} -> {absolute_target_path}')
-                    continue
+            if file != FLAGS.match_file_name:
+                continue
+
+            src_full_path = os.path.join(root, file)
+            target_path = remove_prefix(remove_prefix(
+                src_full_path, FLAGS.walk_root), "/")
+            absolute_target_path = os.path.join(
+                FLAGS.target_dir, target_path)
+            if FLAGS.dry_run:
                 print(
-                    f'MKDIR {os.path.dirname(absolute_target_path)}')
-                os.makedirs(os.path.dirname(
-                    absolute_target_path), exist_ok=True)
-                print(f'COPY {src_full_path} -> {absolute_target_path}')
-                shutil.copy(src_full_path, absolute_target_path)
+                    f'[dry-run] COPY {src_full_path} -> {absolute_target_path}')
+                continue
+            print(
+                f'MKDIR {os.path.dirname(absolute_target_path)}')
+            os.makedirs(os.path.dirname(
+                absolute_target_path), exist_ok=True)
+            print(f'COPY {src_full_path} -> {absolute_target_path}')
+            shutil.copy(src_full_path, absolute_target_path)
+
 
 if __name__ == '__main__':
     app.run(main)

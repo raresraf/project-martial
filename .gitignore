@@ -156,3 +156,7 @@ dmypy.json
 .bazelversion
 # User-specific .bazelrc
 user.bazelrc
+
+
+#macos
+.DS_Store

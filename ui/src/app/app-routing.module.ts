@@ -4,8 +4,8 @@ import { RouterModule, Routes } from '@angular/router';
 import { DiffComponent } from './diff/diff.component';
 
 const routes: Routes = [
-  {path: 'diff', component: DiffComponent},
   {path: '', redirectTo: '/', pathMatch: 'full'},
+  {path: 'diff', component: DiffComponent},
 ];
 
 @NgModule({

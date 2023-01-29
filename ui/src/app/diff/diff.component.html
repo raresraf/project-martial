@@ -1,9 +1,16 @@
-<p>diff works!</p>
+<style>
+    .text-inside-grid {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  white-space: pre-wrap;
+}
+</style>
 
 <mat-grid-list cols="2" rowHeight="2:1">
-    <mat-grid-tile>1</mat-grid-tile>
-    <mat-grid-tile>2</mat-grid-tile>
-    <mat-grid-tile>3</mat-grid-tile>
-    <mat-grid-tile>4</mat-grid-tile>
+    <mat-grid-tile *ngFor="let tile of tiles" [style.background]="tile.color">
+        <mat-card-content>
+            <div class="text-inside-grid">{{tile.text}}</div> 
+        </mat-card-content>
+    </mat-grid-tile>
 </mat-grid-list>
-  

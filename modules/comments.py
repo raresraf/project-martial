@@ -1,6 +1,6 @@
 """Package comments checks the similarity between two comments."""
 
-# Sample run: bazel run //modules/drivers:comments_driver -- source_files_dir=/Users/raresraf/code/project-martial/samples/comments --alsologtostderr
+# Sample run: bazel run //modules/drivers:comments_driver -- --source_files_dir=/Users/raresraf/code/project-martial/samples/comments --alsologtostderr
 
 import datetime
 import re
@@ -20,5 +20,4 @@ class CommentsAnalysis():
             pattern = re.compile('(?:/\*(.*?)\*/)|(?://(.*?)\n)',re.S)
             findings = pattern.findall(v)
             print(findings)
-
 

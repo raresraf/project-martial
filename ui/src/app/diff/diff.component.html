@@ -1,16 +1,42 @@
 <style>
     .text-inside-grid {
-  position: absolute;
-  top: 5px;
-  left: 5px;
-  white-space: pre-wrap;
-}
+        position: absolute;
+        top: 5px;
+        left: 5px;
+        white-space: pre-wrap;
+    }
 </style>
 
-<mat-grid-list cols="2" rowHeight="2:1">
-    <mat-grid-tile *ngFor="let tile of tiles" [style.background]="tile.color">
+
+<mat-grid-list cols="2" rowHeight="100px">
+    <mat-grid-tile [colspan]="file_upload_tiles[0].cols" [rowspan]="file_upload_tiles[0].rows"
+        [style.background]="file_upload_tiles[0].color">
         <mat-card-content>
-            <div class="text-inside-grid">{{tile.text}}</div> 
+            <input type="file" class="file-input" (change)="onFileSelected0($event)" #fileUploadZero>
+            {{fileName[0] || "No file uploaded yet. Showing a demo snippet..."}}
+            <button mat-raised-button color="primary" (click)="fileUploadZero.click()">
+                Attach file
+            </button>
+        </mat-card-content>
+    </mat-grid-tile>
+    <mat-grid-tile [colspan]="file_upload_tiles[1].cols" [rowspan]="file_upload_tiles[1].rows"
+        [style.background]="file_upload_tiles[1].color">
+        <mat-card-content>
+            <input type="file" class="file-input" (change)="onFileSelected1($event)" #fileUploadOne>
+            {{fileName[1] || "No file uploaded yet. Showing a demo snippet..."}}
+            <button mat-raised-button color="primary" (click)="fileUploadOne.click()">
+                Attach file
+            </button>
+        </mat-card-content>
+    </mat-grid-tile>
+</mat-grid-list>
+
+
+<mat-grid-list cols="2" rowHeight="100px">
+    <mat-grid-tile *ngFor="let tile of tiles" [colspan]="tile.cols" [rowspan]="tile.rows"
+        [style.background]="tile.color">
+        <mat-card-content>
+            <div class="text-inside-grid">{{tile.text}}</div>
         </mat-card-content>
     </mat-grid-tile>
 </mat-grid-list>

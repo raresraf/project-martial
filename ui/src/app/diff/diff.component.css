@@ -2,10 +2,11 @@ mat-grid-tile {
     background: lightblue;
 }
 
-mat-grid-tile-original mat-grid-tile{
-    background: rgba(246, 169, 169);
+.file-input {
+    display: none;
 }
 
-mat-grid-tile-copy mat-grid-tile{
-    background: rgb(180, 230, 173);
+.upload-button {
+    width: 300px !important;
+    min-width: unset !important;
 }

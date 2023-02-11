@@ -32,11 +32,43 @@
 </mat-grid-list>
 
 
-<mat-grid-list cols="2" rowHeight="100px">
-    <mat-grid-tile *ngFor="let tile of tiles" [colspan]="tile.cols" [rowspan]="tile.rows"
-        [style.background]="tile.color">
-        <mat-card-content>
-            <div class="text-inside-grid">{{tile.text}}</div>
-        </mat-card-content>
-    </mat-grid-tile>
-</mat-grid-list>
+<div *ngIf="tiles[0].text != undefined">
+    <div *ngIf="tiles[1].text != undefined">
+        <mat-grid-list *ngFor="let item of createRange(MaxRowsToRender()); let render_index=index" cols="30" rowHeight="25px">
+            <mat-grid-tile [colspan]="1" [rowspan]="1" [style.background]="tiles[0].color">
+                <mat-card-content>
+                    <div class="text-inside-grid">
+                        {{render_index + 1}}
+                    </div>
+                </mat-card-content>
+            </mat-grid-tile>
+
+            <mat-grid-tile [colspan]="14"
+                [rowspan]="1" [style.background]="tiles[0].color">
+                <mat-card-content>
+                    <div class="text-inside-grid">
+                        {{tiles[0].text[render_index]}}
+                    </div>
+                </mat-card-content>
+            </mat-grid-tile>
+
+
+            <mat-grid-tile [colspan]="1" [rowspan]="1" [style.background]="tiles[0].color">
+                <mat-card-content>
+                    <div class="text-inside-grid">
+                        {{render_index + 1}}
+                    </div>
+                </mat-card-content>
+            </mat-grid-tile>
+
+            <mat-grid-tile [colspan]="14"
+                [rowspan]="1" [style.background]="tiles[1].color">
+                <mat-card-content>
+                    <div class="text-inside-grid">
+                        {{tiles[1].text[render_index]}}
+                    </div>
+                </mat-card-content>
+            </mat-grid-tile>
+        </mat-grid-list>
+    </div>
+</div>

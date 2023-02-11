@@ -1,11 +1,12 @@
 import { Component } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { max } from 'rxjs';
 
 export interface Tile {
   color: string;
   cols: number;
   rows: number;
-  text?: string | undefined;
+  text?: string[] | undefined;
 }
 
 @Component({
@@ -14,28 +15,28 @@ export interface Tile {
   styleUrls: ['./diff.component.css']
 })
 export class DiffComponent {
-  cpp1 = `
-  #include <iostream>
+  cpp1 = `#include <iostream>
 
-  using namespace std;
+using namespace std;
 
-  int main() {
-      cout << "Hello World!";
-      return 0;
-  }
-  `
+int main() {
+  cout << "Hello World!";
+  // If it's one original sentence, yes, it's plagiarism.
+  return 0;
+}
+`
 
-  cpp2 = `
-  #include <iostream>
+  cpp2 = `#include <iostream>
 
-  using namespace std;
+using namespace std;
 
-  int main() {
-      // With a comment.
-      cout << "Hello World!";
-      return 0;
-  }
-  `
+int main() {
+  // With a comment.
+  cout << "Hello World!";
+  // If it's one original sentence, yes, it's plagiarism.
+  return 0;
+}
+`
 
   file_upload_tiles: Tile[] = [
     { cols: 1, rows: 1, color: '#ffe6e6' },
@@ -43,8 +44,8 @@ export class DiffComponent {
   ];
 
   tiles: Tile[] = [
-    { text: this.cpp1, cols: 1, rows: 10, color: "#FFFEFE" },
-    { text: this.cpp2, cols: 1, rows: 10, color: "#FEFFFE" },
+    { text: this.cpp1.split(/\r?\n/), cols: 1, rows: 10, color: "#FFFEFE" },
+    { text: this.cpp2.split(/\r?\n/), cols: 1, rows: 10, color: "#FEFFFE" },
   ];
 
 
@@ -55,10 +56,9 @@ export class DiffComponent {
     const file: File = event.target.files[0];
     if (file) {
       this.fileName[id] = file.name;
-      console.log("%s", this.fileName[id])
       let reader = new FileReader();
       reader.onload = (evt) => {
-        this.tiles[id].text = evt.target?.result?.toString()
+        this.tiles[id].text = evt.target?.result?.toString().split(/\r?\n/)
       }
       reader.readAsBinaryString(file);
 
@@ -77,5 +77,24 @@ export class DiffComponent {
 
   onFileSelected1(event) {  
     this.onFileSelected(event, 1)
+  }
+
+  render_index = 0
+  MaxRowsToRender(): number {
+    let l1 = 0
+    let l2 = 0
+    if (this.tiles[0].text != undefined) {
+      l1 = this.tiles[0].text.length
+    }
+    if (this.tiles[1].text != undefined) {
+      l2 = this.tiles[1].text.length
+    }
+    return Math.max(l1, l2)
+  }
+
+  createRange(number){
+    // return new Array(number);
+    return new Array(number).fill(0)
+      .map((n, index) => index + 1);
   }
 }

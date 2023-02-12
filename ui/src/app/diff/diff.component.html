@@ -86,7 +86,7 @@
 
 <mat-grid-list cols="2" rowHeight="100px">
     <mat-grid-tile [colspan]="file_upload_tiles[0].cols" [rowspan]="file_upload_tiles[0].rows"
-        [style.background]="file_upload_tiles[0].color">
+        [style.background]="file_upload_tiles[0].color[0]">
         <mat-card-content>
             <input type="file" class="file-input" (change)="onFileSelected0($event)" #fileUploadZero>
             {{fileName[0] || "No file uploaded yet. Showing a demo snippet..."}}
@@ -96,7 +96,7 @@
         </mat-card-content>
     </mat-grid-tile>
     <mat-grid-tile [colspan]="file_upload_tiles[1].cols" [rowspan]="file_upload_tiles[1].rows"
-        [style.background]="file_upload_tiles[1].color">
+        [style.background]="file_upload_tiles[1].color[0]">
         <mat-card-content>
             <input type="file" class="file-input" (change)="onFileSelected1($event)" #fileUploadOne>
             {{fileName[1] || "No file uploaded yet. Showing a demo snippet..."}}
@@ -112,7 +112,7 @@
     <div *ngIf="tiles[1].text != undefined">
         <mat-grid-list *ngFor="let item of createRange(MaxRowsToRender()); let render_index=index" cols="30"
             rowHeight="25px">
-            <mat-grid-tile [colspan]="1" [rowspan]="1" [style.background]="tiles[0].color">
+            <mat-grid-tile [colspan]="1" [rowspan]="1" [style.background]="tiles[0].color[render_index]">
                 <mat-card-content>
                     <div class="text-inside-grid">
                         {{render_index + 1}}
@@ -120,7 +120,7 @@
                 </mat-card-content>
             </mat-grid-tile>
 
-            <mat-grid-tile [colspan]="14" [rowspan]="1" [style.background]="tiles[0].color">
+            <mat-grid-tile [colspan]="14" [rowspan]="1" [style.background]="tiles[0].color[render_index]">
                 <mat-card-content>
                     <div class="text-inside-grid">
                         {{tiles[0].text[render_index]}}
@@ -129,7 +129,7 @@
             </mat-grid-tile>
 
 
-            <mat-grid-tile [colspan]="1" [rowspan]="1" [style.background]="tiles[0].color">
+            <mat-grid-tile [colspan]="1" [rowspan]="1" [style.background]="tiles[1].color[render_index]">
                 <mat-card-content>
                     <div class="text-inside-grid">
                         {{render_index + 1}}
@@ -137,7 +137,7 @@
                 </mat-card-content>
             </mat-grid-tile>
 
-            <mat-grid-tile [colspan]="14" [rowspan]="1" [style.background]="tiles[1].color">
+            <mat-grid-tile [colspan]="14" [rowspan]="1" [style.background]="tiles[1].color[render_index]">
                 <mat-card-content>
                     <div class="text-inside-grid">
                         {{tiles[1].text[render_index]}}
@@ -147,3 +147,9 @@
         </mat-grid-list>
     </div>
 </div>
+
+
+
+
+
+

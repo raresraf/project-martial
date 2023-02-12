@@ -1,9 +1,10 @@
 import { Component } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
 
 
 export interface Tile {
-  color: string;
+  color: string[];
   cols: number;
   rows: number;
   text?: string[] | undefined;
@@ -37,13 +38,13 @@ int main() {
 `]
 
   file_upload_tiles: Tile[] = [
-    { cols: 1, rows: 1, color: '#ffe6e6' },
-    { cols: 1, rows: 1, color: '#dcf0d5' },
+    { cols: 1, rows: 1, color: ['#ffe6e6'] },
+    { cols: 1, rows: 1, color: ['#dcf0d5'] },
   ];
 
   tiles: Tile[] = [
-    { text: this.cpp[0].split(/\r?\n/), cols: 1, rows: 10, color: "#FFFEFE" },
-    { text: this.cpp[1].split(/\r?\n/), cols: 1, rows: 10, color: "#FEFFFE" },
+    { text: this.cpp[0].split(/\r?\n/), cols: 1, rows: 12, color: Array.from({ length: 12 }, (_, i) => "#FDFDFD") },
+    { text: this.cpp[1].split(/\r?\n/), cols: 1, rows: 12, color: Array.from({ length: 12 }, (_, i) => "#FDFDFD") },
   ];
 
 
@@ -60,6 +61,11 @@ int main() {
         if (data != undefined) {
           this.cpp[id] = data
           this.tiles[id].text = this.cpp[id].split(/\r?\n/)
+          let len = this.tiles[id].text?.length
+          if (len == undefined) {
+            len = 1
+          }
+          this.tiles[id].color = Array.from({ length: len }, (_, i) => "#FDFDFD")
         }
       }
       reader.readAsBinaryString(file);
@@ -94,8 +100,31 @@ int main() {
       .map((n, index) => index + 1);
   }
 
+
   commentAnalysis() {
-    console.log("commentAnalysis started")
+    let fileUpload = this.uploadFilesToBacked()
+    fileUpload?.subscribe(resp => {
+      console.log(resp);
+      let get$ = this.getComments()
+      get$?.subscribe(resp => {
+        console.log(resp);
+        for (let match in resp["comment_exact_lines_files"]) {
+          for (let idx in resp["comment_exact_lines_files"][match]["file1"]) {
+            let line = resp["comment_exact_lines_files"][match]["file1"][idx] - 1
+            this.tiles[0].color[line] = "#FF0000"
+          }
+          for (let idx in resp["comment_exact_lines_files"][match]["file2"]) {
+            let line = resp["comment_exact_lines_files"][match]["file2"][idx] - 1
+            this.tiles[1].color[line] = "#FF0000"
+          }
+        }
+      });
+    }
+    );
+  }
+
+  uploadFilesToBacked(): Observable<Object> | undefined {
+    console.log("uploadFilesToBacked started")
     if (this.tiles[0].text == undefined) {
       console.log("this.tiles[0].text is undefined")
       return
@@ -107,8 +136,13 @@ int main() {
 
     const upload$ = this.http.post("http://127.0.0.1:5000/api/upload",
       { "file1": this.cpp[0], "file2": this.cpp[1] });
-    upload$.subscribe(resp => console.log(resp));
 
-    console.log("commentAnalysis finished")
+    console.log("uploadFilesToBacked finished")
+    return upload$
+  }
+
+  getComments(): Observable<Object> | undefined {
+    const get$ = this.http.get("http://127.0.0.1:5000/api/comments")
+    return get$
   }
 }

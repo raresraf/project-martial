@@ -5,7 +5,83 @@
         left: 5px;
         white-space: pre-wrap;
     }
+
+    .card-container {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        margin-top: 16px;
+    }
+
+    .card {
+        all: unset;
+        border-radius: 4px;
+        border: 1px solid #eee;
+        background-color: #fafafa;
+        height: 40px;
+        width: 200px;
+        margin: 0 8px 16px;
+        padding: 16px;
+        display: flex;
+        flex-direction: row;
+        justify-content: center;
+        align-items: center;
+        transition: all 0.2s ease-in-out;
+        line-height: 24px;
+    }
+
+    .card-container .card:not(:last-child) {
+        margin-right: 0;
+    }
+
+    .card.card-small {
+        height: 16px;
+        width: 168px;
+    }
+
+    .card-container .card:not(.highlight-card) {
+        cursor: pointer;
+    }
+
+    .card-container .card:not(.highlight-card):hover {
+        transform: translateY(-3px);
+        box-shadow: 0 4px 17px rgba(0, 0, 0, 0.35);
+    }
+
+    .card-container .card:not(.highlight-card):hover .material-icons path {
+        fill: rgb(105, 103, 103);
+    }
+
+    .card.highlight-card {
+        background-color: #1976d2;
+        color: white;
+        font-weight: 600;
+        border: none;
+        width: auto;
+        min-width: 30%;
+        position: relative;
+    }
+
+    .card.card.highlight-card span {
+        margin-left: 60px;
+    }
 </style>
+
+<div class="content" role="main">
+    <h2 align="center">Run an analysis:</h2>
+
+    <div class="card-container" (click)="commentAnalysis()">
+        <a class="card" target="_blank">
+            <svg class="material-icons" xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+                <path d="M12 28h24v-3H12Zm0-6.5h24v-3H12Zm0-6.5h24v-3H12Zm32 29-8-8H7q-1.15 0-2.075-.925Q4 34.15 4 33V7q0-1.15.925-2.075Q5.85 4 7 4h34q1.2 0 2.1.925Q44 5.85 44 7ZM7 7v26h30.25L41 36.75V7H7Zm0 0v29.75V7Z" />
+            </svg>
+            <span>Comments</span>
+            <svg class="material-icons" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+                <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />
+            </svg>
+        </a>
+    </div>
+</div>
 
 
 <mat-grid-list cols="2" rowHeight="100px">
@@ -34,7 +110,8 @@
 
 <div *ngIf="tiles[0].text != undefined">
     <div *ngIf="tiles[1].text != undefined">
-        <mat-grid-list *ngFor="let item of createRange(MaxRowsToRender()); let render_index=index" cols="30" rowHeight="25px">
+        <mat-grid-list *ngFor="let item of createRange(MaxRowsToRender()); let render_index=index" cols="30"
+            rowHeight="25px">
             <mat-grid-tile [colspan]="1" [rowspan]="1" [style.background]="tiles[0].color">
                 <mat-card-content>
                     <div class="text-inside-grid">
@@ -43,8 +120,7 @@
                 </mat-card-content>
             </mat-grid-tile>
 
-            <mat-grid-tile [colspan]="14"
-                [rowspan]="1" [style.background]="tiles[0].color">
+            <mat-grid-tile [colspan]="14" [rowspan]="1" [style.background]="tiles[0].color">
                 <mat-card-content>
                     <div class="text-inside-grid">
                         {{tiles[0].text[render_index]}}
@@ -61,8 +137,7 @@
                 </mat-card-content>
             </mat-grid-tile>
 
-            <mat-grid-tile [colspan]="14"
-                [rowspan]="1" [style.background]="tiles[1].color">
+            <mat-grid-tile [colspan]="14" [rowspan]="1" [style.background]="tiles[1].color">
                 <mat-card-content>
                     <div class="text-inside-grid">
                         {{tiles[1].text[render_index]}}

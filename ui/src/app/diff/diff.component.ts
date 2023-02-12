@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { max } from 'rxjs';
+
 
 export interface Tile {
   color: string;
@@ -15,7 +15,7 @@ export interface Tile {
   styleUrls: ['./diff.component.css']
 })
 export class DiffComponent {
-  cpp1 = `#include <iostream>
+  cpp = [`#include <iostream>
 
 using namespace std;
 
@@ -24,9 +24,7 @@ int main() {
   // If it's one original sentence, yes, it's plagiarism.
   return 0;
 }
-`
-
-  cpp2 = `#include <iostream>
+`, `#include <iostream>
 
 using namespace std;
 
@@ -36,7 +34,7 @@ int main() {
   // If it's one original sentence, yes, it's plagiarism.
   return 0;
 }
-`
+`]
 
   file_upload_tiles: Tile[] = [
     { cols: 1, rows: 1, color: '#ffe6e6' },
@@ -44,8 +42,8 @@ int main() {
   ];
 
   tiles: Tile[] = [
-    { text: this.cpp1.split(/\r?\n/), cols: 1, rows: 10, color: "#FFFEFE" },
-    { text: this.cpp2.split(/\r?\n/), cols: 1, rows: 10, color: "#FEFFFE" },
+    { text: this.cpp[0].split(/\r?\n/), cols: 1, rows: 10, color: "#FFFEFE" },
+    { text: this.cpp[1].split(/\r?\n/), cols: 1, rows: 10, color: "#FEFFFE" },
   ];
 
 
@@ -58,24 +56,22 @@ int main() {
       this.fileName[id] = file.name;
       let reader = new FileReader();
       reader.onload = (evt) => {
-        this.tiles[id].text = evt.target?.result?.toString().split(/\r?\n/)
+        let data = evt.target?.result?.toString()
+        if (data != undefined) {
+          this.cpp[id] = data
+          this.tiles[id].text = this.cpp[id].split(/\r?\n/)
+        }
       }
       reader.readAsBinaryString(file);
-
-      // TODO(raresraf): Upload them to backend!
-
-      // const formData = new FormData();  
-      // formData.append("thumbnail", file);  
-      // const upload$ = this.http.post("/api/thumbnail-upload", formData);  
-      // upload$.subscribe();  
     }
   }
 
-  onFileSelected0(event) {  
+
+  onFileSelected0(event) {
     this.onFileSelected(event, 0)
   }
 
-  onFileSelected1(event) {  
+  onFileSelected1(event) {
     this.onFileSelected(event, 1)
   }
 
@@ -92,9 +88,27 @@ int main() {
     return Math.max(l1, l2)
   }
 
-  createRange(number){
+  createRange(number) {
     // return new Array(number);
     return new Array(number).fill(0)
       .map((n, index) => index + 1);
+  }
+
+  commentAnalysis() {
+    console.log("commentAnalysis started")
+    if (this.tiles[0].text == undefined) {
+      console.log("this.tiles[0].text is undefined")
+      return
+    }
+    if (this.tiles[1].text == undefined) {
+      console.log("this.tiles[1].text is undefined")
+      return
+    }
+
+    const upload$ = this.http.post("http://127.0.0.1:5000/api/upload",
+      { "file1": this.cpp[0], "file2": this.cpp[1] });
+    upload$.subscribe(resp => console.log(resp));
+
+    console.log("commentAnalysis finished")
   }
 }

@@ -6,15 +6,32 @@ import sys
 from absl import app
 from absl import flags
 
+from flask import Flask, request
+from flask_cors import CORS
+
 FLAGS = flags.FLAGS
-flags.DEFINE_bool("dry_run", False,
-                  help="Run the project in dry-run mode.")
-flags.DEFINE_string("source_files_dir", "samples",
-                    help="Path to the source files")
+
+api = Flask(__name__)
+CORS(api)
+
+
+@api.route("/api")
+def api_root():
+    return "<p>Hello, World!</p>"
+
+
+@api.route("/api/upload", methods=['POST'])
+def upload():
+    summary = {"received" : []}
+    print(request.json)
+    for k, v in request.json.items():
+        summary["received"].append(k) 
+        print(k, v)
+    return summary
 
 
 def main(_):
-    pass
+    api.run()
 
 
 if __name__ == '__main__':

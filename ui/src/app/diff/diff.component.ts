@@ -23,6 +23,8 @@ using namespace std;
 int main() {
   cout << "Hello World!";
   // If it's one original sentence, yes, it's plagiarism.
+  cout << "This is project Martial!";
+  // But what about longer comments, splitted?
   return 0;
 }
 `, `#include <iostream>
@@ -33,6 +35,14 @@ int main() {
   // With a comment.
   cout << "Hello World!";
   // If it's one original sentence, yes, it's plagiarism.
+  cout << "This is project Martial!";
+  // But
+  // what
+  // about
+  cout << "Still going on..."
+  // longer
+  // comments
+  // splitted?
   return 0;
 }
 `]
@@ -43,8 +53,8 @@ int main() {
   ];
 
   tiles: Tile[] = [
-    { text: this.cpp[0].split(/\r?\n/), cols: 1, rows: 12, color: Array.from({ length: 12 }, (_, i) => "#FDFDFD") },
-    { text: this.cpp[1].split(/\r?\n/), cols: 1, rows: 12, color: Array.from({ length: 12 }, (_, i) => "#FDFDFD") },
+    { text: this.cpp[0].split(/\r?\n/), cols: 1, rows: 24, color: Array.from({ length: 24 }, (_, i) => "#FDFDFD") },
+    { text: this.cpp[1].split(/\r?\n/), cols: 1, rows: 24, color: Array.from({ length: 24 }, (_, i) => "#FDFDFD") },
   ];
 
 
@@ -108,6 +118,17 @@ int main() {
       let get$ = this.getComments()
       get$?.subscribe(resp => {
         console.log(resp);
+        for (let match in resp["comment_fuzzy_lines_files"]) {
+          for (let idx in resp["comment_fuzzy_lines_files"][match]["file1"]) {
+            let line = resp["comment_fuzzy_lines_files"][match]["file1"][idx] - 1
+            this.tiles[0].color[line] = "#FFFF00"
+          }
+          for (let idx in resp["comment_fuzzy_lines_files"][match]["file2"]) {
+            let line = resp["comment_fuzzy_lines_files"][match]["file2"][idx] - 1
+            this.tiles[1].color[line] = "#FFFF00"
+          }
+        }
+
         for (let match in resp["comment_exact_lines_files"]) {
           for (let idx in resp["comment_exact_lines_files"][match]["file1"]) {
             let line = resp["comment_exact_lines_files"][match]["file1"][idx] - 1
@@ -118,7 +139,10 @@ int main() {
             this.tiles[1].color[line] = "#FF0000"
           }
         }
-      });
+      }
+      
+      
+      );
     }
     );
   }

@@ -3,3 +3,8 @@ py_binary(
   deps = [],
   srcs = ["batch_copy.py"],
 )
+py_binary(
+  name = "join_files",
+  deps = [],
+  srcs = ["join_files.py"],
+)

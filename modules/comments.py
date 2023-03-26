@@ -40,13 +40,14 @@ class CommentsAnalysis():
 
         findings_dict = {}
         for k, v in self.fileDict.items():
-            findings = pattern.findall(v)
             findings_dict[k] = []
+            findings = pattern.findall(v)
             for f in findings:
                 for val in f[2:]:
                     val = val.split("\n")
                     for sval in val:
-                        sval = sval.lstrip(" ").rstrip(" ").strip("\t").strip("\n")
+                        sval = sval.lstrip(" ").rstrip(
+                            " ").strip("\t").strip("\n")
                         if sval == '':
                             continue
                         if sval == '//':
@@ -76,7 +77,6 @@ class CommentsAnalysis():
         for f1 in file1:
             for f2 in file2:
                 if (fuzz.ratio(f1[0], f2[0])) > 96.66:
-                    print(f1, f2)
                     ret = ret + f1[1] + f2[1]
         return ret
 

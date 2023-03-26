@@ -21,17 +21,32 @@ def api_root():
     return "<p>Hello, World!</p>"
 
 
+@api.route("/api/reserved/custom", methods=['GET'])
+def custom_comments():
+    ca = CommentsAnalysis()
+    with open("/Users/raresraf/code/examples-project-martial/merged/kubernetes-1.1.1.go", 'r') as f:
+        upload_dict["file1"] = f.read()
+        ca.load_text("file1", upload_dict["file1"])
+    with open("/Users/raresraf/code/examples-project-martial/merged/kubernetes-1.25.1.go", 'r') as f:
+        upload_dict["file2"] = f.read()
+        ca.load_text("file2", upload_dict["file2"])
+    return comments_common(ca)
+
+
 @api.route("/api/comments", methods=['GET'])
 def comments():
-    report = {"comment_exact_lines_files": [],
-              "comment_fuzzy_lines_files": [],
-              }
     ca = CommentsAnalysis()
     if upload_dict.get("file1", None):
         ca.load_text("file1", upload_dict["file1"])
     if upload_dict.get("file2", None):
         ca.load_text("file2", upload_dict["file2"])
+    return comments_common(ca)
 
+
+def comments_common(ca):
+    report = {"comment_exact_lines_files": [],
+              "comment_fuzzy_lines_files": [],
+              }
     common_list = ca.analyze_2_files()
     for x in common_list:
         found_in_1 = []
@@ -65,7 +80,6 @@ def comments():
                 found_in_2.append(line_count)
         report["comment_fuzzy_lines_files"].append(
             {"file1": found_in_1, "file2": found_in_2})
-
     return report
 
 

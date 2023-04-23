@@ -34,4 +34,4 @@ options {
 }
 
 sourceFile:
-	(COMMENT | LINE_COMMENT | GARBAGE)*?;
+	(COMMENT | LINE_COMMENT | GARBAGE | GARBAGE_SLASH)*?;

@@ -32,3 +32,4 @@ COMMENT: '/*' .*? '*/';
 LINE_COMMENT: '//' ~[\r\n]*;
 
 GARBAGE: ~('/')+ -> channel(HIDDEN);
+GARBAGE_SLASH: ('/') -> channel(HIDDEN);

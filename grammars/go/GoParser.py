@@ -15,8 +15,8 @@ else:
 
 def serializedATN():
     return [
-        4,1,3,9,2,0,7,0,1,0,5,0,4,8,0,10,0,12,0,7,9,0,1,0,1,5,0,1,0,0,1,
-        1,0,1,3,8,0,5,1,0,0,0,2,4,7,0,0,0,3,2,1,0,0,0,4,7,1,0,0,0,5,6,1,
+        4,1,4,9,2,0,7,0,1,0,5,0,4,8,0,10,0,12,0,7,9,0,1,0,1,5,0,1,0,0,1,
+        1,0,1,4,8,0,5,1,0,0,0,2,4,7,0,0,0,3,2,1,0,0,0,4,7,1,0,0,0,5,6,1,
         0,0,0,5,3,1,0,0,0,6,1,1,0,0,0,7,5,1,0,0,0,1,5
     ]
 
@@ -32,7 +32,8 @@ class GoParser ( GoParserBase ):
 
     literalNames = [  ]
 
-    symbolicNames = [ "<INVALID>", "COMMENT", "LINE_COMMENT", "GARBAGE" ]
+    symbolicNames = [ "<INVALID>", "COMMENT", "LINE_COMMENT", "GARBAGE", 
+                      "GARBAGE_SLASH" ]
 
     RULE_sourceFile = 0
 
@@ -42,6 +43,7 @@ class GoParser ( GoParserBase ):
     COMMENT=1
     LINE_COMMENT=2
     GARBAGE=3
+    GARBAGE_SLASH=4
 
     def __init__(self, input:TokenStream, output:TextIO = sys.stdout):
         super().__init__(input, output)
@@ -77,6 +79,12 @@ class GoParser ( GoParserBase ):
             else:
                 return self.getToken(GoParser.GARBAGE, i)
 
+        def GARBAGE_SLASH(self, i:int=None):
+            if i is None:
+                return self.getTokens(GoParser.GARBAGE_SLASH)
+            else:
+                return self.getToken(GoParser.GARBAGE_SLASH, i)
+
         def getRuleIndex(self):
             return GoParser.RULE_sourceFile
 
@@ -105,7 +113,7 @@ class GoParser ( GoParserBase ):
                 if _alt==1+1:
                     self.state = 2
                     _la = self._input.LA(1)
-                    if not((((_la) & ~0x3f) == 0 and ((1 << _la) & 14) != 0)):
+                    if not((((_la) & ~0x3f) == 0 and ((1 << _la) & 30) != 0)):
                         self._errHandler.recoverInline(self)
                     else:
                         self._errHandler.reportMatch(self)

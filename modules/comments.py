@@ -11,6 +11,10 @@ class CommentsAnalysis():
     def __init__(self):
         self.initTimestamp = datetime.datetime.now()
         self.fileDict = {}
+        self.token = 'n/a'
+
+    def link_to_token(self, token):
+        self.token = token
 
     def load_file(self, filepath):
         f = open(filepath, 'r')
@@ -64,6 +68,7 @@ class CommentsAnalysis():
         file1 = findings_dict["file1"]
         file2 = findings_dict["file2"]
         common_list = set(file1).intersection(file2)
+        print(f"[traceID: {self.token}] Intersection finished!")
         return common_list
 
     def analyze_2_files_fuzzy(self):
@@ -74,10 +79,13 @@ class CommentsAnalysis():
         findings_dict = self.analyze()
         file1 = self.comms_to_seq(findings_dict["file1"])
         file2 = self.comms_to_seq(findings_dict["file2"])
+        print(
+            f"[traceID: {self.token}] analyze_2_files_fuzzy_impl: need to analyse {len(file1)} x {len(file2)} sequences")
         for f1 in file1:
             for f2 in file2:
                 if (fuzz.ratio(f1[0], f2[0])) > 96.66:
                     ret = ret + f1[1] + f2[1]
+        print(f"fuzzy detected: {ret}")
         return ret
 
     """ Max 10 long sequences, consecutive."""
@@ -103,3 +111,11 @@ class CommentsAnalysis():
                 coming_from.append(file[ii])
             resp.append((long_comm, coming_from))
         return resp
+
+
+def search_line(x, file_strs):
+    found = []
+    for line_count, line in enumerate(file_strs):
+        if x in line:
+            found.append(line_count + 1)
+    return found

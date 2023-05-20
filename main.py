@@ -9,7 +9,6 @@ from flask import Flask, request
 from flask_cors import CORS
 import secrets
 from modules.comments import CommentsAnalysis
-from modules.comments import search_line
 
 FLAGS = flags.FLAGS
 
@@ -60,32 +59,27 @@ def comments_common(ca):
         "comment_fuzzy_lines_files": [],
     }
 
-    common_list = ca.analyze_2_files()
+    common_list, lines_in_1, lines_in_2 = ca.analyze_2_files()
     print(
         f"[traceID: {ca.token}] common_list for analyze_2_files: found {len(common_list)} common sequences")
     for idx, x in enumerate(common_list):
-        found_in_1 = search_line(x, splitted_file1)
-        found_in_2 = search_line(x, splitted_file2)
         report["comment_exact_lines_files"].append(
             {
-                "file1": found_in_1,
-                "file2": found_in_2
+                "file1": lines_in_1[idx],
+                "file2": lines_in_2[idx],
             },
         )
         print(
             f"[traceID: {ca.token}] Finished analyzing comment_exact_lines_files: {idx}/{len(common_list)}")
 
-
-    common_list = ca.analyze_2_files_fuzzy()
+    common_list, lines_in_1, lines_in_2 = ca.analyze_2_files_fuzzy()
     print(
         f"[traceID: {ca.token}] common_list for analyze_2_files_fuzzy: found {len(common_list)} common sequences")
     for idx, x in enumerate(common_list):
-        found_in_1 = search_line(x, splitted_file1)
-        found_in_2 = search_line(x, splitted_file2)
         report["comment_fuzzy_lines_files"].append(
             {
-                "file1": found_in_1,
-                "file2": found_in_2
+                "file1": lines_in_1[idx],
+                "file2": lines_in_2[idx],
             },
         )
         print(

@@ -36,9 +36,9 @@ int main() {
   cout << "Hello World!";
   // If it's one original sentence, yes, it's plagiarism.
   cout << "This is project Martial!";
-  // But
-  // what
-  // about
+  /* But
+  what
+  about */
   cout << "Still going on..."
   // longer
   // comments

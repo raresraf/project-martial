@@ -25,12 +25,17 @@ custom_1 = "/Users/raresraf/code/examples-project-martial/merged/kubernetes-1.1.
 custom_2 = "/Users/raresraf/code/examples-project-martial/merged/kubernetes-1.25.1.go"
 
 
-@api.route("/api/reserved/custom", methods=['GET'])
-def custom_comments():
+def generate_token():
     token = secrets.token_hex(7)
     print(f"Received custom request with token {token}")
+    return token
+
+
+@api.route("/api/reserved/custom", methods=['GET'])
+def custom_comments():
     ca = CommentsAnalysis()
-    ca.link_to_token(token)
+    ca.link_to_token(generate_token())
+
     with open(custom_1, 'r') as f:
         upload_dict["file1"] = f.read()
         ca.load_text("file1", upload_dict["file1"])
@@ -43,6 +48,8 @@ def custom_comments():
 @api.route("/api/comments", methods=['GET'])
 def comments():
     ca = CommentsAnalysis()
+    ca.link_to_token(generate_token())
+
     if upload_dict.get("file1", None):
         ca.load_text("file1", upload_dict["file1"])
     if upload_dict.get("file2", None):
@@ -51,9 +58,6 @@ def comments():
 
 
 def comments_common(ca):
-    splitted_file1 = upload_dict["file1"].split("\n")
-    splitted_file2 = upload_dict["file2"].split("\n")
-
     report = {
         "comment_exact_lines_files": [],
         "comment_fuzzy_lines_files": [],
@@ -62,7 +66,7 @@ def comments_common(ca):
     common_list, lines_in_1, lines_in_2 = ca.analyze_2_files()
     print(
         f"[traceID: {ca.token}] common_list for analyze_2_files: found {len(common_list)} common sequences")
-    for idx, x in enumerate(common_list):
+    for idx, _ in enumerate(common_list):
         report["comment_exact_lines_files"].append(
             {
                 "file1": lines_in_1[idx],

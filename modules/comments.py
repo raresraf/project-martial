@@ -5,9 +5,9 @@
 import datetime
 import re
 from rapidfuzz import fuzz
-from io import StringIO
-from grammars.go.GoLexer import *
+from grammars.go.GoLexer import GoLexer, FileStream
 import tempfile
+
 
 class CommentsAnalysis():
     def __init__(self):
@@ -35,32 +35,17 @@ class CommentsAnalysis():
             temp.write(bytes(v, 'utf-8'))
             temp.seek(0)
 
-            input_stream = FileStream(temp.name)
+            input_stream = FileStream(temp.name, encoding='utf-8')
             lex = GoLexer(input_stream)
 
             for t in lex.getAllTokens():
                 if t.type == lex.COMMENT or t.type == lex.LINE_COMMENT:
-                    self.throw_bogus(t.text	, t.line, findings_dict[k])
+                    throw_bogus_and_consider_line(t.text, t.line, findings_dict[k])
 
             temp.close()
 
         print(f"Parse of comments is complete: {findings_dict}")
         return findings_dict
-
-    def throw_bogus(self, val, line, to_append):
-        val = val.split("\n")
-        for sval in val:
-            sval = sval.strip("\t").strip("\n").lstrip("/* ").rstrip("/* ")
-            if sval == '':
-                continue
-            if sval == '//':
-                continue
-            if sval == '/*':
-                continue
-            if sval == '*/':
-                continue
-            to_append.append((sval, line))
-            line = line + 1
 
     def analyze_2_files(self):
         findings_dict = self.analyze()
@@ -74,7 +59,7 @@ class CommentsAnalysis():
                 if f1[0] == f2[0]:
                     common_list.append(f1[0])
                     lines_in_1.append((f1[1],))
-                    lines_in_2.append((f2[1],)) 
+                    lines_in_2.append((f2[1],))
         print(f"[traceID: {self.token}] Intersection finished!")
         return common_list, lines_in_1, lines_in_2
 
@@ -96,7 +81,7 @@ class CommentsAnalysis():
                     ret.append((f1[0], f2[0]))
                     lines_in_1.append(f1[1])
                     lines_in_2.append(f2[1])
-                    
+
         print(f"fuzzy detected: {ret}")
         return ret, lines_in_1, lines_in_2
 
@@ -123,3 +108,24 @@ class CommentsAnalysis():
             resp.append((long_comm, coming_from))
         return resp
 
+
+def throw_bogus_and_consider_line(val, line, to_append):
+    val = val.split("\n")
+    for sval in val:
+        sval = throw_bogus(sval)
+        if sval == "":
+            continue
+        to_append.append((sval, line))
+        line = line + 1
+
+def throw_bogus(val):
+    val = val.strip("\t").strip("\n").lstrip("/* ").rstrip("/* ")
+    if val == '':
+        return ""
+    if val == '//':
+        return ""
+    if val == '/*':
+        return ""
+    if val == '*/':
+        return ""
+    return val

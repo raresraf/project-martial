@@ -1,6 +1,6 @@
 """Package comments checks the similarity between two comments."""
 
-# Sample run: bazel run //modules/drivers:comments_driver -- --source_files_dir=/Users/raresraf/code/project-martial/samples/comments --alsologtostderr
+# Sample run: bazel run //modules/drivers:comments_driver -- --source_files_dir=/Users/raresraf/code/project-martial/samples/comments_trivial --alsologtostderr
 
 import datetime
 import re
@@ -40,7 +40,7 @@ class CommentsAnalysis():
 
             for t in lex.getAllTokens():
                 if t.type == lex.COMMENT or t.type == lex.LINE_COMMENT:
-                    throw_bogus_and_consider_line(t.text, t.line, findings_dict[k])
+                    strip_comment_line_and_append_line_number(t.text, t.line, findings_dict[k])
 
             temp.close()
 
@@ -85,21 +85,10 @@ class CommentsAnalysis():
         print(f"fuzzy detected: {ret}")
         return ret, lines_in_1, lines_in_2
 
-    def seq(self, x):
-        """ Max 10 long sequences, consecutive."""
-        if len(x) == 0:
-            return []
-        res = [(x[0],)]
-        nexts = self.seq(x[1:])
-        for n in nexts:
-            if n[0] == x[0] + 1 and len(n) < 9:
-                res = res + [(x[0],) + n]
-        return res + nexts
-
     def comms_to_seq(self, file):
         l = len(file)
         resp = []
-        for i in self.seq(range(l)):
+        for i in seq(range(l)):
             coming_from = []
             long_comm = ""
             for ii in i:
@@ -108,17 +97,38 @@ class CommentsAnalysis():
             resp.append((long_comm, coming_from))
         return resp
 
+    def analyze_2_files_nlp(self):
+        return self.analyze_2_files_nlp_impl()
 
-def throw_bogus_and_consider_line(val, line, to_append):
+    def analyze_2_files_nlp_impl(self):
+        ret = []
+        lines_in_1 = []
+        lines_in_2 = []
+        findings_dict = self.analyze()
+        file1 = self.comms_to_seq(findings_dict["file1"])
+        file2 = self.comms_to_seq(findings_dict["file2"])
+        print(
+            f"[traceID: {self.token}] analyze_2_files_nlp_impl: need to analyze {len(file1)} x {len(file2)} sequences")
+        for f1 in file1:
+            for f2 in file2:
+                print(f1[1], f2[1])
+                lines_in_1.append(f1[1])
+                lines_in_2.append(f2[1])
+
+        print(f"fuzzy detected: {ret}")
+        return ret, lines_in_1, lines_in_2
+
+
+def strip_comment_line_and_append_line_number(val, line, to_append):
     val = val.split("\n")
     for sval in val:
-        sval = throw_bogus(sval)
+        sval = strip_comment_line(sval)
         if sval == "":
             continue
         to_append.append((sval, line))
         line = line + 1
 
-def throw_bogus(val):
+def strip_comment_line(val):
     val = val.strip("\t").strip("\n").lstrip("/* ").rstrip("/* ")
     if val == '':
         return ""
@@ -129,3 +139,14 @@ def throw_bogus(val):
     if val == '*/':
         return ""
     return val
+
+def seq(x):
+    """ Max 10 long sequences, consecutive."""
+    if len(x) == 0:
+        return []
+    res = [(x[0],)]
+    nexts = seq(x[1:])
+    for n in nexts:
+        if n[0] == x[0] + 1 and len(n) < 9:
+            res = res + [(x[0],) + n]
+    return res + nexts

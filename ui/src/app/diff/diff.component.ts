@@ -110,6 +110,18 @@ int main() {
       .map((n, index) => index + 1);
   }
 
+  colorBasedOnResp(resp, label, color) {
+    for (let match in resp[label]) {
+      for (let idx in resp[label][match]["file1"]) {
+        let line = resp[label][match]["file1"][idx] - 1
+        this.tiles[0].color[line] = color
+      }
+      for (let idx in resp[label][match]["file2"]) {
+        let line = resp[label][match]["file2"][idx] - 1
+        this.tiles[1].color[line] = color
+      }
+    }
+  }
 
   commentAnalysis() {
     let fileUpload = this.uploadFilesToBacked()
@@ -118,30 +130,12 @@ int main() {
       let get$ = this.getComments()
       get$?.subscribe(resp => {
         console.log(resp);
-        for (let match in resp["comment_fuzzy_lines_files"]) {
-          for (let idx in resp["comment_fuzzy_lines_files"][match]["file1"]) {
-            let line = resp["comment_fuzzy_lines_files"][match]["file1"][idx] - 1
-            this.tiles[0].color[line] = "#FFFF00"
-          }
-          for (let idx in resp["comment_fuzzy_lines_files"][match]["file2"]) {
-            let line = resp["comment_fuzzy_lines_files"][match]["file2"][idx] - 1
-            this.tiles[1].color[line] = "#FFFF00"
-          }
-        }
 
-        for (let match in resp["comment_exact_lines_files"]) {
-          for (let idx in resp["comment_exact_lines_files"][match]["file1"]) {
-            let line = resp["comment_exact_lines_files"][match]["file1"][idx] - 1
-            this.tiles[0].color[line] = "#FF0000"
-          }
-          for (let idx in resp["comment_exact_lines_files"][match]["file2"]) {
-            let line = resp["comment_exact_lines_files"][match]["file2"][idx] - 1
-            this.tiles[1].color[line] = "#FF0000"
-          }
-        }
+        this.colorBasedOnResp(resp, "comment_nlp_lines_files", "#FFFF00")
+        this.colorBasedOnResp(resp, "comment_fuzzy_lines_files", "#FF6600")
+        this.colorBasedOnResp(resp, "comment_exact_lines_files", "#FF0000")
       }
-      
-      
+
       );
     }
     );

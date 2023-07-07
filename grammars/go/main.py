@@ -6,13 +6,17 @@ from antlr4 import *
 import pprint
 from absl import flags
 from absl import app
-from modules.comments import throw_bogus
+from modules.comments import strip_comment_line
 import nltk
 import enchant
+from nltk.corpus import wordnet
+
 
 FLAGS = flags.FLAGS
 flags.DEFINE_string("source_path", "/Users/raresraf/code/examples-project-martial/merged/kubernetes-1.1.1.go",
                     help="The source path to gather stats for.")
+flags.DEFINE_string("english_words_path", "/Users/raresraf/code/project-martial/modules/words.txt",
+                    help="The source path to find words text file.")
 
 pp = pprint.PrettyPrinter(indent=2)
 
@@ -72,7 +76,7 @@ def compare_comments_to_the_rest(file_path: str) -> dict:
         val = t.text.split("\n")
         for nval in val:
             for sval in nval.split(" "):
-                sval = throw_bogus(sval)
+                sval = strip_comment_line(sval)
                 if sval == "":
                     continue
                 if t.type == lex.COMMENT or t.type == lex.LINE_COMMENT:
@@ -92,13 +96,18 @@ def compare_comments_to_the_rest(file_path: str) -> dict:
 
 
 def count_words_in_comments(file_path: str) -> dict:
+    total_lines = get_total_lines(file_path)
     input_stream = FileStream(file_path, encoding='utf-8')
     # antlr -Dlanguage=Python3 GoLexer.g4
     lex = GoLexer(input_stream)
 
+    with open(FLAGS.english_words_path, 'r') as file:
+        word_list = [line.strip() for line in file]
+
     total_words = 0
     total_english_words = 0
     dictionary = enchant.Dict("en_US")
+    english_words = set(nltk.corpus.words.words())
     for t in lex.getAllTokens():
         if t.type == lex.COMMENT or t.type == lex.LINE_COMMENT:
             ws = nltk.word_tokenize(t.text)
@@ -106,11 +115,13 @@ def count_words_in_comments(file_path: str) -> dict:
                 if not w.isalpha():
                     continue
                 total_words += 1
-                if dictionary.check(w.lower()):
+                wl = w.lower()
+                if wl in word_list or dictionary.check(wl) or wordnet.synsets(wl) or wl in english_words:
                     total_english_words += 1
                 #    print("In english... ", w)
                 # else:
                 #    print("Not in english... ", w)
+        print(f"progress... {t.line} / {total_lines}")
 
     return {
         "number_of_comments_alpha_words": total_words,
@@ -155,8 +166,8 @@ def run_count_words_in_comments(file_path: str):
 
 
 def run_stats(file_path: str):
-    run_get_total_comments(file_path)
-    run_compare_comments_to_the_rest(file_path)
+    # run_get_total_comments(file_path)
+    # run_compare_comments_to_the_rest(file_path)
     run_count_words_in_comments(file_path)
 
 

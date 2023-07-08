@@ -80,7 +80,7 @@ def comments_common(ca):
     common_list, lines_in_1, lines_in_2 = ca.analyze_2_files_fuzzy()
     print(
         f"[traceID: {ca.token}] common_list for analyze_2_files_fuzzy: found {len(common_list)} common sequences")
-    for idx, x in enumerate(common_list):
+    for idx, _ in enumerate(common_list):
         report["comment_fuzzy_lines_files"].append(
             {
                 "file1": lines_in_1[idx],
@@ -93,7 +93,7 @@ def comments_common(ca):
     common_list, lines_in_1, lines_in_2 = ca.analyze_2_files_nlp()
     print(
         f"[traceID: {ca.token}] common_list for analyze_2_files_nlp: found {len(common_list)} common sequences")
-    for idx, x in enumerate(common_list):
+    for idx, _ in enumerate(common_list):
         report["comment_nlp_lines_files"].append(
             {
                 "file1": lines_in_1[idx],

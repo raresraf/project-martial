@@ -1,6 +1,6 @@
 py_binary(
   name = "main",
-  deps = ["//modules:comments"],
+  deps = ["//modules:comments_helpers"],
   srcs = ["main.py"],
 )
 

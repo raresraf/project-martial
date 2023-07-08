@@ -2,13 +2,11 @@
 
 from absl import app
 from absl import flags
-from threading import Lock
-import re
-
 from flask import Flask, request
 from flask_cors import CORS
-import secrets
-from modules.comments import CommentsAnalysis
+from threading import Lock
+
+import modules.comments_api as comments_api
 
 FLAGS = flags.FLAGS
 
@@ -16,98 +14,32 @@ api = Flask(__name__)
 CORS(api)
 
 
+lock_upload_dict = Lock()
+upload_dict = {}
+
+
+
 @api.route("/api")
 def api_root():
     return "<p>Hello, World!</p>"
 
 
-custom_1 = "/Users/raresraf/code/examples-project-martial/merged/kubernetes-1.1.1.go"
-custom_2 = "/Users/raresraf/code/examples-project-martial/merged/kubernetes-1.25.1.go"
-
-
-def generate_token():
-    token = secrets.token_hex(7)
-    print(f"Received custom request with token {token}")
-    return token
+@api.route("/api/comments", methods=['GET'])
+def comments():
+    return comments_api.run(upload_dict)
 
 
 @api.route("/api/reserved/custom", methods=['GET'])
 def custom_comments():
-    ca = CommentsAnalysis()
-    ca.link_to_token(generate_token())
-
+    custom_1 = "/Users/raresraf/code/examples-project-martial/merged/kubernetes-1.1.1.go"
+    custom_2 = "/Users/raresraf/code/examples-project-martial/merged/kubernetes-1.25.1.go"
     with open(custom_1, 'r') as f:
         upload_dict["file1"] = f.read()
-        ca.load_text("file1", upload_dict["file1"])
     with open(custom_2, 'r') as f:
         upload_dict["file2"] = f.read()
-        ca.load_text("file2", upload_dict["file2"])
-    return comments_common(ca)
+    return comments_api.run(upload_dict)
 
 
-@api.route("/api/comments", methods=['GET'])
-def comments():
-    ca = CommentsAnalysis()
-    ca.link_to_token(generate_token())
-
-    if upload_dict.get("file1", None):
-        ca.load_text("file1", upload_dict["file1"])
-    if upload_dict.get("file2", None):
-        ca.load_text("file2", upload_dict["file2"])
-    return comments_common(ca)
-
-
-def comments_common(ca):
-    report = {
-        "comment_exact_lines_files": [],
-        "comment_fuzzy_lines_files": [],
-        "comment_nlp_lines_files": [],
-    }
-
-    common_list, lines_in_1, lines_in_2 = ca.analyze_2_files()
-    print(
-        f"[traceID: {ca.token}] common_list for analyze_2_files: found {len(common_list)} common sequences")
-    for idx, _ in enumerate(common_list):
-        report["comment_exact_lines_files"].append(
-            {
-                "file1": lines_in_1[idx],
-                "file2": lines_in_2[idx],
-            },
-        )
-        print(
-            f"[traceID: {ca.token}] Finished analyzing comment_exact_lines_files: {idx}/{len(common_list)}")
-
-    common_list, lines_in_1, lines_in_2 = ca.analyze_2_files_fuzzy()
-    print(
-        f"[traceID: {ca.token}] common_list for analyze_2_files_fuzzy: found {len(common_list)} common sequences")
-    for idx, _ in enumerate(common_list):
-        report["comment_fuzzy_lines_files"].append(
-            {
-                "file1": lines_in_1[idx],
-                "file2": lines_in_2[idx],
-            },
-        )
-        print(
-            f"[traceID: {ca.token}] Finished analyzing comment_fuzzy_lines_files: {idx}/{len(common_list)}")
-
-    common_list, lines_in_1, lines_in_2 = ca.analyze_2_files_nlp()
-    print(
-        f"[traceID: {ca.token}] common_list for analyze_2_files_nlp: found {len(common_list)} common sequences")
-    for idx, _ in enumerate(common_list):
-        report["comment_nlp_lines_files"].append(
-            {
-                "file1": lines_in_1[idx],
-                "file2": lines_in_2[idx],
-            },
-        )
-        print(
-            f"[traceID: {ca.token}] Finished analyzing comment_nlp_lines_files: {idx}/{len(common_list)}")
-
-    return report
-
-
-lock_upload_dict = Lock()
-upload_dict = {}
 
 
 @api.route("/api/upload", methods=['POST'])

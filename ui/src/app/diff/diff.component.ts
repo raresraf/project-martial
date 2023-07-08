@@ -135,7 +135,7 @@ int main() {
       get$?.subscribe(resp => {
         console.log(resp);
 
-        this.colorBasedOnResp(resp, "comment_nlp_lines_files", "#FFFF00")
+        this.colorBasedOnResp(resp, "comment_spacy_core_web_lines_files", "#FFFF00")
         this.colorBasedOnResp(resp, "comment_fuzzy_lines_files", "#FF6600")
         this.colorBasedOnResp(resp, "comment_exact_lines_files", "#FF0000")
       }

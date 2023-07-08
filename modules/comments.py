@@ -6,9 +6,8 @@ import datetime
 from rapidfuzz import fuzz
 from grammars.go.GoLexer import GoLexer, FileStream
 import tempfile
-import spacy
 import en_core_web_lg
-from modules.comments_helpers import strip_comment_line_and_append_line_number, comms_to_seq, comms_to_seq_doc
+from modules.comments_helpers import strip_comment_line_and_append_line_number, comm_to_seq, comm_to_seq_doc
 
 
 class CommentsAnalysis():
@@ -16,7 +15,7 @@ class CommentsAnalysis():
         self.initTimestamp = datetime.datetime.now()
         self.fileDict = {}
         self.token = 'n/a'
-        self.nlp = en_core_web_lg.load()
+        self.spacy_core_web = en_core_web_lg.load()
 
     def link_to_token(self, token):
         self.token = token
@@ -43,7 +42,8 @@ class CommentsAnalysis():
 
             for t in lex.getAllTokens():
                 if t.type == lex.COMMENT or t.type == lex.LINE_COMMENT:
-                    strip_comment_line_and_append_line_number(t.text, t.line, findings_dict[k])
+                    strip_comment_line_and_append_line_number(
+                        t.text, t.line, findings_dict[k])
 
             temp.close()
 
@@ -74,8 +74,8 @@ class CommentsAnalysis():
         findings_dict = self.analyze()
         lines_in_1 = []
         lines_in_2 = []
-        file1 = comms_to_seq(findings_dict["file1"])
-        file2 = comms_to_seq(findings_dict["file2"])
+        file1 = comm_to_seq(findings_dict["file1"])
+        file2 = comm_to_seq(findings_dict["file2"])
         print(
             f"[traceID: {self.token}] analyze_2_files_fuzzy_impl: need to analyze {len(file1)} x {len(file2)} sequences")
         for f1 in file1:
@@ -88,30 +88,27 @@ class CommentsAnalysis():
         print(f"fuzzy detected: {ret}")
         return ret, lines_in_1, lines_in_2
 
+    def analyze_2_files_spacy_core_web(self):
+        return self.analyze_2_files_spacy_core_web_impl()
 
-    def analyze_2_files_nlp(self):
-        return self.analyze_2_files_nlp_impl()
-
-    def analyze_2_files_nlp_impl(self):
+    def analyze_2_files_spacy_core_web_impl(self):
         ret = []
         lines_in_1 = []
         lines_in_2 = []
         findings_dict = self.analyze()
-        file1 = comms_to_seq_doc(findings_dict["file1"], self.nlp)
-        file2 = comms_to_seq_doc(findings_dict["file2"], self.nlp)
+        file1 = comm_to_seq_doc(findings_dict["file1"], self.spacy_core_web)
+        file2 = comm_to_seq_doc(findings_dict["file2"], self.spacy_core_web)
         print(
-            f"[traceID: {self.token}] analyze_2_files_nlp_impl: need to analyze {len(file1)} x {len(file2)} sequences")
+            f"[traceID: {self.token}] analyze_2_files_spacy_core_web_impl: need to analyze {len(file1)} x {len(file2)} sequences")
         for f1 in file1:
             for f2 in file2:
                 similarity = f1[0].similarity(f2[0])
-                print(f"f1[0] = {f1[0]}, f2[0] = {f2[0]}, similarity={similarity}")
+                print(
+                    f"f1[0] = {f1[0]}, f2[0] = {f2[0]}, similarity={similarity}")
                 if similarity > 0.9:
                     lines_in_1.append(f1[1])
                     lines_in_2.append(f2[1])
                     ret.append((f1[0], f2[0]))
 
-
         # Try Word2Vec + spaCy
         return ret, lines_in_1, lines_in_2
-
-

@@ -1,4 +1,7 @@
 import re
+import spacy
+from spacy.tokens import Doc
+
 
 def strip_comment_line_and_append_line_number(val, line, to_append):
     val = val.split("\n")
@@ -9,7 +12,7 @@ def strip_comment_line_and_append_line_number(val, line, to_append):
         to_append.append((sval, line))
         line = line + 1
 
-def strip_comment_line(val):
+def strip_comment_line(val: str) -> str:
     val = val.strip("\t").strip("\n").lstrip("/* ").rstrip("/* ")
     if val == '':
         return ""
@@ -21,21 +24,22 @@ def strip_comment_line(val):
         return ""
     return val
 
-def seq(x):
+def generate_comm_sequences(x):
     """ Max 10 long sequences, consecutive."""
     if len(x) == 0:
         return []
     res = [(x[0],)]
-    nexts = seq(x[1:])
-    for n in nexts:
+    next = generate_comm_sequences(x[1:])
+    for n in next:
         if n[0] == x[0] + 1 and len(n) < 9:
             res = res + [(x[0],) + n]
-    return res + nexts
+    return res + next
 
-def comms_to_seq(file):
+def comm_to_seq(file):
+    """From a file, run generate_comm_sequences to generate all possible combinations of consecutive comments."""
     l = len(file)
     resp = []
-    for i in seq(range(l)):
+    for i in generate_comm_sequences(range(l)):
         coming_from = []
         long_comm = ""
         for ii in i:
@@ -44,6 +48,7 @@ def comms_to_seq(file):
         resp.append((long_comm, coming_from))
     return resp
 
-def comms_to_seq_doc(file, nlp):
-    resp = comms_to_seq(file)
-    return [(nlp(long_comm), coming_from) for long_comm, coming_from in resp]
+def comm_to_seq_doc(file, spacy_core_web) -> list[tuple[Doc, int]]:
+    """Similar to comm_to_seq but returns the Doc(commentary) instead of commentary: string."""
+    resp = comm_to_seq(file)
+    return [(spacy_core_web(long_comm), coming_from) for long_comm, coming_from in resp]

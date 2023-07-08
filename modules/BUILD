@@ -10,7 +10,14 @@ py_library(
 
 py_library(
   name = "comments_helpers",
-  deps = [""],
   visibility = ["//visibility:public"],
   srcs = ["comments_helpers.py"],
+)
+
+
+py_library(
+  name = "comments_api",
+  deps = [":comments"],
+  visibility = ["//visibility:public"],
+  srcs = ["comments_api.py"],
 )

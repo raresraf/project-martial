@@ -7,13 +7,15 @@ import re
 from rapidfuzz import fuzz
 from grammars.go.GoLexer import GoLexer, FileStream
 import tempfile
-
+import spacy
+import en_core_web_sm
 
 class CommentsAnalysis():
     def __init__(self):
         self.initTimestamp = datetime.datetime.now()
         self.fileDict = {}
         self.token = 'n/a'
+        self.nlp = en_core_web_sm.load()
 
     def link_to_token(self, token):
         self.token = token
@@ -97,6 +99,10 @@ class CommentsAnalysis():
             resp.append((long_comm, coming_from))
         return resp
 
+    def comms_to_seq_doc(self, file):
+        resp = self.comms_to_seq(file)
+        return [(self.nlp(long_comm), coming_from) for long_comm, coming_from in resp]
+
     def analyze_2_files_nlp(self):
         return self.analyze_2_files_nlp_impl()
 
@@ -105,17 +111,21 @@ class CommentsAnalysis():
         lines_in_1 = []
         lines_in_2 = []
         findings_dict = self.analyze()
-        file1 = self.comms_to_seq(findings_dict["file1"])
-        file2 = self.comms_to_seq(findings_dict["file2"])
+        file1 = self.comms_to_seq_doc(findings_dict["file1"])
+        file2 = self.comms_to_seq_doc(findings_dict["file2"])
         print(
             f"[traceID: {self.token}] analyze_2_files_nlp_impl: need to analyze {len(file1)} x {len(file2)} sequences")
         for f1 in file1:
             for f2 in file2:
-                print(f1[1], f2[1])
-                lines_in_1.append(f1[1])
-                lines_in_2.append(f2[1])
+                similarity = f1[0].similarity(f2[0])
+                print(f"f1[0] = {f1[0]}, f2[0] = {f2[0]}, similarity={similarity}")
+                if similarity > 0.9:
+                    lines_in_1.append(f1[1])
+                    lines_in_2.append(f2[1])
+                    ret.append((f1[0], f2[0]))
 
-        print(f"fuzzy detected: {ret}")
+
+        # Try Word2Vec + spaCy
         return ret, lines_in_1, lines_in_2
 
 

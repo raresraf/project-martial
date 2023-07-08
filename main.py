@@ -61,6 +61,7 @@ def comments_common(ca):
     report = {
         "comment_exact_lines_files": [],
         "comment_fuzzy_lines_files": [],
+        "comment_nlp_lines_files": [],
     }
 
     common_list, lines_in_1, lines_in_2 = ca.analyze_2_files()

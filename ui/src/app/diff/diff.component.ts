@@ -25,6 +25,8 @@ int main() {
   // If it's one original sentence, yes, it's plagiarism.
   cout << "This is project Martial!";
   // But what about longer comments, splitted?
+  cout << "One more log";
+  // The computer was born to solve problems that did not exist before.
   return 0;
 }
 `, `#include <iostream>
@@ -43,6 +45,8 @@ int main() {
   // longer
   // comments
   // splitted?
+  cout << "One more log";
+  // The computer was created to address issues that did not previously exist.
   return 0;
 }
 `]

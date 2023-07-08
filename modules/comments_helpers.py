@@ -1,7 +1,7 @@
 import re
 import spacy
 from spacy.tokens import Doc
-
+import numpy as np
 
 def strip_comment_line_and_append_line_number(val, line, to_append):
     val = val.split("\n")
@@ -52,3 +52,15 @@ def comm_to_seq_doc(file, spacy_core_web) -> list[tuple[Doc, int]]:
     """Similar to comm_to_seq but returns the Doc(commentary) instead of commentary: string."""
     resp = comm_to_seq(file)
     return [(spacy_core_web(long_comm), coming_from) for long_comm, coming_from in resp]
+
+
+
+def comm_to_seq_elmo(file, elmo) -> list[tuple[Doc, int]]:
+    """Similar to comm_to_seq but returns the Doc(commentary) instead of commentary: string."""
+    resp = comm_to_seq(file)
+    ret = []
+    for long_comm, coming_from in resp:
+        long_comm_tensor = elmo.get_elmo_vectors(long_comm, layers="average")
+        long_comm_tensor_avged = np.sum(long_comm_tensor[0][:], axis = 0)/long_comm_tensor.shape[1]
+        ret.append((long_comm, coming_from, long_comm_tensor_avged.reshape(1, -1)))
+    return ret

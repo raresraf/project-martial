@@ -7,7 +7,9 @@ from rapidfuzz import fuzz
 from grammars.go.GoLexer import GoLexer, FileStream
 import tempfile
 import en_core_web_lg
-from modules.comments_helpers import strip_comment_line_and_append_line_number, comm_to_seq, comm_to_seq_doc
+from modules.comments_helpers import strip_comment_line_and_append_line_number, comm_to_seq, comm_to_seq_doc, comm_to_seq_elmo
+from sklearn.metrics.pairwise import cosine_similarity
+from simple_elmo import ElmoModel
 
 
 class CommentsAnalysis():
@@ -16,6 +18,11 @@ class CommentsAnalysis():
         self.fileDict = {}
         self.token = 'n/a'
         self.spacy_core_web = en_core_web_lg.load()
+        self.enable_elmo = True
+        if self.enable_elmo:
+            self.elmo = ElmoModel()
+            self.elmo.load("/Users/raresraf/code/project-martial/209")
+
 
     def link_to_token(self, token):
         self.token = token
@@ -110,3 +117,32 @@ class CommentsAnalysis():
 
         # Try Word2Vec + spaCy
         return ret, lines_in_1, lines_in_2
+
+    def analyze_2_files_elmo(self):
+        return self.analyze_2_files_elmo_impl()
+
+    def analyze_2_files_elmo_impl(self):
+        if not self.enable_elmo:
+            return [], [], []
+        ret = []
+        lines_in_1 = []
+        lines_in_2 = []
+
+        findings_dict = self.analyze()
+        file1 = comm_to_seq_elmo(findings_dict["file1"], self.elmo)
+        file2 = comm_to_seq_elmo(findings_dict["file2"], self.elmo)
+        print(
+            f"[traceID: {self.token}] analyze_2_files_elmo_impl: need to analyze {len(file1)} x {len(file2)} sequences")
+        for f1 in file1:
+            for f2 in file2:
+                similarity = cosine_similarity(f1[2], f2[2])
+                print(similarity, f1[0], f2[0])
+                if similarity > 0.9:
+                    lines_in_1.append(f1[1])
+                    lines_in_2.append(f2[1])
+                    ret.append((f1[0], f2[0]))
+
+        # Try ELMo + cosine similarity
+        return ret, lines_in_1, lines_in_2
+
+

@@ -43,7 +43,7 @@ def comm_to_seq(file):
         coming_from = []
         long_comm = ""
         for ii in i:
-            long_comm = long_comm + re.sub(r'[^\w\s]', '', file[ii][0])
+            long_comm = long_comm + re.sub(r'[^\w\s]', '', file[ii][0]) + " "
             coming_from.append(file[ii][1])
         resp.append((long_comm, coming_from))
     return resp

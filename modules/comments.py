@@ -80,7 +80,8 @@ class CommentsAnalysis():
             f"[traceID: {self.token}] analyze_2_files_fuzzy_impl: need to analyze {len(file1)} x {len(file2)} sequences")
         for f1 in file1:
             for f2 in file2:
-                if (fuzz.ratio(f1[0], f2[0])) > 96.66:
+                print("fuzz", f1[0], f2[0], fuzz.ratio(f1[0], f2[0]))
+                if (fuzz.ratio(f1[0], f2[0])) > 95.00:
                     ret.append((f1[0], f2[0]))
                     lines_in_1.append(f1[1])
                     lines_in_2.append(f2[1])

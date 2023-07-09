@@ -45,7 +45,7 @@ cat all_terms.txt | sort | uniq > all_terms_unique.txt
 ### Generate the dataset.
 ```
 for i in {1..78}; do;
-echo -n "vscode-1.$i.0"
+echo -n "vscode-1.$i.0,"
 for word in $(<all_terms_unique.txt)
 do
 cat "vscode-1.$i.0" | grep "$word" | awk '{print $1}' | tr -d '\n'

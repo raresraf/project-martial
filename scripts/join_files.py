@@ -19,6 +19,8 @@ flags.mark_flag_as_required("walk_root")
 flags.DEFINE_string("extension", None,
                     help="The name of extension of files to join (e.g. 'go', 'cpp')")
 flags.mark_flag_as_required("extension")
+flags.DEFINE_string(
+    "encoding", "utf-8", help="e.g. utf-8, ISO-8859-1")
 
 
 def remove_prefix(text, prefix):
@@ -30,7 +32,7 @@ def remove_prefix(text, prefix):
 def main(_):
     print(FLAGS.walk_root)
     target_file = os.path.basename(os.path.normpath(FLAGS.walk_root)) + "." + FLAGS.extension
-    with open(os.path.join(FLAGS.output_dir, target_file), "a") as merged_file:
+    with open(os.path.join(FLAGS.output_dir, target_file), "a", encoding=FLAGS.encoding) as merged_file:
         for root, _, files in os.walk(FLAGS.walk_root):
             for file in files:
                 if not file.endswith(FLAGS.extension):
@@ -39,7 +41,7 @@ def main(_):
                 src_full_path = os.path.join(root, file)
                 print(src_full_path)
 
-                with open(src_full_path, "r") as read_file:
+                with open(src_full_path, "r", encoding=FLAGS.encoding) as read_file:
                     merged_file.write(f"// [MERGER]: {src_full_path}\n\n")
                     merged_file.write(read_file.read())
                 merged_file.write("\n\n\n")

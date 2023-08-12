@@ -26,8 +26,9 @@ def comments_common(ca):
     common_list, lines_in_1, lines_in_2 = ca.analyze_2_files("SpacyCoreWeb match", ca.spacy_similarity, ca.comm_to_seq_doc)
     feed_common_list_in_report("comment_spacy_core_web_lines_files", report, ca.token, common_list, lines_in_1, lines_in_2)
 
-    common_list, lines_in_1, lines_in_2 = ca.analyze_2_files("Elmo match", ca.elmo_similarity, ca.comm_to_seq_elmo, True)
-    feed_common_list_in_report("comment_elmo_lines_files", report, ca.token, common_list, lines_in_1, lines_in_2)
+    if ca.enable_elmo:
+        common_list, lines_in_1, lines_in_2 = ca.analyze_2_files("Elmo match", ca.elmo_similarity, ca.comm_to_seq_elmo, True)
+        feed_common_list_in_report("comment_elmo_lines_files", report, ca.token, common_list, lines_in_1, lines_in_2)
 
     report_without_overlap = remove_comments_superset(report)
     return report_without_overlap

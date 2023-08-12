@@ -31,8 +31,8 @@ def comments():
 
 @api.route("/api/reserved/custom", methods=['GET'])
 def custom_comments():
-    custom_1 = "/Users/raresraf/code/examples-project-martial/kubernetes-1.2.1/test/component/scheduler/perf/scheduler_test.go"
-    custom_2 = "/Users/raresraf/code/examples-project-martial/kubernetes-1.3.1/test/component/scheduler/perf/scheduler_test.go"
+    custom_1 = "/Users/raresraf/code/examples-project-martial/merged/baby-kubernetes-1.2.1.go"
+    custom_2 = "/Users/raresraf/code/examples-project-martial/merged/baby-kubernetes-1.3.1.go"
     with open(custom_1, 'r') as f:
         upload_dict["file1"] = f.read()
     with open(custom_2, 'r') as f:

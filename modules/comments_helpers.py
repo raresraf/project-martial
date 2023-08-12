@@ -1,6 +1,5 @@
 import re
-from spacy.tokens import Doc
-import numpy as np
+
 
 def strip_comment_line_and_append_line_number(val, line, to_append):
     val = val.split("\n")
@@ -25,14 +24,19 @@ def strip_comment_line(val: str) -> str:
 
 def generate_comm_sequences(x, t):
     """ Max {t} long sequences, consecutive. (usually t = 10)"""
-    if len(x) == 0:
+    total_len = len(x)
+    if total_len == 0:
         return []
-    res = [(x[0],)]
-    next = generate_comm_sequences(x[1:], t)
-    for n in next:
-        if n[0] == x[0] + 1 and len(n) < t - 1:
-            res = res + [(x[0],) + n]
-    return res + next
+    res = []
+    for i in range(total_len):
+        res += [(x[i],)]
+        last_res = (x[i], )
+        for tt in range(1, t):
+            if i + tt >= total_len:
+                break
+            last_res = last_res + (x[i + tt],)
+            res = res + [last_res]
+    return res
 
 
 def comm_to_seq_default(file, t):
@@ -50,12 +54,3 @@ def comm_to_seq_default(file, t):
 
 
 
-def comm_to_seq_elmo(file, elmo) -> list[tuple[Doc, int]]:
-    """Similar to comm_to_seq but returns the Doc(commentary) instead of commentary: string."""
-    resp = comm_to_seq_default(file, 10)
-    ret = []
-    for long_comm, coming_from in resp:
-        long_comm_tensor = elmo.get_elmo_vectors(long_comm, layers="average")
-        long_comm_tensor_avged = np.sum(long_comm_tensor[0][:], axis = 0)/long_comm_tensor.shape[1]
-        ret.append((long_comm, coming_from, long_comm_tensor_avged.reshape(1, -1)))
-    return ret

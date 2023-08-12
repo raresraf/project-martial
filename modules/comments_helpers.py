@@ -1,5 +1,4 @@
 import re
-import spacy
 from spacy.tokens import Doc
 import numpy as np
 
@@ -24,22 +23,23 @@ def strip_comment_line(val: str) -> str:
         return ""
     return val
 
-def generate_comm_sequences(x):
-    """ Max 10 long sequences, consecutive."""
+def generate_comm_sequences(x, t):
+    """ Max {t} long sequences, consecutive. (usually t = 10)"""
     if len(x) == 0:
         return []
     res = [(x[0],)]
-    next = generate_comm_sequences(x[1:])
+    next = generate_comm_sequences(x[1:], t)
     for n in next:
-        if n[0] == x[0] + 1 and len(n) < 9:
+        if n[0] == x[0] + 1 and len(n) < t - 1:
             res = res + [(x[0],) + n]
     return res + next
 
-def comm_to_seq(file):
+
+def comm_to_seq_default(file, t):
     """From a file, run generate_comm_sequences to generate all possible combinations of consecutive comments."""
     l = len(file)
     resp = []
-    for i in generate_comm_sequences(range(l)):
+    for i in generate_comm_sequences(range(l), t):
         coming_from = []
         long_comm = ""
         for ii in i:
@@ -48,16 +48,11 @@ def comm_to_seq(file):
         resp.append((long_comm, coming_from))
     return resp
 
-def comm_to_seq_doc(file, spacy_core_web) -> list[tuple[Doc, int]]:
-    """Similar to comm_to_seq but returns the Doc(commentary) instead of commentary: string."""
-    resp = comm_to_seq(file)
-    return [(spacy_core_web(long_comm), coming_from) for long_comm, coming_from in resp]
-
 
 
 def comm_to_seq_elmo(file, elmo) -> list[tuple[Doc, int]]:
     """Similar to comm_to_seq but returns the Doc(commentary) instead of commentary: string."""
-    resp = comm_to_seq(file)
+    resp = comm_to_seq_default(file, 10)
     ret = []
     for long_comm, coming_from in resp:
         long_comm_tensor = elmo.get_elmo_vectors(long_comm, layers="average")

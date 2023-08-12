@@ -1,7 +1,8 @@
 import secrets
 
 from modules.comments import CommentsAnalysis
-
+import modules.comments as comments
+import modules.comments_helpers as comments_helpers
 
 def run(upload_dict):
     ca = CommentsAnalysis()
@@ -16,16 +17,16 @@ def run(upload_dict):
 def comments_common(ca):
     report = {}
 
-    common_list, lines_in_1, lines_in_2 = ca.analyze_2_files()
+    common_list, lines_in_1, lines_in_2 = ca.analyze_2_files("Exact match", ca.exact_match_similarity, ca.comm_to_seq_1)
     feed_common_list_in_report("comment_exact_lines_files", report, ca.token, common_list, lines_in_1, lines_in_2)
 
-    common_list, lines_in_1, lines_in_2 = ca.analyze_2_files_fuzzy()
+    common_list, lines_in_1, lines_in_2 = ca.analyze_2_files("Fuzzy match", ca.fuzzy_similarity, ca.comm_to_seq_10)
     feed_common_list_in_report("comment_fuzzy_lines_files", report, ca.token, common_list, lines_in_1, lines_in_2)
 
-    common_list, lines_in_1, lines_in_2 = ca.analyze_2_files_spacy_core_web()
+    common_list, lines_in_1, lines_in_2 = ca.analyze_2_files("SpacyCoreWeb match", ca.spacy_similarity, ca.comm_to_seq_doc)
     feed_common_list_in_report("comment_spacy_core_web_lines_files", report, ca.token, common_list, lines_in_1, lines_in_2)
 
-    common_list, lines_in_1, lines_in_2 = ca.analyze_2_files_elmo()
+    common_list, lines_in_1, lines_in_2 = ca.analyze_2_files("Elmo match", ca.elmo_similarity, ca.comm_to_seq_elmo, True)
     feed_common_list_in_report("comment_elmo_lines_files", report, ca.token, common_list, lines_in_1, lines_in_2)
 
     report_without_overlap = remove_comments_superset(report)
@@ -34,8 +35,10 @@ def comments_common(ca):
 
 def feed_common_list_in_report(entry, report, token, common_list, lines_in_1, lines_in_2):
     report[entry] = []
+    list_len = len(common_list)
+    print_report = [list_len / 10, 2 * list_len / 10, 3 * list_len / 10, 4 * list_len / 10, 5 * list_len / 10, 6 * list_len / 10, 7 * list_len / 10, 8 * list_len / 10, 9 * list_len / 10, list_len - 1]
     print(
-        f"[traceID: {token}] common_list for {entry}: found {len(common_list)} common sequences")
+        f"[traceID: {token}] common_list for {entry}: found {list_len} common sequences")
     for idx, _ in enumerate(common_list):
         report[entry].append(
             {
@@ -43,8 +46,12 @@ def feed_common_list_in_report(entry, report, token, common_list, lines_in_1, li
                 "file2": lines_in_2[idx],
             },
         )
-        print(
-            f"[traceID: {token}] Finished analyzing {entry}: {idx}/{len(common_list)}")
+
+        if idx in print_report:
+            print(
+                f"[traceID: {token}] Finished analyzing {entry}: {idx}/{list_len}", end='\r')
+    print("")
+    print(f"{entry} report: found common: {common_list}, with lines in 1: {lines_in_1}, with lines in 2: {lines_in_2},")
 
 
 def remove_comments_superset(report: dict) -> dict:
@@ -93,3 +100,4 @@ def generate_token():
     token = secrets.token_hex(7)
     print(f"Received custom request with token {token}")
     return token
+

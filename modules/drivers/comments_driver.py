@@ -23,7 +23,7 @@ def main(_):
             src_full_path = os.path.join(root, file)
             print(f'Loading {src_full_path} in working mem')
             c_a.load_file(src_full_path)
-    c_a.analyze()
+    c_a.parse()
     
 if __name__ == '__main__':
     app.run(main)

@@ -83,13 +83,58 @@ class CommentsAnalysis():
                 is_similar, similarity = similarity_method(cmp1, cmp2)
                 if is_similar:
                     # print(f'{display_name} detected similarity: {similarity}, {f1}, {f2}')
-                    common_list.append((f1[0], f2[0]))
-                    lines_in_1.append(f1[1])
-                    lines_in_2.append(f2[1])
+                    if not self.is_superset_comment(f1[1], f2[1], lines_in_1, lines_in_2):
+                        # De-duplicate supersets.
+                        common_list, lines_in_1, lines_in_2 = self.dedupe_supersets(
+                            f1[1], f2[1], lines_in_1, lines_in_2, (f1[0], f1[1]), common_list)
             if idx in print_report:
                 print(
                     f"[traceID: {self.token}] {display_name}: Progress: {idx}/{len(file1)}", end='\r')
         print(f"[traceID: {self.token}] {display_name}: COMPLETED!")
+        return common_list, lines_in_1, lines_in_2
+
+    def is_superset_comment(self, e_val1: list, e_val2: list, e_vals1: list, e_vals2: list) -> bool:
+        """
+        [
+            {
+                "file1": [11],
+                "file2": [15, 16, 18],
+            },
+            {
+                "file1": [11],
+                "file2": [16, 18],
+            },
+            {
+                "file1": [11],
+                "file2": [18],
+            },
+        ]
+
+        Probably only 
+            {
+                "file1": [11],
+                "file2": [18],
+            },
+        is interesting.
+        """
+
+        for idx in range(len(e_vals1)):
+            if (len(e_vals1[idx]) <= len(e_val1)) and (len(e_vals2[idx]) <= len(e_val2)) and (len(e_vals1[idx]) + len(e_vals2[idx]) < len(e_val1) + len(e_val2)):
+                if all(f1 in e_val1 for f1 in e_vals1[idx]) and all(f2 in e_val2 for f2 in e_vals2[idx]):
+                    return True
+        return False
+
+    def dedupe_supersets(self, e_val1: list, e_val2: list, e_vals1: list, e_vals2: list, new_entry: tuple, entries: list) -> dict:
+        common_list = [new_entry]
+        lines_in_1 = [e_val1]
+        lines_in_2 = [e_val2]
+        for idx in range(len(e_vals1)):
+            if (len(e_vals1[idx]) >= len(e_val1)) and (len(e_vals2[idx]) >= len(e_val2)) and (len(e_vals1[idx]) + len(e_vals2[idx]) > len(e_val1) + len(e_val2)):
+                if all(f1 in e_vals1[idx] for f1 in e_val1) and all(f2 in e_vals2[idx] for f2 in e_val2):
+                    continue
+            lines_in_1.append(e_vals1[idx])
+            lines_in_2.append(e_vals2[idx])
+            common_list.append(entries[idx])
         return common_list, lines_in_1, lines_in_2
 
     def comm_to_seq_1(self, file):
@@ -126,8 +171,10 @@ class CommentsAnalysis():
         resp = comments_helpers.comm_to_seq_default(file, 1)
         ret = []
         for long_comm, coming_from in resp:
-            long_comm_tensor = self.elmo.get_elmo_vector_average(long_comm, warmup=False)
-            long_comm_tensor_avged = np.sum(long_comm_tensor[0][:], axis = 0)/long_comm_tensor.shape[1]
+            long_comm_tensor = self.elmo.get_elmo_vector_average(
+                long_comm, warmup=False)
+            long_comm_tensor_avged = np.sum(
+                long_comm_tensor[0][:], axis=0)/long_comm_tensor.shape[1]
             ret.append((long_comm, coming_from,
                        long_comm_tensor_avged.reshape(1, -1)))
         return ret

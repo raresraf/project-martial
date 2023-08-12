@@ -30,7 +30,7 @@ def comments_common(ca):
         common_list, lines_in_1, lines_in_2 = ca.analyze_2_files("Elmo match", ca.elmo_similarity, ca.comm_to_seq_elmo, True)
         feed_common_list_in_report("comment_elmo_lines_files", report, ca.token, common_list, lines_in_1, lines_in_2)
 
-    report_without_overlap = remove_comments_superset(report)
+    report_without_overlap = remove_comments_superset_that_were_not_deduped_before(report)
     return report_without_overlap
 
 
@@ -55,7 +55,7 @@ def feed_common_list_in_report(entry, report, token, common_list, lines_in_1, li
     # print(f"{entry} report: found common: {common_list}, with lines in 1: {lines_in_1}, with lines in 2: {lines_in_2},")
 
 
-def remove_comments_superset(report: dict) -> dict:
+def remove_comments_superset_that_were_not_deduped_before(report: dict) -> dict:
     """
     [
         {
@@ -82,7 +82,8 @@ def remove_comments_superset(report: dict) -> dict:
     report_without_overlap = {}
     for e_name, e_vals in report.items():
         report_without_overlap[e_name] = []
-        for e_val in e_vals:
+        for e_idx, e_val in enumerate(e_vals):
+            print(f"progress {e_idx}/{len(e_vals)}", end="\r")
             is_superset = False
             for e_val_against in e_vals:
                 if (len(e_val_against["file1"]) <= len(e_val["file1"])) and (len(e_val_against["file2"]) <= len(e_val["file2"])) and (len(e_val_against["file1"]) + len(e_val_against["file2"]) < len(e_val["file1"]) + len(e_val["file2"])):
@@ -91,7 +92,6 @@ def remove_comments_superset(report: dict) -> dict:
                         break
             if not is_superset:
                 report_without_overlap[e_name].append(e_val)
-
 
     return report_without_overlap
 

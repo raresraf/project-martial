@@ -50,9 +50,9 @@ def feed_common_list_in_report(entry, report, token, common_list, lines_in_1, li
 
         if idx in print_report:
             print(
-                f"[traceID: {token}] Finished analyzing {entry}: {idx}/{list_len}", end='\r')
+                f"[traceID: {token}] Finished analyzing {entry}: {idx}/{list_len - 1}", end='\r')
     print("")
-    print(f"{entry} report: found common: {common_list}, with lines in 1: {lines_in_1}, with lines in 2: {lines_in_2},")
+    # print(f"{entry} report: found common: {common_list}, with lines in 1: {lines_in_1}, with lines in 2: {lines_in_2},")
 
 
 def remove_comments_superset(report: dict) -> dict:

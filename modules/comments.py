@@ -57,7 +57,7 @@ class CommentsAnalysis():
 
             temp.close()
 
-        print(f"Parse of comments is complete: {findings_dict}")
+        # print(f"Parse of comments is complete: {findings_dict}")
         return findings_dict
 
     def analyze_2_files(self, display_name, similarity_method, comm_to_seq, custom_similarity=False):
@@ -82,8 +82,7 @@ class CommentsAnalysis():
                     cmp2 = f2
                 is_similar, similarity = similarity_method(cmp1, cmp2)
                 if is_similar:
-                    print(
-                        f'{display_name} detected similarity: {similarity}, {f1}, {f2}')
+                    # print(f'{display_name} detected similarity: {similarity}, {f1}, {f2}')
                     common_list.append((f1[0], f2[0]))
                     lines_in_1.append(f1[1])
                     lines_in_2.append(f2[1])

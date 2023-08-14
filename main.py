@@ -18,7 +18,6 @@ lock_upload_dict = Lock()
 upload_dict = {}
 
 
-
 @api.route("/api")
 def api_root():
     return "<p>Hello, World!</p>"
@@ -40,8 +39,6 @@ def custom_comments():
         upload_dict["file2"] = f.read()
     lock_upload_dict.release()
     return comments_api.run(upload_dict)
-
-
 
 
 @api.route("/api/upload", methods=['POST'])

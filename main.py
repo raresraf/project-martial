@@ -33,10 +33,12 @@ def comments():
 def custom_comments():
     custom_1 = "/Users/raresraf/code/examples-project-martial/merged/baby-kubernetes-1.2.1.go"
     custom_2 = "/Users/raresraf/code/examples-project-martial/merged/baby-kubernetes-1.3.1.go"
+    lock_upload_dict.acquire()
     with open(custom_1, 'r') as f:
         upload_dict["file1"] = f.read()
     with open(custom_2, 'r') as f:
         upload_dict["file2"] = f.read()
+    lock_upload_dict.release()
     return comments_api.run(upload_dict)
 
 

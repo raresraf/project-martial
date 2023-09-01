@@ -123,7 +123,7 @@ def count_words_in_comments(file_path: str) -> dict:
                 #    print("In english... ", w)
                 # else:
                 #    print("Not in english... ", w)
-        print(f"progress... {t.line} / {total_lines}")
+        print(f"progress... {t.line} / {total_lines}", end='\r')
 
     return {
         "number_of_comments_alpha_words": total_words,
@@ -137,8 +137,9 @@ def run_get_total_comments(file_path: str):
     total_lines_of_comments = comms_stats["total_lines_of_comments"]
     total_single_line_comments = comms_stats["total_single_line_comments"]
     total_multi_line_comments = comms_stats["total_multi_line_comments"]
-    percentage_of_comments = comms_stats["total_lines_of_comments"]/total_lines * 100
-    
+    percentage_of_comments = comms_stats["total_lines_of_comments"] / \
+        total_lines * 100
+
     print("===== STATS =====")
     print(f'Total lines of code: {total_lines}')
     print(f'Total lines of comments: {total_lines_of_comments}')
@@ -154,9 +155,9 @@ def run_get_total_comments(file_path: str):
 def run_compare_comments_to_the_rest(file_path: str):
     comms_vs_rest = compare_comments_to_the_rest(file_path)
     number_of_comments_chars = comms_vs_rest["number_of_comments_chars"]
-    percentage_of_comments_chars=comms_vs_rest["percentage_of_comments_chars"]
-    number_of_comments_words=comms_vs_rest["number_of_comments_words"]
-    percentage_of_comments_words=comms_vs_rest["percentage_of_comments_words"]
+    percentage_of_comments_chars = comms_vs_rest["percentage_of_comments_chars"]
+    number_of_comments_words = comms_vs_rest["number_of_comments_words"]
+    percentage_of_comments_words = comms_vs_rest["percentage_of_comments_words"]
     print(
         f'Number of comments chars: {number_of_comments_chars}')
     print(
@@ -168,11 +169,13 @@ def run_compare_comments_to_the_rest(file_path: str):
 
     return number_of_comments_chars,  percentage_of_comments_chars, number_of_comments_words, percentage_of_comments_words
 
+
 def run_count_words_in_comments(file_path: str):
     comms_words = count_words_in_comments(file_path)
     number_of_comments_alpha_words = comms_words["number_of_comments_alpha_words"]
     number_of_english_pyenchant_words = comms_words["number_of_english_pyenchant_words"]
-    percentage_of_alpha_comments_words_valid_english = comms_words["number_of_english_pyenchant_words"] / comms_words["number_of_comments_alpha_words"] * 100
+    percentage_of_alpha_comments_words_valid_english = comms_words[
+        "number_of_english_pyenchant_words"] / comms_words["number_of_comments_alpha_words"] * 100
 
     print(
         f'Number of alpha comments words: {number_of_comments_alpha_words}')
@@ -183,47 +186,57 @@ def run_count_words_in_comments(file_path: str):
 
     return number_of_comments_alpha_words, number_of_english_pyenchant_words, percentage_of_alpha_comments_words_valid_english
 
+
 def run_stats(file_path: str):
-    total_lines, total_lines_of_comments, total_single_line_comments, total_multi_line_comments, percentage_of_comments = run_get_total_comments(file_path)
-    number_of_comments_chars,  percentage_of_comments_chars, number_of_comments_words, percentage_of_comments_words = run_compare_comments_to_the_rest(file_path)
-    number_of_comments_alpha_words, number_of_english_pyenchant_words, percentage_of_alpha_comments_words_valid_english = run_count_words_in_comments(file_path)
+    total_lines, total_lines_of_comments, total_single_line_comments, total_multi_line_comments, percentage_of_comments = run_get_total_comments(
+        file_path)
+    number_of_comments_chars,  percentage_of_comments_chars, number_of_comments_words, percentage_of_comments_words = run_compare_comments_to_the_rest(
+        file_path)
+    number_of_comments_alpha_words, number_of_english_pyenchant_words, percentage_of_alpha_comments_words_valid_english = run_count_words_in_comments(
+        file_path)
     return total_lines, total_lines_of_comments, total_single_line_comments, total_multi_line_comments, percentage_of_comments, number_of_comments_chars,  percentage_of_comments_chars, number_of_comments_words, percentage_of_comments_words, number_of_comments_alpha_words, number_of_english_pyenchant_words, percentage_of_alpha_comments_words_valid_english
+
 
 def main(_):
     file_path = FLAGS.source_path
     _, project = os.path.split(file_path)
-    total_lines, total_lines_of_comments, total_single_line_comments, total_multi_line_comments, percentage_of_comments, number_of_comments_chars,  percentage_of_comments_chars, number_of_comments_words, percentage_of_comments_words, number_of_comments_alpha_words, number_of_english_pyenchant_words, percentage_of_alpha_comments_words_valid_english = run_stats(file_path)
+    total_lines, total_lines_of_comments, total_single_line_comments, total_multi_line_comments, percentage_of_comments, number_of_comments_chars,  percentage_of_comments_chars, number_of_comments_words, percentage_of_comments_words, number_of_comments_alpha_words, number_of_english_pyenchant_words, percentage_of_alpha_comments_words_valid_english = run_stats(
+        file_path)
 
     # We use only lexer data.
     # commtokstream = CommonTokenStream(golex)
     # goparser = GoParser(commtokstream)
     # print("parse errors: {}".format(goparser._syntaxErrors))
 
-    latex_table(project, total_lines, total_lines_of_comments, total_single_line_comments, total_multi_line_comments, percentage_of_comments, number_of_comments_chars,  percentage_of_comments_chars, number_of_comments_words, percentage_of_comments_words, number_of_comments_alpha_words, number_of_english_pyenchant_words, percentage_of_alpha_comments_words_valid_english)
+    latex_table(project, total_lines, total_lines_of_comments, total_single_line_comments, total_multi_line_comments, percentage_of_comments, number_of_comments_chars,  percentage_of_comments_chars,
+                number_of_comments_words, percentage_of_comments_words, number_of_comments_alpha_words, number_of_english_pyenchant_words, percentage_of_alpha_comments_words_valid_english)
+
 
 def latex_table(project, total_lines, total_lines_of_comments, total_single_line_comments, total_multi_line_comments, percentage_of_comments, number_of_comments_chars,  percentage_of_comments_chars, number_of_comments_words, percentage_of_comments_words, number_of_comments_alpha_words, number_of_english_pyenchant_words, percentage_of_alpha_comments_words_valid_english):
     table_1 = Texttable()
     table_1.set_cols_align(6 * ["X"])
     table_1.set_cols_valign(6 * ["t"])
     table_1.add_rows([["Project",
- "Total lines of comments/code", 
- "Total number of single / multi line comments",
- "Number of comments chars",
- "Number of comments words",
- "Number of english words / total words in alpha comments",
- ],
+                       "Total lines of comments/code",
+                       "Total number of single / multi line comments",
+                       "Number of comments chars",
+                       "Number of comments words",
+                       "Number of english words / total words in alpha comments",
+                       ],
                      [project,
-                      f"{total_lines_of_comments}/{total_lines} ({percentage_of_comments:.2f}\%)", 
-                      f"{total_single_line_comments}/{total_multi_line_comments}", 
+                      f"{total_lines_of_comments}/{total_lines} ({percentage_of_comments:.2f}\%)",
+                      f"{total_single_line_comments}/{total_multi_line_comments}",
                       f"{number_of_comments_chars} ({percentage_of_comments_chars:.2f}\%)",
                       f"{number_of_comments_words} ({percentage_of_comments_words:.2f}\%)",
                       f"{number_of_english_pyenchant_words}/{number_of_comments_alpha_words} ({percentage_of_alpha_comments_words_valid_english:.2f}\%)",
                       ],
-                    ])
+                      ])
     print('Texttable Output:')
     print(table_1.draw())
     print('\nLatextable Output:')
-    print(latextable.draw_latex(table_1, caption="An example table.", label="table:example_table"))
+    print(latextable.draw_latex(
+        table_1, caption="An example table.", label="table:example_table"))
+
 
 if __name__ == '__main__':
     app.run(main)

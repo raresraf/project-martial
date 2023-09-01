@@ -1,5 +1,6 @@
 # Quick run: bazel run grammars/go:main -- --source_path="/Users/raresraf/code/project-martial/grammars/go/example/hello.go" --alsologtostderr
 # Long run: bazel run grammars/go:main -- --source_path="/Users/raresraf/code/examples-project-martial/merged/kubernetes-1.1.1.go" --alsologtostderr
+# Very long run: bazel run grammars/go:main -- --source_path="/Users/raresraf/code/examples-project-martial/merged/linux-3.0.c" --encoding=ISO-8859-1 --alsologtostderr
 from GoLexer import *
 from GoParser import *
 from antlr4 import *
@@ -19,20 +20,21 @@ flags.DEFINE_string("source_path", "/Users/raresraf/code/examples-project-martia
                     help="The source path to gather stats for.")
 flags.DEFINE_string("english_words_path", "/Users/raresraf/code/project-martial/modules/words.txt",
                     help="The source path to find words text file.")
+flags.DEFINE_string("encoding", "utf-8", help="e.g. utf-8, ISO-8859-1")
 
 pp = pprint.PrettyPrinter(indent=2)
 
 
 def get_total_lines(path) -> int:
     count = 0
-    for _ in open(path, encoding="utf8"):
+    for _ in open(path, encoding=FLAGS.encoding):
         count += 1
     return count
 
 
 def get_total_comments(file_path: str) -> dict:
     total_lines = get_total_lines(file_path)
-    input_stream = FileStream(file_path, encoding='utf-8')
+    input_stream = FileStream(file_path, encoding=FLAGS.encoding)
     # antlr -Dlanguage=Python3 GoLexer.g4
     lex = GoLexer(input_stream)
 
@@ -62,7 +64,7 @@ def get_total_comments(file_path: str) -> dict:
 
 
 def compare_comments_to_the_rest(file_path: str) -> dict:
-    input_stream = FileStream(file_path, encoding='utf-8')
+    input_stream = FileStream(file_path, encoding=FLAGS.encoding)
     # antlr -Dlanguage=Python3 GoLexer.g4
     lex = GoLexer(input_stream)
 
@@ -99,7 +101,7 @@ def compare_comments_to_the_rest(file_path: str) -> dict:
 
 def count_words_in_comments(file_path: str) -> dict:
     total_lines = get_total_lines(file_path)
-    input_stream = FileStream(file_path, encoding='utf-8')
+    input_stream = FileStream(file_path, encoding=FLAGS.encoding)
     # antlr -Dlanguage=Python3 GoLexer.g4
     lex = GoLexer(input_stream)
 
@@ -224,11 +226,11 @@ def latex_table(project, total_lines, total_lines_of_comments, total_single_line
                        "Number of english words / total words in alpha comments",
                        ],
                      [project,
-                      f"{total_lines_of_comments}/{total_lines} ({percentage_of_comments:.2f}\%)",
-                      f"{total_single_line_comments}/{total_multi_line_comments}",
+                      f"{total_lines_of_comments} / {total_lines} ({percentage_of_comments:.2f}\%)",
+                      f"{total_single_line_comments} / {total_multi_line_comments}",
                       f"{number_of_comments_chars} ({percentage_of_comments_chars:.2f}\%)",
                       f"{number_of_comments_words} ({percentage_of_comments_words:.2f}\%)",
-                      f"{number_of_english_pyenchant_words}/{number_of_comments_alpha_words} ({percentage_of_alpha_comments_words_valid_english:.2f}\%)",
+                      f"{number_of_english_pyenchant_words} / {number_of_comments_alpha_words} ({percentage_of_alpha_comments_words_valid_english:.2f}\%)",
                       ],
                       ])
     print('Texttable Output:')

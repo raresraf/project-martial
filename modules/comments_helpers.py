@@ -23,7 +23,7 @@ def strip_comment_line(val: str) -> str:
     return val
 
 def generate_comm_sequences(x, t):
-    """ Max {t} long sequences, consecutive. (usually t = 10)"""
+    """ Max {t} long sequences, consecutive. (usually t = 6)"""
     total_len = len(x)
     if total_len == 0:
         return []

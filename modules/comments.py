@@ -146,8 +146,8 @@ class CommentsAnalysis():
             similarity = 1.0
         return f1 == f2, similarity
 
-    def comm_to_seq_10(self, file):
-        return comments_helpers.comm_to_seq_default(file, 10)
+    def comm_to_seq_6(self, file):
+        return comments_helpers.comm_to_seq_default(file, 6)
 
     def fuzzy_similarity(self, f1, f2):
         similarity = fuzz.ratio(f1, f2)
@@ -159,7 +159,7 @@ class CommentsAnalysis():
 
     def comm_to_seq_doc(self, file) -> list[tuple[Doc, int]]:
         """Similar to comm_to_seq but returns the Doc(commentary) instead of commentary: string."""
-        resp = comments_helpers.comm_to_seq_default(file, 10)
+        resp = comments_helpers.comm_to_seq_default(file, 6)
         return [(self.spacy_core_web(long_comm), coming_from) for long_comm, coming_from in resp]
 
     def elmo_similarity(self, f1, f2):

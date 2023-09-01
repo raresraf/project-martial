@@ -44,8 +44,7 @@ int main() {
   cout << "Still going on..."
   // longer
   // comments
-  // splitted
-  // with small typos?
+  // splitted with small typos?
   cout << "One more log";
   // The computer was created to solve problems that did not exist.
   return 0;

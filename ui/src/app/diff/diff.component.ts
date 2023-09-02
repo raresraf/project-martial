@@ -27,10 +27,11 @@ int main() {
   // But what about longer comments, splitted with small typo?
   cout << "One more log";
   // The computer was born to solve problems that did not exist before.
+  // Again, if it's one original sentence, yes, it's plagiarism.
   return 0;
 }
 `, `#include <iostream>
-
+// The computer was created to solve problems that did not exist.
 using namespace std;
 
 int main() {
@@ -46,7 +47,8 @@ int main() {
   // comments
   // splitted with small typos?
   cout << "One more log";
-  // The computer was created to solve problems that did not exist.
+  
+  // Again, if it's one original sentence, yes, it's plagiarism.
   return 0;
 }
 `]
@@ -114,15 +116,18 @@ int main() {
       .map((n, index) => index + 1);
   }
 
-  colorBasedOnResp(resp, label, color) {
+  colorBasedOnResp(resp, label, colors) {
+    let colorPick = -1
     for (let match in resp[label]) {
+      colorPick++
+      let pickColor = colors[colorPick % colors.length]
       for (let idx in resp[label][match]["file1"]) {
         let line = resp[label][match]["file1"][idx] - 1
-        this.tiles[0].color[line] = color
+        this.tiles[0].color[line] = pickColor
       }
       for (let idx in resp[label][match]["file2"]) {
         let line = resp[label][match]["file2"][idx] - 1
-        this.tiles[1].color[line] = color
+        this.tiles[1].color[line] = pickColor
       }
     }
   }
@@ -135,9 +140,10 @@ int main() {
       get$?.subscribe(resp => {
         console.log(resp);
 
-        this.colorBasedOnResp(resp, "comment_spacy_core_web_lines_files", "#FFFF00")
-        this.colorBasedOnResp(resp, "comment_fuzzy_lines_files", "#FF6600")
-        this.colorBasedOnResp(resp, "comment_exact_lines_files", "#FF0000")
+        this.colorBasedOnResp(resp, "comment_elmo_lines_files", ["#EE82EE", "#DDA0DD", "#D8BFD8", "#800080"])
+        this.colorBasedOnResp(resp, "comment_spacy_core_web_lines_files", ["#FFFF00", "#F0E68C", "#EEE8AA", "#808000"])
+        this.colorBasedOnResp(resp, "comment_fuzzy_lines_files", ["#FF6600", "#FF8C00", "#FFD700", "#DAA520"])
+        this.colorBasedOnResp(resp, "comment_exact_lines_files", ["#FF0000", "#800000", "#A52A2A", "#B22222"])
       }
 
       );
@@ -157,7 +163,10 @@ int main() {
     }
 
     const upload$ = this.http.post("http://127.0.0.1:5000/api/upload",
-      { "file1": this.cpp[0], "file2": this.cpp[1] });
+      {
+        "file1": this.cpp[0],
+        "file2": this.cpp[1],
+      });
 
     console.log("uploadFilesToBacked finished")
     return upload$
@@ -168,3 +177,4 @@ int main() {
     return get$
   }
 }
+

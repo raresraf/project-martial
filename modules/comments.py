@@ -27,6 +27,7 @@ class CommentsAnalysis():
             self.elmo = ElmoModel()
             self.elmo.load("/Users/raresraf/code/project-martial/209")
 
+
     def link_to_token(self, token):
         self.token = token
 
@@ -86,7 +87,7 @@ class CommentsAnalysis():
                     if not self.is_superset_comment(f1[1], f2[1], lines_in_1, lines_in_2):
                         # De-duplicate supersets.
                         common_list, lines_in_1, lines_in_2 = self.dedupe_supersets(
-                            f1[1], f2[1], lines_in_1, lines_in_2, (f1[0], f1[1]), common_list)
+                            f1[1], f2[1], lines_in_1, lines_in_2, (f1[0], f1[0]), common_list)
             if idx in print_report:
                 print(
                     f"[traceID: {self.token}] {display_name}: Progress: {idx}/{len(file1)}", end='\r')

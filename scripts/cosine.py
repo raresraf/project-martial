@@ -20,6 +20,7 @@ for ax in axs:
     A = A[1:,:]
 
     data = 1-pairwise_distances(A, metric="cosine")
+    print(data)
 
     cax = ax.imshow(data, interpolation='nearest')
     fig.colorbar(cax)

@@ -13,10 +13,11 @@ from sklearn.metrics.pairwise import cosine_similarity
 from simple_elmo import ElmoModel
 from spacy.tokens import Doc
 import numpy as np
+import tensorflow as tf
 
+ENABLE_WORD2VEC = True
+ENABLE_ELMO = True
 
-ENABLE_WORD2VEC = False
-ENABLE_ELMO = False
 
 class CommentsAnalysis():
     def __init__(self):
@@ -30,9 +31,9 @@ class CommentsAnalysis():
 
         self.enable_elmo = ENABLE_ELMO
         if self.enable_elmo:
+            tf.compat.v1.reset_default_graph()
             self.elmo = ElmoModel()
             self.elmo.load("/Users/raresraf/code/project-martial/209")
-
 
     def link_to_token(self, token):
         self.token = token
@@ -171,17 +172,17 @@ class CommentsAnalysis():
 
     def elmo_similarity(self, f1, f2):
         similarity = cosine_similarity(f1[2], f2[2])
-        return similarity > 0.96, similarity
+        return similarity > 0.99, similarity
 
     def comm_to_seq_elmo(self, file) -> list[tuple[Doc, int]]:
         """Similar to comm_to_seq but returns the Doc(commentary) instead of commentary: string."""
         resp = comments_helpers.comm_to_seq_default(file, 1)
         ret = []
         for long_comm, coming_from in resp:
-            long_comm_tensor = self.elmo.get_elmo_vector_average(
+            long_comm_tensor = self.elmo.get_elmo_vectors(
                 long_comm, warmup=False)
             long_comm_tensor_avged = np.sum(
                 long_comm_tensor[0][:], axis=0)/long_comm_tensor.shape[1]
             ret.append((long_comm, coming_from,
-                       long_comm_tensor_avged.reshape(1, -1)))
+                       [long_comm_tensor_avged]))
         return ret

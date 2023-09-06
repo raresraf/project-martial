@@ -15,14 +15,20 @@ from spacy.tokens import Doc
 import numpy as np
 
 
+ENABLE_WORD2VEC = False
+ENABLE_ELMO = False
+
 class CommentsAnalysis():
     def __init__(self):
         self.initTimestamp = datetime.datetime.now()
         self.fileDict = {}
         self.token = 'n/a'
-        self.spacy_core_web = en_core_web_lg.load()
 
-        self.enable_elmo = False
+        self.enable_word2vec = ENABLE_WORD2VEC
+        if self.enable_word2vec:
+            self.spacy_core_web = en_core_web_lg.load()
+
+        self.enable_elmo = ENABLE_ELMO
         if self.enable_elmo:
             self.elmo = ElmoModel()
             self.elmo.load("/Users/raresraf/code/project-martial/209")
@@ -156,7 +162,7 @@ class CommentsAnalysis():
 
     def spacy_similarity(self, f1, f2):
         similarity = f1.similarity(f2)
-        return similarity > 0.96, similarity
+        return similarity > 0.97, similarity
 
     def comm_to_seq_doc(self, file) -> list[tuple[Doc, int]]:
         """Similar to comm_to_seq but returns the Doc(commentary) instead of commentary: string."""

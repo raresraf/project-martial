@@ -67,10 +67,11 @@ def comments_common(ca: CommentsAnalysis, feed_method=feed_common_list_in_report
     feed_method("comment_fuzzy_lines_files",
                 report, ca.token, common_list_comment_fuzzy_lines_files, lines_in_1, lines_in_2)
 
-    common_list_comment_spacy_core_web_lines_files, lines_in_1, lines_in_2 = ca.analyze_2_files(
-        "SpacyCoreWeb match", ca.spacy_similarity, ca.comm_to_seq_doc)
-    feed_method("comment_spacy_core_web_lines_files",
-                report, ca.token, common_list_comment_spacy_core_web_lines_files, lines_in_1, lines_in_2)
+    if ca.enable_word2vec:
+        common_list_comment_spacy_core_web_lines_files, lines_in_1, lines_in_2 = ca.analyze_2_files(
+            "SpacyCoreWeb match", ca.spacy_similarity, ca.comm_to_seq_doc)
+        feed_method("comment_spacy_core_web_lines_files",
+                    report, ca.token, common_list_comment_spacy_core_web_lines_files, lines_in_1, lines_in_2)
 
     if ca.enable_elmo:
         common_list_comment_elmo_lines_files, lines_in_1, lines_in_2 = ca.analyze_2_files(

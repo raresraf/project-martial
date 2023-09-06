@@ -4,6 +4,7 @@ from absl import app
 from absl import flags
 
 import modules.comments_api as comments_api
+import modules.comments as comments
 import json
 import os
 
@@ -22,10 +23,17 @@ flags.DEFINE_string("extension", 'go',
                     help="The name of extension of files to join (e.g. 'go', 'cpp')")
 flags.DEFINE_bool("ultra_fast_detection", False,
                   help="If enabled, it will only to try to match files from the same path")
+flags.DEFINE_bool("enable_word2vec", True,
+                  help="If enabled, run word2vec")
+flags.DEFINE_bool("enable_elmo", False,
+                  help="If enabled, run ELMo")
 
 
 def main(_):
     print("Hello to the CommentsAnalysis driver!")
+    comments.ENABLE_WORD2VEC = FLAGS.enable_word2vec
+    comments.ENABLE_ELMO = FLAGS.enable_elmo
+
     file_list1 = []
     for root, _, files in os.walk(FLAGS.source_files_dir1):
         for file in files:

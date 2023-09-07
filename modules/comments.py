@@ -90,7 +90,7 @@ class CommentsAnalysis():
                     cmp2 = f2
                 is_similar, similarity = similarity_method(cmp1, cmp2)
                 if is_similar:
-                    # print(f'{display_name} detected similarity: {similarity}, {f1}, {f2}')
+                    print(f'{display_name} detected similarity: {similarity}, {f1}, {f2}')
                     if not self.is_superset_comment(f1[1], f2[1], lines_in_1, lines_in_2):
                         # De-duplicate supersets.
                         common_list, lines_in_1, lines_in_2 = self.dedupe_supersets(
@@ -179,10 +179,8 @@ class CommentsAnalysis():
         resp = comments_helpers.comm_to_seq_default(file, 1)
         ret = []
         for long_comm, coming_from in resp:
-            long_comm_tensor = self.elmo.get_elmo_vectors(
-                long_comm, warmup=False)
-            long_comm_tensor_avged = np.sum(
-                long_comm_tensor[0][:], axis=0)/long_comm_tensor.shape[1]
+            long_comm_tensor = self.elmo.get_elmo_vectors(long_comm)
+            long_comm_tensor_avged = np.average(long_comm_tensor, axis=0)
             ret.append((long_comm, coming_from,
-                       [long_comm_tensor_avged]))
+                       long_comm_tensor_avged))
         return ret

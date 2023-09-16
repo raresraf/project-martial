@@ -16,7 +16,7 @@ flags.DEFINE_string("source_files_dir1", "/Users/raresraf/code/examples-project-
 flags.DEFINE_string("source_files_dir2", "/Users/raresraf/code/examples-project-martial/kubernetes-1.3.1/pkg/",
                     help="Path to the source files 2")
 flags.DEFINE_string("output_dir", "/Users/raresraf/code/examples-project-martial/analyze/kubernetes-1.2.1-kubernetes-1.3.1/",
-                    help="Path to the source files 2")
+                    help="Path to the output file")
 flags.DEFINE_string(
     "encoding", "utf-8", help="e.g. utf-8, ISO-8859-1")
 flags.DEFINE_string("extension", 'go',

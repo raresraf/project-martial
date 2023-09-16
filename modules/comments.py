@@ -14,10 +14,12 @@ from simple_elmo import ElmoModel
 from spacy.tokens import Doc
 import numpy as np
 import tensorflow as tf
+import tensorflow_hub as hub
 
-ENABLE_WORD2VEC = True
-ENABLE_ELMO = True
-
+enable_is_similar_log = False
+ENABLE_WORD2VEC = False
+ENABLE_ELMO = False
+ENABLE_USE = True
 
 class CommentsAnalysis():
     def __init__(self):
@@ -34,6 +36,11 @@ class CommentsAnalysis():
             tf.compat.v1.reset_default_graph()
             self.elmo = ElmoModel()
             self.elmo.load("/Users/raresraf/code/project-martial/209")
+
+        self.enable_use = ENABLE_USE
+        if self.enable_use:
+            module_url = "https://tfhub.dev/google/universal-sentence-encoder/4" 
+            self.use = hub.load(module_url)
 
     def link_to_token(self, token):
         self.token = token
@@ -90,7 +97,8 @@ class CommentsAnalysis():
                     cmp2 = f2
                 is_similar, similarity = similarity_method(cmp1, cmp2)
                 if is_similar:
-                    print(f'{display_name} detected similarity: {similarity}, {f1}, {f2}')
+                    if enable_is_similar_log:
+                        print(f'{display_name} detected similarity: {similarity}, {f1}, {f2}')
                     if not self.is_superset_comment(f1[1], f2[1], lines_in_1, lines_in_2):
                         # De-duplicate supersets.
                         common_list, lines_in_1, lines_in_2 = self.dedupe_supersets(
@@ -174,7 +182,7 @@ class CommentsAnalysis():
         similarity = cosine_similarity(f1[2], f2[2])
         return similarity > 0.99, similarity
 
-    def comm_to_seq_elmo(self, file) -> list[tuple[Doc, int]]:
+    def comm_to_seq_elmo(self, file):
         """Similar to comm_to_seq but returns the Doc(commentary) instead of commentary: string."""
         resp = comments_helpers.comm_to_seq_default(file, 1)
         ret = []
@@ -183,4 +191,16 @@ class CommentsAnalysis():
             long_comm_tensor_avged = np.average(long_comm_tensor, axis=0)
             ret.append((long_comm, coming_from,
                        long_comm_tensor_avged))
+        return ret
+
+    def use_similarity(self, f1, f2):
+        similarity = cosine_similarity(f1[2], f2[2])
+        return similarity > 0.92, similarity
+
+    def comm_to_seq_use(self, file):
+        """Similar to comm_to_seq."""
+        resp = comments_helpers.comm_to_seq_default(file, 6)
+        ret = []
+        for long_comm, coming_from in resp:
+            ret.append((long_comm, coming_from,self.use([long_comm])))
         return ret

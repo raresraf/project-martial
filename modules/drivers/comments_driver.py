@@ -23,16 +23,19 @@ flags.DEFINE_string("extension", 'go',
                     help="The name of extension of files to join (e.g. 'go', 'cpp')")
 flags.DEFINE_bool("ultra_fast_detection", False,
                   help="If enabled, it will only to try to match files from the same path")
-flags.DEFINE_bool("enable_word2vec", True,
+flags.DEFINE_bool("enable_word2vec", False,
                   help="If enabled, run word2vec")
 flags.DEFINE_bool("enable_elmo", False,
                   help="If enabled, run ELMo")
+flags.DEFINE_bool("enable_use", False,
+                  help="If enabled, run USE")
 
 
 def main(_):
     print("Hello to the CommentsAnalysis driver!")
     comments.ENABLE_WORD2VEC = FLAGS.enable_word2vec
     comments.ENABLE_ELMO = FLAGS.enable_elmo
+    comments.ENABLE_USE = FLAGS.enable_use
 
     file_list1 = []
     for root, _, files in os.walk(FLAGS.source_files_dir1):

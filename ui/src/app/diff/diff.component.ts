@@ -140,10 +140,11 @@ int main() {
       get$?.subscribe(resp => {
         console.log(resp);
 
-        this.colorBasedOnResp(resp, "comment_elmo_lines_files", ["#EE82EE", "#DDA0DD", "#D8BFD8", "#800080"])
-        this.colorBasedOnResp(resp, "comment_spacy_core_web_lines_files", ["#FFFF00", "#F0E68C", "#EEE8AA", "#808000"])
-        this.colorBasedOnResp(resp, "comment_fuzzy_lines_files", ["#FF6600", "#FF8C00", "#FFD700", "#DAA520"])
-        this.colorBasedOnResp(resp, "comment_exact_lines_files", ["#FF0000", "#800000", "#A52A2A", "#B22222"])
+        this.colorBasedOnResp(resp, "comment_use_lines_files", ["#EE6611", "#EE6612", "#EE6613", "#EE6614"])
+        this.colorBasedOnResp(resp, "comment_elmo_lines_files", ["#EE82EE", "#EE83EE", "#EE84EE", "#EE85EE"])
+        this.colorBasedOnResp(resp, "comment_spacy_core_web_lines_files", ["#FFFF00", "#FFFF01", "#FFFF02", "#FFFF03"])
+        this.colorBasedOnResp(resp, "comment_fuzzy_lines_files", ["#FF6600", "#FF6601", "#FF6602", "#FF6603"])
+        this.colorBasedOnResp(resp, "comment_exact_lines_files", ["#FF0000", "#FF0101", "#FF0202", "#FF0303"])
       }
 
       );

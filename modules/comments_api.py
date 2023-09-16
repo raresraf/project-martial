@@ -79,6 +79,12 @@ def comments_common(ca: CommentsAnalysis, feed_method=feed_common_list_in_report
         feed_method(
             "comment_elmo_lines_files", report, ca.token, common_list_comment_elmo_lines_files, lines_in_1, lines_in_2)
 
+    if ca.enable_roberta:
+        common_list_comment_roberta_lines_files, lines_in_1, lines_in_2 = ca.analyze_2_files(
+            "RoBERTa match", ca.roberta_similarity, ca.comm_to_seq_roberta, True)
+        feed_method(
+            "comment_roberta_lines_files", report, ca.token, common_list_comment_roberta_lines_files, lines_in_1, lines_in_2)
+
     if ca.enable_use:
         common_list_comment_use_lines_files, lines_in_1, lines_in_2 = ca.analyze_2_files(
             "USE match", ca.use_similarity, ca.comm_to_seq_use, True)

@@ -27,6 +27,8 @@ flags.DEFINE_bool("enable_word2vec", False,
                   help="If enabled, run word2vec")
 flags.DEFINE_bool("enable_elmo", False,
                   help="If enabled, run ELMo")
+flags.DEFINE_bool("enable_roberta", False,
+                  help="If enabled, run RoBERTa")
 flags.DEFINE_bool("enable_use", False,
                   help="If enabled, run USE")
 
@@ -35,6 +37,7 @@ def main(_):
     print("Hello to the CommentsAnalysis driver!")
     comments.ENABLE_WORD2VEC = FLAGS.enable_word2vec
     comments.ENABLE_ELMO = FLAGS.enable_elmo
+    comments.ENABLE_ROBERTA = FLAGS.enable_roberta
     comments.ENABLE_USE = FLAGS.enable_use
 
     file_list1 = []

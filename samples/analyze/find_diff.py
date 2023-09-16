@@ -4,6 +4,7 @@ import os
 for type in ['comment_fuzzy_lines_files',
              'comment_spacy_core_web_lines_files',
              'comment_elmo_lines_files',
+             'comment_roberta_lines_files',
              'comment_use_lines_files']:
   print(f">>{type}")
   print(10 * "xxx")

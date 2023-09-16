@@ -15,10 +15,12 @@ from spacy.tokens import Doc
 import numpy as np
 import tensorflow as tf
 import tensorflow_hub as hub
+from sentence_transformers import SentenceTransformer, util
 
 enable_is_similar_log = False
 ENABLE_WORD2VEC = False
 ENABLE_ELMO = False
+ENABLE_ROBERTA = True
 ENABLE_USE = True
 
 class CommentsAnalysis():
@@ -36,6 +38,10 @@ class CommentsAnalysis():
             tf.compat.v1.reset_default_graph()
             self.elmo = ElmoModel()
             self.elmo.load("/Users/raresraf/code/project-martial/209")
+
+        self.enable_roberta = ENABLE_ROBERTA
+        if self.enable_roberta:
+            self.roberta = SentenceTransformer('stsb-roberta-large')
 
         self.enable_use = ENABLE_USE
         if self.enable_use:
@@ -193,9 +199,21 @@ class CommentsAnalysis():
                        long_comm_tensor_avged))
         return ret
 
+    def roberta_similarity(self, f1, f2):
+        similarity = util.pytorch_cos_sim(f1[2], f2[2]).item()
+        return similarity > 0.90, similarity
+
+    def comm_to_seq_roberta(self, file):
+        """Similar to comm_to_seq."""
+        resp = comments_helpers.comm_to_seq_default(file, 6)
+        ret = []
+        for long_comm, coming_from in resp:
+            ret.append((long_comm, coming_from,self.roberta.encode([long_comm], convert_to_tensor=True)))
+        return ret
+
     def use_similarity(self, f1, f2):
         similarity = cosine_similarity(f1[2], f2[2])
-        return similarity > 0.92, similarity
+        return similarity > 0.90, similarity
 
     def comm_to_seq_use(self, file):
         """Similar to comm_to_seq."""

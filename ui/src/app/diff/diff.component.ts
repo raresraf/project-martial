@@ -141,6 +141,7 @@ int main() {
         console.log(resp);
 
         this.colorBasedOnResp(resp, "comment_use_lines_files", ["#EE6611", "#EE6612", "#EE6613", "#EE6614"])
+        this.colorBasedOnResp(resp, "comment_roberta_lines_files", ["#EE22EE", "#EE23EE", "#EE24EE", "#EE25EE"])
         this.colorBasedOnResp(resp, "comment_elmo_lines_files", ["#EE82EE", "#EE83EE", "#EE84EE", "#EE85EE"])
         this.colorBasedOnResp(resp, "comment_spacy_core_web_lines_files", ["#FFFF00", "#FFFF01", "#FFFF02", "#FFFF03"])
         this.colorBasedOnResp(resp, "comment_fuzzy_lines_files", ["#FF6600", "#FF6601", "#FF6602", "#FF6603"])

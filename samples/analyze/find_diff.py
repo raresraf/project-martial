@@ -8,7 +8,7 @@ for type in ['comment_fuzzy_lines_files',
              'comment_use_lines_files']:
   print(f">>{type}")
   print(10 * "xxx")
-  for root, _, files in os.walk('/Users/raresraf/code/examples-project-martial/analyze/use-kubernetes-1.2.1-kubernetes-1.3.1'):
+  for root, _, files in os.walk('/Users/raresraf/code/examples-project-martial/analyze/elmo-kubernetes-1.2.1-kubernetes-1.3.1'):
       for file in files:
           if not file.endswith(".go"):
               continue

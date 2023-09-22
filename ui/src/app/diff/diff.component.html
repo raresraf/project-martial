@@ -109,7 +109,7 @@
                 Current value: {{thresholdWord2Vec}}
                 <br>
 
-                <mat-slider min="0.0" max="1.0" step="0.01" showTickMarks discrete="true">
+                <mat-slider min="0.0" max="1.0" step="0.01" showTickMarks discrete="true" [disabled]="!this.enableWord2Vec">
                     <input matSliderThumb (click)="updateFlags()" [(ngModel)]="thresholdWord2Vec">
                 </mat-slider>
 
@@ -120,7 +120,7 @@
                 Current value: {{thresholdElmo}}
                 <br>
 
-                <mat-slider min="0.0" max="1.0" step="0.01" showTickMarks discrete="true">
+                <mat-slider min="0.0" max="1.0" step="0.01" showTickMarks discrete="true" [disabled]="!this.enableElmo">
                     <input matSliderThumb (click)="updateFlags()" [(ngModel)]="thresholdElmo">
                 </mat-slider>
 
@@ -131,7 +131,7 @@
                 Current value: {{thresholdRoberta}}
                 <br>
 
-                <mat-slider min="0.0" max="1.0" step="0.01" showTickMarks discrete="true">
+                <mat-slider min="0.0" max="1.0" step="0.01" showTickMarks discrete="true" [disabled]="!this.enableRoberta">
                     <input matSliderThumb (click)="updateFlags()" [(ngModel)]="thresholdRoberta">
                 </mat-slider>
             </mat-grid-tile>
@@ -141,7 +141,7 @@
                 Current value: {{thresholdUse}}
                 <br>
 
-                <mat-slider min="0.0" max="1.0" step="0.01" showTickMarks discrete="true">
+                <mat-slider min="0.0" max="1.0" step="0.01" showTickMarks discrete="true" [disabled]="!this.enableUse">
                     <input matSliderThumb (click)="updateFlags()" [(ngModel)]="thresholdUse">
                 </mat-slider>
 

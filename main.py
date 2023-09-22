@@ -7,6 +7,8 @@ from flask_cors import CORS
 from threading import Lock
 
 import modules.comments_api as comments_api
+import modules.comments as comments
+
 
 FLAGS = flags.FLAGS
 
@@ -26,6 +28,40 @@ def api_root():
 @api.route("/api/comments", methods=['GET'])
 def comments():
     return comments_api.run(upload_dict)
+
+
+@api.route("/api/comments/flags", methods=['POST'])
+def set_comments_flags():
+    for k, v in request.json.items():
+        if not type(k) == str:
+            continue
+        if "enable_" in k.lower():
+            if "word2vec" in k.lower():
+                comments.ENABLE_WORD2VEC = v
+                print(f"ENABLE_WORD2VEC set to {comments.ENABLE_WORD2VEC}")
+            if "elmo" in k.lower():
+                comments.ENABLE_ELMO = v
+                print(f"ENABLE_ELMO set to {comments.ENABLE_ELMO}")
+            if "roberta" in k.lower():
+                comments.ENABLE_ROBERTA = v
+                print(f"ENABLE_ROBERTA set to {comments.ENABLE_ROBERTA}")
+            if "use" in k.lower():
+                comments.ENABLE_USE = v
+                print(f"ENABLE_USE set to {comments.ENABLE_USE}")
+        if "threshold_" in k.lower():
+            if "word2vec" in k.lower():
+                comments.THRESHOLD_WORD2VEC = v
+                print(f"THRESHOLD_WORD2VEC set to {comments.THRESHOLD_WORD2VEC}")
+            if "elmo" in k.lower():
+                comments.THRESHOLD_ELMO = v
+                print(f"THRESHOLD_ELMO set to {comments.THRESHOLD_ELMO}")
+            if "roberta" in k.lower():
+                comments.THRESHOLD_ROBERTA = v
+                print(f"THRESHOLD_ROBERTA set to {comments.THRESHOLD_ROBERTA}")
+            if "use" in k.lower():
+                comments.THRESHOLD_USE = v
+                print(f"THRESHOLD_USE set to {comments.THRESHOLD_USE}")
+    return {"status": "OK"}
 
 
 @api.route("/api/reserved/custom", methods=['GET'])

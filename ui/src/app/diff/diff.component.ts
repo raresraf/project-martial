@@ -1,7 +1,7 @@
 import { Component } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-
+import { ProgressBarMode } from '@angular/material/progress-bar';
 
 export interface Tile {
   color: string[];
@@ -13,7 +13,7 @@ export interface Tile {
 @Component({
   selector: 'app-diff',
   templateUrl: './diff.component.html',
-  styleUrls: ['./diff.component.css']
+  styleUrls: ['./diff.component.css'],
 })
 export class DiffComponent {
   cpp = [`#include <iostream>
@@ -88,7 +88,6 @@ int main() {
     }
   }
 
-
   onFileSelected0(event) {
     this.onFileSelected(event, 0)
   }
@@ -132,25 +131,25 @@ int main() {
     }
   }
 
+  progress_bar_mode: ProgressBarMode = "determinate"
+
   commentAnalysis() {
+    this.progress_bar_mode = "indeterminate"
     let fileUpload = this.uploadFilesToBacked()
     fileUpload?.subscribe(resp => {
       console.log(resp);
       let get$ = this.getComments()
       get$?.subscribe(resp => {
         console.log(resp);
-
         this.colorBasedOnResp(resp, "comment_use_lines_files", ["#EE6611", "#EE6612", "#EE6613", "#EE6614"])
         this.colorBasedOnResp(resp, "comment_roberta_lines_files", ["#EE22EE", "#EE23EE", "#EE24EE", "#EE25EE"])
         this.colorBasedOnResp(resp, "comment_elmo_lines_files", ["#EE82EE", "#EE83EE", "#EE84EE", "#EE85EE"])
         this.colorBasedOnResp(resp, "comment_spacy_core_web_lines_files", ["#FFFF00", "#FFFF01", "#FFFF02", "#FFFF03"])
         this.colorBasedOnResp(resp, "comment_fuzzy_lines_files", ["#FF6600", "#FF6601", "#FF6602", "#FF6603"])
         this.colorBasedOnResp(resp, "comment_exact_lines_files", ["#FF0000", "#FF0101", "#FF0202", "#FF0303"])
-      }
-
-      );
-    }
-    );
+        this.progress_bar_mode = "determinate"
+      });
+    });
   }
 
   uploadFilesToBacked(): Observable<Object> | undefined {
@@ -177,6 +176,39 @@ int main() {
   getComments(): Observable<Object> | undefined {
     const get$ = this.http.get("http://127.0.0.1:5000/api/comments")
     return get$
+  }
+
+
+  enableWord2Vec: boolean;
+  enableElmo: boolean;
+  enableRoberta: boolean;
+  enableUse: boolean = true;
+
+  thresholdWord2Vec: number = 0.97;
+  thresholdElmo: number = 0.99;
+  thresholdRoberta: number = 0.90;
+  thresholdUse: number = 0.90;
+
+  updateFlags() {
+    let flags = {
+      "enable_word2vec": this.enableWord2Vec,
+      "enable_elmo": this.enableElmo,
+      "enable_roberta": this.enableRoberta,
+      "enable_use": this.enableUse,
+      "threshold_word2vec": this.thresholdWord2Vec,
+      "threshold_elmo": this.thresholdElmo,
+      "threshold_roberta": this.thresholdRoberta,
+      "threshold_use": this.thresholdUse,
+    }
+    const upload = this.http.post("http://127.0.0.1:5000/api/comments/flags",
+      flags,
+    );
+
+    
+    upload?.subscribe(resp => {
+      console.log("updateFlags finished with flags ", flags)
+      console.log(resp);
+    })
   }
 }
 

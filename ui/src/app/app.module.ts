@@ -17,6 +17,8 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { FormsModule } from '@angular/forms';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations'; 
 import {HttpClientModule} from '@angular/common/http';
+import {MatCheckboxModule} from '@angular/material/checkbox';
+import {MatSliderModule} from '@angular/material/slider';
 
 
 
@@ -40,6 +42,8 @@ import {HttpClientModule} from '@angular/common/http';
     FormsModule,
     BrowserAnimationsModule,
     HttpClientModule,
+    MatCheckboxModule,
+    MatSliderModule,
   ],
   providers: [],
   bootstrap: [AppComponent]

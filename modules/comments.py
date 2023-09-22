@@ -18,10 +18,16 @@ import tensorflow_hub as hub
 from sentence_transformers import SentenceTransformer, util
 
 enable_is_similar_log = False
+
 ENABLE_WORD2VEC = False
 ENABLE_ELMO = False
-ENABLE_ROBERTA = True
+ENABLE_ROBERTA = False
 ENABLE_USE = True
+
+THRESHOLD_WORD2VEC = 0.97
+THRESHOLD_ELMO = 0.99
+THRESHOLD_ROBERTA = 0.90
+THRESHOLD_USE = 0.90
 
 class CommentsAnalysis():
     def __init__(self):
@@ -177,7 +183,7 @@ class CommentsAnalysis():
 
     def spacy_similarity(self, f1, f2):
         similarity = f1.similarity(f2)
-        return similarity > 0.97, similarity
+        return similarity > THRESHOLD_WORD2VEC, similarity
 
     def comm_to_seq_doc(self, file) -> list[tuple[Doc, int]]:
         """Similar to comm_to_seq but returns the Doc(commentary) instead of commentary: string."""
@@ -186,7 +192,7 @@ class CommentsAnalysis():
 
     def elmo_similarity(self, f1, f2):
         similarity = cosine_similarity(f1[2], f2[2])
-        return similarity > 0.99, similarity
+        return similarity > THRESHOLD_ELMO, similarity
 
     def comm_to_seq_elmo(self, file):
         """Similar to comm_to_seq but returns the Doc(commentary) instead of commentary: string."""
@@ -201,7 +207,7 @@ class CommentsAnalysis():
 
     def roberta_similarity(self, f1, f2):
         similarity = util.pytorch_cos_sim(f1[2], f2[2]).item()
-        return similarity > 0.90, similarity
+        return similarity > THRESHOLD_ROBERTA, similarity
 
     def comm_to_seq_roberta(self, file):
         """Similar to comm_to_seq."""
@@ -213,7 +219,7 @@ class CommentsAnalysis():
 
     def use_similarity(self, f1, f2):
         similarity = cosine_similarity(f1[2], f2[2])
-        return similarity > 0.90, similarity
+        return similarity > THRESHOLD_USE, similarity
 
     def comm_to_seq_use(self, file):
         """Similar to comm_to_seq."""

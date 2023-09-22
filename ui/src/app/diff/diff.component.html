@@ -73,7 +73,8 @@
     <div class="card-container" (click)="commentAnalysis()">
         <a class="card" target="_blank">
             <svg class="material-icons" xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
-                <path d="M12 28h24v-3H12Zm0-6.5h24v-3H12Zm0-6.5h24v-3H12Zm32 29-8-8H7q-1.15 0-2.075-.925Q4 34.15 4 33V7q0-1.15.925-2.075Q5.85 4 7 4h34q1.2 0 2.1.925Q44 5.85 44 7ZM7 7v26h30.25L41 36.75V7H7Zm0 0v29.75V7Z" />
+                <path
+                    d="M12 28h24v-3H12Zm0-6.5h24v-3H12Zm0-6.5h24v-3H12Zm32 29-8-8H7q-1.15 0-2.075-.925Q4 34.15 4 33V7q0-1.15.925-2.075Q5.85 4 7 4h34q1.2 0 2.1.925Q44 5.85 44 7ZM7 7v26h30.25L41 36.75V7H7Zm0 0v29.75V7Z" />
             </svg>
             <span>Comments</span>
             <svg class="material-icons" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
@@ -81,8 +82,75 @@
             </svg>
         </a>
     </div>
+
+    <section class="">
+        <mat-grid-list cols="4" rows="2" rowHeight="4:1">
+            <mat-grid-tile>
+                <mat-checkbox (click)="updateFlags()" [(ngModel)]="enableWord2Vec">
+                    Enable the Word2Vec model!
+                </mat-checkbox>
+            </mat-grid-tile>
+            <mat-grid-tile> <mat-checkbox (click)="updateFlags()" [(ngModel)]="enableElmo">
+                    Enable the ELMo model!
+                </mat-checkbox>
+            </mat-grid-tile>
+            <mat-grid-tile>
+                <mat-checkbox (click)="updateFlags()" [(ngModel)]="enableRoberta">
+                    Enable the RoBERTa model!
+                </mat-checkbox>
+            </mat-grid-tile>
+            <mat-grid-tile> <mat-checkbox (click)="updateFlags()" [(ngModel)]="enableUse">
+                    Enable the USE model!
+                </mat-checkbox>
+            </mat-grid-tile>
+            <mat-grid-tile>
+                Word2Vec threshold for detection
+                <br>
+                Current value: {{thresholdWord2Vec}}
+                <br>
+
+                <mat-slider min="0.0" max="1.0" step="0.01" showTickMarks discrete="true">
+                    <input matSliderThumb (click)="updateFlags()" [(ngModel)]="thresholdWord2Vec">
+                </mat-slider>
+
+            </mat-grid-tile>
+            <mat-grid-tile>
+                Elmo threshold for detection
+                <br>
+                Current value: {{thresholdElmo}}
+                <br>
+
+                <mat-slider min="0.0" max="1.0" step="0.01" showTickMarks discrete="true">
+                    <input matSliderThumb (click)="updateFlags()" [(ngModel)]="thresholdElmo">
+                </mat-slider>
+
+            </mat-grid-tile>
+            <mat-grid-tile>
+                RoBERTA threshold for detection
+                <br>
+                Current value: {{thresholdRoberta}}
+                <br>
+
+                <mat-slider min="0.0" max="1.0" step="0.01" showTickMarks discrete="true">
+                    <input matSliderThumb (click)="updateFlags()" [(ngModel)]="thresholdRoberta">
+                </mat-slider>
+            </mat-grid-tile>
+            <mat-grid-tile>
+                USE threshold for detection
+                <br>
+                Current value: {{thresholdUse}}
+                <br>
+
+                <mat-slider min="0.0" max="1.0" step="0.01" showTickMarks discrete="true">
+                    <input matSliderThumb (click)="updateFlags()" [(ngModel)]="thresholdUse">
+                </mat-slider>
+
+            </mat-grid-tile>
+        </mat-grid-list>
+    </section>
 </div>
 
+<mat-progress-bar [mode]="this.progress_bar_mode"></mat-progress-bar>
 
 <mat-grid-list cols="2" rowHeight="100px">
     <mat-grid-tile [colspan]="file_upload_tiles[0].cols" [rowspan]="file_upload_tiles[0].rows"
@@ -147,9 +215,3 @@
         </mat-grid-list>
     </div>
 </div>
-
-
-
-
-
-

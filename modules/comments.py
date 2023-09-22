@@ -9,6 +9,7 @@ import tempfile
 import en_core_web_lg
 from modules.comments_helpers import strip_comment_line_and_append_line_number
 import modules.comments_helpers as comments_helpers
+import modules.comments_config as comments_config
 from sklearn.metrics.pairwise import cosine_similarity
 from simple_elmo import ElmoModel
 from spacy.tokens import Doc
@@ -19,15 +20,6 @@ from sentence_transformers import SentenceTransformer, util
 
 enable_is_similar_log = False
 
-ENABLE_WORD2VEC = False
-ENABLE_ELMO = False
-ENABLE_ROBERTA = False
-ENABLE_USE = True
-
-THRESHOLD_WORD2VEC = 0.97
-THRESHOLD_ELMO = 0.99
-THRESHOLD_ROBERTA = 0.90
-THRESHOLD_USE = 0.90
 
 class CommentsAnalysis():
     def __init__(self):
@@ -35,23 +27,23 @@ class CommentsAnalysis():
         self.fileDict = {}
         self.token = 'n/a'
 
-        self.enable_word2vec = ENABLE_WORD2VEC
+        self.enable_word2vec = comments_config.config.enable_word2vec()
         if self.enable_word2vec:
             self.spacy_core_web = en_core_web_lg.load()
 
-        self.enable_elmo = ENABLE_ELMO
+        self.enable_elmo = comments_config.config.enable_elmo()
         if self.enable_elmo:
             tf.compat.v1.reset_default_graph()
             self.elmo = ElmoModel()
             self.elmo.load("/Users/raresraf/code/project-martial/209")
 
-        self.enable_roberta = ENABLE_ROBERTA
+        self.enable_roberta = comments_config.config.enable_roberta()
         if self.enable_roberta:
             self.roberta = SentenceTransformer('stsb-roberta-large')
 
-        self.enable_use = ENABLE_USE
+        self.enable_use = comments_config.config.enable_use()
         if self.enable_use:
-            module_url = "https://tfhub.dev/google/universal-sentence-encoder/4" 
+            module_url = "https://tfhub.dev/google/universal-sentence-encoder/4"
             self.use = hub.load(module_url)
 
     def link_to_token(self, token):
@@ -110,7 +102,8 @@ class CommentsAnalysis():
                 is_similar, similarity = similarity_method(cmp1, cmp2)
                 if is_similar:
                     if enable_is_similar_log:
-                        print(f'{display_name} detected similarity: {similarity}, {f1}, {f2}')
+                        print(
+                            f'{display_name} detected similarity: {similarity}, {f1}, {f2}')
                     if not self.is_superset_comment(f1[1], f2[1], lines_in_1, lines_in_2):
                         # De-duplicate supersets.
                         common_list, lines_in_1, lines_in_2 = self.dedupe_supersets(
@@ -183,7 +176,7 @@ class CommentsAnalysis():
 
     def spacy_similarity(self, f1, f2):
         similarity = f1.similarity(f2)
-        return similarity > THRESHOLD_WORD2VEC, similarity
+        return similarity > comments_config.config.threshold_word2vec(), similarity
 
     def comm_to_seq_doc(self, file) -> list[tuple[Doc, int]]:
         """Similar to comm_to_seq but returns the Doc(commentary) instead of commentary: string."""
@@ -192,7 +185,7 @@ class CommentsAnalysis():
 
     def elmo_similarity(self, f1, f2):
         similarity = cosine_similarity(f1[2], f2[2])
-        return similarity > THRESHOLD_ELMO, similarity
+        return similarity > comments_config.config.threshold_elmo(), similarity
 
     def comm_to_seq_elmo(self, file):
         """Similar to comm_to_seq but returns the Doc(commentary) instead of commentary: string."""
@@ -207,24 +200,25 @@ class CommentsAnalysis():
 
     def roberta_similarity(self, f1, f2):
         similarity = util.pytorch_cos_sim(f1[2], f2[2]).item()
-        return similarity > THRESHOLD_ROBERTA, similarity
+        return similarity > comments_config.config.threshold_roberta(), similarity
 
     def comm_to_seq_roberta(self, file):
         """Similar to comm_to_seq."""
         resp = comments_helpers.comm_to_seq_default(file, 6)
         ret = []
         for long_comm, coming_from in resp:
-            ret.append((long_comm, coming_from,self.roberta.encode([long_comm], convert_to_tensor=True)))
+            ret.append((long_comm, coming_from, self.roberta.encode(
+                [long_comm], convert_to_tensor=True)))
         return ret
 
     def use_similarity(self, f1, f2):
         similarity = cosine_similarity(f1[2], f2[2])
-        return similarity > THRESHOLD_USE, similarity
+        return similarity > comments_config.config.threshold_use(), similarity
 
     def comm_to_seq_use(self, file):
         """Similar to comm_to_seq."""
         resp = comments_helpers.comm_to_seq_default(file, 6)
         ret = []
         for long_comm, coming_from in resp:
-            ret.append((long_comm, coming_from,self.use([long_comm])))
+            ret.append((long_comm, coming_from, self.use([long_comm])))
         return ret

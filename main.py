@@ -6,6 +6,7 @@ from flask import Flask, request
 from flask_cors import CORS
 from threading import Lock
 
+import modules.comments_config as comments_config
 import modules.comments_api as comments_api
 import modules.comments as comments
 
@@ -37,30 +38,30 @@ def set_comments_flags():
             continue
         if "enable_" in k.lower():
             if "word2vec" in k.lower():
-                comments.ENABLE_WORD2VEC = v
-                print(f"ENABLE_WORD2VEC set to {comments.ENABLE_WORD2VEC}")
+                comments_config.config.set_enable_word2vec(v)
+                print(f"ENABLE_WORD2VEC set to {comments_config.config.enable_word2vec()}")
             if "elmo" in k.lower():
-                comments.ENABLE_ELMO = v
-                print(f"ENABLE_ELMO set to {comments.ENABLE_ELMO}")
+                comments_config.config.set_enable_elmo(v)
+                print(f"ENABLE_ELMO set to {comments_config.config.enable_elmo()}")
             if "roberta" in k.lower():
-                comments.ENABLE_ROBERTA = v
-                print(f"ENABLE_ROBERTA set to {comments.ENABLE_ROBERTA}")
+                comments_config.config.set_enable_roberta(v)
+                print(f"ENABLE_ROBERTA set to {comments_config.config.enable_roberta()}")
             if "use" in k.lower():
-                comments.ENABLE_USE = v
-                print(f"ENABLE_USE set to {comments.ENABLE_USE}")
+                comments_config.config.set_enable_use(v)
+                print(f"ENABLE_USE set to {comments_config.config.enable_use()}")
         if "threshold_" in k.lower():
             if "word2vec" in k.lower():
-                comments.THRESHOLD_WORD2VEC = v
-                print(f"THRESHOLD_WORD2VEC set to {comments.THRESHOLD_WORD2VEC}")
+                comments_config.config.set_threshold_word2vec(v)
+                print(f"THRESHOLD_WORD2VEC set to {comments_config.config.threshold_word2vec()}")
             if "elmo" in k.lower():
-                comments.THRESHOLD_ELMO = v
-                print(f"THRESHOLD_ELMO set to {comments.THRESHOLD_ELMO}")
+                comments_config.config.set_threshold_elmo(v)
+                print(f"THRESHOLD_ELMO set to {comments_config.config.threshold_elmo()}")
             if "roberta" in k.lower():
-                comments.THRESHOLD_ROBERTA = v
-                print(f"THRESHOLD_ROBERTA set to {comments.THRESHOLD_ROBERTA}")
+                comments_config.config.set_threshold_roberta(v)
+                print(f"THRESHOLD_ROBERTA set to {comments_config.config.threshold_roberta()}")
             if "use" in k.lower():
-                comments.THRESHOLD_USE = v
-                print(f"THRESHOLD_USE set to {comments.THRESHOLD_USE}")
+                comments_config.config.set_threshold_use(v)
+                print(f"THRESHOLD_USE set to {comments_config.config.threshold_use()}")
     return {"status": "OK"}
 
 

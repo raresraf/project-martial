@@ -3,6 +3,7 @@
 from absl import app
 from absl import flags
 
+import modules.comments_config as comments_config
 import modules.comments_api as comments_api
 import modules.comments as comments
 import json
@@ -36,10 +37,11 @@ flags.DEFINE_bool("enable_use", False,
 
 def main(_):
     print("Hello to the CommentsAnalysis driver!")
-    comments.ENABLE_WORD2VEC = FLAGS.enable_word2vec
-    comments.ENABLE_ELMO = FLAGS.enable_elmo
-    comments.ENABLE_ROBERTA = FLAGS.enable_roberta
-    comments.ENABLE_USE = FLAGS.enable_use
+    
+    comments_config.config.set_enable_word2vec(FLAGS.enable_word2vec)
+    comments_config.config.set_enable_elmo(FLAGS.enable_elmo)
+    comments_config.config.set_enable_roberta(FLAGS.enable_roberta)
+    comments_config.config.set_enable_use(FLAGS.enable_use)
 
     file_list1 = []
     for root, _, files in os.walk(FLAGS.source_files_dir1):

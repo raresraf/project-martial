@@ -183,7 +183,8 @@ export class DiffComponent {
       let get$ = this.runRComplexity()
       get$?.subscribe(resp => {
         console.log(resp);
-        this.colorBasedOnResp(resp, "critical", ["#FF0000", "#FF0101", "#FF0202", "#FF0303"])
+        this.colorBasedOnResp(resp, "critical", ["#EE82EE", "#EE83EE", "#EE84EE", "#EE85EE"])
+        this.colorBasedOnResp(resp, "complexity", ["#FF0000", "#FF0101", "#FF0202", "#FF0303"])
         this.progress_bar_mode = "determinate"
       });
     });

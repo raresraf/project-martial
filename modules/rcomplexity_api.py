@@ -9,6 +9,9 @@ def run(upload_dict):
     
     lines_in_1, lines_in_2 = rca.find_critical_matches()
     resp.update(feed_matches("critical", lines_in_1, lines_in_2))
+
+    lines_in_1, lines_in_2 = rca.find_complexity_similarity()
+    resp.update(feed_matches("complexity", lines_in_1, lines_in_2))
     return resp
 
 def feed_matches(class_of_issue, lines_in_1, lines_in_2):

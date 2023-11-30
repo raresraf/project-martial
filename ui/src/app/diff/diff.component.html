@@ -68,10 +68,10 @@
 </style>
 
 <div class="content" role="main">
-    <h2 align="center">Run an analysis:</h2>
+    <h2 align="center">Choose an analysis technique:</h2>
 
-    <div class="card-container" (click)="commentAnalysis()">
-        <a class="card" target="_blank">
+    <div class="card-container">
+        <a class="card" target="_blank" (click)="CommentsEntry()">
             <svg class="material-icons" xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
                 <path
                     d="M12 28h24v-3H12Zm0-6.5h24v-3H12Zm0-6.5h24v-3H12Zm32 29-8-8H7q-1.15 0-2.075-.925Q4 34.15 4 33V7q0-1.15.925-2.075Q5.85 4 7 4h34q1.2 0 2.1.925Q44 5.85 44 7ZM7 7v26h30.25L41 36.75V7H7Zm0 0v29.75V7Z" />
@@ -81,137 +81,170 @@
                 <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />
             </svg>
         </a>
+        <a class="card" target="_blank" (click)="RComplexityEntry()">
+            <svg xmlns="http://www.w3.org/2000/svg" height="48" width="48" viewBox="0 -960 960 960">
+                <path d="m140-220-60-60 300-300 160 160 284-320 56 56-340 384-160-160-240 240Z" />
+            </svg>
+            <span>Complexity-Based Code Birthmarks</span>
+            <svg class="material-icons" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+                <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />
+            </svg>
+        </a>
     </div>
 
-    <section class="">
-        <mat-grid-list cols="4" rows="2" rowHeight="4:1">
-            <mat-grid-tile>
-                <mat-checkbox (click)="updateFlags()" [(ngModel)]="enableWord2Vec">
-                    Enable the Word2Vec model!
-                </mat-checkbox>
-            </mat-grid-tile>
-            <mat-grid-tile> <mat-checkbox (click)="updateFlags()" [(ngModel)]="enableElmo">
-                    Enable the ELMo model!
-                </mat-checkbox>
-            </mat-grid-tile>
-            <mat-grid-tile>
-                <mat-checkbox (click)="updateFlags()" [(ngModel)]="enableRoberta">
-                    Enable the RoBERTa model!
-                </mat-checkbox>
-            </mat-grid-tile>
-            <mat-grid-tile> <mat-checkbox (click)="updateFlags()" [(ngModel)]="enableUse">
-                    Enable the USE model!
-                </mat-checkbox>
-            </mat-grid-tile>
-            <mat-grid-tile>
-                Word2Vec threshold for detection
-                <br>
-                Current value: {{thresholdWord2Vec}}
-                <br>
 
-                <mat-slider min="0.0" max="1.0" step="0.01" showTickMarks discrete="true" [disabled]="!this.enableWord2Vec">
-                    <input matSliderThumb (click)="updateFlags()" [(ngModel)]="thresholdWord2Vec">
-                </mat-slider>
+    <h2 align="center">Start the analysis:</h2>
 
-            </mat-grid-tile>
-            <mat-grid-tile>
-                Elmo threshold for detection
-                <br>
-                Current value: {{thresholdElmo}}
-                <br>
+    <div class="card-container">
+        <a class="card" target="_blank" (click)="startAnalysis()">
+            <svg xmlns="http://www.w3.org/2000/svg" height="48" width="48" viewBox="0 -960 960 960">
+                <path
+                    d="m226-559 78 33q14-28 29-54t33-52l-56-11-84 84Zm142 83 114 113q42-16 90-49t90-75q70-70 109.5-155.5T806-800q-72-5-158 34.5T492-656q-42 42-75 90t-49 90Zm178-65q-23-23-23-56.5t23-56.5q23-23 57-23t57 23q23 23 23 56.5T660-541q-23 23-57 23t-57-23Zm19 321 84-84-11-56q-26 18-52 32.5T532-299l33 79Zm313-653q19 121-23.5 235.5T708-419l20 99q4 20-2 39t-20 33L538-80l-84-197-171-171-197-84 167-168q14-14 33.5-20t39.5-2l99 20q104-104 218-147t235-24ZM157-321q35-35 85.5-35.5T328-322q35 35 34.5 85.5T327-151q-25 25-83.5 43T82-76q14-103 32-161.5t43-83.5Zm57 56q-10 10-20 36.5T180-175q27-4 53.5-13.5T270-208q12-12 13-29t-11-29q-12-12-29-11.5T214-265Z" />
+            </svg>
+            <span>Start</span>
+            <svg class="material-icons" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+                <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />
+            </svg>
+        </a>
+    </div>
 
-                <mat-slider min="0.0" max="1.0" step="0.01" showTickMarks discrete="true" [disabled]="!this.enableElmo">
-                    <input matSliderThumb (click)="updateFlags()" [(ngModel)]="thresholdElmo">
-                </mat-slider>
+    <div *ngIf="EnableComments()">
+        <section class="">
+            <mat-grid-list cols="4" rows="2" rowHeight="4:1">
+                <mat-grid-tile>
+                    <mat-checkbox (click)="updateFlags()" [(ngModel)]="enableWord2Vec">
+                        Enable the Word2Vec model!
+                    </mat-checkbox>
+                </mat-grid-tile>
+                <mat-grid-tile> <mat-checkbox (click)="updateFlags()" [(ngModel)]="enableElmo">
+                        Enable the ELMo model!
+                    </mat-checkbox>
+                </mat-grid-tile>
+                <mat-grid-tile>
+                    <mat-checkbox (click)="updateFlags()" [(ngModel)]="enableRoberta">
+                        Enable the RoBERTa model!
+                    </mat-checkbox>
+                </mat-grid-tile>
+                <mat-grid-tile> <mat-checkbox (click)="updateFlags()" [(ngModel)]="enableUse">
+                        Enable the USE model!
+                    </mat-checkbox>
+                </mat-grid-tile>
+                <mat-grid-tile>
+                    Word2Vec threshold for detection
+                    <br>
+                    Current value: {{thresholdWord2Vec}}
+                    <br>
 
-            </mat-grid-tile>
-            <mat-grid-tile>
-                RoBERTA threshold for detection
-                <br>
-                Current value: {{thresholdRoberta}}
-                <br>
+                    <mat-slider min="0.0" max="1.0" step="0.01" showTickMarks discrete="true"
+                        [disabled]="!this.enableWord2Vec">
+                        <input matSliderThumb (click)="updateFlags()" [(ngModel)]="thresholdWord2Vec">
+                    </mat-slider>
 
-                <mat-slider min="0.0" max="1.0" step="0.01" showTickMarks discrete="true" [disabled]="!this.enableRoberta">
-                    <input matSliderThumb (click)="updateFlags()" [(ngModel)]="thresholdRoberta">
-                </mat-slider>
-            </mat-grid-tile>
-            <mat-grid-tile>
-                USE threshold for detection
-                <br>
-                Current value: {{thresholdUse}}
-                <br>
+                </mat-grid-tile>
+                <mat-grid-tile>
+                    Elmo threshold for detection
+                    <br>
+                    Current value: {{thresholdElmo}}
+                    <br>
 
-                <mat-slider min="0.0" max="1.0" step="0.01" showTickMarks discrete="true" [disabled]="!this.enableUse">
-                    <input matSliderThumb (click)="updateFlags()" [(ngModel)]="thresholdUse">
-                </mat-slider>
+                    <mat-slider min="0.0" max="1.0" step="0.01" showTickMarks discrete="true"
+                        [disabled]="!this.enableElmo">
+                        <input matSliderThumb (click)="updateFlags()" [(ngModel)]="thresholdElmo">
+                    </mat-slider>
 
-            </mat-grid-tile>
-        </mat-grid-list>
-    </section>
+                </mat-grid-tile>
+                <mat-grid-tile>
+                    RoBERTA threshold for detection
+                    <br>
+                    Current value: {{thresholdRoberta}}
+                    <br>
+
+                    <mat-slider min="0.0" max="1.0" step="0.01" showTickMarks discrete="true"
+                        [disabled]="!this.enableRoberta">
+                        <input matSliderThumb (click)="updateFlags()" [(ngModel)]="thresholdRoberta">
+                    </mat-slider>
+                </mat-grid-tile>
+                <mat-grid-tile>
+                    USE threshold for detection
+                    <br>
+                    Current value: {{thresholdUse}}
+                    <br>
+
+                    <mat-slider min="0.0" max="1.0" step="0.01" showTickMarks discrete="true"
+                        [disabled]="!this.enableUse">
+                        <input matSliderThumb (click)="updateFlags()" [(ngModel)]="thresholdUse">
+                    </mat-slider>
+
+                </mat-grid-tile>
+            </mat-grid-list>
+        </section>
+    </div>
 </div>
 
 <mat-progress-bar [mode]="this.progress_bar_mode"></mat-progress-bar>
 
-<mat-grid-list cols="2" rowHeight="100px">
-    <mat-grid-tile [colspan]="file_upload_tiles[0].cols" [rowspan]="file_upload_tiles[0].rows"
-        [style.background]="file_upload_tiles[0].color[0]">
-        <mat-card-content>
-            <input type="file" class="file-input" (change)="onFileSelected0($event)" #fileUploadZero>
-            {{fileName[0] || "No file uploaded yet. Showing a demo snippet..."}}
-            <button mat-raised-button color="primary" (click)="fileUploadZero.click()">
-                Attach file
-            </button>
-        </mat-card-content>
-    </mat-grid-tile>
-    <mat-grid-tile [colspan]="file_upload_tiles[1].cols" [rowspan]="file_upload_tiles[1].rows"
-        [style.background]="file_upload_tiles[1].color[0]">
-        <mat-card-content>
-            <input type="file" class="file-input" (change)="onFileSelected1($event)" #fileUploadOne>
-            {{fileName[1] || "No file uploaded yet. Showing a demo snippet..."}}
-            <button mat-raised-button color="primary" (click)="fileUploadOne.click()">
-                Attach file
-            </button>
-        </mat-card-content>
-    </mat-grid-tile>
-</mat-grid-list>
+<div *ngIf="SomethingEnabled()">
+    <mat-grid-list cols="2" rowHeight="100px">
+        <mat-grid-tile [colspan]="file_upload_tiles[0].cols" [rowspan]="file_upload_tiles[0].rows"
+            [style.background]="file_upload_tiles[0].color[0]">
+            <mat-card-content>
+                <input type="file" class="file-input" (change)="onFileSelected0($event)" #fileUploadZero>
+                {{fileName[0] || "No file uploaded yet. Showing a demo snippet..."}}
+                <button mat-raised-button color="primary" (click)="fileUploadZero.click()">
+                    Attach file
+                </button>
+            </mat-card-content>
+        </mat-grid-tile>
+        <mat-grid-tile [colspan]="file_upload_tiles[1].cols" [rowspan]="file_upload_tiles[1].rows"
+            [style.background]="file_upload_tiles[1].color[0]">
+            <mat-card-content>
+                <input type="file" class="file-input" (change)="onFileSelected1($event)" #fileUploadOne>
+                {{fileName[1] || "No file uploaded yet. Showing a demo snippet..."}}
+                <button mat-raised-button color="primary" (click)="fileUploadOne.click()">
+                    Attach file
+                </button>
+            </mat-card-content>
+        </mat-grid-tile>
+    </mat-grid-list>
 
 
-<div *ngIf="tiles[0].text != undefined">
-    <div *ngIf="tiles[1].text != undefined">
-        <mat-grid-list *ngFor="let item of createRange(MaxRowsToRender()); let render_index=index" cols="30"
-            rowHeight="25px">
-            <mat-grid-tile [colspan]="1" [rowspan]="1" [style.background]="tiles[0].color[render_index]">
-                <mat-card-content>
-                    <div class="text-inside-grid">
-                        {{render_index + 1}}
-                    </div>
-                </mat-card-content>
-            </mat-grid-tile>
+    <div *ngIf="tiles[0].text != undefined">
+        <div *ngIf="tiles[1].text != undefined">
+            <mat-grid-list *ngFor="let item of createRange(MaxRowsToRender()); let render_index=index" cols="30"
+                rowHeight="25px">
+                <mat-grid-tile [colspan]="1" [rowspan]="1" [style.background]="tiles[0].color[render_index]">
+                    <mat-card-content>
+                        <div class="text-inside-grid">
+                            {{render_index + 1}}
+                        </div>
+                    </mat-card-content>
+                </mat-grid-tile>
 
-            <mat-grid-tile [colspan]="14" [rowspan]="1" [style.background]="tiles[0].color[render_index]">
-                <mat-card-content>
-                    <div class="text-inside-grid">
-                        {{tiles[0].text[render_index]}}
-                    </div>
-                </mat-card-content>
-            </mat-grid-tile>
+                <mat-grid-tile [colspan]="14" [rowspan]="1" [style.background]="tiles[0].color[render_index]">
+                    <mat-card-content>
+                        <div class="text-inside-grid">
+                            {{tiles[0].text[render_index]}}
+                        </div>
+                    </mat-card-content>
+                </mat-grid-tile>
 
 
-            <mat-grid-tile [colspan]="1" [rowspan]="1" [style.background]="tiles[1].color[render_index]">
-                <mat-card-content>
-                    <div class="text-inside-grid">
-                        {{render_index + 1}}
-                    </div>
-                </mat-card-content>
-            </mat-grid-tile>
+                <mat-grid-tile [colspan]="1" [rowspan]="1" [style.background]="tiles[1].color[render_index]">
+                    <mat-card-content>
+                        <div class="text-inside-grid">
+                            {{render_index + 1}}
+                        </div>
+                    </mat-card-content>
+                </mat-grid-tile>
 
-            <mat-grid-tile [colspan]="14" [rowspan]="1" [style.background]="tiles[1].color[render_index]">
-                <mat-card-content>
-                    <div class="text-inside-grid">
-                        {{tiles[1].text[render_index]}}
-                    </div>
-                </mat-card-content>
-            </mat-grid-tile>
-        </mat-grid-list>
+                <mat-grid-tile [colspan]="14" [rowspan]="1" [style.background]="tiles[1].color[render_index]">
+                    <mat-card-content>
+                        <div class="text-inside-grid">
+                            {{tiles[1].text[render_index]}}
+                        </div>
+                    </mat-card-content>
+                </mat-grid-tile>
+            </mat-grid-list>
+        </div>
     </div>
 </div>

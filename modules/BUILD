@@ -28,7 +28,34 @@ py_library(
 
 py_library(
   name = "comments_api",
-  deps = [":comments", ":comments_config"],
+  deps = [
+    ":comments", 
+    ":comments_config",
+    ":utils",
+  ],
   visibility = ["//visibility:public"],
   srcs = ["comments_api.py"],
+)
+
+
+py_library(
+  name = "rcomplexity",
+  deps = [],
+  visibility = ["//visibility:public"],
+  srcs = ["rcomplexity.py"],
+)
+
+
+py_library(
+  name = "rcomplexity_api",
+  deps = [":rcomplexity"],
+  visibility = ["//visibility:public"],
+  srcs = ["rcomplexity_api.py"],
+)
+
+py_library(
+  name = "utils",
+  deps = [],
+  visibility = ["//visibility:public"],
+  srcs = ["utils.py"],
 )

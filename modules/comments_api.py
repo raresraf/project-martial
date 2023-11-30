@@ -1,6 +1,6 @@
-import secrets
 
 from modules.comments import CommentsAnalysis
+import modules.utils as utils
 import modules.comments as comments
 import modules.comments_helpers as comments_helpers
 
@@ -12,7 +12,7 @@ def run(upload_dict):
 
 def common_run(upload_dict) -> CommentsAnalysis:
     ca = CommentsAnalysis()
-    ca.link_to_token(generate_token())
+    ca.link_to_token(utils.generate_token())
 
     if upload_dict.get("file1", None):
         ca.load_text("file1", upload_dict["file1"])
@@ -137,8 +137,3 @@ def remove_comments_superset_that_were_not_deduped_before(report: dict) -> dict:
 
     return report_without_overlap
 
-
-def generate_token():
-    token = secrets.token_hex(7)
-    print(f"Received custom request with token {token}")
-    return token

@@ -8,7 +8,7 @@ from threading import Lock
 
 import modules.comments_config as comments_config
 import modules.comments_api as comments_api
-import modules.comments as comments
+import modules.rcomplexity_api as rcomplexity_api
 
 
 FLAGS = flags.FLAGS
@@ -29,6 +29,11 @@ def api_root():
 @api.route("/api/comments", methods=['GET'])
 def comments():
     return comments_api.run(upload_dict)
+
+
+@api.route("/api/rcomplexity", methods=['GET'])
+def rcomplexity():
+    return rcomplexity_api.run(upload_dict)
 
 
 @api.route("/api/comments/flags", methods=['POST'])

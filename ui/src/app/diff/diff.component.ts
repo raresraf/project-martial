@@ -188,7 +188,7 @@ export class DiffComponent {
       });
     });
   }
-  
+
   runRComplexity(): Observable<Object> | undefined {
     const get$ = this.http.get("http://127.0.0.1:5000/api/rcomplexity")
     return get$
@@ -245,7 +245,7 @@ export class DiffComponent {
   mockInputFilesComments() {
     if (this.chosenAnalysis == "comments") {
       return
-    } 
+    }
     this.inputFiles = [`#include <iostream>
 
 using namespace std;
@@ -289,7 +289,7 @@ int main() {
   mockInputFilesRComplexity() {
     if (this.chosenAnalysis == "rComplexity") {
       return
-    } 
+    }
     this.inputFiles = [`
 {
   "metrics": {

@@ -184,7 +184,7 @@ export class DiffComponent {
       get$?.subscribe(resp => {
         console.log(resp);
         this.colorBasedOnResp(resp, "critical", ["#EE82EE", "#EE83EE", "#EE84EE", "#EE85EE"])
-        this.colorBasedOnResp(resp, "complexity", ["#FF0000", "#FF0101", "#FF0202", "#FF0303"])
+        this.colorBasedOnResp(resp, "complexity", ["#FF0000", "#EF0000", "#DF0000", "#CF0000"])
         this.progress_bar_mode = "determinate"
       });
     });

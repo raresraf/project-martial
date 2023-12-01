@@ -81,7 +81,7 @@ class RComplexityAnalysis():
              
             similarity += X_c[0] * a1 + X_c[1] * a2 + X_c[2] * a3 + X_c[3] * a4
         similarity = similarity / total_X
-        print("similarity is: ", similarity) 
+        # print("similarity is: ", similarity) 
         return lines_in_1, lines_in_2, similarity
         
     def find_line_in_file(self, characteristic, feature, filename):

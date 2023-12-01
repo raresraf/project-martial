@@ -3,6 +3,7 @@ import json
 from absl import app
 from absl import flags
 import modules.rcomplexity as rcomplexity
+import fcntl
 
 dataset = {}
 outcome = {}
@@ -177,8 +178,6 @@ def main(_):
     
     root_directory_path = '/Users/raresraf/code/TheOutputsCodeforces/splitted/train/atomic_perf/'
     read_all_json_files_recursive(root_directory_path)
-    for k in dataset.keys():
-        print(k, len(dataset[k]))
 
     rca = rcomplexity.RComplexityAnalysis()
     rca.disable_find_line = True
@@ -208,7 +207,7 @@ def main(_):
                 for f2 in dataset[k2]:
                     if not f2.get("path", None):
                         continue
-                    print(f'Comparing: {f1["path"]} v. {f2["path"]}')
+                    # print(f'Comparing: {f1["path"]} v. {f2["path"]}')
                     rca.fileJSON["file1"] = f1
                     rca.fileJSON["file2"] = f2
                     _, _, similarity = rca.find_complexity_similarity()
@@ -226,17 +225,24 @@ def main(_):
                             play_game_current_points += 1
                         play_game_total_points += 1
                         
-                    print(f"{similarity}, {k1}, {k2}\n")
+                    # print(f"{similarity}, {k1}, {k2}\n")
                     # out_file.write(f"{similarity}, {k1}, {k2}\n")
                     
     msg = {
+        "problem_id": FLAGS.problem_id,
+        "threshold": FLAGS.threshold,
+        "X": rca.X,
         "play_game_current_points": play_game_current_points,   
         "play_game_total_points": play_game_total_points,
         "accuracy": play_game_current_points/play_game_total_points    
     }
-    with open(f"/Users/raresraf/code/project-martial/rcomplexity_dataset_results_{FLAGS.problem_id}.json", 'w') as fp:
+    
+    with open(f"/Users/raresraf/code/project-martial/rcomplexity_dataset_results.json", 'a') as fp:
+        fcntl.flock(fp, fcntl.LOCK_EX)
         json.dump(msg, fp)
-    print(msg)
+        fp.write("\n")
+        fcntl.flock(fp, fcntl.LOCK_UN)
+    # print(msg)
         
 if __name__ == '__main__':
     app.run(main)

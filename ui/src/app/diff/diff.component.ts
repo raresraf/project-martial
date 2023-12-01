@@ -131,7 +131,7 @@ export class DiffComponent {
         "file1": this.inputFiles[0],
         "file2": this.inputFiles[1],
       });
-
+    this.similarity = NaN
     console.log("uploadFilesToBackend finished")
     return upload$
   }
@@ -183,8 +183,9 @@ export class DiffComponent {
       let get$ = this.runRComplexity()
       get$?.subscribe(resp => {
         console.log(resp);
-        this.colorBasedOnResp(resp, "critical", ["#EE82EE", "#EE83EE", "#EE84EE", "#EE85EE"])
+        this.colorBasedOnResp(resp, "identical", ["#EE82EE", "#EE83EE", "#EE84EE", "#EE85EE"])
         this.colorBasedOnResp(resp, "complexity", ["#FF0000", "#EF0000", "#DF0000", "#CF0000"])
+        this.similarity = resp["similarity"]
         this.progress_bar_mode = "determinate"
       });
     });
@@ -215,6 +216,16 @@ export class DiffComponent {
     return this.chosenAnalysis == "rComplexity"
   }
 
+  similarity: number = NaN;
+  UpdatedSimilarity() {
+    return !isNaN(this.similarity)
+  }
+
+  GetColorUpdatedSimilarity(): string {
+    if (this.similarity > 0.5)
+      return "#FF0000"
+    return "#0000FF"
+  }
 
   startAnalysis() {
     console.log("startAnalysis called to start: %s", this.chosenAnalysis)

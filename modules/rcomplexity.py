@@ -15,7 +15,7 @@ class RComplexityAnalysis():
         self.fileDict[filepath] = source.splitlines()
         self.fileJSON[filepath] = json.loads(source)
         
-    def find_critical_matches(self):
+    def find_identical_matches(self):
         f1 = self.fileJSON["file1"]
         f2 = self.fileJSON["file2"]
         
@@ -67,7 +67,7 @@ class RComplexityAnalysis():
             similarity += X_c[0] * a1 + X_c[1] * a2 + X_c[2] * a3 + X_c[3] * a4
         similarity = similarity / total_X
         print("similarity is: ", similarity) 
-        return lines_in_1, lines_in_2
+        return lines_in_1, lines_in_2, similarity
         
     def find_line_in_file(self, characteristic, feature, filename):
         f_counter = 0

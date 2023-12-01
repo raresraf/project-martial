@@ -181,6 +181,18 @@
     </div>
 </div>
 
+
+<div *ngIf="UpdatedSimilarity()">
+    <section class="">
+        <mat-grid-list cols="1" rows="1" rowHeight="150px">
+            <mat-grid-tile [style.background]="GetColorUpdatedSimilarity()" [ngStyle]="{'font-size': 35 + 'px'}">
+                <br>
+                Found similarity measurement: {{similarity}}
+                <br>
+            </mat-grid-tile>
+        </mat-grid-list>
+    </section>
+</div>
 <mat-progress-bar [mode]="this.progress_bar_mode"></mat-progress-bar>
 
 <div *ngIf="SomethingEnabled()">

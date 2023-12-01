@@ -49,6 +49,7 @@ export class DiffComponent {
         }
       }
       reader.readAsBinaryString(file);
+      this.similarity = NaN
     }
   }
 

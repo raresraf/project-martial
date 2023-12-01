@@ -7,6 +7,7 @@ class RComplexityAnalysis():
         self.fileDict = {}
         self.fileJSON = {}
         self.token = 'n/a'
+        self.disable_find_line = False
 
     def link_to_token(self, token):
         self.token = token
@@ -43,10 +44,10 @@ class RComplexityAnalysis():
             a1 = 1 if f1["metrics"][metric]["FEATURE_TYPE"] == f2["metrics"][metric]["FEATURE_TYPE"] else 0
             a2 = a1 * max(0, 2 - abs(f1["metrics"][metric]["FEATURE_CONFIG"] - f2["metrics"][metric]["FEATURE_CONFIG"])) / 2
             a3 = 0
-            if f1["metrics"][metric]["R-VAL"] + f2["metrics"][metric]["R-VAL"] > 0:
+            if f1["metrics"][metric]["R-VAL"] > 0 and f2["metrics"][metric]["R-VAL"] > 0:
                 a3 = a1 * a2 * (f1["metrics"][metric]["R-VAL"] + f2["metrics"][metric]["R-VAL"] - abs(f1["metrics"][metric]["R-VAL"] - f2["metrics"][metric]["R-VAL"])) / (f1["metrics"][metric]["R-VAL"] + f2["metrics"][metric]["R-VAL"])
             a4 = 0
-            if f1["metrics"][metric]["INTERCEPT"] + f2["metrics"][metric]["INTERCEPT"] > 0:
+            if f1["metrics"][metric]["INTERCEPT"] > 0 and  f2["metrics"][metric]["INTERCEPT"] > 0:
                 a4 = a1 * a2 * a3 * (f1["metrics"][metric]["INTERCEPT"] + f2["metrics"][metric]["INTERCEPT"] - abs(f1["metrics"][metric]["INTERCEPT"] - f2["metrics"][metric]["INTERCEPT"])) / (f1["metrics"][metric]["INTERCEPT"] + f2["metrics"][metric]["INTERCEPT"])
             
             if a1 > 1 / (36 * 3):
@@ -70,6 +71,8 @@ class RComplexityAnalysis():
         return lines_in_1, lines_in_2, similarity
         
     def find_line_in_file(self, characteristic, feature, filename):
+        if self.disable_find_line:
+            return []
         f_counter = 0
         while f_counter < len(self.fileDict[filename]) and characteristic not in self.fileDict[filename][f_counter]:
             f_counter += 1 

@@ -48,7 +48,10 @@ py_library(
 
 py_library(
   name = "rcomplexity_api",
-  deps = [":rcomplexity"],
+  deps = [
+    ":rcomplexity",
+    ":utils",
+  ],
   visibility = ["//visibility:public"],
   srcs = ["rcomplexity_api.py"],
 )

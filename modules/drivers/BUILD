@@ -7,3 +7,12 @@ py_binary(
   ],
   srcs = ["comments_driver.py"],
 )
+
+py_binary(
+  name = "rcomplexity_driver",
+  deps = [
+    "//modules:rcomplexity",
+    "//modules:rcomplexity_api",
+  ],
+  srcs = ["rcomplexity_driver.py"],
+)

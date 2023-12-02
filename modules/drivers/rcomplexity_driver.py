@@ -95,9 +95,12 @@ flags.DEFINE_float("c93", "1",
 flags.DEFINE_float("c94", "1",
                     help="C94")
 
+flags.DEFINE_bool("testing_mode", False,
+                    help="Whether to enable testing")
+
 def read_all_json_files_recursive(root_path):
-    if os.path.exists("/Users/raresraf/code/project-martial/samples/rcomplexity/rcomplexity.json"):
-        with open("/Users/raresraf/code/project-martial/samples/rcomplexity/rcomplexity.json", 'r') as fp:
+    if not FLAGS.testing_mode and os.path.exists("/Users/raresraf/code/project-martial/samples/rcomplexity/train_rcomplexity.json"):
+        with open("/Users/raresraf/code/project-martial/samples/rcomplexity/train_rcomplexity.json", 'r') as fp:
             dataset.update(json.load(fp))
         return
     for root, _, files in os.walk(root_path):
@@ -181,6 +184,9 @@ def main(_):
                 common_labels[p2][p1] = False
     
     root_directory_path = '/Users/raresraf/code/TheOutputsCodeforces/splitted/train/atomic_perf/'
+    if FLAGS.testing_mode:
+        root_directory_path = '/Users/raresraf/code/TheOutputsCodeforces/splitted/test/atomic_perf/'
+
     read_all_json_files_recursive(root_directory_path)
     
     rca = rcomplexity.RComplexityAnalysis()
@@ -200,7 +206,6 @@ def main(_):
     play_game_current_points = 0
     play_game_total_points = 0
     
-    # with open(f"/Users/raresraf/code/project-martial/rcomplexity_dataset_results_{FLAGS.problem_id}.txt", 'w') as out_file:
     for k1 in dataset.keys():
         if FLAGS.problem_id != "" and k1 != FLAGS.problem_id:
             continue
@@ -211,7 +216,6 @@ def main(_):
                 for f2 in dataset[k2]:
                     if not f2.get("path", None):
                         continue
-                    # print(f'Comparing: {f1["path"]} v. {f2["path"]}')
                     rca.fileJSON["file1"] = f1
                     rca.fileJSON["file2"] = f2
                     _, _, similarity = rca.find_complexity_similarity()
@@ -240,13 +244,20 @@ def main(_):
         "play_game_total_points": play_game_total_points,
         "accuracy": play_game_current_points/play_game_total_points    
     }
-    
-    with open(f"/Users/raresraf/code/project-martial/samples/rcomplexity/rcomplexity_dataset_results.json", 'a') as fp:
-        fcntl.flock(fp, fcntl.LOCK_EX)
-        json.dump(msg, fp)
-        fp.write("\n")
-        fcntl.flock(fp, fcntl.LOCK_UN)
     # print(msg)
+    
+    if FLAGS.testing_mode:
+        with open(f"/Users/raresraf/code/project-martial/samples/rcomplexity/test_rcomplexity_dataset_results.json", 'a') as fp:
+            fcntl.flock(fp, fcntl.LOCK_EX)
+            json.dump(msg, fp)
+            fp.write("\n")
+            fcntl.flock(fp, fcntl.LOCK_UN)
+    else:
+        with open(f"/Users/raresraf/code/project-martial/samples/rcomplexity/rcomplexity_dataset_results.json", 'a') as fp:
+            fcntl.flock(fp, fcntl.LOCK_EX)
+            json.dump(msg, fp)
+            fp.write("\n")
+            fcntl.flock(fp, fcntl.LOCK_UN)
         
 if __name__ == '__main__':
     app.run(main)

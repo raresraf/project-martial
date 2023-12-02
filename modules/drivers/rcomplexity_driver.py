@@ -96,6 +96,10 @@ flags.DEFINE_float("c94", "1",
                     help="C94")
 
 def read_all_json_files_recursive(root_path):
+    if os.path.exists("/Users/raresraf/code/project-martial/samples/rcomplexity/rcomplexity.json"):
+        with open("/Users/raresraf/code/project-martial/samples/rcomplexity/rcomplexity.json", 'r') as fp:
+            dataset.update(json.load(fp))
+        return
     for root, _, files in os.walk(root_path):
         for file in files:
             if file.endswith('PROCESSED.RAF'):
@@ -109,7 +113,7 @@ def read_all_json_files_recursive(root_path):
                     if not dataset.get(problem, None):
                         dataset[problem] = []
                     dataset[problem].append(data)
-
+        
 def main(_):
     with open('/Users/raresraf/code/TheInputsCodeforces/metadata/metadata.json') as json_file:
         labels = json.load(json_file)
@@ -178,7 +182,7 @@ def main(_):
     
     root_directory_path = '/Users/raresraf/code/TheOutputsCodeforces/splitted/train/atomic_perf/'
     read_all_json_files_recursive(root_directory_path)
-
+    
     rca = rcomplexity.RComplexityAnalysis()
     rca.disable_find_line = True
     rca.X = [
@@ -237,7 +241,7 @@ def main(_):
         "accuracy": play_game_current_points/play_game_total_points    
     }
     
-    with open(f"/Users/raresraf/code/project-martial/rcomplexity_dataset_results.json", 'a') as fp:
+    with open(f"/Users/raresraf/code/project-martial/samples/rcomplexity/rcomplexity_dataset_results.json", 'a') as fp:
         fcntl.flock(fp, fcntl.LOCK_EX)
         json.dump(msg, fp)
         fp.write("\n")

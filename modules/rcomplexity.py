@@ -65,16 +65,16 @@ class RComplexityAnalysis():
             if f1["metrics"][metric]["INTERCEPT"] > 0 and  f2["metrics"][metric]["INTERCEPT"] > 0:
                 a4 = a1 * a2 * a3 * (f1["metrics"][metric]["INTERCEPT"] + f2["metrics"][metric]["INTERCEPT"] - abs(f1["metrics"][metric]["INTERCEPT"] - f2["metrics"][metric]["INTERCEPT"])) / (f1["metrics"][metric]["INTERCEPT"] + f2["metrics"][metric]["INTERCEPT"])
             
-            if not self.disable_find_line and a1 > 1 / (36 * 3) :
+            if not self.disable_find_line and a1 > 1 / (36 * 3) and a2 != 0 and a3 != 0 :
                 lines_in_1.append(self.find_line_in_file(metric, "FEATURE_TYPE", "file1"))
                 lines_in_2.append(self.find_line_in_file(metric, "FEATURE_TYPE", "file2"))
-            if not self.disable_find_line and a2 > 1 / (36 * 4) :
+            if not self.disable_find_line and a2 > 1 / (36 * 4) and a2 != 0 and a3 != 0:
                 lines_in_1.append(self.find_line_in_file(metric, "FEATURE_CONFIG", "file1"))
                 lines_in_2.append(self.find_line_in_file(metric, "FEATURE_CONFIG", "file2"))
-            if not self.disable_find_line and a3 > 1 / (36 * 5 ):
+            if not self.disable_find_line and a3 > 1 / (36 * 5) and a2 != 0 and a3 != 0:
                 lines_in_1.append(self.find_line_in_file(metric, "R-VAL", "file1"))
                 lines_in_2.append(self.find_line_in_file(metric, "R-VAL", "file2"))
-            if not self.disable_find_line and a4 > 1 / (36 * 6):
+            if not self.disable_find_line and a4 > 1 / (36 * 6) and a2 != 0 and a3 != 0:
                 lines_in_1.append(self.find_line_in_file(metric, "INTERCEPT", "file1"))
                 lines_in_2.append(self.find_line_in_file(metric, "INTERCEPT", "file2"))
                 

@@ -152,7 +152,7 @@ def run_on_file_path(file_path):
             results[key]['play_game_total_points']
 
     sorted_dict_desc = dict(
-        sorted(results.items(), key=lambda item: item[1]['loss'], reverse=True))
+        sorted(results.items(), key=lambda item: item[1]['loss'], reverse=False))
 
     best_element = next(iter(sorted_dict_desc.items()))
     return best_element

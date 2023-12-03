@@ -62,11 +62,11 @@ all_possible_f3_ranges = [0.5]
 all_possible_f4_ranges = [0.01]
 
 # # Iteration 2
-# possible_th_ranges = [0.33]
-# all_possible_f1_ranges = [1, 0]
-# all_possible_f2_ranges = [0.66]
-# all_possible_f3_ranges = [0.5]
-# all_possible_f4_ranges = [0.01]
+possible_th_ranges = [0.5]
+all_possible_f1_ranges = [1, 0]
+all_possible_f2_ranges = [0.66]
+all_possible_f3_ranges = [0.5]
+all_possible_f4_ranges = [0.01]
 # 
 # # Iteration 3
 # possible_th_ranges = [0.1, 0.25, 0.33]

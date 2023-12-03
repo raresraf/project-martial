@@ -216,8 +216,3 @@ best_element = run_on_file_path(test_file_path)
 print("best test element: ", best_element)
 
 
-# ((0.5, (1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.66, 0.5, 0.01)), {'play_game_current_points': 8626265, 'play_game_total_points': 14275472, 'loss': 4675028.352410024, 'accuracy': 0.6042717887016276})
-# ((0.5, (0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.66, 0.5, 0.01)), {'play_game_current_points': 8945513, 'play_game_total_points': 14824097, 'loss': 4768799.320243298, 'accuracy': 0.6034440411446309})
-# ((0.5, (0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.66, 0.5, 0.01)), {'play_game_current_points': 8955253, 'play_game_total_points': 14824097, 'loss': 4769758.851794361, 'accuracy': 0.6041010794789052})
-# ((0.5, (0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.66, 0.5, 0.01)), {'play_game_current_points': 8938833, 'play_game_total_points': 14824097, 'loss': 4778974.684298814, 'accuracy': 0.6029934234780034})
-# ((0.5, (0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.66, 0.5, 0.01)), {'play_game_current_points': 8970735, 'play_game_total_points': 14824097, 'loss': 4780535.407089344, 'accuracy': 0.6051454601248224})

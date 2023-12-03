@@ -55,36 +55,53 @@ all_problems = [
 ]
 
 # Iteration 1
-possible_th_ranges = [x / 50 for x in range(51)]
-all_possible_f1_ranges = [1]
-all_possible_f2_ranges = [0.66]
-all_possible_f3_ranges = [0.5]
-all_possible_f4_ranges = [0.01]
-
-# # Iteration 2
-possible_th_ranges = [0.5]
-all_possible_f1_ranges = [1, 0]
-all_possible_f2_ranges = [0.66]
-all_possible_f3_ranges = [0.5]
-all_possible_f4_ranges = [0.01]
-# 
-# # Iteration 3
-# possible_th_ranges = [0.1, 0.25, 0.33]
-# all_possible_f1_ranges = [0.75, 0.5, 0.25]
+# possible_th_ranges = [x / 50 for x in range(51)]
+# all_possible_f1_ranges = [1]
 # all_possible_f2_ranges = [0.66]
 # all_possible_f3_ranges = [0.5]
 # all_possible_f4_ranges = [0.01]
+# 
+# # Iteration 2
+# possible_th_ranges = [0.5]
+# all_possible_f1_ranges = [1, 0]
+# all_possible_f2_ranges = [0.66]
+# all_possible_f3_ranges = [0.5]
+# all_possible_f4_ranges = [0.01]
+# 
+# 
+# all_possible_c_ranges = [
+#     all_possible_f1_ranges, all_possible_f2_ranges, all_possible_f3_ranges, all_possible_f4_ranges, all_possible_f1_ranges, all_possible_f2_ranges, all_possible_f3_ranges, all_possible_f4_ranges, all_possible_f1_ranges, all_possible_f2_ranges, all_possible_f3_ranges, all_possible_f4_ranges, all_possible_f1_ranges, all_possible_f2_ranges, all_possible_f3_ranges, all_possible_f4_ranges, all_possible_f1_ranges, all_possible_f2_ranges,
+#     all_possible_f3_ranges, all_possible_f4_ranges, all_possible_f1_ranges, all_possible_f2_ranges, all_possible_f3_ranges, all_possible_f4_ranges, all_possible_f1_ranges, all_possible_f2_ranges, all_possible_f3_ranges, all_possible_f4_ranges, all_possible_f1_ranges, all_possible_f2_ranges, all_possible_f3_ranges, all_possible_f4_ranges, all_possible_f1_ranges, all_possible_f2_ranges, all_possible_f3_ranges, all_possible_f4_ranges,
+# ]
 
+# ((0.5, (1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.66, 0.5, 0.01)), {'play_game_current_points': 8626265, 'play_game_total_points': 14275472, 'loss': 4675028.352410024, 'accuracy': 0.6042717887016276})
+# ((0.5, (0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.66, 0.5, 0.01)), {'play_game_current_points': 8945513, 'play_game_total_points': 14824097, 'loss': 4768799.320243298, 'accuracy': 0.6034440411446309})
+# ((0.5, (0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.66, 0.5, 0.01)), {'play_game_current_points': 8955253, 'play_game_total_points': 14824097, 'loss': 4769758.851794361, 'accuracy': 0.6041010794789052})
+# ((0.5, (0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.66, 0.5, 0.01)), {'play_game_current_points': 8938833, 'play_game_total_points': 14824097, 'loss': 4778974.684298814, 'accuracy': 0.6029934234780034})
+# ((0.5, (0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.66, 0.5, 0.01)), {'play_game_current_points': 8970735, 'play_game_total_points': 14824097, 'loss': 4780535.407089344, 'accuracy': 0.6051454601248224})
+
+# Iteration 3
+possible_th_ranges = [0.5]
 all_possible_c_ranges = [
-    all_possible_f1_ranges, all_possible_f2_ranges, all_possible_f3_ranges, all_possible_f4_ranges, all_possible_f1_ranges, all_possible_f2_ranges, all_possible_f3_ranges, all_possible_f4_ranges, all_possible_f1_ranges, all_possible_f2_ranges, all_possible_f3_ranges, all_possible_f4_ranges, all_possible_f1_ranges, all_possible_f2_ranges, all_possible_f3_ranges, all_possible_f4_ranges, all_possible_f1_ranges, all_possible_f2_ranges,
-    all_possible_f3_ranges, all_possible_f4_ranges, all_possible_f1_ranges, all_possible_f2_ranges, all_possible_f3_ranges, all_possible_f4_ranges, all_possible_f1_ranges, all_possible_f2_ranges, all_possible_f3_ranges, all_possible_f4_ranges, all_possible_f1_ranges, all_possible_f2_ranges, all_possible_f3_ranges, all_possible_f4_ranges, all_possible_f1_ranges, all_possible_f2_ranges, all_possible_f3_ranges, all_possible_f4_ranges,
+    [1], [0.66], [0.5, 0.1], [0.01], 
+    [1], [0.66], [0.5, 0.1], [0.01], 
+    [1], [0.66], [0.5, 0.1], [0.01], 
+    [1], [0.66], [0.5, 0.1], [0.01], 
+    [0, 0.5], [0.66], [0.5], [0.01], 
+    [0, 0.5], [0.66], [0.5], [0.01], 
+    [1], [0.66], [0.5, 0.1], [0.01], 
+    [0], [0], [0], [0], 
+    [1], [0.66], [0.5, 0.1], [0.01], 
 ]
+total = len(possible_th_ranges) * len(all_problems) * (2 ** 8)
 
 
 target = 'modules/drivers:rcomplexity_driver'
-total = len(possible_th_ranges) * len(all_problems) * len(all_possible_f1_ranges) ** (9) * \
-    len(all_possible_f2_ranges) ** (9) * \
-    len(all_possible_f3_ranges) ** (9) * len(all_possible_f4_ranges) ** (9)
+# if total_override == 0:
+#     total = len(possible_th_ranges) * len(all_problems) * len(all_possible_f1_ranges) ** (9) * \
+#         len(all_possible_f2_ranges) ** (9) * \
+#         len(all_possible_f3_ranges) ** (9) * len(all_possible_f4_ranges) ** (9)
+
 futures = set()
 
 with tqdm(total=total, desc="Processing") as pbar:

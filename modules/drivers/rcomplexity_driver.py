@@ -4,6 +4,7 @@ from absl import app
 from absl import flags
 import modules.rcomplexity as rcomplexity
 import fcntl
+import math
 
 dataset = {}
 outcome = {}
@@ -205,7 +206,8 @@ def main(_):
 
     play_game_current_points = 0
     play_game_total_points = 0
-    
+    loss = 0
+
     for k1 in dataset.keys():
         if FLAGS.problem_id != "" and k1 != FLAGS.problem_id:
             continue
@@ -220,18 +222,17 @@ def main(_):
                     rca.fileJSON["file2"] = f2
                     _, _, similarity = rca.find_complexity_similarity()
                     
+                    want_similarity = 0
+                    scale = 3
                     if k1 == k2:
-                        if similarity >= FLAGS.threshold:
-                            play_game_current_points += 3
-                        play_game_total_points += 3
+                        want_similarity = 1
                     if common_labels[k1][k2]:
-                        if similarity >= FLAGS.threshold:
-                            play_game_current_points += 1
-                        play_game_total_points += 1
-                    if not k1 == k2 and not common_labels[k1][k2]:
-                        if similarity < FLAGS.threshold:
-                            play_game_current_points += 1
-                        play_game_total_points += 1
+                        want_similarity = 1
+                        scale = 1
+
+                    loss += scale * ( -want_similarity * infzerolog(similarity) - (1-want_similarity) * infzerolog(1-similarity))
+                    play_game_current_points += scale * 1 if want_similarity == int(similarity >= FLAGS.threshold) else 0
+                    play_game_total_points += scale * 1
                         
                     # print(f"{similarity}, {k1}, {k2}\n")
                     # out_file.write(f"{similarity}, {k1}, {k2}\n")
@@ -239,6 +240,7 @@ def main(_):
     msg = {
         "problem_id": FLAGS.problem_id,
         "threshold": FLAGS.threshold,
+        "loss": loss,
         "X": rca.X,
         "play_game_current_points": play_game_current_points,   
         "play_game_total_points": play_game_total_points,
@@ -258,6 +260,13 @@ def main(_):
             json.dump(msg, fp)
             fp.write("\n")
             fcntl.flock(fp, fcntl.LOCK_UN)
-        
+
+
+
+def infzerolog(x):
+    if x < 0.0001:
+        return -4
+    return math.log(x, 10)
+
 if __name__ == '__main__':
     app.run(main)

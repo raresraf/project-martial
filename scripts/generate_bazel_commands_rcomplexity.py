@@ -55,15 +55,22 @@ all_problems = [
 ]
 
 # Iteration 1
-possible_th_ranges = [0.33, 0.5, 0.66, 0.75]
+possible_th_ranges = [x / 50 for x in range(51)]
 all_possible_f1_ranges = [1]
 all_possible_f2_ranges = [0.66]
 all_possible_f3_ranges = [0.5]
 all_possible_f4_ranges = [0.01]
 
-# Iteration 2
+# # Iteration 2
 # possible_th_ranges = [0.33]
 # all_possible_f1_ranges = [1, 0]
+# all_possible_f2_ranges = [0.66]
+# all_possible_f3_ranges = [0.5]
+# all_possible_f4_ranges = [0.01]
+# 
+# # Iteration 3
+# possible_th_ranges = [0.1, 0.25, 0.33]
+# all_possible_f1_ranges = [0.75, 0.5, 0.25]
 # all_possible_f2_ranges = [0.66]
 # all_possible_f3_ranges = [0.5]
 # all_possible_f4_ranges = [0.01]
@@ -81,10 +88,10 @@ total = len(possible_th_ranges) * len(all_problems) * len(all_possible_f1_ranges
 futures = set()
 
 with tqdm(total=total, desc="Processing") as pbar:
-    with concurrent.futures.ThreadPoolExecutor(max_workers=64) as executor:
-        for problem in all_problems:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=32) as executor:
+        for c11, c12, c13, c14, c21, c22, c23, c24, c31, c32, c33, c34, c41, c42, c43, c44, c51, c52, c53, c54, c61, c62, c63, c64, c71, c72, c73, c74, c81, c82, c83, c84, c91, c92, c93, c94 in itertools.product(*all_possible_c_ranges):
             for threshold in possible_th_ranges:
-                for c11, c12, c13, c14, c21, c22, c23, c24, c31, c32, c33, c34, c41, c42, c43, c44, c51, c52, c53, c54, c61, c62, c63, c64, c71, c72, c73, c74, c81, c82, c83, c84, c91, c92, c93, c94 in itertools.product(*all_possible_c_ranges):
+                for problem in all_problems:
                     args = [
                         '--problem_id=' + problem,
                         '--threshold=' + str(threshold),

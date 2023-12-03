@@ -141,16 +141,18 @@ def run_on_file_path(file_path):
                 results[key] = {
                     'play_game_current_points': 0,
                     'play_game_total_points': 0,
+                    'loss': 0,
                 }
             results[key]['play_game_current_points'] += data['play_game_current_points']
             results[key]['play_game_total_points'] += data['play_game_total_points']
+            results[key]['loss'] += data['loss']
 
     for key in results.keys():
         results[key]['accuracy'] = results[key]['play_game_current_points'] / \
             results[key]['play_game_total_points']
 
     sorted_dict_desc = dict(
-        sorted(results.items(), key=lambda item: item[1]['accuracy'], reverse=True))
+        sorted(results.items(), key=lambda item: item[1]['loss'], reverse=True))
 
     best_element = next(iter(sorted_dict_desc.items()))
     return best_element

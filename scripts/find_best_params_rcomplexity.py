@@ -159,10 +159,8 @@ def run_on_file_path(file_path):
 
     print("best elements: ")
     print(best_element)
-    print(next(it))
-    print(next(it))
-    print(next(it))
-    print(next(it))
+    # for i in range(50):
+    #    print(next(it))
     return best_element
 
 

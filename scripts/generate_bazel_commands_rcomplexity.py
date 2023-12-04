@@ -60,15 +60,15 @@ all_problems = [
 # all_possible_f2_ranges = [0.66]
 # all_possible_f3_ranges = [0.5]
 # all_possible_f4_ranges = [0.01]
-# 
+#
 # # Iteration 2
 # possible_th_ranges = [0.5]
 # all_possible_f1_ranges = [1, 0]
 # all_possible_f2_ranges = [0.66]
 # all_possible_f3_ranges = [0.5]
 # all_possible_f4_ranges = [0.01]
-# 
-# 
+#
+#
 # all_possible_c_ranges = [
 #     all_possible_f1_ranges, all_possible_f2_ranges, all_possible_f3_ranges, all_possible_f4_ranges, all_possible_f1_ranges, all_possible_f2_ranges, all_possible_f3_ranges, all_possible_f4_ranges, all_possible_f1_ranges, all_possible_f2_ranges, all_possible_f3_ranges, all_possible_f4_ranges, all_possible_f1_ranges, all_possible_f2_ranges, all_possible_f3_ranges, all_possible_f4_ranges, all_possible_f1_ranges, all_possible_f2_ranges,
 #     all_possible_f3_ranges, all_possible_f4_ranges, all_possible_f1_ranges, all_possible_f2_ranges, all_possible_f3_ranges, all_possible_f4_ranges, all_possible_f1_ranges, all_possible_f2_ranges, all_possible_f3_ranges, all_possible_f4_ranges, all_possible_f1_ranges, all_possible_f2_ranges, all_possible_f3_ranges, all_possible_f4_ranges, all_possible_f1_ranges, all_possible_f2_ranges, all_possible_f3_ranges, all_possible_f4_ranges,
@@ -81,19 +81,49 @@ all_problems = [
 # ((0.5, (0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.66, 0.5, 0.01)), {'play_game_current_points': 8970735, 'play_game_total_points': 14824097, 'loss': 4780535.407089344, 'accuracy': 0.6051454601248224})
 
 # Iteration 3
+# possible_th_ranges = [0.5]
+# all_possible_c_ranges = [
+#     [1], [0.66], [0.5, 0.1], [0.01],
+#     [1], [0.66], [0.5, 0.1], [0.01],
+#     [1], [0.66], [0.5, 0.1], [0.01],
+#     [1], [0.66], [0.5, 0.1], [0.01],
+#     [0, 0.5], [0.66], [0.5], [0.01],
+#     [0, 0.5], [0.66], [0.5], [0.01],
+#     [1], [0.66], [0.5, 0.1], [0.01],
+#     [0], [0.66], [0.5, 0.1], [0.01],
+#     [1], [0.66], [0.5, 0.1], [0.01],
+# ]
+# total = len(possible_th_ranges) * len(all_problems) * (2 ** 8)
+
+# Iteration 4
+# possible_th_ranges = [0.5]
+# all_possible_c_ranges = [
+#     [1], [0.99, 0.75, 0.5], [0.1], [0.01],
+#     [1], [0.99, 0.75, 0.5], [0.5], [0.01],
+#     [1], [0.99, 0.75, 0.5], [0.5], [0.01],
+#     [1], [0.99, 0.75, 0.5], [0.5], [0.01],
+#     [0.5], [0.66], [0.5], [0.01],
+#     [0], [0.66], [0.5], [0.01],
+#     [1], [0.99, 0.75, 0.5], [0.1], [0.01],
+#     [0], [0.66], [0.5], [0.01],
+#     [1], [0.99, 0.75, 0.5], [0.1], [0.01],
+# ]
+# total = len(possible_th_ranges) * len(all_problems) * (3 ** 6)
+
+# Iteration 5
 possible_th_ranges = [0.5]
 all_possible_c_ranges = [
-    [1], [0.66], [0.5, 0.1], [0.01], 
-    [1], [0.66], [0.5, 0.1], [0.01], 
-    [1], [0.66], [0.5, 0.1], [0.01], 
-    [1], [0.66], [0.5, 0.1], [0.01], 
-    [0, 0.5], [0.66], [0.5], [0.01], 
-    [0, 0.5], [0.66], [0.5], [0.01], 
-    [1], [0.66], [0.5, 0.1], [0.01], 
-    [0], [0], [0], [0], 
-    [1], [0.66], [0.5, 0.1], [0.01], 
+    [1.0, 0.9], [0.9, 0.75], [0.1], [0.01],
+    [1.0, 0.9], [0.9,0.75], [0.5], [0.01],
+    [1.0, 0.9], [0.5], [0.5], [0.01],
+    [1.0, 0.9], [0.9,0.75], [0.5], [0.01],
+    [0.5], [0.66], [0.5], [0.01],
+    [0.0, 0.1], [0.66], [0.5], [0.01],
+    [1.0, 0.9], [0.99], [0.1], [0.01],
+    [0.0, 0.1], [0.66], [0.5], [0.01],
+    [1.0, 0.9], [0.9, 0.75], [0.1], [0.01],
 ]
-total = len(possible_th_ranges) * len(all_problems) * (2 ** 8)
+total = len(possible_th_ranges) * len(all_problems) * (2 ** 12)
 
 
 target = 'modules/drivers:rcomplexity_driver'

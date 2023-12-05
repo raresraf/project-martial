@@ -92,7 +92,7 @@ def run_test_bazel_command(target, threshold, c11, c12, c13, c14, c21, c22, c23,
                        stderr=subprocess.DEVNULL)
 
 
-def run_on_file_path(file_path):
+def run_on_file_path(file_path, print_top_50 = False):
     results = {}
     with open(file_path, 'r') as file:
         for line in file:
@@ -159,13 +159,14 @@ def run_on_file_path(file_path):
 
     print("best elements: ")
     print(best_element)
-    # for i in range(50):
-    #    print(next(it))
+    if print_top_50:
+        for i in range(50):
+            print(next(it))
     return best_element
 
 
 train_file_path = "/Users/raresraf/code/project-martial/samples/rcomplexity/rcomplexity_dataset_results.json"
-best_element = run_on_file_path(train_file_path)
+best_element = run_on_file_path(train_file_path, print_top_50=True)
 print("best train element: ", best_element)
 
 target = 'modules/drivers:rcomplexity_driver'

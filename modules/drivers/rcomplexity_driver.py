@@ -220,7 +220,7 @@ def main(_):
                         continue
                     rca.fileJSON["file1"] = f1
                     rca.fileJSON["file2"] = f2
-                    _, _, similarity = rca.find_complexity_similarity()
+                    _, _, similarity, _, _, _, _ = rca.find_complexity_similarity_with_as()
                     
                     want_similarity = 0
                     scale = 3
@@ -264,9 +264,9 @@ def main(_):
 
 
 def infzerolog(x):
-    if x < 0.0001:
-        return -4
-    return math.log(x, 10)
+    if x < 0.002478:
+        return -6
+    return math.log(x)
 
 if __name__ == '__main__':
     app.run(main)

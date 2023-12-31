@@ -43,6 +43,10 @@ class RComplexityAnalysis():
    
    
     def find_complexity_similarity(self):
+        lines_in_1, lines_in_2, similarity, a1, a2, a3, a4 = self.find_complexity_similarity_with_as
+        return lines_in_1, lines_in_2, similarity
+
+    def find_complexity_similarity_with_as(self):
         f1 = self.fileJSON["file1"]
         f2 = self.fileJSON["file2"]
         
@@ -82,7 +86,7 @@ class RComplexityAnalysis():
             similarity += X_c[0] * a1 + X_c[1] * a2 + X_c[2] * a3 + X_c[3] * a4
         similarity = similarity / total_X
         # print("similarity is: ", similarity) 
-        return lines_in_1, lines_in_2, similarity
+        return lines_in_1, lines_in_2, similarity, a1, a2, a3, a4
         
     def find_line_in_file(self, characteristic, feature, filename):
         if self.disable_find_line:

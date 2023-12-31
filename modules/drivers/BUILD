@@ -16,3 +16,13 @@ py_binary(
   ],
   srcs = ["rcomplexity_driver.py"],
 )
+
+py_binary(
+  name = "rcomplexity_gradient_descent",
+  deps = [
+    ":rcomplexity_driver",
+    "//modules:rcomplexity",
+    "//modules:rcomplexity_api",
+  ],
+  srcs = ["rcomplexity_gradient_descent.py"],
+)

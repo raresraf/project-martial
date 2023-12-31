@@ -43,7 +43,7 @@ class RComplexityAnalysis():
    
    
     def find_complexity_similarity(self):
-        lines_in_1, lines_in_2, similarity, a1, a2, a3, a4 = self.find_complexity_similarity_with_as
+        lines_in_1, lines_in_2, similarity, _, _, _, _ = self.find_complexity_similarity_with_as
         return lines_in_1, lines_in_2, similarity
 
     def find_complexity_similarity_with_as(self):
@@ -58,6 +58,7 @@ class RComplexityAnalysis():
         
         similarity = 0
         lines_in_1, lines_in_2 = [], []
+        a1s, a2s, a3s, a4s = [], [], [], []
         for metric in f1["metrics"].keys():
             X_c = self.X[self.XIndex[metric]]
             a1 = 1 if f1["metrics"][metric]["FEATURE_TYPE"] == f2["metrics"][metric]["FEATURE_TYPE"] else 0
@@ -81,12 +82,15 @@ class RComplexityAnalysis():
             if not self.disable_find_line and a4 > 1 / (36 * 6) and a2 != 0 and a3 != 0:
                 lines_in_1.append(self.find_line_in_file(metric, "INTERCEPT", "file1"))
                 lines_in_2.append(self.find_line_in_file(metric, "INTERCEPT", "file2"))
-                
-             
+            a1s.append(a1)
+            a2s.append(a2)
+            a3s.append(a3)
+            a4s.append(a4)
+            
             similarity += X_c[0] * a1 + X_c[1] * a2 + X_c[2] * a3 + X_c[3] * a4
         similarity = similarity / total_X
         # print("similarity is: ", similarity) 
-        return lines_in_1, lines_in_2, similarity, a1, a2, a3, a4
+        return lines_in_1, lines_in_2, similarity, a1s, a2s, a3s, a4s
         
     def find_line_in_file(self, characteristic, feature, filename):
         if self.disable_find_line:

@@ -99,7 +99,7 @@ flags.DEFINE_float("c94", "1",
 flags.DEFINE_bool("testing_mode", False,
                     help="Whether to enable testing")
 
-def read_all_json_files_recursive(root_path):
+def read_all_json_files_recursive(root_path, dataset):
     if not FLAGS.testing_mode and os.path.exists("/Users/raresraf/code/project-martial/samples/rcomplexity/train_rcomplexity.json"):
         with open("/Users/raresraf/code/project-martial/samples/rcomplexity/train_rcomplexity.json", 'r') as fp:
             dataset.update(json.load(fp))
@@ -118,7 +118,8 @@ def read_all_json_files_recursive(root_path):
                         dataset[problem] = []
                     dataset[problem].append(data)
         
-def main(_):
+
+def load_common_labels():
     with open('/Users/raresraf/code/TheInputsCodeforces/metadata/metadata.json') as json_file:
         labels = json.load(json_file)
     all_problems = [
@@ -183,12 +184,17 @@ def main(_):
             else:    
                 common_labels[p1][p2] = False
                 common_labels[p2][p1] = False
+
+    return common_labels
+
+def main(_):
+    common_labels = load_common_labels()
     
     root_directory_path = '/Users/raresraf/code/TheOutputsCodeforces/splitted/train/atomic_perf/'
     if FLAGS.testing_mode:
         root_directory_path = '/Users/raresraf/code/TheOutputsCodeforces/splitted/test/atomic_perf/'
 
-    read_all_json_files_recursive(root_directory_path)
+    read_all_json_files_recursive(root_directory_path, dataset)
     
     rca = rcomplexity.RComplexityAnalysis()
     rca.disable_find_line = True

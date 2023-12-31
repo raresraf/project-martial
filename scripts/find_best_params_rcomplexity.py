@@ -154,20 +154,30 @@ def run_on_file_path(file_path, print_top_50 = False):
     sorted_dict_desc = dict(
         sorted(results.items(), key=lambda item: item[1]['loss'], reverse=False))
 
+
     it = iter(sorted_dict_desc.items())
     best_element = next(it)
 
     print("best elements: ")
     print(best_element)
+    best_ensamble = 36 * [0]
+    for i in range(len(best_element)): 
+        best_ensamble[i] = best_element[0][1][i]
     if print_top_50:
         for i in range(50):
-            print(next(it))
-    return best_element
+            el = next(it)
+            print(el)
+            for i in range(len(best_ensamble)):
+                best_ensamble[i] += el[0][1][i]
+
+    for i in range(len(best_ensamble)):
+        best_ensamble[i] /= 50
+    return ((0.5, best_ensamble),)
 
 
 train_file_path = "/Users/raresraf/code/project-martial/samples/rcomplexity/rcomplexity_dataset_results.json"
 best_element = run_on_file_path(train_file_path, print_top_50=True)
-print("best train element: ", best_element)
+print("best train element (ensamble): ", best_element)
 
 target = 'modules/drivers:rcomplexity_driver'
 run_test_bazel_command(target, best_element[0][0],

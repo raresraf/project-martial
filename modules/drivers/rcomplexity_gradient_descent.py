@@ -12,10 +12,8 @@ import concurrent.futures
 from concurrent.futures import ThreadPoolExecutor, wait, ALL_COMPLETED
 
 
-mutex = Lock()
 dataset = {}
 outcome = {}
-global_loss = {"loss": 0}
 
 FLAGS = flags.FLAGS
 
@@ -40,67 +38,55 @@ def main(_):
         [FLAGS.c91, FLAGS.c92, FLAGS.c93, FLAGS.c94],
     ]
 
-    lr = 0.00001
+    lr = 0.0000001
     total_iter = 10
-    futures = set()
 
-    total_op = total_iter
-    for k1 in dataset.keys():
-        for k2 in dataset.keys():
-            total_op += len(dataset[k1]) * len(dataset[k2])
-
-
-    with tqdm(total=total_iter * total_op, desc="Processing") as pbar:
-        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
-            for i in range(total_iter):
-
-                global_loss["loss"] = 0
-                big_dc = [
-                    [0.0, 0.0, 0.0, 0.0],
-                    [0.0, 0.0, 0.0, 0.0],
-                    [0.0, 0.0, 0.0, 0.0],
-                    [0.0, 0.0, 0.0, 0.0],
-                    [0.0, 0.0, 0.0, 0.0],
-                    [0.0, 0.0, 0.0, 0.0],
-                    [0.0, 0.0, 0.0, 0.0],
-                    [0.0, 0.0, 0.0, 0.0],
-                    [0.0, 0.0, 0.0, 0.0],
-                ]
-                for k1 in dataset.keys():
-                    for k2 in dataset.keys():
-                        for f1 in dataset[k1]:
-                            if not f1.get("path", None):
-                                pbar.update(1)
+    with tqdm(total=total_iter, desc="Processing") as pbar:
+        for i in range(total_iter):
+            loss = 0
+            big_dc = [
+                [0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0],
+            ]
+            already_analysed = {}
+            for k1 in dataset.keys():
+                for k2 in dataset.keys():
+                    if already_analysed.get((k2, k1), None):
+                        continue
+                    already_analysed[(k1, k2)] = True
+                    for f1 in dataset[k1]:
+                        if not f1.get("path", None):
+                            continue
+                        for f2 in dataset[k2]:
+                            if not f2.get("path", None):
                                 continue
-                            for f2 in dataset[k2]:
-                                if not f2.get("path", None):
-                                    pbar.update(1)
-                                    continue
 
-                                local_rca = rcomplexity.RComplexityAnalysis()
-                                local_rca.disable_find_line = True
-                                local_rca.X = rca.X
-                                local_rca.fileJSON["file1"] = f1
-                                local_rca.fileJSON["file2"] = f2
-                                futures.add(executor.submit(run_gradient, k1, k2, common_labels,
-                                                            local_rca, big_dc))
-                                pbar.update(1)
+                            local_rca = rcomplexity.RComplexityAnalysis()
+                            local_rca.disable_find_line = True
+                            local_rca.X = rca.X
+                            local_rca.fileJSON["file1"] = f1
+                            local_rca.fileJSON["file2"] = f2
+                            loss += run_gradient(k1, k2, common_labels, local_rca, big_dc)
 
-                completed, futures = wait(futures, return_when=ALL_COMPLETED)
-                for i in range(len(rca.X)):
-                    for j in range(len(rca.X[i])):
-                        rca.X[i][j] = -lr * big_dc[i][j]
+            for i in range(len(rca.X)):
+                for j in range(len(rca.X[i])):
+                    rca.X[i][j] = rca.X[i][j] -lr * big_dc[i][j]
 
-                msg = {
-                    "loss": global_loss["loss"],
-                    "X": rca.X,
-                }
-                with open(f"/Users/raresraf/code/project-martial/samples/rcomplexity/rcomplexity_train_results.json", 'a') as fp:
-                    fcntl.flock(fp, fcntl.LOCK_EX)
-                    json.dump(msg, fp)
-                    fp.write("\n")
-                    fcntl.flock(fp, fcntl.LOCK_UN)
-                
+            msg = {
+                "loss": loss,
+                "X": rca.X,
+            }
+            pbar.update(1)
+            with open(f"/Users/raresraf/code/project-martial/samples/rcomplexity/rcomplexity_train_results.json", 'a') as fp:
+                json.dump(msg, fp)
+                fp.write("\n")                
 
 
 def sum_of_all_c(rca):
@@ -122,9 +108,9 @@ def sum_of_all_c_scaled_by_as(rca, aijs):
 def divifzero(x, y):
     if x == 0:
         return 0
-    if y < 0.002478:
-        return 6
-    return x/y
+    if y < 0.1:
+        return x / 0.1
+    return x / y
 
 
 def run_gradient(k1, k2, common_labels, local_rca, big_dc):
@@ -139,17 +125,6 @@ def run_gradient(k1, k2, common_labels, local_rca, big_dc):
         [a1s[6], a2s[6], a3s[6], a4s[6]],
         [a1s[7], a2s[7], a3s[7], a4s[7]],
         [a1s[8], a2s[8], a3s[8], a4s[8]],
-    ]
-    dc = [
-        [0.0, 0.0, 0.0, 0.0],
-        [0.0, 0.0, 0.0, 0.0],
-        [0.0, 0.0, 0.0, 0.0],
-        [0.0, 0.0, 0.0, 0.0],
-        [0.0, 0.0, 0.0, 0.0],
-        [0.0, 0.0, 0.0, 0.0],
-        [0.0, 0.0, 0.0, 0.0],
-        [0.0, 0.0, 0.0, 0.0],
-        [0.0, 0.0, 0.0, 0.0],
     ]
 
     want_similarity = 0
@@ -172,13 +147,8 @@ def run_gradient(k1, k2, common_labels, local_rca, big_dc):
 
     for i in range(len(local_rca.X)):
         for j in range(len(local_rca.X[i])):
-            dc[i][j] = dcoef * (aijs[i][j] * sac - sacaij) / sac_square
-
-    with mutex:
-        for i in range(len(local_rca.X)):
-            for j in range(len(local_rca.X[i])):
-                big_dc[i][j] += dc[i][j]
-                global_loss["loss"] += loss
+            big_dc[i][j] += dcoef * (aijs[i][j] * sac - sacaij) / sac_square
+    return loss
 
 
 if __name__ == '__main__':

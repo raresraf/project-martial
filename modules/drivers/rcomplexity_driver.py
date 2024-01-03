@@ -276,8 +276,8 @@ def main(_):
 
 
 def infzerolog(x):
-    if x < 0.002478:
-        return -6
+    if x < 3.720076e-44:
+        return -10000 # not a typo, 3.720076e-44 is e^100, but let's penalize hard.
     return math.log(x)
 
 if __name__ == '__main__':

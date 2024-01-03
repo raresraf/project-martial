@@ -15,6 +15,14 @@ from concurrent.futures import ThreadPoolExecutor, wait, ALL_COMPLETED
 dataset = {}
 outcome = {}
 
+
+flags.DEFINE_float("lr", "0.000001",
+                    help="learning rate")
+flags.DEFINE_float("batch_size", "32",
+                    help="batch size")
+flags.DEFINE_bool("skip_similar_but_not_identic_problems", False,
+                    help="skip_similar_but_not_identic_problems")
+
 FLAGS = flags.FLAGS
 
 
@@ -38,12 +46,21 @@ def main(_):
         [FLAGS.c91, FLAGS.c92, FLAGS.c93, FLAGS.c94],
     ]
 
-    lr = 0.0000001
-    total_iter = 10
+    lr = FLAGS.lr
+    total_iter = 100
+    batch_size = FLAGS.batch_size
+    curr_batch = 0
 
-    with tqdm(total=total_iter, desc="Processing") as pbar:
+    total_ops = 0
+    for k1 in dataset.keys():
+        for k2 in dataset.keys():
+            total_ops += len(dataset[k1]) * len(dataset[k2])
+
+    with tqdm(total=total_iter * total_ops / batch_size / 2, desc="Processing") as pbar:
         for i in range(total_iter):
             loss = 0
+            play_game_current_points = 0
+            play_game_total_points = 0
             big_dc = [
                 [0.0, 0.0, 0.0, 0.0],
                 [0.0, 0.0, 0.0, 0.0],
@@ -67,26 +84,107 @@ def main(_):
                         for f2 in dataset[k2]:
                             if not f2.get("path", None):
                                 continue
+                            if FLAGS.skip_similar_but_not_identic_problems and common_labels[k1][k2] and k1 != k2:
+                                pbar.update(1.0/batch_size)
+                                continue
 
                             local_rca = rcomplexity.RComplexityAnalysis()
                             local_rca.disable_find_line = True
                             local_rca.X = rca.X
                             local_rca.fileJSON["file1"] = f1
                             local_rca.fileJSON["file2"] = f2
-                            loss += run_gradient(k1, k2, common_labels, local_rca, big_dc)
+                            _, _, similarity, a1s, a2s, a3s, a4s = local_rca.find_complexity_similarity_with_as()
+                            aijs = [
+                                [a1s[0], a2s[0], a3s[0], a4s[0]],
+                                [a1s[1], a2s[1], a3s[1], a4s[1]],
+                                [a1s[2], a2s[2], a3s[2], a4s[2]],
+                                [a1s[3], a2s[3], a3s[3], a4s[3]],
+                                [a1s[4], a2s[4], a3s[4], a4s[4]],
+                                [a1s[5], a2s[5], a3s[5], a4s[5]],
+                                [a1s[6], a2s[6], a3s[6], a4s[6]],
+                                [a1s[7], a2s[7], a3s[7], a4s[7]],
+                                [a1s[8], a2s[8], a3s[8], a4s[8]],
+                            ]
 
-            for i in range(len(rca.X)):
-                for j in range(len(rca.X[i])):
-                    rca.X[i][j] = rca.X[i][j] -lr * big_dc[i][j]
+                            want_similarity = 0
+                            scale = 3
+                            if k1 == k2:
+                                want_similarity = 1
+                            if common_labels[k1][k2]:
+                                want_similarity = 1
+                                scale = 1
+
+                            loss += (-want_similarity * rcomplexity_driver.infzerolog(similarity) - (
+                                1-want_similarity) * rcomplexity_driver.infzerolog(1-similarity))
+                            play_game_current_points += scale * \
+                                1 if want_similarity == int(
+                                    similarity >= FLAGS.threshold) else 0
+                            play_game_total_points += scale * 1
+
+                            dcoef = -divifzero(want_similarity, similarity) + \
+                                divifzero(1-want_similarity, 1-similarity)
+
+                            sac = sum_of_all_c(local_rca)
+                            sac_square = sac ** 2
+                            sacaij = sum_of_all_c_scaled_by_as(local_rca, aijs)
+
+                            for i in range(len(local_rca.X)):
+                                for j in range(len(local_rca.X[i])):
+                                    big_dc[i][j] += dcoef * \
+                                        (aijs[i][j] * sac -
+                                         sacaij) / sac_square
+
+                            curr_batch += 1
+                            if curr_batch == batch_size:
+                                run_batch_update(rca, lr, big_dc)
+                                curr_batch = 0
+                                pbar.update(1)
+
+            run_batch_update(rca, lr, big_dc)
+            curr_batch = 0
+            pbar.update(1)
 
             msg = {
                 "loss": loss,
                 "X": rca.X,
+
+                "play_game_current_points": play_game_current_points,
+                "play_game_total_points": play_game_total_points,
+                "accuracy": play_game_current_points/play_game_total_points
             }
-            pbar.update(1)
-            with open(f"/Users/raresraf/code/project-martial/samples/rcomplexity/rcomplexity_train_results.json", 'a') as fp:
+            with open(f"/Users/raresraf/code/project-martial/samples/rcomplexity/rcomplexity_train_results_{FLAGS.lr}_{FLAGS.batch_size}.json", 'a') as fp:
                 json.dump(msg, fp)
-                fp.write("\n")                
+                fp.write("\n")
+
+
+def run_batch_update(rca, lr, big_dc):
+    for i in range(len(rca.X)):
+        for j in range(len(rca.X[i])):
+            if rca.X[i][j] < lr * big_dc[i][j]:
+                rca.X[i][j] = 0
+            else:
+                rca.X[i][j] = rca.X[i][j] - lr * big_dc[i][j]
+
+    max_cij = 0
+    for i in range(len(rca.X)):
+        for j in range(len(rca.X[i])):
+            if rca.X[i][j] > max_cij:
+                max_cij = rca.X[i][j]
+    for i in range(len(rca.X)):
+        for j in range(len(rca.X[i])):
+            rca.X[i][j] = rca.X[i][j] / max_cij
+
+    big_dc = [
+        [0.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0],
+    ]
 
 
 def sum_of_all_c(rca):
@@ -111,44 +209,6 @@ def divifzero(x, y):
     if y < 0.1:
         return x / 0.1
     return x / y
-
-
-def run_gradient(k1, k2, common_labels, local_rca, big_dc):
-    _, _, similarity, a1s, a2s, a3s, a4s = local_rca.find_complexity_similarity_with_as()
-    aijs = [
-        [a1s[0], a2s[0], a3s[0], a4s[0]],
-        [a1s[1], a2s[1], a3s[1], a4s[1]],
-        [a1s[2], a2s[2], a3s[2], a4s[2]],
-        [a1s[3], a2s[3], a3s[3], a4s[3]],
-        [a1s[4], a2s[4], a3s[4], a4s[4]],
-        [a1s[5], a2s[5], a3s[5], a4s[5]],
-        [a1s[6], a2s[6], a3s[6], a4s[6]],
-        [a1s[7], a2s[7], a3s[7], a4s[7]],
-        [a1s[8], a2s[8], a3s[8], a4s[8]],
-    ]
-
-    want_similarity = 0
-    scale = 3
-    if k1 == k2:
-        want_similarity = 1
-    if common_labels[k1][k2]:
-        want_similarity = 1
-        scale = 1
-
-    loss = scale * (-want_similarity * rcomplexity_driver.infzerolog(similarity) -
-                    (1-want_similarity) * rcomplexity_driver.infzerolog(1-similarity))
-
-    dcoef = -divifzero(want_similarity, similarity) + \
-        divifzero(1-want_similarity, 1-similarity)
-
-    sac = sum_of_all_c(local_rca)
-    sac_square = sac ** 2
-    sacaij = sum_of_all_c_scaled_by_as(local_rca, aijs)
-
-    for i in range(len(local_rca.X)):
-        for j in range(len(local_rca.X[i])):
-            big_dc[i][j] += dcoef * (aijs[i][j] * sac - sacaij) / sac_square
-    return loss
 
 
 if __name__ == '__main__':

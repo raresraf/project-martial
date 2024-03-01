@@ -9,6 +9,16 @@ py_binary(
 )
 
 py_binary(
+  name = "comments_dump",
+  deps = [
+    "//modules:comments",
+    "//modules:comments_api",
+    "//modules:comments_config",
+  ],
+  srcs = ["comments_dump.py"],
+)
+
+py_binary(
   name = "rcomplexity_driver",
   deps = [
     "//modules:rcomplexity",

@@ -76,7 +76,7 @@ class CommentsAnalysis():
 
             temp.close()
 
-        # print(f"Parse of comments is complete: {findings_dict}")
+        print(f"Parse of comments is complete: {findings_dict}")
         return findings_dict
 
     def analyze_2_files(self, display_name, similarity_method, comm_to_seq, custom_similarity=False):

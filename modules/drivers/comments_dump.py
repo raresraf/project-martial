@@ -10,9 +10,9 @@ import os
 FLAGS = flags.FLAGS
 flags.DEFINE_bool("dry_run", False,
                   help="Run the project in dry-run mode.")
-flags.DEFINE_string("source_files_dir1", "/Users/raresraf/code/examples-project-martial/kubernetes-1.2.1/pkg/",
+flags.DEFINE_string("source_files_dir1", "/Users/raresraf/code/examples-project-martial/kubernetes-1.2.1/pkg/api/resource",
                     help="Path to the source files1")
-flags.DEFINE_string("source_files_dir2", "/Users/raresraf/code/examples-project-martial/kubernetes-1.3.1/pkg/",
+flags.DEFINE_string("source_files_dir2", "/Users/raresraf/code/examples-project-martial/kubernetes-1.3.1/pkg/api/resource",
                     help="Path to the source files2")
 flags.DEFINE_string(
     "encoding", "utf-8", help="e.g. utf-8, ISO-8859-1")
@@ -52,7 +52,7 @@ def main(_):
     findings_dict = ca.parse()
     comms_6 = []
     for f_path in file_list:
-        for comm in ca.comm_to_seq_6(findings_dict[f_path]):
+        for comm in ca.comm_to_seq_2(findings_dict[f_path]):
             comms_6.append(comm[0])
 
     dmp = {}

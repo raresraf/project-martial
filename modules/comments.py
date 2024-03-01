@@ -76,7 +76,7 @@ class CommentsAnalysis():
 
             temp.close()
 
-        print(f"Parse of comments is complete: {findings_dict}")
+        # print(f"Parse of comments is complete: {findings_dict}")
         return findings_dict
 
     def analyze_2_files(self, display_name, similarity_method, comm_to_seq, custom_similarity=False):
@@ -160,6 +160,9 @@ class CommentsAnalysis():
 
     def comm_to_seq_1(self, file):
         return comments_helpers.comm_to_seq_default(file, 1)
+
+    def comm_to_seq_2(self, file):
+        return comments_helpers.comm_to_seq_default(file, 2)
 
     def exact_match_similarity(self, f1, f2):
         similarity = 0.0

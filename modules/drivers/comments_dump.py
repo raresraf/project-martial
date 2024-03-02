@@ -19,6 +19,7 @@ flags.DEFINE_string(
 flags.DEFINE_string("extension", 'go',
                     help="The name of extension of files to join (e.g. 'go', 'cpp')")
 
+WITH_NEXT = False
 
 def main(_):
     print("Hello to the Comments Dump driver!")
@@ -55,11 +56,13 @@ def main(_):
     uid = 0
     for c in comms_6:
         uid = uid + 1
-        if uid % 2 == 1:
-            wuid = uid + 1
-        else:
-            wuid = uid - 1
-        dmp[uid] = {"comment": c, "similar_with": [uid, wuid]}
+        dmp[uid] = {"comment": c, "similar_with": [uid]}
+        if WITH_NEXT:
+            if uid % 2 == 1:
+                wuid = uid + 1
+            else:
+                wuid = uid - 1
+            dmp[uid]["similar_with"].append(wuid)
 
     with open('/Users/raresraf/code/project-martial/dataset/comments-6-kubernetes.txt', 'w') as f:
         json.dump(dmp, f, indent=4, sort_keys=True)

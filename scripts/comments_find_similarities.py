@@ -12,7 +12,7 @@ from sentence_transformers import SentenceTransformer, util
 import json
 from tqdm import tqdm
 
-model = "elmo" # can be "levenshtein", "word2vec", "elmo", "roberta", "use"
+model = "levenshtein" # can be "levenshtein", "word2vec", "elmo", "roberta", "use"
 threshold = 0.98
 
 with open('/Users/raresraf/code/project-martial/dataset/comments-6-kubernetes.txt', 'r') as f:
@@ -52,14 +52,15 @@ with tqdm(total=total_len, desc="Processing embeddings") as pbar:
         pbar.update(1)
         for k2, v2 in data.items():
             if model == "levenshtein":
-                similarity = fuzz.ratio(v1["comment"], v2["comment"])
-            if model == "word2vec":
+                similarity = fuzz.ratio(v1["comment"], v2["comment"]) * 0.01
+            elif model == "word2vec":
                 similarity = v1["embd"].similarity(v2["embd"])
             else:
                 embd1 = v1["embd"]
                 embd2 = v2["embd"]
                 similarity = cosine_similarity(embd1, embd2)
             if similarity > threshold:
+                print(v1["comment"], v2["comment"], similarity, threshold)
                 v1["similar_with"].append(int(k2))
                 v2["similar_with"].append(int(k1))
             

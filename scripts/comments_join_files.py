@@ -13,5 +13,5 @@ for k, v in data_1.items():
     v["similar_with"].sort()
     data[k] = {"comment": v["comment"], "similar_with": list(set(v["similar_with"]))}
     
-with open('/Users/raresraf/code/project-martial/dataset/comments-6-kubernetes.txt', 'w') as f:
+with open('/Users/raresraf/code/project-martial/dataset/ground-truth-comments-6-kubernetes.txt', 'w') as f:
     json.dump(data, f, indent=4, sort_keys=True)

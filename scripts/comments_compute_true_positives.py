@@ -9,7 +9,7 @@ DEBUG = True
 with open('/Users/raresraf/code/project-martial/dataset/use-comments-6-kubernetes.txt', 'r') as f:
     data_actual = json.load(f)
     
-with open('/Users/raresraf/code/project-martial/dataset/elmo-comments-6-kubernetes.txt', 'r') as f:
+with open('/Users/raresraf/code/project-martial/dataset/levenshtein-comments-6-kubernetes.txt', 'r') as f:
     data_pred = json.load(f)
 
 pred = []

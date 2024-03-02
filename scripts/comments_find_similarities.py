@@ -11,9 +11,17 @@ import tensorflow_hub as hub
 from sentence_transformers import SentenceTransformer, util
 import json
 from tqdm import tqdm
+import sys
 
 model = "levenshtein" # can be "levenshtein", "word2vec", "elmo", "roberta", "use"
 threshold = 0.98
+
+if len(sys.argv) == 3:
+  model = sys.argv[1]
+  threshold = float(sys.argv[2])
+else:
+  print("Need to provide exactly 2 arguments: <model> <threshold>.")
+  sys.exit(1)
 
 with open('/Users/raresraf/code/project-martial/dataset/comments-6-kubernetes.txt', 'r') as f:
     data = json.load(f)
@@ -58,9 +66,11 @@ with tqdm(total=total_len, desc="Processing embeddings") as pbar:
             else:
                 embd1 = v1["embd"]
                 embd2 = v2["embd"]
-                similarity = cosine_similarity(embd1, embd2)
+                if model == "roberta":
+                    similarity = util.pytorch_cos_sim(embd1, embd2).item()
+                else:
+                    similarity = cosine_similarity(embd1, embd2)
             if similarity > threshold:
-                print(v1["comment"], v2["comment"], similarity, threshold)
                 v1["similar_with"].append(int(k2))
                 v2["similar_with"].append(int(k1))
             

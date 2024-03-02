@@ -39,13 +39,9 @@ def main(_):
 
     ca = CommentsAnalysis()
     
-    # total_len = len(file_list)
-    # i = 0
     for f_path in file_list:
         upload_dict = {}
         with open(f_path, 'r') as f:
-            # i = i + 1
-            # print(f"Progress: {i}/{total_len}... f_path={f_path}")
             upload_dict[f_path] = f.read()
             ca.load_text(f_path, upload_dict[f_path])
     
@@ -59,7 +55,11 @@ def main(_):
     uid = 0
     for c in comms_6:
         uid = uid + 1
-        dmp[uid] = {"comment": c, "similar_with": [uid]}
+        if uid % 2 == 1:
+            wuid = uid + 1
+        else:
+            wuid = uid - 1
+        dmp[uid] = {"comment": c, "similar_with": [uid, wuid]}
 
     with open('/Users/raresraf/code/project-martial/dataset/comments-6-kubernetes.txt', 'w') as f:
         json.dump(dmp, f, indent=4, sort_keys=True)

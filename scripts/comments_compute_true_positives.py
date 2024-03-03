@@ -11,7 +11,7 @@ with open('/Users/raresraf/code/project-martial/dataset/ground-truth-comments-6-
 
 
 
-for model in ["levenshtein", "word2vec", "use"]:
+for model in ["levenshtein", "word2vec", "roberta", "use"]:
     print(f"* * * NEW MODEL: {model} * * *")
     with open(f'/Users/raresraf/code/project-martial/dataset/{model}-comments-6-kubernetes.txt', 'r') as f:
         data_pred = json.load(f)

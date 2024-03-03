@@ -1,0 +1,4730 @@
+{
+    "1": {
+        "comment": "Copyright 2014 The Kubernetes Authors All rights reserved ",
+        "similar_with": [
+            1
+        ]
+    },
+    "2": {
+        "comment": "Licensed under the Apache License Version 20 the License ",
+        "similar_with": [
+            2
+        ]
+    },
+    "3": {
+        "comment": "you may not use this file except in compliance with the License ",
+        "similar_with": [
+            3
+        ]
+    },
+    "4": {
+        "comment": "You may obtain a copy of the License at ",
+        "similar_with": [
+            4
+        ]
+    },
+    "5": {
+        "comment": "httpwwwapacheorglicensesLICENSE20 ",
+        "similar_with": [
+            5
+        ]
+    },
+    "6": {
+        "comment": "Unless required by applicable law or agreed to in writing software ",
+        "similar_with": [
+            6
+        ]
+    },
+    "7": {
+        "comment": "distributed under the License is distributed on an AS IS BASIS ",
+        "similar_with": [
+            7
+        ]
+    },
+    "8": {
+        "comment": "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND either express or implied ",
+        "similar_with": [
+            8
+        ]
+    },
+    "9": {
+        "comment": "See the License for the specific language governing permissions and ",
+        "similar_with": [
+            9
+        ]
+    },
+    "10": {
+        "comment": "limitations under the License ",
+        "similar_with": [
+            10
+        ]
+    },
+    "11": {
+        "comment": "reflect ",
+        "similar_with": [
+            11
+        ]
+    },
+    "12": {
+        "comment": "See the below test scale is the negative of an exponent ",
+        "similar_with": [
+            12
+        ]
+    },
+    "13": {
+        "comment": "TestQuantityParseZero ensures that when a 0 quantity is passed its string value is 0 ",
+        "similar_with": [
+            13
+        ]
+    },
+    "14": {
+        "comment": "TestQuantityAddZeroPreservesSuffix verifies that a suffix is preserved ",
+        "similar_with": [
+            14
+        ]
+    },
+    "15": {
+        "comment": "independent of the order of operations when adding a zero and nonzero val ",
+        "similar_with": [
+            15
+        ]
+    },
+    "16": {
+        "comment": "ensure nonzero  zero  nonzero suffix preserved ",
+        "similar_with": [
+            16
+        ]
+    },
+    "17": {
+        "comment": "ensure zero  nonzero  nonzero suffix preserved ",
+        "similar_with": [
+            17
+        ]
+    },
+    "18": {
+        "comment": "ensure we preserved the input value ",
+        "similar_with": [
+            18
+        ]
+    },
+    "19": {
+        "comment": "TestQuantitySubZeroPreservesSuffix verifies that a suffix is preserved ",
+        "similar_with": [
+            19
+        ]
+    },
+    "20": {
+        "comment": "independent of the order of operations when subtracting a zero and nonzero val ",
+        "similar_with": [
+            20
+        ]
+    },
+    "21": {
+        "comment": "ensure nonzero  zero  nonzero suffix preserved ",
+        "similar_with": [
+            21
+        ]
+    },
+    "22": {
+        "comment": "ensure we preserved the input value ",
+        "similar_with": [
+            22
+        ]
+    },
+    "23": {
+        "comment": "ensure zero  nonzero  nonzero suffix preserved ",
+        "similar_with": [
+            23
+        ]
+    },
+    "24": {
+        "comment": "Verifies that you get 0 as canonical value if internal value is 0 and not 0suffix ",
+        "similar_with": [
+            24
+        ]
+    },
+    "25": {
+        "comment": "Binary suffixes ",
+        "similar_with": [
+            25
+        ]
+    },
+    "26": {
+        "comment": "Decimal suffixes ",
+        "similar_with": [
+            26
+        ]
+    },
+    "27": {
+        "comment": "Decimal exponents ",
+        "similar_with": [
+            27
+        ]
+    },
+    "28": {
+        "comment": "Nonstandard but still parsable ",
+        "similar_with": [
+            28
+        ]
+    },
+    "29": {
+        "comment": "Things that look like floating point ",
+        "similar_with": [
+            29
+        ]
+    },
+    "30": {
+        "comment": "Things that saturateround ",
+        "similar_with": [
+            30
+        ]
+    },
+    "31": {
+        "comment": "Well accept fractional binary stuff too ",
+        "similar_with": [
+            31
+        ]
+    },
+    "32": {
+        "comment": "Things written by trolls ",
+        "similar_with": [
+            32
+        ]
+    },
+    "33": {
+        "comment": "rounds up changes format ",
+        "similar_with": [
+            33
+        ]
+    },
+    "34": {
+        "comment": "Try the negative version of everything ",
+        "similar_with": [
+            34
+        ]
+    },
+    "35": {
+        "comment": "Try everything with an explicit  ",
+        "similar_with": [
+            35
+        ]
+    },
+    "36": {
+        "comment": "Avoid modifying the values in the table ",
+        "similar_with": [
+            36
+        ]
+    },
+    "37": {
+        "comment": "Dont expect it to print 0 ever ",
+        "similar_with": [
+            37
+        ]
+    },
+    "38": {
+        "comment": "Be sure to test cases like 1Mi ",
+        "similar_with": [
+            38
+        ]
+    },
+    "39": {
+        "comment": "Be sure to test cases like 1M ",
+        "similar_with": [
+            39
+        ]
+    },
+    "40": {
+        "comment": "Format changes ",
+        "similar_with": [
+            40
+        ]
+    },
+    "41": {
+        "comment": "Format changes ",
+        "similar_with": [
+            41
+        ]
+    },
+    "42": {
+        "comment": "ensure value is same ",
+        "similar_with": [
+            42
+        ]
+    },
+    "43": {
+        "comment": "ensure format is updated ",
+        "similar_with": [
+            43
+        ]
+    },
+    "44": {
+        "comment": "Copyright 2015 The Kubernetes Authors All rights reserved ",
+        "similar_with": [
+            44
+        ]
+    },
+    "45": {
+        "comment": "Licensed under the Apache License Version 20 the License ",
+        "similar_with": [
+            45
+        ]
+    },
+    "46": {
+        "comment": "you may not use this file except in compliance with the License ",
+        "similar_with": [
+            46
+        ]
+    },
+    "47": {
+        "comment": "You may obtain a copy of the License at ",
+        "similar_with": [
+            47
+        ]
+    },
+    "48": {
+        "comment": "httpwwwapacheorglicensesLICENSE20 ",
+        "similar_with": [
+            48
+        ]
+    },
+    "49": {
+        "comment": "Unless required by applicable law or agreed to in writing software ",
+        "similar_with": [
+            49
+        ]
+    },
+    "50": {
+        "comment": "distributed under the License is distributed on an AS IS BASIS ",
+        "similar_with": [
+            50
+        ]
+    },
+    "51": {
+        "comment": "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND either express or implied ",
+        "similar_with": [
+            51
+        ]
+    },
+    "52": {
+        "comment": "See the License for the specific language governing permissions and ",
+        "similar_with": [
+            52
+        ]
+    },
+    "53": {
+        "comment": "limitations under the License ",
+        "similar_with": [
+            53
+        ]
+    },
+    "54": {
+        "comment": "remain scale ",
+        "similar_with": [
+            54
+        ]
+    },
+    "55": {
+        "comment": "scale down ",
+        "similar_with": [
+            55
+        ]
+    },
+    "56": {
+        "comment": "always round up ",
+        "similar_with": [
+            56
+        ]
+    },
+    "57": {
+        "comment": "large scaled value does not lose precision ",
+        "similar_with": [
+            57
+        ]
+    },
+    "58": {
+        "comment": "large intermidiate result ",
+        "similar_with": [
+            58
+        ]
+    },
+    "59": {
+        "comment": "scale up ",
+        "similar_with": [
+            59
+        ]
+    },
+    "60": {
+        "comment": "build proto ",
+        "similar_with": [
+            60
+        ]
+    },
+    "61": {
+        "comment": "Copyright 2015 The Kubernetes Authors All rights reserved ",
+        "similar_with": [
+            61
+        ]
+    },
+    "62": {
+        "comment": "Licensed under the Apache License Version 20 the License ",
+        "similar_with": [
+            62
+        ]
+    },
+    "63": {
+        "comment": "you may not use this file except in compliance with the License ",
+        "similar_with": [
+            63
+        ]
+    },
+    "64": {
+        "comment": "You may obtain a copy of the License at ",
+        "similar_with": [
+            64
+        ]
+    },
+    "65": {
+        "comment": "httpwwwapacheorglicensesLICENSE20 ",
+        "similar_with": [
+            65
+        ]
+    },
+    "66": {
+        "comment": "Unless required by applicable law or agreed to in writing software ",
+        "similar_with": [
+            66
+        ]
+    },
+    "67": {
+        "comment": "distributed under the License is distributed on an AS IS BASIS ",
+        "similar_with": [
+            67
+        ]
+    },
+    "68": {
+        "comment": "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND either express or implied ",
+        "similar_with": [
+            68
+        ]
+    },
+    "69": {
+        "comment": "See the License for the specific language governing permissions and ",
+        "similar_with": [
+            69
+        ]
+    },
+    "70": {
+        "comment": "limitations under the License ",
+        "similar_with": [
+            70
+        ]
+    },
+    "71": {
+        "comment": "QuantityProto is a struct that is equivalent to Quantity but intended for ",
+        "similar_with": [
+            71
+        ]
+    },
+    "72": {
+        "comment": "protobuf marshallingunmarshalling It is generated into a serialization ",
+        "similar_with": [
+            72
+        ]
+    },
+    "73": {
+        "comment": "that matches Quantity Do not use in Go structs ",
+        "similar_with": [
+            73
+        ]
+    },
+    "74": {
+        "comment": "protobuftrue ",
+        "similar_with": [
+            74
+        ]
+    },
+    "75": {
+        "comment": "The format of the quantity ",
+        "similar_with": [
+            75
+        ]
+    },
+    "76": {
+        "comment": "The scale dimension of the value ",
+        "similar_with": [
+            76
+        ]
+    },
+    "77": {
+        "comment": "Bigint is serialized as a raw bytes array ",
+        "similar_with": [
+            77
+        ]
+    },
+    "78": {
+        "comment": "ProtoTime returns the Time as a new ProtoTime value ",
+        "similar_with": [
+            78
+        ]
+    },
+    "79": {
+        "comment": "Size implements the protobuf marshalling interface ",
+        "similar_with": [
+            79
+        ]
+    },
+    "80": {
+        "comment": "Reset implements the protobuf marshalling interface ",
+        "similar_with": [
+            80
+        ]
+    },
+    "81": {
+        "comment": "Marshal implements the protobuf marshalling interface ",
+        "similar_with": [
+            81
+        ]
+    },
+    "82": {
+        "comment": "MarshalTo implements the protobuf marshalling interface ",
+        "similar_with": [
+            82
+        ]
+    },
+    "83": {
+        "comment": "Copyright 2015 The Kubernetes Authors All rights reserved ",
+        "similar_with": [
+            83
+        ]
+    },
+    "84": {
+        "comment": "Licensed under the Apache License Version 20 the License ",
+        "similar_with": [
+            84
+        ]
+    },
+    "85": {
+        "comment": "you may not use this file except in compliance with the License ",
+        "similar_with": [
+            85
+        ]
+    },
+    "86": {
+        "comment": "You may obtain a copy of the License at ",
+        "similar_with": [
+            86
+        ]
+    },
+    "87": {
+        "comment": "httpwwwapacheorglicensesLICENSE20 ",
+        "similar_with": [
+            87
+        ]
+    },
+    "88": {
+        "comment": "Unless required by applicable law or agreed to in writing software ",
+        "similar_with": [
+            88
+        ]
+    },
+    "89": {
+        "comment": "distributed under the License is distributed on an AS IS BASIS ",
+        "similar_with": [
+            89
+        ]
+    },
+    "90": {
+        "comment": "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND either express or implied ",
+        "similar_with": [
+            90
+        ]
+    },
+    "91": {
+        "comment": "See the License for the specific language governing permissions and ",
+        "similar_with": [
+            91
+        ]
+    },
+    "92": {
+        "comment": "limitations under the License ",
+        "similar_with": [
+            92
+        ]
+    },
+    "93": {
+        "comment": "A sync pool to reduce allocation ",
+        "similar_with": [
+            93
+        ]
+    },
+    "94": {
+        "comment": "scaledValue scales given unscaled value from scale to new Scale and returns ",
+        "similar_with": [
+            94
+        ]
+    },
+    "95": {
+        "comment": "an int64 It ALWAYS rounds up the result when scale down The final result might ",
+        "similar_with": [
+            95
+        ]
+    },
+    "96": {
+        "comment": "overflow ",
+        "similar_with": [
+            96
+        ]
+    },
+    "97": {
+        "comment": "scale newScale represents the scale of the unscaled decimal ",
+        "similar_with": [
+            97
+        ]
+    },
+    "98": {
+        "comment": "The mathematical value of the decimal is unscaled  10scale ",
+        "similar_with": [
+            98
+        ]
+    },
+    "99": {
+        "comment": "Handle scale up ",
+        "similar_with": [
+            99
+        ]
+    },
+    "100": {
+        "comment": "This is an easy case we do not need to care about rounding and overflow ",
+        "similar_with": [
+            100
+        ]
+    },
+    "101": {
+        "comment": "If any intermediate operation causes overflow the result will overflow ",
+        "similar_with": [
+            101
+        ]
+    },
+    "102": {
+        "comment": "Handle scale down ",
+        "similar_with": [
+            102
+        ]
+    },
+    "103": {
+        "comment": "We have to be careful about the intermediate operations ",
+        "similar_with": [
+            103
+        ]
+    },
+    "104": {
+        "comment": "fast path when unscaled  maxInt64 and exp10dif  maxInt64 ",
+        "similar_with": [
+            104
+        ]
+    },
+    "105": {
+        "comment": "We should only convert back to int64 when getting the result ",
+        "similar_with": [
+            105
+        ]
+    },
+    "106": {
+        "comment": "divisor  10dif ",
+        "similar_with": [
+            106
+        ]
+    },
+    "107": {
+        "comment": "TODO create loop up table if exp costs too much ",
+        "similar_with": [
+            107
+        ]
+    },
+    "108": {
+        "comment": "reuse exp ",
+        "similar_with": [
+            108
+        ]
+    },
+    "109": {
+        "comment": "result  unscaled  divisor ",
+        "similar_with": [
+            109
+        ]
+    },
+    "110": {
+        "comment": "remainder  unscaled  divisor ",
+        "similar_with": [
+            110
+        ]
+    },
+    "111": {
+        "comment": "Copyright 2014 The Kubernetes Authors All rights reserved ",
+        "similar_with": [
+            111
+        ]
+    },
+    "112": {
+        "comment": "Licensed under the Apache License Version 20 the License ",
+        "similar_with": [
+            112
+        ]
+    },
+    "113": {
+        "comment": "you may not use this file except in compliance with the License ",
+        "similar_with": [
+            113
+        ]
+    },
+    "114": {
+        "comment": "You may obtain a copy of the License at ",
+        "similar_with": [
+            114
+        ]
+    },
+    "115": {
+        "comment": "httpwwwapacheorglicensesLICENSE20 ",
+        "similar_with": [
+            115
+        ]
+    },
+    "116": {
+        "comment": "Unless required by applicable law or agreed to in writing software ",
+        "similar_with": [
+            116
+        ]
+    },
+    "117": {
+        "comment": "distributed under the License is distributed on an AS IS BASIS ",
+        "similar_with": [
+            117
+        ]
+    },
+    "118": {
+        "comment": "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND either express or implied ",
+        "similar_with": [
+            118
+        ]
+    },
+    "119": {
+        "comment": "See the License for the specific language governing permissions and ",
+        "similar_with": [
+            119
+        ]
+    },
+    "120": {
+        "comment": "limitations under the License ",
+        "similar_with": [
+            120
+        ]
+    },
+    "121": {
+        "comment": "Output ",
+        "similar_with": [
+            121
+        ]
+    },
+    "122": {
+        "comment": "memorySize  5Gi ",
+        "similar_with": [
+            122
+        ]
+    },
+    "123": {
+        "comment": "diskSize  5G ",
+        "similar_with": [
+            123
+        ]
+    },
+    "124": {
+        "comment": "cores  5300m ",
+        "similar_with": [
+            124
+        ]
+    },
+    "125": {
+        "comment": "Output ",
+        "similar_with": [
+            125
+        ]
+    },
+    "126": {
+        "comment": "memorySize  5368709120 BinarySI ",
+        "similar_with": [
+            126
+        ]
+    },
+    "127": {
+        "comment": "diskSize  5000000000 DecimalSI ",
+        "similar_with": [
+            127
+        ]
+    },
+    "128": {
+        "comment": "milliCores  5300 DecimalSI ",
+        "similar_with": [
+            128
+        ]
+    },
+    "129": {
+        "comment": "milliCores  5400 DecimalSI ",
+        "similar_with": [
+            129
+        ]
+    },
+    "130": {
+        "comment": "Copyright 2014 The Kubernetes Authors All rights reserved ",
+        "similar_with": [
+            130
+        ]
+    },
+    "131": {
+        "comment": "Licensed under the Apache License Version 20 the License ",
+        "similar_with": [
+            131
+        ]
+    },
+    "132": {
+        "comment": "you may not use this file except in compliance with the License ",
+        "similar_with": [
+            132
+        ]
+    },
+    "133": {
+        "comment": "You may obtain a copy of the License at ",
+        "similar_with": [
+            133
+        ]
+    },
+    "134": {
+        "comment": "httpwwwapacheorglicensesLICENSE20 ",
+        "similar_with": [
+            134
+        ]
+    },
+    "135": {
+        "comment": "Unless required by applicable law or agreed to in writing software ",
+        "similar_with": [
+            135
+        ]
+    },
+    "136": {
+        "comment": "distributed under the License is distributed on an AS IS BASIS ",
+        "similar_with": [
+            136
+        ]
+    },
+    "137": {
+        "comment": "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND either express or implied ",
+        "similar_with": [
+            137
+        ]
+    },
+    "138": {
+        "comment": "See the License for the specific language governing permissions and ",
+        "similar_with": [
+            138
+        ]
+    },
+    "139": {
+        "comment": "limitations under the License ",
+        "similar_with": [
+            139
+        ]
+    },
+    "140": {
+        "comment": "suffixer can interpret and construct suffixes ",
+        "similar_with": [
+            140
+        ]
+    },
+    "141": {
+        "comment": "quantitySuffixer handles suffixes for all three formats that quantity ",
+        "similar_with": [
+            141
+        ]
+    },
+    "142": {
+        "comment": "can handle ",
+        "similar_with": [
+            142
+        ]
+    },
+    "143": {
+        "comment": "Dont emit an error when trying to produce ",
+        "similar_with": [
+            143
+        ]
+    },
+    "144": {
+        "comment": "a suffix for 20 ",
+        "similar_with": [
+            144
+        ]
+    },
+    "145": {
+        "comment": "Try lookup tables first ",
+        "similar_with": [
+            145
+        ]
+    },
+    "146": {
+        "comment": "Copyright 2014 The Kubernetes Authors All rights reserved ",
+        "similar_with": [
+            146
+        ]
+    },
+    "147": {
+        "comment": "Licensed under the Apache License Version 20 the License ",
+        "similar_with": [
+            147
+        ]
+    },
+    "148": {
+        "comment": "you may not use this file except in compliance with the License ",
+        "similar_with": [
+            148
+        ]
+    },
+    "149": {
+        "comment": "You may obtain a copy of the License at ",
+        "similar_with": [
+            149
+        ]
+    },
+    "150": {
+        "comment": "httpwwwapacheorglicensesLICENSE20 ",
+        "similar_with": [
+            150
+        ]
+    },
+    "151": {
+        "comment": "Unless required by applicable law or agreed to in writing software ",
+        "similar_with": [
+            151
+        ]
+    },
+    "152": {
+        "comment": "distributed under the License is distributed on an AS IS BASIS ",
+        "similar_with": [
+            152
+        ]
+    },
+    "153": {
+        "comment": "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND either express or implied ",
+        "similar_with": [
+            153
+        ]
+    },
+    "154": {
+        "comment": "See the License for the specific language governing permissions and ",
+        "similar_with": [
+            154
+        ]
+    },
+    "155": {
+        "comment": "limitations under the License ",
+        "similar_with": [
+            155
+        ]
+    },
+    "156": {
+        "comment": "Quantity is a fixedpoint representation of a number ",
+        "similar_with": [
+            156
+        ]
+    },
+    "157": {
+        "comment": "It provides convenient marshalingunmarshaling in JSON and YAML ",
+        "similar_with": [
+            157
+        ]
+    },
+    "158": {
+        "comment": "in addition to String and Int64 accessors ",
+        "similar_with": [
+            158
+        ]
+    },
+    "159": {
+        "comment": "The serialization format is ",
+        "similar_with": [
+            159
+        ]
+    },
+    "160": {
+        "comment": "quantity         signedNumbersuffix ",
+        "similar_with": [
+            160
+        ]
+    },
+    "161": {
+        "comment": "Note that suffix may be empty from the  case in decimalSI ",
+        "similar_with": [
+            161
+        ]
+    },
+    "162": {
+        "comment": "digit            0  1    9 ",
+        "similar_with": [
+            162
+        ]
+    },
+    "163": {
+        "comment": "digits           digit  digitdigits ",
+        "similar_with": [
+            163
+        ]
+    },
+    "164": {
+        "comment": "number           digits  digitsdigits  digits  digits ",
+        "similar_with": [
+            164
+        ]
+    },
+    "165": {
+        "comment": "sign                ",
+        "similar_with": [
+            165
+        ]
+    },
+    "166": {
+        "comment": "signedNumber     number  signnumber ",
+        "similar_with": [
+            166
+        ]
+    },
+    "167": {
+        "comment": "suffix           binarySI  decimalExponent  decimalSI ",
+        "similar_with": [
+            167
+        ]
+    },
+    "168": {
+        "comment": "binarySI         Ki  Mi  Gi  Ti  Pi  Ei ",
+        "similar_with": [
+            168
+        ]
+    },
+    "169": {
+        "comment": "International System of units See httpphysicsnistgovcuuUnitsbinaryhtml ",
+        "similar_with": [
+            169
+        ]
+    },
+    "170": {
+        "comment": "decimalSI        m    k  M  G  T  P  E ",
+        "similar_with": [
+            170
+        ]
+    },
+    "171": {
+        "comment": "Note that 1024  1Ki but 1000  1k I didnt choose the capitalization ",
+        "similar_with": [
+            171
+        ]
+    },
+    "172": {
+        "comment": "decimalExponent  e signedNumber  E signedNumber ",
+        "similar_with": [
+            172
+        ]
+    },
+    "173": {
+        "comment": "No matter which of the three exponent forms is used no quantity may represent ",
+        "similar_with": [
+            173
+        ]
+    },
+    "174": {
+        "comment": "a number greater than 2631 in magnitude nor may it have more than 3 decimal ",
+        "similar_with": [
+            174
+        ]
+    },
+    "175": {
+        "comment": "places Numbers larger or more precise will be capped or rounded up ",
+        "similar_with": [
+            175
+        ]
+    },
+    "176": {
+        "comment": "Eg 01m will rounded up to 1m ",
+        "similar_with": [
+            176
+        ]
+    },
+    "177": {
+        "comment": "This may be extended in the future if we require larger or smaller quantities ",
+        "similar_with": [
+            177
+        ]
+    },
+    "178": {
+        "comment": "When a Quantity is parsed from a string it will remember the type of suffix ",
+        "similar_with": [
+            178
+        ]
+    },
+    "179": {
+        "comment": "it had and will use the same type again when it is serialized ",
+        "similar_with": [
+            179
+        ]
+    },
+    "180": {
+        "comment": "Before serializing Quantity will be put in canonical form ",
+        "similar_with": [
+            180
+        ]
+    },
+    "181": {
+        "comment": "This means that Exponentsuffix will be adjusted up or down with a ",
+        "similar_with": [
+            181
+        ]
+    },
+    "182": {
+        "comment": "corresponding increase or decrease in Mantissa such that ",
+        "similar_with": [
+            182
+        ]
+    },
+    "183": {
+        "comment": "a No precision is lost ",
+        "similar_with": [
+            183
+        ]
+    },
+    "184": {
+        "comment": "b No fractional digits will be emitted ",
+        "similar_with": [
+            184
+        ]
+    },
+    "185": {
+        "comment": "c The exponent or suffix is as large as possible ",
+        "similar_with": [
+            185
+        ]
+    },
+    "186": {
+        "comment": "The sign will be omitted unless the number is negative ",
+        "similar_with": [
+            186
+        ]
+    },
+    "187": {
+        "comment": "Examples ",
+        "similar_with": [
+            187
+        ]
+    },
+    "188": {
+        "comment": "15 will be serialized as 1500m ",
+        "similar_with": [
+            188
+        ]
+    },
+    "189": {
+        "comment": "15Gi will be serialized as 1536Mi ",
+        "similar_with": [
+            189
+        ]
+    },
+    "190": {
+        "comment": "NOTE We reserve the right to amend this canonical format perhaps to ",
+        "similar_with": [
+            190
+        ]
+    },
+    "191": {
+        "comment": "allow 15 to be canonical ",
+        "similar_with": [
+            191
+        ]
+    },
+    "192": {
+        "comment": "TODO Remove above disclaimer after all bikeshedding about format is over ",
+        "similar_with": [
+            192
+        ]
+    },
+    "193": {
+        "comment": "or after March 2015 ",
+        "similar_with": [
+            193
+        ]
+    },
+    "194": {
+        "comment": "Note that the quantity will NEVER be internally represented by a ",
+        "similar_with": [
+            194
+        ]
+    },
+    "195": {
+        "comment": "floating point number That is the whole point of this exercise ",
+        "similar_with": [
+            195
+        ]
+    },
+    "196": {
+        "comment": "Noncanonical values will still parse as long as they are well formed ",
+        "similar_with": [
+            196
+        ]
+    },
+    "197": {
+        "comment": "but will be reemitted in their canonical form So always use canonical ",
+        "similar_with": [
+            197
+        ]
+    },
+    "198": {
+        "comment": "form or dont diff ",
+        "similar_with": [
+            198
+        ]
+    },
+    "199": {
+        "comment": "This format is intended to make it difficult to use these numbers without ",
+        "similar_with": [
+            199
+        ]
+    },
+    "200": {
+        "comment": "writing some sort of special handling code in the hopes that that will ",
+        "similar_with": [
+            200
+        ]
+    },
+    "201": {
+        "comment": "cause implementors to also use a fixed point implementation ",
+        "similar_with": [
+            201
+        ]
+    },
+    "202": {
+        "comment": "protobuftrue ",
+        "similar_with": [
+            202
+        ]
+    },
+    "203": {
+        "comment": "protobufembedQuantityProto ",
+        "similar_with": [
+            203
+        ]
+    },
+    "204": {
+        "comment": "protobufoptionsmarshalfalse ",
+        "similar_with": [
+            204
+        ]
+    },
+    "205": {
+        "comment": "protobufoptionsgogoprotogoproto_stringerfalse ",
+        "similar_with": [
+            205
+        ]
+    },
+    "206": {
+        "comment": "Amount is public so you can manipulate it if the accessor ",
+        "similar_with": [
+            206
+        ]
+    },
+    "207": {
+        "comment": "functions are not sufficient ",
+        "similar_with": [
+            207
+        ]
+    },
+    "208": {
+        "comment": "Change Format at will See the comment for Canonicalize for ",
+        "similar_with": [
+            208
+        ]
+    },
+    "209": {
+        "comment": "more details ",
+        "similar_with": [
+            209
+        ]
+    },
+    "210": {
+        "comment": "Format lists the three possible formattings of a quantity ",
+        "similar_with": [
+            210
+        ]
+    },
+    "211": {
+        "comment": "eg 12e6 ",
+        "similar_with": [
+            211
+        ]
+    },
+    "212": {
+        "comment": "eg 12Mi 12  220 ",
+        "similar_with": [
+            212
+        ]
+    },
+    "213": {
+        "comment": "eg 12M  12  106 ",
+        "similar_with": [
+            213
+        ]
+    },
+    "214": {
+        "comment": "MustParse turns the given string into a quantity or panics for tests ",
+        "similar_with": [
+            214
+        ]
+    },
+    "215": {
+        "comment": "or others cases where you know the string is valid ",
+        "similar_with": [
+            215
+        ]
+    },
+    "216": {
+        "comment": "Scale is used for getting and setting the base10 scaled value ",
+        "similar_with": [
+            216
+        ]
+    },
+    "217": {
+        "comment": "Base2 scales are omitted for mathematical simplicity ",
+        "similar_with": [
+            217
+        ]
+    },
+    "218": {
+        "comment": "See QuantityScaledValue for more details ",
+        "similar_with": [
+            218
+        ]
+    },
+    "219": {
+        "comment": "splitREString is used to separate a number from its suffix as such ",
+        "similar_with": [
+            219
+        ]
+    },
+    "220": {
+        "comment": "this is overly permissive but thats OK it will be checked later ",
+        "similar_with": [
+            220
+        ]
+    },
+    "221": {
+        "comment": "splitRE is used to get the various parts of a number ",
+        "similar_with": [
+            221
+        ]
+    },
+    "222": {
+        "comment": "Errors that could happen while parsing a string ",
+        "similar_with": [
+            222
+        ]
+    },
+    "223": {
+        "comment": "Commonly needed bigInt values treat as read only ",
+        "similar_with": [
+            223
+        ]
+    },
+    "224": {
+        "comment": "Commonly needed infDec values treat as read only ",
+        "similar_with": [
+            224
+        ]
+    },
+    "225": {
+        "comment": "Largest in magnitude number allowed ",
+        "similar_with": [
+            225
+        ]
+    },
+    "226": {
+        "comment": " max int64 ",
+        "similar_with": [
+            226
+        ]
+    },
+    "227": {
+        "comment": "The maximum value we can represent milliunits for ",
+        "similar_with": [
+            227
+        ]
+    },
+    "228": {
+        "comment": "Compare with the return value of QuantityValue to ",
+        "similar_with": [
+            228
+        ]
+    },
+    "229": {
+        "comment": "see if its safe to use QuantityMilliValue ",
+        "similar_with": [
+            229
+        ]
+    },
+    "230": {
+        "comment": "ParseQuantity turns str into a Quantity or returns an error ",
+        "similar_with": [
+            230
+        ]
+    },
+    "231": {
+        "comment": "regexp returns are entire match followed by an entry for each  section ",
+        "similar_with": [
+            231
+        ]
+    },
+    "232": {
+        "comment": "So that no one but us has to think about suffixes remove it ",
+        "similar_with": [
+            232
+        ]
+    },
+    "233": {
+        "comment": "numericSuffix  2  exponent ",
+        "similar_with": [
+            233
+        ]
+    },
+    "234": {
+        "comment": "Cap at minmax bounds ",
+        "similar_with": [
+            234
+        ]
+    },
+    "235": {
+        "comment": "This rounds nonzero values up to the minimum representable value under the theory that ",
+        "similar_with": [
+            235
+        ]
+    },
+    "236": {
+        "comment": "if you want some resources you should get some resources even if you asked for way too small ",
+        "similar_with": [
+            236
+        ]
+    },
+    "237": {
+        "comment": "of an amount  Arguably this should be infRoundHalfUp normal rounding but that would have ",
+        "similar_with": [
+            237
+        ]
+    },
+    "238": {
+        "comment": "the side effect of rounding values  5n to zero ",
+        "similar_with": [
+            238
+        ]
+    },
+    "239": {
+        "comment": "The max is just a simple cap ",
+        "similar_with": [
+            239
+        ]
+    },
+    "240": {
+        "comment": "This avoids rounding and hopefully confusion too ",
+        "similar_with": [
+            240
+        ]
+    },
+    "241": {
+        "comment": "removeFactors divides in a loop the return values have the property that ",
+        "similar_with": [
+            241
+        ]
+    },
+    "242": {
+        "comment": "d  result  factor  times ",
+        "similar_with": [
+            242
+        ]
+    },
+    "243": {
+        "comment": "d may be modified in place ",
+        "similar_with": [
+            243
+        ]
+    },
+    "244": {
+        "comment": "If d  0 then the return values will be 0 0 ",
+        "similar_with": [
+            244
+        ]
+    },
+    "245": {
+        "comment": "Canonicalize returns the canonical form of q and its suffix see comment on Quantity ",
+        "similar_with": [
+            245
+        ]
+    },
+    "246": {
+        "comment": "Note about BinarySI ",
+        "similar_with": [
+            246
+        ]
+    },
+    "247": {
+        "comment": "If qFormat is set to BinarySI and qAmount represents a nonzero value between ",
+        "similar_with": [
+            247
+        ]
+    },
+    "248": {
+        "comment": "1 and 1 it will be emitted as if qFormat were DecimalSI ",
+        "similar_with": [
+            248
+        ]
+    },
+    "249": {
+        "comment": "Otherwise if qFormat is set to BinarySI frational parts of qAmount will be ",
+        "similar_with": [
+            249
+        ]
+    },
+    "250": {
+        "comment": "rounded up 11i becomes 2i ",
+        "similar_with": [
+            250
+        ]
+    },
+    "251": {
+        "comment": "zero is zero always ",
+        "similar_with": [
+            251
+        ]
+    },
+    "252": {
+        "comment": "This avoids rounding and hopefully confusion too ",
+        "similar_with": [
+            252
+        ]
+    },
+    "253": {
+        "comment": "Dont lose precision show as DecimalSI ",
+        "similar_with": [
+            253
+        ]
+    },
+    "254": {
+        "comment": "TODO If BinarySI formatting is requested but would cause rounding upgrade to ",
+        "similar_with": [
+            254
+        ]
+    },
+    "255": {
+        "comment": "one of the other formats ",
+        "similar_with": [
+            255
+        ]
+    },
+    "256": {
+        "comment": "move all factors of 10 into the exponent for easy reasoning ",
+        "similar_with": [
+            256
+        ]
+    },
+    "257": {
+        "comment": "make sure exponent is a multiple of 3 ",
+        "similar_with": [
+            257
+        ]
+    },
+    "258": {
+        "comment": "String formats the Quantity as a string ",
+        "similar_with": [
+            258
+        ]
+    },
+    "259": {
+        "comment": "Cmp compares q and y and returns ",
+        "similar_with": [
+            259
+        ]
+    },
+    "260": {
+        "comment": "1 if q   y ",
+        "similar_with": [
+            260
+        ]
+    },
+    "261": {
+        "comment": "0 if q  y ",
+        "similar_with": [
+            261
+        ]
+    },
+    "262": {
+        "comment": "1 if q   y ",
+        "similar_with": [
+            262
+        ]
+    },
+    "263": {
+        "comment": "Adding 0 do nothing ",
+        "similar_with": [
+            263
+        ]
+    },
+    "264": {
+        "comment": "we want to preserve the format of the nonzero value ",
+        "similar_with": [
+            264
+        ]
+    },
+    "265": {
+        "comment": "Subtracting 0 do nothing ",
+        "similar_with": [
+            265
+        ]
+    },
+    "266": {
+        "comment": "we want to preserve the format of the nonzero value ",
+        "similar_with": [
+            266
+        ]
+    },
+    "267": {
+        "comment": "Neg sets q to the negative value of y ",
+        "similar_with": [
+            267
+        ]
+    },
+    "268": {
+        "comment": "It updates the format of q to match y ",
+        "similar_with": [
+            268
+        ]
+    },
+    "269": {
+        "comment": "MarshalJSON implements the jsonMarshaller interface ",
+        "similar_with": [
+            269
+        ]
+    },
+    "270": {
+        "comment": "UnmarshalJSON implements the jsonUnmarshaller interface ",
+        "similar_with": [
+            270
+        ]
+    },
+    "271": {
+        "comment": "This copy is safe because parsed will not be referred to again ",
+        "similar_with": [
+            271
+        ]
+    },
+    "272": {
+        "comment": "NewQuantity returns a new Quantity representing the given ",
+        "similar_with": [
+            272
+        ]
+    },
+    "273": {
+        "comment": "value in the given format ",
+        "similar_with": [
+            273
+        ]
+    },
+    "274": {
+        "comment": "NewMilliQuantity returns a new Quantity representing the given ",
+        "similar_with": [
+            274
+        ]
+    },
+    "275": {
+        "comment": "value  11000 in the given format Note that BinarySI formatting ",
+        "similar_with": [
+            275
+        ]
+    },
+    "276": {
+        "comment": "will round fractional values and will be changed to DecimalSI for ",
+        "similar_with": [
+            276
+        ]
+    },
+    "277": {
+        "comment": "values x where 1  x  1  x  0 ",
+        "similar_with": [
+            277
+        ]
+    },
+    "278": {
+        "comment": "NewScaledQuantity returns a new Quantity representing the given ",
+        "similar_with": [
+            278
+        ]
+    },
+    "279": {
+        "comment": "value  10scale in DecimalSI format ",
+        "similar_with": [
+            279
+        ]
+    },
+    "280": {
+        "comment": "Value returns the value of q any fractional part will be lost ",
+        "similar_with": [
+            280
+        ]
+    },
+    "281": {
+        "comment": "MilliValue returns the value of ceilq  1000 this could overflow an int64 ",
+        "similar_with": [
+            281
+        ]
+    },
+    "282": {
+        "comment": "if thats a concern call Value first to verify the number is small enough ",
+        "similar_with": [
+            282
+        ]
+    },
+    "283": {
+        "comment": "ScaledValue returns the value of ceilq  10scale this could overflow an int64 ",
+        "similar_with": [
+            283
+        ]
+    },
+    "284": {
+        "comment": "To detect overflow call Value first and verify the expected magnitude ",
+        "similar_with": [
+            284
+        ]
+    },
+    "285": {
+        "comment": "Set sets qs value to be value ",
+        "similar_with": [
+            285
+        ]
+    },
+    "286": {
+        "comment": "SetMilli sets qs value to be value  11000 ",
+        "similar_with": [
+            286
+        ]
+    },
+    "287": {
+        "comment": "SetScaled sets qs value to be value  10scale ",
+        "similar_with": [
+            287
+        ]
+    },
+    "288": {
+        "comment": "Copy is a convenience function that makes a deep copy for you Nondeep ",
+        "similar_with": [
+            288
+        ]
+    },
+    "289": {
+        "comment": "copies of quantities share pointers and you will regret that ",
+        "similar_with": [
+            289
+        ]
+    },
+    "290": {
+        "comment": "qFlag is a helper type for the Flag function ",
+        "similar_with": [
+            290
+        ]
+    },
+    "291": {
+        "comment": "Sets the value of the internal Quantity used by flag  pflag ",
+        "similar_with": [
+            291
+        ]
+    },
+    "292": {
+        "comment": "This copy is OK because q will not be referenced again ",
+        "similar_with": [
+            292
+        ]
+    },
+    "293": {
+        "comment": "Converts the value of the internal Quantity to a string used by flag  pflag ",
+        "similar_with": [
+            293
+        ]
+    },
+    "294": {
+        "comment": "States the type of flag this is Quantity used by pflag ",
+        "similar_with": [
+            294
+        ]
+    },
+    "295": {
+        "comment": "QuantityFlag is a helper that makes a quantity flag using standard flag package ",
+        "similar_with": [
+            295
+        ]
+    },
+    "296": {
+        "comment": "Will panic if defaultValue is not a valid quantity ",
+        "similar_with": [
+            296
+        ]
+    },
+    "297": {
+        "comment": "NewQuantityFlagValue returns an object that can be used to back a flag ",
+        "similar_with": [
+            297
+        ]
+    },
+    "298": {
+        "comment": "pointing at the given Quantity variable ",
+        "similar_with": [
+            298
+        ]
+    },
+    "299": {
+        "comment": "infScale adapts a Scale value to an infScale value ",
+        "similar_with": [
+            299
+        ]
+    },
+    "300": {
+        "comment": "infScale is upsidedown ",
+        "similar_with": [
+            300
+        ]
+    },
+    "301": {
+        "comment": "Copyright 2014 The Kubernetes Authors All rights reserved ",
+        "similar_with": [
+            301
+        ]
+    },
+    "302": {
+        "comment": "Licensed under the Apache License Version 20 the License ",
+        "similar_with": [
+            302
+        ]
+    },
+    "303": {
+        "comment": "you may not use this file except in compliance with the License ",
+        "similar_with": [
+            303
+        ]
+    },
+    "304": {
+        "comment": "You may obtain a copy of the License at ",
+        "similar_with": [
+            304
+        ]
+    },
+    "305": {
+        "comment": "httpwwwapacheorglicensesLICENSE20 ",
+        "similar_with": [
+            305
+        ]
+    },
+    "306": {
+        "comment": "Unless required by applicable law or agreed to in writing software ",
+        "similar_with": [
+            306
+        ]
+    },
+    "307": {
+        "comment": "distributed under the License is distributed on an AS IS BASIS ",
+        "similar_with": [
+            307
+        ]
+    },
+    "308": {
+        "comment": "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND either express or implied ",
+        "similar_with": [
+            308
+        ]
+    },
+    "309": {
+        "comment": "See the License for the specific language governing permissions and ",
+        "similar_with": [
+            309
+        ]
+    },
+    "310": {
+        "comment": "limitations under the License ",
+        "similar_with": [
+            310
+        ]
+    },
+    "311": {
+        "comment": "Scale is used for getting and setting the base10 scaled value ",
+        "similar_with": [
+            311
+        ]
+    },
+    "312": {
+        "comment": "Base2 scales are omitted for mathematical simplicity ",
+        "similar_with": [
+            312
+        ]
+    },
+    "313": {
+        "comment": "See QuantityScaledValue for more details ",
+        "similar_with": [
+            313
+        ]
+    },
+    "314": {
+        "comment": "infScale adapts a Scale value to an infScale value ",
+        "similar_with": [
+            314
+        ]
+    },
+    "315": {
+        "comment": "infScale is upsidedown ",
+        "similar_with": [
+            315
+        ]
+    },
+    "316": {
+        "comment": "Used by quantity strings  treat as read only ",
+        "similar_with": [
+            316
+        ]
+    },
+    "317": {
+        "comment": "int64Amount represents a fixed precision numerator and arbitrary scale exponent It is faster ",
+        "similar_with": [
+            317
+        ]
+    },
+    "318": {
+        "comment": "than operations on infDec for values that can be represented as int64 ",
+        "similar_with": [
+            318
+        ]
+    },
+    "319": {
+        "comment": "Sign returns 0 if the value is zero 1 if it is less than 0 or 1 if it is greater than 0 ",
+        "similar_with": [
+            319
+        ]
+    },
+    "320": {
+        "comment": "AsInt64 returns the current amount as an int64 at scale 0 or false if the value cannot be ",
+        "similar_with": [
+            320
+        ]
+    },
+    "321": {
+        "comment": "represented in an int64 OR would result in a loss of precision This method is intended as ",
+        "similar_with": [
+            321
+        ]
+    },
+    "322": {
+        "comment": "an optimization to avoid calling AsDec ",
+        "similar_with": [
+            322
+        ]
+    },
+    "323": {
+        "comment": "TODO attempt to reduce factors although it is assumed that factors are reduced prior ",
+        "similar_with": [
+            323
+        ]
+    },
+    "324": {
+        "comment": "to the int64Amount being created ",
+        "similar_with": [
+            324
+        ]
+    },
+    "325": {
+        "comment": "AsScaledInt64 returns an int64 representing the value of this amount at the specified scale ",
+        "similar_with": [
+            325
+        ]
+    },
+    "326": {
+        "comment": "rounding up or false if that would result in overflow 1e20AsScaledInt641 would result ",
+        "similar_with": [
+            326
+        ]
+    },
+    "327": {
+        "comment": "in overflow because 1e19 is not representable as an int64 Note that setting a scale larger ",
+        "similar_with": [
+            327
+        ]
+    },
+    "328": {
+        "comment": "than the current value may result in loss of precision  ie 1e6AsScaledInt640 would ",
+        "similar_with": [
+            328
+        ]
+    },
+    "329": {
+        "comment": "return 1 because 0000001 is rounded up to 1 ",
+        "similar_with": [
+            329
+        ]
+    },
+    "330": {
+        "comment": "AsDec returns an infDec representation of this value ",
+        "similar_with": [
+            330
+        ]
+    },
+    "331": {
+        "comment": "Cmp returns 0 if a and b are equal 1 if a is greater than b or 1 if a is less than b ",
+        "similar_with": [
+            331
+        ]
+    },
+    "332": {
+        "comment": "compare only the unscaled portion ",
+        "similar_with": [
+            332
+        ]
+    },
+    "333": {
+        "comment": "Add adds two int64Amounts together matching scales It will return false and not mutate ",
+        "similar_with": [
+            333
+        ]
+    },
+    "334": {
+        "comment": "a if overflow or underflow would result ",
+        "similar_with": [
+            334
+        ]
+    },
+    "335": {
+        "comment": "Sub removes the value of b from the current amount or returns false if underflow would result ",
+        "similar_with": [
+            335
+        ]
+    },
+    "336": {
+        "comment": "AsScale adjusts this amount to set a minimum scale rounding up and returns true iff no precision ",
+        "similar_with": [
+            336
+        ]
+    },
+    "337": {
+        "comment": "was lost 11e5AsScale5 would return 11e5 but 11e5AsScale6 would return 1e6 ",
+        "similar_with": [
+            337
+        ]
+    },
+    "338": {
+        "comment": "AsCanonicalBytes accepts a buffer to write the base10 string value of this field to and returns ",
+        "similar_with": [
+            338
+        ]
+    },
+    "339": {
+        "comment": "either that buffer or a larger buffer and the current exponent of the value The value is adjusted ",
+        "similar_with": [
+            339
+        ]
+    },
+    "340": {
+        "comment": "until the exponent is a multiple of 3  ie 11e5 would return 110 3 ",
+        "similar_with": [
+            340
+        ]
+    },
+    "341": {
+        "comment": "make sure exponent is a multiple of 3 ",
+        "similar_with": [
+            341
+        ]
+    },
+    "342": {
+        "comment": "AsCanonicalBase1024Bytes accepts a buffer to write the base1024 string value of this field to and returns ",
+        "similar_with": [
+            342
+        ]
+    },
+    "343": {
+        "comment": "either that buffer or a larger buffer and the current exponent of the value 2048 is 2  1024  1 and would ",
+        "similar_with": [
+            343
+        ]
+    },
+    "344": {
+        "comment": "return byte2048 1 ",
+        "similar_with": [
+            344
+        ]
+    },
+    "345": {
+        "comment": "infDecAmount implements common operations over an infDec that are specific to the quantity ",
+        "similar_with": [
+            345
+        ]
+    },
+    "346": {
+        "comment": "representation ",
+        "similar_with": [
+            346
+        ]
+    },
+    "347": {
+        "comment": "AsScale adjusts this amount to set a minimum scale rounding up and returns true iff no precision ",
+        "similar_with": [
+            347
+        ]
+    },
+    "348": {
+        "comment": "was lost 11e5AsScale5 would return 11e5 but 11e5AsScale6 would return 1e6 ",
+        "similar_with": [
+            348
+        ]
+    },
+    "349": {
+        "comment": "AsCanonicalBytes accepts a buffer to write the base10 string value of this field to and returns ",
+        "similar_with": [
+            349
+        ]
+    },
+    "350": {
+        "comment": "either that buffer or a larger buffer and the current exponent of the value The value is adjusted ",
+        "similar_with": [
+            350
+        ]
+    },
+    "351": {
+        "comment": "until the exponent is a multiple of 3  ie 11e5 would return 110 3 ",
+        "similar_with": [
+            351
+        ]
+    },
+    "352": {
+        "comment": "move all factors of 10 into the exponent for easy reasoning ",
+        "similar_with": [
+            352
+        ]
+    },
+    "353": {
+        "comment": "make sure exponent is a multiple of 3 ",
+        "similar_with": [
+            353
+        ]
+    },
+    "354": {
+        "comment": "AsCanonicalBase1024Bytes accepts a buffer to write the base1024 string value of this field to and returns ",
+        "similar_with": [
+            354
+        ]
+    },
+    "355": {
+        "comment": "either that buffer or a larger buffer and the current exponent of the value 2048 is 2  1024  1 and would ",
+        "similar_with": [
+            355
+        ]
+    },
+    "356": {
+        "comment": "return byte2048 1 ",
+        "similar_with": [
+            356
+        ]
+    },
+    "357": {
+        "comment": "Copyright 2014 The Kubernetes Authors All rights reserved ",
+        "similar_with": [
+            357
+        ]
+    },
+    "358": {
+        "comment": "Licensed under the Apache License Version 20 the License ",
+        "similar_with": [
+            358
+        ]
+    },
+    "359": {
+        "comment": "you may not use this file except in compliance with the License ",
+        "similar_with": [
+            359
+        ]
+    },
+    "360": {
+        "comment": "You may obtain a copy of the License at ",
+        "similar_with": [
+            360
+        ]
+    },
+    "361": {
+        "comment": "httpwwwapacheorglicensesLICENSE20 ",
+        "similar_with": [
+            361
+        ]
+    },
+    "362": {
+        "comment": "Unless required by applicable law or agreed to in writing software ",
+        "similar_with": [
+            362
+        ]
+    },
+    "363": {
+        "comment": "distributed under the License is distributed on an AS IS BASIS ",
+        "similar_with": [
+            363
+        ]
+    },
+    "364": {
+        "comment": "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND either express or implied ",
+        "similar_with": [
+            364
+        ]
+    },
+    "365": {
+        "comment": "See the License for the specific language governing permissions and ",
+        "similar_with": [
+            365
+        ]
+    },
+    "366": {
+        "comment": "limitations under the License ",
+        "similar_with": [
+            366
+        ]
+    },
+    "367": {
+        "comment": "See the below test scale is the negative of an exponent ",
+        "similar_with": [
+            367
+        ]
+    },
+    "368": {
+        "comment": "See the below test scale is the negative of an exponent ",
+        "similar_with": [
+            368
+        ]
+    },
+    "369": {
+        "comment": "TestQuantityParseZero ensures that when a 0 quantity is passed its string value is 0 ",
+        "similar_with": [
+            369
+        ]
+    },
+    "370": {
+        "comment": "TestQuantityAddZeroPreservesSuffix verifies that a suffix is preserved ",
+        "similar_with": [
+            370
+        ]
+    },
+    "371": {
+        "comment": "independent of the order of operations when adding a zero and nonzero val ",
+        "similar_with": [
+            371
+        ]
+    },
+    "372": {
+        "comment": "ensure nonzero  zero  nonzero suffix preserved ",
+        "similar_with": [
+            372
+        ]
+    },
+    "373": {
+        "comment": "ensure zero  nonzero  nonzero suffix preserved ",
+        "similar_with": [
+            373
+        ]
+    },
+    "374": {
+        "comment": "TestQuantitySubZeroPreservesSuffix verifies that a suffix is preserved ",
+        "similar_with": [
+            374
+        ]
+    },
+    "375": {
+        "comment": "independent of the order of operations when subtracting a zero and nonzero val ",
+        "similar_with": [
+            375
+        ]
+    },
+    "376": {
+        "comment": "ensure nonzero  zero  nonzero suffix preserved ",
+        "similar_with": [
+            376
+        ]
+    },
+    "377": {
+        "comment": "ensure we preserved the input value ",
+        "similar_with": [
+            377
+        ]
+    },
+    "378": {
+        "comment": "ensure zero  nonzero  nonzero suffix preserved ",
+        "similar_with": [
+            378
+        ]
+    },
+    "379": {
+        "comment": "Verifies that you get 0 as canonical value if internal value is 0 and not 0suffix ",
+        "similar_with": [
+            379
+        ]
+    },
+    "380": {
+        "comment": "Quantity less numbers are allowed ",
+        "similar_with": [
+            380
+        ]
+    },
+    "381": {
+        "comment": "Binary suffixes ",
+        "similar_with": [
+            381
+        ]
+    },
+    "382": {
+        "comment": "Decimal suffixes ",
+        "similar_with": [
+            382
+        ]
+    },
+    "383": {
+        "comment": "Decimal exponents ",
+        "similar_with": [
+            383
+        ]
+    },
+    "384": {
+        "comment": "Nonstandard but still parsable ",
+        "similar_with": [
+            384
+        ]
+    },
+    "385": {
+        "comment": "Things that look like floating point ",
+        "similar_with": [
+            385
+        ]
+    },
+    "386": {
+        "comment": "Things that saturateround ",
+        "similar_with": [
+            386
+        ]
+    },
+    "387": {
+        "comment": "Well accept fractional binary stuff too ",
+        "similar_with": [
+            387
+        ]
+    },
+    "388": {
+        "comment": "Things written by trolls ",
+        "similar_with": [
+            388
+        ]
+    },
+    "389": {
+        "comment": "rounds up changes format ",
+        "similar_with": [
+            389
+        ]
+    },
+    "390": {
+        "comment": "verify that we can decompose the input and get the same result by building up from the base ",
+        "similar_with": [
+            390
+        ]
+    },
+    "391": {
+        "comment": "Try the negative version of everything ",
+        "similar_with": [
+            391
+        ]
+    },
+    "392": {
+        "comment": "Try everything with an explicit  ",
+        "similar_with": [
+            392
+        ]
+    },
+    "393": {
+        "comment": "trailing whitespace is forbidden ",
+        "similar_with": [
+            393
+        ]
+    },
+    "394": {
+        "comment": "Avoid modifying the values in the table ",
+        "similar_with": [
+            394
+        ]
+    },
+    "395": {
+        "comment": "Dont expect it to print 0 ever ",
+        "similar_with": [
+            395
+        ]
+    },
+    "396": {
+        "comment": "Be sure to test cases like 1Mi ",
+        "similar_with": [
+            396
+        ]
+    },
+    "397": {
+        "comment": "Be sure to test cases like 1M ",
+        "similar_with": [
+            397
+        ]
+    },
+    "398": {
+        "comment": "Format changes ",
+        "similar_with": [
+            398
+        ]
+    },
+    "399": {
+        "comment": "Format changes ",
+        "similar_with": [
+            399
+        ]
+    },
+    "400": {
+        "comment": "ensure value is same ",
+        "similar_with": [
+            400
+        ]
+    },
+    "401": {
+        "comment": "Copyright 2015 The Kubernetes Authors All rights reserved ",
+        "similar_with": [
+            401
+        ]
+    },
+    "402": {
+        "comment": "Licensed under the Apache License Version 20 the License ",
+        "similar_with": [
+            402
+        ]
+    },
+    "403": {
+        "comment": "you may not use this file except in compliance with the License ",
+        "similar_with": [
+            403
+        ]
+    },
+    "404": {
+        "comment": "You may obtain a copy of the License at ",
+        "similar_with": [
+            404
+        ]
+    },
+    "405": {
+        "comment": "httpwwwapacheorglicensesLICENSE20 ",
+        "similar_with": [
+            405
+        ]
+    },
+    "406": {
+        "comment": "Unless required by applicable law or agreed to in writing software ",
+        "similar_with": [
+            406
+        ]
+    },
+    "407": {
+        "comment": "distributed under the License is distributed on an AS IS BASIS ",
+        "similar_with": [
+            407
+        ]
+    },
+    "408": {
+        "comment": "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND either express or implied ",
+        "similar_with": [
+            408
+        ]
+    },
+    "409": {
+        "comment": "See the License for the specific language governing permissions and ",
+        "similar_with": [
+            409
+        ]
+    },
+    "410": {
+        "comment": "limitations under the License ",
+        "similar_with": [
+            410
+        ]
+    },
+    "411": {
+        "comment": "remain scale ",
+        "similar_with": [
+            411
+        ]
+    },
+    "412": {
+        "comment": "scale down ",
+        "similar_with": [
+            412
+        ]
+    },
+    "413": {
+        "comment": "always round up ",
+        "similar_with": [
+            413
+        ]
+    },
+    "414": {
+        "comment": "large scaled value does not lose precision ",
+        "similar_with": [
+            414
+        ]
+    },
+    "415": {
+        "comment": "large intermidiate result ",
+        "similar_with": [
+            415
+        ]
+    },
+    "416": {
+        "comment": "scale up ",
+        "similar_with": [
+            416
+        ]
+    },
+    "417": {
+        "comment": "Copyright 2016 The Kubernetes Authors All rights reserved ",
+        "similar_with": [
+            417
+        ]
+    },
+    "418": {
+        "comment": "Licensed under the Apache License Version 20 the License ",
+        "similar_with": [
+            418
+        ]
+    },
+    "419": {
+        "comment": "you may not use this file except in compliance with the License ",
+        "similar_with": [
+            419
+        ]
+    },
+    "420": {
+        "comment": "You may obtain a copy of the License at ",
+        "similar_with": [
+            420
+        ]
+    },
+    "421": {
+        "comment": "httpwwwapacheorglicensesLICENSE20 ",
+        "similar_with": [
+            421
+        ]
+    },
+    "422": {
+        "comment": "Unless required by applicable law or agreed to in writing software ",
+        "similar_with": [
+            422
+        ]
+    },
+    "423": {
+        "comment": "distributed under the License is distributed on an AS IS BASIS ",
+        "similar_with": [
+            423
+        ]
+    },
+    "424": {
+        "comment": "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND either express or implied ",
+        "similar_with": [
+            424
+        ]
+    },
+    "425": {
+        "comment": "See the License for the specific language governing permissions and ",
+        "similar_with": [
+            425
+        ]
+    },
+    "426": {
+        "comment": "limitations under the License ",
+        "similar_with": [
+            426
+        ]
+    },
+    "427": {
+        "comment": "Code generated by protocgengogo ",
+        "similar_with": [
+            427
+        ]
+    },
+    "428": {
+        "comment": "source k8siokubernetespkgapiresourcegeneratedproto ",
+        "similar_with": [
+            428
+        ]
+    },
+    "429": {
+        "comment": "DO NOT EDIT ",
+        "similar_with": [
+            429
+        ]
+    },
+    "430": {
+        "comment": "Package resource is a generated protocol buffer package ",
+        "similar_with": [
+            430
+        ]
+    },
+    "431": {
+        "comment": "It is generated from these files ",
+        "similar_with": [
+            431
+        ]
+    },
+    "432": {
+        "comment": "k8siokubernetespkgapiresourcegeneratedproto ",
+        "similar_with": [
+            432
+        ]
+    },
+    "433": {
+        "comment": "It has these toplevel messages ",
+        "similar_with": [
+            433
+        ]
+    },
+    "434": {
+        "comment": "Quantity ",
+        "similar_with": [
+            434
+        ]
+    },
+    "435": {
+        "comment": "Reference imports to suppress errors if they are not otherwise used ",
+        "similar_with": [
+            435
+        ]
+    },
+    "436": {
+        "comment": "Copyright 2015 The Kubernetes Authors All rights reserved ",
+        "similar_with": [
+            436
+        ]
+    },
+    "437": {
+        "comment": "Licensed under the Apache License Version 20 the License ",
+        "similar_with": [
+            437
+        ]
+    },
+    "438": {
+        "comment": "you may not use this file except in compliance with the License ",
+        "similar_with": [
+            438
+        ]
+    },
+    "439": {
+        "comment": "You may obtain a copy of the License at ",
+        "similar_with": [
+            439
+        ]
+    },
+    "440": {
+        "comment": "httpwwwapacheorglicensesLICENSE20 ",
+        "similar_with": [
+            440
+        ]
+    },
+    "441": {
+        "comment": "Unless required by applicable law or agreed to in writing software ",
+        "similar_with": [
+            441
+        ]
+    },
+    "442": {
+        "comment": "distributed under the License is distributed on an AS IS BASIS ",
+        "similar_with": [
+            442
+        ]
+    },
+    "443": {
+        "comment": "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND either express or implied ",
+        "similar_with": [
+            443
+        ]
+    },
+    "444": {
+        "comment": "See the License for the specific language governing permissions and ",
+        "similar_with": [
+            444
+        ]
+    },
+    "445": {
+        "comment": "limitations under the License ",
+        "similar_with": [
+            445
+        ]
+    },
+    "446": {
+        "comment": "MarshalTo is a customized version of the generated Protobuf unmarshaler for a struct ",
+        "similar_with": [
+            446
+        ]
+    },
+    "447": {
+        "comment": "with a single string field ",
+        "similar_with": [
+            447
+        ]
+    },
+    "448": {
+        "comment": "BEGIN CUSTOM MARSHAL ",
+        "similar_with": [
+            448
+        ]
+    },
+    "449": {
+        "comment": "END CUSTOM MARSHAL ",
+        "similar_with": [
+            449
+        ]
+    },
+    "450": {
+        "comment": "BEGIN CUSTOM SIZE ",
+        "similar_with": [
+            450
+        ]
+    },
+    "451": {
+        "comment": "END CUSTOM SIZE ",
+        "similar_with": [
+            451
+        ]
+    },
+    "452": {
+        "comment": "Unmarshal is a customized version of the generated Protobuf unmarshaler for a struct ",
+        "similar_with": [
+            452
+        ]
+    },
+    "453": {
+        "comment": "with a single string field ",
+        "similar_with": [
+            453
+        ]
+    },
+    "454": {
+        "comment": "BEGIN CUSTOM DECODE ",
+        "similar_with": [
+            454
+        ]
+    },
+    "455": {
+        "comment": "END CUSTOM DECODE ",
+        "similar_with": [
+            455
+        ]
+    },
+    "456": {
+        "comment": "Copyright 2015 The Kubernetes Authors All rights reserved ",
+        "similar_with": [
+            456
+        ]
+    },
+    "457": {
+        "comment": "Licensed under the Apache License Version 20 the License ",
+        "similar_with": [
+            457
+        ]
+    },
+    "458": {
+        "comment": "you may not use this file except in compliance with the License ",
+        "similar_with": [
+            458
+        ]
+    },
+    "459": {
+        "comment": "You may obtain a copy of the License at ",
+        "similar_with": [
+            459
+        ]
+    },
+    "460": {
+        "comment": "httpwwwapacheorglicensesLICENSE20 ",
+        "similar_with": [
+            460
+        ]
+    },
+    "461": {
+        "comment": "Unless required by applicable law or agreed to in writing software ",
+        "similar_with": [
+            461
+        ]
+    },
+    "462": {
+        "comment": "distributed under the License is distributed on an AS IS BASIS ",
+        "similar_with": [
+            462
+        ]
+    },
+    "463": {
+        "comment": "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND either express or implied ",
+        "similar_with": [
+            463
+        ]
+    },
+    "464": {
+        "comment": "See the License for the specific language governing permissions and ",
+        "similar_with": [
+            464
+        ]
+    },
+    "465": {
+        "comment": "limitations under the License ",
+        "similar_with": [
+            465
+        ]
+    },
+    "466": {
+        "comment": "A sync pool to reduce allocation ",
+        "similar_with": [
+            466
+        ]
+    },
+    "467": {
+        "comment": "scaledValue scales given unscaled value from scale to new Scale and returns ",
+        "similar_with": [
+            467
+        ]
+    },
+    "468": {
+        "comment": "an int64 It ALWAYS rounds up the result when scale down The final result might ",
+        "similar_with": [
+            468
+        ]
+    },
+    "469": {
+        "comment": "overflow ",
+        "similar_with": [
+            469
+        ]
+    },
+    "470": {
+        "comment": "scale newScale represents the scale of the unscaled decimal ",
+        "similar_with": [
+            470
+        ]
+    },
+    "471": {
+        "comment": "The mathematical value of the decimal is unscaled  10scale ",
+        "similar_with": [
+            471
+        ]
+    },
+    "472": {
+        "comment": "Handle scale up ",
+        "similar_with": [
+            472
+        ]
+    },
+    "473": {
+        "comment": "This is an easy case we do not need to care about rounding and overflow ",
+        "similar_with": [
+            473
+        ]
+    },
+    "474": {
+        "comment": "If any intermediate operation causes overflow the result will overflow ",
+        "similar_with": [
+            474
+        ]
+    },
+    "475": {
+        "comment": "Handle scale down ",
+        "similar_with": [
+            475
+        ]
+    },
+    "476": {
+        "comment": "We have to be careful about the intermediate operations ",
+        "similar_with": [
+            476
+        ]
+    },
+    "477": {
+        "comment": "fast path when unscaled  maxInt64 and exp10dif  maxInt64 ",
+        "similar_with": [
+            477
+        ]
+    },
+    "478": {
+        "comment": "We should only convert back to int64 when getting the result ",
+        "similar_with": [
+            478
+        ]
+    },
+    "479": {
+        "comment": "divisor  10dif ",
+        "similar_with": [
+            479
+        ]
+    },
+    "480": {
+        "comment": "TODO create loop up table if exp costs too much ",
+        "similar_with": [
+            480
+        ]
+    },
+    "481": {
+        "comment": "reuse exp ",
+        "similar_with": [
+            481
+        ]
+    },
+    "482": {
+        "comment": "result  unscaled  divisor ",
+        "similar_with": [
+            482
+        ]
+    },
+    "483": {
+        "comment": "remainder  unscaled  divisor ",
+        "similar_with": [
+            483
+        ]
+    },
+    "484": {
+        "comment": "Copyright 2014 The Kubernetes Authors All rights reserved ",
+        "similar_with": [
+            484
+        ]
+    },
+    "485": {
+        "comment": "Licensed under the Apache License Version 20 the License ",
+        "similar_with": [
+            485
+        ]
+    },
+    "486": {
+        "comment": "you may not use this file except in compliance with the License ",
+        "similar_with": [
+            486
+        ]
+    },
+    "487": {
+        "comment": "You may obtain a copy of the License at ",
+        "similar_with": [
+            487
+        ]
+    },
+    "488": {
+        "comment": "httpwwwapacheorglicensesLICENSE20 ",
+        "similar_with": [
+            488
+        ]
+    },
+    "489": {
+        "comment": "Unless required by applicable law or agreed to in writing software ",
+        "similar_with": [
+            489
+        ]
+    },
+    "490": {
+        "comment": "distributed under the License is distributed on an AS IS BASIS ",
+        "similar_with": [
+            490
+        ]
+    },
+    "491": {
+        "comment": "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND either express or implied ",
+        "similar_with": [
+            491
+        ]
+    },
+    "492": {
+        "comment": "See the License for the specific language governing permissions and ",
+        "similar_with": [
+            492
+        ]
+    },
+    "493": {
+        "comment": "limitations under the License ",
+        "similar_with": [
+            493
+        ]
+    },
+    "494": {
+        "comment": "addition is commutative ",
+        "similar_with": [
+            494
+        ]
+    },
+    "495": {
+        "comment": "Copyright 2016 The Kubernetes Authors All rights reserved ",
+        "similar_with": [
+            495
+        ]
+    },
+    "496": {
+        "comment": "Licensed under the Apache License Version 20 the License ",
+        "similar_with": [
+            496
+        ]
+    },
+    "497": {
+        "comment": "you may not use this file except in compliance with the License ",
+        "similar_with": [
+            497
+        ]
+    },
+    "498": {
+        "comment": "You may obtain a copy of the License at ",
+        "similar_with": [
+            498
+        ]
+    },
+    "499": {
+        "comment": "httpwwwapacheorglicensesLICENSE20 ",
+        "similar_with": [
+            499
+        ]
+    },
+    "500": {
+        "comment": "Unless required by applicable law or agreed to in writing software ",
+        "similar_with": [
+            500
+        ]
+    },
+    "501": {
+        "comment": "distributed under the License is distributed on an AS IS BASIS ",
+        "similar_with": [
+            501
+        ]
+    },
+    "502": {
+        "comment": "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND either express or implied ",
+        "similar_with": [
+            502
+        ]
+    },
+    "503": {
+        "comment": "See the License for the specific language governing permissions and ",
+        "similar_with": [
+            503
+        ]
+    },
+    "504": {
+        "comment": "limitations under the License ",
+        "similar_with": [
+            504
+        ]
+    },
+    "505": {
+        "comment": "Copyright 2014 The Kubernetes Authors All rights reserved ",
+        "similar_with": [
+            505
+        ]
+    },
+    "506": {
+        "comment": "Licensed under the Apache License Version 20 the License ",
+        "similar_with": [
+            506
+        ]
+    },
+    "507": {
+        "comment": "you may not use this file except in compliance with the License ",
+        "similar_with": [
+            507
+        ]
+    },
+    "508": {
+        "comment": "You may obtain a copy of the License at ",
+        "similar_with": [
+            508
+        ]
+    },
+    "509": {
+        "comment": "httpwwwapacheorglicensesLICENSE20 ",
+        "similar_with": [
+            509
+        ]
+    },
+    "510": {
+        "comment": "Unless required by applicable law or agreed to in writing software ",
+        "similar_with": [
+            510
+        ]
+    },
+    "511": {
+        "comment": "distributed under the License is distributed on an AS IS BASIS ",
+        "similar_with": [
+            511
+        ]
+    },
+    "512": {
+        "comment": "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND either express or implied ",
+        "similar_with": [
+            512
+        ]
+    },
+    "513": {
+        "comment": "See the License for the specific language governing permissions and ",
+        "similar_with": [
+            513
+        ]
+    },
+    "514": {
+        "comment": "limitations under the License ",
+        "similar_with": [
+            514
+        ]
+    },
+    "515": {
+        "comment": "Output ",
+        "similar_with": [
+            515
+        ]
+    },
+    "516": {
+        "comment": "memorySize  5Gi ",
+        "similar_with": [
+            516
+        ]
+    },
+    "517": {
+        "comment": "diskSize  5G ",
+        "similar_with": [
+            517
+        ]
+    },
+    "518": {
+        "comment": "cores  5300m ",
+        "similar_with": [
+            518
+        ]
+    },
+    "519": {
+        "comment": "Output ",
+        "similar_with": [
+            519
+        ]
+    },
+    "520": {
+        "comment": "memorySize  5368709120 BinarySI ",
+        "similar_with": [
+            520
+        ]
+    },
+    "521": {
+        "comment": "diskSize  5000000000 DecimalSI ",
+        "similar_with": [
+            521
+        ]
+    },
+    "522": {
+        "comment": "milliCores  5300 DecimalSI ",
+        "similar_with": [
+            522
+        ]
+    },
+    "523": {
+        "comment": "milliCores  5400 DecimalSI ",
+        "similar_with": [
+            523
+        ]
+    },
+    "524": {
+        "comment": "Copyright 2014 The Kubernetes Authors All rights reserved ",
+        "similar_with": [
+            524
+        ]
+    },
+    "525": {
+        "comment": "Licensed under the Apache License Version 20 the License ",
+        "similar_with": [
+            525
+        ]
+    },
+    "526": {
+        "comment": "you may not use this file except in compliance with the License ",
+        "similar_with": [
+            526
+        ]
+    },
+    "527": {
+        "comment": "You may obtain a copy of the License at ",
+        "similar_with": [
+            527
+        ]
+    },
+    "528": {
+        "comment": "httpwwwapacheorglicensesLICENSE20 ",
+        "similar_with": [
+            528
+        ]
+    },
+    "529": {
+        "comment": "Unless required by applicable law or agreed to in writing software ",
+        "similar_with": [
+            529
+        ]
+    },
+    "530": {
+        "comment": "distributed under the License is distributed on an AS IS BASIS ",
+        "similar_with": [
+            530
+        ]
+    },
+    "531": {
+        "comment": "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND either express or implied ",
+        "similar_with": [
+            531
+        ]
+    },
+    "532": {
+        "comment": "See the License for the specific language governing permissions and ",
+        "similar_with": [
+            532
+        ]
+    },
+    "533": {
+        "comment": "limitations under the License ",
+        "similar_with": [
+            533
+        ]
+    },
+    "534": {
+        "comment": "addition is commutative ",
+        "similar_with": [
+            534
+        ]
+    },
+    "535": {
+        "comment": "multiplication is commutative ",
+        "similar_with": [
+            535
+        ]
+    },
+    "536": {
+        "comment": "negative scale is undefined behavior ",
+        "similar_with": [
+            536
+        ]
+    },
+    "537": {
+        "comment": "Copyright 2014 The Kubernetes Authors All rights reserved ",
+        "similar_with": [
+            537
+        ]
+    },
+    "538": {
+        "comment": "Licensed under the Apache License Version 20 the License ",
+        "similar_with": [
+            538
+        ]
+    },
+    "539": {
+        "comment": "you may not use this file except in compliance with the License ",
+        "similar_with": [
+            539
+        ]
+    },
+    "540": {
+        "comment": "You may obtain a copy of the License at ",
+        "similar_with": [
+            540
+        ]
+    },
+    "541": {
+        "comment": "httpwwwapacheorglicensesLICENSE20 ",
+        "similar_with": [
+            541
+        ]
+    },
+    "542": {
+        "comment": "Unless required by applicable law or agreed to in writing software ",
+        "similar_with": [
+            542
+        ]
+    },
+    "543": {
+        "comment": "distributed under the License is distributed on an AS IS BASIS ",
+        "similar_with": [
+            543
+        ]
+    },
+    "544": {
+        "comment": "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND either express or implied ",
+        "similar_with": [
+            544
+        ]
+    },
+    "545": {
+        "comment": "See the License for the specific language governing permissions and ",
+        "similar_with": [
+            545
+        ]
+    },
+    "546": {
+        "comment": "limitations under the License ",
+        "similar_with": [
+            546
+        ]
+    },
+    "547": {
+        "comment": "suffixer can interpret and construct suffixes ",
+        "similar_with": [
+            547
+        ]
+    },
+    "548": {
+        "comment": "quantitySuffixer handles suffixes for all three formats that quantity ",
+        "similar_with": [
+            548
+        ]
+    },
+    "549": {
+        "comment": "can handle ",
+        "similar_with": [
+            549
+        ]
+    },
+    "550": {
+        "comment": "IMPORTANT if you change this section you must change fastLookup ",
+        "similar_with": [
+            550
+        ]
+    },
+    "551": {
+        "comment": "Dont emit an error when trying to produce ",
+        "similar_with": [
+            551
+        ]
+    },
+    "552": {
+        "comment": "a suffix for 20 ",
+        "similar_with": [
+            552
+        ]
+    },
+    "553": {
+        "comment": "Try lookup tables first ",
+        "similar_with": [
+            553
+        ]
+    },
+    "554": {
+        "comment": "Copyright 2014 The Kubernetes Authors All rights reserved ",
+        "similar_with": [
+            554
+        ]
+    },
+    "555": {
+        "comment": "Licensed under the Apache License Version 20 the License ",
+        "similar_with": [
+            555
+        ]
+    },
+    "556": {
+        "comment": "you may not use this file except in compliance with the License ",
+        "similar_with": [
+            556
+        ]
+    },
+    "557": {
+        "comment": "You may obtain a copy of the License at ",
+        "similar_with": [
+            557
+        ]
+    },
+    "558": {
+        "comment": "httpwwwapacheorglicensesLICENSE20 ",
+        "similar_with": [
+            558
+        ]
+    },
+    "559": {
+        "comment": "Unless required by applicable law or agreed to in writing software ",
+        "similar_with": [
+            559
+        ]
+    },
+    "560": {
+        "comment": "distributed under the License is distributed on an AS IS BASIS ",
+        "similar_with": [
+            560
+        ]
+    },
+    "561": {
+        "comment": "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND either express or implied ",
+        "similar_with": [
+            561
+        ]
+    },
+    "562": {
+        "comment": "See the License for the specific language governing permissions and ",
+        "similar_with": [
+            562
+        ]
+    },
+    "563": {
+        "comment": "limitations under the License ",
+        "similar_with": [
+            563
+        ]
+    },
+    "564": {
+        "comment": "Quantity is a fixedpoint representation of a number ",
+        "similar_with": [
+            564
+        ]
+    },
+    "565": {
+        "comment": "It provides convenient marshalingunmarshaling in JSON and YAML ",
+        "similar_with": [
+            565
+        ]
+    },
+    "566": {
+        "comment": "in addition to String and Int64 accessors ",
+        "similar_with": [
+            566
+        ]
+    },
+    "567": {
+        "comment": "The serialization format is ",
+        "similar_with": [
+            567
+        ]
+    },
+    "568": {
+        "comment": "quantity         signedNumbersuffix ",
+        "similar_with": [
+            568
+        ]
+    },
+    "569": {
+        "comment": "Note that suffix may be empty from the  case in decimalSI ",
+        "similar_with": [
+            569
+        ]
+    },
+    "570": {
+        "comment": "digit            0  1    9 ",
+        "similar_with": [
+            570
+        ]
+    },
+    "571": {
+        "comment": "digits           digit  digitdigits ",
+        "similar_with": [
+            571
+        ]
+    },
+    "572": {
+        "comment": "number           digits  digitsdigits  digits  digits ",
+        "similar_with": [
+            572
+        ]
+    },
+    "573": {
+        "comment": "sign                ",
+        "similar_with": [
+            573
+        ]
+    },
+    "574": {
+        "comment": "signedNumber     number  signnumber ",
+        "similar_with": [
+            574
+        ]
+    },
+    "575": {
+        "comment": "suffix           binarySI  decimalExponent  decimalSI ",
+        "similar_with": [
+            575
+        ]
+    },
+    "576": {
+        "comment": "binarySI         Ki  Mi  Gi  Ti  Pi  Ei ",
+        "similar_with": [
+            576
+        ]
+    },
+    "577": {
+        "comment": "International System of units See httpphysicsnistgovcuuUnitsbinaryhtml ",
+        "similar_with": [
+            577
+        ]
+    },
+    "578": {
+        "comment": "decimalSI        m    k  M  G  T  P  E ",
+        "similar_with": [
+            578
+        ]
+    },
+    "579": {
+        "comment": "Note that 1024  1Ki but 1000  1k I didnt choose the capitalization ",
+        "similar_with": [
+            579
+        ]
+    },
+    "580": {
+        "comment": "decimalExponent  e signedNumber  E signedNumber ",
+        "similar_with": [
+            580
+        ]
+    },
+    "581": {
+        "comment": "No matter which of the three exponent forms is used no quantity may represent ",
+        "similar_with": [
+            581
+        ]
+    },
+    "582": {
+        "comment": "a number greater than 2631 in magnitude nor may it have more than 3 decimal ",
+        "similar_with": [
+            582
+        ]
+    },
+    "583": {
+        "comment": "places Numbers larger or more precise will be capped or rounded up ",
+        "similar_with": [
+            583
+        ]
+    },
+    "584": {
+        "comment": "Eg 01m will rounded up to 1m ",
+        "similar_with": [
+            584
+        ]
+    },
+    "585": {
+        "comment": "This may be extended in the future if we require larger or smaller quantities ",
+        "similar_with": [
+            585
+        ]
+    },
+    "586": {
+        "comment": "When a Quantity is parsed from a string it will remember the type of suffix ",
+        "similar_with": [
+            586
+        ]
+    },
+    "587": {
+        "comment": "it had and will use the same type again when it is serialized ",
+        "similar_with": [
+            587
+        ]
+    },
+    "588": {
+        "comment": "Before serializing Quantity will be put in canonical form ",
+        "similar_with": [
+            588
+        ]
+    },
+    "589": {
+        "comment": "This means that Exponentsuffix will be adjusted up or down with a ",
+        "similar_with": [
+            589
+        ]
+    },
+    "590": {
+        "comment": "corresponding increase or decrease in Mantissa such that ",
+        "similar_with": [
+            590
+        ]
+    },
+    "591": {
+        "comment": "a No precision is lost ",
+        "similar_with": [
+            591
+        ]
+    },
+    "592": {
+        "comment": "b No fractional digits will be emitted ",
+        "similar_with": [
+            592
+        ]
+    },
+    "593": {
+        "comment": "c The exponent or suffix is as large as possible ",
+        "similar_with": [
+            593
+        ]
+    },
+    "594": {
+        "comment": "The sign will be omitted unless the number is negative ",
+        "similar_with": [
+            594
+        ]
+    },
+    "595": {
+        "comment": "Examples ",
+        "similar_with": [
+            595
+        ]
+    },
+    "596": {
+        "comment": "15 will be serialized as 1500m ",
+        "similar_with": [
+            596
+        ]
+    },
+    "597": {
+        "comment": "15Gi will be serialized as 1536Mi ",
+        "similar_with": [
+            597
+        ]
+    },
+    "598": {
+        "comment": "NOTE We reserve the right to amend this canonical format perhaps to ",
+        "similar_with": [
+            598
+        ]
+    },
+    "599": {
+        "comment": "allow 15 to be canonical ",
+        "similar_with": [
+            599
+        ]
+    },
+    "600": {
+        "comment": "TODO Remove above disclaimer after all bikeshedding about format is over ",
+        "similar_with": [
+            600
+        ]
+    },
+    "601": {
+        "comment": "or after March 2015 ",
+        "similar_with": [
+            601
+        ]
+    },
+    "602": {
+        "comment": "Note that the quantity will NEVER be internally represented by a ",
+        "similar_with": [
+            602
+        ]
+    },
+    "603": {
+        "comment": "floating point number That is the whole point of this exercise ",
+        "similar_with": [
+            603
+        ]
+    },
+    "604": {
+        "comment": "Noncanonical values will still parse as long as they are well formed ",
+        "similar_with": [
+            604
+        ]
+    },
+    "605": {
+        "comment": "but will be reemitted in their canonical form So always use canonical ",
+        "similar_with": [
+            605
+        ]
+    },
+    "606": {
+        "comment": "form or dont diff ",
+        "similar_with": [
+            606
+        ]
+    },
+    "607": {
+        "comment": "This format is intended to make it difficult to use these numbers without ",
+        "similar_with": [
+            607
+        ]
+    },
+    "608": {
+        "comment": "writing some sort of special handling code in the hopes that that will ",
+        "similar_with": [
+            608
+        ]
+    },
+    "609": {
+        "comment": "cause implementors to also use a fixed point implementation ",
+        "similar_with": [
+            609
+        ]
+    },
+    "610": {
+        "comment": "gencopyfalse ",
+        "similar_with": [
+            610
+        ]
+    },
+    "611": {
+        "comment": "protobuftrue ",
+        "similar_with": [
+            611
+        ]
+    },
+    "612": {
+        "comment": "protobufembedstring ",
+        "similar_with": [
+            612
+        ]
+    },
+    "613": {
+        "comment": "protobufoptionsmarshalfalse ",
+        "similar_with": [
+            613
+        ]
+    },
+    "614": {
+        "comment": "protobufoptionsgogoprotogoproto_stringerfalse ",
+        "similar_with": [
+            614
+        ]
+    },
+    "615": {
+        "comment": "i is the quantity in int64 scaled form if dDec  nil ",
+        "similar_with": [
+            615
+        ]
+    },
+    "616": {
+        "comment": "d is the quantity in infDec form if dDec  nil ",
+        "similar_with": [
+            616
+        ]
+    },
+    "617": {
+        "comment": "s is the generated value of this quantity to avoid recalculation ",
+        "similar_with": [
+            617
+        ]
+    },
+    "618": {
+        "comment": "Change Format at will See the comment for Canonicalize for ",
+        "similar_with": [
+            618
+        ]
+    },
+    "619": {
+        "comment": "more details ",
+        "similar_with": [
+            619
+        ]
+    },
+    "620": {
+        "comment": "CanonicalValue allows a quantity amount to be converted to a string ",
+        "similar_with": [
+            620
+        ]
+    },
+    "621": {
+        "comment": "AsCanonicalBytes returns a byte array representing the string representation ",
+        "similar_with": [
+            621
+        ]
+    },
+    "622": {
+        "comment": "of the value mantissa and an int32 representing its exponent in base10 Callers may ",
+        "similar_with": [
+            622
+        ]
+    },
+    "623": {
+        "comment": "pass a byte slice to the method to avoid allocations ",
+        "similar_with": [
+            623
+        ]
+    },
+    "624": {
+        "comment": "AsCanonicalBase1024Bytes returns a byte array representing the string representation ",
+        "similar_with": [
+            624
+        ]
+    },
+    "625": {
+        "comment": "of the value mantissa and an int32 representing its exponent in base1024 Callers ",
+        "similar_with": [
+            625
+        ]
+    },
+    "626": {
+        "comment": "may pass a byte slice to the method to avoid allocations ",
+        "similar_with": [
+            626
+        ]
+    },
+    "627": {
+        "comment": "Format lists the three possible formattings of a quantity ",
+        "similar_with": [
+            627
+        ]
+    },
+    "628": {
+        "comment": "eg 12e6 ",
+        "similar_with": [
+            628
+        ]
+    },
+    "629": {
+        "comment": "eg 12Mi 12  220 ",
+        "similar_with": [
+            629
+        ]
+    },
+    "630": {
+        "comment": "eg 12M  12  106 ",
+        "similar_with": [
+            630
+        ]
+    },
+    "631": {
+        "comment": "MustParse turns the given string into a quantity or panics for tests ",
+        "similar_with": [
+            631
+        ]
+    },
+    "632": {
+        "comment": "or others cases where you know the string is valid ",
+        "similar_with": [
+            632
+        ]
+    },
+    "633": {
+        "comment": "splitREString is used to separate a number from its suffix as such ",
+        "similar_with": [
+            633
+        ]
+    },
+    "634": {
+        "comment": "this is overly permissive but thats OK it will be checked later ",
+        "similar_with": [
+            634
+        ]
+    },
+    "635": {
+        "comment": "splitRE is used to get the various parts of a number ",
+        "similar_with": [
+            635
+        ]
+    },
+    "636": {
+        "comment": "Errors that could happen while parsing a string ",
+        "similar_with": [
+            636
+        ]
+    },
+    "637": {
+        "comment": "parseQuantityString is a fast scanner for quantity values ",
+        "similar_with": [
+            637
+        ]
+    },
+    "638": {
+        "comment": "handle leading sign ",
+        "similar_with": [
+            638
+        ]
+    },
+    "639": {
+        "comment": "strip leading zeros ",
+        "similar_with": [
+            639
+        ]
+    },
+    "640": {
+        "comment": "extract the numerator ",
+        "similar_with": [
+            640
+        ]
+    },
+    "641": {
+        "comment": "if we stripped all numerator positions always return 0 ",
+        "similar_with": [
+            641
+        ]
+    },
+    "642": {
+        "comment": "handle a denominator ",
+        "similar_with": [
+            642
+        ]
+    },
+    "643": {
+        "comment": "TODO we currently allow 1G but we may not want to in the future ",
+        "similar_with": [
+            643
+        ]
+    },
+    "644": {
+        "comment": "if lendenom  0  ",
+        "similar_with": [
+            644
+        ]
+    },
+    "645": {
+        "comment": "\terr  ErrFormatWrong ",
+        "similar_with": [
+            645
+        ]
+    },
+    "646": {
+        "comment": "\treturn ",
+        "similar_with": [
+            646
+        ]
+    },
+    "647": {
+        "comment": " ",
+        "similar_with": [
+            647
+        ]
+    },
+    "648": {
+        "comment": "grab the elements of the suffix ",
+        "similar_with": [
+            648
+        ]
+    },
+    "649": {
+        "comment": "we encountered a non decimal in the Suffix loop but the last character ",
+        "similar_with": [
+            649
+        ]
+    },
+    "650": {
+        "comment": "was not a valid exponent ",
+        "similar_with": [
+            650
+        ]
+    },
+    "651": {
+        "comment": "ParseQuantity turns str into a Quantity or returns an error ",
+        "similar_with": [
+            651
+        ]
+    },
+    "652": {
+        "comment": "only handle positive binary numbers with the fast path ",
+        "similar_with": [
+            652
+        ]
+    },
+    "653": {
+        "comment": "1Mi 220 has 6 digits of decimal precision so exponent310 1 is roughly the precision ",
+        "similar_with": [
+            653
+        ]
+    },
+    "654": {
+        "comment": "if we have a denominator shift the entire value to the left by the number of places in the ",
+        "similar_with": [
+            654
+        ]
+    },
+    "655": {
+        "comment": "denominator ",
+        "similar_with": [
+            655
+        ]
+    },
+    "656": {
+        "comment": "if the number is in canonical form reuse the string ",
+        "similar_with": [
+            656
+        ]
+    },
+    "657": {
+        "comment": "So that no one but us has to think about suffixes remove it ",
+        "similar_with": [
+            657
+        ]
+    },
+    "658": {
+        "comment": "numericSuffix  2  exponent ",
+        "similar_with": [
+            658
+        ]
+    },
+    "659": {
+        "comment": "Cap at minmax bounds ",
+        "similar_with": [
+            659
+        ]
+    },
+    "660": {
+        "comment": "This rounds nonzero values up to the minimum representable value under the theory that ",
+        "similar_with": [
+            660
+        ]
+    },
+    "661": {
+        "comment": "if you want some resources you should get some resources even if you asked for way too small ",
+        "similar_with": [
+            661
+        ]
+    },
+    "662": {
+        "comment": "of an amount  Arguably this should be infRoundHalfUp normal rounding but that would have ",
+        "similar_with": [
+            662
+        ]
+    },
+    "663": {
+        "comment": "the side effect of rounding values  5n to zero ",
+        "similar_with": [
+            663
+        ]
+    },
+    "664": {
+        "comment": "The max is just a simple cap ",
+        "similar_with": [
+            664
+        ]
+    },
+    "665": {
+        "comment": "TODO this prevents accumulating quantities greater than int64 for instance quota across a cluster ",
+        "similar_with": [
+            665
+        ]
+    },
+    "666": {
+        "comment": "This avoids rounding and hopefully confusion too ",
+        "similar_with": [
+            666
+        ]
+    },
+    "667": {
+        "comment": "CanonicalizeBytes returns the canonical form of q and its suffix see comment on Quantity ",
+        "similar_with": [
+            667
+        ]
+    },
+    "668": {
+        "comment": "Note about BinarySI ",
+        "similar_with": [
+            668
+        ]
+    },
+    "669": {
+        "comment": "If qFormat is set to BinarySI and qAmount represents a nonzero value between ",
+        "similar_with": [
+            669
+        ]
+    },
+    "670": {
+        "comment": "1 and 1 it will be emitted as if qFormat were DecimalSI ",
+        "similar_with": [
+            670
+        ]
+    },
+    "671": {
+        "comment": "Otherwise if qFormat is set to BinarySI frational parts of qAmount will be ",
+        "similar_with": [
+            671
+        ]
+    },
+    "672": {
+        "comment": "rounded up 11i becomes 2i ",
+        "similar_with": [
+            672
+        ]
+    },
+    "673": {
+        "comment": "This avoids rounding and hopefully confusion too ",
+        "similar_with": [
+            673
+        ]
+    },
+    "674": {
+        "comment": "Dont lose precision show as DecimalSI ",
+        "similar_with": [
+            674
+        ]
+    },
+    "675": {
+        "comment": "TODO If BinarySI formatting is requested but would cause rounding upgrade to ",
+        "similar_with": [
+            675
+        ]
+    },
+    "676": {
+        "comment": "one of the other formats ",
+        "similar_with": [
+            676
+        ]
+    },
+    "677": {
+        "comment": "format must be BinarySI ",
+        "similar_with": [
+            677
+        ]
+    },
+    "678": {
+        "comment": "AsInt64 returns a representation of the current value as an int64 if a fast conversion ",
+        "similar_with": [
+            678
+        ]
+    },
+    "679": {
+        "comment": "is possible If false is returned callers must use the infDec form of this quantity ",
+        "similar_with": [
+            679
+        ]
+    },
+    "680": {
+        "comment": "ToDec promotes the quantity in place to use an infDec representation and returns itself ",
+        "similar_with": [
+            680
+        ]
+    },
+    "681": {
+        "comment": "AsDec returns the quantity as represented by a scaled infDec ",
+        "similar_with": [
+            681
+        ]
+    },
+    "682": {
+        "comment": "AsCanonicalBytes returns the canonical byte representation of this quantity as a mantissa ",
+        "similar_with": [
+            682
+        ]
+    },
+    "683": {
+        "comment": "and base 10 exponent The out byte slice may be passed to the method to avoid an extra ",
+        "similar_with": [
+            683
+        ]
+    },
+    "684": {
+        "comment": "allocation ",
+        "similar_with": [
+            684
+        ]
+    },
+    "685": {
+        "comment": "IsZero returns true if the quantity is equal to zero ",
+        "similar_with": [
+            685
+        ]
+    },
+    "686": {
+        "comment": "Sign returns 0 if the quantity is zero 1 if the quantity is less than zero or 1 if the ",
+        "similar_with": [
+            686
+        ]
+    },
+    "687": {
+        "comment": "quantity is greater than zero ",
+        "similar_with": [
+            687
+        ]
+    },
+    "688": {
+        "comment": "AsScaled returns the current value rounded up to the provided scale and returns ",
+        "similar_with": [
+            688
+        ]
+    },
+    "689": {
+        "comment": "false if the scale resulted in a loss of precision ",
+        "similar_with": [
+            689
+        ]
+    },
+    "690": {
+        "comment": "RoundUp updates the quantity to the provided scale ensuring that the value is at ",
+        "similar_with": [
+            690
+        ]
+    },
+    "691": {
+        "comment": "least 1 False is returned if the rounding operation resulted in a loss of precision ",
+        "similar_with": [
+            691
+        ]
+    },
+    "692": {
+        "comment": "Negative numbers are rounded away from zero 9 scale 1 rounds to 10 ",
+        "similar_with": [
+            692
+        ]
+    },
+    "693": {
+        "comment": "avoid clearing the string value if we have already calculated it ",
+        "similar_with": [
+            693
+        ]
+    },
+    "694": {
+        "comment": "Add adds the provide y quantity to the current value If the current value is zero ",
+        "similar_with": [
+            694
+        ]
+    },
+    "695": {
+        "comment": "the format of the quantity will be updated to the format of y ",
+        "similar_with": [
+            695
+        ]
+    },
+    "696": {
+        "comment": "Sub subtracts the provided quantity from the current value in place If the current ",
+        "similar_with": [
+            696
+        ]
+    },
+    "697": {
+        "comment": "value is zero the format of the quantity will be updated to the format of y ",
+        "similar_with": [
+            697
+        ]
+    },
+    "698": {
+        "comment": "Cmp returns 0 if the quantity is equal to y 1 if the quantity is less than y or 1 if the ",
+        "similar_with": [
+            698
+        ]
+    },
+    "699": {
+        "comment": "quantity is greater than y ",
+        "similar_with": [
+            699
+        ]
+    },
+    "700": {
+        "comment": "CmpInt64 returns 0 if the quantity is equal to y 1 if the quantity is less than y or 1 if the ",
+        "similar_with": [
+            700
+        ]
+    },
+    "701": {
+        "comment": "quantity is greater than y ",
+        "similar_with": [
+            701
+        ]
+    },
+    "702": {
+        "comment": "Neg sets quantity to be the negative value of itself ",
+        "similar_with": [
+            702
+        ]
+    },
+    "703": {
+        "comment": "int64QuantityExpectedBytes is the expected width in bytes of the canonical string representation ",
+        "similar_with": [
+            703
+        ]
+    },
+    "704": {
+        "comment": "of most Quantity values ",
+        "similar_with": [
+            704
+        ]
+    },
+    "705": {
+        "comment": "String formats the Quantity as a string caching the result if not calculated ",
+        "similar_with": [
+            705
+        ]
+    },
+    "706": {
+        "comment": "String is an expensive operation and caching this result significantly reduces the cost of ",
+        "similar_with": [
+            706
+        ]
+    },
+    "707": {
+        "comment": "normal parse  marshal operations on Quantity ",
+        "similar_with": [
+            707
+        ]
+    },
+    "708": {
+        "comment": "MarshalJSON implements the jsonMarshaller interface ",
+        "similar_with": [
+            708
+        ]
+    },
+    "709": {
+        "comment": "if the same slice was returned to us that we passed in avoid another allocation by copying number into ",
+        "similar_with": [
+            709
+        ]
+    },
+    "710": {
+        "comment": "the source slice and returning that ",
+        "similar_with": [
+            710
+        ]
+    },
+    "711": {
+        "comment": "if CanonicalizeBytes needed more space than our slice provided we may need to allocate again so use ",
+        "similar_with": [
+            711
+        ]
+    },
+    "712": {
+        "comment": "append ",
+        "similar_with": [
+            712
+        ]
+    },
+    "713": {
+        "comment": "UnmarshalJSON implements the jsonUnmarshaller interface ",
+        "similar_with": [
+            713
+        ]
+    },
+    "714": {
+        "comment": "TODO Remove support for leadingtrailing whitespace ",
+        "similar_with": [
+            714
+        ]
+    },
+    "715": {
+        "comment": "This copy is safe because parsed will not be referred to again ",
+        "similar_with": [
+            715
+        ]
+    },
+    "716": {
+        "comment": "NewQuantity returns a new Quantity representing the given ",
+        "similar_with": [
+            716
+        ]
+    },
+    "717": {
+        "comment": "value in the given format ",
+        "similar_with": [
+            717
+        ]
+    },
+    "718": {
+        "comment": "NewMilliQuantity returns a new Quantity representing the given ",
+        "similar_with": [
+            718
+        ]
+    },
+    "719": {
+        "comment": "value  11000 in the given format Note that BinarySI formatting ",
+        "similar_with": [
+            719
+        ]
+    },
+    "720": {
+        "comment": "will round fractional values and will be changed to DecimalSI for ",
+        "similar_with": [
+            720
+        ]
+    },
+    "721": {
+        "comment": "values x where 1  x  1  x  0 ",
+        "similar_with": [
+            721
+        ]
+    },
+    "722": {
+        "comment": "NewScaledQuantity returns a new Quantity representing the given ",
+        "similar_with": [
+            722
+        ]
+    },
+    "723": {
+        "comment": "value  10scale in DecimalSI format ",
+        "similar_with": [
+            723
+        ]
+    },
+    "724": {
+        "comment": "Value returns the value of q any fractional part will be lost ",
+        "similar_with": [
+            724
+        ]
+    },
+    "725": {
+        "comment": "MilliValue returns the value of ceilq  1000 this could overflow an int64 ",
+        "similar_with": [
+            725
+        ]
+    },
+    "726": {
+        "comment": "if thats a concern call Value first to verify the number is small enough ",
+        "similar_with": [
+            726
+        ]
+    },
+    "727": {
+        "comment": "ScaledValue returns the value of ceilq  10scale this could overflow an int64 ",
+        "similar_with": [
+            727
+        ]
+    },
+    "728": {
+        "comment": "To detect overflow call Value first and verify the expected magnitude ",
+        "similar_with": [
+            728
+        ]
+    },
+    "729": {
+        "comment": "Set sets qs value to be value ",
+        "similar_with": [
+            729
+        ]
+    },
+    "730": {
+        "comment": "SetMilli sets qs value to be value  11000 ",
+        "similar_with": [
+            730
+        ]
+    },
+    "731": {
+        "comment": "SetScaled sets qs value to be value  10scale ",
+        "similar_with": [
+            731
+        ]
+    },
+    "732": {
+        "comment": "Copy is a convenience function that makes a deep copy for you Nondeep ",
+        "similar_with": [
+            732
+        ]
+    },
+    "733": {
+        "comment": "copies of quantities share pointers and you will regret that ",
+        "similar_with": [
+            733
+        ]
+    },
+    "734": {
+        "comment": "qFlag is a helper type for the Flag function ",
+        "similar_with": [
+            734
+        ]
+    },
+    "735": {
+        "comment": "Sets the value of the internal Quantity used by flag  pflag ",
+        "similar_with": [
+            735
+        ]
+    },
+    "736": {
+        "comment": "This copy is OK because q will not be referenced again ",
+        "similar_with": [
+            736
+        ]
+    },
+    "737": {
+        "comment": "Converts the value of the internal Quantity to a string used by flag  pflag ",
+        "similar_with": [
+            737
+        ]
+    },
+    "738": {
+        "comment": "States the type of flag this is Quantity used by pflag ",
+        "similar_with": [
+            738
+        ]
+    },
+    "739": {
+        "comment": "QuantityFlag is a helper that makes a quantity flag using standard flag package ",
+        "similar_with": [
+            739
+        ]
+    },
+    "740": {
+        "comment": "Will panic if defaultValue is not a valid quantity ",
+        "similar_with": [
+            740
+        ]
+    },
+    "741": {
+        "comment": "NewQuantityFlagValue returns an object that can be used to back a flag ",
+        "similar_with": [
+            741
+        ]
+    },
+    "742": {
+        "comment": "pointing at the given Quantity variable ",
+        "similar_with": [
+            742
+        ]
+    },
+    "743": {
+        "comment": "Copyright 2014 The Kubernetes Authors All rights reserved ",
+        "similar_with": [
+            743
+        ]
+    },
+    "744": {
+        "comment": "Licensed under the Apache License Version 20 the License ",
+        "similar_with": [
+            744
+        ]
+    },
+    "745": {
+        "comment": "you may not use this file except in compliance with the License ",
+        "similar_with": [
+            745
+        ]
+    },
+    "746": {
+        "comment": "You may obtain a copy of the License at ",
+        "similar_with": [
+            746
+        ]
+    },
+    "747": {
+        "comment": "httpwwwapacheorglicensesLICENSE20 ",
+        "similar_with": [
+            747
+        ]
+    },
+    "748": {
+        "comment": "Unless required by applicable law or agreed to in writing software ",
+        "similar_with": [
+            748
+        ]
+    },
+    "749": {
+        "comment": "distributed under the License is distributed on an AS IS BASIS ",
+        "similar_with": [
+            749
+        ]
+    },
+    "750": {
+        "comment": "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND either express or implied ",
+        "similar_with": [
+            750
+        ]
+    },
+    "751": {
+        "comment": "See the License for the specific language governing permissions and ",
+        "similar_with": [
+            751
+        ]
+    },
+    "752": {
+        "comment": "limitations under the License ",
+        "similar_with": [
+            752
+        ]
+    },
+    "753": {
+        "comment": "maxInt64Factors is the highest value that will be checked when removing factors of 10 from an int64 ",
+        "similar_with": [
+            753
+        ]
+    },
+    "754": {
+        "comment": "It is also the maximum decimal digits that can be represented with an int64 ",
+        "similar_with": [
+            754
+        ]
+    },
+    "755": {
+        "comment": "Commonly needed bigInt values treat as read only ",
+        "similar_with": [
+            755
+        ]
+    },
+    "756": {
+        "comment": "Commonly needed infDec values treat as read only ",
+        "similar_with": [
+            756
+        ]
+    },
+    "757": {
+        "comment": "Largest in magnitude number allowed ",
+        "similar_with": [
+            757
+        ]
+    },
+    "758": {
+        "comment": " max int64 ",
+        "similar_with": [
+            758
+        ]
+    },
+    "759": {
+        "comment": "The maximum value we can represent milliunits for ",
+        "similar_with": [
+            759
+        ]
+    },
+    "760": {
+        "comment": "Compare with the return value of QuantityValue to ",
+        "similar_with": [
+            760
+        ]
+    },
+    "761": {
+        "comment": "see if its safe to use QuantityMilliValue ",
+        "similar_with": [
+            761
+        ]
+    },
+    "762": {
+        "comment": "int64Add returns ab or false if that would overflow int64 ",
+        "similar_with": [
+            762
+        ]
+    },
+    "763": {
+        "comment": "int64Multiply returns ab or false if that would overflow or underflow int64 ",
+        "similar_with": [
+            763
+        ]
+    },
+    "764": {
+        "comment": "int64MultiplyScale returns ab assuming b is greater than one or false if that would overflow or underflow int64 ",
+        "similar_with": [
+            764
+        ]
+    },
+    "765": {
+        "comment": "Use when b is known to be greater than one ",
+        "similar_with": [
+            765
+        ]
+    },
+    "766": {
+        "comment": "int64MultiplyScale10 multiplies a by 10 or returns false if that would overflow This method is faster than ",
+        "similar_with": [
+            766
+        ]
+    },
+    "767": {
+        "comment": "int64Multiplya 10 because the compiler can optimize constant factor multiplication ",
+        "similar_with": [
+            767
+        ]
+    },
+    "768": {
+        "comment": "int64MultiplyScale100 multiplies a by 100 or returns false if that would overflow This method is faster than ",
+        "similar_with": [
+            768
+        ]
+    },
+    "769": {
+        "comment": "int64Multiplya 100 because the compiler can optimize constant factor multiplication ",
+        "similar_with": [
+            769
+        ]
+    },
+    "770": {
+        "comment": "int64MultiplyScale1000 multiplies a by 1000 or returns false if that would overflow This method is faster than ",
+        "similar_with": [
+            770
+        ]
+    },
+    "771": {
+        "comment": "int64Multiplya 1000 because the compiler can optimize constant factor multiplication ",
+        "similar_with": [
+            771
+        ]
+    },
+    "772": {
+        "comment": "positiveScaleInt64 multiplies base by 10scale returning false if the ",
+        "similar_with": [
+            772
+        ]
+    },
+    "773": {
+        "comment": "value overflows Passing a negative scale is undefined ",
+        "similar_with": [
+            773
+        ]
+    },
+    "774": {
+        "comment": "negativeScaleInt64 reduces base by the provided scale rounding up until the ",
+        "similar_with": [
+            774
+        ]
+    },
+    "775": {
+        "comment": "value is zero or the scale is reached Passing a negative scale is undefined ",
+        "similar_with": [
+            775
+        ]
+    },
+    "776": {
+        "comment": "The value returned if not exact is rounded away from zero ",
+        "similar_with": [
+            776
+        ]
+    },
+    "777": {
+        "comment": "powInt64 raises a to the bth power Is not overflow aware ",
+        "similar_with": [
+            777
+        ]
+    },
+    "778": {
+        "comment": "negativeScaleInt64 returns the result of dividing base by scale  10 and the remainder or ",
+        "similar_with": [
+            778
+        ]
+    },
+    "779": {
+        "comment": "false if no such division is possible Dividing by negative scales is undefined ",
+        "similar_with": [
+            779
+        ]
+    },
+    "780": {
+        "comment": "the max scale representable in base 10 in an int64 is 18 decimal places ",
+        "similar_with": [
+            780
+        ]
+    },
+    "781": {
+        "comment": "removeInt64Factors divides in a loop the return values have the property that ",
+        "similar_with": [
+            781
+        ]
+    },
+    "782": {
+        "comment": "value  result  base  scale ",
+        "similar_with": [
+            782
+        ]
+    },
+    "783": {
+        "comment": "allow the compiler to optimize the common cases ",
+        "similar_with": [
+            783
+        ]
+    },
+    "784": {
+        "comment": "allow the compiler to optimize the common cases ",
+        "similar_with": [
+            784
+        ]
+    },
+    "785": {
+        "comment": "removeBigIntFactors divides in a loop the return values have the property that ",
+        "similar_with": [
+            785
+        ]
+    },
+    "786": {
+        "comment": "d  result  factor  times ",
+        "similar_with": [
+            786
+        ]
+    },
+    "787": {
+        "comment": "d may be modified in place ",
+        "similar_with": [
+            787
+        ]
+    },
+    "788": {
+        "comment": "If d  0 then the return values will be 0 0 ",
+        "similar_with": [
+            788
+        ]
+    }
+}

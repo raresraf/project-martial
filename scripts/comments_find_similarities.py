@@ -12,10 +12,11 @@ from sentence_transformers import SentenceTransformer, util
 import json
 from tqdm import tqdm
 
-model = "levenshtein" # can be "levenshtein", "word2vec", "elmo", "roberta", "use"
-threshold = 0.98
+model = "elmo" # can be "levenshtein", "word2vec", "elmo", "roberta", "use"
+threshold = 0.90
+r = 6
 
-with open('/Users/raresraf/code/project-martial/dataset/comments-6-kubernetes.txt', 'r') as f:
+with open(f'/Users/raresraf/code/project-martial/dataset/comments-{r}-kubernetes.txt', 'r') as f:
     data = json.load(f)
 
 if model == "word2vec":    
@@ -60,7 +61,6 @@ with tqdm(total=total_len, desc="Processing embeddings") as pbar:
                 embd2 = v2["embd"]
                 similarity = cosine_similarity(embd1, embd2)
             if similarity > threshold:
-                print(v1["comment"], v2["comment"], similarity, threshold)
                 v1["similar_with"].append(int(k2))
                 v2["similar_with"].append(int(k1))
             
@@ -70,5 +70,5 @@ for k, v in data.items():
         del v["embd"]
     v["similar_with"] = list(set(v["similar_with"]))
       
-with open(f'/Users/raresraf/code/project-martial/dataset/{model}-comments-6-kubernetes.txt', 'w') as f:
+with open(f'/Users/raresraf/code/project-martial/dataset/{model}-comments-{r}-kubernetes.txt', 'w') as f:
     json.dump(data, f, indent=4, sort_keys=True)

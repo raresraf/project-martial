@@ -5,11 +5,13 @@ from absl import flags
 from modules.comments import CommentsAnalysis
 import json
 import os
+import modules.comments_helpers as comments_helpers
 
 
 FLAGS = flags.FLAGS
 flags.DEFINE_bool("dry_run", False,
                   help="Run the project in dry-run mode.")
+flags.DEFINE_integer("r", 2, help="Value of r.")
 flags.DEFINE_string("source_files_dir1", "/Users/raresraf/code/examples-project-martial/kubernetes-1.2.1/pkg/api/resource",
                     help="Path to the source files1")
 flags.DEFINE_string("source_files_dir2", "/Users/raresraf/code/examples-project-martial/kubernetes-1.3.1/pkg/api/resource",
@@ -49,7 +51,7 @@ def main(_):
     findings_dict = ca.parse()
     comms_6 = []
     for f_path in file_list:
-        for comm in ca.comm_to_seq_2(findings_dict[f_path]):
+        for comm in comments_helpers.comm_to_seq_default(findings_dict[f_path], FLAGS.r):
             comms_6.append(comm[0])
 
     dmp = {}
@@ -64,7 +66,7 @@ def main(_):
                 wuid = uid - 1
             dmp[uid]["similar_with"].append(wuid)
 
-    with open('/Users/raresraf/code/project-martial/dataset/comments-6-kubernetes.txt', 'w') as f:
+    with open(f'/Users/raresraf/code/project-martial/dataset/comments-{FLAGS.r}-kubernetes.txt', 'w') as f:
         json.dump(dmp, f, indent=4, sort_keys=True)
     
 

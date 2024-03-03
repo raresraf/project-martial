@@ -16,6 +16,8 @@ flags.DEFINE_string("source_files_dir1", "/Users/raresraf/code/examples-project-
                     help="Path to the source files1")
 flags.DEFINE_string("source_files_dir2", "/Users/raresraf/code/examples-project-martial/kubernetes-1.3.1/pkg/api/resource",
                     help="Path to the source files2")
+flags.DEFINE_string("source_files_dir3", "/Users/raresraf/code/examples-project-martial/kubernetes-1.25.1/pkg/api",
+                    help="Path to the source files3")
 flags.DEFINE_string(
     "encoding", "utf-8", help="e.g. utf-8, ISO-8859-1")
 flags.DEFINE_string("extension", 'go',
@@ -34,6 +36,12 @@ def main(_):
             src_full_path = os.path.join(root, file)
             file_list.append(src_full_path)
     for root, _, files in os.walk(FLAGS.source_files_dir2):
+        for file in files:
+            if not file.endswith(FLAGS.extension):
+                continue
+            src_full_path = os.path.join(root, file)
+            file_list.append(src_full_path)
+    for root, _, files in os.walk(FLAGS.source_files_dir3):
         for file in files:
             if not file.endswith(FLAGS.extension):
                 continue

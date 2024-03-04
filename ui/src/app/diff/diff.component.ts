@@ -267,18 +267,21 @@ int main() {
   cout << "Hello World!";
   // If it's one original sentence, yes, it's plagiarism.
   cout << "This is project Martial!";
-  // But what about longer comments, splitted with small typo?
+  // But what about longer comments, split with small typo?
   cout << "One more log";
-  // The computer was born to solve problems that did not exist before.
+  // The computer was born to
+  // solve problems that did not exist before.
   // Again, if it's one original sentence, yes, it's plagiarism.
   return 0;
 }
 `, `#include <iostream>
-// The computer was created to solve problems that did not exist.
+// The computer was created to 
+// solve problems that did not exist.
 using namespace std;
 
 int main() {
-  // With a comment.
+  // Welcome to Project Martial!
+  // 
   cout << "Hello World!";
   // If it's one original sentence, yes, it's plagiarism.
   cout << "This is project Martial!";
@@ -288,7 +291,7 @@ int main() {
   cout << "Still going on..."
   // longer
   // comments
-  // splitted with small typos?
+  // split with small typoss?
   cout << "One more log";
   
   // Again, if it's one original sentence, yes, it's plagiarism.

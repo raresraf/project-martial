@@ -15,51 +15,50 @@ flags.DEFINE_string(
 )
 flags.DEFINE_float("threshold", "0.5", help="Threshold to declare similarity")
 
+flags.DEFINE_float("c11", "0.5061", help="C11")
+flags.DEFINE_float("c12", "0.3848", help="C12")
+flags.DEFINE_float("c13", "0.0619", help="C13")
+flags.DEFINE_float("c14", "0.0", help="C14")
 
-flags.DEFINE_float("c11", "0.967", help="C11")
-flags.DEFINE_float("c12", "0.421", help="C12")
-flags.DEFINE_float("c13", "0.124", help="C13")
-flags.DEFINE_float("c14", "0.013", help="C14")
+flags.DEFINE_float("c21", "0.3222", help="C21")
+flags.DEFINE_float("c22", "0.1076", help="C22")
+flags.DEFINE_float("c23", "1.0", help="C23")
+flags.DEFINE_float("c24", "0.6837", help="C24")
 
-flags.DEFINE_float("c21", "0.883", help="C21")
-flags.DEFINE_float("c22", "0.486", help="C22")
-flags.DEFINE_float("c23", "0.495", help="C23")
-flags.DEFINE_float("c24", "0.010", help="C24")
+flags.DEFINE_float("c31", "0.3761", help="C31")
+flags.DEFINE_float("c32", "0.4154", help="C32")
+flags.DEFINE_float("c33", "0.0", help="C33")
+flags.DEFINE_float("c34", "0.0", help="C34")
 
-flags.DEFINE_float("c31", "0.791", help="C31")
-flags.DEFINE_float("c32", "0.519", help="C32")
-flags.DEFINE_float("c33", "0.458", help="C33")
-flags.DEFINE_float("c34", "0.010", help="C34")
+flags.DEFINE_float("c41", "0.4206", help="C41")
+flags.DEFINE_float("c42", "0.6619", help="C42")
+flags.DEFINE_float("c43", "0.027", help="C43")
+flags.DEFINE_float("c44", "0.0", help="C44")
 
-flags.DEFINE_float("c41", "0.871", help="C41")
-flags.DEFINE_float("c42", "0.862", help="C42")
-flags.DEFINE_float("c43", "0.491", help="C43")
-flags.DEFINE_float("c44", "0.010", help="C44")
+flags.DEFINE_float("c51", "0.0325", help="C51")
+flags.DEFINE_float("c52", "0.2204", help="C52")
+flags.DEFINE_float("c53", "0.0195", help="C53")
+flags.DEFINE_float("c54", "0.0", help="C54")
 
-flags.DEFINE_float("c51", "0.261", help="C51")
-flags.DEFINE_float("c52", "0.656", help="C52")
-flags.DEFINE_float("c53", "0.50", help="C53")
-flags.DEFINE_float("c54", "0.010", help="C54")
+flags.DEFINE_float("c61", "0.0", help="C61")
+flags.DEFINE_float("c62", "0.1413", help="C62")
+flags.DEFINE_float("c63", "0.2458", help="C63")
+flags.DEFINE_float("c64", "0.2237", help="C64")
 
-flags.DEFINE_float("c61", "0.024", help="C61")
-flags.DEFINE_float("c62", "0.66", help="C62")
-flags.DEFINE_float("c63", "0.50", help="C63")
-flags.DEFINE_float("c64", "0.010", help="C64")
+flags.DEFINE_float("c71", "0.3058", help="C71")
+flags.DEFINE_float("c72", "0.3331", help="C72")
+flags.DEFINE_float("c73", "0.0", help="C73")
+flags.DEFINE_float("c74", "0.0", help="C74")
 
-flags.DEFINE_float("c71", "0.881", help="C71")
-flags.DEFINE_float("c72", "0.903", help="C72")
-flags.DEFINE_float("c73", "0.120", help="C73")
-flags.DEFINE_float("c74", "0.011", help="C74")
+flags.DEFINE_float("c81", "0.0465", help="C81")
+flags.DEFINE_float("c82", "0.0631", help="C82")
+flags.DEFINE_float("c83", "0.0", help="C83")
+flags.DEFINE_float("c84", "0.0", help="C84")
 
-flags.DEFINE_float("c81", "0.082", help="C81")
-flags.DEFINE_float("c82", "0.609", help="C82")
-flags.DEFINE_float("c83", "0.50", help="C83")
-flags.DEFINE_float("c84", "0.010", help="C84")
-
-flags.DEFINE_float("c91", "0.885", help="C91")
-flags.DEFINE_float("c92", "0.847", help="C92")
-flags.DEFINE_float("c93", "0.123", help="C93")
-flags.DEFINE_float("c94", "0.010", help="C94")
+flags.DEFINE_float("c91", "0.1697", help="C91")
+flags.DEFINE_float("c92", "0.1808", help="C92")
+flags.DEFINE_float("c93", "0.0", help="C93")
+flags.DEFINE_float("c94", "0.0", help="C94")
 
 flags.DEFINE_bool("testing_mode", False, help="Whether to enable testing")
 
@@ -262,7 +261,7 @@ def main(_):
 
 def infzerolog(x):
     if x < 3.720076e-44:
-        return -100000  # not a typo, log(3.720076e-44) is -100, but let's penalize really hard.
+        return -100
     return math.log(x)
 
 

@@ -11,7 +11,9 @@ from tqdm import tqdm
 from threading import Thread, Lock
 import concurrent.futures
 from concurrent.futures import ThreadPoolExecutor, wait, ALL_COMPLETED
-
+import random
+from sklearn.metrics import classification_report
+from sklearn.metrics import confusion_matrix
 
 train_dataset = {}
 test_dataset = {}
@@ -25,6 +27,11 @@ flags.DEFINE_bool(
     "skip_similar_but_not_identic_problems",
     True,
     help="skip_similar_but_not_identic_problems",
+)
+flags.DEFINE_bool(
+    "run_balanced_tests",
+    True,
+    help="If true, the test dataset will be split 50%%-50%%",
 )
 
 FLAGS = flags.FLAGS
@@ -44,6 +51,8 @@ def main(_):
     rcomplexity_driver.read_all_json_files_recursive(
         root_test_directory_path, test_dataset
     )
+
+    print(len(test_dataset))
 
     rca = rcomplexity.RComplexityAnalysis()
     rca.disable_find_line = True
@@ -69,22 +78,59 @@ def main(_):
         for k2 in train_dataset.keys():
             total_ops += len(train_dataset[k1]) * len(train_dataset[k2])
 
+    similar = 0
+    not_similar = 0
     all_train_k1_k2_f1_f2_pairs = []
-    for k1 in train_dataset.keys():
-        for k2 in train_dataset.keys():
-            for f1 in train_dataset[k1]:
-                if not f1.get("path", None):
-                    continue
-                for f2 in train_dataset[k2]:
-                    if not f2.get("path", None):
+    if lr != 0:
+        for k1 in train_dataset.keys():
+            for k2 in train_dataset.keys():
+                for f1 in train_dataset[k1]:
+                    if not f1.get("path", None):
                         continue
-                    if (
-                        FLAGS.skip_similar_but_not_identic_problems
-                        and common_labels[k1][k2]
-                        and k1 != k2
-                    ):
-                        continue
-                    all_train_k1_k2_f1_f2_pairs.append((k1, k2, f1, f2))
+                    for f2 in train_dataset[k2]:
+                        if not f2.get("path", None):
+                            continue
+                        if f1.get("path", None) == f2.get("path"):
+                            continue
+                        if (
+                            FLAGS.skip_similar_but_not_identic_problems
+                            and common_labels[k1][k2]
+                            and k1 != k2
+                        ):
+                            continue
+
+                        all_train_k1_k2_f1_f2_pairs.append((k1, k2, f1, f2))
+                        if k1 == k2 or common_labels[k1][k2]:
+                            similar += 1
+                        else:
+                            not_similar += 1
+
+    min_similar_not_similar = similar if similar < not_similar else not_similar
+
+    similar = 0
+    not_similar = 0
+    selected_train_k1_k2_f1_f2_pairs = []
+    for k1, k2, f1, f2 in all_train_k1_k2_f1_f2_pairs:
+        if k1 == k2 or common_labels[k1][k2]:
+            if similar > min_similar_not_similar:
+                continue
+            else:
+                similar += 1
+                selected_train_k1_k2_f1_f2_pairs.append((k1, k2, f1, f2))
+        else:
+            if not_similar > min_similar_not_similar:
+                continue
+            else:
+                not_similar += 1
+                selected_train_k1_k2_f1_f2_pairs.append((k1, k2, f1, f2))
+
+    print(f"similar (train) = {similar}, not_similar (train) = {not_similar}")
+
+    selected_train_k1_k2_f1_f2_pairs = tuple(
+        random.sample(
+            selected_train_k1_k2_f1_f2_pairs, len(selected_train_k1_k2_f1_f2_pairs)
+        )
+    )
 
     all_test_k1_k2_f1_f2_pairs = []
     for k1 in test_dataset.keys():
@@ -101,10 +147,27 @@ def main(_):
                         and k1 != k2
                     ):
                         continue
+
                     all_test_k1_k2_f1_f2_pairs.append((k1, k2, f1, f2))
+    print(f"similar (test) = {similar}, not_similar (test) = {not_similar}")
+
+    similar = 0
+    not_similar = 0
+    selected_test_k1_k2_f1_f2_pairs = []
+    for k1, k2, f1, f2 in all_test_k1_k2_f1_f2_pairs:
+        if k1 == k2 or common_labels[k1][k2]:
+            if similar > min_similar_not_similar and FLAGS.run_balanced_tests:
+                continue
+            similar += 1
+        else:
+            if not_similar > min_similar_not_similar and FLAGS.run_balanced_tests:
+                continue
+            not_similar += 1
+        selected_test_k1_k2_f1_f2_pairs.append((k1, k2, f1, f2))
 
     with tqdm(
-        total=total_iter * len(all_train_k1_k2_f1_f2_pairs) + total_iter * len(all_test_k1_k2_f1_f2_pairs),
+        total=total_iter * len(selected_train_k1_k2_f1_f2_pairs)
+        + total_iter * len(selected_test_k1_k2_f1_f2_pairs),
         desc="Processing",
     ) as pbar:
         for i in range(total_iter):
@@ -122,7 +185,10 @@ def main(_):
                 [0.0, 0.0, 0.0, 0.0],
                 [0.0, 0.0, 0.0, 0.0],
             ]
-            for k1, k2, f1, f2 in all_train_k1_k2_f1_f2_pairs:
+
+            similar = 0
+            not_similar = 0
+            for k1, k2, f1, f2 in selected_train_k1_k2_f1_f2_pairs:
                 local_rca = rcomplexity.RComplexityAnalysis()
                 local_rca.disable_find_line = True
                 local_rca.X = rca.X
@@ -174,14 +240,16 @@ def main(_):
                     curr_batch = 0
                     pbar.update(batch_size)
 
-            run_batch_update(rca, lr, big_dc)
-            pbar.update(curr_batch)
+            # Ignore last batch by commenting below line:
+            # run_batch_update(rca, lr, big_dc)
             curr_batch = 0
+            pbar.update(curr_batch)
 
+            # === Start of EVAL CODE ===
             loss_test = 0
             y_pred_test = []
             y_true_test = []
-            for k1, k2, f1, f2 in all_test_k1_k2_f1_f2_pairs:
+            for k1, k2, f1, f2 in selected_test_k1_k2_f1_f2_pairs:
                 local_rca = rcomplexity.RComplexityAnalysis()
                 local_rca.disable_find_line = True
                 local_rca.X = rca.X
@@ -197,14 +265,18 @@ def main(_):
                 if common_labels[k1][k2]:
                     want_similarity = 1
 
-                loss += -want_similarity * rcomplexity_driver.infzerolog(similarity) - (
-                    1 - want_similarity
-                ) * rcomplexity_driver.infzerolog(1 - similarity)
+                loss_test += -want_similarity * rcomplexity_driver.infzerolog(
+                    similarity
+                ) - (1 - want_similarity) * rcomplexity_driver.infzerolog(
+                    1 - similarity
+                )
                 y_pred_test.append(int(similarity >= FLAGS.threshold))
                 y_true_test.append(want_similarity)
                 pbar.update(1)
+            # === End of EVAL CODE ===
 
-
+            print(classification_report(y_true_test, y_pred_test))
+            print(confusion_matrix(y_true_test, y_pred_test))
             msg = {
                 "train_accuracy": accuracy_score(y_true, y_pred),
                 "train_recall": recall_score(y_true, y_pred),

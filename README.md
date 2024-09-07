@@ -36,3 +36,9 @@ The research demonstrates the effectiveness of these embeddings in classifying a
 https://link.springer.com/chapter/10.1007/978-3-031-41456-5_20
 
 ![](martial-ui-rcomplexity.png?raw=true)
+
+### On Plagiarism and Software Plagiarism
+
+TBD
+
+https://link.springer.com/book/9783031702587

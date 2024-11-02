@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Database configuration
-DB_HOST="35.202.15.101"
+DB_HOST="109.103.170.30"
 DB_USER="root"
 DB_PASS="mateinfo"
 DB_NAME="benchmark_db"

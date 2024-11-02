@@ -1,9 +1,9 @@
 from scapy.all import *
 import os
 
-scenario_id = 1
+scenario_id = 2
 dump_id = 1
-db_type = "mysql_8_0"
+db_type = "mysql_5_6"
 
 def packet_callback(packet):
   """

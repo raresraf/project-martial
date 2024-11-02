@@ -3,7 +3,7 @@ import os
 
 scenario_id = 1
 dump_id = 1
-db_type = "mysql_8_4"
+db_type = "mysql_8_0"
 
 def packet_callback(packet):
   """

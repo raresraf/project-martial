@@ -1,10 +1,10 @@
 from scapy.all import *
 import os
 
-db_type = "postgres_16"
+db_type = "sqlserver_2022_dev"
 scenario_id = 2
 dump_id = 1
-port = 5432
+port = 1433
 
 def packet_callback(packet):
   """

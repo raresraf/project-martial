@@ -1,9 +1,9 @@
 from scapy.all import *
 import os
 
+db_type = "postgres_13"
 scenario_id = 1
 dump_id = 1
-db_type = "postgres_12"
 port = 5432
 
 def packet_callback(packet):

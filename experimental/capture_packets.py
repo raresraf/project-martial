@@ -1,8 +1,8 @@
 from scapy.all import *
 import os
 
-db_type = "sqlserver_2022_dev"
-scenario_id = 2
+db_type = "sqlserver_2017_dev"
+scenario_id = 1
 dump_id = 1
 port = 1433
 

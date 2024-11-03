@@ -1,13 +1,14 @@
 from scapy.all import *
 import os
 
-scenario_id = 2
+scenario_id = 1
 dump_id = 1
-db_type = "mysql_5_6"
+db_type = "postgres_9_6"
+port = 5432
 
 def packet_callback(packet):
   """
-  Callback function to process both incoming and outgoing packets on port 3306, 
+  Callback function to process both incoming and outgoing packets on port {port}, 
   and display the hexdump of the application layer data.
 
   Args:
@@ -16,7 +17,7 @@ def packet_callback(packet):
   
   global dump_id
   
-  if TCP in packet and (packet[TCP].sport == 3306 or packet[TCP].dport == 3306):
+  if TCP in packet and (packet[TCP].sport == port or packet[TCP].dport == port):
     print("Packet Summary:")
     print(packet.summary())
 
@@ -39,6 +40,6 @@ def packet_callback(packet):
     print("-" * 30)
 
 
-# Start sniffing packets on port 3306 (both incoming and outgoing)
-sniff(prn=packet_callback, filter="tcp port 3306")
+# Start sniffing packets on a port (e.g. 3306), both incoming and outgoing.
+sniff(prn=packet_callback, filter=f"tcp port {port}")
 

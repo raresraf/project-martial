@@ -75,8 +75,24 @@ def compare_files_tfidf(file1_path, file2_path, all_file_path):
     print(f"{n}-gram TF-IDF similarity: {similarity:.4f}")
 
 if __name__ == "__main__":
-  file1_path = '/Users/raresraf/code/project-martial/experimental/network/mysql_8_0/scenarios/scenario_1/dump_1.bin'
-  file2_path = '/Users/raresraf/code/project-martial/experimental/network/mysql_8_0_gcp/scenarios/scenario_1/dump_2.bin'
-  all_file_path = '/Users/raresraf/code/project-martial/experimental/network/combined.txt'
-  compare_files_tfidf(file1_path, file2_path, all_file_path)
+    dbs = [
+            "mysql_5_6",
+            "mysql_5_6_gcp",
+            "mysql_5_7",
+            "mysql_5_7_gcp",
+            "mysql_8_0",
+            "mysql_8_0_gcp",
+        ]
+    for f1 in dbs:
+        for f2 in dbs:
+            if f1 >= f2:
+                continue
+            file1_path = f'/Users/raresraf/code/project-martial/experimental/network/{f1}/scenarios/scenario_1/combined.bin'
+            file2_path = f'/Users/raresraf/code/project-martial/experimental/network/{f2}/scenarios/scenario_1/combined.bin'
+            all_file_path = '/Users/raresraf/code/project-martial/experimental/network/combined.bin'
+            print(f1, f2)
+            print("*****")
+            compare_files_tfidf(file1_path, file2_path, all_file_path)
+            print("*****")
+            print("")
 

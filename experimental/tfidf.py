@@ -2,10 +2,10 @@ from collections import Counter
 from math import log
 
 def generate_ngrams(text, n):
-  """Generates n-grams from a given text.
+  """Generates n-grams from a given input.
 
   Args:
-    text: The input text as a string.
+    text: The input text as Bytes.
     n: The length of the n-grams to generate.
 
   Returns:
@@ -51,22 +51,22 @@ def calculate_cosine_similarity(tfidf1, tfidf2):
   magnitude2 = sum(value ** 2 for value in tfidf2.values()) ** 0.5
   return dot_product / (magnitude1 * magnitude2) if magnitude1 and magnitude2 else 0
 
-def compare_files_tfidf(file1_path, file2_path, all_file_path):
+def compare_files_tfidf(file1_path, file2_path, all_ngrams_dict):
   """Compares two files using TF-IDF and cosine similarity for 2-grams, 3-grams, and 4-grams.
 
   Args:
     file1_path: The path to the first file.
     file2_path: The path to the second file.
+    all_ngrams_dict: dict with all needed n-grams
   """
-  with open(file1_path, 'rb') as file1, open(file2_path, 'rb') as file2, open(all_file_path, 'rb') as fileall:
+  with open(file1_path, 'rb') as file1, open(file2_path, 'rb') as file2:
     text1 = file1.read()
     text2 = file2.read()
-    textall = fileall.read()
 
   for n in range(2, 5):
     ngrams1 = generate_ngrams(text1, n)
     ngrams2 = generate_ngrams(text2, n)
-    all_ngrams = generate_ngrams(textall, n)
+    all_ngrams = all_ngrams_dict[n]
 
     tfidf1 = calculate_tf_idf(ngrams1, all_ngrams)
     tfidf2 = calculate_tf_idf(ngrams2, all_ngrams)
@@ -75,24 +75,30 @@ def compare_files_tfidf(file1_path, file2_path, all_file_path):
     print(f"{n}-gram TF-IDF similarity: {similarity:.4f}")
 
 if __name__ == "__main__":
-    dbs = [
-            "mysql_5_6",
-            "mysql_5_6_gcp",
-            "mysql_5_7",
-            "mysql_5_7_gcp",
-            "mysql_8_0",
-            "mysql_8_0_gcp",
-        ]
-    for f1 in dbs:
-        for f2 in dbs:
-            if f1 >= f2:
-                continue
-            file1_path = f'/Users/raresraf/code/project-martial/experimental/network/{f1}/scenarios/scenario_1/combined.bin'
-            file2_path = f'/Users/raresraf/code/project-martial/experimental/network/{f2}/scenarios/scenario_1/combined.bin'
-            all_file_path = '/Users/raresraf/code/project-martial/experimental/network/combined.bin'
-            print(f1, f2)
-            print("*****")
-            compare_files_tfidf(file1_path, file2_path, all_file_path)
-            print("*****")
-            print("")
-
+  all_file_path = '/Users/raresraf/code/project-martial/experimental/network/combined.bin'
+  with open(all_file_path, 'rb') as fileall:
+    textall = fileall.read()
+  all_ngrams_dict = {}
+  dbs = [
+          "mysql_5_6",
+          "mysql_5_6_gcp",
+          "mysql_5_7",
+          "mysql_5_7_gcp",
+          "mysql_8_0",
+          "mysql_8_0_gcp",
+      ]
+  for n in range(2, 5):
+    all_ngrams_dict[n] = generate_ngrams(textall, n)
+    print(f"Loaded {n}-grams!")
+    
+  for f1 in dbs:
+    for f2 in dbs:
+      if f1 >= f2:
+        continue
+      file1_path = f'/Users/raresraf/code/project-martial/experimental/network/{f1}/scenarios/scenario_1/combined.bin'
+      file2_path = f'/Users/raresraf/code/project-martial/experimental/network/{f2}/scenarios/scenario_1/combined.bin'          
+      print(f1, f2)
+      print("*****")
+      compare_files_tfidf(file1_path, file2_path, all_ngrams_dict)
+      print("*****")
+      print("")

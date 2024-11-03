@@ -2,7 +2,7 @@ from scapy.all import *
 import os
 
 db_type = "postgres_16"
-scenario_id = 1
+scenario_id = 2
 dump_id = 1
 port = 5432
 

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Database configuration
-DB_HOST="35.202.187.188"
+DB_HOST="34.122.149.205"
 DB_USER="postgres"
 DB_PASS="mateinfo"
 DB_NAME="benchmark_db"

@@ -1,11 +1,13 @@
 #!/bin/bash
 
 # Database configuration
-DB_HOST="109.103.170.30"
-DB_USER="root"
+DB_HOST="35.202.187.188"
+DB_USER="postgres"
 DB_PASS="mateinfo"
 DB_NAME="benchmark_db"
 TABLE_NAME="test_table"
+
+export PGSSLMODE=disable
 
 # Benchmark parameters
 NUM_ROWS=100     # Number of rows to insert

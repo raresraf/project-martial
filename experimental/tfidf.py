@@ -80,6 +80,17 @@ if __name__ == "__main__":
     textall = fileall.read()
   all_ngrams_dict = {}
   dbs = [
+          "postgres_9_6",
+          "postgres_10",
+          "postgres_11",
+          "postgres_12",
+          "postgres_13",
+          "postgres_14",
+          "postgres_15",
+          "postgres_16",
+          "sqlserver_2017_dev",
+          "sqlserver_2019_dev",
+          "sqlserver_2022_dev",
           "mysql_5_6",
           "mysql_5_6_gcp",
           "mysql_5_7",

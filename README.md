@@ -39,6 +39,6 @@ https://link.springer.com/chapter/10.1007/978-3-031-41456-5_20
 
 ### On Plagiarism and Software Plagiarism
 
-TBD
+This paper explores the complexities of automatic detection of software similarities, in relation of the unique challenges of digital artifacts and introduces Project Martial, an open-source software solution for detecting code similarity. This research enumerates some of the existing approaches to counter software plagiarism, by examining both the academia and legal landscape, including notable lawsuits and court rulings that have shaped the understanding of software copyrights infringements for commercial use applications. Furthermore, we categorize the classes of detection challenges, based on the available artifacts, and we provide a survey on the previously studied techniques in the literature, including solutions based on fingerprinting, software birthmarks or code embeddings and exemplify how a subset of them can be applied in the context of Project Martial.
 
 https://link.springer.com/book/9783031702587

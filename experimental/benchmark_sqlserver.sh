@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # Database configuration
-DB_HOST="109.103.170.30"
-DB_USER="sa"
-DB_PASS="Mateinfo22"
+DB_HOST="108.59.82.205"
+DB_USER="sqlserver"
+DB_PASS="mateinfo"
 DB_NAME="benchmark_db"
 TABLE_NAME="test_table"
 

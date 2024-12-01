@@ -1,5 +1,7 @@
+import sys
 from collections import Counter
 from math import log
+
 
 def generate_ngrams(text, n):
   """Generates n-grams from a given input.
@@ -75,55 +77,24 @@ def compare_files_tfidf(file1_path, file2_path, all_ngrams_dict):
     print(f"{n}-gram TF-IDF similarity: {similarity:.4f}")
 
 if __name__ == "__main__":
-  all_file_path = '/Users/raresraf/code/project-martial/experimental/network/combined.bin'
+  if len(sys.argv) != 3:
+    print("Usage: python tfidf.py <f1> <f2>")
+    sys.exit(1)
+  f1 = sys.argv[1]
+  f2 = sys.argv[2]
+
+  all_file_path = '/Users/raresfolea/code/project-martial/experimental/network/combined.bin'
   with open(all_file_path, 'rb') as fileall:
     textall = fileall.read()
   all_ngrams_dict = {}
-  dbs = [
-          "postgres_9_6",
-          "postgres_9_6_gcp",
-          "postgres_10",
-          "postgres_10_gcp",
-          "postgres_11",
-          "postgres_11_gcp",
-          "postgres_12",
-          "postgres_12_gcp",
-          "postgres_13",
-          "postgres_13_gcp",
-          "postgres_14",
-          "postgres_14_gcp",
-          "postgres_15",
-          "postgres_15_gcp",
-          "postgres_16",
-          "postgres_16_gcp",
-          "sqlserver_2017_dev",
-          "sqlserver_2017_standard_gcp",
-          "sqlserver_2017_enterprise_gcp",
-          "sqlserver_2019_dev",
-          "sqlserver_2019_standard_gcp",
-          "sqlserver_2019_enterprise_gcp",
-          "sqlserver_2022_dev",
-          "sqlserver_2022_standard_gcp",
-          "sqlserver_2022_enterprise_gcp",
-          "mysql_5_6",
-          "mysql_5_6_gcp",
-          "mysql_5_7",
-          "mysql_5_7_gcp",
-          "mysql_8_0",
-          "mysql_8_0_gcp",
-      ]
   for n in range(2, 5):
     all_ngrams_dict[n] = generate_ngrams(textall, n)
     print(f"Loaded {n}-grams!")
     
-  for f1 in dbs:
-    for f2 in dbs:
-      if f1 >= f2:
-        continue
-      file1_path = f'/Users/raresraf/code/project-martial/experimental/network/{f1}/scenarios/scenario_1/combined.bin'
-      file2_path = f'/Users/raresraf/code/project-martial/experimental/network/{f2}/scenarios/scenario_1/combined.bin'          
-      print(f1, f2)
-      print("*****")
-      compare_files_tfidf(file1_path, file2_path, all_ngrams_dict)
-      print("*****")
-      print("")
+  file1_path = f'/Users/raresfolea/code/project-martial/experimental/network/{f1}/scenarios/scenario_1/combined.bin'
+  file2_path = f'/Users/raresfolea/code/project-martial/experimental/network/{f2}/scenarios/scenario_1/combined.bin'          
+  print(f1, f2)
+  print("*****")
+  compare_files_tfidf(file1_path, file2_path, all_ngrams_dict)
+  print("*****")
+  print("")

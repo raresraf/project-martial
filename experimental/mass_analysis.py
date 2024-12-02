@@ -4,12 +4,22 @@ import time
 import threading
 
 
-MAX_PROCESSES = 16 
+MAX_PROCESSES = 6 
 
+def check_file_length(filename):
+  try:
+    with open(filename, 'r') as f:
+      lines = f.readlines()
+      return len(lines) >= 9
+  except FileNotFoundError:
+    return False
 
 def run_comparison(f1, f2):
     """Runs the comparison script as a subprocess with the given arguments."""
-    with open(f"results/output_{f1}_{f2}.txt", "w") as outfile:
+    filename = f"results/output_{f1}_{f2}.txt"
+    if check_file_length(filename):
+        return
+    with open(filename, "w") as outfile:
         subprocess.run(["python3", "tfidf.py", f1, f2], stdout=outfile)
 
 
@@ -51,7 +61,7 @@ if __name__ == "__main__":
     threads = []
     for f1 in dbs:
         for f2 in dbs:
-            if f1 >= f2:
+            if f1 > f2:
                 thread = threading.Thread(target=run_comparison, args=(f1, f2))
                 threads.append(thread)
                 thread.start()

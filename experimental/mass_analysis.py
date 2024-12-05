@@ -4,7 +4,7 @@ import time
 import threading
 
 
-MAX_PROCESSES = 6 
+MAX_PROCESSES = 12 
 
 def check_file_length(filename):
   try:

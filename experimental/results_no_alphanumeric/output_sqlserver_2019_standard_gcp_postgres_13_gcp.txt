@@ -1,0 +1,10 @@
+Loaded 2-grams!
+Loaded 3-grams!
+Loaded 4-grams!
+sqlserver_2019_standard_gcp postgres_13_gcp
+*****
+2-gram TF-IDF similarity: 0.4437
+3-gram TF-IDF similarity: 0.3674
+4-gram TF-IDF similarity: 0.2657
+*****
+

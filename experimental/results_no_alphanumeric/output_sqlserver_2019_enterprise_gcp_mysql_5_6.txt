@@ -1,0 +1,10 @@
+Loaded 2-grams!
+Loaded 3-grams!
+Loaded 4-grams!
+sqlserver_2019_enterprise_gcp mysql_5_6
+*****
+2-gram TF-IDF similarity: 0.3360
+3-gram TF-IDF similarity: 0.2661
+4-gram TF-IDF similarity: 0.2127
+*****
+

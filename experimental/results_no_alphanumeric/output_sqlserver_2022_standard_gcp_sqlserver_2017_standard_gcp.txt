@@ -1,0 +1,10 @@
+Loaded 2-grams!
+Loaded 3-grams!
+Loaded 4-grams!
+sqlserver_2022_standard_gcp sqlserver_2017_standard_gcp
+*****
+2-gram TF-IDF similarity: 0.9611
+3-gram TF-IDF similarity: 0.9552
+4-gram TF-IDF similarity: 0.9523
+*****
+

@@ -1,7 +1,7 @@
 import sys
 from collections import Counter
 from math import log
-
+import re
 
 def generate_ngrams(text, n):
   """Generates n-grams from a given input.
@@ -53,17 +53,22 @@ def calculate_cosine_similarity(tfidf1, tfidf2):
   magnitude2 = sum(value ** 2 for value in tfidf2.values()) ** 0.5
   return dot_product / (magnitude1 * magnitude2) if magnitude1 and magnitude2 else 0
 
-def compare_files_tfidf(file1_path, file2_path, all_ngrams_dict):
+def compare_files_tfidf(file1_path, file2_path, all_ngrams_dict, remove_alphanumeric=False):
   """Compares two files using TF-IDF and cosine similarity for 2-grams, 3-grams, and 4-grams.
 
   Args:
     file1_path: The path to the first file.
     file2_path: The path to the second file.
     all_ngrams_dict: dict with all needed n-grams
+    remove_alphanumeric: Whether to remove alphanumeric characters.
   """
   with open(file1_path, 'rb') as file1, open(file2_path, 'rb') as file2:
     text1 = file1.read()
     text2 = file2.read()
+
+  if remove_alphanumeric:
+    text1 = re.sub(b'[a-zA-Z0-9]', b'', text1)
+    text2 = re.sub(b'[a-zA-Z0-9]', b'', text2)
 
   for n in range(2, 5):
     ngrams1 = generate_ngrams(text1, n)
@@ -77,15 +82,18 @@ def compare_files_tfidf(file1_path, file2_path, all_ngrams_dict):
     print(f"{n}-gram TF-IDF similarity: {similarity:.4f}")
 
 if __name__ == "__main__":
-  if len(sys.argv) != 3:
-    print("Usage: python tfidf.py <f1> <f2>")
+  if len(sys.argv) < 3:
+    print("Usage: python tfidf.py <f1> <f2> [-r]")
     sys.exit(1)
   f1 = sys.argv[1]
   f2 = sys.argv[2]
+  remove_alphanumeric = "-r" in sys.argv
 
   all_file_path = '/Users/raresfolea/code/project-martial/experimental/network/combined.bin'
   with open(all_file_path, 'rb') as fileall:
     textall = fileall.read()
+  if remove_alphanumeric:
+    textall = re.sub(b'[a-zA-Z0-9]', b'', textall)
   all_ngrams_dict = {}
   for n in range(2, 5):
     all_ngrams_dict[n] = generate_ngrams(textall, n)
@@ -95,6 +103,6 @@ if __name__ == "__main__":
   file2_path = f'/Users/raresfolea/code/project-martial/experimental/network/{f2}/scenarios/scenario_1/combined.bin'          
   print(f1, f2)
   print("*****")
-  compare_files_tfidf(file1_path, file2_path, all_ngrams_dict)
+  compare_files_tfidf(file1_path, file2_path, all_ngrams_dict, remove_alphanumeric)
   print("*****")
   print("")

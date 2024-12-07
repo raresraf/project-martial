@@ -4,7 +4,7 @@ import time
 import threading
 
 
-MAX_PROCESSES = 12 
+MAX_PROCESSES = 10 
 
 def check_file_length(filename):
   try:
@@ -16,11 +16,11 @@ def check_file_length(filename):
 
 def run_comparison(f1, f2):
     """Runs the comparison script as a subprocess with the given arguments."""
-    filename = f"results/output_{f1}_{f2}.txt"
+    filename = f"results_no_alphanumeric/output_{f1}_{f2}.txt"
     if check_file_length(filename):
         return
     with open(filename, "w") as outfile:
-        subprocess.run(["python3", "tfidf.py", f1, f2], stdout=outfile)
+        subprocess.run(["python3", "tfidf.py", f1, f2, "-r"], stdout=outfile)
 
 
 if __name__ == "__main__":

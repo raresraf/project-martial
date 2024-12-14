@@ -12,11 +12,17 @@ def generate_tables(data):
     data: A list of dictionaries, where each dictionary contains information 
           about a pair of database engines and their similarity scores.
   """
+  def sort_key(engine):
+    return engine.replace('9.', '09.') # PG 9.6 hack
+  
+  engines = sorted(({d['database engine 1'] for d in data} | 
+                   {d['database engine 2'] for d in data}), key=sort_key)
+  
+  escaped_engines = sorted(({d['database engine 1'].replace("_", "\\_") for d in data} | 
+                           {d['database engine 2'].replace("_", "\\_") for d in data}), key=sort_key)
 
-  # Extract unique database engines
-  engines = sorted({d['database engine 1'] for d in data} | {d['database engine 2'] for d in data})
-  escaped_engines = sorted({d['database engine 1'].replace("_", "\\_") for d in data} | 
-                  {d['database engine 2'].replace("_", "\\_") for d in data})
+  print(engines)
+  print(escaped_engines)
   similarity_array = np.zeros((len(engines), len(engines)))  # Initialize for heatmap
 
   # Create a dictionary to store similarity scores for each engine pair
@@ -24,12 +30,14 @@ def generate_tables(data):
   for d in data:
     engine1 = d['database engine 1']
     engine2 = d['database engine 2']
-    score = round(float(d['4-gram similarity']), 2)
     similarity_matrix[(engine1, engine2)] = {
         '2-gram': round(float(d['2-gram similarity']), 2),  # Round to 2 decimals
         '3-gram': round(float(d['3-gram similarity']), 2),
         '4-gram': round(float(d['4-gram similarity']), 2)
     }
+
+
+    score = round(float(d['4-gram similarity']), 2)
     i = engines.index(engine1)
     j = engines.index(engine2)
     similarity_array[i, j] = score 
@@ -73,7 +81,7 @@ def generate_tables(data):
   plt.setp(ax.get_xticklabels(), rotation=90, ha="right",
            rotation_mode="anchor")
 
-  ax.set_title("4-gram Similarity Between Database Engines (non-human readable dataset only)")
+  ax.set_title("4-gram Similarity Between Database Engines (full dataset)")
   fig.tight_layout()
 
   plt.colorbar(im)  # Add a colorbar
@@ -116,21 +124,21 @@ def humanize_db_name(name):
       return f"PostgreSQL {parts[1]}"
     elif len(parts) == 3:
       if parts[2] == 'gcp':
-        return f"PostgreSQL {parts[1]} (Google)"
+        return f"PostgreSQL {parts[1]} (GCSQL)"
       else:
         return f"PostgreSQL {parts[1]}.{parts[2]}"
     elif len(parts) == 4:
-      return f"PostgreSQL {parts[1]}.{parts[2]} (Google)"
+      return f"PostgreSQL {parts[1]}.{parts[2]} (GCSQL)"
   elif parts[0] == 'sqlserver':
     if len(parts) == 3:
       return f"SQL Server {parts[1]} {parts[2].title()}"
     elif len(parts) == 4:
-      return f"SQL Server {parts[1]} {parts[2].title()} (Google)"
+      return f"SQL Server {parts[1]} {parts[2].title()} (GCSQL)"
   elif parts[0] == 'mysql':
     if len(parts) == 3:
       return f"MySQL {parts[1]}.{parts[2]}"
     elif len(parts) == 4:
-      return f"MySQL {parts[1]}.{parts[2]} (Google)"
+      return f"MySQL {parts[1]}.{parts[2]} (GCSQL)"
   return name  # Return the original name if no match is found
 
 def parse_files(folder_path):
@@ -165,7 +173,7 @@ def parse_files(folder_path):
   return data
 
 if __name__ == "__main__":
-  folder_path = "/Users/raresfolea/code/project-martial/experimental/results_no_alphanumeric"
+  folder_path = "/Users/raresfolea/code/project-martial/experimental/results"
   parsed_data = parse_files(folder_path)
   # pprint.pprint(parsed_data)
   latex_code, markdown_table = generate_tables(parsed_data)

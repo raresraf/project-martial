@@ -1,0 +1,10 @@
+Loaded 2-grams!
+Loaded 3-grams!
+Loaded 4-grams!
+postgres_15 mysql_5_6_gcp
+*****
+2-gram TF-IDF similarity: 0.3519
+3-gram TF-IDF similarity: 0.2403
+4-gram TF-IDF similarity: 0.1621
+*****
+

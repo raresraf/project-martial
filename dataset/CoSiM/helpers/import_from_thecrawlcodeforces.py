@@ -121,6 +121,27 @@ def parse_second_to_last_part(file_path):
     return None
 
 
+def parse_last_part(file_path):
+  """
+  Parses the second to last part of a file name from a given file path.
+
+  Args:
+    file_path: The path to the file.
+
+  Returns:
+    The second to last part of the file name, or None if the path is invalid.
+  """
+  try:
+    # Extract the directory and file name
+    path, filename = os.path.split(file_path)
+    # Split the path into its components
+    path_parts = path.split(os.sep)
+    return path_parts[-1]
+  except:
+    return None
+
+
+
 
 def process_files(processed_data):
     """
@@ -154,19 +175,60 @@ def process_files(processed_data):
         with open(metadata_path, 'w') as f:
             json.dump(metadata, f, indent=4)
 
+def create_metadata_map(root_path):
+    """
+    Reads all METADATA.json files under the given root path and creates a map
+    with the directory and the "source" entry from each JSON file.
+
+    Args:
+        root_path: The root path to search for METADATA.json files.
+
+    Returns:
+        A dictionary mapping directories to "source" entries.
+    """
+
+    metadata_map = {}
+    for dirpath, dirnames, filenames in os.walk(root_path):
+        for filename in filenames:
+            if filename == 'METADATA.json':
+                filepath = os.path.join(dirpath, filename)
+                with open(filepath, 'r') as f:
+                    try:
+                        metadata = json.load(f)
+                        metadata_map[metadata.get('source')] = parse_last_part(filepath)
+                    except json.JSONDecodeError:
+                        print(f"Error decoding JSON in file: {filepath}")
+    return metadata_map
+
+
+
+
 if __name__ == "__main__":
-    root_path = "/Users/raf/code/TheOutputsCodeforces/processed/atomic_perf"
-    processed_data = find_and_read_json(root_path)
+    processed_data = find_and_read_json("/Users/raf/code/TheOutputsCodeforces/processed/atomic_perf")
     
+    # Only needed once.
+    # process_files(processed_data)
+    metadata_map = create_metadata_map('/Users/raf/code/project-martial/dataset/CoSiM/raw')
     
     similar_same_problem_id = 0
     similar_different_problem_id = 0
     not_similar_same_problem_id = 0
     not_similar_different_problem_id = 0
+        
+        
+    try:
+        with open('/Users/raf/code/project-martial/dataset/CoSiM/simdataset.json', 'r') as f:
+            json_data_similar = json.load(f)
+    except FileNotFoundError:
+        json_data_similar = {}  # Create an empty dictionary if the file doesn't exist
     
-    # Only needed once.
-    # process_files(processed_data)
-    
+    try:
+        with open('/Users/raf/code/project-martial/dataset/CoSiM/notsimdataset.json', 'r') as f:
+            json_data_not_similar = json.load(f)
+    except FileNotFoundError:
+        json_data_not_similar = {}  # Create an empty dictionary if the file doesn't exist
+
+
     for file_path1, thecrawlcodeforces_path1, json_data1 in processed_data:
         for file_path2, thecrawlcodeforces_path2, json_data2 in processed_data:
             if file_path1 == file_path2:
@@ -175,20 +237,26 @@ if __name__ == "__main__":
             problemid2 = parse_second_to_last_part(file_path2)
             if compare_jsons(json_data1,json_data2):
                 if problemid1 == problemid2:
+                    json_data_similar[str(similar_same_problem_id + 2)] = [metadata_map[thecrawlcodeforces_path1], metadata_map[thecrawlcodeforces_path2]]
                     similar_same_problem_id += 1
                 else:
                     similar_different_problem_id += 1
-                # print(file_path1)
-                # print(file_path2)
-                # print(json_data1)
-                # print(json_data2)
+
             else:
                 if problemid1 == problemid2:
                     not_similar_same_problem_id += 1
                 else:
+                    json_data_not_similar[str(not_similar_different_problem_id + 2)] = [metadata_map[thecrawlcodeforces_path1], metadata_map[thecrawlcodeforces_path2]]
                     not_similar_different_problem_id += 1
                 
     print(f"Found {similar_same_problem_id} similar_same_problem_id thecrawlcodeforces_path")
     print(f"Found {similar_different_problem_id} similar_different_problem_id thecrawlcodeforces_path")
     print(f"Found {not_similar_same_problem_id} not_similar_same_problem_id thecrawlcodeforces_path")
     print(f"Found {not_similar_different_problem_id} not_similar_different_problem_id thecrawlcodeforces_path")
+    
+    
+    
+    with open('/Users/raf/code/project-martial/dataset/CoSiM/simdataset.json', 'w') as f:
+        json.dump(json_data_similar, f, indent=4)      
+    with open('/Users/raf/code/project-martial/dataset/CoSiM/notsimdataset.json', 'w') as f:
+        json.dump(json_data_not_similar, f, indent=4)

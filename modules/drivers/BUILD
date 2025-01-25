@@ -28,6 +28,15 @@ py_binary(
 )
 
 py_binary(
+  name = "rcomplexity_cosim_driver",
+  deps = [
+    "//modules:rcomplexity",
+    "//modules:rcomplexity_api",
+  ],
+  srcs = ["rcomplexity_cosim_driver.py"],
+)
+
+py_binary(
   name = "rcomplexity_gradient_descent",
   deps = [
     ":rcomplexity_driver",

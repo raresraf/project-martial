@@ -1,10 +1,14 @@
+import re
 import os
+import sys
+import random
 import json
 from absl import app
 from absl import flags
 import modules.rcomplexity as rcomplexity
 import fcntl
 import math
+from sklearn.metrics import confusion_matrix
 
 dataset = {}
 outcome = {}
@@ -58,6 +62,8 @@ flags.DEFINE_float("c92", "0.1808", help="C92")
 flags.DEFINE_float("c93", "0.0", help="C93")
 flags.DEFINE_float("c94", "0.0", help="C94")
 
+flags.DEFINE_integer("seed", 42, help="seed")
+
 
 def read_cosim_dataset(filepath):
     """Reads a CoSiM dataset (similar or not similar) from a JSON file.
@@ -76,8 +82,109 @@ def read_cosim_dataset(filepath):
     except (FileNotFoundError, json.JSONDecodeError) as e:
         print(f"Error reading or parsing JSON from {filepath}: {e}")
         return []  # Return an empty list to indicate failure
+    
+def read_cosim_metadata(filepath):
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            return data
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        print(f"Error reading or parsing JSON from {filepath}: {e}")
+        return []
 
 
+def convert_path_to_embedding(input_path):
+    """Converts a path from TheCrawlCodeforces to TheOutputsCodeforces.
+
+    Args:
+        input_path: The original input path.
+
+    Returns:
+        The converted output path.
+    """
+
+    try:
+        # 1. Replace "TheCrawlCodeforces" with "TheOutputsCodeforces/processed/atomic_perf"
+        output_path = input_path.replace("TheCrawlCodeforces", "TheOutputsCodeforces/processed/atomic_perf")
+
+        # 2. Remove the ".CPP" extension (case-insensitive)
+        if input_path.lower().endswith(".cpp"):
+            output_path = output_path[:-4]  # Remove the last 4 characters (".CPP")
+
+        # 3. Add "/PROCESSED.RAF" at the end
+        output_path += "/PROCESSED.RAF"
+
+        return output_path
+
+    except Exception as e:  # Catch potential errors (e.g., if the path is malformed)
+        print(f"Error processing path: {e}")
+        return None
+
+
+def random_sample_dict(input_dict, sample_size, seed=None):
+    """
+    Randomly samples a specified number of items from a dictionary with optional seeding for reproducibility.
+
+    Args:
+        input_dict: The dictionary to sample from.
+        sample_size: The number of items to sample.
+        seed: An optional seed value for the random number generator.
+
+    Returns:
+        A new dictionary containing the sampled items, or None if the
+        input dictionary is empty or the sample size is invalid.
+        If the sample size is larger than the dictionary size, it returns a copy of the original dictionary.
+    """
+
+    if not input_dict:
+        return None
+
+    if sample_size <= 0:
+      return {}
+
+    if sample_size >= len(input_dict):
+        return input_dict.copy()
+
+    # Seed the random number generator if a seed is provided
+    if seed is not None:
+        random.seed(seed)
+
+    sampled_keys = random.sample(list(input_dict), sample_size)
+    sampled_dict = {key: input_dict[key] for key in sampled_keys}
+
+    return sampled_dict
+
+
+def run_over_one_dataset(dataset, want_similarity, metadata, rca, gotlst, wantlst):
+    max_stuff_in_dataset = 180000
+    max_dataset = random_sample_dict(dataset, max_stuff_in_dataset, seed = FLAGS.seed)
+    loss = 0
+    for pairid, sim in max_dataset.items():
+        if pairid == "0" or pairid == "1":
+            continue # Kubernetes
+        for uid in sim:
+            if not metadata.get(uid, None):
+                metadata[uid] = read_cosim_metadata(f"/Users/raf/code/project-martial/dataset/CoSiM/raw/{uid}/METADATA.json")
+                metadata[uid]["embedding"] = read_cosim_metadata(convert_path_to_embedding(metadata[uid]["source"]))
+            # print(metadata[uid])
+        
+        if not metadata[sim[0]]["embedding"].get("metrics", None):
+            continue
+        if not metadata[sim[1]]["embedding"].get("metrics", None):
+            continue
+        
+        rca.fileJSON["file1"] = metadata[sim[0]]["embedding"]
+        rca.fileJSON["file2"] = metadata[sim[1]]["embedding"]
+        _, _, similarity, _, _, _, _ = (
+            rca.find_complexity_similarity_with_as()
+        )
+        wantlst.append(want_similarity)
+        if similarity >= FLAGS.threshold:
+            gotlst.append(1)
+        else:
+            gotlst.append(0)
+        loss += -want_similarity * infzerolog(similarity) - (1 - want_similarity) * infzerolog(1 - similarity)
+    return loss
 
 def main(_):
     simdataset_path = "/Users/raf/code/project-martial/dataset/CoSiM/similar/simdataset.json"
@@ -85,7 +192,7 @@ def main(_):
     
     sim_data = read_cosim_dataset(simdataset_path)
     notsim_data = read_cosim_dataset(notsimdataset_path)
-
+    metadata = {}
 
     rca = rcomplexity.RComplexityAnalysis()
     rca.disable_find_line = True
@@ -103,21 +210,19 @@ def main(_):
 
     loss = 0
 
-    for pairid, sim in sim_data:
-        if pairid == "0" or pairid == "1":
-            continue # Kubernetes
-        rca.fileJSON["file1"] = f1
-        rca.fileJSON["file2"] = f2
-        _, _, similarity, _, _, _, _ = (
-            rca.find_complexity_similarity_with_as()
-        )
-        print(f"{similarity}, {k1}, {k2}\n")
-
+    gotlst = []
+    wantlst = []
+    loss += run_over_one_dataset(sim_data, 1, metadata, rca, gotlst, wantlst)
+    loss += run_over_one_dataset(notsim_data, 0, metadata, rca, gotlst, wantlst)
+        
     msg = {
         "threshold": FLAGS.threshold,
         "loss": loss,
-        "X": rca.X,
+        # "X": rca.X,
     }
+    print(msg)
+    print(confusion_matrix(wantlst, gotlst))
+    
 
 
 

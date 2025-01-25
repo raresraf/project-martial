@@ -1,0 +1,131 @@
+import os
+import json
+from absl import app
+from absl import flags
+import modules.rcomplexity as rcomplexity
+import fcntl
+import math
+
+dataset = {}
+outcome = {}
+
+FLAGS = flags.FLAGS
+
+flags.DEFINE_float("threshold", "0.5", help="Threshold to declare similarity")
+
+flags.DEFINE_float("c11", "0.5061", help="C11")
+flags.DEFINE_float("c12", "0.3848", help="C12")
+flags.DEFINE_float("c13", "0.0619", help="C13")
+flags.DEFINE_float("c14", "0.0", help="C14")
+
+flags.DEFINE_float("c21", "0.3222", help="C21")
+flags.DEFINE_float("c22", "0.1076", help="C22")
+flags.DEFINE_float("c23", "1.0", help="C23")
+flags.DEFINE_float("c24", "0.6837", help="C24")
+
+flags.DEFINE_float("c31", "0.3761", help="C31")
+flags.DEFINE_float("c32", "0.4154", help="C32")
+flags.DEFINE_float("c33", "0.0", help="C33")
+flags.DEFINE_float("c34", "0.0", help="C34")
+
+flags.DEFINE_float("c41", "0.4206", help="C41")
+flags.DEFINE_float("c42", "0.6619", help="C42")
+flags.DEFINE_float("c43", "0.027", help="C43")
+flags.DEFINE_float("c44", "0.0", help="C44")
+
+flags.DEFINE_float("c51", "0.0325", help="C51")
+flags.DEFINE_float("c52", "0.2204", help="C52")
+flags.DEFINE_float("c53", "0.0195", help="C53")
+flags.DEFINE_float("c54", "0.0", help="C54")
+
+flags.DEFINE_float("c61", "0.0", help="C61")
+flags.DEFINE_float("c62", "0.1413", help="C62")
+flags.DEFINE_float("c63", "0.2458", help="C63")
+flags.DEFINE_float("c64", "0.2237", help="C64")
+
+flags.DEFINE_float("c71", "0.3058", help="C71")
+flags.DEFINE_float("c72", "0.3331", help="C72")
+flags.DEFINE_float("c73", "0.0", help="C73")
+flags.DEFINE_float("c74", "0.0", help="C74")
+
+flags.DEFINE_float("c81", "0.0465", help="C81")
+flags.DEFINE_float("c82", "0.0631", help="C82")
+flags.DEFINE_float("c83", "0.0", help="C83")
+flags.DEFINE_float("c84", "0.0", help="C84")
+
+flags.DEFINE_float("c91", "0.1697", help="C91")
+flags.DEFINE_float("c92", "0.1808", help="C92")
+flags.DEFINE_float("c93", "0.0", help="C93")
+flags.DEFINE_float("c94", "0.0", help="C94")
+
+
+def read_cosim_dataset(filepath):
+    """Reads a CoSiM dataset (similar or not similar) from a JSON file.
+
+    Args:
+        filepath: The path to the JSON file.
+
+    Returns:
+        A list of dictionaries, where each dictionary represents a data point.
+        Returns an empty list if there's an error during file reading or JSON decoding.
+    """
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:  # Explicitly use utf-8 encoding
+            data = json.load(f)
+            return data
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        print(f"Error reading or parsing JSON from {filepath}: {e}")
+        return []  # Return an empty list to indicate failure
+
+
+
+def main(_):
+    simdataset_path = "/Users/raf/code/project-martial/dataset/CoSiM/similar/simdataset.json"
+    notsimdataset_path = "/Users/raf/code/project-martial/dataset/CoSiM/notsimilar/notsimdataset_merged.json"
+    
+    sim_data = read_cosim_dataset(simdataset_path)
+    notsim_data = read_cosim_dataset(notsimdataset_path)
+
+
+    rca = rcomplexity.RComplexityAnalysis()
+    rca.disable_find_line = True
+    rca.X = [
+        [FLAGS.c11, FLAGS.c12, FLAGS.c13, FLAGS.c14],
+        [FLAGS.c21, FLAGS.c22, FLAGS.c23, FLAGS.c24],
+        [FLAGS.c31, FLAGS.c32, FLAGS.c33, FLAGS.c34],
+        [FLAGS.c41, FLAGS.c42, FLAGS.c43, FLAGS.c44],
+        [FLAGS.c51, FLAGS.c52, FLAGS.c53, FLAGS.c54],
+        [FLAGS.c61, FLAGS.c62, FLAGS.c63, FLAGS.c64],
+        [FLAGS.c71, FLAGS.c72, FLAGS.c73, FLAGS.c74],
+        [FLAGS.c81, FLAGS.c82, FLAGS.c83, FLAGS.c84],
+        [FLAGS.c91, FLAGS.c92, FLAGS.c93, FLAGS.c94],
+    ]
+
+    loss = 0
+
+    for pairid, sim in sim_data:
+        if pairid == "0" or pairid == "1":
+            continue # Kubernetes
+        rca.fileJSON["file1"] = f1
+        rca.fileJSON["file2"] = f2
+        _, _, similarity, _, _, _, _ = (
+            rca.find_complexity_similarity_with_as()
+        )
+        print(f"{similarity}, {k1}, {k2}\n")
+
+    msg = {
+        "threshold": FLAGS.threshold,
+        "loss": loss,
+        "X": rca.X,
+    }
+
+
+
+def infzerolog(x):
+    if x < 3.720076e-44:
+        return -100
+    return math.log(x)
+
+
+if __name__ == "__main__":
+    app.run(main)

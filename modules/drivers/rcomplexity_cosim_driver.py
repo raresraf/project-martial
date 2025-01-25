@@ -9,6 +9,7 @@ import modules.rcomplexity as rcomplexity
 import fcntl
 import math
 from sklearn.metrics import confusion_matrix
+from sklearn.metrics import classification_report
 
 dataset = {}
 outcome = {}
@@ -155,8 +156,7 @@ def random_sample_dict(input_dict, sample_size, seed=None):
     return sampled_dict
 
 
-def run_over_one_dataset(dataset, want_similarity, metadata, rca, gotlst, wantlst):
-    max_stuff_in_dataset = 180000
+def run_over_one_dataset(dataset, want_similarity, max_stuff_in_dataset, metadata, rca, gotlst, wantlst):
     max_dataset = random_sample_dict(dataset, max_stuff_in_dataset, seed = FLAGS.seed)
     loss = 0
     for pairid, sim in max_dataset.items():
@@ -212,8 +212,8 @@ def main(_):
 
     gotlst = []
     wantlst = []
-    loss += run_over_one_dataset(sim_data, 1, metadata, rca, gotlst, wantlst)
-    loss += run_over_one_dataset(notsim_data, 0, metadata, rca, gotlst, wantlst)
+    loss += run_over_one_dataset(sim_data, 1, 200000, metadata, rca, gotlst, wantlst)
+    loss += run_over_one_dataset(notsim_data, 0, 20000, metadata, rca, gotlst, wantlst)
         
     msg = {
         "threshold": FLAGS.threshold,
@@ -222,6 +222,7 @@ def main(_):
     }
     print(msg)
     print(confusion_matrix(wantlst, gotlst))
+    print(classification_report(wantlst, gotlst))
     
 
 

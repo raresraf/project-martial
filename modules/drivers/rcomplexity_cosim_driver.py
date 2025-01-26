@@ -236,3 +236,123 @@ def infzerolog(x):
 
 if __name__ == "__main__":
     app.run(main)
+
+
+"""
+INFO: Running command line: bazel-bin/modules/drivers/rcomplexity_cosim_driver '--seed=42' '--threshold=0.42'
+{'threshold': 0.42, 'loss': 129770.17965287855}
+[[ 43930  45863]
+ [  3251 176747]]
+              precision    recall  f1-score   support
+
+           0       0.94      0.50      0.65     89793
+           1       0.80      0.98      0.89    179998
+
+    accuracy                           0.83    269791
+   macro avg       0.87      0.76      0.77    269791
+weighted avg       0.85      0.83      0.81    269791
+
+INFO: Running command line: bazel-bin/modules/drivers/rcomplexity_cosim_driver '--seed=42' '--threshold=0.44'
+{'threshold': 0.44, 'loss': 129770.17965287855}
+[[ 48454  41339]
+ [  5238 174760]]
+              precision    recall  f1-score   support
+
+           0       0.91      0.55      0.69     89793
+           1       0.82      0.97      0.89    179998
+
+    accuracy                           0.83    269791
+   macro avg       0.87      0.77      0.79    269791
+weighted avg       0.85      0.84      0.82    269791
+
+INFO: Running command line: bazel-bin/modules/drivers/rcomplexity_cosim_driver '--seed=42' '--threshold=0.46'
+{'threshold': 0.46, 'loss': 129770.17965287855}
+[[ 52596  37197]
+ [ 12151 167847]]
+              precision    recall  f1-score   support
+
+           0       0.82      0.60      0.69     89793
+           1       0.83      0.94      0.88    179998
+
+    accuracy                           0.83    269791
+   macro avg       0.83      0.77      0.79    269791
+weighted avg       0.83      0.82      0.82    269791
+
+INFO: Running command line: bazel-bin/modules/drivers/rcomplexity_cosim_driver '--seed=42' '--threshold=0.48'
+{'threshold': 0.48, 'loss': 129770.17965287855}
+[[ 56481  33312]
+ [ 15616 164382]]
+              precision    recall  f1-score   support
+
+           0       0.79      0.64      0.71     89793
+           1       0.84      0.92      0.88    179998
+
+    accuracy                           0.83    269791
+   macro avg       0.82      0.78      0.79    269791
+weighted avg       0.82      0.83      0.82    269791
+
+INFO: Running command line: bazel-bin/modules/drivers/rcomplexity_cosim_driver '--seed=42'
+{'threshold': 0.5, 'loss': 129770.17965287855}
+[[ 60253  29540]
+ [ 20578 159420]]
+              precision    recall  f1-score   support
+
+           0       0.76      0.68      0.72     89793
+           1       0.85      0.90      0.88    179998
+
+    accuracy                           0.83    269791
+   macro avg       0.80      0.79      0.80    269791
+weighted avg       0.82      0.83      0.82    269791
+
+INFO: Running command line: bazel-bin/modules/drivers/rcomplexity_cosim_driver '--seed=42' '--threshold=0.52'
+{'threshold': 0.52, 'loss': 129770.17965287855}
+[[ 63649  26144]
+ [ 26135 153863]]
+              precision    recall  f1-score   support
+
+           0       0.72      0.72      0.72     89793
+           1       0.86      0.86      0.86    179998
+
+    accuracy                           0.82    269791
+   macro avg       0.79      0.78      0.78    269791
+weighted avg       0.82      0.82      0.82    269791
+
+INFO: Running command line: bazel-bin/modules/drivers/rcomplexity_cosim_driver '--seed=42' '--threshold=0.54'
+{'threshold': 0.54, 'loss': 129770.17965287855}
+[[ 66849  22944]
+ [ 32944 147054]]
+              precision    recall  f1-score   support
+
+           0       0.68      0.75      0.72     89793
+           1       0.88      0.83      0.85    179998
+
+    accuracy                           0.80    269791
+   macro avg       0.78      0.79      0.78    269791
+weighted avg       0.81      0.79      0.80    269791
+
+INFO: Running command line: bazel-bin/modules/drivers/rcomplexity_cosim_driver '--seed=42' '--threshold=0.56'
+{'threshold': 0.56, 'loss': 129770.17965287855}
+[[ 69832  19961]
+ [ 40006 139992]]
+              precision    recall  f1-score   support
+
+           0       0.65      0.79      0.71     89793
+           1       0.89      0.79      0.83    179998
+
+    accuracy                           0.79    269791
+   macro avg       0.77      0.79      0.77    269791
+weighted avg       0.81      0.79      0.79    269791
+
+INFO: Running command line: bazel-bin/modules/drivers/rcomplexity_cosim_driver '--seed=42' '--threshold=0.58'
+{'threshold': 0.58, 'loss': 129770.17965287855}
+[[ 72448  17345]
+ [ 47330 132668]]
+              precision    recall  f1-score   support
+
+           0       0.61      0.82      0.70     89793
+           1       0.89      0.75      0.82    179998
+
+    accuracy                           0.77    269791
+   macro avg       0.75      0.77      0.76    269791
+weighted avg       0.80      0.77      0.78    269791
+"""

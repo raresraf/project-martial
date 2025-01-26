@@ -212,8 +212,9 @@ def main(_):
 
     gotlst = []
     wantlst = []
-    loss += run_over_one_dataset(sim_data, 1, 200000, metadata, rca, gotlst, wantlst)
-    loss += run_over_one_dataset(notsim_data, 0, 20000, metadata, rca, gotlst, wantlst)
+    max_elems = 90000
+    loss += run_over_one_dataset(sim_data, 1, max_elems * 2, metadata, rca, gotlst, wantlst)
+    loss += run_over_one_dataset(notsim_data, 0, max_elems, metadata, rca, gotlst, wantlst)
         
     msg = {
         "threshold": FLAGS.threshold,

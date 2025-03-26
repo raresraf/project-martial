@@ -1,9 +1,8 @@
 import os
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.model_selection import train_test_split
 from sklearn.svm import SVC
-from sklearn.metrics import accuracy_score
-import xgboost as xgb
+from sklearn.metrics import accuracy_score, classification_report
+# import xgboost as xgb
 
 def load_byte_data(directory):
     data = []
@@ -11,20 +10,23 @@ def load_byte_data(directory):
     for root, _, files in os.walk(directory):
         for file in files:
             filepath = os.path.join(root, file)
+            if not "mysql" in filepath.lower() and not "postgres" in filepath.lower() and not "sqlserver" in filepath.lower():
+                continue
             print(filepath)
             try:
                 with open(filepath, 'rb') as f:
                     byte_data = f.read()
                     data.append(byte_data)
                     engine = os.path.basename(root)
-                    label = "unknown"
+                    label = engine
                     
-                    if "mysql" in engine.lower():
-                        label = "mysql"
-                    if "postgres" in engine.lower():
-                        label = "postgres"
-                    if "sqlserver" in engine.lower():
-                        label = "sqlserver"
+                    # label = "unknown"
+                    # if "mysql" in engine.lower():
+                    #     label = "mysql"
+                    # if "postgres" in engine.lower():
+                    #     label = "postgres"
+                    # if "sqlserver" in engine.lower():
+                    #     label = "sqlserver"
                     print(label)
                     labels.append(label)
             except Exception as e:
@@ -56,14 +58,15 @@ if __name__ == "__main__":
     predictions = classifier.predict(X_test)
     accuracy = accuracy_score(test_labels, predictions)
     print("Accuracy:", accuracy)
-
+    report = classification_report(test_labels, predictions)
+    print("\nClassification Report:\n", report)
 
     # Train XGBoost classifier
-    classifier = xgb.XGBClassifier()
-    classifier.fit(X_train, train_labels)
-    predictions = classifier.predict(X_test)
-    accuracy = accuracy_score(test_labels, predictions)
-    print("Accuracy:", accuracy)
+    # classifier = xgb.XGBClassifier()
+    # classifier.fit(X_train, train_labels)
+    # predictions = classifier.predict(X_test)
+    # accuracy = accuracy_score(test_labels, predictions)
+    # print("Accuracy:", accuracy)
 
 
 

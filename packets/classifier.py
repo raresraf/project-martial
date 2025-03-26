@@ -1,5 +1,6 @@
 import os
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.preprocessing import LabelEncoder
 from sklearn.svm import SVC
 from sklearn.metrics import accuracy_score, classification_report
 # import xgboost as xgb
@@ -37,11 +38,16 @@ def load_byte_data(directory):
 if __name__ == "__main__":
     print("Hello!")
 
-    train_dir = "/Users/raf/code/project-martial/dataset/packets/train"
+    train_dir = "/Users/raresraf/code/project-martial/dataset/packets/train"
     train_data, train_labels = load_byte_data(train_dir)
 
-    test_dir = "/Users/raf/code/project-martial/dataset/packets/test"
+    test_dir = "/Users/raresraf/code/project-martial/dataset/packets/test"
     test_data, test_labels = load_byte_data(test_dir)
+
+    label_encoder = LabelEncoder() 
+    train_labels_encoded = label_encoder.fit_transform(train_labels) 
+    test_labels_encoded = label_encoder.transform(test_labels)
+
 
     def byte_ngram_tokenizer(byte_sequence):
         ngrams = [byte_sequence[i:i + 2] for i in range(len(byte_sequence) - 2)]
@@ -63,9 +69,9 @@ if __name__ == "__main__":
 
     # Train XGBoost classifier
     # classifier = xgb.XGBClassifier()
-    # classifier.fit(X_train, train_labels)
+    # classifier.fit(X_train, train_labels_encoded)
     # predictions = classifier.predict(X_test)
-    # accuracy = accuracy_score(test_labels, predictions)
+    # accuracy = accuracy_score(test_labels_encoded, predictions)
     # print("Accuracy:", accuracy)
 
 

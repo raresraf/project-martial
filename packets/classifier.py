@@ -147,3 +147,44 @@ if __name__ == "__main__":
         plt.show()
     else:
         print("No misclassifications found on the test set!")
+
+"""
+Classification Report:
+                                precision    recall  f1-score   support
+
+                    mysql_5_6       0.50      1.00      0.67         1
+                mysql_5_6_gcp       1.00      1.00      1.00         1
+                    mysql_5_7       1.00      1.00      1.00         1
+                mysql_5_7_gcp       1.00      1.00      1.00         1
+                    mysql_8_0       0.00      0.00      0.00         1
+                mysql_8_0_gcp       1.00      1.00      1.00         1
+                  postgres_10       1.00      1.00      1.00         1
+              postgres_10_gcp       1.00      1.00      1.00         1
+                  postgres_11       1.00      1.00      1.00         1
+              postgres_11_gcp       1.00      1.00      1.00         1
+                  postgres_12       1.00      1.00      1.00         1
+              postgres_12_gcp       1.00      1.00      1.00         1
+                  postgres_13       1.00      1.00      1.00         1
+              postgres_13_gcp       1.00      1.00      1.00         1
+                  postgres_14       1.00      1.00      1.00         1
+              postgres_14_gcp       0.00      0.00      0.00         1
+                  postgres_15       1.00      1.00      1.00         1
+              postgres_15_gcp       0.50      1.00      0.67         1
+                  postgres_16       1.00      1.00      1.00         1
+              postgres_16_gcp       0.00      0.00      0.00         1
+                 postgres_9_6       1.00      1.00      1.00         1
+             postgres_9_6_gcp       0.50      1.00      0.67         1
+           sqlserver_2017_dev       0.33      1.00      0.50         1
+sqlserver_2017_enterprise_gcp       0.00      0.00      0.00         1
+  sqlserver_2017_standard_gcp       0.00      0.00      0.00         1
+           sqlserver_2019_dev       0.50      1.00      0.67         1
+sqlserver_2019_enterprise_gcp       0.00      0.00      0.00         1
+  sqlserver_2019_standard_gcp       1.00      1.00      1.00         1
+           sqlserver_2022_dev       0.33      1.00      0.50         1
+sqlserver_2022_enterprise_gcp       0.00      0.00      0.00         1
+  sqlserver_2022_standard_gcp       0.00      0.00      0.00         1
+
+                     accuracy                           0.74        31
+                    macro avg       0.63      0.74      0.67        31
+                 weighted avg       0.63      0.74      0.67        31
+"""

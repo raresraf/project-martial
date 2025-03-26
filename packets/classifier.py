@@ -40,21 +40,23 @@ def load_byte_data(directory):
     return data, labels
 
 
+MAX_FEATURES = 1000
+
 if __name__ == "__main__":
     print("Hello!")
 
-    train_dir = "/Users/raresraf/code/project-martial/dataset/packets/train"
+    train_dir = "/Users/raresfolea/code/project-martial/dataset/packets/train"
     train_data, train_labels = load_byte_data(train_dir)
 
-    test_dir = "/Users/raresraf/code/project-martial/dataset/packets/test"
+    test_dir = "/Users/raresfolea/code/project-martial/dataset/packets/test"
     test_data, test_labels = load_byte_data(test_dir)
 
     def byte_ngram_tokenizer(byte_sequence):
-        ngrams = [byte_sequence[i:i + 2] for i in range(len(byte_sequence) - 2)]
+        ngrams = [byte_sequence[i:i + 3] for i in range(len(byte_sequence) - 3)]
         return ngrams
 
     # TF-IDF Vectorization
-    vectorizer = TfidfVectorizer(tokenizer=byte_ngram_tokenizer, encoding='cp437')
+    vectorizer = TfidfVectorizer(tokenizer=byte_ngram_tokenizer, encoding='cp437', max_features=MAX_FEATURES)
     X_train = vectorizer.fit_transform(train_data)
     X_test = vectorizer.transform(test_data)
 
@@ -76,8 +78,8 @@ if __name__ == "__main__":
     plt.xlabel('Predicted Label')
     plt.ylabel('True Label')
     plt.title('Confusion Matrix')
-    plt.savefig('myfig.png')
-    plt.show()
+    plt.savefig('confusion.png')
+    # plt.show()
 
 
 
@@ -144,7 +146,8 @@ if __name__ == "__main__":
         combined_legend_elements = legend_elements + plt.gca().get_legend_handles_labels()[0]
         plt.legend(handles=combined_legend_elements, title="Classes / Errors")
         plt.grid(True, linestyle='--', alpha=0.5)
-        plt.show()
+        plt.savefig('pca.png')
+        # plt.show()
     else:
         print("No misclassifications found on the test set!")
 
@@ -152,10 +155,10 @@ if __name__ == "__main__":
 Classification Report:
                                 precision    recall  f1-score   support
 
-                    mysql_5_6       0.50      1.00      0.67         1
-                mysql_5_6_gcp       1.00      1.00      1.00         1
-                    mysql_5_7       1.00      1.00      1.00         1
-                mysql_5_7_gcp       1.00      1.00      1.00         1
+                    mysql_5_6       1.00      1.00      1.00         1
+                mysql_5_6_gcp       0.50      1.00      0.67         1
+                    mysql_5_7       0.50      1.00      0.67         1
+                mysql_5_7_gcp       0.00      0.00      0.00         1
                     mysql_8_0       0.00      0.00      0.00         1
                 mysql_8_0_gcp       1.00      1.00      1.00         1
                   postgres_10       1.00      1.00      1.00         1
@@ -174,17 +177,17 @@ Classification Report:
               postgres_16_gcp       0.00      0.00      0.00         1
                  postgres_9_6       1.00      1.00      1.00         1
              postgres_9_6_gcp       0.50      1.00      0.67         1
-           sqlserver_2017_dev       0.33      1.00      0.50         1
-sqlserver_2017_enterprise_gcp       0.00      0.00      0.00         1
-  sqlserver_2017_standard_gcp       0.00      0.00      0.00         1
-           sqlserver_2019_dev       0.50      1.00      0.67         1
+           sqlserver_2017_dev       1.00      1.00      1.00         1
+sqlserver_2017_enterprise_gcp       1.00      1.00      1.00         1
+  sqlserver_2017_standard_gcp       1.00      1.00      1.00         1
+           sqlserver_2019_dev       1.00      1.00      1.00         1
 sqlserver_2019_enterprise_gcp       0.00      0.00      0.00         1
-  sqlserver_2019_standard_gcp       1.00      1.00      1.00         1
-           sqlserver_2022_dev       0.33      1.00      0.50         1
-sqlserver_2022_enterprise_gcp       0.00      0.00      0.00         1
-  sqlserver_2022_standard_gcp       0.00      0.00      0.00         1
+  sqlserver_2019_standard_gcp       0.50      1.00      0.67         1
+           sqlserver_2022_dev       1.00      1.00      1.00         1
+sqlserver_2022_enterprise_gcp       1.00      1.00      1.00         1
+  sqlserver_2022_standard_gcp       1.00      1.00      1.00         1
 
-                     accuracy                           0.74        31
-                    macro avg       0.63      0.74      0.67        31
-                 weighted avg       0.63      0.74      0.67        31
+                     accuracy                           0.84        31
+                    macro avg       0.76      0.84      0.78        31
+                 weighted avg       0.76      0.84      0.78        31
 """

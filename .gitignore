@@ -163,4 +163,4 @@ user.bazelrc
 
 
 /209/
-dataset/CoSiM/notsimilar/notsimdataset_merged.json
+.*notsimdataset_merged.json

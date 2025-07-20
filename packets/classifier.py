@@ -40,25 +40,27 @@ def load_byte_data(directory):
     return data, labels
 
 
-MAX_FEATURES = 1000
+MAX_FEATURES = 100
 
 if __name__ == "__main__":
     print("Hello!")
 
-    train_dir = "/Users/raresfolea/code/project-martial/dataset/packets/train"
+    train_dir = "/Users/raf/code/project-martial/dataset/packets/train"
     train_data, train_labels = load_byte_data(train_dir)
 
-    test_dir = "/Users/raresfolea/code/project-martial/dataset/packets/test"
+    test_dir = "/Users/raf/code/project-martial/dataset/packets/test"
     test_data, test_labels = load_byte_data(test_dir)
 
     def byte_ngram_tokenizer(byte_sequence):
-        ngrams = [byte_sequence[i:i + 3] for i in range(len(byte_sequence) - 3)]
+        ngrams = [byte_sequence[i:i + 4] for i in range(len(byte_sequence) - 4)]
         return ngrams
 
     # TF-IDF Vectorization
     vectorizer = TfidfVectorizer(tokenizer=byte_ngram_tokenizer, encoding='cp437', max_features=MAX_FEATURES)
     X_train = vectorizer.fit_transform(train_data)
     X_test = vectorizer.transform(test_data)
+    print(len(vectorizer.get_feature_names_out()))
+    print(vectorizer.get_feature_names_out())
 
     # Train SVM classifier
     classifier = SVC()

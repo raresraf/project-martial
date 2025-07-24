@@ -1,6 +1,7 @@
 import subprocess
 import os
 import shutil
+import argparse # Import the argparse module for command-line arguments
 
 def run_git_command(command, cwd=None, suppress_errors=False):
     """
@@ -39,30 +40,30 @@ def run_git_command(command, cwd=None, suppress_errors=False):
             exit(1)
         return None
 
-def download_pr_versions(
+# The find_pr_merge_commit function is no longer needed as we are comparing a single commit and its parent.
+# def find_pr_merge_commit(...)
+
+def download_commit_versions(
     repo_url,
-    pr_number,
-    old_folder_name="old_pr_code",
-    new_folder_name="new_pr_code",
-    base_branch_name="main" # Common default for the base branch
+    commit_sha,
+    old_folder_name="old_commit_code",
+    new_folder_name="new_commit_code"
 ):
     """
-    Downloads old and new code versions of a GitHub Pull Request into separate folders,
-    containing only the files that have changed in the PR. Handles both open and merged PRs.
+    Downloads old and new code versions related to a specific Git commit into separate folders,
+    containing only the files that have changed in that commit.
 
     Args:
         repo_url (str): The full URL of the GitHub repository (e.g., "https://github.com/owner/repo.git").
-        pr_number (int): The number of the pull request.
-        old_folder_name (str): The name for the folder to store the 'old' code.
-        new_folder_name (str): The name for the folder to store the 'new' code.
-        base_branch_name (str): The name of the base branch the PR is targeting (e.g., "main", "master").
+        commit_sha (str): The SHA hash of the commit to analyze.
+        old_folder_name (str): The name for the folder to store the 'before' code.
+        new_folder_name (str): The name for the folder to store the 'after' code.
     """
-    print(f"\n--- Starting download_pr_versions ---")
+    print(f"\n--- Starting download_commit_versions ---")
     print(f"Repo URL: {repo_url}")
-    print(f"PR Number: {pr_number}")
+    print(f"Commit SHA: {commit_sha}")
     print(f"Old Folder Name: {old_folder_name}")
     print(f"New Folder Name: {new_folder_name}")
-    print(f"Base Branch Name: {base_branch_name}")
 
 
     # Extract repository name for the temporary clone directory
@@ -72,103 +73,77 @@ def download_pr_versions(
     else:
         repo_name = repo_name_parts[-1]
 
-    temp_clone_dir = f"{repo_name}_pr_{pr_number}_temp_clone"
+    # Use a generic temporary clone directory name since it's per repository now, not per PR.
+    # We'll rely on git fetch --all to keep it updated.
+    temp_clone_dir = f"{repo_name}_temp_clone"
     script_execution_dir = os.getcwd() # Directory where the script is run
 
-    # 1. Clean up existing output folders and temporary clone directory if they exist
-    print(f"\n--- Cleaning up previous runs ---")
-    for folder in [old_folder_name, new_folder_name, temp_clone_dir]:
+    # 1. Clean up existing output folders
+    print(f"\n--- Cleaning up previous output folders ---")
+    for folder in [old_folder_name, new_folder_name]:
         full_path = os.path.join(script_execution_dir, folder)
         if os.path.exists(full_path):
             print(f"Removing existing directory: {full_path}")
             shutil.rmtree(full_path)
 
-    # 2. Clone the repository into a temporary directory
-    print(f"\n--- Step 1: Cloning repository ---")
-    print(f"Cloning {repo_url} into {temp_clone_dir}...")
-    clone_result = run_git_command(["git", "clone", repo_url, temp_clone_dir])
-    if clone_result is None:
-        return # Exit if cloning failed
-    print("Repository cloned successfully.")
-
-    # 3. Fetch necessary refs
-    print(f"\n--- Step 2: Fetching Pull Request refs ---")
-    
-    # Fetch the PR's head ref
-    pr_head_ref_name = f"pr-{pr_number}-head"
-    fetch_pr_head_command = ["git", "fetch", "origin", f"pull/{pr_number}/head:{pr_head_ref_name}"]
-    print(f"Fetching PR #{pr_number} head (ref: {pr_head_ref_name})...")
-    fetch_pr_head_result = run_git_command(fetch_pr_head_command, cwd=temp_clone_dir, suppress_errors=True)
-    if fetch_pr_head_result is None:
-        print(f"Could not fetch PR head for #{pr_number}. It might not exist or the URL/number is incorrect.")
-        shutil.rmtree(temp_clone_dir)
-        return
-
-    # Fetch the PR's merge ref (if it's a merged PR)
-    pr_merge_ref_name = f"pr-{pr_number}-merge"
-    fetch_pr_merge_command = ["git", "fetch", "origin", f"pull/{pr_number}/merge:{pr_merge_ref_name}"]
-    print(f"Attempting to fetch PR #{pr_number} merge ref (ref: {pr_merge_ref_name})...")
-    fetch_pr_merge_result = run_git_command(fetch_pr_merge_command, cwd=temp_clone_dir, suppress_errors=True)
-    # Note: suppress_errors=True because this ref might not exist for unmerged PRs
-
-    # Ensure the base branch is also fetched and up-to-date
-    print(f"Fetching base branch '{base_branch_name}'...")
-    fetch_base_command = ["git", "fetch", "origin", base_branch_name]
-    fetch_base_result = run_git_command(fetch_base_command, cwd=temp_clone_dir)
-    if fetch_base_result is None:
-        print(f"Could not fetch base branch '{base_branch_name}'. Please ensure the base branch name is correct.")
-        shutil.rmtree(temp_clone_dir)
-        return
-
-    # 4. Get commit SHAs for "new" and "old" code
-    print(f"\n--- Step 3: Identifying Commit SHAs ---")
-    new_commit_hash = None
-    old_commit_hash = None
-
-    # Option 1: Try using the merge commit if available (for merged PRs)
-    merge_commit_sha = run_git_command(["git", "rev-parse", pr_merge_ref_name], cwd=temp_clone_dir, suppress_errors=True)
-    
-    if merge_commit_sha:
-        print(f"DEBUG: Found merge commit SHA: {merge_commit_sha}. Assuming merged PR.")
-        # First parent is typically the base branch before merge
-        old_commit_hash = run_git_command(["git", "rev-parse", f"{merge_commit_sha}^1"], cwd=temp_clone_dir, suppress_errors=True)
-        # Second parent is typically the PR branch head
-        new_commit_hash = run_git_command(["git", "rev-parse", f"{merge_commit_sha}^2"], cwd=temp_clone_dir, suppress_errors=True)
-        
-        if not old_commit_hash or not new_commit_hash:
-            print("WARNING: Could not determine parents of the merge commit. Falling back to head/merge-base method.")
-            old_commit_hash = None # Reset to trigger fallback
-            new_commit_hash = None # Reset to trigger fallback
-    
-    # Option 2: Fallback to head and merge-base (for unmerged PRs or if merge ref failed)
-    if not new_commit_hash:
-        print("DEBUG: Using head and merge-base for commit identification.")
-        new_commit_hash = run_git_command(["git", "rev-parse", pr_head_ref_name], cwd=temp_clone_dir)
-        if new_commit_hash is None:
-            shutil.rmtree(temp_clone_dir)
+    # 2. Clone the repository into a temporary directory OR update existing clone
+    print(f"\n--- Step 1: Cloning/Updating repository ---")
+    if os.path.exists(os.path.join(script_execution_dir, temp_clone_dir)):
+        print(f"Temporary clone directory '{temp_clone_dir}' already exists.")
+        # Ensure the existing clone is up-to-date with all remote refs
+        fetch_result = run_git_command(["git", "fetch", "--all"], cwd=temp_clone_dir)
+        if fetch_result is None:
+            print("Failed to fetch updates for existing repository. Please check your connection or repository state.")
             return
+        print("Repository updated successfully.")
+    else:
+        print(f"Cloning {repo_url} into {temp_clone_dir}...")
+        clone_result = run_git_command(["git", "clone", repo_url, temp_clone_dir])
+        if clone_result is None:
+            return # Exit if cloning failed
+        print("Repository cloned successfully.")
 
-        old_commit_hash = run_git_command(["git", "merge-base", new_commit_hash, f"origin/{base_branch_name}"], cwd=temp_clone_dir)
-        if old_commit_hash is None:
-            print(f"Could not find merge-base for PR #{pr_number} with base branch '{base_branch_name}'.")
-            print("This can happen if the base branch name is incorrect or the PR history is unusual.")
-            shutil.rmtree(temp_clone_dir)
-            return
-
+    # 3. Identify "new" (the commit itself) and "old" (its parent) commit SHAs
+    print(f"\n--- Step 2: Identifying Commit SHAs ---")
+    
+    # The 'new' code is simply the provided commit_sha
+    new_commit_hash = run_git_command(["git", "rev-parse", commit_sha], cwd=temp_clone_dir)
+    if new_commit_hash is None:
+        print(f"Error: Could not resolve commit SHA '{commit_sha}'. It might be invalid or not fetched.")
+        # Do not remove temp_clone_dir here, it might be reusable.
+        print("Skipping cleanup of temporary clone directory as it might be reused in future runs.")
+        return
+    
     print(f"Identified 'New Code' Commit: {new_commit_hash}")
-    print(f"Identified 'Old Code' Commit: {old_commit_hash}")
+
+    # The 'old' code is the parent of the provided commit_sha
+    # Check if it's an initial commit (has no parents)
+    parent_commit_output = run_git_command(["git", "rev-parse", f"{new_commit_hash}^1"], cwd=temp_clone_dir, suppress_errors=True)
+    
+    if parent_commit_output:
+        old_commit_hash = parent_commit_output
+        print(f"Identified 'Old Code' Commit (Parent of new commit): {old_commit_hash}")
+    else:
+        # This is an initial commit, it has no 'old' state to compare against.
+        old_commit_hash = "4b825dc642cb6eb9a060e54bf8d69288fbee4904" # This is Git's "empty tree" SHA
+        print(f"WARNING: Commit '{commit_sha}' appears to be an initial commit (no parent).")
+        print(f"Comparing against an empty tree ({old_commit_hash}) to show all files as added.")
+        
+    print(f"Final 'New Code' Commit: {new_commit_hash}")
+    print(f"Final 'Old Code' Commit: {old_commit_hash}")
 
     if old_commit_hash == new_commit_hash:
-        print("\nWARNING: The 'old' and 'new' commit hashes are identical. This means there are no changes to diff.")
-        print("This often happens for PRs that are fast-forward merged or have no effective changes. No files will be copied.")
-        shutil.rmtree(temp_clone_dir)
+        print("\nWARNING: After commit parent resolution, the 'old' and 'new' commit hashes are identical.")
+        print("This indicates no changes or a problem in history for this specific commit.")
+        print("No files will be copied as there are no detectable differences.")
+        print("Skipping cleanup of temporary clone directory as it might be reused in future runs.")
         return
         
-    # 5. Get changed files and their status
-    print(f"\n--- Step 4: Getting changed files from diff ---")
+    # 4. Get changed files and their status
+    print(f"\n--- Step 3: Getting changed files from diff ---")
     diff_output = run_git_command(["git", "diff", "--name-status", old_commit_hash, new_commit_hash], cwd=temp_clone_dir)
     if diff_output is None:
-        shutil.rmtree(temp_clone_dir)
+        print("Error getting diff. Skipping cleanup of temporary clone directory as it might be reused in future runs.")
         return
 
     print(f"DEBUG: Raw git diff --name-status output:\n{diff_output}")
@@ -192,14 +167,14 @@ def download_pr_versions(
                 continue # Skip malformed lines
 
     if not changed_files:
-        print("No differences found between the old and new code states for this PR. No files will be copied.")
-        shutil.rmtree(temp_clone_dir)
+        print("No differences found for this commit. No files will be copied.")
+        print("Skipping cleanup of temporary clone directory as it might be reused in future runs.")
         return
     
     print(f"Found {len(changed_files)} changed files.")
 
-    # 6. Create new target folders and checkout only changed code
-    print(f"\n--- Step 5: Checking out only changed code into separate folders ---")
+    # 5. Create new target folders and checkout only changed code
+    print(f"\n--- Step 4: Checking out only changed code into separate folders ---")
     os.makedirs(os.path.join(script_execution_dir, old_folder_name), exist_ok=True)
     os.makedirs(os.path.join(script_execution_dir, new_folder_name), exist_ok=True)
 
@@ -234,31 +209,51 @@ def download_pr_versions(
     print(f"Old code (only changed files) is located in: {os.path.abspath(old_folder_name)}")
     print(f"New code (only changed files) is located in: {os.path.abspath(new_folder_name)}")
 
-    # 7. Clean up the temporary clone directory
-    print(f"\n--- Cleaning up temporary clone directory ---")
-    shutil.rmtree(temp_clone_dir)
-    print("Cleanup complete.")
+    # 6. Clean up the temporary clone directory
+    print("\n--- Note: Temporary clone directory is kept for potential reuse. ---")
+    print(f"You can manually remove '{os.path.abspath(temp_clone_dir)}' if no longer needed.")
+
 
 if __name__ == "__main__":
-    print("--- GitHub Pull Request Code Downloader ---")
-    print("This script will download the 'before' and 'after' states of a PR into two separate folders,")
+    # Setup argument parser
+    parser = argparse.ArgumentParser(
+        description="Download 'before' and 'after' states of a specific Git commit into separate folders.",
+        formatter_class=argparse.RawTextHelpFormatter
+    )
+    parser.add_argument(
+        "--repo_url",
+        default="https://github.com/kubernetes/kubernetes", # Set default repo URL here
+        help="The full URL of the GitHub repository (e.g., https://github.com/octocat/Spoon-Knife.git)"
+    )
+    parser.add_argument(
+        "--commit_sha",
+        help="The SHA hash of the commit to analyze (e.g., a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0)"
+    )
+    parser.add_argument(
+        "--old_folder_name",
+        default="old_commit_code",
+        help="Name for the folder to store the 'before' code (default: old_commit_code)"
+    )
+    parser.add_argument(
+        "--new_folder_name",
+        default="new_commit_code",
+        help="Name for the folder to store the 'after' code (default: new_commit_code)"
+    )
+
+    args = parser.parse_args()
+
+    print("--- Git Commit Code Downloader ---")
+    print("This script will download the 'before' and 'after' states of a specific commit into two separate folders,")
     print("containing only the files that were part of the diff (added, modified, or deleted).")
     print("Make sure Git is installed and available in your system's PATH.")
 
-    repo_url_input = input("Enter GitHub repository URL (e.g., https://github.com/kubernetes/kubernetes): ").strip() or "https://github.com/kubernetes/kubernetes"
-    pr_number_input = input("Enter Pull Request number: ").strip()
-    
-    # Optional inputs with defaults
-    old_folder_input = input(f"Enter name for 'old code' folder (default: old_pr_code): ").strip() or "old_pr_code"
-    new_folder_input = input(f"Enter name for 'new code' folder (default: new_pr_code): ").strip() or "new_pr_code"
-    base_branch_input = input(f"Enter the base branch name (e.g., main, master, develop - default: master): ").strip() or "master"
-
-    if not repo_url_input or not pr_number_input.isdigit():
-        print("\nInvalid input. Please provide a valid repository URL and a numeric PR number.")
-    else:
-        try:
-            pr_num = int(pr_number_input)
-            download_pr_versions(repo_url_input, pr_num, old_folder_input, new_folder_input, base_branch_input)
-        except Exception as e:
-            print(f"\nAn unexpected error occurred: {e}")
-            print("Please check your inputs and try again.")
+    try:
+        download_commit_versions(
+            args.repo_url,
+            args.commit_sha,
+            args.old_folder_name,
+            args.new_folder_name
+        )
+    except Exception as e:
+        print(f"\nAn unexpected error occurred: {e}")
+        print("Please check your inputs and try again.")

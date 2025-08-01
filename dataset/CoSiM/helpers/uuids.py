@@ -20,5 +20,5 @@ generated_uids = generate_uids(num_uids_to_generate)
 
 print(f"Generated {num_uids_to_generate} UIDs:")
 for i, uid in enumerate(generated_uids):
-    print(f"\"{uid}\",")
+    print(f"\"{uid}\"")
 

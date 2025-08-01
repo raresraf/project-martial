@@ -92,14 +92,14 @@ def download_commit_versions(
         print(f"Temporary clone directory '{temp_clone_dir}' already exists.")
         # Ensure the existing clone is up-to-date with all remote refs
         # Using a more robust fetch command here as well
-        print("Fetching all branches and PRs to ensure commit is available...")
-        fetch_all_refs_cmd = [
-            "git", "fetch", "origin",
-            "refs/heads/*:refs/remotes/origin/*",
-            "refs/pull/*/head:refs/remotes/origin/pr/*"
-        ]
-        run_git_command(fetch_all_refs_cmd, cwd=temp_clone_dir, suppress_errors=True) # Suppress errors if some refs fail
-        print("Repository updated successfully.")
+        # print("Fetching all branches and PRs to ensure commit is available...")
+        # fetch_all_refs_cmd = [
+        #     "git", "fetch", "origin",
+        #     "refs/heads/*:refs/remotes/origin/*",
+        #     "refs/pull/*/head:refs/remotes/origin/pr/*"
+        # ]
+        # run_git_command(fetch_all_refs_cmd, cwd=temp_clone_dir, suppress_errors=True) # Suppress errors if some refs fail
+        # print("Repository updated successfully.")
     else:
         print(f"Cloning {repo_url} into {temp_clone_dir}...")
         clone_result = run_git_command(["git", "clone", repo_url, temp_clone_dir])

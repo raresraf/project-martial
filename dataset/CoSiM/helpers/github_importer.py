@@ -91,10 +91,14 @@ def download_commit_versions(
     if os.path.exists(os.path.join(script_execution_dir, temp_clone_dir)):
         print(f"Temporary clone directory '{temp_clone_dir}' already exists.")
         # Ensure the existing clone is up-to-date with all remote refs
-        fetch_result = run_git_command(["git", "fetch", "--all"], cwd=temp_clone_dir)
-        if fetch_result is None:
-            print("Failed to fetch updates for existing repository. Please check your connection or repository state.")
-            return
+        # Using a more robust fetch command here as well
+        print("Fetching all branches and PRs to ensure commit is available...")
+        fetch_all_refs_cmd = [
+            "git", "fetch", "origin",
+            "refs/heads/*:refs/remotes/origin/*",
+            "refs/pull/*/head:refs/remotes/origin/pr/*"
+        ]
+        run_git_command(fetch_all_refs_cmd, cwd=temp_clone_dir, suppress_errors=True) # Suppress errors if some refs fail
         print("Repository updated successfully.")
     else:
         print(f"Cloning {repo_url} into {temp_clone_dir}...")
@@ -102,6 +106,14 @@ def download_commit_versions(
         if clone_result is None:
             return # Exit if cloning failed
         print("Repository cloned successfully.")
+        
+        print("Fetching all branches and PRs to ensure commit is available...")
+        fetch_all_refs_cmd = [
+            "git", "fetch", "origin",
+            "refs/heads/*:refs/remotes/origin/*",
+            "refs/pull/*/head:refs/remotes/origin/pr/*"
+        ]
+        run_git_command(fetch_all_refs_cmd, cwd=temp_clone_dir)
 
     # 3. Identify "new" (the commit itself) and "old" (its parent) commit SHAs
     print(f"\n--- Step 2: Identifying Commit SHAs ---")

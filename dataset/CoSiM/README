@@ -8,8 +8,12 @@ Brainstorm: https://docs.google.com/document/d/18l7o7C2zauP6L8EO3nsZ0IMurBr0t0vx
 
 ### Simdataset
 
-0-99: Kubernetes
+0-99: Kubernetes (Go)
+100-199: VSCode (TS)
+200-299: Linux (C)
 
 ### Notsimdataset
 
-0-99: Kubernetes
+0-99: Kubernetes (Go)
+100-199: VSCode (TS)
+200-299: Linux (C)

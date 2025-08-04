@@ -1,0 +1,50 @@
+[package]
+name = "compositing"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+edition.workspace = true
+publish.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "compositing"
+path = "lib.rs"
+
+[features]
+default = []
+tracing = ["dep:tracing"]
+webxr = ["dep:webxr"]
+
+[dependencies]
+base = { workspace = true }
+bincode = { workspace = true }
+bitflags = { workspace = true }
+compositing_traits = { workspace = true }
+constellation_traits = { workspace = true }
+crossbeam-channel = { workspace = true }
+dpi = { workspace = true }
+embedder_traits = { workspace = true }
+euclid = { workspace = true }
+fnv = { workspace = true }
+gleam = { workspace = true }
+ipc-channel = { workspace = true }
+libc = { workspace = true }
+log = { workspace = true }
+net = { path = "../net" }
+pixels = { path = "../pixels" }
+profile_traits = { workspace = true }
+servo_allocator = { path = "../allocator" }
+servo_config = { path = "../config" }
+servo_geometry = { path = "../geometry" }
+stylo_traits = { workspace = true }
+timers = { path = "../timers" }
+tracing = { workspace = true, optional = true }
+webrender = { workspace = true }
+webrender_api = { workspace = true }
+webxr = { path = "../webxr", optional = true }
+wr_malloc_size_of = { workspace = true }
+servo-tracing = { workspace = true }
+
+[dev-dependencies]
+surfman = { workspace = true }

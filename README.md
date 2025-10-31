@@ -47,4 +47,6 @@ https://link.springer.com/book/9783031702587
 
 ### Relational Database Similarity Detection via Network Traffic Analysis
 
-Coming soon!
+In many real-world scenarios, analysts and security professionals encounter scenarios with limited to no information on the internal structure of software systems. In these circumstances, observable network traffic is essential in identifying software characteristics when source code and controlled execution are inaccessible. As such, we present a novel approach to network traffic pattern analysis for interpreting similarities between software applications when interactions are only possible from a client perspective. We leverage n-grams to identify distinct signatures in the application layer communication and exemplify their usage when applied to various relational database management systems (RDBMS). Our method involves constructing a corpus of network traffic produced by various database engines with different versions while operating everyday operations. We rely on TF-IDF scores to define corresponding numerical vectors for arbitrary sequences of communications. We show that 3-gram and 4-gram analysis can distinguish extremely well between database engines (i.e., MySQL, PostgreSQL, and SQL Server) even in scenarios when dealing with different major/minor versions of the same engines or different deployment environments (e.g., using public docker images deployed locally versus cloud-managed solutions).
+
+https://ieeexplore.ieee.org/abstract/document/11181642/

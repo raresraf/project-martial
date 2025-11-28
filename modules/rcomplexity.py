@@ -44,7 +44,7 @@ class RComplexityAnalysis:
 
     def find_complexity_similarity(self):
         lines_in_1, lines_in_2, similarity, _, _, _, _ = (
-            self.find_complexity_similarity_with_as
+            self.find_complexity_similarity_with_as()
         )
         return lines_in_1, lines_in_2, similarity
 

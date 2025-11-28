@@ -198,7 +198,31 @@ export class DiffComponent {
   }
 
 
+  networkTrafficAnalysis() {
+    this.progress_bar_mode = "indeterminate"
+    let fileUpload = this.uploadFilesToBackend()
+    fileUpload?.subscribe(resp => {
+      console.log(resp);
+      let get$ = this.runNetworkTrafficAnalysis(this.selectedNgram)
+      get$?.subscribe(resp => {
+        console.log(resp);
+        this.colorBasedOnResp(resp, "identical", ["#EE82EE", "#EE83EE", "#EE84EE", "#EE85EE"])
+        this.colorBasedOnResp(resp, "complexity", ["#FF0000", "#EF0000", "#DF0000", "#CF0000"])
+        this.similarity = resp["similarity"]
+        this.backendSelectedNgram = resp["selected_ngram"]; // Set the value from backend
+        this.progress_bar_mode = "determinate"
+      });
+    });
+  }
+
+  runNetworkTrafficAnalysis(ngram: number): Observable<Object> | undefined {
+    const get$ = this.http.get(`http://127.0.0.1:5000/api/network_traffic_analysis?ngram=${ngram}`)
+    return get$
+  }
+
+
   chosenAnalysis: string = "";
+  selectedNgram: number = 4;
   SomethingEnabled() {
     return this.chosenAnalysis != ""
   }
@@ -217,7 +241,17 @@ export class DiffComponent {
     return this.chosenAnalysis == "rComplexity"
   }
 
+  NetworkTrafficAnalysisEntry() {
+    this.mockInputFilesNetworkTrafficAnalysis()
+    this.chosenAnalysis = "networkTrafficAnalysis"
+    this.selectedNgram = 4;
+  }
+  EnableNetworkTrafficAnalysis() {
+    return this.chosenAnalysis == "networkTrafficAnalysis"
+  }
+
   similarity: number = NaN;
+  backendSelectedNgram: number;
   UpdatedSimilarity() {
     return !isNaN(this.similarity)
   }
@@ -237,6 +271,10 @@ export class DiffComponent {
       }
       case "rComplexity": {
         this.rComplexityAnalysis();
+        break;
+      }
+      case "networkTrafficAnalysis": {
+        this.networkTrafficAnalysis();
         break;
       }
       default: {
@@ -426,6 +464,30 @@ int main() {
 }
 `]
     this.setupTiles(62)
+  }
+
+  mockInputFilesNetworkTrafficAnalysis() {
+    if (this.chosenAnalysis == "networkTrafficAnalysis") {
+      return
+    }
+    this.inputFiles = [
+      `5.6.51
+i&"sC1lL
+v.~UlB@]1}Dy
+mysql_native_password`, 
+      `select @@version_comment limit 1
+root
+mysql_native_password
+_os        macos13.6
+_platform  x86_64
+_client_version  8.0.39
+_client_name     libmysql
+_pid       40541
+os_user    raresraf
+program_name     mysql
+5.7.44-google-log
+mysql_native_password`,
+    ],    this.setupTiles(12)
   }
 }
 

@@ -19,7 +19,7 @@ import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import {HttpClientModule} from '@angular/common/http';
 import {MatCheckboxModule} from '@angular/material/checkbox';
 import {MatSliderModule} from '@angular/material/slider';
-
+import {MatRadioModule} from '@angular/material/radio'; 
 
 
 @NgModule({
@@ -44,6 +44,7 @@ import {MatSliderModule} from '@angular/material/slider';
     HttpClientModule,
     MatCheckboxModule,
     MatSliderModule,
+    MatRadioModule, 
   ],
   providers: [],
   bootstrap: [AppComponent]

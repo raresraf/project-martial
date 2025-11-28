@@ -9,6 +9,7 @@ from threading import Lock
 import modules.comments_config as comments_config
 import modules.comments_api as comments_api
 import modules.rcomplexity_api as rcomplexity_api
+import modules.network_traffic_analysis_api as nta_api
 
 
 FLAGS = flags.FLAGS
@@ -34,6 +35,10 @@ def comments():
 @api.route("/api/rcomplexity", methods=['GET'])
 def rcomplexity():
     return rcomplexity_api.run(upload_dict)
+
+@api.route("/api/network_traffic_analysis", methods=['GET'])
+def network_traffic_analysis():
+    return nta_api.run(upload_dict)
 
 
 @api.route("/api/comments/flags", methods=['POST'])
@@ -96,7 +101,7 @@ def upload():
 
 
 def main(_):
-    api.run()
+    api.run(debug=True)
 
 
 if __name__ == '__main__':

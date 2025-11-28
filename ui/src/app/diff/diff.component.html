@@ -90,6 +90,15 @@
                 <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />
             </svg>
         </a>
+        <a class="card" target="_blank" (click)="NetworkTrafficAnalysisEntry()">
+            <svg xmlns="http://www.w3.org/2000/svg" height="48" width="48" viewBox="0 -960 960 960">
+                <path d="M480-160q-134 0-227-93t-93-227q0-134 93-227t227-93q134 0 227 93t93 227q0 134-93 227t-227 93ZM250-80q-58 0-99-41t-41-99v-500q0-58 41-99t99-41h500q58 0 99 41t41 99v500q0 58-41 99t-99 41H250Z"/>
+            </svg>
+            <span>Network Traffic Analysis</span>
+            <svg class="material-icons" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
+                <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z" />
+            </svg>
+        </a>
     </div>
 
 
@@ -179,6 +188,18 @@
             </mat-grid-list>
         </section>
     </div>
+
+    <div *ngIf="EnableNetworkTrafficAnalysis()">
+        <section>
+            <h3>Select N-gram type:</h3>
+            <mat-radio-group [(ngModel)]="selectedNgram">
+                <mat-radio-button value="2">2-gram</mat-radio-button>
+                <mat-radio-button value="3">3-gram</mat-radio-button>
+                <mat-radio-button value="4">4-gram</mat-radio-button>
+            </mat-radio-group>
+            <p>Selected N-gram: {{selectedNgram}}-gram</p>
+        </section>
+    </div>
 </div>
 
 
@@ -187,7 +208,7 @@
         <mat-grid-list cols="1" rows="1" rowHeight="150px">
             <mat-grid-tile [style.background]="GetColorUpdatedSimilarity()" [ngStyle]="{'font-size': 35 + 'px'}">
                 <br>
-                Found similarity measurement: {{similarity}}
+                Found similarity measurement: {{similarity}} (using {{backendSelectedNgram}}-gram)
                 <br>
             </mat-grid-tile>
         </mat-grid-list>

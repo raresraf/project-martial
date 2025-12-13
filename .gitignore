@@ -164,3 +164,8 @@ user.bazelrc
 
 /209/
 .*notsimdataset_merged.json
+
+teme-studenti-master/
+dataset/CoSiM/similar_files_data.py
+dataset/CoSiM/remove_comments.py
+dataset/CoSiM/notsimilar_files_data.py

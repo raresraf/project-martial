@@ -78,8 +78,8 @@ export class ScoreDistributionChartComponent implements OnChanges {
 
   ngOnInit(): void {
     const computedStyle = getComputedStyle(this.el.nativeElement);
-    const gcpGreen = computedStyle.getPropertyValue('--gcp-green').trim();
-    const gcpRed = computedStyle.getPropertyValue('--gcp-red').trim();
+    const gcpGreen = computedStyle.getPropertyValue('--gcp-green-500').trim();
+    const gcpRed = computedStyle.getPropertyValue('--gcp-red-500').trim();
 
     this.data.datasets[0].borderColor = gcpGreen;
     this.data.datasets[0].backgroundColor = this.hexToRgba(gcpGreen, 0.5);

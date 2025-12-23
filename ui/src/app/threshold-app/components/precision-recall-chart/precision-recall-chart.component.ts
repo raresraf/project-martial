@@ -74,9 +74,9 @@ export class PrecisionRecallChartComponent implements OnChanges {
 
   ngOnInit(): void {
     const computedStyle = getComputedStyle(this.el.nativeElement);
-    this.gcpBlue = computedStyle.getPropertyValue('--gcp-blue').trim() || this.gcpBlue;
-    this.gcpRed = computedStyle.getPropertyValue('--gcp-red').trim() || this.gcpRed;
-    this.gcpYellow = computedStyle.getPropertyValue('--gcp-yellow').trim() || this.gcpYellow;
+    this.gcpBlue = computedStyle.getPropertyValue('--gcp-blue-500').trim() || this.gcpBlue;
+    this.gcpRed = computedStyle.getPropertyValue('--gcp-red-500').trim() || this.gcpRed;
+    this.gcpYellow = computedStyle.getPropertyValue('--gcp-yellow-500').trim() || this.gcpYellow;
 
     this.data.datasets[0].borderColor = this.gcpBlue;
     this.data.datasets[0].backgroundColor = this.hexToRgba(this.gcpBlue, 0.5);

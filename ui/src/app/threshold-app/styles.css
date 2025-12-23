@@ -2,26 +2,42 @@
 
 :root {
   /* Google Cloud Palette */
-  --gcp-blue: #4285F4;
-  --gcp-red: #DB4437;
-  --gcp-yellow: #F4B400;
-  --gcp-green: #0F9D58;
-
-  /* UI Colors */
-  --text-color-dark: rgba(255, 255, 255, 0.95);
-  --text-color-light: #202124;
-  --bg-color-dark: #1f1f1f;
-  --bg-color-light: #F8F9FA;
+  --gcp-blue-500: #4285F4;
+  --gcp-blue-700: #174EA6;
+  --gcp-red-500: #DB4437;
+  --gcp-red-700: #A50E0E;
+  --gcp-yellow-500: #F4B400;
+  --gcp-yellow-700: #E37400;
+  --gcp-green-500: #0F9D58;
+  --gcp-green-700: #0D652D;
+  --gcp-grey-100: #F8F9FA;
+  --gcp-grey-200: #F1F3F4;
+  --gcp-grey-300: #E8EAED;
+  --gcp-grey-400: #DADCE0;
+  --gcp-grey-500: #BDC1C6;
+  --gcp-grey-600: #9AA0A6;
+  --gcp-grey-700: #80868B;
+  --gcp-grey-800: #5F6368;
+  --gcp-grey-900: #3C4043;
+  --gcp-grey-1000: #202124;
+  --gcp-black: #000000;
+  --gcp-white: #ffffff;
   
-  --header-bg-dark: var(--gcp-blue);
-  --header-bg-light: var(--gcp-blue);
-  --header-text-color: #ffffff;
+  /* UI Colors */
+  --text-color-dark: var(--gcp-grey-100);
+  --text-color-light: var(--gcp-grey-1000);
+  --bg-color-dark: #1f1f1f;
+  --bg-color-light: var(--gcp-white);
+  
+  --header-bg-dark: var(--gcp-blue-500);
+  --header-bg-light: var(--gcp-blue-500);
+  --header-text-color: var(--gcp-white);
 
   --controls-bg-dark: #2d2d2d;
   --controls-bg-light: #e8f0fe;
 
-  --border-color-light: #DADCE0;
-  --border-color-dark: #3c4043;
+  --border-color-light: var(--gcp-grey-400);
+  --border-color-dark: var(--gcp-grey-900);
 
 
   font-family: 'Roboto', Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
@@ -104,9 +120,9 @@ body {
 }
 
 .App-footer {
-  background-color: #202124;
+  background-color: var(--gcp-grey-1000);
   padding: 12px;
-  color: #9AA0A6;
+  color: var(--gcp-grey-600);
   text-align: center;
   font-size: 0.8em;
   border-top: 1px solid var(--border-color-dark);
@@ -114,7 +130,7 @@ body {
 
 /* Add styles for buttons and inputs */
 button, .button {
-  background-color: var(--gcp-blue);
+  background-color: var(--gcp-blue-500);
   color: white;
   border: none;
   padding: 10px 16px;
@@ -126,14 +142,14 @@ button, .button {
 }
 
 button:hover, .button:hover {
-  background-color: #174EA6; /* Darker blue */
+  background-color: var(--gcp-blue-700);
 }
 
 input, select {
   padding: 8px 12px;
   border-radius: 4px;
   border: 1px solid var(--border-color-dark);
-  background-color: #3c4043;
+  background-color: var(--gcp-grey-900);
   color: var(--text-color-dark);
 }
 
@@ -156,8 +172,8 @@ input, select {
     background-color: var(--header-bg-light);
   }
   .App-footer {
-    background-color: #f1f3f4;
-    color: #5f6368;
+    background-color: var(--gcp-grey-200);
+    color: var(--gcp-grey-800);
     border-top: 1px solid var(--border-color-light);
   }
   .controls {
@@ -168,7 +184,7 @@ input, select {
 
   input, select {
     border-color: var(--border-color-light);
-    background-color: #fff;
+    background-color: var(--gcp-white);
     color: var(--text-color-light);
   }
 

@@ -76,7 +76,7 @@ input[type="range"]::-webkit-slider-thumb {
   appearance: none;
   width: 20px;
   height: 20px;
-  background: var(--gcp-blue);
+  background: var(--gcp-blue-500);
   border-radius: 50%;
   cursor: pointer;
 }
@@ -84,7 +84,7 @@ input[type="range"]::-webkit-slider-thumb {
 input[type="range"]::-moz-range-thumb {
   width: 20px;
   height: 20px;
-  background: var(--gcp-blue);
+  background: var(--gcp-blue-500);
   border-radius: 50%;
   cursor: pointer;
 }

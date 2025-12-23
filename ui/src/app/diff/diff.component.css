@@ -1,5 +1,5 @@
 mat-grid-tile {
-    background: lightblue;
+    background: var(--controls-bg-light);
 }
 
 .file-input {

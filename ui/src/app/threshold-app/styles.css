@@ -1,0 +1,181 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
+
+:root {
+  /* Google Cloud Palette */
+  --gcp-blue: #4285F4;
+  --gcp-red: #DB4437;
+  --gcp-yellow: #F4B400;
+  --gcp-green: #0F9D58;
+
+  /* UI Colors */
+  --text-color-dark: rgba(255, 255, 255, 0.95);
+  --text-color-light: #202124;
+  --bg-color-dark: #1f1f1f;
+  --bg-color-light: #F8F9FA;
+  
+  --header-bg-dark: var(--gcp-blue);
+  --header-bg-light: var(--gcp-blue);
+  --header-text-color: #ffffff;
+
+  --controls-bg-dark: #2d2d2d;
+  --controls-bg-light: #e8f0fe;
+
+  --border-color-light: #DADCE0;
+  --border-color-dark: #3c4043;
+
+
+  font-family: 'Roboto', Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  color-scheme: light dark;
+  color: var(--text-color-dark);
+  background-color: var(--bg-color-dark);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+.App {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  width: 100vw;
+  text-align: left;
+}
+
+.App-header {
+  background-color: var(--header-bg-dark);
+  padding: 16px 24px;
+  color: var(--header-text-color);
+  text-align: center;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.App-header h1 {
+  margin: 0;
+  font-family: 'Roboto', 'Times New Roman', Times, serif;
+  font-size: 1.7em;
+  font-weight: 400;
+}
+
+.App-main {
+  flex-grow: 1;
+  padding: 20px;
+  display: grid;
+  grid-template-columns: 600px 1fr;
+  gap: 20px;
+}
+
+.controls {
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  background-color: var(--controls-bg-dark);
+  color: var(--text-color-dark);
+  border-radius: 8px;
+  border: 1px solid var(--border-color-dark);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+}
+
+.main-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.charts {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+
+.charts > * {
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+}
+
+.App-footer {
+  background-color: #202124;
+  padding: 12px;
+  color: #9AA0A6;
+  text-align: center;
+  font-size: 0.8em;
+  border-top: 1px solid var(--border-color-dark);
+}
+
+/* Add styles for buttons and inputs */
+button, .button {
+  background-color: var(--gcp-blue);
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1em;
+  font-weight: 700;
+  transition: background-color 0.3s;
+}
+
+button:hover, .button:hover {
+  background-color: #174EA6; /* Darker blue */
+}
+
+input, select {
+  padding: 8px 12px;
+  border-radius: 4px;
+  border: 1px solid var(--border-color-dark);
+  background-color: #3c4043;
+  color: var(--text-color-dark);
+}
+
+@media (max-width: 1300px) {
+  .App-main {
+    grid-template-columns: 1fr;
+  }
+  .controls {
+    border-right: none;
+    border-bottom: 1px solid var(--border-color-dark);
+  }
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    color: var(--text-color-light);
+    background-color: var(--bg-color-light);
+  }
+  .App-header {
+    background-color: var(--header-bg-light);
+  }
+  .App-footer {
+    background-color: #f1f3f4;
+    color: #5f6368;
+    border-top: 1px solid var(--border-color-light);
+  }
+  .controls {
+    border: 1px solid var(--border-color-light);
+    background-color: var(--controls-bg-light);
+    color: var(--text-color-light);
+  }
+
+  input, select {
+    border-color: var(--border-color-light);
+    background-color: #fff;
+    color: var(--text-color-light);
+  }
+
+  @media (max-width: 1300px) {
+    .controls {
+      border-right: none;
+      border-bottom: 1px solid var(--border-color-light);
+    }
+  }
+}

@@ -22,10 +22,22 @@ import {MatSliderModule} from '@angular/material/slider';
 import {MatRadioModule} from '@angular/material/radio'; 
 
 
+import { ThresholdAppComponent } from './threshold-app/threshold-app.component';
+import { ParameterControlsComponent } from './threshold-app/components/parameter-controls/parameter-controls.component';
+import { ResultsDisplayComponent } from './threshold-app/components/results-display/results-display.component';
+import { BenchmarkDataEditorComponent } from './threshold-app/components/benchmark-data-editor/benchmark-data-editor.component';
+import { ScoreDistributionChartComponent } from './threshold-app/components/score-distribution-chart/score-distribution-chart.component';
+import { PrecisionRecallChartComponent } from './threshold-app/components/precision-recall-chart/precision-recall-chart.component';
+
+
 @NgModule({
   declarations: [
     AppComponent,
     DiffComponent,
+    ThresholdAppComponent,
+    ParameterControlsComponent,
+    ResultsDisplayComponent,
+    BenchmarkDataEditorComponent,
   ],
   imports: [
     BrowserModule,
@@ -44,7 +56,9 @@ import {MatRadioModule} from '@angular/material/radio';
     HttpClientModule,
     MatCheckboxModule,
     MatSliderModule,
-    MatRadioModule, 
+    MatRadioModule,
+    ScoreDistributionChartComponent,
+    PrecisionRecallChartComponent,
   ],
   providers: [],
   bootstrap: [AppComponent]

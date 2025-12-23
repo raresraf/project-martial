@@ -1,0 +1,110 @@
+.parameter-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.control-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.control-group label {
+  margin-bottom: 5px;
+  font-size: 0.9em;
+  color: var(--text-color-light);
+}
+
+.control-group h3 {
+  margin-top: 15px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--border-color-light);
+  padding-bottom: 8px;
+  color: var(--text-color-light);
+  font-weight: 700;
+}
+
+.input-row {
+  display: grid;
+  grid-template-columns: 1fr 80px;
+  gap: 10px;
+  align-items: center;
+}
+
+.manual-input {
+  width: 100%;
+  padding: 4px 8px; /* Reduced padding to make it smaller */
+}
+
+.result-item {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 0.9em;
+}
+
+.result-item .label {
+  color: var(--text-color-light);
+  opacity: 0.8;
+}
+
+.result-item .value {
+  font-weight: bold;
+  color: var(--text-color-light);
+}
+
+/* Range Slider Styles */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 95%;
+  justify-self: center;
+  height: 8px;
+  background: var(--border-color-light);
+  border-radius: 5px;
+  outline: none;
+  opacity: 0.7;
+  transition: opacity .2s;
+}
+
+input[type="range"]:hover {
+  opacity: 1;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  background: var(--gcp-blue);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  background: var(--gcp-blue);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+/* Dark mode adjustments */
+@media (prefers-color-scheme: dark) {
+  .control-group label {
+    color: var(--text-color-dark);
+  }
+  .control-group h3 {
+    color: var(--text-color-dark);
+    border-bottom-color: var(--border-color-dark);
+  }
+  .result-item .label {
+    color: var(--text-color-dark);
+  }
+  .result-item .value {
+    color: var(--text-color-dark);
+  }
+  input[type="range"] {
+    background: var(--border-color-dark);
+  }
+}

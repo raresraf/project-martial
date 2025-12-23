@@ -1,0 +1,119 @@
+<div class="parameter-controls">
+  <h3>Operational Constraints</h3>
+  <div class="control-group">
+    <label>Number of Entities for Analysis (N)</label>
+    <div class="input-row">
+      <input
+        type="range"
+        min="100"
+        max="10000"
+        step="100"
+        [ngModel]="parameters.N"
+        (ngModelChange)="onParameterChange('N', $event)"
+      />
+      <input
+        type="number"
+        class="manual-input"
+        [ngModel]="parameters.N"
+        (ngModelChange)="onParameterChange('N', $event)"
+      />
+    </div>
+  </div>
+  <div class="control-group">
+    <label>Human Review Budget (B) in minutes</label>
+    <div class="input-row">
+      <input
+        type="range"
+        min="1000"
+        max="240000"
+        step="1000"
+        [ngModel]="parameters.B"
+        (ngModelChange)="onParameterChange('B', $event)"
+      />
+      <input
+        type="number"
+        class="manual-input"
+        [ngModel]="parameters.B"
+        (ngModelChange)="onParameterChange('B', $event)"
+      />
+    </div>
+  </div>
+  <div class="control-group">
+    <label>Avg. Review Time per True Positive (T_TP)</label>
+    <div class="input-row">
+      <input
+        type="range"
+        min="5"
+        max="240"
+        step="5"
+        [ngModel]="parameters.T_TP"
+        (ngModelChange)="onParameterChange('T_TP', $event)"
+      />
+      <input
+        type="number"
+        class="manual-input"
+        [ngModel]="parameters.T_TP"
+        (ngModelChange)="onParameterChange('T_TP', $event)"
+      />
+    </div>
+  </div>
+  <div class="control-group">
+    <label>Avg. Review Time per False Positive (T_FP)</label>
+    <div class="input-row">
+      <input
+        type="range"
+        min="1"
+        max="60"
+        step="1"
+        [ngModel]="parameters.T_FP"
+        (ngModelChange)="onParameterChange('T_FP', $event)"
+      />
+      <input
+        type="number"
+        class="manual-input"
+        [ngModel]="parameters.T_FP"
+        (ngModelChange)="onParameterChange('T_FP', $event)"
+      />
+    </div>
+  </div>
+  <div class="control-group">
+    <label>Estimated Positive Match Ratio (r) in %</label>
+    <div class="input-row">
+      <input
+        type="range"
+        min="0.1"
+        max="10"
+        step="0.1"
+        [ngModel]="parameters.r * 100"
+        (ngModelChange)="onParameterChange('r', $event / 100)"
+      />
+      <input
+        type="number"
+        class="manual-input"
+        [ngModel]="parameters.r * 100"
+        (ngModelChange)="onParameterChange('r', $event / 100)"
+        step="0.1"
+      />
+    </div>
+  </div>
+
+  <div class="control-group">
+    <h3>Historical Benchmark Performance</h3>
+    <div class="result-item">
+      <span class="label">Benchmark Positives (y_POS):</span>
+      <span class="value">{{ benchmarkYPos.toLocaleString() }}</span>
+    </div>
+    <div class="result-item">
+      <span class="label">Benchmark Negatives (y_NEG):</span>
+      <span class="value">{{ benchmarkYNeg.toLocaleString() }}</span>
+    </div>
+    <div class="result-item">
+      <span class="label">Benchmark Ratio (y_r):</span>
+      <span class="value">{{ benchmarkYR.toFixed(2) }}</span>
+    </div>
+    <div class="result-item">
+      <span class="label">Benchmark Total Pairs (y_T):</span>
+      <span class="value">{{ benchmarkYT.toLocaleString() }}</span>
+    </div>
+  </div>
+</div>

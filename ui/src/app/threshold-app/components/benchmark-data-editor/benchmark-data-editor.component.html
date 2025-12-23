@@ -1,0 +1,23 @@
+<div class="editor-container">
+  <h3>Benchmark Data Editor</h3>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Threshold (θ)</th>
+        <th>True Positives (y_TP)</th>
+        <th>False Positives (y_FP)</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let point of benchmarkData; let i = index">
+        <td><input type="number" step="0.01" [(ngModel)]="point.theta" (ngModelChange)="updateData()"></td>
+        <td><input type="number" [(ngModel)]="point.y_TP" (ngModelChange)="updateData()"></td>
+        <td><input type="number" [(ngModel)]="point.y_FP" (ngModelChange)="updateData()"></td>
+        <td><button (click)="deleteRow(i)">Delete</button></td>
+      </tr>
+    </tbody>
+  </table>
+  <button (click)="addRow()">Add Row</button>
+  <button (click)="restoreDefaults()">Restore Defaults</button>
+</div>

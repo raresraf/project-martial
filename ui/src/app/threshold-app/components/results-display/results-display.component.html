@@ -1,0 +1,30 @@
+<div class="results-display" *ngIf="results && results.optimalTheta; else noResults">
+  <h3>Optimal Threshold Recommendation</h3>
+  <div class="result-item">
+    <span class="label">Recommended Threshold (θ*):</span>
+    <span class="value">{{ results.optimalTheta.theta.toFixed(2) }}</span>
+  </div>
+  <div class="result-item">
+    <span class="label">Estimated Review Cost (Φ(θ*)):</span>
+    <span class="value">{{ Math.round(results.cost).toLocaleString() }} min</span>
+  </div>
+  <div class="result-item">
+    <span class="label">Estimated True Positives (TP):</span>
+    <span class="value">{{ results.projected_TP.toFixed(2) }}</span>
+  </div>
+  <div class="result-item">
+    <span class="label">Estimated False Positives (FP):</span>
+    <span class="value">{{ results.projected_FP.toFixed(2) }}</span>
+  </div>
+  <div class="result-item">
+    <span class="label">Estimated Precision:</span>
+    <span class="value">{{ getPrecision(results) | number: '1.2-2' }}</span>
+  </div>
+</div>
+
+<ng-template #noResults>
+  <div class="results-display">
+    <h3>Optimal Threshold Recommendation</h3>
+    <p>No optimal threshold found within the specified budget.</p>
+  </div>
+</ng-template>

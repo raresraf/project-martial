@@ -1,0 +1,32 @@
+<div class="App">
+  <header class="App-header">
+    <h1>Prioritizing Precision over Recall in Similarity Detection</h1>
+    <p>A Prediction Model under Human Review Constraints</p>
+  </header>
+  <main class="App-main">
+    <div class="controls">
+      <app-parameter-controls
+        [parameters]="parameters"
+        (parameterChange)="handleParameterChange($event)"
+        [benchmarkYPos]="benchmarkYPos"
+        [benchmarkYNeg]="benchmarkYNeg"
+        [benchmarkYR]="benchmarkYR"
+        [benchmarkYT]="benchmarkYT"
+      ></app-parameter-controls>
+      <app-benchmark-data-editor
+        [benchmarkData]="benchmarkDataPoints"
+        (benchmarkDataChange)="handleBenchmarkDataChange($event)"
+      ></app-benchmark-data-editor>
+    </div>
+    <div class="main-content">
+      <div class="charts">
+        <app-precision-recall-chart [results]="results" [budget]="parameters.B"></app-precision-recall-chart>
+        <app-score-distribution-chart [results]="results"></app-score-distribution-chart>
+      </div>
+      <app-results-display [results]="results"></app-results-display>
+    </div>
+  </main>
+  <footer class="App-footer">
+    <p>A tool for determining optimal detection thresholds, balancing true positive identification against a finite human review budget.</p>
+  </footer>
+</div>

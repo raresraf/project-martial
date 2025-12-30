@@ -37,6 +37,12 @@ The research demonstrates the effectiveness of these embeddings in classifying a
 
 https://link.springer.com/chapter/10.1007/978-3-031-41456-5_20
 
+### Code Similarity Detection Using Complexity-Based Birthmarks
+
+This research investigates using complexity-based code embeddings to produce unique software birthmarks optimized for software similarity detection. We suggest a novel approach to address this problem by handling the source code as a collection of complexity-based birthmarks. Our model has identified code implementation similarity across 280,000 analyzed pairs with an F1-score of 82% when evaluated against a dataset of solutions gathered from Codeforces competitive programming contests, using only twenty-four unique features for birthmark generation. Using a perf-based profiler that recorded raw metrics like branch misses, total CPU cycles, or page faults captured on a Unix system, the programs under evaluation were dynamically evaluated under a range of incremental inputs. The similarity score was subsequently determined using these performance metrics to build regression models designed to approximate the program’s complexity class for each performance metric.
+
+https://link.springer.com/chapter/10.1007/978-3-032-09318-9_21
+
 ![](martial-ui-rcomplexity.png?raw=true)
 
 ### On Plagiarism and Software Plagiarism

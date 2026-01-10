@@ -176,3 +176,8 @@ dataset/helpers/notsimilar_files_data.py
 dataset/helpers/process_moss_results.py
 dataset/helpers/remove_comments.py
 dataset/helpers/similar_files_data.py
+dataset/CoSiM/notsimilar/notsimdataset.json
+.gitignore
+.gitignore
+dataset/CoSiM/shuffle_uuid.py
+dataset/CoSiM/fix_notsim.py

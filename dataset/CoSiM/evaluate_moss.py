@@ -98,6 +98,10 @@ def main():
                     pbar.update(1)
                     continue
 
+                if (reports_dir / f"{reportkey}_report.html").exists():
+                    pbar.update(1)
+                    continue
+
                 if submission_count >= 90:
                     print("Reached submission limit. Saving checkpoint and exiting.")
                     save_checkpoint(checkpoint_file, results)

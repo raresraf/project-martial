@@ -172,3 +172,7 @@ dataset/CoSiM/notsimilar_files_data.py
 dataset/CoSiM/process_moss_results.py
 dataset/data_migration.py
 dataset/data_migration_notsimilar.py
+dataset/helpers/notsimilar_files_data.py
+dataset/helpers/process_moss_results.py
+dataset/helpers/remove_comments.py
+dataset/helpers/similar_files_data.py

@@ -1,8 +1,8 @@
 CoSiM is a COde SImilarity dataset by project Martial: a robust dataset for evaluating assistive software that helps identifying similarities in code and computer programs.
 
-Brainstorm: https://docs.google.com/document/d/18l7o7C2zauP6L8EO3nsZ0IMurBr0t0vxOCeskO0-kGA/edit?usp=sharing.
-
 # Dataset characteristics
+
+Measuring code similarity is an important subtask towards automated software understanding, with applications ranging from clone detection and copyright analysis to plagiarism checks and malware identification. In this paper, we introduce CoSiM, a multi-lingual dataset that comprises 4000 pairs containing similar and not similar code snippets, across nine languages, spanning from low-level to high-level programming languages, such as C, Rust, Python or Go, as well as specialized parallel computing frameworks such as CUDA. CoSiM features a hybrid composition, aggregating examples from real-world open-source projects (such as Kubernetes or the Linux kernel), constrained solutions from university-level Computer Science assignments, and competitive programming submissions. Also, in this paper, we present some baseline evaluations of MOSS, a standard automatic system that computes the similarity of programs against the dataset. We believe this benchmark will facilitate future research in code similarity detection by serving as a robust evaluation toolkit for emerging models.
 
 ## Contents
 

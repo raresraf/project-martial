@@ -555,15 +555,7 @@ __kernel void compress(__global uchar* src,
 
  #include "compress.hpp"
 
- #include 
- #include 
- #include 
- #include 
- #include 
- #include 
 
- #include 
- #include 
 
  using namespace std;
 

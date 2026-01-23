@@ -508,16 +508,6 @@ __kernel void cmprss(__global unsigned char* src,
 }
 #include "compress.hpp"
 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
 
 using namespace std;
 

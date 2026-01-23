@@ -481,13 +481,6 @@ __kernel void copy_image(const int width, const int height,
 }>>>> file: texture_compress_skl.cpp
 #include "compress.hpp"
 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
 
 using namespace std;
 

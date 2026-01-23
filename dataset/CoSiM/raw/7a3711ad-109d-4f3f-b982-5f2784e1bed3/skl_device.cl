@@ -533,15 +533,6 @@ __kernel void kernel_computation(int width, int height,
 }>>>> file: texture_compress_skl.cpp
 #include "compress.hpp"
 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
 
 using namespace std;
 

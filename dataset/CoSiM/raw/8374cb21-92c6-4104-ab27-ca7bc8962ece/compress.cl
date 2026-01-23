@@ -480,16 +480,9 @@ __kernel void compress(const int width,
 #define _HELPERS_H_
 
 #if __APPLE__
-#include 
 #else
-#include 
 #endif
 
-#include 
-#include 
-#include 
-#include 
-#include 
 
 using namespace std;
 
@@ -615,11 +608,6 @@ inline void read_kernel(string file_name, string &str_kernel)
 #endif>>>> file: texture_compress_skl.cpp
 #include "compress.hpp"
 #include "helpers.hpp"
-#include 
-#include 
-#include 
-#include 
-#include 
 
 using namespace std;
 

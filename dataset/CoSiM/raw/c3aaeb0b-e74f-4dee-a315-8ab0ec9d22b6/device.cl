@@ -480,11 +480,6 @@ __kernel void kernel_test(__global uchar* src,
 	
 }
 
-#include 
-#include 
-#include 
-#include 
-#include 
 
 #include "helper.hpp"
 
@@ -598,9 +593,7 @@ void cl_get_compiler_err_log(cl_program program, cl_device_id device)
 #define CL_HELPER_H
 
 #if __APPLE__
-   #include 
 #else
-   #include 
 #endif
 
 using namespace std;
@@ -625,15 +618,6 @@ do { \
 #endif
 #include "compress.hpp"
 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
 
 #define DIE(assertion, call_description)  \
 do { \

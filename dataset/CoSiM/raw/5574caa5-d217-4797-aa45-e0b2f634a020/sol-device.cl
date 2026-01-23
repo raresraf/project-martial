@@ -454,13 +454,6 @@ __kernel unsigned long compressBlock(_local uint8_t* dst,
 
 #include "compress.hpp"
 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
 
 using namespace std;
 

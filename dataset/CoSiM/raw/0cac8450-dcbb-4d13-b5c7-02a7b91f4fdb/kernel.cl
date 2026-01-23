@@ -496,9 +496,6 @@ __kernel void compress(__global const uchar *src, __global uchar *dst, int width
 }		
 #include "compress.hpp"
 
-#include 
-#include 
-#include 
 
 using namespace std;
 

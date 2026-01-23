@@ -525,13 +525,6 @@ __kernel void compress(__global uchar *src,
 }>>>> file: texture_compress_skl.cpp
 #include "compress.hpp"
 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
 
 #define DIE(assertion, call_description)  \
 do { \

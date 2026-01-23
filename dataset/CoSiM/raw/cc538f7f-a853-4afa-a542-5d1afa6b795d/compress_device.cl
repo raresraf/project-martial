@@ -521,11 +521,6 @@ compress(__global unsigned char *src,
 	
 	compressBlock(dst + 8 * (x + width / 4 * y), ver_blocks, hor_blocks, 0xFFFFFFFF);
 } 
-#include 
-#include 
-#include 
-#include 
-#include 
 
 #include "helper.hpp"
 
@@ -642,9 +637,7 @@ void cl_get_compiler_err_log(cl_program program,
 #define CL_HELPER_H
 
 #if __APPLE__
-   #include 
 #else
-   #include 
 #endif
 
 using namespace std;
@@ -672,11 +665,6 @@ do {                                                        \
 
 #endif
 #include "compress.hpp"
-#include 
-#include 
-#include 
-#include 
-#include 
 #include "helper.hpp"
 
 

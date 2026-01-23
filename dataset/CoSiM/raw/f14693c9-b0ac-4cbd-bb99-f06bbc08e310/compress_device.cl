@@ -575,15 +575,6 @@ __kernel void compress_k(const int width, const int height, __global uchar *src,
 }
 #include "compress.hpp"
 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
 
 
 static int number_of_devices;

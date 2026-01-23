@@ -503,19 +503,9 @@ __kernel void compress(__global uchar* src,
 }
 #include "compress.hpp"
 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
 
 #if __APPLE__
-#include 
 #else
-#include 
 #endif
 
 using namespace std;

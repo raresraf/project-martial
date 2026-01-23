@@ -505,13 +505,6 @@ __kernel void compress(__global uchar *src, __global uchar *dst, __global int *d
 }
 #include "compress.hpp"
 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
 
 using namespace std;
 

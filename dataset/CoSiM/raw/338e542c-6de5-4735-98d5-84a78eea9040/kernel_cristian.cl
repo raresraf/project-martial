@@ -514,13 +514,6 @@ __kernel void compress(const int width,
 }>>>> file: texture_compress_cristian.cpp
 #include "compress.hpp"
 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
 
 using namespace std;
 

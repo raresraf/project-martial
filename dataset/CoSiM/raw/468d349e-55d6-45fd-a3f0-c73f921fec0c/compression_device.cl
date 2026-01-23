@@ -518,11 +518,6 @@ compression_kernel(__global uchar* src,
 }
 #include "compress.hpp"
 
-#include 
-#include 
-#include 
-#include 
-#include 
 
 using namespace std;
 

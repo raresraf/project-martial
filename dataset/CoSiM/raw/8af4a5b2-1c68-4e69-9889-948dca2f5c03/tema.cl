@@ -1,11 +1,6 @@
 
 #include "compress.hpp"
 
-#include 
-#include 
-#include 
-#include 
-#include 
 
 
 
@@ -496,13 +491,6 @@ unsigned long TextureCompressor::compress(const uint8_t* src,
 	return compressed_error;
 }
 #include "compress.hpp"
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
 using namespace std;
 
 

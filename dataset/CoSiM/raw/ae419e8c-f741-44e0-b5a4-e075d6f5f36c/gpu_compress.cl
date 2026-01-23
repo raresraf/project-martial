@@ -644,19 +644,9 @@ __kernel void compress(__global const uchar* src,
 #define CL_HELPER_H
 
 #if __APPLE__
-   #include 
 #else
-   #include 
 #endif
 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
 
 
 using namespace std;

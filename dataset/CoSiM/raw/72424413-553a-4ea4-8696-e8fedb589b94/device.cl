@@ -506,11 +506,6 @@ __kernel void etc(int width, int height,
 
 	compress(dst + (row_index * width) / 2 + col_index * 2, ver_blocks, hor_blocks, INT32_MAX);
 }
-#include 
-#include 
-#include 
-#include 
-#include 
 
 #include "helper.hpp"
 
@@ -623,12 +618,9 @@ void cl_get_compiler_err_log(cl_program program, cl_device_id device)
 #ifndef CL_HELPER_H
 #define CL_HELPER_H
 
-#include 
 
 #if __APPLE__
-   #include 
 #else
-   #include 
 #endif
 
 using namespace std;
@@ -654,11 +646,6 @@ do { \
 #include "compress.hpp"
 #include "helper.hpp"
 
-#include 
-#include 
-#include 
-#include 
-#include 
 
 using namespace std;
 

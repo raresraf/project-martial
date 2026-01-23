@@ -11,13 +11,6 @@ __kernel void foo(cl_int width,
 }
 #include "compress.hpp"
 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
 
 
 

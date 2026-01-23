@@ -669,16 +669,9 @@ void cl_get_compiler_err_log(cl_program program,
 #ifndef CL_HELPER_H
 #define CL_HELPER_H
 
-#include 
-#include 
-#include 
-#include 
-#include 
 
 #if __APPLE__
-   #include 
 #else
-   #include 
 #endif
 
 using namespace std;
@@ -708,11 +701,6 @@ do {                                                        \
 #include "compress.hpp"
 #include "helper.hpp"
 
-#include 
-#include 
-#include 
-#include 
-#include 
 
 using namespace std;
 

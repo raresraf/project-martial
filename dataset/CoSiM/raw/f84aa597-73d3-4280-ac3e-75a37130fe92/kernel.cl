@@ -12,13 +12,6 @@ __kernel void compress(__global uchar *src, __global uchar *dst, int width, int 
 }>>>> file: texture_compress_skl.cpp
 #include "compress.hpp"
 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
 
 using namespace std;
 

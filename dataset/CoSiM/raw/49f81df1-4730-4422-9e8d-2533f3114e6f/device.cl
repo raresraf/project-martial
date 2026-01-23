@@ -503,11 +503,6 @@ __kernel void compress(int NWidth,
 	
 	compressBlock(D + dest_offset, ver_blocks, hor_blocks, 2147483647);
 }
-#include 
-#include 
-#include 
-#include 
-#include 
 
 #include "helper.hpp"
 
@@ -624,9 +619,7 @@ void cl_get_compiler_err_log(cl_program program,
 #define CL_HELPER_H
 
 #if __APPLE__
-   #include 
 #else
-   #include 
 #endif
 
 using namespace std;
@@ -653,11 +646,6 @@ do {                                                        \
 } while(0);
 
 #endif
-#include 
-#include 
-#include 
-#include 
-#include 
 
 #include "compress.hpp"
 #include "helper.hpp"

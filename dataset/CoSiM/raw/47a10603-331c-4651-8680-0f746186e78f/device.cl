@@ -410,12 +410,6 @@ __kernel void kernel_id(__global float *output,
 
 }
 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
 #include "helper.hpp"
 
 using namespace std;
@@ -530,7 +524,6 @@ void cl_get_compiler_err_log(cl_program program,
 #ifndef CL_HELPER_H
 #define CL_HELPER_H
 
-#include 
 
 using namespace std;
 
@@ -557,12 +550,6 @@ do {                                                        \
 
 #endif
 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
 #include "helper.hpp"
 
 #include "compress.hpp"

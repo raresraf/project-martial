@@ -557,13 +557,6 @@ __kernel void execute(__global uchar *src, __global uchar *dst, __global int *di
 }
 #include "compress.hpp"
 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
 
 using namespace std;
 

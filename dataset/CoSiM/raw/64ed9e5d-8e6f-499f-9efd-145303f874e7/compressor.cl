@@ -558,11 +558,6 @@ compressor(__global uchar *src,
 	
 	compressBlock(dst, ver_blocks, hor_blocks, 2147483647);
 }
-#include 
-#include 
-#include 
-#include 
-#include 
 
 #include "helper.hpp"
 
@@ -672,15 +667,11 @@ void cl_get_compiler_err_log(cl_program program, cl_device_id device)
 	build_log[ log_size ] = '\0';
 	cout << endl << build_log << endl;
 }
-#include 
-#include
 #ifndef CL_HELPER_H
 #define CL_HELPER_H
 
 #if __APPLE__
-   #include 
 #else
-   #include 
 #endif
 
 using namespace std;
@@ -703,11 +694,6 @@ do { \
 #endif
 #include "compress.hpp"
 #include "helper.hpp"
-#include 
-#include 
-#include 
-#include 
-#include 
 
 using namespace std;
 

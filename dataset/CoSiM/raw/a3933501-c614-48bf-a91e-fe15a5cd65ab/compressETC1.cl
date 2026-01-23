@@ -534,11 +534,6 @@ compressFunc(__global uint8_t* src,
 	
 
 }>>>> file: helper.cpp
-#include 
-#include 
-#include 
-#include 
-#include 
 
 #include "helper.hpp"
 
@@ -652,12 +647,9 @@ void cl_get_compiler_err_log(cl_program program, cl_device_id device)
 #define CL_HELPER_H
 
 #if __APPLE__
-   #include 
 #else
-   #include 
 #endif
 
-#include 
 using namespace std;
 
 int CL_ERR(int cl_ret);
@@ -678,11 +670,6 @@ do { \
 } while(0);
 
 #endif
-#include 
-#include 
-#include 
-#include 
-#include 
 
 #include "helper.hpp"
 #include "compress.hpp"

@@ -531,13 +531,6 @@ __kernel void mat_mul(__global uchar* src, __global uchar* dst, int height, int 
 
 }
 #include "compress.hpp"
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
 
 using namespace std;
 

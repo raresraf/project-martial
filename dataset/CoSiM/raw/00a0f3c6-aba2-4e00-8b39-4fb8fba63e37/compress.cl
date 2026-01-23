@@ -542,10 +542,6 @@ __kernel void compress_kernel(int width, int height,
 }
 #include "compress.hpp"
 
-#include 
-#include 
-#include 
-#include 
 
 using namespace std;
 

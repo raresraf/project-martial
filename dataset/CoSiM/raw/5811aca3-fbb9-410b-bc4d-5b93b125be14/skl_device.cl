@@ -549,20 +549,10 @@ __kernel void compress_etc1(const int width,
 }>>>> file: texture_compress_skl.cpp
 #include "compress.hpp"
 
-#include 
-#include 
-#include 
-#include 
-#include 
 
-#include 
-#include 
-#include 
 
 #if __APPLE__
-   #include 
 #else
-   #include 
 #endif
 
 #define DIE(assertion, call_description)                    \

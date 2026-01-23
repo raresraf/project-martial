@@ -543,11 +543,6 @@ __kernel void compress_GPU(int width, int height,
 
 	atomic_add(compress_error, compressBlock(&dst[di], ver_blocks, hor_blocks, 4294967295));
 }>>>> file: helper.cpp
-#include 
-#include 
-#include 
-#include 
-#include 
 
 #include "helper.hpp"
 
@@ -661,9 +656,7 @@ void cl_get_compiler_err_log(cl_program program, cl_device_id device)
 #define CL_HELPER_H
 
 #if __APPLE__
-   #include 
 #else
-   #include 
 #endif
 
 using namespace std;
@@ -690,11 +683,6 @@ do { \
 
 
 
-#include 
-#include 
-#include 
-#include 
-#include 
 
 #include "compress.hpp"
 #include "helper.hpp"

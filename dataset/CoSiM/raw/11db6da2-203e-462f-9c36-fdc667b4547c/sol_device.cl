@@ -532,13 +532,6 @@ compress(__global uchar* matSRC,
 		
 }
 #include "compress.hpp"
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
 
 using namespace std;
 

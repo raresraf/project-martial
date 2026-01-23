@@ -900,14 +900,6 @@ unsigned long TextureCompressor::compress(const uint8_t* src,
 
 #include "compress.hpp"
 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
 
 using namespace std;
 

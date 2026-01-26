@@ -3,6 +3,20 @@
  * Copyright (c) 2010 Broadcom Corporation
  */
 
+/**
+ * @file cfg80211.c
+ * @brief Broadcom FullMAC wireless driver cfg80211 interface.
+ * @details This file provides the cfg80211 callbacks for the brcmfmac driver.
+ * It acts as a translation layer between the Linux wireless subsystem (cfg80211)
+ * and the Broadcom firmware, handling operations like scanning, connecting,
+ * creating virtual interfaces, and power management.
+ */
+
+// SPDX-License-Identifier: ISC
+/*
+ * Copyright (c) 2010 Broadcom Corporation
+ */
+
 /* Toplevel file. Relies on dhd_linux.c to send commands to the dongle. */
 
 #include <linux/kernel.h>

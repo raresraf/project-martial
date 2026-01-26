@@ -1,3 +1,11 @@
+/**
+ * @file decorations.ts
+ * @brief Implements the decorations overlay for the editor view.
+ * @details This file contains the `DecorationsOverlay` class, which is responsible for rendering
+ * decorations (like highlights, squiggly lines, etc.) on top of the text in the editor. It is
+ * a dynamic view overlay that reacts to various editor events to efficiently update the
+ * rendered decorations.
+ */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -12,6 +20,10 @@ import * as viewEvents from '../../../common/viewEvents.js';
 import { ViewContext } from '../../../common/viewModel/viewContext.js';
 import { ViewModelDecoration } from '../../../common/viewModel/viewModelDecoration.js';
 
+/**
+ * @class DecorationsOverlay
+ * @brief A view overlay that renders editor decorations.
+ */
 export class DecorationsOverlay extends DynamicViewOverlay {
 
 	private readonly _context: ViewContext;
@@ -35,6 +47,11 @@ export class DecorationsOverlay extends DynamicViewOverlay {
 	}
 
 	// --- begin event handlers
+	/**
+	 * @section Event Handlers
+	 * @brief These methods are called in response to various editor events and determine
+	 * whether the decorations need to be re-rendered.
+	 */
 
 	public override onConfigurationChanged(e: viewEvents.ViewConfigurationChangedEvent): boolean {
 		const options = this._context.configuration.options;
@@ -64,6 +81,12 @@ export class DecorationsOverlay extends DynamicViewOverlay {
 	}
 	// --- end event handlers
 
+	/**
+	 * @brief Prepares the decorations for rendering.
+	 * @details This method is called before rendering. It gets the decorations in the
+	 * viewport, sorts them, and generates the HTML for each line.
+	 * @param ctx The rendering context.
+	 */
 	public prepareRender(ctx: RenderingContext): void {
 		const _decorations = ctx.getDecorationsInViewport();
 
@@ -112,6 +135,12 @@ export class DecorationsOverlay extends DynamicViewOverlay {
 		this._renderResult = output;
 	}
 
+	/**
+	 * @brief Renders decorations that span the entire line.
+	 * @param ctx The rendering context.
+	 * @param decorations The decorations to render.
+	 * @param output The output array to which the HTML is written.
+	 */
 	private _renderWholeLineDecorations(ctx: RenderingContext, decorations: ViewModelDecoration[], output: string[]): void {
 		const visibleStartLineNumber = ctx.visibleRange.startLineNumber;
 		const visibleEndLineNumber = ctx.visibleRange.endLineNumber;
@@ -138,6 +167,14 @@ export class DecorationsOverlay extends DynamicViewOverlay {
 		}
 	}
 
+	/**
+	 * @brief Renders normal (in-line) decorations.
+	 * @details This method optimizes rendering by merging decorations with the same class name
+	 * that are adjacent.
+	 * @param ctx The rendering context.
+	 * @param decorations The decorations to render.
+	 * @param output The output array to which the HTML is written.
+	 */
 	private _renderNormalDecorations(ctx: RenderingContext, decorations: ViewModelDecoration[], output: string[]): void {
 		const visibleStartLineNumber = ctx.visibleRange.startLineNumber;
 
@@ -183,6 +220,16 @@ export class DecorationsOverlay extends DynamicViewOverlay {
 		}
 	}
 
+	/**
+	 * @brief Renders a single normal decoration.
+	 * @param ctx The rendering context.
+	 * @param range The range of the decoration.
+	 * @param className The CSS class name for the decoration.
+	 * @param shouldFillLineOnLineBreak Whether to fill the line on a line break.
+	 * @param showIfCollapsed Whether to show the decoration if it's collapsed.
+	 * @param visibleStartLineNumber The start line number of the viewport.
+	 * @param output The output array to which the HTML is written.
+	 */
 	private _renderNormalDecoration(ctx: RenderingContext, range: Range, className: string, shouldFillLineOnLineBreak: boolean, showIfCollapsed: boolean, visibleStartLineNumber: number, output: string[]): void {
 		const linesVisibleRanges = ctx.linesVisibleRangesForRange(range, /*TODO@Alex*/className === 'findMatch');
 		if (!linesVisibleRanges) {
@@ -227,6 +274,12 @@ export class DecorationsOverlay extends DynamicViewOverlay {
 		}
 	}
 
+	/**
+	 * @brief Renders the decorations for a specific line.
+	 * @param startLineNumber The start line number of the viewport.
+	 * @param lineNumber The line number to render.
+	 * @returns The HTML string for the decorations on the given line.
+	 */
 	public render(startLineNumber: number, lineNumber: number): string {
 		if (!this._renderResult) {
 			return '';

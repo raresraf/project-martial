@@ -1,3 +1,11 @@
+/**
+ * @file Int7SQVectorScorerFactoryTests.java
+ * @brief Test suite for the Int7SQVectorScorerFactory.
+ * @details This class contains a comprehensive set of unit tests for the {@link Int7SQVectorScorerFactory},
+ * which is responsible for creating vector scorers for 7-bit scalar quantized vectors. The tests cover
+ * various scenarios, including different vector dimensions, similarity functions, data sizes, and concurrent access
+ * patterns to ensure the factory and its created scorers are correct and robust.
+ */
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
  * or more contributor license agreements. Licensed under the "Elastic License
@@ -50,25 +58,45 @@ import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 
 public class Int7SQVectorScorerFactoryTests extends AbstractVectorTestCase {
 
-    // bounds of the range of values that can be seen by int7 scalar quantized vectors
+    /**
+     * @brief The minimum and maximum values for 7-bit integer quantization.
+     */
     static final byte MIN_INT7_VALUE = 0;
     static final byte MAX_INT7_VALUE = 127;
 
-    // Tests that the provider instance is present or not on expected platforms/architectures
+    /**
+     * @brief Tests the platform support for the vector scorer factory.
+     * @details This test verifies that the {@link VectorScorerFactory} instance is present on supported
+     * platforms and absent on unsupported ones, ensuring that the native SIMD optimizations are
+     * correctly conditionally enabled.
+     */
     public void testSupport() {
         supported();
     }
 
+    /**
+     * @brief A simple test case with default chunk size.
+     * @throws IOException if an I/O error occurs.
+     */
     public void testSimple() throws IOException {
         testSimpleImpl(MMapDirectory.DEFAULT_MAX_CHUNK_SIZE);
     }
 
+    /**
+     * @brief A simple test case with a small, randomized chunk size.
+     * @throws IOException if an I/O error occurs.
+     */
     public void testSimpleMaxChunkSizeSmall() throws IOException {
         long maxChunkSize = randomLongBetween(4, 16);
         logger.info("maxChunkSize=" + maxChunkSize);
         testSimpleImpl(maxChunkSize);
     }
 
+    /**
+     * @brief Implementation of the simple test case.
+     * @param maxChunkSize The maximum chunk size for the MMapDirectory.
+     * @throws IOException if an I/O error occurs.
+     */
     void testSimpleImpl(long maxChunkSize) throws IOException {
         assumeTrue(notSupportedMsg(), supported());
         var factory = AbstractVectorTestCase.factory.get();
@@ -117,6 +145,10 @@ public class Int7SQVectorScorerFactoryTests extends AbstractVectorTestCase {
         }
     }
 
+    /**
+     * @brief Tests that dot product scores are always non-negative.
+     * @throws IOException if an I/O error occurs.
+     */
     public void testNonNegativeDotProduct() throws IOException {
         assumeTrue(notSupportedMsg(), supported());
         var factory = AbstractVectorTestCase.factory.get();
@@ -167,11 +199,19 @@ public class Int7SQVectorScorerFactoryTests extends AbstractVectorTestCase {
         }
     }
 
+    /**
+     * @brief Tests scoring with random vector data.
+     * @throws IOException if an I/O error occurs.
+     */
     public void testRandom() throws IOException {
         assumeTrue(notSupportedMsg(), supported());
         testRandomSupplier(MMapDirectory.DEFAULT_MAX_CHUNK_SIZE, BYTE_ARRAY_RANDOM_INT7_FUNC);
     }
 
+    /**
+     * @brief Tests scoring with random vector data and a small chunk size.
+     * @throws IOException if an I/O error occurs.
+     */
     public void testRandomMaxChunkSizeSmall() throws IOException {
         assumeTrue(notSupportedMsg(), supported());
         long maxChunkSize = randomLongBetween(32, 128);
@@ -179,16 +219,30 @@ public class Int7SQVectorScorerFactoryTests extends AbstractVectorTestCase {
         testRandomSupplier(maxChunkSize, BYTE_ARRAY_RANDOM_INT7_FUNC);
     }
 
+    /**
+     * @brief Tests scoring with vectors containing the maximum possible quantized value.
+     * @throws IOException if an I/O error occurs.
+     */
     public void testRandomMax() throws IOException {
         assumeTrue(notSupportedMsg(), supported());
         testRandomSupplier(MMapDirectory.DEFAULT_MAX_CHUNK_SIZE, BYTE_ARRAY_MAX_INT7_FUNC);
     }
 
+    /**
+     * @brief Tests scoring with vectors containing the minimum possible quantized value.
+     * @throws IOException if an I/O error occurs.
+     */
     public void testRandomMin() throws IOException {
         assumeTrue(notSupportedMsg(), supported());
         testRandomSupplier(MMapDirectory.DEFAULT_MAX_CHUNK_SIZE, BYTE_ARRAY_MIN_INT7_FUNC);
     }
 
+    /**
+     * @brief Core implementation for random data tests.
+     * @param maxChunkSize The maximum chunk size for the MMapDirectory.
+     * @param byteArraySupplier A function to supply random byte arrays.
+     * @throws IOException if an I/O error occurs.
+     */
     void testRandomSupplier(long maxChunkSize, Function<Integer, byte[]> byteArraySupplier) throws IOException {
         var factory = AbstractVectorTestCase.factory.get();
 
@@ -228,20 +282,38 @@ public class Int7SQVectorScorerFactoryTests extends AbstractVectorTestCase {
         }
     }
 
+    /**
+     * @brief Tests the quantized vector scorer with random float vectors.
+     * @throws IOException if an I/O error occurs.
+     */
     public void testRandomScorer() throws IOException {
         testRandomScorerImpl(MMapDirectory.DEFAULT_MAX_CHUNK_SIZE, Int7SQVectorScorerFactoryTests.FLOAT_ARRAY_RANDOM_FUNC);
     }
 
+    /**
+     * @brief Tests the quantized vector scorer with float vectors containing the maximum value.
+     * @throws IOException if an I/O error occurs.
+     */
     public void testRandomScorerMax() throws IOException {
         testRandomScorerImpl(MMapDirectory.DEFAULT_MAX_CHUNK_SIZE, Int7SQVectorScorerFactoryTests.FLOAT_ARRAY_MAX_FUNC);
     }
 
+    /**
+     * @brief Tests the quantized vector scorer with a small, randomized chunk size.
+     * @throws IOException if an I/O error occurs.
+     */
     public void testRandomScorerChunkSizeSmall() throws IOException {
         long maxChunkSize = randomLongBetween(32, 128);
         logger.info("maxChunkSize=" + maxChunkSize);
         testRandomScorerImpl(maxChunkSize, FLOAT_ARRAY_RANDOM_FUNC);
     }
 
+    /**
+     * @brief Core implementation for random scorer tests.
+     * @param maxChunkSize The maximum chunk size for the MMapDirectory.
+     * @param floatArraySupplier A function to supply random float arrays.
+     * @throws IOException if an I/O error occurs.
+     */
     void testRandomScorerImpl(long maxChunkSize, Function<Integer, float[]> floatArraySupplier) throws IOException {
         assumeTrue("scorer only supported on JDK 22+", Runtime.version().feature() >= 22);
         assumeTrue(notSupportedMsg(), supported());
@@ -287,11 +359,23 @@ public class Int7SQVectorScorerFactoryTests extends AbstractVectorTestCase {
         }
     }
 
+    /**
+     * @brief Tests scoring with sliced IndexInput.
+     * @throws IOException if an I/O error occurs.
+     */
     public void testRandomSlice() throws IOException {
         assumeTrue(notSupportedMsg(), supported());
         testRandomSliceImpl(30, 64, 1, BYTE_ARRAY_RANDOM_INT7_FUNC);
     }
 
+    /**
+     * @brief Core implementation for random slice tests.
+     * @param dims The number of dimensions for the vectors.
+     * @param maxChunkSize The maximum chunk size for the MMapDirectory.
+     * @param initialPadding The initial padding for the slice.
+     * @param byteArraySupplier A function to supply random byte arrays.
+     * @throws IOException if an I/O error occurs.
+     */
     void testRandomSliceImpl(int dims, long maxChunkSize, int initialPadding, Function<Integer, byte[]> byteArraySupplier)
         throws IOException {
         var factory = AbstractVectorTestCase.factory.get();
@@ -338,7 +422,10 @@ public class Int7SQVectorScorerFactoryTests extends AbstractVectorTestCase {
         }
     }
 
-    // Tests with a large amount of data (> 2GB), which ensures that data offsets do not overflow
+    /**
+     * @brief Tests with a large amount of data to ensure that data offsets do not overflow.
+     * @throws IOException if an I/O error occurs.
+     */
     @Nightly
     public void testLarge() throws IOException {
         assumeTrue(notSupportedMsg(), supported());
@@ -378,6 +465,10 @@ public class Int7SQVectorScorerFactoryTests extends AbstractVectorTestCase {
         }
     }
 
+    /**
+     * @brief Tests for race conditions among multiple threads.
+     * @throws Exception if an error occurs.
+     */
     public void testRace() throws Exception {
         testRaceImpl(COSINE);
         testRaceImpl(DOT_PRODUCT);
@@ -385,7 +476,11 @@ public class Int7SQVectorScorerFactoryTests extends AbstractVectorTestCase {
         testRaceImpl(MAXIMUM_INNER_PRODUCT);
     }
 
-    // Tests that copies in threads do not interfere with each other
+    /**
+     * @brief Core implementation for the race condition tests.
+     * @param sim The vector similarity function to test.
+     * @throws Exception if an error occurs.
+     */
     void testRaceImpl(VectorSimilarityType sim) throws Exception {
         assumeTrue(notSupportedMsg(), supported());
         var factory = AbstractVectorTestCase.factory.get();
@@ -425,6 +520,9 @@ public class Int7SQVectorScorerFactoryTests extends AbstractVectorTestCase {
         }
     }
 
+    /**
+     * @brief A callable task for concurrent scoring tests.
+     */
     static class ScoreCallable implements Callable<Optional<Throwable>> {
 
         final UpdateableRandomVectorScorer scorer;
@@ -455,13 +553,31 @@ public class Int7SQVectorScorerFactoryTests extends AbstractVectorTestCase {
         }
     }
 
+    /**
+     * @brief Creates a {@link QuantizedByteVectorValues} instance for testing.
+     * @param dims The number of dimensions for the vectors.
+     * @param size The number of vectors.
+     * @param in The IndexInput to read from.
+     * @param sim The vector similarity function.
+     * @return A new {@link QuantizedByteVectorValues} instance.
+     * @throws IOException if an I/O error occurs.
+     */
     QuantizedByteVectorValues vectorValues(int dims, int size, IndexInput in, VectorSimilarityFunction sim) throws IOException {
         var sq = new ScalarQuantizer(0.1f, 0.9f, (byte) 7);
         var slice = in.slice("values", 0, in.length());
         return new OffHeapQuantizedByteVectorValues.DenseOffHeapVectorValues(dims, size, sq, false, sim, null, slice);
     }
 
-    /** Computes the score using the Lucene implementation. */
+    /**
+     * @brief Computes the score using the Lucene implementation.
+     * @param similarityFunc The vector similarity function.
+     * @param a The first vector.
+     * @param b The second vector.
+     * @param correction The correction value.
+     * @param aOffsetValue The offset value for the first vector.
+     * @param bOffsetValue The offset value for the second vector.
+     * @return The score.
+     */
     public static float luceneScore(
         VectorSimilarityType similarityFunc,
         byte[] a,
@@ -474,11 +590,23 @@ public class Int7SQVectorScorerFactoryTests extends AbstractVectorTestCase {
         return scorer.score(a, aOffsetValue, b, bOffsetValue);
     }
 
+    /**
+     * @brief Gets a random vector scorer supplier from the Lucene implementation.
+     * @param values The quantized byte vector values.
+     * @param sim The vector similarity function.
+     * @return A new {@link RandomVectorScorerSupplier} instance.
+     * @throws IOException if an I/O error occurs.
+     */
     RandomVectorScorerSupplier luceneScoreSupplier(QuantizedByteVectorValues values, VectorSimilarityFunction sim) throws IOException {
         return new Lucene99ScalarQuantizedVectorScorer(null).getRandomVectorScorerSupplier(sim, values);
     }
 
-    // creates the vector based on the given ordinal, which is reproducible given the ord and dims
+    /**
+     * @brief Creates a vector based on the given ordinal and dimensions.
+     * @param ord The ordinal of the vector.
+     * @param dims The number of dimensions for the vector.
+     * @return A new byte array representing the vector.
+     */
     static byte[] vector(int ord, int dims) {
         var random = new Random(Objects.hash(ord, dims));
         byte[] ba = new byte[dims];
@@ -488,6 +616,9 @@ public class Int7SQVectorScorerFactoryTests extends AbstractVectorTestCase {
         return ba;
     }
 
+    /**
+     * @brief A function that returns a new float array of the given size with random values.
+     */
     static Function<Integer, float[]> FLOAT_ARRAY_RANDOM_FUNC = size -> {
         float[] fa = new float[size];
         for (int i = 0; i < size; i++) {
@@ -496,29 +627,44 @@ public class Int7SQVectorScorerFactoryTests extends AbstractVectorTestCase {
         return fa;
     };
 
+    /**
+     * @brief A function that returns a new float array of the given size with all values set to Float.MAX_VALUE.
+     */
     static Function<Integer, float[]> FLOAT_ARRAY_MAX_FUNC = size -> {
         float[] fa = new float[size];
         Arrays.fill(fa, Float.MAX_VALUE);
         return fa;
     };
 
+    /**
+     * @brief A function that returns a new byte array of the given size with random values between MIN_INT7_VALUE and MAX_INT7_VALUE.
+     */
     static Function<Integer, byte[]> BYTE_ARRAY_RANDOM_INT7_FUNC = size -> {
         byte[] ba = new byte[size];
         randomBytesBetween(ba, MIN_INT7_VALUE, MAX_INT7_VALUE);
         return ba;
     };
 
+    /**
+     * @brief A function that returns a new byte array of the given size with all values set to MAX_INT7_VALUE.
+     */
     static Function<Integer, byte[]> BYTE_ARRAY_MAX_INT7_FUNC = size -> {
         byte[] ba = new byte[size];
         Arrays.fill(ba, MAX_INT7_VALUE);
         return ba;
     };
 
+    /**
+     * @brief A function that returns a new byte array of the given size with all values set to MIN_INT7_VALUE.
+     */
     static Function<Integer, byte[]> BYTE_ARRAY_MIN_INT7_FUNC = size -> {
         byte[] ba = new byte[size];
         Arrays.fill(ba, MIN_INT7_VALUE);
         return ba;
     };
 
+    /**
+     * @brief The number of times to run the random tests.
+     */
     static final int TIMES = 100; // a loop iteration times
 }

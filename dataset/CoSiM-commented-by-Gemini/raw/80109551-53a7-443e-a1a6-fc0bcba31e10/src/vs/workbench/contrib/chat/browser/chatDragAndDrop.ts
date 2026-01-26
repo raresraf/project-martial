@@ -1,3 +1,11 @@
+/**
+ * @file chatDragAndDrop.ts
+ * @brief Handles drag and drop functionality for the chat widget.
+ * @details This file implements the logic for dragging and dropping various types of content
+ * into the chat input area. It supports attaching files, folders, images, symbols, and problems
+ * (markers) as context to the chat. It manages the UI feedback for the drag and drop operation
+ * and processes the dropped data to be added to the chat model.
+ */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -37,6 +45,10 @@ import { IChatInputStyles } from './chatInputPart.js';
 import { imageToHash } from './chatPasteProviders.js';
 import { resizeImage } from './imageUtils.js';
 
+/**
+ * @enum {number} ChatDragAndDropType
+ * @brief Enumerates the different types of content that can be dragged and dropped.
+ */
 enum ChatDragAndDropType {
 	FILE_INTERNAL,
 	FILE_EXTERNAL,
@@ -47,6 +59,13 @@ enum ChatDragAndDropType {
 	MARKER,
 }
 
+/**
+ * @class ChatDragAndDrop
+ * @brief Manages the drag and drop functionality for the chat input.
+ * @details This class is responsible for creating and managing drag and drop overlays,
+ * detecting the type of content being dragged, providing visual feedback, and handling
+ * the drop event to attach the content to the chat.
+ */
 export class ChatDragAndDrop extends Themable {
 
 	private readonly overlays: Map<HTMLElement, { overlay: HTMLElement; disposable: IDisposable }> = new Map();
@@ -71,6 +90,11 @@ export class ChatDragAndDrop extends Themable {
 		this.updateStyles();
 	}
 
+	/**
+	 * @brief Adds a drag and drop overlay to a target element.
+	 * @param target The HTML element to which the overlay is added.
+	 * @param overlayContainer The container element for the overlay.
+	 */
 	addOverlay(target: HTMLElement, overlayContainer: HTMLElement): void {
 		this.removeOverlay(target);
 
@@ -78,6 +102,10 @@ export class ChatDragAndDrop extends Themable {
 		this.overlays.set(target, { overlay, disposable });
 	}
 
+	/**
+	 * @brief Removes the drag and drop overlay from a target element.
+	 * @param target The HTML element from which the overlay is removed.
+	 */
 	removeOverlay(target: HTMLElement): void {
 		if (this.currentActiveTarget === target) {
 			this.currentActiveTarget = undefined;
@@ -92,6 +120,13 @@ export class ChatDragAndDrop extends Themable {
 	}
 
 	private currentActiveTarget: HTMLElement | undefined = undefined;
+
+	/**
+	 * @brief Creates and initializes the drag and drop overlay and its event listeners.
+	 * @param target The target HTML element for drag and drop events.
+	 * @param overlayContainer The container for the overlay element.
+	 * @returns An object containing the overlay element and a disposable for its event listeners.
+	 */
 	private createOverlay(target: HTMLElement, overlayContainer: HTMLElement): { overlay: HTMLElement; disposable: IDisposable } {
 		const overlay = document.createElement('div');
 		overlay.classList.add('chat-dnd-overlay');
@@ -139,20 +174,39 @@ export class ChatDragAndDrop extends Themable {
 		return { overlay, disposable };
 	}
 
+	/**
+	 * @brief Handles the drag enter event.
+	 * @param e The drag event.
+	 * @param target The target HTML element.
+	 */
 	private onDragEnter(e: DragEvent, target: HTMLElement): void {
 		const estimatedDropType = this.guessDropType(e);
 		this.updateDropFeedback(e, target, estimatedDropType);
 	}
 
+	/**
+	 * @brief Handles the drag leave event.
+	 * @param e The drag event.
+	 * @param target The target HTML element.
+	 */
 	private onDragLeave(e: DragEvent, target: HTMLElement): void {
 		this.updateDropFeedback(e, target, undefined);
 	}
 
+	/**
+	 * @brief Handles the drop event.
+	 * @param e The drag event.
+	 * @param target The target HTML element.
+	 */
 	private onDrop(e: DragEvent, target: HTMLElement): void {
 		this.updateDropFeedback(e, target, undefined);
 		this.drop(e);
 	}
 
+	/**
+	 * @brief Processes the dropped content and attaches it to the chat.
+	 * @param e The drag event.
+	 */
 	private async drop(e: DragEvent): Promise<void> {
 		const contexts = await this.getAttachContext(e);
 		if (contexts.length === 0) {
@@ -162,6 +216,12 @@ export class ChatDragAndDrop extends Themable {
 		this.attachmentModel.addContext(...contexts);
 	}
 
+	/**
+	 * @brief Updates the visual feedback for the drag and drop operation.
+	 * @param e The drag event.
+	 * @param target The target HTML element.
+	 * @param dropType The estimated type of the dropped content.
+	 */
 	private updateDropFeedback(e: DragEvent, target: HTMLElement, dropType: ChatDragAndDropType | undefined): void {
 		const showOverlay = dropType !== undefined;
 		if (e.dataTransfer) {
@@ -171,6 +231,11 @@ export class ChatDragAndDrop extends Themable {
 		this.setOverlay(target, dropType);
 	}
 
+	/**
+	 * @brief Guesses the type of content being dragged based on the data transfer object.
+	 * @param e The drag event.
+	 * @returns The estimated drop type, or undefined if not supported.
+	 */
 	private guessDropType(e: DragEvent): ChatDragAndDropType | undefined {
 		// This is an esstimation based on the datatransfer types/items
 		if (this.isImageDnd(e)) {
@@ -192,12 +257,22 @@ export class ChatDragAndDrop extends Themable {
 		return undefined;
 	}
 
+	/**
+	 * @brief Checks if the drag event is for a supported content type.
+	 * @param e The drag event.
+	 * @returns True if the drop is supported, false otherwise.
+	 */
 	private isDragEventSupported(e: DragEvent): boolean {
 		// if guessed drop type is undefined, it means the drop is not supported
 		const dropType = this.guessDropType(e);
 		return dropType !== undefined;
 	}
 
+	/**
+	 * @brief Gets a human-readable name for a drop type.
+	 * @param type The drop type.
+	 * @returns The name of the drop type.
+	 */
 	private getDropTypeName(type: ChatDragAndDropType): string {
 		switch (type) {
 			case ChatDragAndDropType.FILE_INTERNAL: return localize('file', 'File');
@@ -210,6 +285,11 @@ export class ChatDragAndDrop extends Themable {
 		}
 	}
 
+	/**
+	 * @brief Checks if the drag event is for an image.
+	 * @param e The drag event.
+	 * @returns True if the dragged content is an image, false otherwise.
+	 */
 	private isImageDnd(e: DragEvent): boolean {
 		// Image detection should not have false positives, only false negatives are allowed
 		if (containsDragType(e, 'image')) {
@@ -233,6 +313,11 @@ export class ChatDragAndDrop extends Themable {
 		return false;
 	}
 
+	/**
+	 * @brief Resolves the attach context from a drag event.
+	 * @param e The drag event.
+	 * @returns A promise that resolves to an array of chat request variable entries.
+	 */
 	private async getAttachContext(e: DragEvent): Promise<IChatRequestVariableEntry[]> {
 		if (!this.isDragEventSupported(e)) {
 			return [];
@@ -258,6 +343,11 @@ export class ChatDragAndDrop extends Themable {
 		})));
 	}
 
+	/**
+	 * @brief Resolves the attach context for a single editor input.
+	 * @param editorInput The dragged editor input.
+	 * @returns A promise that resolves to a chat request variable entry, or undefined.
+	 */
 	private async resolveAttachContext(editorInput: IDraggedResourceEditorInput): Promise<IChatRequestVariableEntry | undefined> {
 		// Image
 		const imageContext = await getImageAttachContext(editorInput, this.fileService, this.dialogService);
@@ -269,6 +359,11 @@ export class ChatDragAndDrop extends Themable {
 		return await this.getEditorAttachContext(editorInput);
 	}
 
+	/**
+	 * @brief Resolves the attach context for an editor input.
+	 * @param editor The editor input.
+	 * @returns A promise that resolves to a chat request variable entry, or undefined.
+	 */
 	private async getEditorAttachContext(editor: EditorInput | IDraggedResourceEditorInput): Promise<IChatRequestVariableEntry | undefined> {
 
 		// untitled editor
@@ -294,6 +389,11 @@ export class ChatDragAndDrop extends Themable {
 		return await getResourceAttachContext(editor.resource, stat.isDirectory, this.textModelService);
 	}
 
+	/**
+	 * @brief Resolves the attach context for an untitled editor input.
+	 * @param editor The untitled editor input.
+	 * @returns A promise that resolves to a chat request variable entry, or undefined.
+	 */
 	private async resolveUntitledAttachContext(editor: IDraggedResourceEditorInput): Promise<IChatRequestVariableEntry | undefined> {
 		// If the resource is known, we can use it directly
 		if (editor.resource) {
@@ -313,6 +413,11 @@ export class ChatDragAndDrop extends Themable {
 		return undefined;
 	}
 
+	/**
+	 * @brief Resolves the attach context for document symbols.
+	 * @param symbols An array of document symbol transfer data.
+	 * @returns An array of symbol variable entries.
+	 */
 	private resolveSymbolsAttachContext(symbols: DocumentSymbolTransferData[]): ISymbolVariableEntry[] {
 		return symbols.map(symbol => {
 			const resource = URI.file(symbol.fsPath);
@@ -327,6 +432,11 @@ export class ChatDragAndDrop extends Themable {
 		});
 	}
 
+	/**
+	 * @brief Downloads an image from a URL as a Uint8Array.
+	 * @param url The URL of the image.
+	 * @returns A promise that resolves to a Uint8Array, or undefined if the download fails.
+	 */
 	private async downloadImageAsUint8Array(url: string): Promise<Uint8Array | undefined> {
 		try {
 			const extractedImages = await this.webContentExtractorService.readImage(URI.parse(url), CancellationToken.None);
@@ -347,6 +457,11 @@ export class ChatDragAndDrop extends Themable {
 		return undefined;
 	}
 
+	/**
+	 * @brief Resolves the attach context for HTML content, which may contain image URLs.
+	 * @param e The drag event.
+	 * @returns A promise that resolves to an array of chat request variable entries.
+	 */
 	private async resolveHTMLAttachContext(e: DragEvent): Promise<IChatRequestVariableEntry[]> {
 		const displayName = localize('dragAndDroppedImageName', 'Image from URL');
 		let finalDisplayName = displayName;
@@ -378,6 +493,14 @@ export class ChatDragAndDrop extends Themable {
 		return variableEntries;
 	}
 
+	/**
+	 * @brief Creates an image variable entry for the chat model.
+	 * @param data The image data as a Uint8Array.
+	 * @param name The name of the image.
+	 * @param uri The URI of the image, if available.
+	 * @param id The ID of the image, if available.
+	 * @returns A promise that resolves to a chat request variable entry for the image.
+	 */
 	private async createImageVariable(data: Uint8Array, name: string, uri?: URI, id?: string,): Promise<IChatRequestVariableEntry> {
 		return {
 			id: id || await imageToHash(data),
@@ -390,6 +513,11 @@ export class ChatDragAndDrop extends Themable {
 		};
 	}
 
+	/**
+	 * @brief Resolves the attach context for markers (problems).
+	 * @param markers An array of marker transfer data.
+	 * @returns An array of diagnostic variable entries.
+	 */
 	private resolveMarkerAttachContext(markers: MarkerTransferData[]): IDiagnosticVariableEntry[] {
 		return markers.map((marker): IDiagnosticVariableEntry => {
 			let filter: IDiagnosticVariableEntryFilterData;
@@ -403,6 +531,11 @@ export class ChatDragAndDrop extends Themable {
 		});
 	}
 
+	/**
+	 * @brief Sets the content and visibility of the drag and drop overlay.
+	 * @param target The target HTML element.
+	 * @param type The type of content being dragged.
+	 */
 	private setOverlay(target: HTMLElement, type: ChatDragAndDropType | undefined): void {
 		// Remove any previous overlay text
 		this.overlayText?.remove();
@@ -428,16 +561,28 @@ export class ChatDragAndDrop extends Themable {
 		overlay.classList.toggle('visible', type !== undefined);
 	}
 
+	/**
+	 * @brief Gets the text to display in the overlay.
+	 * @param type The type of content being dragged.
+	 * @returns The overlay text.
+	 */
 	private getOverlayText(type: ChatDragAndDropType): string {
 		const typeName = this.getDropTypeName(type);
 		return localize('attacAsContext', 'Attach {0} as Context', typeName);
 	}
 
+	/**
+	 * @brief Updates the styles of the overlay based on the current theme.
+	 * @param overlay The overlay element.
+	 */
 	private updateOverlayStyles(overlay: HTMLElement): void {
 		overlay.style.backgroundColor = this.getColor(this.styles.overlayBackground) || '';
 		overlay.style.color = this.getColor(this.styles.listForeground) || '';
 	}
 
+	/**
+	 * @brief Updates the styles of all overlays and the overlay text background.
+	 */
 	override updateStyles(): void {
 		this.overlays.forEach(overlay => this.updateOverlayStyles(overlay.overlay));
 		this.overlayTextBackground = this.getColor(this.styles.listBackground) || '';
@@ -445,6 +590,11 @@ export class ChatDragAndDrop extends Themable {
 
 
 
+	/**
+	 * @brief Extracts image data from a file in a drag event.
+	 * @param e The drag event.
+	 * @returns A promise that resolves to a Uint8Array, or undefined if no image file is found.
+	 */
 	private async extractImageFromFile(e: DragEvent): Promise<Uint8Array | undefined> {
 		const files = e.dataTransfer?.files;
 		if (files && files.length > 0) {
@@ -463,6 +613,11 @@ export class ChatDragAndDrop extends Themable {
 		return undefined;
 	}
 
+	/**
+	 * @brief Extracts image URLs from a drag event.
+	 * @param e The drag event.
+	 * @returns A promise that resolves to an array of image URLs, or undefined.
+	 */
 	private async extractImageFromUrl(e: DragEvent): Promise<string[] | undefined> {
 		const textUrl = e.dataTransfer?.getData('text/uri-list');
 		if (textUrl) {
@@ -483,6 +638,13 @@ export class ChatDragAndDrop extends Themable {
 
 }
 
+/**
+ * @brief Gets the attach context for a resource.
+ * @param resource The URI of the resource.
+ * @param isDirectory Whether the resource is a directory.
+ * @param textModelService The text model service.
+ * @returns A promise that resolves to a chat request variable entry, or undefined.
+ */
 async function getResourceAttachContext(resource: URI, isDirectory: boolean, textModelService: ITextModelService): Promise<IChatRequestVariableEntry | undefined> {
 	let isOmitted = false;
 
@@ -509,6 +671,13 @@ async function getResourceAttachContext(resource: URI, isDirectory: boolean, tex
 	};
 }
 
+/**
+ * @brief Gets the attach context for an image.
+ * @param editor The editor input.
+ * @param fileService The file service.
+ * @param dialogService The dialog service.
+ * @returns A promise that resolves to a chat request variable entry, or undefined.
+ */
 async function getImageAttachContext(editor: EditorInput | IDraggedResourceEditorInput, fileService: IFileService, dialogService: IDialogService): Promise<IChatRequestVariableEntry | undefined> {
 	if (!editor.resource) {
 		return undefined;
@@ -537,6 +706,12 @@ async function getImageAttachContext(editor: EditorInput | IDraggedResourceEdito
 	return undefined;
 }
 
+/**
+ * @brief Generates a unique ID for a symbol.
+ * @param resource The URI of the resource containing the symbol.
+ * @param range The range of the symbol.
+ * @returns A unique ID for the symbol.
+ */
 function symbolId(resource: URI, range?: IRange): string {
 	let rangePart = '';
 	if (range) {

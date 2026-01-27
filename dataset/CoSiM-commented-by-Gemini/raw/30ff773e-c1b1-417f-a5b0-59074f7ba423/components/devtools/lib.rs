@@ -6,6 +6,13 @@
 //! nightly Firefox versions at time of writing. Largely based on
 //! reverse-engineering of Firefox chrome devtool logs and reading of
 //! [code](https://searchfox.org/mozilla-central/source/devtools/server).
+//! 
+//! This crate establishes a TCP server that listens for connections from a
+//! remote DevTools client. It uses an actor model to manage different
+//! DevTools features like the console, inspector, and network monitor. Each
+//! feature is represented by an "actor" that communicates through a message-passing
+//! system. The `DevtoolsInstance` is the central component that manages the
+//! actor system, client connections, and state.
 
 #![crate_name = "devtools"]
 #![crate_type = "rlib"]
@@ -50,7 +57,11 @@ use crate::id::IdMap;
 use crate::network_handler::handle_network_event;
 use crate::protocol::JsonPacketStream;
 
+// Module declarations for the actor system and protocol implementation.
 mod actor;
+/// This module contains implementations for various DevTools actors, each corresponding
+/// to a specific feature or entity in the DevTools protocol (e.g., console, inspector).
+/// The structure mirrors the Mozilla DevTools server implementation.
 /// <https://searchfox.org/mozilla-central/source/devtools/server/actors>
 mod actors {
     pub mod breakpoint;
@@ -80,18 +91,25 @@ mod network_handler;
 mod protocol;
 mod resource;
 
+/// An internal enum to uniquely identify a script global, which can be
+/// either a main pipeline or a dedicated worker.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 enum UniqueId {
     Pipeline(PipelineId),
     Worker(WorkerId),
 }
 
+/// A generic empty reply message structure used in the DevTools protocol.
 #[derive(Serialize)]
 pub struct EmptyReplyMsg {
     pub from: String,
 }
 
 /// Spin up a devtools server that listens for connections on the specified port.
+///
+/// This is the main entry point for starting the DevTools server. It spawns a
+/// new thread to host the `DevtoolsInstance` and returns a `Sender` channel
+/// for communicating with the server.
 pub fn start_server(port: u16, embedder: EmbedderProxy) -> Sender<DevtoolsControlMsg> {
     let (sender, receiver) = unbounded();
     {
@@ -108,33 +126,50 @@ pub fn start_server(port: u16, embedder: EmbedderProxy) -> Sender<DevtoolsContro
     sender
 }
 
+/// A unique identifier for a TCP stream connection from a DevTools client.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub(crate) struct StreamId(u32);
 
+/// The central struct representing the state of the DevTools server.
+/// It manages all actors, active connections, and mappings between various IDs.
 struct DevtoolsInstance {
+    /// A thread-safe registry of all active actors in the system.
     actors: Arc<Mutex<ActorRegistry>>,
+    /// A mapping between internal Servo IDs and DevTools-specific string IDs.
     id_map: Arc<Mutex<IdMap>>,
+    /// A map from `BrowsingContextId` to the name of its corresponding actor.
     browsing_contexts: HashMap<BrowsingContextId, String>,
+    /// The receiving end of the main control channel for messages from other parts of the application.
     receiver: Receiver<DevtoolsControlMsg>,
+    /// A map from `PipelineId` to its parent `BrowsingContextId`.
     pipelines: HashMap<PipelineId, BrowsingContextId>,
+    /// A map from `WorkerId` to the name of its corresponding worker actor.
     actor_workers: HashMap<WorkerId, String>,
+    /// A map from a request ID to its corresponding network event actor name.
     actor_requests: HashMap<String, String>,
+    /// A map of active TCP client connections, identified by `StreamId`.
     connections: HashMap<StreamId, TcpStream>,
 }
 
 impl DevtoolsInstance {
+    /// Creates and initializes a new `DevtoolsInstance`.
+    ///
+    /// This function binds to the specified port, creates the initial set of root-level actors
+    /// (like Root, Performance, Device, etc.), and spawns a thread to listen for incoming
+    /// client connections. It communicates the server's status and an authentication token
+    //  to the embedding application.
     fn create(
         sender: Sender<DevtoolsControlMsg>,
         receiver: Receiver<DevtoolsControlMsg>,
         port: u16,
         embedder: EmbedderProxy,
     ) -> Option<Self> {
-        let bound = TcpListener::bind(("0.0.0.0", port)).ok().and_then(|l| {
+        let bound = TcpListener::bind(("0.0.0.0", port)).ok().and_then(|l|
             l.local_addr()
                 .map(|addr| addr.port())
                 .ok()
                 .map(|port| (l, port))
-        });
+        );
 
         // A token shared with the embedder to bypass permission prompt.
         let port = if bound.is_some() { Ok(port) } else { Err(()) };
@@ -148,7 +183,7 @@ impl DevtoolsInstance {
             },
         };
 
-        // Create basic actors
+        // Create basic actors that are present for the lifetime of the server.
         let mut registry = ActorRegistry::new();
         let performance = PerformanceActor::new(registry.new_name("performance"));
         let device = DeviceActor::new(registry.new_name("device"));
@@ -187,13 +222,13 @@ impl DevtoolsInstance {
         thread::Builder::new()
             .name("DevtoolsCliAcceptor".to_owned())
             .spawn(move || {
-                // accept connections and process them, spawning a new thread for each one
+                // Accept connections and process them, spawning a new thread for each one.
                 for stream in listener.incoming() {
                     let mut stream = stream.expect("Can't retrieve stream");
                     if !allow_devtools_client(&mut stream, &embedder, &token) {
                         continue;
                     };
-                    // connection succeeded and accepted
+                    // Connection succeeded and was accepted. Add the client to the instance.
                     sender
                         .send(DevtoolsControlMsg::FromChrome(
                             ChromeToDevtoolsControlMsg::AddClient(stream),
@@ -206,8 +241,15 @@ impl DevtoolsInstance {
         Some(instance)
     }
 
+    /// The main event loop for the `DevtoolsInstance`.
+    ///
+    /// This loop continuously waits for messages on its `receiver` channel and dispatches
+    /// them to the appropriate handler functions based on the message type. This is the
+    /// core of the actor model, processing events from both the DevTools client (chrome)
+    /// and the script engine.
     fn run(mut self) {
         let mut next_id = StreamId(0);
+        // Block and wait for incoming control messages.
         while let Ok(msg) = self.receiver.recv() {
             trace!("{:?}", msg);
             match msg {
@@ -217,7 +259,7 @@ impl DevtoolsInstance {
                     next_id = StreamId(id.0 + 1);
                     self.connections.insert(id, stream.try_clone().unwrap());
 
-                    // Inform every browsing context of the new stream
+                    // Inform every existing browsing context of the new stream so it can send messages.
                     for name in self.browsing_contexts.values() {
                         let actors = actors.lock().unwrap();
                         let browsing_context = actors.find::<BrowsingContextActor>(name);
@@ -225,6 +267,7 @@ impl DevtoolsInstance {
                         streams.insert(id, stream.try_clone().unwrap());
                     }
 
+                    // Spawn a new thread to handle communication with this specific client.
                     thread::Builder::new()
                         .name("DevtoolsClientHandler".to_owned())
                         .spawn(move || handle_client(actors, stream.try_clone().unwrap(), id))
@@ -264,6 +307,7 @@ impl DevtoolsInstance {
                     pipeline_id,
                     css_error,
                 )) => {
+                    // Convert CSS errors into a standard console message format.
                     let mut console_message = ConsoleMessageBuilder::new(
                         LogLevel::Warn,
                         css_error.filename,
@@ -290,22 +334,25 @@ impl DevtoolsInstance {
                     };
                     self.handle_network_event(connections, pipeline_id, request_id, network_event);
                 },
+                // Gracefully exit the server loop.
                 DevtoolsControlMsg::FromChrome(ChromeToDevtoolsControlMsg::ServerExitMsg) => break,
             }
         }
 
-        // Shut down all active connections
+        // Shut down all active connections upon exit.
         for connection in self.connections.values_mut() {
             let _ = connection.shutdown(Shutdown::Both);
         }
     }
 
+    /// Handles a framerate tick event by updating the corresponding FramerateActor.
     fn handle_framerate_tick(&self, actor_name: String, tick: f64) {
         let mut actors = self.actors.lock().unwrap();
         let framerate_actor = actors.find_mut::<FramerateActor>(&actor_name);
         framerate_actor.add_tick(tick);
     }
 
+    /// Handles a navigation event, updating the state of the relevant BrowsingContextActor.
     fn handle_navigate(&self, browsing_context_id: BrowsingContextId, state: NavigationState) {
         let actor_name = self.browsing_contexts.get(&browsing_context_id).unwrap();
         self.actors
@@ -315,6 +362,9 @@ impl DevtoolsInstance {
             .navigate(state, &mut self.id_map.lock().expect("Mutex poisoned"));
     }
 
+    /// Handles the creation of a new script global (e.g., a new page or worker).
+    /// This function is responsible for creating and registering all the necessary actors
+    /// (like Console, Thread, Worker, BrowsingContext) associated with this new global environment.
     // We need separate actor representations for each script global that exists;
     // clients can theoretically connect to multiple globals simultaneously.
     // TODO: move this into the root or target modules?
@@ -334,6 +384,8 @@ impl DevtoolsInstance {
 
         let console_name = actors.new_name("console");
 
+        // Determine if the new global is for a worker or a main browsing context
+        // and create the appropriate parent actor structure.
         let parent_actor = if let Some(id) = worker_id {
             assert!(self.pipelines.contains_key(&pipeline_id));
             assert!(self.browsing_contexts.contains_key(&browsing_context_id));
@@ -381,7 +433,7 @@ impl DevtoolsInstance {
                     name
                 });
 
-            // Add existing streams to the new browsing context
+            // Add existing client streams to the new browsing context actor.
             let browsing_context = actors.find::<BrowsingContextActor>(name);
             let mut streams = browsing_context.streams.borrow_mut();
             for (id, stream) in &self.connections {
@@ -391,6 +443,7 @@ impl DevtoolsInstance {
             Root::BrowsingContext(name.clone())
         };
 
+        // Create and register a console actor for the new global.
         let console = ConsoleActor {
             name: console_name,
             cached_events: Default::default(),
@@ -400,6 +453,7 @@ impl DevtoolsInstance {
         actors.register(Box::new(console));
     }
 
+    /// Handles a title change event for a specific browsing context.
     fn handle_title_changed(&self, pipeline_id: PipelineId, title: String) {
         let bc = match self.pipelines.get(&pipeline_id) {
             Some(bc) => bc,
@@ -414,6 +468,7 @@ impl DevtoolsInstance {
         browsing_context.title_changed(pipeline_id, title);
     }
 
+    /// Forwards a page error to the appropriate console actor.
     fn handle_page_error(
         &mut self,
         pipeline_id: PipelineId,
@@ -432,6 +487,7 @@ impl DevtoolsInstance {
         }
     }
 
+    /// Forwards a console API message (e.g., `console.log`) to the relevant console actor.
     fn handle_console_message(
         &mut self,
         pipeline_id: PipelineId,
@@ -450,6 +506,7 @@ impl DevtoolsInstance {
         }
     }
 
+    /// Finds the name of the console actor associated with a given pipeline or worker.
     fn find_console_actor(
         &self,
         pipeline_id: PipelineId,
@@ -471,6 +528,7 @@ impl DevtoolsInstance {
         }
     }
 
+    /// Forwards a network event to the dedicated network event handler.
     fn handle_network_event(
         &mut self,
         connections: Vec<TcpStream>,
@@ -496,6 +554,7 @@ impl DevtoolsInstance {
         )
     }
 
+    /// Finds or creates a `NetworkEventActor` for a given network request ID.
     // Find the name of NetworkEventActor corresponding to request_id
     // Create a new one if it does not exist, add it to the actor_requests hashmap
     fn find_network_event_actor(&mut self, request_id: String) -> String {
@@ -515,6 +574,8 @@ impl DevtoolsInstance {
         }
     }
 
+    /// Handles a new script source being loaded. It creates a `SourceActor` and associates
+    /// it with the correct thread (either from a worker or a browsing context).
     fn handle_script_source_info(&mut self, pipeline_id: PipelineId, source_info: SourceInfo) {
         let mut actors = self.actors.lock().unwrap();
 
@@ -564,7 +625,7 @@ impl DevtoolsInstance {
 
             thread_actor.source_manager.add_source(&source_actor_name);
 
-            // Notify browsing context about the new source
+            // Notify the corresponding browsing context about the new source available.
             let browsing_context = actors.find::<BrowsingContextActor>(actor_name);
 
             for stream in self.connections.values_mut() {
@@ -579,9 +640,13 @@ impl DevtoolsInstance {
     }
 }
 
+/// Checks if a new DevTools client connection is allowed.
+///
+/// It first checks for a valid authentication token. If a token is not present or invalid,
+/// it sends a request to the embedder to prompt the user for permission.
 fn allow_devtools_client(stream: &mut TcpStream, embedder: &EmbedderProxy, token: &str) -> bool {
     // By-pass prompt if we receive a valid token.
-    let token = format!("25:{{\"auth_token\":\"{}\"}}", token);
+    let token = format!("25:{{ \"auth_token\": \"{}\" }}", token);
     let mut buf = [0; 28];
     let timeout = std::time::Duration::from_millis(500);
     // This will read but not consume the bytes from the stream.
@@ -600,21 +665,26 @@ fn allow_devtools_client(stream: &mut TcpStream, embedder: &EmbedderProxy, token
         }
     };
 
-    // No token found. Prompt user
+    // No token found. Prompt user for permission via the embedder.
     let (request_sender, request_receiver) = ipc::channel().expect("Failed to create IPC channel!");
     embedder.send(EmbedderMsg::RequestDevtoolsConnection(request_sender));
     request_receiver.recv().unwrap() == AllowOrDeny::Allow
 }
 
-/// Process the input from a single devtools client until EOF.
+/// Handles all communication for a single DevTools client.
+///
+/// This function runs in its own thread for each connected client. It reads JSON packets
+/// from the stream, dispatches them to the actor system for processing, and writes back responses.
 fn handle_client(actors: Arc<Mutex<ActorRegistry>>, mut stream: TcpStream, stream_id: StreamId) {
     log::info!("Connection established to {}", stream.peer_addr().unwrap());
+    // Send the initial actor list to the client upon connection.
     let msg = actors.lock().unwrap().find::<RootActor>("root").encodable();
     if let Err(e) = stream.write_json_packet(&msg) {
         log::warn!("Error writing response: {:?}", e);
         return;
     }
 
+    // Main loop to read and process messages from the client.
     loop {
         match stream.read_json_packet() {
             Ok(Some(json_packet)) => {
@@ -628,10 +698,12 @@ fn handle_client(actors: Arc<Mutex<ActorRegistry>>, mut stream: TcpStream, strea
                     break;
                 }
             },
+            // The connection was closed cleanly by the client.
             Ok(None) => {
                 log::info!("Devtools connection closed");
                 break;
             },
+            // An error occurred while reading from the stream.
             Err(err_msg) => {
                 log::error!("Failed to read message from devtools client: {}", err_msg);
                 break;
@@ -639,5 +711,6 @@ fn handle_client(actors: Arc<Mutex<ActorRegistry>>, mut stream: TcpStream, strea
         }
     }
 
+    // Clean up resources associated with this client's stream ID.
     actors.lock().unwrap().cleanup(stream_id);
 }

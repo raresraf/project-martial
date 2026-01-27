@@ -1,3 +1,34 @@
+/**
+ * @file fprobe.c
+ * @brief Implements ftrace-based function entry/exit probes for the Linux kernel.
+ *
+ * This file provides the core logic for the fprobe framework, allowing dynamic
+ * instrumentation of kernel functions. It hooks into the ftrace infrastructure
+ * to trigger user-defined callbacks on function entry and exit, facilitating
+ * debugging, profiling, and monitoring of kernel code.
+ *
+ * Functional Utility:
+ * - Registers and unregisters fprobe instances, supporting filtering by symbol name
+ *   or direct address.
+ * - Manages hash tables for efficient lookup of fprobe instances by function address
+ *   and by the fprobe itself.
+ * - Provides mechanisms for handling per-entry private data on the stack.
+ * - Integrates with kprobes to handle shared probing scenarios.
+ * - Supports module unloading gracefully by removing probes from affected modules.
+ *
+ * Algorithms:
+ * - Hash table lookups and insertions for managing `fprobe_hlist_node` and `fprobe_hlist`.
+ * - Ftrace graph tracing for function entry and exit events.
+ * - Symbol lookup and filtering using `kallsyms` and glob matching.
+ *
+ * Architectural Intent:
+ * - To provide a flexible and robust framework for dynamic kernel instrumentation
+ *   with minimal overhead.
+ * - To leverage the existing ftrace infrastructure for function hooking.
+ * - To ensure thread-safe and RCU-safe (Read-Copy Update) operations for probe management.
+ *
+ * @see Documentation/trace/fprobe.rst in the Linux kernel source for more details.
+ */
 // SPDX-License-Identifier: GPL-2.0
 /*
  * fprobe - Simple ftrace probe wrapper for function entry.
@@ -17,31 +48,70 @@
 
 #include "trace.h"
 
+/**
+ * @def FPROBE_IP_HASH_BITS
+ * @brief Number of hash bits for the fprobe IP address table.
+ *
+ * This defines the size of the hash table used to store `fprobe_hlist_node`
+ * instances, keyed by the ftrace IP address.
+ */
 #define FPROBE_IP_HASH_BITS 8
+/**
+ * @def FPROBE_IP_TABLE_SIZE
+ * @brief Size of the fprobe IP address hash table.
+ *
+ * Calculated as 2 to the power of `FPROBE_IP_HASH_BITS`.
+ */
 #define FPROBE_IP_TABLE_SIZE (1 << FPROBE_IP_HASH_BITS)
 
+/**
+ * @def FPROBE_HASH_BITS
+ * @brief Number of hash bits for the fprobe instance hash table.
+ *
+ * This defines the size of the hash table used to store `fprobe_hlist`
+ * instances, keyed by the `fprobe` instance address.
+ */
 #define FPROBE_HASH_BITS 6
+/**
+ * @def FPROBE_TABLE_SIZE
+ * @brief Size of the fprobe instance hash table.
+ *
+ * Calculated as 2 to the power of `FPROBE_HASH_BITS`.
+ */
 #define FPROBE_TABLE_SIZE (1 << FPROBE_HASH_BITS)
 
+/**
+ * @def SIZE_IN_LONG(x)
+ * @brief Calculates the size in multiples of `sizeof(long)`.
+ * @param x The size in bytes.
+ *
+ * This macro helps convert a byte size into the number of `long` words
+ * required to store it, handling alignment.
+ */
 #define SIZE_IN_LONG(x) ((x + sizeof(long) - 1) >> (sizeof(long) == 8 ? 3 : 2))
 
-/*
- * fprobe_table: hold 'fprobe_hlist::hlist' for checking the fprobe still
- *   exists. The key is the address of fprobe instance.
- * fprobe_ip_table: hold 'fprobe_hlist::array[*]' for searching the fprobe
- *   instance related to the funciton address. The key is the ftrace IP
- *   address.
+/**
+ * @var fprobe_table
+ * @brief Hash table to hold `fprobe_hlist::hlist` for checking fprobe existence.
  *
- * When unregistering the fprobe, fprobe_hlist::fp and fprobe_hlist::array[*].fp
- * are set NULL and delete those from both hash tables (by hlist_del_rcu).
- * After an RCU grace period, the fprobe_hlist itself will be released.
- *
- * fprobe_table and fprobe_ip_table can be accessed from either
- *  - Normal hlist traversal and RCU add/del under 'fprobe_mutex' is held.
- *  - RCU hlist traversal under disabling preempt
+ * Keyed by the address of the `fprobe` instance. Used for quick checks if a
+ * specific fprobe is still registered. Access requires `fprobe_mutex` or RCU.
  */
 static struct hlist_head fprobe_table[FPROBE_TABLE_SIZE];
+/**
+ * @var fprobe_ip_table
+ * @brief Hash table to hold `fprobe_hlist::array[*]` for searching fprobe instances by IP address.
+ *
+ * Keyed by the ftrace IP address. Used to find all fprobes attached to a specific
+ * function entry. Access requires `fprobe_mutex` or RCU.
+ */
 static struct hlist_head fprobe_ip_table[FPROBE_IP_TABLE_SIZE];
+/**
+ * @var fprobe_mutex
+ * @brief Mutex to protect `fprobe_table` and `fprobe_ip_table` during modifications.
+ *
+ * Ensures exclusive access when adding or removing fprobe instances.
+ */
 static DEFINE_MUTEX(fprobe_mutex);
 
 /*
@@ -51,12 +121,21 @@ static DEFINE_MUTEX(fprobe_mutex);
  * Thus the hlist in the fprobe_table must be sorted and new probe needs to
  * be added *before* the first fprobe.
  */
+/**
+ * @brief Finds the first `fprobe_hlist_node` for a given instruction pointer (IP).
+ * @param ip The instruction pointer (address) of the function.
+ * @return Pointer to the first `fprobe_hlist_node` found, or NULL if none.
+ *
+ * This function traverses `fprobe_ip_table` to find the first node associated
+ * with the given IP. It requires RCU protection or `fprobe_mutex`.
+ */
 static struct fprobe_hlist_node *find_first_fprobe_node(unsigned long ip)
 {
 	struct fprobe_hlist_node *node;
 	struct hlist_head *head;
 
 	head = &fprobe_ip_table[hash_ptr((void *)ip, FPROBE_IP_HASH_BITS)];
+	// Block Logic: Iterates through the hlist, checking for matching IP addresses.
 	hlist_for_each_entry_rcu(node, head, hlist,
 				 lockdep_is_held(&fprobe_mutex)) {
 		if (node->addr == ip)
@@ -67,6 +146,14 @@ static struct fprobe_hlist_node *find_first_fprobe_node(unsigned long ip)
 NOKPROBE_SYMBOL(find_first_fprobe_node);
 
 /* Node insertion and deletion requires the fprobe_mutex */
+/**
+ * @brief Inserts an `fprobe_hlist_node` into `fprobe_ip_table`.
+ * @param node Pointer to the `fprobe_hlist_node` to insert.
+ *
+ * This function adds a new node to the `fprobe_ip_table`. If another node
+ * with the same address already exists, the new node is inserted before it
+ * to maintain a sorted order. Requires `fprobe_mutex` to be held.
+ */
 static void insert_fprobe_node(struct fprobe_hlist_node *node)
 {
 	unsigned long ip = node->addr;
@@ -76,6 +163,7 @@ static void insert_fprobe_node(struct fprobe_hlist_node *node)
 	lockdep_assert_held(&fprobe_mutex);
 
 	next = find_first_fprobe_node(ip);
+	// Block Logic: If a node with the same IP exists, inserts before it; otherwise, adds to head.
 	if (next) {
 		hlist_add_before_rcu(&node->hlist, &next->hlist);
 		return;
@@ -84,26 +172,43 @@ static void insert_fprobe_node(struct fprobe_hlist_node *node)
 	hlist_add_head_rcu(&node->hlist, head);
 }
 
-/* Return true if there are synonims */
+/**
+ * @brief Deletes an `fprobe_hlist_node` from `fprobe_ip_table`.
+ * @param node Pointer to the `fprobe_hlist_node` to delete.
+ * @return True if there are other nodes (synonyms) at the same address, false otherwise.
+ *
+ * This function marks the node's `fp` as NULL and removes it from the hlist.
+ * It requires `fprobe_mutex` to be held.
+ */
 static bool delete_fprobe_node(struct fprobe_hlist_node *node)
 {
 	lockdep_assert_held(&fprobe_mutex);
 
 	/* Avoid double deleting */
+	// Block Logic: Prevents double deletion by checking `fp` field.
 	if (READ_ONCE(node->fp) != NULL) {
 		WRITE_ONCE(node->fp, NULL);
 		hlist_del_rcu(&node->hlist);
 	}
+	// Functional Utility: Checks if other nodes with the same address still exist.
 	return !!find_first_fprobe_node(node->addr);
 }
 
-/* Check existence of the fprobe */
+/**
+ * @brief Checks if an `fprobe` instance is still registered in `fprobe_table`.
+ * @param fp Pointer to the `fprobe` instance.
+ * @return True if the fprobe is found in the table, false otherwise.
+ *
+ * This function traverses `fprobe_table` to verify the existence of the `fprobe`.
+ * It requires RCU protection or `fprobe_mutex`.
+ */
 static bool is_fprobe_still_exist(struct fprobe *fp)
 {
 	struct hlist_head *head;
 	struct fprobe_hlist *fph;
 
 	head = &fprobe_table[hash_ptr(fp, FPROBE_HASH_BITS)];
+	// Block Logic: Iterates through the hlist, checking for a matching `fprobe` instance.
 	hlist_for_each_entry_rcu(fph, head, hlist,
 				 lockdep_is_held(&fprobe_mutex)) {
 		if (fph->fp == fp)
@@ -113,6 +218,14 @@ static bool is_fprobe_still_exist(struct fprobe *fp)
 }
 NOKPROBE_SYMBOL(is_fprobe_still_exist);
 
+/**
+ * @brief Adds an `fprobe` instance to `fprobe_table`.
+ * @param fp Pointer to the `fprobe` instance to add.
+ * @return 0 on success, -EINVAL if `hlist_array` is NULL, -EEXIST if already exists.
+ *
+ * This function registers the `fprobe` instance in `fprobe_table`.
+ * Requires `fprobe_mutex` to be held.
+ */
 static int add_fprobe_hash(struct fprobe *fp)
 {
 	struct fprobe_hlist *fph = fp->hlist_array;
@@ -120,9 +233,11 @@ static int add_fprobe_hash(struct fprobe *fp)
 
 	lockdep_assert_held(&fprobe_mutex);
 
+	// Block Logic: Checks for valid `hlist_array`.
 	if (WARN_ON_ONCE(!fph))
 		return -EINVAL;
 
+	// Block Logic: Checks if the fprobe is already registered.
 	if (is_fprobe_still_exist(fp))
 		return -EEXIST;
 
@@ -131,31 +246,50 @@ static int add_fprobe_hash(struct fprobe *fp)
 	return 0;
 }
 
+/**
+ * @brief Deletes an `fprobe` instance from `fprobe_table`.
+ * @param fp Pointer to the `fprobe` instance to delete.
+ * @return 0 on success, -EINVAL if `hlist_array` is NULL, -ENOENT if not found.
+ *
+ * This function unregisters the `fprobe` instance from `fprobe_table`
+ * by setting its `fp` field to NULL and removing it from the hlist.
+ * Requires `fprobe_mutex` to be held.
+ */
 static int del_fprobe_hash(struct fprobe *fp)
 {
 	struct fprobe_hlist *fph = fp->hlist_array;
 
 	lockdep_assert_held(&fprobe_mutex);
 
+	// Block Logic: Checks for valid `hlist_array`.
 	if (WARN_ON_ONCE(!fph))
 		return -EINVAL;
 
+	// Block Logic: Checks if the fprobe exists.
 	if (!is_fprobe_still_exist(fp))
 		return -ENOENT;
 
-	fph->fp = NULL;
+	fph->fp = NULL; // Functional Utility: Marks the fprobe as no longer valid.
 	hlist_del_rcu(&fph->hlist);
 	return 0;
 }
 
 #ifdef ARCH_DEFINE_ENCODE_FPROBE_HEADER
-
+// Block Logic: Architecture-specific fprobe header encoding is defined.
 /* The arch should encode fprobe_header info into one unsigned long */
 #define FPROBE_HEADER_SIZE_IN_LONG	1
 
+/**
+ * @brief Writes fprobe header information to the stack.
+ * @param stack Pointer to the stack location where the header should be written.
+ * @param fp Pointer to the `fprobe` instance.
+ * @param size_words The size of the entry data in words.
+ * @return True on success, false on failure (e.g., if size is too large or header not encodable).
+ */
 static inline bool write_fprobe_header(unsigned long *stack,
 					struct fprobe *fp, unsigned int size_words)
 {
+	// Block Logic: Checks for valid size and encodability.
 	if (WARN_ON_ONCE(size_words > MAX_FPROBE_DATA_SIZE_WORD ||
 			 !arch_fprobe_header_encodable(fp)))
 		return false;
@@ -164,6 +298,12 @@ static inline bool write_fprobe_header(unsigned long *stack,
 	return true;
 }
 
+/**
+ * @brief Reads fprobe header information from the stack.
+ * @param stack Pointer to the stack location where the header is stored.
+ * @param fp Output parameter for the `fprobe` instance pointer.
+ * @param size_words Output parameter for the size of entry data in words.
+ */
 static inline void read_fprobe_header(unsigned long *stack,
 					struct fprobe **fp, unsigned int *size_words)
 {
@@ -172,20 +312,36 @@ static inline void read_fprobe_header(unsigned long *stack,
 }
 
 #else
-
+// Block Logic: Generic fprobe header encoding is used if no architecture-specific one is defined.
 /* Generic fprobe_header */
+/**
+ * @struct __fprobe_header
+ * @brief Generic fprobe header structure for storing probe and data size.
+ */
 struct __fprobe_header {
-	struct fprobe *fp;
-	unsigned long size_words;
+	struct fprobe *fp;		/**< @brief Pointer to the fprobe instance. */
+	unsigned long size_words;	/**< @brief Size of the entry data in words. */
 } __packed;
 
+/**
+ * @def FPROBE_HEADER_SIZE_IN_LONG
+ * @brief Size of the generic fprobe header in multiples of `sizeof(long)`.
+ */
 #define FPROBE_HEADER_SIZE_IN_LONG	SIZE_IN_LONG(sizeof(struct __fprobe_header))
 
+/**
+ * @brief Writes generic fprobe header information to the stack.
+ * @param stack Pointer to the stack location.
+ * @param fp Pointer to the `fprobe` instance.
+ * @param size_words The size of entry data in words.
+ * @return True on success, false on failure (e.g., if size is too large).
+ */
 static inline bool write_fprobe_header(unsigned long *stack,
 					struct fprobe *fp, unsigned int size_words)
 {
 	struct __fprobe_header *fph = (struct __fprobe_header *)stack;
 
+	// Block Logic: Checks for valid size.
 	if (WARN_ON_ONCE(size_words > MAX_FPROBE_DATA_SIZE_WORD))
 		return false;
 
@@ -194,6 +350,12 @@ static inline bool write_fprobe_header(unsigned long *stack,
 	return true;
 }
 
+/**
+ * @brief Reads generic fprobe header information from the stack.
+ * @param stack Pointer to the stack location.
+ * @param fp Output parameter for the `fprobe` instance pointer.
+ * @param size_words Output parameter for the size of entry data in words.
+ */
 static inline void read_fprobe_header(unsigned long *stack,
 					struct fprobe **fp, unsigned int *size_words)
 {
@@ -214,6 +376,17 @@ static inline void read_fprobe_header(unsigned long *stack,
  * the shadow stack with its entry data size.
  *
  */
+/**
+ * @brief Internal handler for fprobe entry events.
+ * @param ip Instruction pointer at function entry.
+ * @param parent_ip Return instruction pointer.
+ * @param fp Pointer to the `fprobe` instance.
+ * @param fregs Pointer to ftrace registers.
+ * @param data Per-entry private data.
+ * @return An integer status code.
+ *
+ * This function invokes the user-defined `entry_handler` if it exists.
+ */
 static inline int __fprobe_handler(unsigned long ip, unsigned long parent_ip,
 				   struct fprobe *fp, struct ftrace_regs *fregs,
 				   void *data)
@@ -224,6 +397,18 @@ static inline int __fprobe_handler(unsigned long ip, unsigned long parent_ip,
 	return fp->entry_handler(fp, ip, parent_ip, fregs, data);
 }
 
+/**
+ * @brief Internal handler for fprobe entry events, optimized for kprobe sharing.
+ * @param ip Instruction pointer at function entry.
+ * @param parent_ip Return instruction pointer.
+ * @param fp Pointer to the `fprobe` instance.
+ * @param fregs Pointer to ftrace registers.
+ * @param data Per-entry private data.
+ * @return An integer status code.
+ *
+ * This function provides a wrapper around `__fprobe_handler` that checks
+ * for kprobe recursion and increments `nmissed` if recursion is detected.
+ */
 static inline int __fprobe_kprobe_handler(unsigned long ip, unsigned long parent_ip,
 					  struct fprobe *fp, struct ftrace_regs *fregs,
 					  void *data)
@@ -235,17 +420,29 @@ static inline int __fprobe_kprobe_handler(unsigned long ip, unsigned long parent
 	 * exit as kprobe does. See the section 'Share the callbacks with kprobes'
 	 * in Documentation/trace/fprobe.rst for more information.
 	 */
+	// Block Logic: Detects kprobe recursion and increments `nmissed`.
 	if (unlikely(kprobe_running())) {
 		fp->nmissed++;
 		return 0;
 	}
 
-	kprobe_busy_begin();
+	kprobe_busy_begin(); // Functional Utility: Marks kprobe as busy.
 	ret = __fprobe_handler(ip, parent_ip, fp, fregs, data);
-	kprobe_busy_end();
+	kprobe_busy_end(); // Functional Utility: Marks kprobe as not busy.
 	return ret;
 }
 
+/**
+ * @brief Ftrace graph entry callback for fprobe.
+ * @param trace Pointer to ftrace graph entry information.
+ * @param gops Pointer to ftrace graph operations.
+ * @param fregs Pointer to ftrace registers.
+ * @return An integer indicating whether data was reserved on the stack.
+ *
+ * This function is called by ftrace when a probed function is entered.
+ * It identifies all fprobes attached to the function, reserves stack
+ * space for their per-entry data, and invokes their entry handlers.
+ */
 static int fprobe_entry(struct ftrace_graph_ent *trace, struct fgraph_ops *gops,
 			struct ftrace_regs *fregs)
 {
@@ -257,18 +454,22 @@ static int fprobe_entry(struct ftrace_graph_ent *trace, struct fgraph_ops *gops,
 	struct fprobe *fp;
 	int used, ret;
 
+	// Block Logic: Ensures ftrace registers are valid.
 	if (WARN_ON_ONCE(!fregs))
 		return 0;
 
 	first = node = find_first_fprobe_node(func);
+	// Block Logic: Returns if no fprobe nodes are found for this function.
 	if (unlikely(!first))
 		return 0;
 
+	// Block Logic: Calculates total reserved words needed for all fprobes attached to this function.
 	reserved_words = 0;
 	hlist_for_each_entry_from_rcu(node, hlist) {
 		if (node->addr != func)
 			break;
 		fp = READ_ONCE(node->fp);
+		// Block Logic: Only considers fprobes with exit handlers for stack reservation.
 		if (!fp || !fp->exit_handler)
 			continue;
 		/*
@@ -279,8 +480,10 @@ static int fprobe_entry(struct ftrace_graph_ent *trace, struct fgraph_ops *gops,
 			FPROBE_HEADER_SIZE_IN_LONG + SIZE_IN_LONG(fp->entry_data_size);
 	}
 	node = first;
+	// Block Logic: If stack space needs to be reserved, attempts to do so.
 	if (reserved_words) {
 		fgraph_data = fgraph_reserve_data(gops->idx, reserved_words * sizeof(long));
+		// Block Logic: Handles reservation failure by incrementing `nmissed` for relevant fprobes.
 		if (unlikely(!fgraph_data)) {
 			hlist_for_each_entry_from_rcu(node, hlist) {
 				if (node->addr != func)
@@ -299,6 +502,7 @@ static int fprobe_entry(struct ftrace_graph_ent *trace, struct fgraph_ops *gops,
 	 */
 	ret_ip = ftrace_regs_get_return_address(fregs);
 	used = 0;
+	// Block Logic: Iterates through fprobes for the function, invokes entry handlers, and writes header data.
 	hlist_for_each_entry_from_rcu(node, hlist) {
 		int data_size;
 		void *data;
@@ -306,21 +510,25 @@ static int fprobe_entry(struct ftrace_graph_ent *trace, struct fgraph_ops *gops,
 		if (node->addr != func)
 			break;
 		fp = READ_ONCE(node->fp);
+		// Block Logic: Skips if fprobe is not valid or is disabled.
 		if (!fp || fprobe_disabled(fp))
 			continue;
 
 		data_size = fp->entry_data_size;
+		// Block Logic: Determines data pointer for entry handler.
 		if (data_size && fp->exit_handler)
 			data = fgraph_data + used + FPROBE_HEADER_SIZE_IN_LONG;
 		else
 			data = NULL;
 
+		// Block Logic: Calls the appropriate entry handler (kprobe-shared or regular).
 		if (fprobe_shared_with_kprobes(fp))
 			ret = __fprobe_kprobe_handler(func, ret_ip, fp, fregs, data);
 		else
 			ret = __fprobe_handler(func, ret_ip, fp, fregs, data);
 
 		/* If entry_handler returns !0, nmissed is not counted but skips exit_handler. */
+		// Block Logic: If entry handler returns 0 and an exit handler exists, writes fprobe header.
 		if (!ret && fp->exit_handler) {
 			int size_words = SIZE_IN_LONG(data_size);
 
@@ -328,14 +536,26 @@ static int fprobe_entry(struct ftrace_graph_ent *trace, struct fgraph_ops *gops,
 				used += FPROBE_HEADER_SIZE_IN_LONG + size_words;
 		}
 	}
+	// Block Logic: Zeroes out any unused reserved stack space.
 	if (used < reserved_words)
 		memset(fgraph_data + used, 0, reserved_words - used);
 
 	/* If any exit_handler is set, data must be used. */
+	// Functional Utility: Returns true if any data was used (exit handlers present).
 	return used != 0;
 }
 NOKPROBE_SYMBOL(fprobe_entry);
 
+/**
+ * @brief Ftrace graph return callback for fprobe.
+ * @param trace Pointer to ftrace graph return information.
+ * @param gops Pointer to ftrace graph operations.
+ * @param fregs Pointer to ftrace registers.
+ *
+ * This function is called by ftrace when a probed function is exited.
+ * It retrieves the per-entry data from the stack, reads the fprobe header,
+ * and invokes the exit handlers of the relevant fprobes.
+ */
 static void fprobe_return(struct ftrace_graph_ret *trace,
 			  struct fgraph_ops *gops,
 			  struct ftrace_regs *fregs)
@@ -347,20 +567,25 @@ static void fprobe_return(struct ftrace_graph_ret *trace,
 	int size_words;
 
 	fgraph_data = (unsigned long *)fgraph_retrieve_data(gops->idx, &size);
+	// Block Logic: Ensures ftrace graph data is valid.
 	if (WARN_ON_ONCE(!fgraph_data))
 		return;
 	size_words = SIZE_IN_LONG(size);
 	ret_ip = ftrace_regs_get_instruction_pointer(fregs);
 
-	preempt_disable_notrace();
+	preempt_disable_notrace(); // Functional Utility: Disables preemption.
 
 	curr = 0;
+	// Block Logic: Iterates through the stored fprobe headers on the stack.
 	while (size_words > curr) {
 		read_fprobe_header(&fgraph_data[curr], &fp, &size);
+		// Block Logic: Breaks if no valid fprobe pointer is read.
 		if (!fp)
 			break;
 		curr += FPROBE_HEADER_SIZE_IN_LONG;
+		// Block Logic: If the fprobe still exists and is enabled, invokes its exit handler.
 		if (is_fprobe_still_exist(fp) && !fprobe_disabled(fp)) {
+			// Block Logic: Checks for buffer overflow.
 			if (WARN_ON_ONCE(curr + size > size_words))
 				break;
 			fp->exit_handler(fp, trace->func, ret_ip, fregs,
@@ -368,29 +593,53 @@ static void fprobe_return(struct ftrace_graph_ret *trace,
 		}
 		curr += size;
 	}
-	preempt_enable_notrace();
+	preempt_enable_notrace(); // Functional Utility: Enables preemption.
 }
 NOKPROBE_SYMBOL(fprobe_return);
 
+/**
+ * @var fprobe_graph_ops
+ * @brief Ftrace graph operations structure for fprobe.
+ *
+ * Contains pointers to `fprobe_entry` and `fprobe_return` callbacks.
+ */
 static struct fgraph_ops fprobe_graph_ops = {
 	.entryfunc	= fprobe_entry,
 	.retfunc	= fprobe_return,
 };
+/**
+ * @var fprobe_graph_active
+ * @brief Counter for active fprobe graph registrations.
+ *
+ * Tracks how many fprobes are currently using the ftrace graph.
+ */
 static int fprobe_graph_active;
 
-/* Add @addrs to the ftrace filter and register fgraph if needed. */
+/**
+ * @brief Adds instruction pointers (IPs) to the ftrace filter and registers fgraph if needed.
+ * @param addrs Array of instruction pointers to filter.
+ * @param num Number of addresses in the array.
+ * @return 0 on success, or a negative errno on failure.
+ *
+ * This function modifies the ftrace filter to include the specified addresses.
+ * If this is the first fprobe to be registered, it also registers the ftrace
+ * graph operations. Requires `fprobe_mutex` to be held.
+ */
 static int fprobe_graph_add_ips(unsigned long *addrs, int num)
 {
 	int ret;
 
 	lockdep_assert_held(&fprobe_mutex);
 
+	// Functional Utility: Sets filter IPs for ftrace graph operations.
 	ret = ftrace_set_filter_ips(&fprobe_graph_ops.ops, addrs, num, 0, 0);
 	if (ret)
 		return ret;
 
+	// Block Logic: If no fprobe graphs are active, registers the ftrace graph.
 	if (!fprobe_graph_active) {
 		ret = register_ftrace_graph(&fprobe_graph_ops);
+		// Block Logic: Handles registration failure.
 		if (WARN_ON_ONCE(ret)) {
 			ftrace_free_filter(&fprobe_graph_ops.ops);
 			return ret;
@@ -400,43 +649,75 @@ static int fprobe_graph_add_ips(unsigned long *addrs, int num)
 	return 0;
 }
 
-/* Remove @addrs from the ftrace filter and unregister fgraph if possible. */
+/**
+ * @brief Removes instruction pointers (IPs) from the ftrace filter and unregisters fgraph if possible.
+ * @param addrs Array of instruction pointers to remove from filter.
+ * @param num Number of addresses in the array.
+ *
+ * This function removes specified addresses from the ftrace filter. If no
+ * fprobe graphs remain active, it unregisters the ftrace graph operations.
+ * Requires `fprobe_mutex` to be held.
+ */
 static void fprobe_graph_remove_ips(unsigned long *addrs, int num)
 {
 	lockdep_assert_held(&fprobe_mutex);
 
 	fprobe_graph_active--;
 	/* Q: should we unregister it ? */
+	// Block Logic: If no fprobe graphs are active, unregisters the ftrace graph.
 	if (!fprobe_graph_active)
 		unregister_ftrace_graph(&fprobe_graph_ops);
 
+	// Block Logic: If addresses are provided, removes them from the ftrace filter.
 	if (num)
 		ftrace_set_filter_ips(&fprobe_graph_ops.ops, addrs, num, 1, 0);
 }
 
 #ifdef CONFIG_MODULES
 
+/**
+ * @def FPROBE_IPS_BATCH_INIT
+ * @brief Initial batch size for instruction pointer address list.
+ */
 #define FPROBE_IPS_BATCH_INIT 8
-/* instruction pointer address list */
+/**
+ * @struct fprobe_addr_list
+ * @brief Structure to manage a dynamic list of instruction pointer addresses.
+ *
+ * Used primarily for collecting addresses from modules before adding/removing
+ * them from ftrace filters.
+ */
 struct fprobe_addr_list {
-	int index;
-	int size;
-	unsigned long *addrs;
+	int index;		/**< @brief Current number of addresses in the list. */
+	int size;		/**< @brief Current allocated size of the `addrs` array. */
+	unsigned long *addrs;	/**< @brief Dynamically allocated array of addresses. */
 };
 
+/**
+ * @brief Adds an address to the `fprobe_addr_list`.
+ * @param alist Pointer to the `fprobe_addr_list` structure.
+ * @param addr The address to add.
+ * @return 0 on success, -ENOMEM if memory allocation fails.
+ *
+ * This function dynamically expands the `addrs` array if it runs out of space.
+ */
 static int fprobe_addr_list_add(struct fprobe_addr_list *alist, unsigned long addr)
 {
 	unsigned long *addrs;
 
+	// Block Logic: Checks if the list needs to be expanded.
 	if (alist->index >= alist->size)
 		return -ENOMEM;
 
 	alist->addrs[alist->index++] = addr;
+	// Block Logic: Returns if there is still space in the current array.
 	if (alist->index < alist->size)
 		return 0;
 
 	/* Expand the address list */
+	// Functional Utility: Doubles the allocated size of the address array.
 	addrs = kcalloc(alist->size * 2, sizeof(*addrs), GFP_KERNEL);
+	// Block Logic: Handles memory allocation failure.
 	if (!addrs)
 		return -ENOMEM;
 
@@ -448,28 +729,52 @@ static int fprobe_addr_list_add(struct fprobe_addr_list *alist, unsigned long ad
 	return 0;
 }
 
+/**
+ * @brief Removes fprobe nodes within a specific module from the hash table.
+ * @param mod Pointer to the module being unloaded.
+ * @param head Pointer to the hlist head to traverse.
+ * @param alist Pointer to an `fprobe_addr_list` to collect removed addresses.
+ *
+ * This function iterates through fprobe nodes in a hash list. If a node's
+ * address is within the specified module, it's deleted from the hash table
+ * and its address is added to `alist`.
+ */
 static void fprobe_remove_node_in_module(struct module *mod, struct hlist_head *head,
 					struct fprobe_addr_list *alist)
 {
 	struct fprobe_hlist_node *node;
 	int ret = 0;
 
+	// Block Logic: Iterates through the hlist, finding nodes within the specified module.
 	hlist_for_each_entry_rcu(node, head, hlist,
 				 lockdep_is_held(&fprobe_mutex)) {
+		// Block Logic: Skips nodes not belonging to the current module.
 		if (!within_module(node->addr, mod))
 			continue;
+		// Block Logic: Deletes the fprobe node. If other synonyms exist, continues.
 		if (delete_fprobe_node(node))
 			continue;
 		/*
 		 * If failed to update alist, just continue to update hlist.
 		 * Therefore, at list user handler will not hit anymore.
 		 */
+		// Block Logic: Adds the removed address to `alist` for later ftrace filter updates.
 		if (!ret)
 			ret = fprobe_addr_list_add(alist, node->addr);
 	}
 }
 
-/* Handle module unloading to manage fprobe_ip_table. */
+/**
+ * @brief Module callback function to handle module state changes (e.g., unloading).
+ * @param nb Pointer to the `notifier_block`.
+ * @param val The notification value (module state).
+ * @param data Pointer to the module.
+ * @return `NOTIFY_DONE`.
+ *
+ * This function is invoked when a module is about to be unloaded (`MODULE_STATE_GOING`).
+ * It removes all fprobe nodes associated with that module from the internal
+ * hash tables and updates the ftrace filters.
+ */
 static int fprobe_module_callback(struct notifier_block *nb,
 				  unsigned long val, void *data)
 {
@@ -477,40 +782,63 @@ static int fprobe_module_callback(struct notifier_block *nb,
 	struct module *mod = data;
 	int i;
 
+	// Block Logic: Only acts on `MODULE_STATE_GOING` events.
 	if (val != MODULE_STATE_GOING)
 		return NOTIFY_DONE;
 
 	alist.addrs = kcalloc(alist.size, sizeof(*alist.addrs), GFP_KERNEL);
 	/* If failed to alloc memory, we can not remove ips from hash. */
+	// Block Logic: Handles memory allocation failure for the address list.
 	if (!alist.addrs)
 		return NOTIFY_DONE;
 
-	mutex_lock(&fprobe_mutex);
+	mutex_lock(&fprobe_mutex); // Functional Utility: Acquires mutex for critical section.
+	// Block Logic: Iterates through all IP hash table entries to remove nodes belonging to the unloading module.
 	for (i = 0; i < FPROBE_IP_TABLE_SIZE; i++)
 		fprobe_remove_node_in_module(mod, &fprobe_ip_table[i], &alist);
 
+	// Block Logic: If addresses were collected, updates the ftrace filter to remove them.
 	if (alist.index < alist.size && alist.index > 0)
 		ftrace_set_filter_ips(&fprobe_graph_ops.ops,
 				      alist.addrs, alist.index, 1, 0);
-	mutex_unlock(&fprobe_mutex);
+	mutex_unlock(&fprobe_mutex); // Functional Utility: Releases mutex.
 
-	kfree(alist.addrs);
+	kfree(alist.addrs); // Functional Utility: Frees allocated memory.
 
 	return NOTIFY_DONE;
 }
 
+/**
+ * @var fprobe_module_nb
+ * @brief Notifier block for module state changes.
+ *
+ * Registers `fprobe_module_callback` to be notified of module events.
+ */
 static struct notifier_block fprobe_module_nb = {
 	.notifier_call = fprobe_module_callback,
 	.priority = 0,
 };
 
+/**
+ * @brief Initializes the fprobe module notification system.
+ * @return 0 on success, or a negative errno on failure.
+ *
+ * This function registers `fprobe_module_nb` with the kernel's module notifier
+ * chain, allowing fprobe to react to module load/unload events.
+ */
 static int __init init_fprobe_module(void)
 {
 	return register_module_notifier(&fprobe_module_nb);
 }
-early_initcall(init_fprobe_module);
+early_initcall(init_fprobe_module); // Functional Utility: Registers `init_fprobe_module` as an early initialization call.
 #endif
 
+/**
+ * @brief Comparator function for sorting symbol names.
+ * @param a Pointer to the first symbol string.
+ * @param b Pointer to the second symbol string.
+ * @return Result of `strcmp`, used for lexicographical sorting.
+ */
 static int symbols_cmp(const void *a, const void *b)
 {
 	const char **str_a = (const char **) a;
@@ -520,48 +848,82 @@ static int symbols_cmp(const void *a, const void *b)
 }
 
 /* Convert ftrace location address from symbols */
+/**
+ * @brief Converts an array of symbol names to an array of ftrace location addresses.
+ * @param syms Array of symbol names.
+ * @param num Number of symbols in the array.
+ * @return Pointer to a newly allocated array of `unsigned long` addresses on success,
+ *         or an `ERR_PTR` on failure (e.g., memory allocation or symbol lookup failure).
+ *
+ * This function sorts the symbol names and then uses `ftrace_lookup_symbols`
+ * to get their corresponding ftrace location addresses.
+ */
 static unsigned long *get_ftrace_locations(const char **syms, int num)
 {
 	unsigned long *addrs;
 
 	/* Convert symbols to symbol address */
+	// Functional Utility: Allocates memory for addresses.
 	addrs = kcalloc(num, sizeof(*addrs), GFP_KERNEL);
+	// Block Logic: Handles memory allocation failure.
 	if (!addrs)
 		return ERR_PTR(-ENOMEM);
 
 	/* ftrace_lookup_symbols expects sorted symbols */
-	sort(syms, num, sizeof(*syms), symbols_cmp, NULL);
+	sort(syms, num, sizeof(*syms), symbols_cmp, NULL); // Functional Utility: Sorts symbols as required by `ftrace_lookup_symbols`.
 
+	// Block Logic: Looks up ftrace locations for sorted symbols.
 	if (!ftrace_lookup_symbols(syms, num, addrs))
 		return addrs;
 
-	kfree(addrs);
+	kfree(addrs); // Functional Utility: Frees allocated memory on failure.
 	return ERR_PTR(-ENOENT);
 }
 
+/**
+ * @struct filter_match_data
+ * @brief Structure to hold data for `filter_match_callback`.
+ *
+ * This structure aggregates parameters needed during the symbol filtering process,
+ * such as filter patterns, collected addresses, and module pointers.
+ */
 struct filter_match_data {
-	const char *filter;
-	const char *notfilter;
-	size_t index;
-	size_t size;
-	unsigned long *addrs;
-	struct module **mods;
+	const char *filter;		/**< @brief Glob pattern for inclusion. */
+	const char *notfilter;		/**< @brief Glob pattern for exclusion. */
+	size_t index;			/**< @brief Current index in `addrs` and `mods` arrays. */
+	size_t size;			/**< @brief Total size of `addrs` and `mods` arrays. */
+	unsigned long *addrs;		/**< @brief Array to store matching addresses. */
+	struct module **mods;		/**< @brief Array to store modules associated with addresses. */
 };
 
+/**
+ * @brief Callback function for `kallsyms_on_each_symbol` to filter and collect symbols.
+ * @param data Pointer to a `filter_match_data` structure.
+ * @param name Name of the symbol.
+ * @param addr Address of the symbol.
+ * @return 0 to continue iteration, 1 to stop.
+ *
+ * This function applies include/exclude glob patterns, checks if the address
+ * is an ftrace location, and collects the address and its module (if any).
+ */
 static int filter_match_callback(void *data, const char *name, unsigned long addr)
 {
 	struct filter_match_data *match = data;
 
+	// Block Logic: Applies glob filters.
 	if (!glob_match(match->filter, name) ||
 	    (match->notfilter && glob_match(match->notfilter, name)))
 		return 0;
 
+	// Block Logic: Skips if not an ftrace location.
 	if (!ftrace_location(addr))
 		return 0;
 
+	// Block Logic: If `addrs` is provided, collects the address and its module.
 	if (match->addrs) {
 		struct module *mod = __module_text_address(addr);
 
+		// Block Logic: Attempts to get a module reference count.
 		if (mod && !try_module_get(mod))
 			return 0;
 
@@ -569,6 +931,7 @@ static int filter_match_callback(void *data, const char *name, unsigned long add
 		match->addrs[match->index] = addr;
 	}
 	match->index++;
+	// Block Logic: Stops iteration if the array is full.
 	return match->index == match->size;
 }
 
@@ -581,6 +944,19 @@ static int filter_match_callback(void *data, const char *name, unsigned long add
  * This means we also need to call `module_put` for each element of @mods after
  * using the @addrs.
  */
+/**
+ * @brief Generates a list of ftrace instruction pointers (IPs) from filter patterns.
+ * @param filter Glob pattern for inclusion.
+ * @param notfilter Glob pattern for exclusion.
+ * @param addrs Optional: Array to store matched addresses.
+ * @param mods Optional: Array to store modules associated with addresses.
+ * @param size Size of `addrs` and `mods` arrays if provided.
+ * @return The number of matched symbols on success, or a negative errno on failure.
+ *
+ * This function iterates through kernel symbols, applies filters, and collects
+ * ftrace-able addresses. It can either just count matches or populate arrays
+ * with addresses and associated modules.
+ */
 static int get_ips_from_filter(const char *filter, const char *notfilter,
 			       unsigned long *addrs, struct module **mods,
 			       size_t size)
@@ -589,12 +965,14 @@ static int get_ips_from_filter(const char *filter, const char *notfilter,
 		.index = 0, .size = size, .addrs = addrs, .mods = mods};
 	int ret;
 
+	// Block Logic: Checks for invalid parameter combination.
 	if (addrs && !mods)
 		return -EINVAL;
 
 	ret = kallsyms_on_each_symbol(filter_match_callback, &match);
 	if (ret < 0)
 		return ret;
+	// Block Logic: If modules are enabled, also search module symbols.
 	if (IS_ENABLED(CONFIG_MODULES)) {
 		ret = module_kallsyms_on_each_symbol(NULL, filter_match_callback, &match);
 		if (ret < 0)
@@ -604,39 +982,60 @@ static int get_ips_from_filter(const char *filter, const char *notfilter,
 	return match.index ?: -ENOENT;
 }
 
+/**
+ * @brief Cleans up resources allocated during fprobe initialization failure.
+ * @param fp Pointer to the `fprobe` instance.
+ *
+ * This function frees the `hlist_array` and sets it to NULL.
+ */
 static void fprobe_fail_cleanup(struct fprobe *fp)
 {
 	kfree(fp->hlist_array);
 	fp->hlist_array = NULL;
 }
 
-/* Initialize the fprobe data structure. */
+/**
+ * @brief Initializes the internal data structures for an `fprobe` instance.
+ * @param fp Pointer to the `fprobe` instance to initialize.
+ * @param addrs Array of instruction pointers to probe.
+ * @param num Number of addresses in the `addrs` array.
+ * @return 0 on success, or a negative errno on failure (e.g., invalid parameters, memory allocation, invalid ftrace location).
+ *
+ * This function allocates and populates `fprobe_hlist` for the `fprobe`,
+ * setting up the addresses and associating them with the `fprobe`.
+ */
 static int fprobe_init(struct fprobe *fp, unsigned long *addrs, int num)
 {
 	struct fprobe_hlist *hlist_array;
 	unsigned long addr;
 	int size, i;
 
+	// Block Logic: Checks for invalid input parameters.
 	if (!fp || !addrs || num <= 0)
 		return -EINVAL;
 
+	// Functional Utility: Calculates aligned size for `entry_data_size` and checks against maximum.
 	size = ALIGN(fp->entry_data_size, sizeof(long));
 	if (size > MAX_FPROBE_DATA_SIZE)
 		return -E2BIG;
 	fp->entry_data_size = size;
 
+	// Functional Utility: Allocates memory for `fprobe_hlist` array.
 	hlist_array = kzalloc(struct_size(hlist_array, array, num), GFP_KERNEL);
+	// Block Logic: Handles memory allocation failure.
 	if (!hlist_array)
 		return -ENOMEM;
 
-	fp->nmissed = 0;
+	fp->nmissed = 0; // Functional Utility: Initializes missed event counter.
 
 	hlist_array->size = num;
 	fp->hlist_array = hlist_array;
 	hlist_array->fp = fp;
+	// Block Logic: Populates `fprobe_hlist_node` for each address.
 	for (i = 0; i < num; i++) {
 		hlist_array->array[i].fp = fp;
 		addr = ftrace_location(addrs[i]);
+		// Block Logic: Handles invalid ftrace location.
 		if (!addr) {
 			fprobe_fail_cleanup(fp);
 			return -ENOENT;
@@ -646,13 +1045,19 @@ static int fprobe_init(struct fprobe *fp, unsigned long *addrs, int num)
 	return 0;
 }
 
+/**
+ * @def FPROBE_IPS_MAX
+ * @brief Maximum number of instruction pointers (IPs) for fprobe.
+ *
+ * Used as a limit for `get_ips_from_filter`.
+ */
 #define FPROBE_IPS_MAX	INT_MAX
 
 /**
- * register_fprobe() - Register fprobe to ftrace by pattern.
- * @fp: A fprobe data structure to be registered.
- * @filter: A wildcard pattern of probed symbols.
- * @notfilter: A wildcard pattern of NOT probed symbols.
+ * @brief Registers an fprobe for functions matching specified filter patterns.
+ * @param fp: A fprobe data structure to be registered.
+ * @param filter: A wildcard pattern of probed symbols.
+ * @param notfilter: A wildcard pattern of NOT probed symbols.
  *
  * Register @fp to ftrace for enabling the probe on the symbols matched to @filter.
  * If @notfilter is not NULL, the symbols matched the @notfilter are not probed.
@@ -661,17 +1066,21 @@ static int fprobe_init(struct fprobe *fp, unsigned long *addrs, int num)
  */
 int register_fprobe(struct fprobe *fp, const char *filter, const char *notfilter)
 {
+	// Functional Utility: Uses __free(kfree) to ensure automatic kfree on scope exit.
 	unsigned long *addrs __free(kfree) = NULL;
 	struct module **mods __free(kfree) = NULL;
 	int ret, num;
 
+	// Block Logic: Checks for invalid input parameters.
 	if (!fp || !filter)
 		return -EINVAL;
 
+	// Functional Utility: Counts matching IPs first.
 	num = get_ips_from_filter(filter, notfilter, NULL, NULL, FPROBE_IPS_MAX);
 	if (num < 0)
 		return num;
 
+	// Functional Utility: Allocates memory for addresses and module pointers.
 	addrs = kcalloc(num, sizeof(*addrs), GFP_KERNEL);
 	if (!addrs)
 		return -ENOMEM;
@@ -680,25 +1089,28 @@ int register_fprobe(struct fprobe *fp, const char *filter, const char *notfilter
 	if (!mods)
 		return -ENOMEM;
 
+	// Functional Utility: Populates addresses and module pointers.
 	ret = get_ips_from_filter(filter, notfilter, addrs, mods, num);
 	if (ret < 0)
 		return ret;
 
+	// Functional Utility: Registers fprobe using the collected IPs.
 	ret = register_fprobe_ips(fp, addrs, ret);
 
+	// Block Logic: Releases module reference counts.
 	for (int i = 0; i < num; i++) {
 		if (mods[i])
 			module_put(mods[i]);
 	}
 	return ret;
 }
-EXPORT_SYMBOL_GPL(register_fprobe);
+EXPORT_SYMBOL_GPL(register_fprobe); // Functional Utility: Exports `register_fprobe` as a GPL-only symbol.
 
 /**
- * register_fprobe_ips() - Register fprobe to ftrace by address.
- * @fp: A fprobe data structure to be registered.
- * @addrs: An array of target function address.
- * @num: The number of entries of @addrs.
+ * @brief Registers an fprobe for specific instruction pointers (addresses).
+ * @param fp: A fprobe data structure to be registered.
+ * @param addrs: An array of target function address.
+ * @param num: The number of entries of @addrs.
  *
  * Register @fp to ftrace for enabling the probe on the address given by @addrs.
  * The @addrs must be the addresses of ftrace location address, which may be
@@ -712,33 +1124,37 @@ int register_fprobe_ips(struct fprobe *fp, unsigned long *addrs, int num)
 	struct fprobe_hlist *hlist_array;
 	int ret, i;
 
+	// Functional Utility: Initializes fprobe internal structures.
 	ret = fprobe_init(fp, addrs, num);
 	if (ret)
 		return ret;
 
-	mutex_lock(&fprobe_mutex);
+	mutex_lock(&fprobe_mutex); // Functional Utility: Acquires mutex for critical section.
 
 	hlist_array = fp->hlist_array;
+	// Functional Utility: Adds IPs to ftrace graph filter.
 	ret = fprobe_graph_add_ips(addrs, num);
 	if (!ret) {
-		add_fprobe_hash(fp);
+		add_fprobe_hash(fp); // Functional Utility: Adds fprobe to instance hash table.
+		// Block Logic: Inserts each fprobe node into the IP hash table.
 		for (i = 0; i < hlist_array->size; i++)
 			insert_fprobe_node(&hlist_array->array[i]);
 	}
-	mutex_unlock(&fprobe_mutex);
+	mutex_unlock(&fprobe_mutex); // Functional Utility: Releases mutex.
 
+	// Block Logic: Cleans up on failure.
 	if (ret)
 		fprobe_fail_cleanup(fp);
 
 	return ret;
 }
-EXPORT_SYMBOL_GPL(register_fprobe_ips);
+EXPORT_SYMBOL_GPL(register_fprobe_ips); // Functional Utility: Exports `register_fprobe_ips` as a GPL-only symbol.
 
 /**
- * register_fprobe_syms() - Register fprobe to ftrace by symbols.
- * @fp: A fprobe data structure to be registered.
- * @syms: An array of target symbols.
- * @num: The number of entries of @syms.
+ * @brief Registers an fprobe for functions identified by symbol names.
+ * @param fp: A fprobe data structure to be registered.
+ * @param syms: An array of target symbols.
+ * @param num: The number of entries of @syms.
  *
  * Register @fp to the symbols given by @syms array. This will be useful if
  * you are sure the symbols exist in the kernel.
@@ -750,31 +1166,40 @@ int register_fprobe_syms(struct fprobe *fp, const char **syms, int num)
 	unsigned long *addrs;
 	int ret;
 
+	// Block Logic: Checks for invalid input parameters.
 	if (!fp || !syms || num <= 0)
 		return -EINVAL;
 
+	// Functional Utility: Converts symbol names to ftrace location addresses.
 	addrs = get_ftrace_locations(syms, num);
 	if (IS_ERR(addrs))
 		return PTR_ERR(addrs);
 
+	// Functional Utility: Registers fprobe using the collected IPs.
 	ret = register_fprobe_ips(fp, addrs, num);
 
-	kfree(addrs);
+	kfree(addrs); // Functional Utility: Frees allocated address array.
 
 	return ret;
 }
-EXPORT_SYMBOL_GPL(register_fprobe_syms);
+EXPORT_SYMBOL_GPL(register_fprobe_syms); // Functional Utility: Exports `register_fprobe_syms` as a GPL-only symbol.
 
+/**
+ * @brief Checks if an fprobe is currently registered.
+ * @param fp Pointer to the `fprobe` instance.
+ * @return True if the fprobe is registered, false otherwise.
+ */
 bool fprobe_is_registered(struct fprobe *fp)
 {
+	// Block Logic: Checks if `fp` and its `hlist_array` are valid.
 	if (!fp || !fp->hlist_array)
 		return false;
-	return true;
+	return true; // Functional Utility: A valid `hlist_array` implies registration.
 }
 
 /**
- * unregister_fprobe() - Unregister fprobe.
- * @fp: A fprobe data structure to be unregistered.
+ * @brief Unregisters an fprobe.
+ * @param fp: A fprobe data structure to be unregistered.
  *
  * Unregister fprobe (and remove ftrace hooks from the function entries).
  *
@@ -786,13 +1211,15 @@ int unregister_fprobe(struct fprobe *fp)
 	unsigned long *addrs = NULL;
 	int ret = 0, i, count;
 
-	mutex_lock(&fprobe_mutex);
+	mutex_lock(&fprobe_mutex); // Functional Utility: Acquires mutex.
+	// Block Logic: Checks for invalid `fp` or if it's not registered.
 	if (!fp || !is_fprobe_still_exist(fp)) {
 		ret = -EINVAL;
 		goto out;
 	}
 
 	hlist_array = fp->hlist_array;
+	// Functional Utility: Allocates temporary memory for addresses to be removed from ftrace filter.
 	addrs = kcalloc(hlist_array->size, sizeof(unsigned long), GFP_KERNEL);
 	if (!addrs) {
 		ret = -ENOMEM;	/* TODO: Fallback to one-by-one loop */
@@ -801,21 +1228,22 @@ int unregister_fprobe(struct fprobe *fp)
 
 	/* Remove non-synonim ips from table and hash */
 	count = 0;
+	// Block Logic: Iterates through fprobe nodes, deleting them from `fprobe_ip_table` and collecting addresses.
 	for (i = 0; i < hlist_array->size; i++) {
 		if (!delete_fprobe_node(&hlist_array->array[i]))
 			addrs[count++] = hlist_array->array[i].addr;
 	}
-	del_fprobe_hash(fp);
+	del_fprobe_hash(fp); // Functional Utility: Deletes fprobe from instance hash table.
 
-	fprobe_graph_remove_ips(addrs, count);
+	fprobe_graph_remove_ips(addrs, count); // Functional Utility: Removes IPs from ftrace graph filter.
 
-	kfree_rcu(hlist_array, rcu);
-	fp->hlist_array = NULL;
+	kfree_rcu(hlist_array, rcu); // Functional Utility: Schedules `hlist_array` for RCU-safe free.
+	fp->hlist_array = NULL; // Functional Utility: Marks fprobe as unregistered.
 
 out:
-	mutex_unlock(&fprobe_mutex);
+	mutex_unlock(&fprobe_mutex); // Functional Utility: Releases mutex.
 
-	kfree(addrs);
+	kfree(addrs); // Functional Utility: Frees temporary address array.
 	return ret;
 }
-EXPORT_SYMBOL_GPL(unregister_fprobe);
+EXPORT_SYMBOL_GPL(unregister_fprobe); // Functional Utility: Exports `unregister_fprobe` as a GPL-only symbol.

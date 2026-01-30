@@ -3,6 +3,16 @@
 # description: Generic dynamic event - add/remove fprobe events
 # requires: dynamic_events "f[:[<group>/][<event>]] <func-name>[%return] [<args>]":README
 
+#
+# @file add_remove_fprobe.tc
+# @brief A shell script for testing the addition and removal of fprobe events.
+#
+# This script tests the functionality of adding and removing fprobe events
+# through the dynamic_events interface in tracefs. It verifies that fprobe
+# events can be created for both function entry and function return, and that
+# they can be removed correctly.
+#
+
 echo 0 > events/enable
 echo > dynamic_events
 

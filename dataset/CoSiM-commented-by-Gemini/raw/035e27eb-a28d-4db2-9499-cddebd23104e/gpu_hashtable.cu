@@ -1,3 +1,27 @@
+/**
+ * @file gpu_hashtable.cu
+ * @brief A GPU-accelerated hash table implementation using CUDA.
+ *
+ * This file provides a hash table data structure that operates on the GPU.
+ * It includes CUDA kernels for parallel insertion, retrieval, and reshaping
+ * of the hash table. The implementation uses linear probing for collision
+ * resolution and atomic operations to ensure thread safety during concurrent
+ * insertions.
+ *
+ * Domain-Specific Awareness (HPC & Parallelism):
+ * - **CUDA Kernels**: The core hash table operations (insert, get, reshape) are
+ *   implemented as CUDA kernels to be executed in parallel by a large number of threads.
+ * - **Thread Indexing**: A standard grid-stride loop pattern (`blockIdx.x * blockDim.x + threadIdx.x`) 
+ *   is used to map threads to data elements (keys/values).
+ * - **Atomic Operations**: `atomicCAS` (Compare-And-Swap) is used in the `insertItemKernel`
+ *   and `reshapeKernel` to handle race conditions when multiple threads attempt to
+ *   insert a key into the same hash bucket. This ensures that only one thread
+ *   succeeds in claiming a slot, preventing data corruption. `atomicAdd` is used
+ *   to safely count the number of newly added items.
+ * - **Memory Management**: The implementation uses `cudaMalloc` for device memory
+ *   allocation and `cudaMemcpy` for data transfers between the host and device.
+ *   The `reshape` function demonstrates dynamic resizing of the hash table on the GPU.
+ */
 
 #include 
 #include 
@@ -12,10 +36,33 @@
 
 const size_t block_size = 256;
 
+/**
+ * @brief Computes the hash for a given key.
+ * @param data The input key to be hashed.
+ * @param limit The capacity of the hash map, used for the modulo operation.
+ * @return The calculated hash value, an integer within the range [0, limit-1].
+ *
+ * This function uses a multiplicative hashing scheme with large prime numbers
+ * to distribute keys across the hash table.
+ */
 __device__ int hashFunction(int data, int limit) {
 	return ((long) abs(data) * 105359939llu) % 2227095190691797llu % limit;
 }
 
+/**
+ * @brief CUDA kernel for inserting a batch of key-value pairs into the hash table.
+ * @param keys A device pointer to an array of keys to be inserted.
+ * @param values A device pointer to an array of corresponding values.
+ * @param numKeys The total number of key-value pairs in the batch.
+ * @param hashMap A device pointer to the hash table's data array.
+ * @param hashMapCapacity The total capacity of the hash table.
+ * @param addedItems A device pointer to an integer used to count newly added items.
+ *
+ * Each thread in the grid is responsible for inserting one key-value pair.
+ * It uses linear probing to resolve collisions. If an empty slot is found,
+ * it uses `atomicCAS` to claim it and insert the key. If the key already exists,
+ * it simply updates the value.
+ */
 __global__ void insertItemKernel(int *keys, int* values, int numKeys,
 		GpuHashTable::ITEM *hashMap, int hashMapCapacity, int *addedItems) {
 
@@ -48,6 +95,19 @@ __global__ void insertItemKernel(int *keys, int* values, int numKeys,
 
 }
 
+/**
+ * @brief CUDA kernel for retrieving the values for a batch of keys.
+ * @param keys A device pointer to an array of keys to look up.
+ * @param[out] values A device pointer to an array where the found values will be stored.
+ * @param numKeys The total number of keys in the batch.
+ * @param hashMap A device pointer to the hash table's data array.
+ * @param hashMapCapacity The total capacity of the hash table.
+ *
+ * Each thread in the grid is responsible for retrieving the value for one key.
+ * It uses linear probing to find the key. If the key is found, the corresponding
+ * value is written to the output array. If the key is not found after a full
+ * cycle through the table, the value is set to 0.
+ */
 __global__ void getItemKernel(int *keys, int* values, int numKeys,
 		GpuHashTable::ITEM *hashMap, int hashMapCapacity) {
 
@@ -80,6 +140,18 @@ __global__ void getItemKernel(int *keys, int* values, int numKeys,
 }
 
 
+/**
+ * @brief CUDA kernel for reshaping (rehashing) the hash table.
+ * @param newHashMap A device pointer to the new, larger hash table array.
+ * @param newHashMapCapacity The capacity of the new hash table.
+ * @param oldHashMap A device pointer to the old hash table array.
+ * @param oldHashMapCapacity The capacity of the old hash table.
+ *
+ * Each thread is responsible for one bucket of the old hash table. If the bucket
+ * contains a valid key, the thread rehashes the key for the new table size and
+ * inserts it into the new table using the same linear probing and `atomicCAS`
+ * strategy as `insertItemKernel`.
+ */
 __global__ void reshapeKernel(GpuHashTable::ITEM *newHashMap, int newHashMapCapacity,
 		GpuHashTable::ITEM *oldHashMap, int oldHashMapCapacity) {
 
@@ -131,7 +203,7 @@ GpuHashTable::~GpuHashTable() {
 	cudaError_t r;
 
 	
-	r = cudaFree(this->hashMap);	
+	r = cudaFree(this->hashMap); 	
 	DIE(r != cudaSuccess, "cudaFree error");
 
 }
@@ -165,7 +237,7 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 	DIE(r != cudaSuccess, "cudaDeviceSynchronize error");
 
 	
-	r = cudaFree(this->hashMap);	
+	r = cudaFree(this->hashMap); 	
 	DIE(r != cudaSuccess, "cudaFree error");
 
 	
@@ -181,7 +253,7 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 	DIE(r != cudaSuccess, "cudaMemcpy error");
 
 	
-	r = cudaFree(newHashMap);	
+	r = cudaFree(newHashMap); 	
 	DIE(r != cudaSuccess, "cudaFree error");
 
 }
@@ -249,7 +321,7 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	r = cudaFree(device_keys);
 	DIE(r != cudaSuccess, "cudaFree error");
 
-	r =	cudaFree(device_values);
+	r = 	cudaFree(device_values);
 	DIE(r != cudaSuccess, "cudaFree error");
 
 	return true;
@@ -333,13 +405,13 @@ using namespace std;
 #define	KEY_INVALID		0
 
 #define DIE(assertion, call_description) \
-	do {	\
-		if (assertion) {	\
-		fprintf(stderr, "(%s, %d): ",	\
-		__FILE__, __LINE__);	\
-		perror(call_description);	\
-		exit(errno);	\
-	}	\
+	do { \
+		if (assertion) { \
+		fprintf(stderr, "(%s, %d): ", \
+		__FILE__, __LINE__); \
+		perror(call_description); \
+		exit(errno); \
+	} \
 } while (0)
 	
 const size_t primeList[] =
@@ -430,4 +502,3 @@ class GpuHashTable
 };
 
 #endif
-

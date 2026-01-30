@@ -7,6 +7,19 @@
  * License v3.0 only", or the "Server Side Public License, v 1".
  */
 
+/**
+ * @file EntitlementBootstrap.java
+ * @brief Manages the activation and bootstrapping of the entitlement checking mechanism in Elasticsearch.
+ *
+ * This file contains the core logic for dynamically loading a Java agent into the running JVM to enforce
+ * security policies. It handles the initialization of entitlement arguments, agent loading, and ensures
+ * compatibility with the Java Platform Module System.
+ *
+ * Performance Optimization: Dynamic agent loading minimizes application startup overhead by delaying
+ *                           instrumentation until required.
+ * Functional Utility: Centralizes the control over feature and plugin entitlement verification, preventing
+ *                     unauthorized operations within the Elasticsearch ecosystem.
+ */
 package org.elasticsearch.entitlement.bootstrap;
 
 import com.sun.tools.attach.AgentInitializationException;
@@ -64,6 +77,8 @@ public class EntitlementBootstrap {
         /**
          * @brief Canonical constructor for `BootstrapArgs`.
          * Functional Utility: Ensures that essential arguments are not null upon instantiation.
+         * Precondition: `pluginPolicies`, `pluginResolver`, `pathLookup`, `sourcePaths`, and `suppressFailureLogClasses` must not be null.
+         * Postcondition: A valid `BootstrapArgs` instance is created with non-null essential fields.
          * @throws NullPointerException if any required non-nullable argument is null.
          */
         public BootstrapArgs {
@@ -78,12 +93,15 @@ public class EntitlementBootstrap {
     /**
      * @brief Static field to hold the single instance of `BootstrapArgs` once initialized.
      * Invariant: This field is set once during the `bootstrap` process and remains immutable thereafter.
+     * Functional Utility: Ensures that entitlement configuration is globally accessible and consistently applied.
      */
     private static BootstrapArgs bootstrapArgs;
 
     /**
      * @brief Static getter method to retrieve the initialized `BootstrapArgs` instance.
      * @return The `BootstrapArgs` instance containing the entitlement bootstrap configuration.
+     * Precondition: The `bootstrap` method must have been successfully called, ensuring `bootstrapArgs` is initialized.
+     * Postcondition: Returns the globally stored `BootstrapArgs` instance.
      * @throws IllegalStateException if `bootstrapArgs` has not been initialized yet.
      */
     public static BootstrapArgs bootstrapArgs() {
@@ -115,8 +133,9 @@ public class EntitlementBootstrap {
      * @param tempDir                     The temporary directory for Elasticsearch.
      * @param pidFile                     Path to a PID file for Elasticsearch, or {@code null} if one was not specified.
      * @param suppressFailureLogClasses   A set of classes for which we do not need or want to log Entitlements failures.
-     * @throws IllegalStateException      If entitlement checking has already been bootstrapped.
-     * @throws IllegalStateException      If unable to attach the entitlement agent.
+     * Precondition: This method must only be called once during the application's lifecycle.
+     * Postcondition: The global `bootstrapArgs` is initialized, the entitlement agent is attached, and entitlement checking is active.
+     * @throws IllegalStateException      If entitlement checking has already been bootstrapped, or if unable to attach the entitlement agent.
      */
     public static void bootstrap(
         Policy serverPolicyPatch,
@@ -136,7 +155,10 @@ public class EntitlementBootstrap {
         Set<Class<?>> suppressFailureLogClasses
     ) {
         logger.debug("Loading entitlement agent");
-        // Precondition Check: Ensure that the bootstrapping process is not performed more than once.
+        /**
+         * Block Logic: Ensures the entitlement bootstrapping process is idempotent.
+         * Invariant: `EntitlementBootstrap.bootstrapArgs` must be null before initialization.
+         */
         if (EntitlementBootstrap.bootstrapArgs != null) {
             throw new IllegalStateException("plugin data is already set");
         }
@@ -170,11 +192,16 @@ public class EntitlementBootstrap {
     /**
      * @brief Retrieves the user's home directory path.
      * @return The `Path` object representing the user's home directory.
+     * Precondition: The "user.home" system property must be set in the JVM environment.
+     * Postcondition: Returns a valid `Path` object for the user's home directory.
      * @throws IllegalStateException If the "user.home" system property is not set.
      */
     private static Path getUserHome() {
         String userHome = System.getProperty("user.home");
-        // Precondition Check: The "user.home" system property must be available.
+        /**
+         * Block Logic: Validates the existence of the "user.home" system property.
+         * Invariant: The "user.home" property is a mandatory component for path resolution.
+         */
         if (userHome == null) {
             throw new IllegalStateException("user.home system property is required");
         }
@@ -186,10 +213,12 @@ public class EntitlementBootstrap {
      *
      * Functional Utility: Uses the `VirtualMachine` API (from `com.sun.tools.attach`)
      * to attach the agent specified by `agentPath`. This allows the agent to
-     * instrument bytecode at runtime.
+     * instrument bytecode at runtime, enforcing entitlement policies.
      *
      * @param agentPath The absolute path to the Java agent JAR file.
-     * @throws IllegalStateException If any error occurs during the attachment process.
+     * Precondition: The `agentPath` must point to a valid and accessible Java agent JAR file.
+     * Postcondition: The Java agent is loaded and active within the current JVM.
+     * @throws IllegalStateException If any error occurs during the attachment process (e.g., agent not found, security issues).
      */
     @SuppressForbidden(reason = "The VirtualMachine API is the only way to attach a java agent dynamically")
     private static void loadAgent(String agentPath) {
@@ -203,10 +232,15 @@ public class EntitlementBootstrap {
             // Error Handling: Catch various attachment-related exceptions and wrap them.
             throw new IllegalStateException("Unable to attach entitlement agent", e);
         } finally {
+            /**
+             * Block Logic: Ensures proper cleanup by detaching from the VirtualMachine.
+             * Invariant: The VirtualMachine connection should be closed regardless of whether agent loading succeeded or failed.
+             */
             if (vm != null) {
                 try {
                     vm.detach(); // Always detach the VirtualMachine.
                 } catch (IOException e) {
+                    // Logging: Records any failures encountered during the detachment process.
                     logger.warn("Failed to detach VirtualMachine", e); // Log detach failure.
                 }
             }
@@ -221,10 +255,13 @@ public class EntitlementBootstrap {
      * compatibility. It ensures that the dynamically loaded agent (which typically
      * resides in the unnamed module) can reflectively access classes within
      * the `org.elasticsearch.entitlement.initialization` package to receive its configuration.
+     * Precondition: The `EntitlementInitialization` class must be accessible.
+     * Postcondition: The `org.elasticsearch.entitlement.initialization` package is exported to the unnamed module, enabling agent access.
      */
     private static void exportInitializationToAgent() {
         String initPkg = EntitlementInitialization.class.getPackageName();
         Module unnamedModule = ClassLoader.getSystemClassLoader().getUnnamedModule();
+        // Module System Compatibility: Explicitly exports the initialization package to allow reflective access from the unnamed module.
         EntitlementInitialization.class.getModule().addExports(initPkg, unnamedModule);
     }
 
@@ -236,6 +273,8 @@ public class EntitlementBootstrap {
      * directory (`lib/entitlement-agent`) and expects to find exactly one JAR file.
      *
      * @return The absolute path to the entitlement agent JAR file.
+     * Precondition: The system property `es.entitlement.agentJar` may or may not be set. If not set, a `lib/entitlement-agent` directory must exist and contain exactly one JAR.
+     * Postcondition: Returns the validated path to the entitlement agent JAR.
      * @throws IllegalStateException If the system property is not set and the default
      *                               directory is missing, contains multiple JARs, or
      *                               an I/O error occurs.
@@ -243,19 +282,29 @@ public class EntitlementBootstrap {
     private static String findAgentJar() {
         String propertyName = "es.entitlement.agentJar";
         String propertyValue = System.getProperty(propertyName);
+        /**
+         * Block Logic: Prioritizes a system property for the agent JAR path.
+         * Invariant: If the property is set, its value is directly used as the agent path.
+         */
         if (propertyValue != null) {
             return propertyValue; // Use path from system property if available.
         }
 
         // Default location if no system property is set.
         Path dir = Path.of("lib", "entitlement-agent");
-        // Precondition Check: The agent directory must exist.
+        /**
+         * Block Logic: Validates the existence of the default agent directory.
+         * Invariant: The directory specified by `dir` must exist for agent discovery to proceed.
+         */
         if (Files.exists(dir) == false) {
             throw new IllegalStateException("Directory for entitlement jar does not exist: " + dir);
         }
         try (var s = Files.list(dir)) { // List files in the directory.
             var candidates = s.limit(2).toList(); // Get up to 2 candidates to check for uniqueness.
-            // Precondition Check: Exactly one JAR file is expected in the directory.
+            /**
+             * Block Logic: Verifies that exactly one agent JAR is present in the default directory.
+             * Invariant: The `candidates` list must contain precisely one element to unambiguously identify the agent JAR.
+             */
             if (candidates.size() != 1) {
                 throw new IllegalStateException("Expected one jar in " + dir + "; found " + candidates.size());
             }
@@ -270,6 +319,7 @@ public class EntitlementBootstrap {
      * @brief Static `Logger` instance for logging messages related to entitlement bootstrapping.
      * Functional Utility: Provides a centralized mechanism for logging debug, info, warn, and error
      *                     messages during the entitlement initialization process.
+     * Invariant: The logger is initialized once when the class is loaded.
      */
     private static final Logger logger = LogManager.getLogger(EntitlementBootstrap.class);
 }

@@ -203,17 +203,14 @@ static const struct fetch_type *find_fetch_type(const char *type, unsigned long 
 	int i;
 
 	/* Reject the symbol/symstr for uprobes */
-	// Block Logic: Uprobes do not support "symbol" or "symstr" types.
 	if (type && (flags & TPARG_FL_USER) &&
 	    (!strcmp(type, "symbol") || !strcmp(type, "symstr")))
 		return NULL;
 
-	// Block Logic: Uses default type if none specified.
 	if (!type)
 		type = DEFAULT_FETCH_TYPE_STR;
 
 	/* Special case: bitfield */
-	// Block Logic: Handles bitfield type parsing (e.g., "b<size>@<offset>/<basesize>").
 	if (*type == 'b') {
 		unsigned long bs;
 
@@ -239,7 +236,6 @@ static const struct fetch_type *find_fetch_type(const char *type, unsigned long 
 		}
 	}
 
-	// Block Logic: Iterates through `probe_fetch_types` to find a match.
 	for (i = 0; probe_fetch_types[i].name; i++) {
 		if (strcmp(type, probe_fetch_types[i].name) == 0)
 			return &probe_fetch_types[i];
@@ -311,22 +307,19 @@ void __trace_probe_log_err(int offset, int err_type)
 
 	lockdep_assert_held(&dyn_event_ops_mutex);
 
-	// Block Logic: Returns if no arguments are set in the log context.
 	if (!trace_probe_log.argv)
 		return;
 
 	/* Recalculate the length and allocate buffer */
-	// Block Logic: Calculates the total length of the command string and allocates memory.
 	for (i = 0; i < trace_probe_log.argc; i++) {
 		if (i == trace_probe_log.index)
-			pos = len; // Functional Utility: Marks the position of the error argument.
+			pos = len;
 		len += strlen(trace_probe_log.argv[i]) + 1;
 	}
 	command = kzalloc(len, GFP_KERNEL);
 	if (!command)
 		return;
 
-	// Block Logic: Adjusts error position if index is out of bounds.
 	if (trace_probe_log.index >= trace_probe_log.argc) {
 		/**
 		 * Set the error position is next to the last arg + space.
@@ -338,20 +331,19 @@ void __trace_probe_log_err(int offset, int err_type)
 	}
 
 	/* And make a command string from argv array */
-	// Block Logic: Reconstructs the full command string from `argv`.
 	p = command;
 	for (i = 0; i < trace_probe_log.argc; i++) {
 		len = strlen(trace_probe_log.argv[i]);
 		strcpy(p, trace_probe_log.argv[i]);
-		p[len] = ' '; // Functional Utility: Adds space between arguments.
+		p[len] = ' ';
 		p += len + 1;
 	}
-	*(p - 1) = '\0'; // Functional Utility: Null-terminates the command string.
+	*(p - 1) = '\0';
 
 	tracing_log_err(NULL, trace_probe_log.subsystem, command,
 			trace_probe_err_text, err_type, pos + offset);
 
-	kfree(command); // Functional Utility: Frees allocated command string buffer.
+	kfree(command);
 }
 
 /**
@@ -368,19 +360,17 @@ int traceprobe_split_symbol_offset(char *symbol, long *offset)
 	char *tmp;
 	int ret;
 
-	// Block Logic: Checks for valid offset pointer.
 	if (!offset)
 		return -EINVAL;
 
-	tmp = strpbrk(symbol, "+-"); // Functional Utility: Finds the first '+' or '-'.
-	// Block Logic: If an offset separator is found.
+	tmp = strpbrk(symbol, "+-");
 	if (tmp) {
-		ret = kstrtol(tmp, 0, offset); // Functional Utility: Parses the offset.
+		ret = kstrtol(tmp, 0, offset);
 		if (ret)
 			return ret;
-		*tmp = '\0'; // Functional Utility: Null-terminates the symbol name.
+		*tmp = '\0';
 	} else
-		*offset = 0; // Functional Utility: No offset if no separator found.
+		*offset = 0;
 
 	return 0;
 }
@@ -402,35 +392,33 @@ int traceprobe_parse_event_name(const char **pevent, const char **pgroup,
 	const char *slash, *event = *pevent;
 	int len;
 
-	slash = strchr(event, '/'); // Functional Utility: Checks for '/' separator.
+	slash = strchr(event, '/');
 	if (!slash)
-		slash = strchr(event, '.'); // Functional Utility: Checks for '.' separator.
+		slash = strchr(event, '.');
 
-	// Block Logic: If a separator is found.
 	if (slash) {
-		if (slash == event) { // Block Logic: Group name cannot be empty.
+		if (slash == event) {
 			trace_probe_log_err(offset, NO_GROUP_NAME);
 			return -EINVAL;
 		}
-		if (slash - event + 1 > MAX_EVENT_NAME_LEN) { // Block Logic: Group name too long.
+		if (slash - event + 1 > MAX_EVENT_NAME_LEN) {
 			trace_probe_log_err(offset, GROUP_TOO_LONG);
 			return -EINVAL;
 		}
-		strscpy(buf, event, slash - event + 1); // Functional Utility: Copies group name to buffer.
-		if (!is_good_system_name(buf)) { // Functional Utility: Validates group name.
+		strscpy(buf, event, slash - event + 1);
+		if (!is_good_system_name(buf)) {
 			trace_probe_log_err(offset, BAD_GROUP_NAME);
 			return -EINVAL;
 		}
-		*pgroup = buf; // Functional Utility: Updates group pointer.
-		*pevent = slash + 1; // Functional Utility: Updates event pointer to after separator.
+		*pgroup = buf;
+		*pevent = slash + 1;
 		offset += slash - event + 1;
 		event = *pevent;
 	}
 	len = strlen(event);
-	// Block Logic: Validates event name length and characters.
 	if (len == 0) {
 		if (slash) {
-			*pevent = NULL; // Functional Utility: If separator found, event can be NULL.
+			*pevent = NULL;
 			return 0;
 		}
 		trace_probe_log_err(offset, NO_EVENT_NAME);
@@ -439,7 +427,7 @@ int traceprobe_parse_event_name(const char **pevent, const char **pgroup,
 		trace_probe_log_err(offset, EVENT_TOO_LONG);
 		return -EINVAL;
 	}
-	if (!is_good_name(event)) { // Functional Utility: Validates event name.
+	if (!is_good_name(event)) {
 		trace_probe_log_err(offset, BAD_EVENT_NAME);
 		return -EINVAL;
 	}
@@ -462,11 +450,11 @@ static int parse_trace_event_arg(char *arg, struct fetch_insn *code,
 	struct ftrace_event_field *field;
 	struct list_head *head;
 
-	head = trace_get_fields(ctx->event); // Functional Utility: Gets the list of event fields.
-	list_for_each_entry(field, head, link) { // Functional Utility: Iterates through event fields.
-		if (!strcmp(arg, field->name)) { // Block Logic: If field name matches.
-			code->op = FETCH_OP_TP_ARG; // Functional Utility: Sets operation to tracepoint argument.
-			code->data = field; // Functional Utility: Stores field information.
+	head = trace_get_fields(ctx->event);
+	list_for_each_entry(field, head, link) {
+		if (!strcmp(arg, field->name)) {
+			code->op = FETCH_OP_TP_ARG;
+			code->data = field;
 			return 0;
 		}
 	}
@@ -497,15 +485,15 @@ static bool btf_type_is_char_ptr(struct btf *btf, const struct btf_type *type)
 	u32 intdata;
 	s32 tid;
 
-	real_type = btf_type_skip_modifiers(btf, type->type, &tid); // Functional Utility: Skips modifiers to get real type.
+	real_type = btf_type_skip_modifiers(btf, type->type, &tid);
 	if (!real_type)
 		return false;
 
-	if (BTF_INFO_KIND(real_type->info) != BTF_KIND_INT) // Block Logic: Checks if it's an integer type.
+	if (BTF_INFO_KIND(real_type->info) != BTF_KIND_INT)
 		return false;
 
-	intdata = btf_type_int(real_type); // Functional Utility: Retrieves integer data.
-	return !(BTF_INT_ENCODING(intdata) & BTF_INT_SIGNED) // Block Logic: Checks for unsigned 8-bit integer.
+	intdata = btf_type_int(real_type);
+	return !(BTF_INT_ENCODING(intdata) & BTF_INT_SIGNED)
 		&& BTF_INT_BITS(intdata) == 8;
 }
 
@@ -522,15 +510,15 @@ static bool btf_type_is_char_array(struct btf *btf, const struct btf_type *type)
 	u32 intdata;
 	s32 tid;
 
-	if (BTF_INFO_KIND(type->info) != BTF_KIND_ARRAY) // Block Logic: Checks if it's an array type.
+	if (BTF_INFO_KIND(type->info) != BTF_KIND_ARRAY)
 		return false;
 
-	array = (const struct btf_array *)(type + 1); // Functional Utility: Gets array information.
+	array = (const struct btf_array *)(type + 1);
 
-	real_type = btf_type_skip_modifiers(btf, array->type, &tid); // Functional Utility: Skips modifiers to get real type.
+	real_type = btf_type_skip_modifiers(btf, array->type, &tid);
 
-	intdata = btf_type_int(real_type); // Functional Utility: Retrieves integer data.
-	return !(BTF_INT_ENCODING(intdata) & BTF_INT_SIGNED) // Block Logic: Checks for unsigned 8-bit integer.
+	intdata = btf_type_int(real_type);
+	return !(BTF_INT_ENCODING(intdata) & BTF_INT_SIGNED)
 		&& BTF_INT_BITS(intdata) == 8;
 }
 
@@ -551,7 +539,6 @@ static int check_prepare_btf_string_fetch(char *typename,
 {
 	struct btf *btf = ctx->btf;
 
-	// Block Logic: Returns if BTF or last type is not available.
 	if (!btf || !ctx->last_type)
 		return 0;
 
@@ -560,7 +547,6 @@ static int check_prepare_btf_string_fetch(char *typename,
 		return 0;
 
 	/* char * requires dereference the pointer. */
-	// Block Logic: If it's a char pointer, inserts a dereference operation.
 	if (btf_type_is_char_ptr(btf, ctx->last_type)) {
 		struct fetch_insn *code = *pcode + 1;
 
@@ -568,7 +554,7 @@ static int check_prepare_btf_string_fetch(char *typename,
 			trace_probe_log_err(ctx->offset, TOO_MANY_OPS);
 			return -E2BIG;
 		}
-		if (typename[0] == 'u') // Functional Utility: Checks for unsigned dereference.
+		if (typename[0] == 'u')
 			code->op = FETCH_OP_UDEREF;
 		else
 			code->op = FETCH_OP_DEREF;
@@ -577,7 +563,7 @@ static int check_prepare_btf_string_fetch(char *typename,
 		return 0;
 	}
 	/* Other types are not available for string */
-	trace_probe_log_err(ctx->offset, BAD_TYPE4STR); // Block Logic: Logs error for unsupported string type.
+	trace_probe_log_err(ctx->offset, BAD_TYPE4STR);
 	return -EINVAL;
 }
 
@@ -606,14 +592,12 @@ static const char *fetch_type_from_btf_type(struct btf *btf,
 		return "s64";
 	case BTF_KIND_PTR:
 		/* pointer will be converted to "x??" */
-		// Block Logic: Converts pointer type to architecture-dependent hexadecimal type.
 		if (IS_ENABLED(CONFIG_64BIT))
 			return "x64";
 		else
 			return "x32";
 	case BTF_KIND_INT:
 		intdata = btf_type_int(type);
-		// Block Logic: Handles signed integer types.
 		if (BTF_INT_ENCODING(intdata) & BTF_INT_SIGNED) {
 			switch (BTF_INT_BITS(intdata)) {
 			case 8:
@@ -626,7 +610,6 @@ static const char *fetch_type_from_btf_type(struct btf *btf,
 				return "s64";
 			}
 		} else {	/* unsigned */
-			// Block Logic: Handles unsigned integer types.
 			switch (BTF_INT_BITS(intdata)) {
 			case 8:
 				return "u8";
@@ -638,8 +621,8 @@ static const char *fetch_type_from_btf_type(struct btf *btf,
 				return "u64";
 			}
 			/* bitfield, size is encoded in the type */
-			ctx->last_bitsize = BTF_INT_BITS(intdata); // Functional Utility: Stores bitfield size.
-			ctx->last_bitoffs += BTF_INT_OFFSET(intdata); // Functional Utility: Accumulates bitfield offset.
+			ctx->last_bitsize = BTF_INT_BITS(intdata);
+			ctx->last_bitoffs += BTF_INT_OFFSET(intdata);
 			return "u64";
 		}
 	}
@@ -663,15 +646,13 @@ static int query_btf_context(struct traceprobe_parse_context *ctx)
 	struct btf *btf;
 	s32 nr;
 
-	// Block Logic: Returns if BTF context already initialized.
 	if (ctx->btf)
 		return 0;
 
-	// Block Logic: Returns error if function name is not set.
 	if (!ctx->funcname)
 		return -EINVAL;
 
-	type = btf_find_func_proto(ctx->funcname, &btf); // Functional Utility: Finds function prototype from BTF.
+	type = btf_find_func_proto(ctx->funcname, &btf);
 	if (!type)
 		return -ENOENT;
 
@@ -680,17 +661,15 @@ static int query_btf_context(struct traceprobe_parse_context *ctx)
 
 	/* ctx->params is optional, since func(void) will not have params. */
 	nr = 0;
-	param = btf_get_func_param(type, &nr); // Functional Utility: Gets function parameters.
+	param = btf_get_func_param(type, &nr);
 	if (!IS_ERR_OR_NULL(param)) {
 		/* Hide the first 'data' argument of tracepoint */
-		// Block Logic: Adjusts for tracepoint's dummy first argument.
 		if (ctx->flags & TPARG_FL_TPOINT) {
 			nr--;
 			param++;
 		}
 	}
 
-	// Block Logic: Stores parameters if any.
 	if (nr > 0) {
 		ctx->nr_params = nr;
 		ctx->params = param;
@@ -711,7 +690,7 @@ static int query_btf_context(struct traceprobe_parse_context *ctx)
 static void clear_btf_context(struct traceprobe_parse_context *ctx)
 {
 	if (ctx->btf) {
-		btf_put(ctx->btf); // Functional Utility: Releases BTF reference.
+		btf_put(ctx->btf);
 		ctx->btf = NULL;
 		ctx->proto = NULL;
 		ctx->params = NULL;
@@ -736,21 +715,20 @@ static int split_next_field(char *varname, char **next_field,
 	char *field;
 	int ret = 0;
 
-	field = strpbrk(varname, ".-"); // Functional Utility: Searches for '.' or '-'.
-	// Block Logic: If a separator is found.
+	field = strpbrk(varname, ".-");
 	if (field) {
-		if (field[0] == '-' && field[1] == '>') { // Block Logic: Handles arrow operator.
+		if (field[0] == '-' && field[1] == '>') {
 			field[0] = '\0';
 			field += 2;
-			ret = 1; // Functional Utility: Indicates arrow operator.
-		} else if (field[0] == '.') { // Block Logic: Handles dot operator.
+			ret = 1;
+		} else if (field[0] == '.') {
 			field[0] = '\0';
 			field += 1;
-		} else { // Block Logic: Invalid separator.
+		} else {
 			trace_probe_log_err(ctx->offset + field - varname, BAD_HYPHEN);
 			return -EINVAL;
 		}
-		*next_field = field; // Functional Utility: Updates pointer to the next field.
+		*next_field = field;
 	}
 
 	return ret;
@@ -785,13 +763,12 @@ static int parse_btf_field(char *fieldname, const struct btf_type *type,
 
 	do {
 		/* Outer loop for solving arrow operator ('->') */
-		// Block Logic: If not a pointer type, returns error.
 		if (BTF_INFO_KIND(type->info) != BTF_KIND_PTR) {
 			trace_probe_log_err(ctx->offset, NO_PTR_STRCT);
 			return -EINVAL;
 		}
 		/* Convert a struct pointer type to a struct type */
-		type = btf_type_skip_modifiers(ctx->btf, type->type, &tid); // Functional Utility: Skips modifiers to get real type.
+		type = btf_type_skip_modifiers(ctx->btf, type->type, &tid);
 		if (!type) {
 			trace_probe_log_err(ctx->offset, BAD_BTF_TID);
 			return -EINVAL;
@@ -801,13 +778,13 @@ static int parse_btf_field(char *fieldname, const struct btf_type *type,
 		do {
 			/* Inner loop for solving dot operator ('.') */
 			next = NULL;
-			is_ptr = split_next_field(fieldname, &next, ctx); // Functional Utility: Splits fieldname.
+			is_ptr = split_next_field(fieldname, &next, ctx);
 			if (is_ptr < 0)
 				return is_ptr;
 
 			anon_offs = 0;
 			field = btf_find_struct_member(ctx->btf, type, fieldname,
-						       &anon_offs); // Functional Utility: Finds struct member.
+						       &anon_offs);
 			if (IS_ERR(field)) {
 				trace_probe_log_err(ctx->offset, BAD_BTF_TID);
 				return PTR_ERR(field);
@@ -817,10 +794,9 @@ static int parse_btf_field(char *fieldname, const struct btf_type *type,
 				return -ENOENT;
 			}
 			/* Add anonymous structure/union offset */
-			bitoffs += anon_offs; // Functional Utility: Accumulates anonymous struct/union offset.
+			bitoffs += anon_offs;
 
 			/* Accumulate the bit-offsets of the dot-connected fields */
-			// Block Logic: Accumulates bit offsets for field access.
 			if (btf_type_kflag(type)) {
 				bitoffs += BTF_MEMBER_BIT_OFFSET(field->offset);
 				ctx->last_bitsize = BTF_MEMBER_BITFIELD_SIZE(field->offset);
@@ -829,32 +805,30 @@ static int parse_btf_field(char *fieldname, const struct btf_type *type,
 				ctx->last_bitsize = 0;
 			}
 
-			type = btf_type_skip_modifiers(ctx->btf, field->type, &tid); // Functional Utility: Updates type to the field's type.
+			type = btf_type_skip_modifiers(ctx->btf, field->type, &tid);
 			if (!type) {
 				trace_probe_log_err(ctx->offset, BAD_BTF_TID);
 				return -EINVAL;
 			}
 
-			ctx->offset += next - fieldname; // Functional Utility: Updates offset for error reporting.
-			fieldname = next; // Functional Utility: Moves to the next field.
-		} while (!is_ptr && fieldname); // Block Logic: Continues while dot operator and more fields exist.
+			ctx->offset += next - fieldname;
+			fieldname = next;
+		} while (!is_ptr && fieldname);
 
-		if (++code == end) { // Block Logic: Checks for end of instruction array.
+		if (++code == end) {
 			trace_probe_log_err(ctx->offset, TOO_MANY_OPS);
 			return -EINVAL;
 		}
 		code->op = FETCH_OP_DEREF;	/* TODO: user deref support */
-		code->offset = bitoffs / 8; // Functional Utility: Sets dereference offset.
+		code->offset = bitoffs / 8;
 		*pcode = code;
 
-		ctx->last_bitoffs = bitoffs % 8; // Functional Utility: Stores last bit offset.
-		ctx->last_type = type; // Functional Utility: Stores last BTF type.
-	} while (fieldname); // Block Logic: Continues while arrow operator and more fields exist.
+		ctx->last_bitoffs = bitoffs % 8;
+		ctx->last_type = type;
+	} while (fieldname);
 
 	return 0;
 }
-
-static int __store_entry_arg(struct trace_probe *tp, int argnum); // Forward declaration.
 
 /**
  * @brief Parses a BTF-based argument.
@@ -878,14 +852,12 @@ static int parse_btf_arg(char *varname,
 	int i, is_ptr, ret;
 	u32 tid;
 
-	// Block Logic: Ensures function name is set in context.
 	if (WARN_ON_ONCE(!ctx->funcname))
 		return -EINVAL;
 
-	is_ptr = split_next_field(varname, &field, ctx); // Functional Utility: Splits varname for field access.
+	is_ptr = split_next_field(varname, &field, ctx);
 	if (is_ptr < 0)
 		return is_ptr;
-	// Block Logic: Dot-connected fields on arguments are not supported directly.
 	if (!is_ptr && field) {
 		/* dot-connected field on an argument is not supported. */
 		trace_probe_log_err(ctx->offset + field - varname,
@@ -893,19 +865,18 @@ static int parse_btf_arg(char *varname,
 		return -EOPNOTSUPP;
 	}
 
-	// Block Logic: Handles `$retval` for return probes.
 	if (ctx->flags & TPARG_FL_RETURN && !strcmp(varname, "$retval")) {
-		code->op = FETCH_OP_RETVAL; // Functional Utility: Sets operation to fetch return value.
+		code->op = FETCH_OP_RETVAL;
 		/* Check whether the function return type is not void */
-		if (query_btf_context(ctx) == 0) { // Functional Utility: Queries BTF context.
-			if (ctx->proto->type == 0) { // Block Logic: Checks for void return type.
+		if (query_btf_context(ctx) == 0) {
+			if (ctx->proto->type == 0) {
 				trace_probe_log_err(ctx->offset, NO_RETVAL);
 				return -ENOENT;
 			}
-			tid = ctx->proto->type; // Functional Utility: Gets return type ID.
+			tid = ctx->proto->type;
 			goto found;
 		}
-		if (field) { // Block Logic: Field access on `$retval` not supported without BTF.
+		if (field) {
 			trace_probe_log_err(ctx->offset + field - varname,
 					    NO_BTF_ENTRY);
 			return -ENOENT;
@@ -913,7 +884,6 @@ static int parse_btf_arg(char *varname,
 		return 0;
 	}
 
-	// Block Logic: Queries BTF context if not already set.
 	if (!ctx->btf) {
 		ret = query_btf_context(ctx);
 		if (ret < 0 || ctx->nr_params == 0) {
@@ -923,37 +893,34 @@ static int parse_btf_arg(char *varname,
 	}
 	params = ctx->params;
 
-	// Block Logic: Iterates through function parameters to find a match.
 	for (i = 0; i < ctx->nr_params; i++) {
 		const char *name = btf_name_by_offset(ctx->btf, params[i].name_off);
 
 		if (name && !strcmp(name, varname)) {
-			// Block Logic: If at function entry, fetches argument.
 			if (tparg_is_function_entry(ctx->flags)) {
 				code->op = FETCH_OP_ARG;
-				// Block Logic: Adjusts parameter index for tracepoints.
 				if (ctx->flags & TPARG_FL_TPOINT)
 					code->param++;
 				else
 					code->param = i;
-			} else if (tparg_is_function_return(ctx->flags)) { // Block Logic: If at function return, stores entry argument.
-				code->op = FETCH_OP_EDATA;
-				ret = __store_entry_arg(ctx->tp, i); // Functional Utility: Stores entry argument.
-				if (ret < 0) {
-					/* internal error */
+			} else if (tparg_is_function_return(ctx->flags)) {
+				/* function entry argument access from return probe */
+				ret = __store_entry_arg(ctx->tp, i);
+				if (ret < 0)	/* internal error */
 					return ret;
-				}
+
+				code->op = FETCH_OP_EDATA;
 				code->offset = ret;
 			}
-			tid = params[i].type; // Functional Utility: Gets parameter type ID.
+			tid = params[i].type;
 			goto found;
 		}
 	}
-	trace_probe_log_err(ctx->offset, NO_BTFARG); // Block Logic: Logs error if argument not found.
+	trace_probe_log_err(ctx->offset, NO_BTFARG);
 	return -ENOENT;
 
 found:
-	type = btf_type_skip_modifiers(ctx->btf, tid, &tid); // Functional Utility: Skips modifiers to get real type.
+	type = btf_type_skip_modifiers(ctx->btf, tid, &tid);
 	if (!type) {
 		trace_probe_log_err(ctx->offset, BAD_BTF_TID);
 		return -EINVAL;
@@ -962,7 +929,6 @@ found:
 	ctx->last_type = type;
 	ctx->last_bitoffs = 0;
 	ctx->last_bitsize = 0;
-	// Block Logic: If a field is present, parses it.
 	if (field) {
 		ctx->offset += field - varname;
 		return parse_btf_field(field, type, pcode, end, ctx);
@@ -985,11 +951,10 @@ static const struct fetch_type *find_fetch_type_from_btf_type(
 	struct btf *btf = ctx->btf;
 	const char *typestr = NULL;
 
-	// Block Logic: If BTF and last type are available, converts BTF type to string.
 	if (btf && ctx->last_type)
 		typestr = fetch_type_from_btf_type(btf, ctx->last_type, ctx);
 
-	return find_fetch_type(typestr, ctx->flags); // Functional Utility: Finds fetch type from string.
+	return find_fetch_type(typestr, ctx->flags);
 }
 
 /**
@@ -1006,28 +971,24 @@ static int parse_btf_bitfield(struct fetch_insn **pcode,
 {
 	struct fetch_insn *code = *pcode;
 
-	// Block Logic: Returns if not a bitfield or already aligned.
 	if ((ctx->last_bitsize % 8 == 0) && ctx->last_bitoffs == 0)
 		return 0;
 
 	code++;
-	// Block Logic: Checks for overflow of instruction array.
 	if (code->op != FETCH_OP_NOP) {
 		trace_probe_log_err(ctx->offset, TOO_MANY_OPS);
 		return -EINVAL;
 	}
 	*pcode = code;
 
-	code->op = FETCH_OP_MOD_BF; // Functional Utility: Sets operation to bitfield modification.
-	code->lshift = 64 - (ctx->last_bitsize + ctx->last_bitoffs); // Functional Utility: Calculates left shift.
-	code->rshift = 64 - ctx->last_bitsize; // Functional Utility: Calculates right shift.
-	code->basesize = 64 / 8; // Functional Utility: Sets base size to 8 bytes.
-	// Block Logic: Checks for invalid bitfield range.
+	code->op = FETCH_OP_MOD_BF;
+	code->lshift = 64 - (ctx->last_bitsize + ctx->last_bitoffs);
+	code->rshift = 64 - ctx->last_bitsize;
+	code->basesize = 64 / 8;
 	return (BYTES_TO_BITS(t->size) < (bw + bo)) ? -EINVAL : 0;
 }
 
 #else
-// Block Logic: Stubs for CONFIG_PROBE_EVENTS_BTF_ARGS disabled builds.
 static void clear_btf_context(struct traceprobe_parse_context *ctx)
 {
 	ctx->btf = NULL;
@@ -1088,12 +1049,11 @@ static int __store_entry_arg(struct trace_probe *tp, int argnum)
 	bool match = false;
 	int i, offset;
 
-	// Block Logic: If `entry_arg` is not yet allocated, initializes it.
 	if (!earg) {
 		earg = kzalloc(sizeof(*tp->entry_arg), GFP_KERNEL);
 		if (!earg)
 			return -ENOMEM;
-		earg->size = 2 * tp->nr_args + 1; // Functional Utility: Calculates size for instruction array.
+		earg->size = 2 * tp->nr_args + 1;
 		earg->code = kcalloc(earg->size, sizeof(struct fetch_insn),
 				     GFP_KERNEL);
 		if (!earg->code) {
@@ -1101,7 +1061,6 @@ static int __store_entry_arg(struct trace_probe *tp, int argnum)
 			return -ENOMEM;
 		}
 		/* Fill the code buffer with 'end' to simplify it */
-		// Functional Utility: Initializes code buffer with `FETCH_OP_END`.
 		for (i = 0; i < earg->size; i++)
 			earg->code[i].op = FETCH_OP_END;
 		tp->entry_arg = earg;
@@ -1122,29 +1081,28 @@ static int __store_entry_arg(struct trace_probe *tp, int argnum)
 	 * data buffer.
 	 */
 	offset = 0;
-	// Block Logic: Scans existing entry code to avoid redundant fetching.
 	for (i = 0; i < earg->size - 1; i++) {
 		switch (earg->code[i].op) {
-		case FETCH_OP_END: // Block Logic: If `FETCH_OP_END` is found, inserts new instructions.
+		case FETCH_OP_END:
 			earg->code[i].op = FETCH_OP_ARG;
 			earg->code[i].param = argnum;
 			earg->code[i + 1].op = FETCH_OP_ST_EDATA;
 			earg->code[i + 1].offset = offset;
 			return offset;
 		case FETCH_OP_ARG:
-			match = (earg->code[i].param == argnum); // Functional Utility: Checks for matching argument number.
+			match = (earg->code[i].param == argnum);
 			break;
 		case FETCH_OP_ST_EDATA:
-			offset = earg->code[i].offset; // Functional Utility: Updates offset.
+			offset = earg->code[i].offset;
 			if (match)
-				return offset; // Functional Utility: If argument already fetched, returns its offset.
-			offset += sizeof(unsigned long); // Functional Utility: Increments offset for next data.
+				return offset;
+			offset += sizeof(unsigned long);
 			break;
 		default:
 			break;
 		}
 	}
-	return -ENOSPC; // Block Logic: Returns error if no space available.
+	return -ENOSPC;
 }
 
 /**
@@ -1160,7 +1118,6 @@ int traceprobe_get_entry_data_size(struct trace_probe *tp)
 	struct probe_entry_arg *earg = tp->entry_arg;
 	int i, size = 0;
 
-	// Block Logic: Returns 0 if no entry arguments.
 	if (!earg)
 		return 0;
 
@@ -1174,13 +1131,12 @@ int traceprobe_get_entry_data_size(struct trace_probe *tp)
 	 * stored. Thus we need to find the last FETCH_OP_ST_EDATA in the
 	 * code array.
 	 */
-	// Block Logic: Iterates through the entry code array.
 	for (i = 0; i < earg->size; i++) {
 		switch (earg->code[i].op) {
-		case FETCH_OP_END: // Block Logic: Ends loop if `FETCH_OP_END` is found.
+		case FETCH_OP_END:
 			goto out;
 		case FETCH_OP_ST_EDATA:
-			size = earg->code[i].offset + sizeof(unsigned long); // Functional Utility: Updates max size.
+			size = earg->code[i].offset + sizeof(unsigned long);
 			break;
 		default:
 			break;
@@ -1205,23 +1161,21 @@ void store_trace_entry_data(void *edata, struct trace_probe *tp, struct pt_regs 
 	unsigned long val = 0;
 	int i;
 
-	// Block Logic: Returns if no entry arguments.
 	if (!earg)
 		return;
 
-	// Block Logic: Executes fetch instructions to store data.
 	for (i = 0; i < earg->size; i++) {
 		struct fetch_insn *code = &earg->code[i];
 
 		switch (code->op) {
 		case FETCH_OP_ARG:
-			val = regs_get_kernel_argument(regs, code->param); // Functional Utility: Gets kernel argument.
+			val = regs_get_kernel_argument(regs, code->param);
 			break;
 		case FETCH_OP_ST_EDATA:
-			*(unsigned long *)((unsigned long)edata + code->offset) = val; // Functional Utility: Stores data at offset.
+			*(unsigned long *)((unsigned long)edata + code->offset) = val;
 			break;
 		case FETCH_OP_END:
-			goto end; // Functional Utility: Ends loop.
+			goto end;
 		default:
 			break;
 		}
@@ -1255,12 +1209,11 @@ static int parse_probe_vars(char *orig_arg, const struct fetch_type *t,
 {
 	struct fetch_insn *code = *pcode;
 	int err = TP_ERR_BAD_VAR;
-	char *arg = orig_arg + 1; // Functional Utility: Skips '$'.
+	char *arg = orig_arg + 1;
 	unsigned long param;
 	int ret = 0;
 	int len;
 
-	// Block Logic: Handles trace event arguments (`TPARG_FL_TEVENT`).
 	if (ctx->flags & TPARG_FL_TEVENT) {
 		if (code->data)
 			return -EFAULT;
@@ -1276,84 +1229,75 @@ static int parse_probe_vars(char *orig_arg, const struct fetch_type *t,
 		goto inval;
 	}
 
-	// Block Logic: Handles `$retval`.
 	if (str_has_prefix(arg, "retval")) {
-		if (!(ctx->flags & TPARG_FL_RETURN)) { // Block Logic: `$retval` only valid for return probes.
+		if (!(ctx->flags & TPARG_FL_RETURN)) {
 			err = TP_ERR_RETVAL_ON_PROBE;
 			goto inval;
 		}
-		// Block Logic: If BTF is available, uses BTF parsing for `$retval`.
 		if (!(ctx->flags & TPARG_FL_KERNEL) ||
 		    !IS_ENABLED(CONFIG_PROBE_EVENTS_BTF_ARGS)) {
-			code->op = FETCH_OP_RETVAL; // Functional Utility: Sets operation to fetch return value.
+			code->op = FETCH_OP_RETVAL;
 			return 0;
 		}
 		return parse_btf_arg(orig_arg, pcode, end, ctx);
 	}
 
-	// Block Logic: Handles `$stack` and `$stackN`.
 	len = str_has_prefix(arg, "stack");
 	if (len) {
-		// Block Logic: If just `$stack`, fetches stack pointer.
 		if (arg[len] == '\0') {
 			code->op = FETCH_OP_STACKP;
 			return 0;
 		}
 
-		// Block Logic: If `$stackN`, fetches Nth stack entry.
 		if (isdigit(arg[len])) {
 			ret = kstrtoul(arg + len, 10, &param);
 			if (ret)
 				goto inval;
 
 			if ((ctx->flags & TPARG_FL_KERNEL) &&
-			    param > PARAM_MAX_STACK) { // Block Logic: Checks stack bounds for kernel.
+			    param > PARAM_MAX_STACK) {
 				err = TP_ERR_BAD_STACK_NUM;
 				goto inval;
 			}
-			code->op = FETCH_OP_STACK; // Functional Utility: Sets operation to fetch stack entry.
-			code->param = (unsigned int)param; // Functional Utility: Stores stack index.
+			code->op = FETCH_OP_STACK;
+			code->param = (unsigned int)param;
 			return 0;
 		}
 		goto inval;
 	}
 
-	// Block Logic: Handles `$comm`.
 	if (strcmp(arg, "comm") == 0 || strcmp(arg, "COMM") == 0) {
-		code->op = FETCH_OP_COMM; // Functional Utility: Sets operation to fetch comm.
+		code->op = FETCH_OP_COMM;
 		return 0;
 	}
 
 #ifdef CONFIG_HAVE_FUNCTION_ARG_ACCESS_API
-	// Block Logic: Handles `$argN`.
 	len = str_has_prefix(arg, "arg");
 	if (len) {
 		ret = kstrtoul(arg + len, 10, &param);
 		if (ret)
 			goto inval;
 
-		if (!param || param > PARAM_MAX_STACK) { // Block Logic: Checks arg bounds.
+		if (!param || param > PARAM_MAX_STACK) {
 			err = TP_ERR_BAD_ARG_NUM;
 			goto inval;
 		}
 		param--; /* argN starts from 1, but internal arg[N] starts from 0 */
 
-		// Block Logic: Handles function entry arguments.
 		if (tparg_is_function_entry(ctx->flags)) {
 			code->op = FETCH_OP_ARG;
-			// Block Logic: Adjusts parameter index for tracepoints.
 			if (ctx->flags & TPARG_FL_TPOINT)
 				code->param++;
 			else
 				code->param = (unsigned int)param;
-		} else if (tparg_is_function_return(ctx->flags)) { // Block Logic: Handles function return arguments.
+		} else if (tparg_is_function_return(ctx->flags)) {
 			/* function entry argument access from return probe */
-			ret = __store_entry_arg(ctx->tp, param); // Functional Utility: Stores entry argument.
+			ret = __store_entry_arg(ctx->tp, param);
 			if (ret < 0)	/* This error should be an internal error */
 				return ret;
 
-			code->op = FETCH_OP_EDATA; // Functional Utility: Sets operation to fetch entry data.
-			code->offset = ret; // Functional Utility: Stores offset to entry data.
+			code->op = FETCH_OP_EDATA;
+			code->offset = ret;
 		} else {
 			err = TP_ERR_NOFENTRY_ARGS;
 			goto inval;
@@ -1363,7 +1307,7 @@ static int parse_probe_vars(char *orig_arg, const struct fetch_type *t,
 #endif
 
 inval:
-	__trace_probe_log_err(ctx->offset, err); // Functional Utility: Logs detailed error.
+	__trace_probe_log_err(ctx->offset, err);
 	return -EINVAL;
 }
 
@@ -1381,9 +1325,9 @@ static int str_to_immediate(char *str, unsigned long *imm)
 	if (isdigit(str[0]))
 		return kstrtoul(str, 0, imm);
 	else if (str[0] == '-')
-		return kstrtol(str, 0, (long *)imm); // Functional Utility: Handles negative values.
+		return kstrtol(str, 0, (long *)imm);
 	else if (str[0] == '+')
-		return kstrtol(str + 1, 0, (long *)imm); // Functional Utility: Handles positive values with explicit '+'.
+		return kstrtol(str + 1, 0, (long *)imm);
 	return -EINVAL;
 }
 
@@ -1401,12 +1345,11 @@ static int __parse_imm_string(char *str, char **pbuf, int offs)
 {
 	size_t len = strlen(str);
 
-	// Block Logic: Checks for closing double quote.
 	if (str[len - 1] != '"') {
 		trace_probe_log_err(offs + len, IMMSTR_NO_CLOSE);
 		return -EINVAL;
 	}
-	*pbuf = kstrndup(str, len - 1, GFP_KERNEL); // Functional Utility: Duplicates string, excluding quotes.
+	*pbuf = kstrndup(str, len - 1, GFP_KERNEL);
 	if (!*pbuf)
 		return -ENOMEM;
 	return 0;
@@ -1432,27 +1375,25 @@ parse_probe_arg(char *arg, const struct fetch_type *type,
 {
 	struct fetch_insn *code = *pcode;
 	unsigned long param;
-	int deref = FETCH_OP_DEREF; // Functional Utility: Default dereference operation.
+	int deref = FETCH_OP_DEREF;
 	long offset = 0;
 	char *tmp;
 	int ret = 0;
 
-	// Block Logic: Dispatches based on the first character of the argument.
 	switch (arg[0]) {
-	case '$': // Block Logic: Handles variables starting with '$'.
+	case '$':
 		ret = parse_probe_vars(arg, type, pcode, end, ctx);
 		break;
 
 	case '%':	/* named register */
-		// Block Logic: Handles named registers starting with '%'.
 		if (ctx->flags & (TPARG_FL_TEVENT | TPARG_FL_FPROBE)) {
 			/* eprobe and fprobe do not handle registers */
 			trace_probe_log_err(ctx->offset, BAD_VAR);
 			break;
 		}
-		ret = regs_query_register_offset(arg + 1); // Functional Utility: Queries register offset.
+		ret = regs_query_register_offset(arg + 1);
 		if (ret >= 0) {
-			code->op = FETCH_OP_REG; // Functional Utility: Sets operation to fetch register.
+			code->op = FETCH_OP_REG;
 			code->param = (unsigned int)ret;
 			ret = 0;
 		} else
@@ -1460,19 +1401,18 @@ parse_probe_arg(char *arg, const struct fetch_type *type,
 		break;
 
 	case '@':	/* memory, file-offset or symbol */
-		// Block Logic: Handles memory addresses, file offsets, or symbols starting with '@'.
-		if (isdigit(arg[1])) { // Block Logic: If it's a numeric address.
+		if (isdigit(arg[1])) {
 			ret = kstrtoul(arg + 1, 0, &param);
 			if (ret) {
 				trace_probe_log_err(ctx->offset, BAD_MEM_ADDR);
 				break;
 			}
 			/* load address */
-			code->op = FETCH_OP_IMM; // Functional Utility: Sets operation to load immediate value.
+			code->op = FETCH_OP_IMM;
 			code->immediate = param;
-		} else if (arg[1] == '+') { // Block Logic: If it's a file offset (e.g., "@+100").
+		} else if (arg[1] == '+') {
 			/* kprobes don't support file offsets */
-			if (ctx->flags & TPARG_FL_KERNEL) { // Block Logic: Kernel probes do not support file offsets.
+			if (ctx->flags & TPARG_FL_KERNEL) {
 				trace_probe_log_err(ctx->offset, FILE_ON_KPROBE);
 				return -EINVAL;
 			}
@@ -1482,120 +1422,115 @@ parse_probe_arg(char *arg, const struct fetch_type *type,
 				break;
 			}
 
-			code->op = FETCH_OP_FOFFS; // Functional Utility: Sets operation to fetch file offset.
+			code->op = FETCH_OP_FOFFS;
 			code->immediate = (unsigned long)offset;  // imm64?
-		} else { // Block Logic: If it's a symbol (e.g., "@my_symbol").
+		} else {
 			/* uprobes don't support symbols */
-			if (!(ctx->flags & TPARG_FL_KERNEL)) { // Block Logic: Uprobes do not support symbols.
+			if (!(ctx->flags & TPARG_FL_KERNEL)) {
 				trace_probe_log_err(ctx->offset, SYM_ON_UPROBE);
 				return -EINVAL;
 			}
 			/* Preserve symbol for updating */
-			code->op = FETCH_NOP_SYMBOL; // Functional Utility: Sets operation to no-op for symbol.
-			code->data = kstrdup(arg + 1, GFP_KERNEL); // Functional Utility: Duplicates symbol string.
+			code->op = FETCH_NOP_SYMBOL;
+			code->data = kstrdup(arg + 1, GFP_KERNEL);
 			if (!code->data)
 				return -ENOMEM;
-			if (++code == end) { // Block Logic: Checks for end of instruction array.
+			if (++code == end) {
 				trace_probe_log_err(ctx->offset, TOO_MANY_OPS);
 				return -EINVAL;
 			}
-			code->op = FETCH_OP_IMM; // Functional Utility: Sets operation to load immediate value.
+			code->op = FETCH_OP_IMM;
 			code->immediate = 0;
 		}
 		/* These are fetching from memory */
-		if (++code == end) { // Block Logic: Checks for end of instruction array.
+		if (++code == end) {
 			trace_probe_log_err(ctx->offset, TOO_MANY_OPS);
 			return -EINVAL;
 		}
 		*pcode = code;
-		code->op = FETCH_OP_DEREF; // Functional Utility: Sets operation to dereference.
+		code->op = FETCH_OP_DEREF;
 		code->offset = offset;
 		break;
 
 	case '+':	/* deref memory */
 	case '-':
-		// Block Logic: Handles memory dereferencing (e.g., "+0x10(arg)").
-		if (arg[1] == 'u') { // Functional Utility: Checks for unsigned dereference.
+		if (arg[1] == 'u') {
 			deref = FETCH_OP_UDEREF;
-			arg[1] = arg[0]; // Functional Utility: Corrects argument pointer.
+			arg[1] = arg[0];
 			arg++;
 		}
 		if (arg[0] == '+')
 			arg++;	/* Skip '+', because kstrtol() rejects it. */
-		tmp = strchr(arg, '('); // Functional Utility: Finds '(' for argument start.
+		tmp = strchr(arg, '(');
 		if (!tmp) {
 			trace_probe_log_err(ctx->offset, DEREF_NEED_BRACE);
 			return -EINVAL;
 		}
-		*tmp = '\0'; // Functional Utility: Null-terminates offset string.
-		ret = kstrtol(arg, 0, &offset); // Functional Utility: Parses offset.
+		*tmp = '\0';
+		ret = kstrtol(arg, 0, &offset);
 		if (ret) {
 			trace_probe_log_err(ctx->offset, BAD_DEREF_OFFS);
 			break;
 		}
-		ctx->offset += (tmp + 1 - arg) + (arg[0] != '-' ? 1 : 0); // Functional Utility: Updates offset for error reporting.
-		arg = tmp + 1; // Functional Utility: Moves to argument part.
-		tmp = strrchr(arg, ')'); // Functional Utility: Finds ')' for argument end.
+		ctx->offset += (tmp + 1 - arg) + (arg[0] != '-' ? 1 : 0);
+		arg = tmp + 1;
+		tmp = strrchr(arg, ')');
 		if (!tmp) {
 			trace_probe_log_err(ctx->offset + strlen(arg),
 					    DEREF_OPEN_BRACE);
 			return -EINVAL;
 		} else {
-			const struct fetch_type *t2 = find_fetch_type(NULL, ctx->flags); // Functional Utility: Finds default fetch type.
+			const struct fetch_type *t2 = find_fetch_type(NULL, ctx->flags);
 			int cur_offs = ctx->offset;
 
-			*tmp = '\0'; // Functional Utility: Null-terminates argument string.
-			ret = parse_probe_arg(arg, t2, &code, end, ctx); // Functional Utility: Recursively parses argument.
+			*tmp = '\0';
+			ret = parse_probe_arg(arg, t2, &code, end, ctx);
 			if (ret)
 				break;
 			ctx->offset = cur_offs;
-			// Block Logic: Checks for invalid dereference combinations.
 			if (code->op == FETCH_OP_COMM ||
 			    code->op == FETCH_OP_DATA) {
 				trace_probe_log_err(ctx->offset, COMM_CANT_DEREF);
 				return -EINVAL;
 			}
-			if (++code == end) { // Block Logic: Checks for end of instruction array.
+			if (++code == end) {
 				trace_probe_log_err(ctx->offset, TOO_MANY_OPS);
 				return -EINVAL;
 			}
 			*pcode = code;
 
-			code->op = deref; // Functional Utility: Sets dereference operation.
-			code->offset = offset; // Functional Utility: Sets dereference offset.
+			code->op = deref;
+			code->offset = offset;
 			/* Reset the last type if used */
-			ctx->last_type = NULL; // Functional Utility: Resets last BTF type.
+			ctx->last_type = NULL;
 		}
 		break;
 	case '\\':	/* Immediate value */
-		// Block Logic: Handles immediate values and string literals.
 		if (arg[1] == '"') {	/* Immediate string */
-			ret = __parse_imm_string(arg + 2, &tmp, ctx->offset + 2); // Functional Utility: Parses immediate string.
+			ret = __parse_imm_string(arg + 2, &tmp, ctx->offset + 2);
 			if (ret)
 				break;
-			code->op = FETCH_OP_DATA; // Functional Utility: Sets operation to load data.
-			code->data = tmp; // Functional Utility: Stores duplicated string.
+			code->op = FETCH_OP_DATA;
+			code->data = tmp;
 		} else {
-			ret = str_to_immediate(arg + 1, &code->immediate); // Functional Utility: Parses immediate numeric value.
+			ret = str_to_immediate(arg + 1, &code->immediate);
 			if (ret)
 				trace_probe_log_err(ctx->offset + 1, BAD_IMM);
 			else
-				code->op = FETCH_OP_IMM; // Functional Utility: Sets operation to load immediate value.
+				code->op = FETCH_OP_IMM;
 		}
 		break;
 	default:
-		// Block Logic: Handles BTF variables.
 		if (isalpha(arg[0]) || arg[0] == '_') {	/* BTF variable */
 			if (!tparg_is_function_entry(ctx->flags) &&
-			    !tparg_is_function_return(ctx->flags)) { // Block Logic: BTF variables only valid for function entry/return.
+			    !tparg_is_function_return(ctx->flags)) {
 				trace_probe_log_err(ctx->offset, NOSUP_BTFARG);
 				return -EINVAL;
 			}
-			ret = parse_btf_arg(arg, pcode, end, ctx); // Functional Utility: Parses BTF argument.
+			ret = parse_btf_arg(arg, pcode, end, ctx);
 			break;
 		}
 	}
-	// Block Logic: If no fetch method found.
 	if (!ret && code->op == FETCH_OP_NOP) {
 		/* Parsed, but do not find fetch method */
 		trace_probe_log_err(ctx->offset, BAD_FETCH_ARG);
@@ -1623,31 +1558,30 @@ static int __parse_bitfield_probe_arg(const char *bf,
 	unsigned long bw, bo;
 	char *tail;
 
-	// Block Logic: Returns if not a bitfield.
 	if (*bf != 'b')
 		return 0;
 
-	bw = simple_strtoul(bf + 1, &tail, 0);	/* Use simple one */ // Functional Utility: Parses bit width.
+	bw = simple_strtoul(bf + 1, &tail, 0);	/* Use simple one */
 
 	if (bw == 0 || *tail != '@')
 		return -EINVAL;
 
 	bf = tail + 1;
-	bo = simple_strtoul(bf, &tail, 0); // Functional Utility: Parses bit offset.
+	bo = simple_strtoul(bf, &tail, 0);
 
 	if (tail == bf || *tail != '/')
 		return -EINVAL;
 	code++;
-	if (code->op != FETCH_OP_NOP) // Block Logic: Checks for overflow of instruction array.
+	if (code->op != FETCH_OP_NOP)
 		return -EINVAL;
 	*pcode = code;
 
-	code->op = FETCH_OP_MOD_BF; // Functional Utility: Sets operation to bitfield modification.
-	code->lshift = BYTES_TO_BITS(t->size) - (bw + bo); // Functional Utility: Calculates left shift.
-	code->rshift = BYTES_TO_BITS(t->size) - bw; // Functional Utility: Calculates right shift.
-	code->basesize = t->size; // Functional Utility: Sets base size.
+	code->op = FETCH_OP_MOD_BF;
+	code->lshift = BYTES_TO_BITS(t->size) - (bw + bo);
+	code->rshift = BYTES_TO_BITS(t->size) - bw;
+	code->basesize = t->size;
 
-	return (BYTES_TO_BITS(t->size) < (bw + bo)) ? -EINVAL : 0; // Block Logic: Checks for invalid bitfield range.
+	return (BYTES_TO_BITS(t->size) < (bw + bo)) ? -EINVAL : 0;
 }
 
 /* Split type part from @arg and return it. */
@@ -1667,16 +1601,13 @@ static char *parse_probe_arg_type(char *arg, struct probe_arg *parg,
 	char *t = NULL, *t2, *t3;
 	int offs;
 
-	t = strchr(arg, ':'); // Functional Utility: Finds ':' separator for type.
-	// Block Logic: If type separator found.
+	t = strchr(arg, ':');
 	if (t) {
-		*t++ = '\0'; // Functional Utility: Null-terminates argument part.
-		t2 = strchr(t, '['); // Functional Utility: Finds '[' for array.
-		// Block Logic: If array syntax found.
+		*t++ = '\0';
+		t2 = strchr(t, '[');
 		if (t2) {
-			*t2++ = '\0'; // Functional Utility: Null-terminates type part.
-			t3 = strchr(t2, ']'); // Functional Utility: Finds ']' for array end.
-			// Block Logic: Validates array syntax.
+			*t2++ = '\0';
+			t3 = strchr(t2, ']');
 			if (!t3) {
 				offs = t2 + strlen(t2) - arg;
 
@@ -1688,39 +1619,37 @@ static char *parse_probe_arg_type(char *arg, struct probe_arg *parg,
 						    BAD_ARRAY_SUFFIX);
 				return ERR_PTR(-EINVAL);
 			}
-			*t3 = '\0'; // Functional Utility: Null-terminates array count.
-			if (kstrtouint(t2, 0, &parg->count) || !parg->count) { // Functional Utility: Parses array count.
+			*t3 = '\0';
+			if (kstrtouint(t2, 0, &parg->count) || !parg->count) {
 				trace_probe_log_err(ctx->offset + t2 - arg,
 						    BAD_ARRAY_NUM);
 				return ERR_PTR(-EINVAL);
 			}
-			if (parg->count > MAX_ARRAY_LEN) { // Block Logic: Checks array length against maximum.
+			if (parg->count > MAX_ARRAY_LEN) {
 				trace_probe_log_err(ctx->offset + t2 - arg,
 						    ARRAY_TOO_BIG);
 				return ERR_PTR(-EINVAL);
 			}
 		}
 	}
-	offs = t ? t - arg : 0; // Functional Utility: Calculates offset for error reporting.
+	offs = t ? t - arg : 0;
 
 	/*
 	 * Since $comm and immediate string can not be dereferenced,
 	 * we can find those by strcmp. But ignore for eprobes.
 	 */
-	// Block Logic: Handles special cases like `$comm` and immediate strings.
 	if (!(ctx->flags & TPARG_FL_TEVENT) &&
 	    (strcmp(arg, "$comm") == 0 || strcmp(arg, "$COMM") == 0 ||
 	     strncmp(arg, "\\\"", 2) == 0)) {
 		/* The type of $comm must be "string", and not an array type. */
-		if (parg->count || (t && strcmp(t, "string"))) { // Block Logic: Validates type for `$comm`.
+		if (parg->count || (t && strcmp(t, "string"))) {
 			trace_probe_log_err(ctx->offset + offs, NEED_STRING_TYPE);
 			return ERR_PTR(-EINVAL);
 		}
-		parg->type = find_fetch_type("string", ctx->flags); // Functional Utility: Sets type to "string".
+		parg->type = find_fetch_type("string", ctx->flags);
 	} else
-		parg->type = find_fetch_type(t, ctx->flags); // Functional Utility: Finds fetch type.
+		parg->type = find_fetch_type(t, ctx->flags);
 
-	// Block Logic: Returns error if fetch type not found.
 	if (!parg->type) {
 		trace_probe_log_err(ctx->offset + offs, BAD_TYPE);
 		return ERR_PTR(-EINVAL);
@@ -1752,10 +1681,8 @@ static int finalize_fetch_insn(struct fetch_insn *code,
 	int ret;
 
 	/* Store operation */
-	// Block Logic: Handles string types.
 	if (parg->type->is_string) {
 		/* Check bad combination of the type and the last fetch_insn. */
-		// Block Logic: Validates fetch instruction for string types.
 		if (!strcmp(parg->type->name, "symstr")) {
 			if (code->op != FETCH_OP_REG && code->op != FETCH_OP_STACK &&
 			    code->op != FETCH_OP_RETVAL && code->op != FETCH_OP_ARG &&
@@ -1774,7 +1701,6 @@ static int finalize_fetch_insn(struct fetch_insn *code,
 			}
 		}
 
-		// Block Logic: Handles `symstr`, immediate, data, and comm operations.
 		if (!strcmp(parg->type->name, "symstr") ||
 		    (code->op == FETCH_OP_IMM || code->op == FETCH_OP_COMM ||
 		     code->op == FETCH_OP_DATA) || code->op == FETCH_OP_TP_ARG ||
@@ -1788,14 +1714,13 @@ static int finalize_fetch_insn(struct fetch_insn *code,
 			 * it just get the value.
 			 */
 			code++;
-			if (code->op != FETCH_OP_NOP) { // Block Logic: Checks for overflow.
+			if (code->op != FETCH_OP_NOP) {
 				trace_probe_log_err(ctx->offset, TOO_MANY_OPS);
 				return -EINVAL;
 			}
 		}
 
 		/* If op == DEREF, replace it with STRING */
-		// Block Logic: Sets appropriate string store operation.
 		if (!strcmp(parg->type->name, "ustring") ||
 		    code->op == FETCH_OP_UDEREF)
 			code->op = FETCH_OP_ST_USTRING;
@@ -1803,29 +1728,28 @@ static int finalize_fetch_insn(struct fetch_insn *code,
 			code->op = FETCH_OP_ST_SYMSTR;
 		else
 			code->op = FETCH_OP_ST_STRING;
-		code->size = parg->type->size; // Functional Utility: Sets size.
-		parg->dynamic = true; // Functional Utility: Marks as dynamic.
-	} else if (code->op == FETCH_OP_DEREF) { // Block Logic: Handles dereference operations.
-		code->op = FETCH_OP_ST_MEM; // Functional Utility: Sets operation to store memory.
-		code->size = parg->type->size; // Functional Utility: Sets size.
-	} else if (code->op == FETCH_OP_UDEREF) { // Block Logic: Handles unsigned dereference operations.
-		code->op = FETCH_OP_ST_UMEM; // Functional Utility: Sets operation to store unsigned memory.
-		code->size = parg->type->size; // Functional Utility: Sets size.
+		code->size = parg->type->size;
+		parg->dynamic = true;
+	} else if (code->op == FETCH_OP_DEREF) {
+		code->op = FETCH_OP_ST_MEM;
+		code->size = parg->type->size;
+	} else if (code->op == FETCH_OP_UDEREF) {
+		code->op = FETCH_OP_ST_UMEM;
+		code->size = parg->type->size;
 	} else {
 		code++;
-		if (code->op != FETCH_OP_NOP) { // Block Logic: Checks for overflow.
+		if (code->op != FETCH_OP_NOP) {
 			trace_probe_log_err(ctx->offset, TOO_MANY_OPS);
 			return -E2BIG;
 		}
-		code->op = FETCH_OP_ST_RAW; // Functional Utility: Sets operation to store raw data.
-		code->size = parg->type->size; // Functional Utility: Sets size.
+		code->op = FETCH_OP_ST_RAW;
+		code->size = parg->type->size;
 	}
 
 	/* Save storing fetch_insn. */
 	scode = code;
 
 	/* Modify operation */
-	// Block Logic: Handles bitfield modifications.
 	if (type != NULL) {
 		/* Bitfield needs a special fetch_insn. */
 		ret = __parse_bitfield_probe_arg(type, parg->type, &code);
@@ -1836,32 +1760,31 @@ static int finalize_fetch_insn(struct fetch_insn *code,
 	} else if (IS_ENABLED(CONFIG_PROBE_EVENTS_BTF_ARGS) &&
 		   ctx->last_type) {
 		/* If user not specified the type, try parsing BTF bitfield. */
-		ret = parse_btf_bitfield(&code, ctx); // Functional Utility: Parses BTF bitfield.
+		ret = parse_btf_bitfield(&code, ctx);
 		if (ret)
 			return ret;
 	}
 
 	/* Loop(Array) operation */
-	// Block Logic: Handles array loop operations.
 	if (parg->count) {
 		if (scode->op != FETCH_OP_ST_MEM &&
 		    scode->op != FETCH_OP_ST_STRING &&
-		    scode->op != FETCH_OP_ST_USTRING) { // Block Logic: Invalid store operation for array.
+		    scode->op != FETCH_OP_ST_USTRING) {
 			trace_probe_log_err(ctx->offset + type_offset, BAD_STRING);
 			return -EINVAL;
 		}
 		code++;
-		if (code->op != FETCH_OP_NOP) { // Block Logic: Checks for overflow.
+		if (code->op != FETCH_OP_NOP) {
 			trace_probe_log_err(ctx->offset, TOO_MANY_OPS);
 			return -E2BIG;
 		}
-		code->op = FETCH_OP_LP_ARRAY; // Functional Utility: Sets operation to loop array.
-		code->param = parg->count; // Functional Utility: Stores array count.
+		code->op = FETCH_OP_LP_ARRAY;
+		code->param = parg->count;
 	}
 
 	/* Finalize the fetch_insn array. */
 	code++;
-	code->op = FETCH_OP_END; // Functional Utility: Marks end of instructions.
+	code->op = FETCH_OP_END;
 
 	return 0;
 }
@@ -1886,7 +1809,6 @@ static int traceprobe_parse_probe_arg_body(const char *argv, ssize_t *size,
 	int ret, len;
 
 	len = strlen(argv);
-	// Block Logic: Validates argument string length.
 	if (len > MAX_ARGSTR_LEN) {
 		trace_probe_log_err(ctx->offset, ARG_TOO_LONG);
 		return -E2BIG;
@@ -1895,45 +1817,43 @@ static int traceprobe_parse_probe_arg_body(const char *argv, ssize_t *size,
 		return -EINVAL;
 	}
 
-	arg = kstrdup(argv, GFP_KERNEL); // Functional Utility: Duplicates argument string.
+	arg = kstrdup(argv, GFP_KERNEL);
 	if (!arg)
 		return -ENOMEM;
 
-	parg->comm = kstrdup(arg, GFP_KERNEL); // Functional Utility: Duplicates comment string.
+	parg->comm = kstrdup(arg, GFP_KERNEL);
 	if (!parg->comm)
 		return -ENOMEM;
 
-	type = parse_probe_arg_type(arg, parg, ctx); // Functional Utility: Parses argument type.
+	type = parse_probe_arg_type(arg, parg, ctx);
 	if (IS_ERR(type))
 		return PTR_ERR(type);
 
-	code = tmp = kcalloc(FETCH_INSN_MAX, sizeof(*code), GFP_KERNEL); // Functional Utility: Allocates fetch instruction array.
+	code = tmp = kcalloc(FETCH_INSN_MAX, sizeof(*code), GFP_KERNEL);
 	if (!code)
 		return -ENOMEM;
-	code[FETCH_INSN_MAX - 1].op = FETCH_OP_END; // Functional Utility: Marks end of array.
+	code[FETCH_INSN_MAX - 1].op = FETCH_OP_END;
 
-	ctx->last_type = NULL; // Functional Utility: Resets last BTF type.
+	ctx->last_type = NULL;
 	ret = parse_probe_arg(arg, parg->type, &code, &code[FETCH_INSN_MAX - 1],
-			      ctx); // Functional Utility: Parses argument and generates fetch instructions.
+			      ctx);
 	if (ret < 0)
 		goto fail;
 
 	/* Update storing type if BTF is available */
-	// Block Logic: If BTF is enabled and type is not specified, uses BTF type.
 	if (IS_ENABLED(CONFIG_PROBE_EVENTS_BTF_ARGS) &&
 	    ctx->last_type) {
 		if (!type) {
-			parg->type = find_fetch_type_from_btf_type(ctx); // Functional Utility: Finds fetch type from BTF.
-		} else if (strstr(type, "string")) { // Block Logic: Checks for string type and prepares BTF string fetch.
+			parg->type = find_fetch_type_from_btf_type(ctx);
+		} else if (strstr(type, "string")) {
 			ret = check_prepare_btf_string_fetch(type, &code, ctx);
 			if (ret)
 				goto fail;
 		}
 	}
-	parg->offset = *size; // Functional Utility: Stores argument offset.
-	*size += parg->type->size * (parg->count ?: 1); // Functional Utility: Updates total size.
+	parg->offset = *size;
+	*size += parg->type->size * (parg->count ?: 1);
 
-	// Block Logic: If array count is specified, formats the print string.
 	if (parg->count) {
 		len = strlen(parg->type->fmttype) + 6;
 		parg->fmt = kmalloc(len, GFP_KERNEL);
@@ -1945,30 +1865,28 @@ static int traceprobe_parse_probe_arg_body(const char *argv, ssize_t *size,
 			 parg->count);
 	}
 
-	ret = finalize_fetch_insn(code, parg, type, type ? type - arg : 0, ctx); // Functional Utility: Finalizes fetch instructions.
+	ret = finalize_fetch_insn(code, parg, type, type ? type - arg : 0, ctx);
 	if (ret < 0)
 		goto fail;
 
-	// Block Logic: Finds the end of the generated code.
 	for (; code < tmp + FETCH_INSN_MAX; code++)
 		if (code->op == FETCH_OP_END)
 			break;
 	/* Shrink down the code buffer */
-	parg->code = kcalloc(code - tmp + 1, sizeof(*code), GFP_KERNEL); // Functional Utility: Shrinks code buffer.
+	parg->code = kcalloc(code - tmp + 1, sizeof(*code), GFP_KERNEL);
 	if (!parg->code)
 		ret = -ENOMEM;
 	else
-		memcpy(parg->code, tmp, sizeof(*code) * (code - tmp + 1)); // Functional Utility: Copies code.
+		memcpy(parg->code, tmp, sizeof(*code) * (code - tmp + 1));
 
 fail:
-	// Block Logic: Frees allocated data on failure.
 	if (ret < 0) {
 		for (code = tmp; code < tmp + FETCH_INSN_MAX; code++)
 			if (code->op == FETCH_NOP_SYMBOL ||
 			    code->op == FETCH_OP_DATA)
 				kfree(code->data);
 	}
-	kfree(tmp); // Functional Utility: Frees temporary buffer.
+	kfree(tmp);
 
 	return ret;
 }
@@ -1986,12 +1904,10 @@ static int traceprobe_conflict_field_name(const char *name,
 {
 	int i;
 
-	// Block Logic: Checks against reserved field names.
 	for (i = 0; i < ARRAY_SIZE(reserved_field_names); i++)
 		if (strcmp(reserved_field_names[i], name) == 0)
 			return 1;
 
-	// Block Logic: Checks against already used argument names.
 	for (i = 0; i < narg; i++)
 		if (strcmp(args[i].name, name) == 0)
 			return 1;
@@ -2000,607 +1916,570 @@ static int traceprobe_conflict_field_name(const char *name,
 }
 
 /**
- * @brief Generates a name for a probe argument.
- * @param arg The argument string.
- * @param idx The index of the argument.
- * @return A newly allocated string for the argument name, or NULL on memory allocation failure.
- *
- * This function attempts to use the argument itself as a name (if BTF is
- * enabled) or falls back to a generic "argN" name.
- */
-static char *generate_probe_arg_name(const char *arg, int idx)
-{
-	char *name = NULL;
-	const char *end;
-
-	/*
-	 * If argument name is omitted, try arg as a name (BTF variable)
-	 * or "argN".
-	 */
-	// Block Logic: If BTF is enabled, tries to extract name from argument.
-	if (IS_ENABLED(CONFIG_PROBE_EVENTS_BTF_ARGS)) {
-		end = strchr(arg, ':');
-		if (!end)
-			end = arg + strlen(arg);
-
-		name = kmemdup_nul(arg, end - arg, GFP_KERNEL); // Functional Utility: Duplicates potential name.
-		if (!name || !is_good_name(name)) { // Block Logic: Validates generated name.
-			kfree(name);
-			name = NULL;
-		}
-	}
-
-	// Block Logic: If no name generated, falls back to "argN".
-	if (!name)
-		name = kasprintf(GFP_KERNEL, "arg%d", idx + 1);
-
-	return name;
-}
-
-/**
- * @brief Parses a probe argument from a string.
- * @param tp Pointer to `trace_probe`.
+ * @brief Parses a single probe argument string.
+ * @param tp Pointer to the `trace_probe`.
  * @param i Index of the argument.
  * @param arg The argument string.
  * @param ctx Pointer to `traceprobe_parse_context`.
  * @return 0 on success, or a negative errno on failure.
  *
- * This function parses a single probe argument, extracting its name,
- * and then calls `traceprobe_parse_probe_arg_body` to parse the argument's
- * body and generate fetch instructions.
+ * This function parses an argument of the form `NAME=BODY`, extracts the name
+ * and body, and then calls `traceprobe_parse_probe_arg_body` to handle the
+ * body parsing.
  */
-int traceprobe_parse_probe_arg(struct trace_probe *tp, int i, const char *arg,
+int traceprobe_parse_probe_arg(struct trace_probe *tp, int i,
+			       const char *arg,
 			       struct traceprobe_parse_context *ctx)
 {
-	struct probe_arg *parg = &tp->args[i];
-	const char *body;
+	char *body, *name;
+	int ret;
 
-	ctx->tp = tp; // Functional Utility: Sets current trace probe in context.
-	body = strchr(arg, '='); // Functional Utility: Checks for '=' separator for name.
-	// Block Logic: If name is provided (e.g., `my_arg=...`).
-	if (body) {
-		if (body - arg > MAX_ARG_NAME_LEN) { // Block Logic: Checks name length.
-			trace_probe_log_err(0, ARG_NAME_TOO_LONG);
-			return -EINVAL;
-		} else if (body == arg) { // Block Logic: Empty name.
+	if (!arg)
+		return -EINVAL;
+
+	name = strchr(arg, '=');
+	if (name) {
+		if (name == arg) {
 			trace_probe_log_err(0, NO_ARG_NAME);
 			return -EINVAL;
 		}
-		parg->name = kmemdup_nul(arg, body - arg, GFP_KERNEL); // Functional Utility: Duplicates name.
-		body++; // Functional Utility: Moves to argument body.
-	} else { // Block Logic: If name is omitted.
-		parg->name = generate_probe_arg_name(arg, i); // Functional Utility: Generates default name.
-		body = arg; // Functional Utility: Argument body is the whole string.
-	}
-	if (!parg->name) // Block Logic: Handles name allocation failure.
-		return -ENOMEM;
-
-	// Block Logic: Validates argument name and checks for conflicts.
-	if (!is_good_name(parg->name)) {
-		trace_probe_log_err(0, BAD_ARG_NAME);
-		return -EINVAL;
-	}
-	if (traceprobe_conflict_field_name(parg->name, tp->args, i)) {
-		trace_probe_log_err(0, USED_ARG_NAME);
-		return -EINVAL;
-	}
-	ctx->offset = body - arg; // Functional Utility: Sets offset for error reporting.
-	/* Parse fetch argument */
-	return traceprobe_parse_probe_arg_body(body, &tp->size, parg, ctx); // Functional Utility: Parses argument body.
-}
-
-/**
- * @brief Frees resources associated with a `probe_arg` structure.
- * @param arg Pointer to `probe_arg`.
- *
- * This function frees the `fetch_insn` code array, name, comment,
- * and format string associated with the argument.
- */
-void traceprobe_free_probe_arg(struct probe_arg *arg)
-{
-	struct fetch_insn *code = arg->code;
-
-	// Block Logic: Iterates through fetch instructions and frees data.
-	while (code && code->op != FETCH_OP_END) {
-		if (code->op == FETCH_NOP_SYMBOL ||
-		    code->op == FETCH_OP_DATA)
-				kfree(code->data);
-		code++;
-	}
-	kfree(arg->code); // Functional Utility: Frees instruction array.
-	kfree(arg->name); // Functional Utility: Frees name.
-	kfree(arg->comm); // Functional Utility: Frees comment.
-	kfree(arg->fmt); // Functional Utility: Frees format string.
-}
-
-/**
- * @brief Checks if an argument list contains a variable argument (`$arg*`).
- * @param argc Number of arguments.
- * @param argv Array of argument strings.
- * @param args_idx Output parameter for the index of the variable argument.
- * @param ctx Pointer to `traceprobe_parse_context`.
- * @return 1 if variable argument found, 0 otherwise, or -EINVAL on error.
- */
-static int argv_has_var_arg(int argc, const char *argv[], int *args_idx,
-			    struct traceprobe_parse_context *ctx)
-{
-	int i, found = 0;
-
-	// Block Logic: Iterates through arguments to find `$arg*`.
-	for (i = 0; i < argc; i++)
-		if (str_has_prefix(argv[i], "$arg")) {
-			trace_probe_log_set_index(i + 2);
-
-			// Block Logic: `$arg*` only valid for function entry/return.
-			if (!tparg_is_function_entry(ctx->flags) &&
-			    !tparg_is_function_return(ctx->flags)) {
-				trace_probe_log_err(0, NOFENTRY_ARGS);
-				return -EINVAL;
-			}
-
-			// Block Logic: If `$argN` (specific number), just marks as found.
-			if (isdigit(argv[i][4])) {
-				found = 1;
-				continue;
-			}
-
-			// Block Logic: If `$arg*` (wildcard), checks for conflicts.
-			if (argv[i][4] != '*') {
-				trace_probe_log_err(0, BAD_VAR);
-				return -EINVAL;
-			}
-
-			if (*args_idx >= 0 && *args_idx < argc) { // Block Logic: Only one `$arg*` allowed.
-				trace_probe_log_err(0, DOUBLE_ARGS);
-				return -EINVAL;
-			}
-			found = 1;
-			*args_idx = i; // Functional Utility: Stores index of `$arg*`.
+		body = name + 1;
+		if (*body == '\0') {
+			trace_probe_log_err(body - arg, NO_ARG_BODY);
+			return -EINVAL;
 		}
-
-	return found;
-}
-
-/**
- * @brief Prints the Nth BTF argument into a buffer.
- * @param idx The index of the argument.
- * @param type The type string (e.g., ":s32").
- * @param buf Output buffer.
- * @param bufsize Size of the buffer.
- * @param ctx Pointer to `traceprobe_parse_context`.
- * @return Number of bytes written on success, or a negative errno on failure.
- */
-static int sprint_nth_btf_arg(int idx, const char *type,
-			      char *buf, int bufsize,
-			      struct traceprobe_parse_context *ctx)
-{
-	const char *name;
-	int ret;
-
-	// Block Logic: Checks for valid argument index.
-	if (idx >= ctx->nr_params) {
-		trace_probe_log_err(0, NO_BTFARG);
-		return -ENOENT;
+		*name = '\0';
+		name = (char *)arg;
+	} else {
+		body = (char *)arg;
+		name = body;
+		/* find the variable name from body */
+		if (*name == '$' || *name == '%')
+			name++;
+		else if (*name == '@' || *name == '\\')
+			name = NULL;
+		else {
+			name = strpbrk(name, ".(+-");
+			if (name)
+				*name = '\0';
+			name = body;
+		}
 	}
-	name = btf_name_by_offset(ctx->btf, ctx->params[idx].name_off); // Functional Utility: Gets parameter name from BTF.
-	if (!name) {
-		trace_probe_log_err(0, NO_BTF_ENTRY);
-		return -ENOENT;
+
+	if (name) {
+		if (!is_good_name(name)) {
+			trace_probe_log_err(0, BAD_ARG_NAME);
+			return -EINVAL;
+		}
+		if (traceprobe_conflict_field_name(name, tp->args, i)) {
+			trace_probe_log_err(0, DUPLICATE_ARG_NAME);
+			return -EINVAL;
+		}
+		tp->args[i].name = kstrdup(name, GFP_KERNEL);
+		if (!tp->args[i].name)
+			return -ENOMEM;
 	}
-	ret = snprintf(buf, bufsize, "%s%s", name, type); // Functional Utility: Formats name and type.
-	if (ret >= bufsize) {
-		trace_probe_log_err(0, ARGS_2LONG);
-		return -E2BIG;
+
+	if (!tp->args[i].name) {
+		tp->args[i].name = kasprintf(GFP_KERNEL, "arg%d", i + 1);
+		if (!tp->args[i].name)
+			return -ENOMEM;
 	}
+	ctx->tp = tp;
+	ctx->offset = body - arg;
+	ret = traceprobe_parse_probe_arg_body(body, &tp->size, &tp->args[i], ctx);
+	ctx->offset = 0;
+	ctx->tp = NULL;
+
 	return ret;
 }
 
-/* Return new_argv which must be freed after use */
 /**
- * @brief Expands meta arguments (like `$arg*` and `$argN`) in an argument list.
- * @param argc Number of original arguments.
- * @param argv Array of original argument strings.
- * @param new_argc Output parameter for the new argument count.
- * @param buf Buffer to store expanded arguments.
- * @param bufsize Size of the buffer.
- * @param ctx Pointer to `traceprobe_parse_context`.
- * @return A newly allocated array of expanded argument strings on success,
- *         or an `ERR_PTR` on failure. The caller must free this array.
- *
- * This function handles `meta-arguments` that expand into multiple actual
- * arguments, primarily by using BTF information to resolve function parameters.
+ * @brief Helper macro for kfreeing an array of strings.
  */
-const char **traceprobe_expand_meta_args(int argc, const char *argv[],
-					 int *new_argc, char *buf, int bufsize,
-					 struct traceprobe_parse_context *ctx)
+static void str_array_free(char **array)
 {
-	const struct btf_param *params = NULL;
-	int i, j, n, used, ret, args_idx = -1;
-	const char **new_argv __free(kfree) = NULL;
+	int i = 0;
 
-	ret = argv_has_var_arg(argc, argv, &args_idx, ctx); // Functional Utility: Checks for variable arguments.
-	if (ret < 0)
-		return ERR_PTR(ret);
+	if (!array)
+		return;
 
-	// Block Logic: If no variable arguments, returns original argument count.
-	if (!ret) {
-		*new_argc = argc;
-		return NULL;
-	}
-
-	// Functional Utility: Queries BTF context if not already set.
-	ret = query_btf_context(ctx);
-	if (ret < 0 || ctx->nr_params == 0) {
-		if (args_idx != -1) { // Block Logic: `$arg*` requires BTF information.
-			/* $arg* requires BTF info */
-			trace_probe_log_err(0, NOSUP_BTFARG);
-			return (const char **)params;
-		}
-		*new_argc = argc;
-		return NULL;
-	}
-
-	// Block Logic: Calculates new argument count.
-	if (args_idx >= 0)
-		*new_argc = argc + ctx->nr_params - 1;
-	else
-		*new_argc = argc;
-
-	new_argv = kcalloc(*new_argc, sizeof(char *), GFP_KERNEL); // Functional Utility: Allocates new argument array.
-	if (!new_argv)
-		return ERR_PTR(-ENOMEM);
-
-	used = 0;
-	// Block Logic: Iterates through original arguments, expanding meta arguments.
-	for (i = 0, j = 0; i < argc; i++) {
-		trace_probe_log_set_index(i + 2);
-		// Block Logic: If it's the `$arg*` position, expands all BTF parameters.
-		if (i == args_idx) {
-			for (n = 0; n < ctx->nr_params; n++) {
-				ret = sprint_nth_btf_arg(n, "", buf + used,
-							 bufsize - used, ctx);
-				if (ret < 0)
-					return ERR_PTR(ret);
-
-				new_argv[j++] = buf + used;
-				used += ret + 1;
-			}
-			continue;
-		}
-
-		// Block Logic: If it's `$argN`, expands to Nth BTF parameter.
-		if (str_has_prefix(argv[i], "$arg")) {
-			char *type = NULL;
-
-			n = simple_strtoul(argv[i] + 4, &type, 10);
-			if (type && !(*type == ':' || *type == '\0')) {
-				trace_probe_log_err(0, BAD_VAR);
-				return ERR_PTR(-ENOENT);
-			}
-			/* Note: $argN starts from 1, but internal arg[N] starts from 0 */
-			ret = sprint_nth_btf_arg(n - 1, type, buf + used,
-						 bufsize - used, ctx);
-			if (ret < 0)
-				return ERR_PTR(ret);
-			new_argv[j++] = buf + used;
-			used += ret + 1;
-		} else
-			new_argv[j++] = argv[i]; // Functional Utility: Copies non-meta arguments.
-	}
-
-	return_ptr(new_argv);
+	while (array[i])
+		kfree(array[i++]);
+	kfree(array);
 }
 
-/* @buf: *buf must be equal to NULL. Caller must to free *buf */
 /**
- * @brief Expands dentry arguments (e.g., `%pD`) in an argument list.
+ * @brief Expands BTF meta-arguments (`%function(...)` or `%return(...)`).
+ * @param argc Original number of arguments.
+ * @param argv Original argument array.
+ * @param new_argc Output parameter for the new argument count.
+ * @param buf Buffer to store the expanded arguments.
+ * @param len Length of the buffer.
+ * @param ctx Pointer to `traceprobe_parse_context`.
+ * @return A newly allocated array of argument strings on success, or an `ERR_PTR` on failure.
+ *
+ * This function handles special meta-arguments that automatically expand
+ * to all parameters of a function or its return type, using BTF information.
+ */
+static const char **
+traceprobe_expand_meta_args(int argc, const char *argv[], int *new_argc,
+				   char *buf, int len,
+				   struct traceprobe_parse_context *ctx)
+{
+	char **__argv;
+	int i, j;
+	const struct btf_param *param;
+	const struct btf_type *type;
+	const char *arg_name, *type_name;
+
+	*new_argc = 0;
+	if (argc != 1)
+		goto out;
+
+	if (!strcmp(argv[0], "%function")) {
+		/* Expand to all function parameters */
+		if (query_btf_context(ctx) < 0)
+			return ERR_PTR(-ENOENT);
+		if (!ctx->params)
+			return NULL;
+		__argv = kcalloc(ctx->nr_params + 1, sizeof(char *), GFP_KERNEL);
+		if (!__argv)
+			return ERR_PTR(-ENOMEM);
+		for (i = 0; i < ctx->nr_params; i++) {
+			param = ctx->params + i;
+			arg_name = btf_name_by_offset(ctx->btf, param->name_off);
+			type = btf_type_skip_modifiers(ctx->btf, param->type, NULL);
+			if (!arg_name || !type) {
+				str_array_free(__argv);
+				return ERR_PTR(-EINVAL);
+			}
+			/*
+			 * Generate an argument string for each parameter.
+			 * Note that we can not use BTF argument syntax (e.g. varname),
+			 * because it does not support space in it. Use $argN syntax
+			 * instead.
+			 */
+			type_name = fetch_type_from_btf_type(ctx->btf, type, ctx);
+			if (!type_name)
+				j = snprintf(buf, len, "%s=$arg%d", arg_name, i + 1);
+			else
+				j = snprintf(buf, len, "%s=$arg%d:%s", arg_name,
+					     i + 1, type_name);
+			if (j >= len) {
+				str_array_free(__argv);
+				return ERR_PTR(-E2BIG);
+			}
+			__argv[i] = kstrdup(buf, GFP_KERNEL);
+			if (!__argv[i]) {
+				str_array_free(__argv);
+				return ERR_PTR(-ENOMEM);
+			}
+		}
+		*new_argc = ctx->nr_params;
+	} else if (!strcmp(argv[0], "%return")) {
+		/* Expand to $retval */
+		if (query_btf_context(ctx) < 0)
+			return ERR_PTR(-ENOENT);
+		/* If there is no return value, return NULL */
+		if (ctx->proto->type == 0)
+			return NULL;
+		type = btf_type_skip_modifiers(ctx->btf, ctx->proto->type, NULL);
+		type_name = fetch_type_from_btf_type(ctx->btf, type, ctx);
+		if (!type_name)
+			j = snprintf(buf, len, "ret=$retval");
+		else
+			j = snprintf(buf, len, "ret=$retval:%s", type_name);
+		if (j >= len)
+			return ERR_PTR(-E2BIG);
+		__argv = kcalloc(2, sizeof(char *), GFP_KERNEL);
+		if (!__argv)
+			return ERR_PTR(-ENOMEM);
+		__argv[0] = kstrdup(buf, GFP_KERNEL);
+		if (!__argv[0]) {
+			kfree(__argv);
+			return ERR_PTR(-ENOMEM);
+		}
+		*new_argc = 1;
+	} else
+		goto out;
+
+	return __argv;
+out:
+	/* if no meta args, return NULL */
+	return NULL;
+}
+
+/**
+ * @brief Expands `dentry` argument types (`dentry->d_name.name`).
  * @param argc Number of arguments.
  * @param argv Array of argument strings.
- * @param buf Output parameter for the newly allocated buffer containing expanded arguments.
- * @return 0 on success, -EINVAL on error, -ENOMEM on memory allocation failure.
+ * @param dbuf_p Output parameter for the expanded argument string buffer.
+ * @return 0 on success, or a negative errno on failure.
  *
- * This function recognizes `%p[dD]` format specifiers in arguments and
- * expands them into explicit dereference operations to access dentry
- * names or file paths.
+ * This function replaces any `dentry` type arguments with `+0(%arg):string`,
+ * which fetches the `d_name.name` field from the `dentry` structure.
  */
-int traceprobe_expand_dentry_args(int argc, const char *argv[], char **buf)
+static int traceprobe_expand_dentry_args(int argc, const char **argv, char **dbuf_p)
 {
-	int i, used, ret;
-	const int bufsize = MAX_DENTRY_ARGS_LEN;
-	char *tmpbuf __free(kfree) = NULL;
+	int i, j = 0, n = 0, len, diff;
+	char *dbuf;
 
-	// Block Logic: Ensures buffer is initially NULL.
-	if (*buf)
-		return -EINVAL;
+	if (argc == 0)
+		return 0;
 
-	used = 0;
-	// Block Logic: Iterates through arguments.
+	len = argc * (MAX_ARGSTR_LEN + 1); // Functional Utility: Calculates total buffer size.
+	dbuf = kmalloc(len, GFP_KERNEL); // Functional Utility: Allocates memory for the new argument strings.
+	if (!dbuf)
+		return -ENOMEM;
+	*dbuf_p = dbuf;
+
+	// Block Logic: Iterates through arguments to find `dentry` types.
 	for (i = 0; i < argc; i++) {
-		char *tmp __free(kfree) = NULL;
-		char *equal;
-		size_t arg_len;
-
-		// Block Logic: Checks for dentry format specifier.
-		if (!glob_match("*:%p[dD]", argv[i]))
-			continue;
-
-		// Block Logic: Allocates buffer if not already.
-		if (!tmpbuf) {
-			tmpbuf = kmalloc(bufsize, GFP_KERNEL);
-			if (!tmpbuf)
-				return -ENOMEM;
+		diff = strlen(argv[i]) - strlen(":dentry");
+		if (diff > 0 && strcmp(argv[i] + diff, ":dentry") == 0) {
+			n = i + 1;
+			break;
 		}
-
-		tmp = kstrdup(argv[i], GFP_KERNEL); // Functional Utility: Duplicates argument.
-		if (!tmp)
-			return -ENOMEM;
-
-		equal = strchr(tmp, '='); // Functional Utility: Checks for alias.
-		if (equal)
-			*equal = '\0'; // Functional Utility: Null-terminates alias part.
-		arg_len = strlen(argv[i]);
-		tmp[arg_len - 4] = '\0'; // Functional Utility: Removes `:%p[dD]` suffix.
-		// Block Logic: Formats based on `d` or `D` specifier.
-		if (argv[i][arg_len - 1] == 'd')
-			ret = snprintf(tmpbuf + used, bufsize - used,
-				       "%s%s+0x0(+0x%zx(%s)):string",
-				       equal ? tmp : "", equal ? "=" : "",
-				       offsetof(struct dentry, d_name.name),
-				       equal ? equal + 1 : tmp);
-		else
-			ret = snprintf(tmpbuf + used, bufsize - used,
-				       "%s%s+0x0(+0x%zx(+0x%zx(%s))):string",
-				       equal ? tmp : "", equal ? "=" : "",
-				       offsetof(struct dentry, d_name.name),
-				       offsetof(struct file, f_path.dentry),
-				       equal ? equal + 1 : tmp);
-
-		if (ret >= bufsize - used)
-			return -ENOMEM;
-		argv[i] = tmpbuf + used; // Functional Utility: Updates argument pointer.
-		used += ret + 1; // Functional Utility: Updates used size.
 	}
+	if (!n)
+		return 0;
 
-	*buf = no_free_ptr(tmpbuf); // Functional Utility: Assigns allocated buffer.
+	// Block Logic: Rebuilds argument array with expanded `dentry` arguments.
+	for (i = 0; i < argc; i++) {
+		diff = strlen(argv[i]) - strlen(":dentry");
+		if (diff > 0 && strcmp(argv[i] + diff, ":dentry") == 0) {
+			/* dentry is a pointer to struct dentry. */
+			len = snprintf(dbuf, MAX_ARGSTR_LEN + 1,
+				       "d_name=+0(%%arg%d):string", n); // Functional Utility: Creates expanded argument string.
+			argv[j++] = dbuf; // Functional Utility: Replaces original argument.
+			dbuf += len + 1;
+		} else {
+			argv[j++] = argv[i]; // Functional Utility: Copies non-dentry arguments.
+		}
+	}
+	argv[j] = NULL; // Functional Utility: Null-terminates new argument array.
+
 	return 0;
 }
 
 /**
- * @brief Finishes parsing context, including clearing BTF context.
+ * @brief Finalizes the parsing context for trace probes.
  * @param ctx Pointer to `traceprobe_parse_context`.
  */
 void traceprobe_finish_parse(struct traceprobe_parse_context *ctx)
 {
-	clear_btf_context(ctx); // Functional Utility: Clears BTF context.
+	clear_btf_context(ctx); // Functional Utility: Clears the BTF context.
 }
 
 /**
- * @brief Updates a `probe_arg` by resolving symbolic addresses in its fetch instructions.
- * @param arg Pointer to `probe_arg`.
- * @return 0 on success, -EINVAL if instruction array invalid, -ENOENT if symbol not found.
+ * @brief Cleans up a `probe_arg` structure.
+ * @param parg Pointer to `probe_arg` to clean up.
  *
- * This function iterates through the fetch instructions of a `probe_arg` and
- * resolves `FETCH_NOP_SYMBOL` operations into direct addresses using `kallsyms_lookup_name`.
+ * This function frees the name, comment string, format string, and fetch
+ * instruction code associated with a probe argument.
  */
-int traceprobe_update_arg(struct probe_arg *arg)
+void traceprobe_cleanup_probe_arg(struct probe_arg *parg)
 {
-	struct fetch_insn *code = arg->code;
-	long offset;
-	char *tmp;
-	char c;
-	int ret = 0;
+	int i = 0;
 
-	// Block Logic: Iterates through fetch instructions.
-	while (code && code->op != FETCH_OP_END) {
-		// Block Logic: If a symbol needs to be resolved.
-		if (code->op == FETCH_NOP_SYMBOL) {
-			if (code[1].op != FETCH_OP_IMM)
-				return -EINVAL;
+	if (!parg)
+		return;
 
-			tmp = strpbrk(code->data, "+-"); // Functional Utility: Checks for offset.
-			if (tmp)
-				c = *tmp;
-			ret = traceprobe_split_symbol_offset(code->data,
-							     &offset); // Functional Utility: Splits symbol and offset.
-			if (ret)
-				return ret;
+	kfree(parg->name);
+	kfree(parg->comm);
+	kfree(parg->fmt);
 
-			code[1].immediate =
-				(unsigned long)kallsyms_lookup_name(code->data); // Functional Utility: Looks up symbol address.
-			if (tmp)
-				*tmp = c; // Functional Utility: Restores original string.
-			if (!code[1].immediate)
-				return -ENOENT;
-			code[1].immediate += offset; // Functional Utility: Applies offset.
+	if (parg->code) {
+		while (parg->code[i].op != FETCH_OP_END) {
+			if (parg->code[i].op == FETCH_NOP_SYMBOL ||
+			    parg->code[i].op == FETCH_OP_DATA)
+				kfree(parg->code[i].data);
+			i++;
 		}
-		code++;
+		kfree(parg->code);
 	}
-	return 0;
 }
 
-/* When len=0, we just calculate the needed length */
-#define LEN_OR_ZERO (len ? len - pos : 0)
-/**
- * @brief Generates the `print_fmt` string for a trace probe.
- * @param tp Pointer to `trace_probe`.
- * @param buf Output buffer for the format string.
- * @param len Length of the buffer.
- * @param ptype Print type (normal, return, event).
- * @return The length of the generated format string.
- *
- * This function constructs a `print_fmt` string dynamically based on
- * the probe's arguments and print type, suitable for `ftrace_event_call`.
+/*
+ * Note: This must be called after unlinking from event->probes, because
+ * another probe might be using this primary probe's data.
  */
-static int __set_print_fmt(struct trace_probe *tp, char *buf, int len,
-			   enum probe_print_type ptype)
-{
-	struct probe_arg *parg;
-	int i, j;
-	int pos = 0;
-	const char *fmt, *arg;
-
-	// Block Logic: Sets base format and arguments based on print type.
-	switch (ptype) {
-	case PROBE_PRINT_NORMAL:
-		fmt = "(%lx)";
-		arg = ", REC->" FIELD_STRING_IP;
-		break;
-	case PROBE_PRINT_RETURN:
-		fmt = "(%lx <- %lx)";
-		arg = ", REC->" FIELD_STRING_FUNC ", REC->" FIELD_STRING_RETIP;
-		break;
-	case PROBE_PRINT_EVENT:
-		fmt = "";
-		arg = "";
-		break;
-	default:
-		WARN_ON_ONCE(1);
-		return 0;
-	}
-
-	pos += snprintf(buf + pos, LEN_OR_ZERO, "\"%s", fmt);
-
-	// Block Logic: Appends argument names and formats.
-	for (i = 0; i < tp->nr_args; i++) {
-		parg = tp->args + i;
-		pos += snprintf(buf + pos, LEN_OR_ZERO, " %s=", parg->name);
-		// Block Logic: Handles array formatting.
-		if (parg->count) {
-			pos += snprintf(buf + pos, LEN_OR_ZERO, "{%s",
-					parg->type->fmttype);
-			for (j = 1; j < parg->count; j++)
-				pos += snprintf(buf + pos, LEN_OR_ZERO, ",%s",
-						parg->type->fmttype);
-			pos += snprintf(buf + pos, LEN_OR_ZERO, "}");
-		} else
-			pos += snprintf(buf + pos, LEN_OR_ZERO, "%s",
-					parg->type->fmttype);
-	}
-
-	pos += snprintf(buf + pos, LEN_OR_ZERO, "\"%s", arg);
-
-	// Block Logic: Appends argument values for the print format.
-	for (i = 0; i < tp->nr_args; i++) {
-		parg = tp->args + i;
-		if (parg->count) {
-			if (parg->type->is_string)
-				fmt = ", __get_str(%s[%d])";
-			else
-				fmt = ", REC->%s[%d]";
-			for (j = 0; j < parg->count; j++)
-				pos += snprintf(buf + pos, LEN_OR_ZERO,
-						fmt, parg->name, j);
-		} else {
-			if (parg->type->is_string)
-				fmt = ", __get_str(%s)";
-			else
-				fmt = ", REC->%s";
-			pos += snprintf(buf + pos, LEN_OR_ZERO,
-					fmt, parg->name);
-		}
-	}
-
-	/* return the length of print_fmt */
-	return pos;
-}
-#undef LEN_OR_ZERO
-
 /**
- * @brief Sets the `print_fmt` field of a `trace_event_call` for a trace probe.
- * @param tp Pointer to `trace_probe`.
- * @param ptype Print type (normal, return, event).
- * @return 0 on success, -ENOMEM on memory allocation failure.
- *
- * This function calculates the required buffer size, allocates memory,
- * and generates the `print_fmt` string for the trace probe's event call.
+ * @brief Cleans up a `trace_probe_event` structure.
+ * @param tpe Pointer to `trace_probe_event` to clean up.
  */
-int traceprobe_set_print_fmt(struct trace_probe *tp, enum probe_print_type ptype)
+void trace_probe_event_cleanup(struct trace_probe_event *tpe)
 {
-	struct trace_event_call *call = trace_probe_event_call(tp);
-	int len;
-	char *print_fmt;
+	int i;
 
-	/* First: called with 0 length to calculate the needed length */
-	len = __set_print_fmt(tp, NULL, 0, ptype); // Functional Utility: Calculates required length.
-	print_fmt = kmalloc(len + 1, GFP_KERNEL); // Functional Utility: Allocates memory for format string.
-	if (!print_fmt)
-		return -ENOMEM;
-
-	/* Second: actually write the @print_fmt */
-	__set_print_fmt(tp, print_fmt, len + 1, ptype); // Functional Utility: Writes format string.
-	call->print_fmt = print_fmt; // Functional Utility: Assigns to event call.
-
-	return 0;
-}
-
-/**
- * @brief Defines argument fields for a `trace_event_call`.
- * @param event_call Pointer to `trace_event_call`.
- * @param offset Base offset for argument fields.
- * @param tp Pointer to `trace_probe`.
- * @return 0 on success, or a negative errno on failure.
- *
- * This function defines the fields of a trace event based on the arguments
- * (`probe_arg`) of the `trace_probe`.
- */
-int traceprobe_define_arg_fields(struct trace_event_call *event_call,
-				 size_t offset, struct trace_probe *tp)
-{
-	int ret, i;
-
-	/* Set argument names as fields */
-	// Block Logic: Iterates through probe arguments.
-	for (i = 0; i < tp->nr_args; i++) {
-		struct probe_arg *parg = &tp->args[i];
-		const char *fmt = parg->type->fmttype;
-		int size = parg->type->size;
-
-		if (parg->fmt) // Functional Utility: Uses custom format if available.
-			fmt = parg->fmt;
-		if (parg->count) // Functional Utility: Adjusts size for arrays.
-			size *= parg->count;
-		ret = trace_define_field(event_call, fmt, parg->name,
-					 offset + parg->offset, size,
-					 parg->type->is_signed,
-					 FILTER_OTHER); // Functional Utility: Defines the field.
-		if (ret)
-			return ret;
-	}
-	return 0;
-}
-
-/**
- * @brief Frees resources associated with a `trace_probe_event` structure.
- * @param tpe Pointer to `trace_probe_event`.
- *
- * This function frees the system name, event name, and print format string.
- */
-static void trace_probe_event_free(struct trace_probe_event *tpe)
-{
-	kfree(tpe->class.system);
-	kfree(tpe->call.name);
-	kfree(tpe->call.print_fmt);
+	for (i = 0; i < tpe->nr_probes; i++)
+		traceprobe_cleanup_probe_arg(tpe->probes[i].entry_arg);
+	kfree(tpe->probes);
 	kfree(tpe);
 }
 
 /**
- * @brief Appends a `trace_probe` to an existing `trace_probe_event`.
- * @param tp Pointer to the `trace_probe` to append.
- * @param to Pointer to the `trace_probe` to append to.
- * @return 0 on success, -EBUSY if the `trace_probe` has siblings.
- *
- * This function moves the `tp` to the list of probes managed by `to->event`.
+ * @brief Initializes a `trace_probe` structure.
+ * @param tp Pointer to `trace_probe` to initialize.
+ * @param event The event name.
+ * @param group The group name.
+ * @param is_return True if it's a return probe.
+ * @param nargs Number of arguments.
+ * @return 0 on success, or a negative errno on failure.
  */
-int trace_probe_append(struct trace_probe *tp, struct trace_probe *to)
+int trace_probe_init(struct trace_probe *tp, const char *event,
+		     const char *group, bool is_return, int nargs)
 {
-	// Block Logic: Returns busy if `tp` already has siblings.
-	if (trace_probe_has_sibling(tp))
-		return -EBUSY;
-
-	list_del_init(&tp->list); // Functional Utility: Removes from current list.
-	trace_probe_event_free(tp->event); // Functional Utility: Frees old event.
-
-	tp->event = to->event; // Functional Utility: Assigns new event.
-	list_add_tail(&tp->list, trace_probe_probe_list(to)); // Functional Utility: Adds to new event's probe list.
+	tp->event = NULL;
+	tp->name = kstrdup(event, GFP_KERNEL);
+	if (!tp->name)
+		return -ENOMEM;
+	tp->group = kstrdup(group, GFP_KERNEL);
+	if (!tp->group) {
+		kfree(tp->name);
+		tp->name = NULL;
+		return -ENOMEM;
+	}
+	tp->nr_args = nargs;
+	tp->size = 0;
 	return 0;
+}
+
+/**
+ * @brief Cleans up a `trace_probe` structure.
+ * @param tp Pointer to `trace_probe` to clean up.
+ *
+ * This function frees the event name, group name, print format string,
+ * entry arguments, and all individual arguments of the trace probe.
+ */
+void trace_probe_cleanup(struct trace_probe *tp)
+{
+	int i;
+
+	kfree(tp->name);
+	kfree(tp->group);
+	kfree(tp->print_fmt);
+	if (tp->entry_arg) {
+		traceprobe_cleanup_probe_arg(tp->entry_arg);
+		kfree(tp->entry_arg);
+	}
+
+	if (tp->args) {
+		for (i = 0; i < tp->nr_args; i++)
+			traceprobe_cleanup_probe_arg(&tp->args[i]);
+	}
+}
+
+/*
+ * Create new trace_probe_event for new event.
+ */
+/**
+ * @brief Allocates and initializes a new `trace_probe_event`.
+ * @param event_name The name of the event.
+ * @param group The group name of the event.
+ * @return Pointer to the new `trace_probe_event` on success, or an `ERR_PTR` on failure.
+ *
+ * This function allocates memory for the event, its `probes` array,
+ * and sets up the list of probes.
+ */
+static struct trace_probe_event *
+alloc_trace_probe_event(const char *event_name, const char *group)
+{
+	struct trace_probe_event *tpe;
+
+	tpe = kzalloc(sizeof(*tpe), GFP_KERNEL);
+	if (!tpe)
+		return ERR_PTR(-ENOMEM);
+	tpe->probes = kcalloc(1, sizeof(struct trace_probe_event_probe), GFP_KERNEL);
+	if (!tpe->probes) {
+		kfree(tpe);
+		return ERR_PTR(-ENOMEM);
+	}
+	tpe->probes[0].call = __trace_create_class_event(event_name, group, NULL, NULL);
+	if (IS_ERR(tpe->probes[0].call)) {
+		kfree(tpe->probes);
+		kfree(tpe);
+		return ERR_CAST(tpe->probes[0].call);
+	}
+	tpe->probes[0].call->flags |= TRACE_EVENT_FL_DYNAMIC;
+	INIT_LIST_HEAD(&tpe->probes[0].files);
+	INIT_LIST_HEAD(&tpe->list);
+	tpe->nr_probes = 1;
+
+	return tpe;
+}
+
+/**
+ * @brief Registers a `trace_event_call` for a trace probe.
+ * @param tp Pointer to the `trace_probe` to register.
+ * @return 0 on success, or a negative errno on failure.
+ *
+ * This function finds or creates a `trace_probe_event`, links the
+ * `trace_probe` to it, and registers the event with the ftrace subsystem.
+ */
+int trace_probe_register_event_call(struct trace_probe *tp)
+{
+	struct trace_probe_event *tpe;
+	int ret = 0;
+
+	tpe = trace_find_probe_event(tp->name, tp->group);
+	if (tpe) {
+		pr_debug("Event %s/%s already registered.\n",
+			 tp->group, tp->name);
+		return -EEXIST;
+	}
+
+	tpe = alloc_trace_probe_event(tp->name, tp->group);
+	if (IS_ERR(tpe))
+		return PTR_ERR(tpe);
+
+	tpe->probes[0].call->tp = tp;
+	ret = register_trace_event(&tpe->probes[0].call->event);
+	if (ret) {
+		trace_probe_event_cleanup(tpe);
+		return ret;
+	}
+
+	tp->event = tpe;
+	list_add_tail_rcu(&tp->list, &tpe->probes[0].probes);
+
+	return 0;
+}
+
+/**
+ * @brief Unregisters a `trace_event_call` for a trace probe.
+ * @param tp Pointer to the `trace_probe` to unregister.
+ * @return 0 on success, -EINVAL if the trace probe is not registered.
+ *
+ * This function unregisters the event from the ftrace subsystem,
+ * and if it's the last probe for the event, frees the `trace_probe_event`.
+ */
+int trace_probe_unregister_event_call(struct trace_probe *tp)
+{
+	struct trace_probe_event *tpe;
+
+	if (!tp->event)
+		return -EINVAL;
+
+	tpe = tp->event;
+
+	/*
+	 * We need to synchronize any callers to the event before
+	 * freeing the data.
+	 */
+	if (trace_remove_event_call(tpe->probes[0].call)) {
+		pr_warn("trace_probe: Can't remove event %s/%s. It is still in use.\n",
+			tp->group, tp->name);
+		return -EBUSY;
+	}
+
+	trace_probe_event_cleanup(tpe);
+
+	return 0;
+}
+
+/**
+ * @brief Appends a trace probe to an existing `trace_probe_event`.
+ * @param tp The trace probe to append.
+ * @param orig The existing trace probe to append to.
+ * @return 0 on success, or a negative errno on failure.
+ *
+ * This function links `tp` to the same `trace_probe_event` as `orig`,
+ * expanding the `probes` array if necessary.
+ */
+int trace_probe_append(struct trace_probe *tp, struct trace_probe *orig)
+{
+	struct trace_probe_event *tpe = orig->event;
+	struct trace_probe_event_probe *probes;
+	int cnt, i;
+
+	for (i = 0; i < tpe->nr_probes; i++) {
+		if (tpe->probes[i].tp == orig)
+			break;
+	}
+	if (WARN_ON_ONCE(i == tpe->nr_probes))
+		return -ENOENT;
+
+	/* If another probe is appended to a primary probe, expand it */
+	cnt = tpe->probes[i].nr_probes + 1;
+	probes = kmemdup(tpe->probes, sizeof(*probes) * cnt, GFP_KERNEL);
+	if (!probes)
+		return -ENOMEM;
+
+	for (i = 0; i < tpe->nr_probes; i++) {
+		if (tpe->probes[i].tp == orig)
+			break;
+	}
+	tpe->probes[i].nr_probes++;
+	kfree(tpe->probes);
+	tpe->probes = probes;
+
+	tp->event = tpe;
+	list_add_tail_rcu(&tp->list, &orig->list);
+
+	return 0;
+}
+
+/**
+ * @brief Adds a `trace_event_file` to a `trace_probe_event`.
+ * @param tp Pointer to the `trace_probe`.
+ * @param file Pointer to the `trace_event_file`.
+ * @return 0 on success, or a negative errno on failure.
+ *
+ * This function links a trace event file to the probe, enabling tracing
+ * output to that file.
+ */
+int trace_probe_add_file(struct trace_probe *tp, struct trace_event_file *file)
+{
+	struct trace_probe_event *tpe = tp->event;
+	struct event_file_link *link;
+	int i;
+
+	for (i = 0; i < tpe->nr_probes; i++) {
+		if (tpe->probes[i].tp == tp)
+			break;
+	}
+	if (WARN_ON_ONCE(i == tpe->nr_probes))
+		return -ENOENT;
+
+	link = kmalloc(sizeof(*link), GFP_KERNEL);
+	if (!link)
+		return -ENOMEM;
+	link->file = file;
+	list_add_rcu(&link->list, &tpe->probes[i].files);
+	trace_probe_set_flag(tp, TP_FLAG_TRACE);
+
+	return 0;
+}
+
+/**
+ * @brief Removes a `trace_event_file` from a `trace_probe_event`.
+ * @param tp Pointer to the `trace_probe`.
+ * @param file Pointer to the `trace_event_file`.
+ */
+void trace_probe_remove_file(struct trace_probe *tp,
+			      struct trace_event_file *file)
+{
+	struct trace_probe_event *tpe = tp->event;
+	struct event_file_link *link;
+	bool found = false;
+	int i;
+
+	for (i = 0; i < tpe->nr_probes; i++) {
+		if (tpe->probes[i].tp == tp)
+			break;
+	}
+	if (WARN_ON_ONCE(i == tpe->nr_probes))
+		return;
+
+	list_for_each_entry_rcu(link, &tpe->probes[i].files, list) {
+		if (link->file == file) {
+			list_del_rcu(&link->list);
+			found = true;
+			break;
+		}
+	}
+	if (found)
+		kfree_rcu(link, rcu);
 }

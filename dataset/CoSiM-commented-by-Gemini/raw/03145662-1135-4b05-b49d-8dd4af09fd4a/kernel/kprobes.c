@@ -1,3 +1,39 @@
+/**
+ * @file kprobes.c
+ * @brief Core implementation of the Linux Kernel Probes (KProbes) framework.
+ *
+ * This file contains the central logic for managing kprobes, including their
+ * registration, unregistration, and the handling of probe hits. It provides
+ * the infrastructure for dynamic instrumentation of the kernel, allowing for
+ * the insertion of probes at virtually any kernel address.
+ *
+ * Architectural Intent:
+ * - Kprobes is designed as a generic debugging and performance-monitoring tool.
+ * - It supports basic kprobes, jprobes (for function entry), and kretprobes
+ *   (for function return).
+ * - A key feature is aggregation, where multiple probes at the same address are
+ *   managed by a single "aggregator" probe to minimize overhead.
+ * - Optimized kprobes are supported, which replace the probed instruction with
+ *   a jump instruction for lower-latency probing, trading off some flexibility.
+ * - The implementation is designed to be architecture-independent, with
+ *   architecture-specific details handled through hooks (e.g., `arch_arm_kprobe`).
+ *
+ * Data Structures:
+ * - `kprobe_table`: A hash table for efficient lookup of kprobes by address.
+ * - `kprobe`: The core structure representing a single probe.
+ * - `optimized_kprobe`: An extension of `kprobe` for jump-optimized probes.
+ * - `kretprobe`: A structure for function return probes.
+ *
+ * Concurrency and Locking:
+ * - `kprobe_mutex`: Protects the global `kprobe_table` and optimization lists.
+ * - RCU (Read-Copy Update) is used for safe traversal of the `kprobe_table`
+ *   from non-blocking contexts like probe handlers.
+ * - `text_mutex`: Protects against concurrent modification of kernel text
+ *   (e.g., when arming or disarming probes).
+ *
+ * @note This implementation heavily relies on architecture-specific support
+ *       for instruction decoding, single-stepping, and exception handling.
+ */
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
  *  Kernel Probes (KProbes)
@@ -5,17 +41,17 @@
  * Copyright (C) IBM Corporation, 2002, 2004
  *
  * 2002-Oct	Created by Vamsi Krishna S <vamsi_krishna@in.ibm.com> Kernel
- *		Probes initial implementation (includes suggestions from
- *		Rusty Russell).
+ * 		Probes initial implementation (includes suggestions from
+ * 		Rusty Russell).
  * 2004-Aug	Updated by Prasanna S Panchamukhi <prasanna@in.ibm.com> with
- *		hlists and exceptions notifier as suggested by Andi Kleen.
+ * 		hlists and exceptions notifier as suggested by Andi Kleen.
  * 2004-July	Suparna Bhattacharya <suparna@in.ibm.com> added jumper probes
- *		interface to access function arguments.
+ * 		interface to access function arguments.
  * 2004-Sep	Prasanna S Panchamukhi <prasanna@in.ibm.com> Changed Kprobes
- *		exceptions notifier to be first on the priority list.
+ * 		exceptions notifier to be first on the priority list.
  * 2005-May	Hien Nguyen <hien@us.ibm.com>, Jim Keniston
- *		<jkenisto@us.ibm.com> and Prasanna S Panchamukhi
- *		<prasanna@in.ibm.com> added function-return probes.
+ * 		<jkenisto@us.ibm.com> and Prasanna S Panchamukhi
+ * 		<prasanna@in.ibm.com> added function-return probes.
  */
 
 #define pr_fmt(fmt) "kprobes: " fmt
@@ -54,10 +90,17 @@
 #endif
 
 static int kprobes_initialized;
-/* kprobe_table can be accessed by
- * - Normal hlist traversal and RCU add/del under 'kprobe_mutex' is held.
- * Or
- * - RCU hlist traversal under disabling preempt (breakpoint handlers)
+/**
+ * @brief Hash table for kprobes.
+ *
+ * This table stores all registered kprobes, hashed by their address.
+ * It allows for efficient lookup of a kprobe given its probe address.
+ *
+ * Concurrency:
+ * - Writes (add/delete) are protected by `kprobe_mutex`.
+ * - Reads (traversal) can be done under `kprobe_mutex` or within an
+ *   RCU read-side critical section (e.g., in breakpoint handlers where
+ *   preemption is disabled).
  */
 static struct hlist_head kprobe_table[KPROBE_TABLE_SIZE];
 
@@ -81,15 +124,26 @@ kprobe_opcode_t * __weak kprobe_lookup_name(const char *name,
 static LIST_HEAD(kprobe_blacklist);
 
 #ifdef __ARCH_WANT_KPROBES_INSN_SLOT
-/*
- * 'kprobe::ainsn.insn' points to the copy of the instruction to be
- * single-stepped. x86_64, POWER4 and above have no-exec support and
- * stepping on the instruction on a vmalloced/kmalloced/data page
- * is a recipe for disaster
+/**
+ * @struct kprobe_insn_page
+ * @brief A page for storing out-of-line instruction slots for kprobes.
+ *
+ * On architectures with non-executable memory protection (e.g., NX/XD bit),
+ * the original instruction at the probe point cannot be executed from a
+ * non-executable data page. This structure manages a page of executable
+ * memory where copies of the probed instructions can be stored and executed
+ * during single-stepping.
+ *
+ * @list: List head for linking pages in a `kprobe_insn_cache`.
+ * @insns: Pointer to the executable page of instruction slots.
+ * @cache: Pointer back to the owning instruction cache.
+ * @nused: Number of used slots on this page.
+ * @ngarbage: Number of slots marked as garbage (ready for collection).
+ * @slot_used: A flexible array member tracking the state of each slot.
  */
 struct kprobe_insn_page {
 	struct list_head list;
-	kprobe_opcode_t *insns;		/* Page of instruction slots */
+	kprobe_opcode_t *insns; 	/* Page of instruction slots */
 	struct kprobe_insn_cache *cache;
 	int nused;
 	int ngarbage;
@@ -101,6 +155,14 @@ static int slots_per_page(struct kprobe_insn_cache *c)
 	return PAGE_SIZE/(c->insn_size * sizeof(kprobe_opcode_t));
 }
 
+/**
+ * @enum kprobe_slot_state
+ * @brief Represents the state of an instruction slot in a `kprobe_insn_page`.
+ *
+ * @SLOT_CLEAN: The slot is free and can be allocated.
+ * @SLOT_DIRTY: The slot was used but is now free; it is a candidate for garbage collection.
+ * @SLOT_USED: The slot is currently in use by a kprobe.
+ */
 enum kprobe_slot_state {
 	SLOT_CLEAN = 0,
 	SLOT_DIRTY = 1,
@@ -135,8 +197,15 @@ struct kprobe_insn_cache kprobe_insn_slots = {
 static int collect_garbage_slots(struct kprobe_insn_cache *c);
 
 /**
- * __get_insn_slot() - Find a slot on an executable page for an instruction.
- * We allocate an executable page if there's no room on existing ones.
+ * @brief Allocates an instruction slot from an executable page.
+ * @param c: The instruction slot cache to allocate from.
+ *
+ * This function finds a free slot in one of the existing instruction pages.
+ * If no free slots are available, it allocates a new page of executable
+ * memory. It also triggers garbage collection if the number of dirty slots
+ * exceeds a threshold.
+ *
+ * @return A pointer to the allocated instruction slot, or NULL on failure.
  */
 kprobe_opcode_t *__get_insn_slot(struct kprobe_insn_cache *c)
 {
@@ -190,7 +259,17 @@ kprobe_opcode_t *__get_insn_slot(struct kprobe_insn_cache *c)
 	return kip->insns;
 }
 
-/* Return true if all garbages are collected, otherwise false. */
+/**
+ * @brief Collects a single garbage slot, potentially freeing the page.
+ * @param kip: The instruction page containing the slot.
+ * @param idx: The index of the slot to collect.
+ *
+ * Marks a slot as `SLOT_CLEAN` and decrements the `nused` count. If `nused`
+ * becomes zero, the entire page is freed, unless it's the last page in the
+ * cache (to avoid repeated allocation/deallocation).
+ *
+ * @return `true` if the page was freed, `false` otherwise.
+ */
 static bool collect_one_slot(struct kprobe_insn_page *kip, int idx)
 {
 	kip->slot_used[idx] = SLOT_CLEAN;
@@ -220,6 +299,16 @@ static bool collect_one_slot(struct kprobe_insn_page *kip, int idx)
 	return true;
 }
 
+/**
+ * @brief Performs garbage collection on dirty instruction slots.
+ * @param c: The instruction slot cache.
+ *
+ * Iterates through all pages in the cache and reclaims slots marked as `SLOT_DIRTY`.
+ * This function waits for an RCU grace period to ensure that no CPUs are
+ * executing from the slots being collected.
+ *
+ * @return Always 0.
+ */
 static int collect_garbage_slots(struct kprobe_insn_cache *c)
 {
 	struct kprobe_insn_page *kip, *next;
@@ -242,6 +331,14 @@ static int collect_garbage_slots(struct kprobe_insn_cache *c)
 	return 0;
 }
 
+/**
+ * @brief Finds the page and index of a given instruction slot.
+ * @param c: The instruction slot cache.
+ * @param slot: The instruction slot to find.
+ * @param pkip: Output parameter for the instruction page.
+ *
+ * @return The index of the slot within the page, or -1 if not found.
+ */
 static long __find_insn_page(struct kprobe_insn_cache *c,
 	kprobe_opcode_t *slot, struct kprobe_insn_page **pkip)
 {
@@ -263,6 +360,18 @@ static long __find_insn_page(struct kprobe_insn_cache *c,
 	return -1;
 }
 
+/**
+ * @brief Frees a previously allocated instruction slot.
+ * @param c: The instruction slot cache.
+ * @param slot: The instruction slot to free.
+ * @param dirty: If true, mark the slot as `SLOT_DIRTY` for delayed garbage
+ *               collection. If false, reclaim it immediately.
+ *
+ * If `dirty` is true, the slot is marked for later collection by `collect_garbage_slots`.
+ * This is necessary when the slot might still be in use (e.g., by a preempted
+ * task). Immediate reclamation is only safe when it's certain that the slot
+ * is no longer in use.
+ */
 void __free_insn_slot(struct kprobe_insn_cache *c,
 		      kprobe_opcode_t *slot, int dirty)
 {
@@ -286,10 +395,12 @@ void __free_insn_slot(struct kprobe_insn_cache *c,
 	}
 }
 
-/*
- * Check given address is on the page of kprobe instruction slots.
- * This will be used for checking whether the address on a stack
- * is on a text area or not.
+/**
+ * @brief Checks if an address is within any kprobe instruction slot page.
+ * @param c: The instruction slot cache.
+ * @param addr: The address to check.
+ *
+ * @return `true` if the address is within an instruction slot page, `false` otherwise.
  */
 bool __is_insn_slot_addr(struct kprobe_insn_cache *c, unsigned long addr)
 {
@@ -367,9 +478,9 @@ static inline void reset_kprobe_instance(void)
 
 /*
  * This routine is called either:
- *	- under the 'kprobe_mutex' - during kprobe_[un]register().
- *				OR
- *	- with preemption disabled - from architecture specific code.
+ * 	- under the 'kprobe_mutex' - during kprobe_[un]register().
+ * 				OR
+ * 	- with preemption disabled - from architecture specific code.
  */
 struct kprobe *get_kprobe(void *addr)
 {
@@ -378,7 +489,7 @@ struct kprobe *get_kprobe(void *addr)
 
 	head = &kprobe_table[hash_ptr(addr, KPROBE_HASH_BITS)];
 	hlist_for_each_entry_rcu(p, head, hlist,
-				 lockdep_is_held(&kprobe_mutex)) {
+					 lockdep_is_held(&kprobe_mutex)) {
 		if (p->addr == addr)
 			return p;
 	}
@@ -873,7 +984,7 @@ static void try_to_optimize_kprobe(struct kprobe *p)
 	}
 
 	init_aggr_kprobe(ap, p);
-	optimize_kprobe(ap);	/* This just kicks optimizer thread. */
+	optimize_kprobe(ap); /* This just kicks optimizer thread. */
 }
 
 static void optimize_all_kprobes(void)
@@ -929,8 +1040,8 @@ static void unoptimize_all_kprobes(void)
 static DEFINE_MUTEX(kprobe_sysctl_mutex);
 static int sysctl_kprobes_optimization;
 static int proc_kprobes_optimization_handler(const struct ctl_table *table,
-					     int write, void *buffer,
-					     size_t *length, loff_t *ppos)
+					 int write, void *buffer,
+					 size_t *length, loff_t *ppos)
 {
 	int ret;
 
@@ -978,7 +1089,7 @@ static void __arm_kprobe(struct kprobe *p)
 		unoptimize_kprobe(_p, true);
 
 	arch_arm_kprobe(p);
-	optimize_kprobe(p);	/* Try to optimize (add kprobe to a list) */
+	optimize_kprobe(p); /* Try to optimize (add kprobe to a list) */
 }
 
 /* Remove the breakpoint of a probe. */
@@ -1008,15 +1119,15 @@ static void __disarm_kprobe(struct kprobe *p, bool reopt)
 
 #else /* !CONFIG_OPTPROBES */
 
-#define optimize_kprobe(p)			do {} while (0)
-#define unoptimize_kprobe(p, f)			do {} while (0)
-#define kill_optimized_kprobe(p)		do {} while (0)
-#define prepare_optimized_kprobe(p)		do {} while (0)
-#define try_to_optimize_kprobe(p)		do {} while (0)
-#define __arm_kprobe(p)				arch_arm_kprobe(p)
-#define __disarm_kprobe(p, o)			arch_disarm_kprobe(p)
-#define kprobe_disarmed(p)			kprobe_disabled(p)
-#define wait_for_kprobe_optimizer_locked()			\
+#define optimize_kprobe(p) do {} while (0)
+#define unoptimize_kprobe(p, f) do {} while (0)
+#define kill_optimized_kprobe(p) do {} while (0)
+#define prepare_optimized_kprobe(p) do {} while (0)
+#define try_to_optimize_kprobe(p) do {} while (0)
+#define __arm_kprobe(p) arch_arm_kprobe(p)
+#define __disarm_kprobe(p, o) arch_disarm_kprobe(p)
+#define kprobe_disarmed(p) kprobe_disabled(p)
+#define wait_for_kprobe_optimizer_locked() \
 	lockdep_assert_held(&kprobe_mutex)
 
 static int reuse_unused_kprobe(struct kprobe *ap)
@@ -1090,8 +1201,8 @@ static int arm_kprobe_ftrace(struct kprobe *p)
 	bool ipmodify = (p->post_handler != NULL);
 
 	return __arm_kprobe_ftrace(p,
-		ipmodify ? &kprobe_ipmodify_ops : &kprobe_ftrace_ops,
-		ipmodify ? &kprobe_ipmodify_enabled : &kprobe_ftrace_enabled);
+				ipmodify ? &kprobe_ipmodify_ops : &kprobe_ftrace_ops,
+				ipmodify ? &kprobe_ipmodify_enabled : &kprobe_ftrace_enabled);
 }
 
 static int __disarm_kprobe_ftrace(struct kprobe *p, struct ftrace_ops *ops,
@@ -1120,15 +1231,15 @@ static int disarm_kprobe_ftrace(struct kprobe *p)
 	bool ipmodify = (p->post_handler != NULL);
 
 	return __disarm_kprobe_ftrace(p,
-		ipmodify ? &kprobe_ipmodify_ops : &kprobe_ftrace_ops,
-		ipmodify ? &kprobe_ipmodify_enabled : &kprobe_ftrace_enabled);
+					ipmodify ? &kprobe_ipmodify_ops : &kprobe_ftrace_ops,
+					ipmodify ? &kprobe_ipmodify_enabled : &kprobe_ftrace_enabled);
 }
 
 void kprobe_ftrace_kill(void)
 {
 	kprobe_ftrace_disabled = true;
 }
-#else	/* !CONFIG_KPROBES_ON_FTRACE */
+#else /* !CONFIG_KPROBES_ON_FTRACE */
 static inline int arm_kprobe_ftrace(struct kprobe *p)
 {
 	return -ENODEV;
@@ -1171,9 +1282,17 @@ static int disarm_kprobe(struct kprobe *kp, bool reopt)
 	return 0;
 }
 
-/*
- * Aggregate handlers for multiple kprobes support - these handlers
- * take care of invoking the individual kprobe handlers on p->list
+/**
+ * @brief Aggregator pre-handler for kprobes at the same address.
+ * @param p: The aggregator kprobe.
+ * @param regs: The CPU registers at the time of the probe hit.
+ *
+ * This function is the `pre_handler` for an aggregator kprobe. It iterates
+ * through the list of child kprobes (`p->list`) and calls their respective
+ * `pre_handler` functions. This allows multiple probes to coexist at the same
+ * address.
+ *
+ * @return 1 if any child handler returns a non-zero value, 0 otherwise.
  */
 static int aggr_pre_handler(struct kprobe *p, struct pt_regs *regs)
 {
@@ -1191,6 +1310,16 @@ static int aggr_pre_handler(struct kprobe *p, struct pt_regs *regs)
 }
 NOKPROBE_SYMBOL(aggr_pre_handler);
 
+/**
+ * @brief Aggregator post-handler for kprobes at the same address.
+ * @param p: The aggregator kprobe.
+ * @param regs: The CPU registers at the time of the probe hit.
+ * @param flags: Flags passed from the kprobe handler.
+ *
+ * This function is the `post_handler` for an aggregator kprobe. It iterates
+ * through the list of child kprobes and calls their respective `post_handler`
+ * functions.
+ */
 static void aggr_post_handler(struct kprobe *p, struct pt_regs *regs,
 			      unsigned long flags)
 {
@@ -1240,11 +1369,21 @@ void kprobe_busy_end(void)
 	preempt_enable();
 }
 
-/* Add the new probe to 'ap->list'. */
+/**
+ * @brief Adds a new kprobe to an aggregator probe's list.
+ * @param ap: The aggregator kprobe.
+ * @param p: The new kprobe to add.
+ *
+ * This function adds `p` to the linked list of probes managed by `ap`.
+ * If the new probe has a `post_handler`, the aggregator probe is unoptimized
+ * to ensure the `post_handler` can be correctly invoked.
+ *
+ * @return 0 on success.
+ */
 static int add_new_kprobe(struct kprobe *ap, struct kprobe *p)
 {
 	if (p->post_handler)
-		unoptimize_kprobe(ap, true);	/* Fall back to normal kprobe */
+		unoptimize_kprobe(ap, true); /* Fall back to normal kprobe */
 
 	list_add_rcu(&p->list, &ap->list);
 	if (p->post_handler && !ap->post_handler)
@@ -1253,9 +1392,15 @@ static int add_new_kprobe(struct kprobe *ap, struct kprobe *p)
 	return 0;
 }
 
-/*
- * Fill in the required fields of the aggregator kprobe. Replace the
- * earlier kprobe in the hlist with the aggregator kprobe.
+/**
+ * @brief Initializes an aggregator kprobe.
+ * @param ap: The new aggregator kprobe.
+ * @param p: The original kprobe being aggregated.
+ *
+ * This function converts a standard kprobe `p` into an aggregator kprobe `ap`.
+ * It copies necessary information (like the instruction slot), sets the
+ * aggregator handlers, and replaces `p` in the global `kprobe_table` with `ap`.
+ * `p` becomes the first element in `ap`'s list of child probes.
  */
 static void init_aggr_kprobe(struct kprobe *ap, struct kprobe *p)
 {
@@ -1276,8 +1421,16 @@ static void init_aggr_kprobe(struct kprobe *ap, struct kprobe *p)
 	hlist_replace_rcu(&p->hlist, &ap->hlist);
 }
 
-/*
- * This registers the second or subsequent kprobe at the same address.
+/**
+ * @brief Registers a kprobe at an address that already has a probe.
+ * @param orig_p: The existing kprobe (or aggregator kprobe) at the address.
+ * @param p: The new kprobe to register.
+ *
+ * This function handles the aggregation of multiple kprobes at the same
+ * address. If `orig_p` is not already an aggregator, it is converted into one.
+ * The new probe `p` is then added to the aggregator's list.
+ *
+ * @return 0 on success, or a negative errno on failure.
  */
 static int register_aggr_kprobe(struct kprobe *orig_p, struct kprobe *p)
 {
@@ -1312,10 +1465,10 @@ static int register_aggr_kprobe(struct kprobe *orig_p, struct kprobe *p)
 			ret = arch_prepare_kprobe(ap);
 			if (ret)
 				/*
-				 * Even if fail to allocate new slot, don't need to
-				 * free the 'ap'. It will be used next time, or
-				 * freed by unregister_kprobe().
-				 */
+			 * Even if fail to allocate new slot, don't need to
+			 * free the 'ap'. It will be used next time, or
+			 * freed by unregister_kprobe().
+			 */
 				return ret;
 
 			/* Prepare optimized instructions if possible. */
@@ -1356,6 +1509,15 @@ bool __weak arch_within_kprobe_blacklist(unsigned long addr)
 	       addr < (unsigned long)__kprobes_text_end;
 }
 
+/**
+ * @brief Checks if a given address is within the kprobe blacklist (internal).
+ * @param addr: The address to check.
+ *
+ * This function checks both the architecture-specific blacklist and the
+ * generic `kprobe_blacklist`.
+ *
+ * @return `true` if the address is blacklisted, `false` otherwise.
+ */
 static bool __within_kprobe_blacklist(unsigned long addr)
 {
 	struct kprobe_blacklist_entry *ent;
@@ -1373,6 +1535,16 @@ static bool __within_kprobe_blacklist(unsigned long addr)
 	return false;
 }
 
+/**
+ * @brief Checks if a given address is within the kprobe blacklist.
+ * @param addr: The address to check.
+ *
+ * This function is the main entry point for checking if an address can be
+ * probed. It handles suffixed symbols (e.g., `symbol.isra.0`) by looking
+ * up the base symbol name and checking if that is blacklisted.
+ *
+ * @return `true` if the address is blacklisted, `false` otherwise.
+ */
 bool within_kprobe_blacklist(unsigned long addr)
 {
 	char symname[KSYM_NAME_LEN], *p;
@@ -1415,15 +1587,22 @@ kprobe_opcode_t *__weak arch_adjust_kprobe_addr(unsigned long addr,
 	return (kprobe_opcode_t *)(addr + offset);
 }
 
-/*
- * If 'symbol_name' is specified, look it up and add the 'offset'
- * to it. This way, we can specify a relative address to a symbol.
- * This returns encoded errors if it fails to look up symbol or invalid
- * combination of parameters.
+/**
+ * @brief Resolves a kprobe address from symbol name and offset.
+ * @param addr: Absolute address (if `symbol_name` is NULL).
+ * @param symbol_name: Name of the symbol to probe.
+ * @param offset: Offset from the symbol's start address.
+ * @param on_func_entry: Output parameter indicating if the resolved address is at function entry.
+ *
+ * This function canonicalizes the probe address. It resolves the symbol name
+ * to an address, adds the offset, and then allows the architecture to make
+ * final adjustments (e.g., to skip function entry padding).
+ *
+ * @return The resolved probe address, or an ERR_PTR on failure.
  */
 static kprobe_opcode_t *
 _kprobe_addr(kprobe_opcode_t *addr, const char *symbol_name,
-	     unsigned long offset, bool *on_func_entry)
+		     unsigned long offset, bool *on_func_entry)
 {
 	if ((symbol_name && addr) || (!symbol_name && !addr))
 		return ERR_PTR(-EINVAL);
@@ -1533,6 +1712,22 @@ static bool is_cfi_preamble_symbol(unsigned long addr)
 		str_has_prefix(symbuf, "__pfx_");
 }
 
+/**
+ * @brief Checks if a kprobe address is safe to probe.
+ * @param p: The kprobe to check.
+ * @param probed_mod: Output parameter for the module containing the address.
+ *
+ * This function performs several safety checks:
+ * - Ensures the address is not in a reserved memory area.
+ * - Checks if the address is on the kprobe blacklist.
+ * - Verifies that the address is within kernel or module text sections.
+ * - For modules, ensures that the probe is not being placed in an unloaded
+ *   `.init` section.
+ * - Takes a reference on the module to prevent it from being unloaded while
+ *   it is being probed.
+ *
+ * @return 0 on success, or a negative errno on failure.
+ */
 static int check_kprobe_address_safe(struct kprobe *p,
 				     struct module **probed_mod)
 {
@@ -1586,6 +1781,15 @@ static int check_kprobe_address_safe(struct kprobe *p,
 	return 0;
 }
 
+/**
+ * @brief Internal function to register a kprobe.
+ * @param p: The kprobe to register.
+ *
+ * This is the core registration logic. It handles both new probes and
+ * aggregating with existing probes at the same address.
+ *
+ * @return 0 on success, or a negative errno on failure.
+ */
 static int __register_kprobe(struct kprobe *p)
 {
 	int ret;
@@ -1608,7 +1812,7 @@ static int __register_kprobe(struct kprobe *p)
 
 	INIT_HLIST_NODE(&p->hlist);
 	hlist_add_head_rcu(&p->hlist,
-		       &kprobe_table[hash_ptr(p->addr, KPROBE_HASH_BITS)]);
+			       &kprobe_table[hash_ptr(p->addr, KPROBE_HASH_BITS)]);
 
 	if (!kprobes_all_disarmed && !kprobe_disabled(p)) {
 		ret = arm_kprobe(p);
@@ -1987,7 +2191,7 @@ unsigned long kretprobe_find_ret_addr(struct task_struct *tsk, void *fp,
 NOKPROBE_SYMBOL(kretprobe_find_ret_addr);
 
 void __weak arch_kretprobe_fixup_return(struct pt_regs *regs,
-					kprobe_opcode_t *correct_ret_addr)
+						kprobe_opcode_t *correct_ret_addr)
 {
 	/*
 	 * Do nothing by default. Please fill this to update the fake return
@@ -1996,7 +2200,7 @@ void __weak arch_kretprobe_fixup_return(struct pt_regs *regs,
 }
 
 unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
-					     void *frame_pointer)
+						     void *frame_pointer)
 {
 	struct kretprobe_instance *ri = NULL;
 	struct llist_node *first, *node = NULL;
@@ -2107,9 +2311,9 @@ static int pre_handler_kretprobe(struct kprobe *p, struct pt_regs *regs)
 	ri = container_of(rhn, struct kretprobe_instance, node);
 
 	if (rp->entry_handler && rp->entry_handler(ri, regs))
-		rethook_recycle(rhn);
+			rethook_recycle(rhn);
 	else
-		rethook_hook(rhn, regs, kprobe_ftrace(p));
+			rethook_hook(rhn, regs, kprobe_ftrace(p));
 
 	return 0;
 }
@@ -2216,7 +2420,7 @@ int register_kretprobe(struct kretprobe *rp)
 		rethook_free(rp->rh);
 		rp->rh = NULL;
 	}
-#else	/* !CONFIG_KRETPROBE_ON_RETHOOK */
+#else /* !CONFIG_KRETPROBE_ON_RETHOOK */
 	rp->rph = kzalloc(sizeof(struct kretprobe_holder), GFP_KERNEL);
 	if (!rp->rph)
 		return -ENOMEM;
@@ -2442,7 +2646,7 @@ int kprobe_add_area_blacklist(unsigned long start, unsigned long end)
 		ret = kprobe_add_ksym_blacklist(entry);
 		if (ret < 0)
 			return ret;
-		if (ret == 0)	/* In case of alias symbol */
+		if (ret == 0) /* In case of alias symbol */
 			ret = 1;
 	}
 	return 0;
@@ -2501,13 +2705,13 @@ static int __init populate_kprobe_blacklist(unsigned long *start,
 
 	/* Symbols in '__kprobes_text' are blacklisted */
 	ret = kprobe_add_area_blacklist((unsigned long)__kprobes_text_start,
-					(unsigned long)__kprobes_text_end);
+						(unsigned long)__kprobes_text_end);
 	if (ret)
 		return ret;
 
 	/* Symbols in 'noinstr' section are blacklisted */
 	ret = kprobe_add_area_blacklist((unsigned long)__noinstr_text_start,
-					(unsigned long)__noinstr_text_end);
+						(unsigned long)__noinstr_text_end);
 
 	return ret ? : arch_populate_kprobe_blacklist();
 }
@@ -2606,7 +2810,7 @@ static int kprobes_module_callback(struct notifier_block *nb,
 		hlist_for_each_entry(p, head, hlist)
 			if (within_module_init((unsigned long)p->addr, mod) ||
 			    (checkcore &&
-			     within_module_core((unsigned long)p->addr, mod))) {
+		     within_module_core((unsigned long)p->addr, mod))) {
 				/*
 				 * The vaddr this probe is installed will soon
 				 * be vfreed buy not synced to disk. Hence,
@@ -2672,7 +2876,7 @@ static int __init init_kprobes(void)
 		INIT_HLIST_HEAD(&kprobe_table[i]);
 
 	err = populate_kprobe_blacklist(__start_kprobe_blacklist,
-					__stop_kprobe_blacklist);
+						__stop_kprobe_blacklist);
 	if (err)
 		pr_err("Failed to populate blacklist (error %d), kprobes not restricted, be careful using them!\n", err);
 
@@ -2741,7 +2945,7 @@ static void report_probe(struct seq_file *pi, struct kprobe *p,
 		seq_printf(pi, "%px  %s  %s+0x%x  %s ",
 			addr, kprobe_type, sym, offset,
 			(modname ? modname : " "));
-	else	/* try to use %pS */
+	else /* try to use %pS */
 		seq_printf(pi, "%px  %s  %pS ",
 			addr, kprobe_type, p->addr);
 
@@ -2785,7 +2989,7 @@ static int show_kprobe_addr(struct seq_file *pi, void *v)
 	preempt_disable();
 	hlist_for_each_entry_rcu(p, head, hlist) {
 		sym = kallsyms_lookup((unsigned long)p->addr, NULL,
-					&offset, &modname, namebuf);
+						&offset, &modname, namebuf);
 		if (kprobe_aggrprobe(p)) {
 			list_for_each_entry_rcu(kp, &p->list, list)
 				report_probe(pi, kp, sym, offset, modname, p);
@@ -2970,9 +3174,9 @@ static ssize_t write_enabled_file_bool(struct file *file,
 }
 
 static const struct file_operations fops_kp = {
-	.read =         read_enabled_file_bool,
-	.write =        write_enabled_file_bool,
-	.llseek =	default_llseek,
+	.read = 	read_enabled_file_bool,
+	.write = 	write_enabled_file_bool,
+	.llseek = 	default_llseek,
 };
 
 static int __init debugfs_kprobe_init(void)

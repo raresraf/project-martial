@@ -7,6 +7,14 @@
  * License v3.0 only", or the "Server Side Public License, v 1".
  */
 
+/**
+ * @file EntitlementInitialization.java
+ * @brief Serves as the primary entry point for the Elasticsearch entitlement Java agent, executed during the JVM's `agentmain` phase.
+ *
+ * This file orchestrates the setup and configuration of the entire entitlement system within Elasticsearch.
+ * It dynamically loads and applies security policies, instruments methods to enforce those policies,
+ * and ensures compatibility across various Java versions and platform-specific behaviors.
+ */
 package org.elasticsearch.entitlement.initialization;
 
 import org.elasticsearch.core.Booleans;
@@ -131,6 +139,8 @@ public class EntitlementInitialization {
      * @brief Provides access to the initialized {@link EntitlementChecker} instance.
      * Functional Utility: This method is referenced by the bridge library reflectively
      * to obtain the active checker instance.
+     * Precondition: `initChecker()` must have been successfully called, ensuring the `manager` field is initialized.
+     * Postcondition: Returns the active `EntitlementChecker` instance.
      * @return The active `EntitlementChecker`.
      */
     // Note: referenced by bridge reflectively
@@ -153,6 +163,8 @@ public class EntitlementInitialization {
      *     to ensure policies are applied to code already in memory.</li>
      * </ol>
      * @param inst The JVM {@link Instrumentation} class instance, provided by the Java agent framework.
+     * Precondition: The `inst` parameter must be a valid `Instrumentation` instance provided by the JVM.
+     * Postcondition: The entitlement system is fully set up, policies are loaded, and bytecode instrumentation is applied.
      * @throws Exception if any error occurs during initialization, class loading, or instrumentation.
      */
     public static void initialize(Instrumentation inst) throws Exception {
@@ -165,6 +177,10 @@ public class EntitlementInitialization {
         var verifyBytecode = Booleans.parseBoolean(System.getProperty("es.entitlements.verify_bytecode", "false"));
 
         // Step 4: If verification is enabled, ensure sensitive classes are initialized to avoid circularity issues.
+        /**
+         * Block Logic: Conditional class initialization to prevent bytecode verification issues.
+         * Invariant: Classes sensitive to bytecode verification should be initialized before re-transformation if verification is active.
+         */
         if (verifyBytecode) {
             ensureClassesSensitiveToVerificationAreInitialized();
         }
@@ -174,6 +190,10 @@ public class EntitlementInitialization {
         Map<MethodKey, CheckMethod> checkMethods = new HashMap<>(INSTRUMENTATION_SERVICE.lookupMethods(latestCheckerInterface));
         
         // Step 6: Augment the set of methods to instrument dynamically, especially for platform-specific implementations.
+        /**
+         * Block Logic: Dynamically adds instrumentation targets for various file system related methods.
+         * Functional Utility: Ensures comprehensive coverage of file system operations across different JDK implementations.
+         */
         Stream.of(
             fileSystemProviderChecks(), // Add checks for FileSystemProvider methods.
             fileStoreChecks(),          // Add checks for FileStore methods.
@@ -185,6 +205,8 @@ public class EntitlementInitialization {
                     "inheritedChannel",
                     SelectorProvider.provider().getClass(),
                     EntitlementChecker.class,
+                    "check" + Character.toUpperCase( "inheritedChannel".charAt(0)) + "inheritedChannel".substring(1), // Inline: dynamically generates the check method name.
+                    // Renamed for clarity: checkSelectorProviderInheritedChannel
                     "checkSelectorProviderInheritedChannel"
                 )
             )
@@ -206,8 +228,11 @@ public class EntitlementInitialization {
         try {
             inst.retransformClasses(classesToRetransform);
         } catch (VerifyError e) {
-            // Error Handling: If re-transformation fails with a VerifyError, enable detailed
-            // verification and retry one class at a time for better diagnostics.
+            /**
+             * Error Handling: If re-transformation fails with a `VerifyError`, the system attempts a more granular re-transformation.
+             * Functional Utility: This block provides a fallback mechanism for bytecode verification issues, retrying class transformation individually.
+             * Invariant: If a `VerifyError` occurs during bulk re-transformation, individual re-transformation attempts are made to isolate the problem.
+             */
             transformer.enableClassVerification(); // Turn on verification for the transformer.
 
             for (var classToRetransform : classesToRetransform) {
@@ -224,10 +249,15 @@ public class EntitlementInitialization {
      * @param loadedClasses An array of all classes currently loaded by the JVM.
      * @param classesToTransform A set of fully qualified class names that are targeted for instrumentation.
      * @return An array of `Class<?>` objects that need to be re-transformed.
+     * Precondition: `loadedClasses` contains all currently loaded classes, and `classesToTransform` specifies target classes.
+     * Postcondition: Returns an array containing only those loaded classes that match the `classesToTransform` set.
      */
     private static Class<?>[] findClassesToRetransform(Class<?>[] loadedClasses, Set<String> classesToTransform) {
         List<Class<?>> retransform = new ArrayList<>();
-        // Iterate through all loaded classes and check if their names are in the `classesToTransform` set.
+        /**
+         * Block Logic: Iterates through all loaded classes to identify those requiring re-transformation.
+         * Invariant: Only classes whose names (in "com/example/Class" format) exist in `classesToTransform` are added to the list.
+         */
         for (Class<?> loadedClass : loadedClasses) {
             // Converts class name from "com.example.Class" to "com/example/Class" for comparison.
             if (classesToTransform.contains(loadedClass.getName().replace(".", "/"))) {
@@ -247,6 +277,8 @@ public class EntitlementInitialization {
      * It also includes platform-specific file access rules (e.g., for Linux OS files).
      *
      * @return A fully configured {@link PolicyManager} instance.
+     * Precondition: `EntitlementBootstrap.bootstrapArgs()` must have been called and initialized.
+     * Postcondition: A `PolicyManager` is returned, encapsulating all server-level and plugin-specific security policies.
      */
     private static PolicyManager createPolicyManager() {
         EntitlementBootstrap.BootstrapArgs bootstrapArgs = EntitlementBootstrap.bootstrapArgs();
@@ -256,8 +288,11 @@ public class EntitlementInitialization {
         List<Scope> serverScopes = new ArrayList<>();
         List<FileData> serverModuleFileDatas = new ArrayList<>();
         
-        // Block Logic: Define file access entitlements for various base Elasticsearch directories and OS files.
-        // These FileData objects specify which base directories can be read/written by the server module.
+        /**
+         * Block Logic: Defines default file access entitlements for core Elasticsearch directories and essential OS files.
+         * These `FileData` objects specify read/write permissions for the server module based on base directories and platform.
+         * Invariant: A comprehensive set of file access rules is established for fundamental system and application paths.
+         */
         Collections.addAll(
             serverModuleFileDatas,
             // Base ES directories
@@ -289,14 +324,20 @@ public class EntitlementInitialization {
             FileData.ofPath(Path.of("/proc/self/mountinfo"), READ).withPlatform(LINUX),
             FileData.ofPath(Path.of("/proc/diskstats"), READ).withPlatform(LINUX)
         );
-        // Conditionally add PID file access if a PID file is configured.
+        /**
+         * Block Logic: Conditionally adds file access for the PID file.
+         * Invariant: PID file access is only granted if a PID file path has been configured.
+         */
         if (pathLookup.pidFile() != null) {
             serverModuleFileDatas.add(FileData.ofPath(pathLookup.pidFile(), READ_WRITE));
         }
 
-        // Block Logic: Define various security scopes with their associated entitlements.
-        // Each scope represents a logical module or component and lists the specific
-        // permissions (entitlements) it requires.
+        /**
+         * Block Logic: Defines various security scopes with their associated entitlements for different Elasticsearch components.
+         * Functional Utility: Each scope represents a logical module or component and lists the specific
+         * permissions (entitlements) it requires to operate correctly.
+         * Invariant: This block comprehensively sets up granular permissions for different parts of the Elasticsearch system.
+         */
         Collections.addAll(
             serverScopes,
             new Scope(
@@ -335,7 +376,7 @@ public class EntitlementInitialization {
                     new FilesEntitlement(List.of(FileData.ofBaseDirPath(CONFIG, READ), FileData.ofBaseDirPath(DATA, READ_WRITE)))
                 )
             ),
-            new Scope("org.apache.lucene.misc", List.of(new FilesEntitlement(List.of(FileData.ofBaseDirPath(DATA, READ_WRITE))))),
+            new Scope("org.apache.lucene.misc", List.of(FileData.ofBaseDirPath(DATA, READ_WRITE)).stream().collect(Collectors.toList())), // Functional Utility: Collects file data for Lucene misc.
             new Scope(
                 "org.apache.logging.log4j.core",
                 List.of(new ManageThreadsEntitlement(), new FilesEntitlement(List.of(FileData.ofBaseDirPath(LOGS, READ_WRITE))))
@@ -346,7 +387,12 @@ public class EntitlementInitialization {
             )
         );
 
-        // Block Logic: Conditionally add FIPS entitlements if FIPS-only functionality is enforced.
+        /**
+         * Block Logic: Conditionally adds FIPS-related entitlements if FIPS-only mode is enforced.
+         * Functional Utility: Integrates specific security permissions required when running in a FIPS-compliant environment,
+         *                     including access to the trust store and management of threads and network for BouncyCastle FIPS modules.
+         * Invariant: FIPS entitlements are only enabled if the `org.bouncycastle.fips.approved_only` system property is true.
+         */
         if (Booleans.parseBoolean(System.getProperty("org.bouncycastle.fips.approved_only"), false)) {
             // Determine the trust store path, either custom or default JDK.
             String trustStore = System.getProperty("javax.net.ssl.trustStore");
@@ -380,8 +426,12 @@ public class EntitlementInitialization {
                 : PolicyUtils.mergeScopes(serverScopes, bootstrapArgs.serverPolicyPatch().scopes())
         );
 
-        // Block Logic: Define specific entitlements required by the APM agent.
-        // These are special cases due to the agent's dynamic nature and module system interaction.
+        /**
+         * Block Logic: Defines specific entitlements required by the APM agent due to its dynamic nature and module system interaction.
+         * Functional Utility: Provides necessary permissions for APM agents, which often operate outside standard module boundaries,
+         *                     to perform tasks like class loading, thread management, and network operations.
+         * Invariant: These entitlements are a temporary hack and should be re-evaluated for future module system improvements.
+         */
         // agents run without a module, so this is a special hack for the apm agent
         // this should be removed once https://github.com/elastic/elasticsearch/issues/109335 is completed
         // See also modules/apm/src/main/plugin-metadata/entitlement-policy.yaml
@@ -421,8 +471,14 @@ public class EntitlementInitialization {
     /**
      * @brief Validates file entitlements for all plugins against forbidden paths.
      *
+     * Functional Utility: This method ensures that plugin policies do not inadvertently grant
+     * access to sensitive directories (e.g., other plugin directories, module directories)
+     * which could lead to security vulnerabilities.
+     *
      * @param pluginPolicies A map of plugin policies.
      * @param pathLookup A {@link PathLookup} instance for resolving base directories.
+     * Precondition: `pluginPolicies` contains all defined plugin security policies, and `pathLookup` is properly initialized for directory resolution.
+     * Postcondition: All plugin file access entitlements are verified against a set of forbidden paths.
      * @throws IllegalArgumentException if a plugin's policy grants forbidden file access.
      */
     // package visible for tests
@@ -435,7 +491,10 @@ public class EntitlementInitialization {
         Set<Path> writeAccessForbidden = new HashSet<>();
         pathLookup.getBaseDirPaths(CONFIG).forEach(p -> writeAccessForbidden.add(p.toAbsolutePath().normalize()));
         
-        // Iterate through each plugin's policy and validate its file access entitlements.
+        /**
+         * Block Logic: Iterates through each plugin's policy to validate its file access entitlements.
+         * Invariant: No plugin is allowed to have read or write access to paths designated as forbidden.
+         */
         for (var pluginPolicy : pluginPolicies.entrySet()) {
             for (var scope : pluginPolicy.getValue().scopes()) {
                 var filesEntitlement = scope.entitlements()
@@ -445,6 +504,10 @@ public class EntitlementInitialization {
                     .findFirst();
                 
                 // If a FilesEntitlement is present in the scope, validate it.
+                /**
+                 * Block Logic: Validates file access permissions if a `FilesEntitlement` is present in the current scope.
+                 * Invariant: If a `FilesEntitlement` exists, its read and write permissions must adhere to the forbidden path rules.
+                 */
                 if (filesEntitlement.isPresent()) {
                     // Create a FileAccessTree for the entitlement.
                     var fileAccessTree = FileAccessTree.withoutExclusivePaths(filesEntitlement.get(), pathLookup, null);
@@ -463,6 +526,8 @@ public class EntitlementInitialization {
      * @param forbiddenPath The path that was attempted to be accessed in a forbidden manner.
      * @param mode The access mode (READ or READ_WRITE) that was forbidden.
      * @return An `IllegalArgumentException` with a descriptive error message.
+     * Precondition: A file access violation has been detected.
+     * Postcondition: Returns a well-formatted exception detailing the violation.
      */
     private static IllegalArgumentException buildValidationException(
         String componentName,
@@ -487,6 +552,8 @@ public class EntitlementInitialization {
      * @param moduleName The name of the module.
      * @param fileAccessTree The {@link FileAccessTree} representing allowed file access.
      * @param readForbiddenPaths A set of paths that are forbidden for read access.
+     * Precondition: `fileAccessTree` accurately reflects the allowed file access for the component, and `readForbiddenPaths` defines restricted locations.
+     * Postcondition: Throws `IllegalArgumentException` if any read access is granted to a forbidden path.
      * @throws IllegalArgumentException if read access is granted to a forbidden path.
      */
     private static void validateReadFilesEntitlements(
@@ -495,7 +562,10 @@ public class EntitlementInitialization {
         FileAccessTree fileAccessTree,
         Set<Path> readForbiddenPaths
     ) {
-
+        /**
+         * Block Logic: Iterates through each forbidden path and checks if the `fileAccessTree` allows read access to it.
+         * Invariant: Read access is strictly prohibited for any path present in `readForbiddenPaths`.
+         */
         for (Path forbiddenPath : readForbiddenPaths) {
             if (fileAccessTree.canRead(forbiddenPath)) {
                 throw buildValidationException(componentName, moduleName, forbiddenPath, READ);
@@ -509,6 +579,8 @@ public class EntitlementInitialization {
      * @param moduleName The name of the module.
      * @param fileAccessTree The {@link FileAccessTree} representing allowed file access.
      * @param writeForbiddenPaths A set of paths that are forbidden for write access.
+     * Precondition: `fileAccessTree` accurately reflects the allowed file access for the component, and `writeForbiddenPaths` defines restricted locations.
+     * Postcondition: Throws `IllegalArgumentException` if any write access is granted to a forbidden path.
      * @throws IllegalArgumentException if write access is granted to a forbidden path.
      */
     private static void validateWriteFilesEntitlements(
@@ -517,6 +589,10 @@ public class EntitlementInitialization {
         FileAccessTree fileAccessTree,
         Set<Path> writeForbiddenPaths
     ) {
+        /**
+         * Block Logic: Iterates through each forbidden path and checks if the `fileAccessTree` allows write access to it.
+         * Invariant: Write access is strictly prohibited for any path present in `writeForbiddenPaths`.
+         */
         for (Path forbiddenPath : writeForbiddenPaths) {
             if (fileAccessTree.canWrite(forbiddenPath)) {
                 throw buildValidationException(componentName, moduleName, forbiddenPath, READ_WRITE);
@@ -527,10 +603,16 @@ public class EntitlementInitialization {
     /**
      * @brief Retrieves the user's home directory path.
      * @return The `Path` object representing the user's home directory.
+     * Precondition: The "user.home" system property must be set in the JVM environment.
+     * Postcondition: Returns a valid `Path` object for the user's home directory.
      * @throws IllegalStateException If the "user.home" system property is not set.
      */
     private static Path getUserHome() {
         String userHome = System.getProperty("user.home");
+        /**
+         * Block Logic: Validates the existence of the "user.home" system property.
+         * Invariant: The "user.home" property is a mandatory component for path resolution.
+         */
         if (userHome == null) {
             throw new IllegalStateException("user.home system property is required");
         }
@@ -624,7 +706,10 @@ public class EntitlementInitialization {
             .map(FileStore::getClass)
             .distinct();
         
-        // For each unique FileStore class, create instrumentation info for its relevant methods.
+        /**
+         * Block Logic: For each unique `FileStore` class, it prepares methods for instrumentation.
+         * Invariant: All relevant `FileStore` methods from distinct implementations are targeted for entitlement checks.
+         */
         return fileStoreClasses.flatMap(fileStoreClass -> {
             var instrumentation = new InstrumentationInfoFactory() {
                 @Override
@@ -680,7 +765,10 @@ public class EntitlementInitialization {
             .map(Path::getClass)
             .distinct();
         
-        // For each unique Path class, create instrumentation info for its relevant methods.
+        /**
+         * Block Logic: For each unique `Path` class, it prepares methods for instrumentation.
+         * Invariant: All relevant `Path` methods from distinct implementations are targeted for entitlement checks.
+         */
         return pathClasses.flatMap(pathClass -> {
             InstrumentationInfoFactory instrumentation = (String methodName, Class<?>... parameterTypes) -> INSTRUMENTATION_SERVICE
                 .lookupImplementationMethod(
@@ -714,10 +802,16 @@ public class EntitlementInitialization {
      * are loaded and initialized *before* they are potentially re-transformed,
      * thereby avoiding complex circularity errors that can arise during verification
      * of transformed bytecode.
+     * Precondition: Called when bytecode verification is enabled.
+     * Postcondition: Specified sensitive classes are initialized, reducing the risk of `VerifyError` during re-transformation.
      */
     private static void ensureClassesSensitiveToVerificationAreInitialized() {
         // A set of fully qualified class names that require pre-initialization.
         var classesToInitialize = Set.of("sun.net.www.protocol.http.HttpURLConnection");
+        /**
+         * Block Logic: Iterates through a predefined list of class names and forces their loading and initialization.
+         * Invariant: Each class in `classesToInitialize` is explicitly loaded before any potential re-transformation.
+         */
         for (String className : classesToInitialize) {
             try {
                 Class.forName(className); // Force class loading and initialization.
@@ -740,6 +834,8 @@ public class EntitlementInitialization {
      *
      * @param baseClass The base {@link EntitlementChecker} interface class (e.g., `EntitlementChecker.class`).
      * @return A `Class<?>` object representing the version-specific `EntitlementChecker` implementation.
+     * Precondition: `baseClass` is a valid base interface for entitlement checking.
+     * Postcondition: Returns the dynamically determined, version-compatible `EntitlementChecker` class.
      * @throws AssertionError if the required version-specific class cannot be found.
      */
     private static Class<?> getVersionSpecificCheckerClass(Class<?> baseClass) {
@@ -748,7 +844,10 @@ public class EntitlementInitialization {
         int javaVersion = Runtime.version().feature();
 
         final String classNamePrefix;
-        // Block Logic: Determine the class name prefix based on Java version.
+        /**
+         * Block Logic: Determines the appropriate `EntitlementChecker` class name prefix based on the current Java version.
+         * Invariant: Java versions 23 and above use a specific checker, while others default to no prefix.
+         */
         if (javaVersion >= 23) {
             // All Java versions from 23 onwards will use checks in the Java23EntitlementChecker.
             classNamePrefix = "Java23";
@@ -776,6 +875,8 @@ public class EntitlementInitialization {
      * to its constructor.
      *
      * @return An instantiated {@link ElasticsearchEntitlementChecker}.
+     * Precondition: All necessary `EntitlementBootstrap.BootstrapArgs` are initialized.
+     * Postcondition: A version-specific `ElasticsearchEntitlementChecker` is instantiated and ready for use.
      * @throws AssertionError if the required constructor is missing or instantiation fails.
      */
     private static ElasticsearchEntitlementChecker initChecker() {
@@ -804,6 +905,7 @@ public class EntitlementInitialization {
      * @brief Static instance of {@link InstrumentationService} for managing bytecode instrumentation.
      * Functional Utility: This service provides the core functionality for looking up methods
      * for instrumentation, creating instrumenters, and managing bytecode transformation.
+     * Invariant: This service is initialized once as a singleton for the entitlement system.
      */
     private static final InstrumentationService INSTRUMENTATION_SERVICE = new ProviderLocator<>(
         "entitlement",

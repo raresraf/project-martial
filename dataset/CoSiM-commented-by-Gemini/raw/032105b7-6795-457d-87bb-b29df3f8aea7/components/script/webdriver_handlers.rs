@@ -1,3 +1,33 @@
+/**
+ * @file webdriver_handlers.rs
+ * @brief Handles WebDriver command processing for the script component.
+ *
+ * This file implements the server-side logic for various WebDriver commands,
+ * acting as a bridge between the WebDriver protocol and the browser's internal
+ * DOM, script, and networking components. It receives commands via IPC,
+ * executes them within the script thread, and sends back the results.
+ *
+ * Architectural Intent:
+ * - To provide a clear separation of concerns, this module contains all the
+ *   WebDriver command handlers, isolating them from the core browser logic.
+ * - To ensure thread safety, operations that access shared browser state
+ *   (like the DOM) are carefully managed.
+ * - To map high-level WebDriver commands (e.g., "find element", "click",
+ *   "execute script") to low-level DOM and JavaScript API calls.
+ * - To handle serialization and deserialization of data between the WebDriver
+ *   JSON protocol and the browser's internal data structures.
+ *
+ * Domain-Specific Awareness:
+ * - **DOM Manipulation**: Many handlers interact with the DOM tree to find,
+ *   inspect, and manipulate elements. This involves using selectors,
+ *   traversing the tree, and accessing element properties.
+ * - **JavaScript Execution**: The `execute_script` and `execute_async_script`
+ *   handlers allow arbitrary JavaScript to be run in the context of the
+ *   current browsing context.
+ * - **Asynchronous Communication**: IPC channels are used for asynchronous
+ *   communication between the WebDriver server and the script thread,
+ *   allowing for non-blocking command execution.
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -71,6 +101,19 @@ use crate::script_module::ScriptFetchOptions;
 use crate::script_runtime::{CanGc, JSContext as SafeJSContext};
 use crate::script_thread::ScriptThread;
 
+/**
+ * @brief Finds a DOM node by its unique ID.
+ *
+ * This function searches for a node within the document associated with the
+ * given pipeline that has a matching unique ID. This is a fundamental operation
+ * for locating elements that have been previously identified.
+ *
+ * @param documents The collection of all documents.
+ * @param pipeline The ID of the pipeline containing the document to search.
+ * @param node_id The unique ID of the node to find.
+ * @return A `Result` containing a `DomRoot<Node>` on success, or an `ErrorStatus`
+ *         on failure (`StaleElementReference` or `NoSuchElement`).
+ */
 fn find_node_by_unique_id(
     documents: &DocumentCollection,
     pipeline: PipelineId,
@@ -93,6 +136,14 @@ fn find_node_by_unique_id(
     }
 }
 
+/**
+ * @brief Filters a list of link elements based on their text content.
+ *
+ * @param links A `NodeList` of link elements.
+ * @param link_text The text to match against.
+ * @param partial If true, performs a partial match (contains); otherwise, an exact match.
+ * @return An iterator over the unique IDs of the matching link elements.
+ */
 fn matching_links(
     links: &NodeList,
     link_text: String,
@@ -115,6 +166,14 @@ fn matching_links(
         .map(|node| node.upcast::<Node>().unique_id())
 }
 
+/**
+ * @brief Finds all link elements within a subtree that match the given link text.
+ *
+ * @param root_node The root of the DOM subtree to search.
+ * @param link_text The link text to match.
+ * @param partial If true, performs a partial match.
+ * @return A `Result` containing a vector of unique element IDs, or an `ErrorStatus`.
+ */
 fn all_matching_links(
     root_node: &Node,
     link_text: String,
@@ -126,6 +185,15 @@ fn all_matching_links(
         .map(|nodes| matching_links(&nodes, link_text, partial).collect())
 }
 
+/**
+ * @brief Finds the first link element within a subtree that matches the given link text.
+ *
+ * @param root_node The root of the DOM subtree to search.
+ * @param link_text The link text to match.
+ * @param partial If true, performs a partial match.
+ * @return A `Result` containing an `Option` with the unique ID of the first matching
+ *         element, or an `ErrorStatus`.
+ */
 fn first_matching_link(
     root_node: &Node,
     link_text: String,
@@ -137,6 +205,17 @@ fn first_matching_link(
         .map(|nodes| matching_links(&nodes, link_text, partial).take(1).next())
 }
 
+/**
+ * @brief Checks if a JavaScript object has a `toJSON` property that is a function.
+ *
+ * This is used to determine if an object should be serialized using its own
+ * `toJSON` method, as specified by the WebDriver standard.
+ *
+ * @param cx A raw pointer to the `JSContext`.
+ * @param global_scope The global scope of the script execution.
+ * @param object A handle to the JavaScript object to check.
+ * @return `true` if the object has a functional `toJSON` property, `false` otherwise.
+ */
 #[allow(unsafe_code)]
 unsafe fn object_has_to_json_property(
     cx: *mut JSContext,
@@ -172,6 +251,13 @@ unsafe fn object_has_to_json_property(
     }
 }
 
+/**
+ * @brief Checks if a JavaScript value is an "Arguments" object.
+ *
+ * @param cx A raw pointer to the `JSContext`.
+ * @param value A handle to the JavaScript value to check.
+ * @return `true` if the value is an Arguments object, `false` otherwise.
+ */
 #[allow(unsafe_code)]
 /// <https://w3c.github.io/webdriver/#dfn-collection>
 unsafe fn is_arguments_object(cx: *mut JSContext, value: HandleValue) -> bool {
@@ -182,6 +268,18 @@ unsafe fn is_arguments_object(cx: *mut JSContext, value: HandleValue) -> bool {
     jsstring_to_str(cx, class_name) == "[object Arguments]"
 }
 
+/**
+ * @brief Converts a JavaScript value (`JSVal`) to a WebDriver-compatible JSON value.
+ *
+ * This function recursively converts JavaScript values (primitives, objects,
+ * arrays, elements, windows, etc.) into the `WebDriverJSValue` enum, which
+ * can be serialized to JSON and sent back to the WebDriver client.
+ *
+ * @param cx A raw pointer to the `JSContext`.
+ * @param global_scope The global scope of the script execution.
+ * @param val A handle to the JavaScript value to convert.
+ * @return A `Result` containing the `WebDriverJSValue`, or a `WebDriverJSError`.
+ */
 #[allow(unsafe_code)]
 pub(crate) unsafe fn jsval_to_webdriver(
     cx: *mut JSContext,
@@ -363,6 +461,17 @@ pub(crate) unsafe fn jsval_to_webdriver(
     }
 }
 
+/**
+ * @brief Handles the "Execute Script" WebDriver command.
+ *
+ * This function evaluates a given JavaScript string in the context of the
+ * current window and sends the result back via an IPC channel.
+ *
+ * @param window The optional `DomRoot<Window>` to execute the script in.
+ * @param eval The JavaScript string to evaluate.
+ * @param reply An IPC sender to send the script result back to the caller.
+ * @param can_gc A token indicating if garbage collection is allowed.
+ */
 #[allow(unsafe_code)]
 pub(crate) fn handle_execute_script(
     window: Option<DomRoot<Window>>,
@@ -396,6 +505,18 @@ pub(crate) fn handle_execute_script(
     }
 }
 
+/**
+ * @brief Handles the "Execute Async Script" WebDriver command.
+ *
+ * This function evaluates an asynchronous JavaScript string. The script is
+ * expected to call a provided callback function to signal completion and
+ * return a result. The result is sent back via an IPC channel.
+ *
+ * @param window The optional `DomRoot<Window>` to execute the script in.
+ * @param eval The asynchronous JavaScript string to evaluate.
+ * @param reply An IPC sender to send the script result back.
+ * @param can_gc A token indicating if garbage collection is allowed.
+ */
 pub(crate) fn handle_execute_async_script(
     window: Option<DomRoot<Window>>,
     eval: String,
@@ -425,6 +546,17 @@ pub(crate) fn handle_execute_async_script(
     }
 }
 
+/**
+ * @brief Gets the browsing context ID for a given WebDriver frame ID.
+ *
+ * This function translates a `WebDriverFrameId` (which can be an element ID,
+ * "parent", or a short ID) into a `BrowsingContextId`.
+ *
+ * @param documents The collection of all documents.
+ * @param pipeline The ID of the current pipeline.
+ * @param webdriver_frame_id The WebDriver frame ID to resolve.
+ * @param reply An IPC sender for the result.
+ */
 pub(crate) fn handle_get_browsing_context_id(
     documents: &DocumentCollection,
     pipeline: PipelineId,
@@ -457,6 +589,16 @@ pub(crate) fn handle_get_browsing_context_id(
         .unwrap();
 }
 
+/**
+ * @brief Calculates the center point of an element's in-view rectangle.
+ *
+ * This function determines the center point of the visible portion of an
+ * element, as specified by the WebDriver standard.
+ *
+ * @param element The element to calculate the center point for.
+ * @param can_gc A token indicating if garbage collection is allowed.
+ * @return An `Option` containing the `Point2D<i64>` center point, or `None`.
+ */
 // https://w3c.github.io/webdriver/#dfn-center-point
 fn get_element_in_view_center_point(element: &Element, can_gc: CanGc) -> Option<Point2D<i64>> {
     element
@@ -852,7 +994,7 @@ pub(crate) fn handle_get_cookies(
         .unwrap();
 }
 
-// https://w3c.github.io/webdriver/webdriver-spec.html#get-cookie
+// https://w3c.github.io/webdriver/#get-cookie
 pub(crate) fn handle_get_cookie(
     documents: &DocumentCollection,
     pipeline: PipelineId,

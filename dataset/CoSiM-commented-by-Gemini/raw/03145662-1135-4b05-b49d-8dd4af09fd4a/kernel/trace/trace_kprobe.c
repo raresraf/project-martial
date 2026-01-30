@@ -90,33 +90,33 @@ static int __init set_kprobe_boot_events(char *str)
 
 	return 1;
 }
-__setup("kprobe_event=", set_kprobe_boot_events); // Functional Utility: Registers this function as a kernel command-line parser. 
+__setup("kprobe_event=", set_kprobe_boot_events);
 
 /**
  * @brief Creates a new kprobe-based trace event.
  * @param raw_command The raw command string for the kprobe.
  * @return 0 on success, or a negative errno on failure.
  */
-static int trace_kprobe_create(const char *raw_command); 
+static int trace_kprobe_create(const char *raw_command);
 /**
  * @brief Displays the details of a kprobe dynamic event in a `seq_file`.
  * @param m Pointer to the `seq_file`.
  * @param ev Pointer to the dynamic event.
  * @return 0 on success.
  */
-static int trace_kprobe_show(struct seq_file *m, struct dyn_event *ev); 
+static int trace_kprobe_show(struct seq_file *m, struct dyn_event *ev);
 /**
  * @brief Releases resources associated with a kprobe dynamic event.
  * @param ev Pointer to the dynamic event.
  * @return 0 on success, or a negative errno on failure.
  */
-static int trace_kprobe_release(struct dyn_event *ev); 
+static int trace_kprobe_release(struct dyn_event *ev);
 /**
  * @brief Checks if a kprobe dynamic event is busy (enabled).
  * @param ev Pointer to the dynamic event.
  * @return True if busy, false otherwise.
  */
-static bool trace_kprobe_is_busy(struct dyn_event *ev); 
+static bool trace_kprobe_is_busy(struct dyn_event *ev);
 /**
  * @brief Matches a kprobe dynamic event against system, event, and arguments.
  * @param system The system name to match.
@@ -278,7 +278,6 @@ static nokprobe_inline bool trace_kprobe_module_exist(struct trace_kprobe *tk)
 	return ret;
 }
 #else
-// Block Logic: Stub for non-CONFIG_MODULES builds.
 static inline bool trace_kprobe_module_exist(struct trace_kprobe *tk)
 {
 	return false;
@@ -796,7 +795,6 @@ static bool within_notrace_func(struct trace_kprobe *tk)
 	return true;
 }
 #else
-// Block Logic: Stub for non-DYNAMIC_FTRACE or KPROBE_EVENTS_ON_NOTRACE builds.
 #define within_notrace_func(tk) (false)
 #endif
 
@@ -806,7 +804,7 @@ static bool within_notrace_func(struct trace_kprobe *tk)
  * @param tk Pointer to the `trace_kprobe`.
  * @return 0 on success, or a negative errno on failure.
  *
- * This function handles security checks, checks for `notrace` functions,
+ * This function handles the security checks, checks for `notrace` functions,
  * updates arguments, sets kprobe flags, and registers the embedded kprobe
  * or kretprobe.
  */
@@ -995,7 +993,6 @@ static int append_trace_kprobe(struct trace_kprobe *tk, struct trace_kprobe *to)
 	return ret;
 }
 
-/* Register a trace_probe and probe_event */
 /**
  * @brief Registers a `trace_kprobe` instance.
  * @param tk Pointer to the `trace_kprobe`.
@@ -1136,7 +1133,6 @@ static int trace_kprobe_register_module_notifier(void)
 	return register_module_notifier(&trace_kprobe_module_nb);
 }
 #else
-// Block Logic: Stub for non-CONFIG_MODULES builds.
 static int trace_kprobe_register_module_notifier(void)
 {
 	return 0;
@@ -1295,9 +1291,6 @@ out:
 		module_put(mod);
 	return ret;
 }
-
-static int trace_kprobe_entry_handler(struct kretprobe_instance *ri,
-				      struct pt_regs *regs);
 
 /**
  * @brief Creates a `trace_kprobe` instance from command-line arguments.

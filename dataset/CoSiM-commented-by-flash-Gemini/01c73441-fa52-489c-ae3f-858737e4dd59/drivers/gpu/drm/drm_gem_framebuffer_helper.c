@@ -1,3 +1,23 @@
+/**
+ * @file drm_gem_framebuffer_helper.c
+ * @brief Provides helper functions for creating and managing DRM framebuffers
+ * backed by GEM (Graphics Execution Manager) objects. This includes general
+ * framebuffer management and specific support for AFBC (ARM Frame Buffer Compression)
+ * formats.
+ *
+ * Functional Utility: Simplifies the process of creating, initializing, and
+ * managing framebuffers for DRM drivers that use GEM objects for their backing
+ * storage. It handles details like GEM object lookup, framebuffer initialization,
+ * buffer size validation, and provides callbacks for framebuffer destruction
+ * and handle creation.
+ *
+ * Key Data Structures:
+ * - `drm_framebuffer`: Represents a framebuffer in the DRM subsystem.
+ * - `drm_gem_object`: Generic buffer objects managed by DRM.
+ * - `drm_mode_fb_cmd2`: Userspace command for creating framebuffers.
+ * - `drm_afbc_framebuffer`: Extended framebuffer structure for AFBC formats.
+ */
+
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * drm gem framebuffer helper functions
@@ -53,10 +73,14 @@ MODULE_IMPORT_NS("DMA_BUF");
 struct drm_gem_object *drm_gem_fb_get_obj(struct drm_framebuffer *fb,
 					  unsigned int plane)
 {
+	/// Functional Utility: Retrieves the GEM object that backs a specific plane of the given framebuffer.
+	/// This allows access to the underlying buffer object without increasing its reference count.
 	struct drm_device *dev = fb->dev;
 
+	// Conditional Logic: Warn and return NULL if the plane index is out of bounds.
 	if (drm_WARN_ON_ONCE(dev, plane >= ARRAY_SIZE(fb->obj)))
 		return NULL;
+	// Conditional Logic: Warn and return NULL if the GEM object for the specified plane does not exist.
 	else if (drm_WARN_ON_ONCE(dev, !fb->obj[plane]))
 		return NULL;
 
@@ -71,15 +95,21 @@ drm_gem_fb_init(struct drm_device *dev,
 		 struct drm_gem_object **obj, unsigned int num_planes,
 		 const struct drm_framebuffer_funcs *funcs)
 {
+	/// Functional Utility: Initializes a `drm_framebuffer` structure with common metadata and backing GEM objects.
+	/// This is an internal helper used by other framebuffer creation functions.
 	unsigned int i;
 	int ret;
 
+	// Block Logic: Fill the basic framebuffer structure using helper function.
 	drm_helper_mode_fill_fb_struct(dev, fb, mode_cmd);
 
+	// Block Logic: Assign the provided GEM objects to the framebuffer's object array.
 	for (i = 0; i < num_planes; i++)
 		fb->obj[i] = obj[i];
 
+	// Block Logic: Initialize the DRM framebuffer.
 	ret = drm_framebuffer_init(dev, fb, funcs);
+	// Conditional Logic: Log an error if framebuffer initialization fails.
 	if (ret)
 		drm_err(dev, "Failed to init framebuffer: %d\n", ret);
 
@@ -96,12 +126,17 @@ drm_gem_fb_init(struct drm_device *dev,
  */
 void drm_gem_fb_destroy(struct drm_framebuffer *fb)
 {
+	/// Functional Utility: Destroys a GEM-backed framebuffer, releasing its backing GEM objects and freeing the framebuffer structure itself.
+	/// This function serves as a common `destroy` callback for `drm_framebuffer_funcs`.
 	unsigned int i;
 
+	// Block Logic: Put references on all backing GEM objects to allow them to be freed.
 	for (i = 0; i < fb->format->num_planes; i++)
 		drm_gem_object_put(fb->obj[i]);
 
+	// Block Logic: Clean up the framebuffer resources.
 	drm_framebuffer_cleanup(fb);
+	// Block Logic: Free the framebuffer structure memory.
 	kfree(fb);
 }
 EXPORT_SYMBOL(drm_gem_fb_destroy);
@@ -122,6 +157,8 @@ EXPORT_SYMBOL(drm_gem_fb_destroy);
 int drm_gem_fb_create_handle(struct drm_framebuffer *fb, struct drm_file *file,
 			     unsigned int *handle)
 {
+	/// Functional Utility: Creates a GEM handle for the primary GEM object backing the framebuffer.
+	/// This allows userspace to refer to the framebuffer's main buffer via a handle.
 	return drm_gem_handle_create(file, fb->obj[0], handle);
 }
 EXPORT_SYMBOL(drm_gem_fb_create_handle);
@@ -154,17 +191,22 @@ int drm_gem_fb_init_with_funcs(struct drm_device *dev,
 			       const struct drm_mode_fb_cmd2 *mode_cmd,
 			       const struct drm_framebuffer_funcs *funcs)
 {
+	/// Functional Utility: Initializes a framebuffer with custom functions and validates its backing GEM objects.
+	/// This helper is for drivers requiring specific framebuffer callbacks beyond the default ones.
 	const struct drm_format_info *info;
 	struct drm_gem_object *objs[DRM_FORMAT_MAX_PLANES];
 	unsigned int i;
 	int ret;
 
+	// Block Logic: Retrieve format information for the framebuffer.
 	info = drm_get_format_info(dev, mode_cmd);
+	// Conditional Logic: Handle failure to get format info.
 	if (!info) {
 		drm_dbg_kms(dev, "Failed to get FB format info\n");
 		return -EINVAL;
 	}
 
+	// Conditional Logic: If atomic modeset is used, validate the pixel format and modifier.
 	if (drm_drv_uses_atomic_modeset(dev) &&
 	    !drm_any_plane_has_format(dev, mode_cmd->pixel_format,
 				      mode_cmd->modifier[0])) {
@@ -173,22 +215,27 @@ int drm_gem_fb_init_with_funcs(struct drm_device *dev,
 		return -EINVAL;
 	}
 
+	// Block Logic: Iterate through each plane to look up GEM objects and validate their sizes.
 	for (i = 0; i < info->num_planes; i++) {
 		unsigned int width = mode_cmd->width / (i ? info->hsub : 1);
 		unsigned int height = mode_cmd->height / (i ? info->vsub : 1);
 		unsigned int min_size;
 
+		// Block Logic: Look up the GEM object by handle.
 		objs[i] = drm_gem_object_lookup(file, mode_cmd->handles[i]);
+		// Conditional Logic: Handle failure to lookup GEM object.
 		if (!objs[i]) {
 			drm_dbg_kms(dev, "Failed to lookup GEM object\n");
 			ret = -ENOENT;
 			goto err_gem_object_put;
 		}
 
+		// Block Logic: Calculate the minimum required size for the current plane's buffer.
 		min_size = (height - 1) * mode_cmd->pitches[i]
 			 + drm_format_info_min_pitch(info, i, width)
 			 + mode_cmd->offsets[i];
 
+		// Conditional Logic: Validate that the GEM object's size is sufficient.
 		if (objs[i]->size < min_size) {
 			drm_dbg_kms(dev,
 				    "GEM object size (%zu) smaller than minimum size (%u) for plane %d\n",
@@ -199,13 +246,16 @@ int drm_gem_fb_init_with_funcs(struct drm_device *dev,
 		}
 	}
 
+	// Block Logic: Initialize the framebuffer with the validated GEM objects and custom functions.
 	ret = drm_gem_fb_init(dev, fb, mode_cmd, objs, i, funcs);
+	// Conditional Logic: Handle framebuffer initialization failure.
 	if (ret)
 		goto err_gem_object_put;
 
 	return 0;
 
 err_gem_object_put:
+	// Error Handling: Put references on any looked-up GEM objects in case of an error during initialization.
 	while (i > 0) {
 		--i;
 		drm_gem_object_put(objs[i]);
@@ -235,14 +285,20 @@ drm_gem_fb_create_with_funcs(struct drm_device *dev, struct drm_file *file,
 			     const struct drm_mode_fb_cmd2 *mode_cmd,
 			     const struct drm_framebuffer_funcs *funcs)
 {
+	/// Functional Utility: Allocates a new `drm_framebuffer` structure and initializes it using custom functions.
+	/// This serves as a flexible framebuffer creation entry point for drivers with specific needs.
 	struct drm_framebuffer *fb;
 	int ret;
 
+	// Block Logic: Allocate memory for the framebuffer structure.
 	fb = kzalloc(sizeof(*fb), GFP_KERNEL);
+	// Conditional Logic: Handle memory allocation failure.
 	if (!fb)
 		return ERR_PTR(-ENOMEM);
 
+	// Block Logic: Initialize the framebuffer with the provided metadata and functions.
 	ret = drm_gem_fb_init_with_funcs(dev, fb, file, mode_cmd, funcs);
+	// Conditional Logic: Handle initialization failure, freeing the allocated framebuffer.
 	if (ret) {
 		kfree(fb);
 		return ERR_PTR(ret);
@@ -283,6 +339,8 @@ struct drm_framebuffer *
 drm_gem_fb_create(struct drm_device *dev, struct drm_file *file,
 		  const struct drm_mode_fb_cmd2 *mode_cmd)
 {
+	/// Functional Utility: Creates a new framebuffer object with default GEM-backed functions.
+	/// This is a simplified entry point for drivers without special requirements for framebuffer callbacks.
 	return drm_gem_fb_create_with_funcs(dev, file, mode_cmd,
 					    &drm_gem_fb_funcs);
 }
@@ -321,6 +379,8 @@ struct drm_framebuffer *
 drm_gem_fb_create_with_dirty(struct drm_device *dev, struct drm_file *file,
 			     const struct drm_mode_fb_cmd2 *mode_cmd)
 {
+	/// Functional Utility: Creates a new framebuffer object with GEM backing and includes the `drm_atomic_helper_dirtyfb` callback.
+	/// This function is used when framebuffer flushing through the atomic modesetting machinery is required.
 	return drm_gem_fb_create_with_funcs(dev, file, mode_cmd,
 					    &drm_gem_fb_funcs_dirtyfb);
 }
@@ -352,26 +412,36 @@ EXPORT_SYMBOL_GPL(drm_gem_fb_create_with_dirty);
 int drm_gem_fb_vmap(struct drm_framebuffer *fb, struct iosys_map *map,
 		    struct iosys_map *data)
 {
+	/// Functional Utility: Maps all GEM buffer objects of a given framebuffer into the kernel's virtual address space.
+	/// It provides kernel-accessible pointers to the framebuffer data, handling multiple planes and potential offsets.
 	struct drm_gem_object *obj;
 	unsigned int i;
 	int ret;
 
+	// Block Logic: Iterate through each plane to map its backing GEM object.
 	for (i = 0; i < fb->format->num_planes; ++i) {
+		// Block Logic: Get the GEM object for the current plane.
 		obj = drm_gem_fb_get_obj(fb, i);
+		// Conditional Logic: Handle missing GEM object for a plane.
 		if (!obj) {
 			ret = -EINVAL;
 			goto err_drm_gem_vunmap;
 		}
+		// Block Logic: Map the GEM object into kernel virtual address space.
 		ret = drm_gem_vmap(obj, &map[i]);
+		// Conditional Logic: Handle mapping failure.
 		if (ret)
 			goto err_drm_gem_vunmap;
 	}
 
+	// Conditional Logic: If `data` is provided, copy and adjust the mappings with framebuffer offsets.
 	if (data) {
 		for (i = 0; i < fb->format->num_planes; ++i) {
 			memcpy(&data[i], &map[i], sizeof(data[i]));
+			// Conditional Logic: Skip if the mapping is null.
 			if (iosys_map_is_null(&data[i]))
 				continue;
+			// Block Logic: Adjust the data address by the framebuffer offset.
 			iosys_map_incr(&data[i], fb->offsets[i]);
 		}
 	}
@@ -379,6 +449,7 @@ int drm_gem_fb_vmap(struct drm_framebuffer *fb, struct iosys_map *map,
 	return 0;
 
 err_drm_gem_vunmap:
+	// Error Handling: Unmap any already mapped GEM objects in case of an error during mapping.
 	while (i) {
 		--i;
 		obj = drm_gem_fb_get_obj(fb, i);
@@ -401,16 +472,23 @@ EXPORT_SYMBOL(drm_gem_fb_vmap);
  */
 void drm_gem_fb_vunmap(struct drm_framebuffer *fb, struct iosys_map *map)
 {
+	/// Functional Utility: Unmaps all GEM buffer objects of a given framebuffer from the kernel's virtual address space.
+	/// This function reverses the mapping performed by `drm_gem_fb_vmap`.
 	unsigned int i = fb->format->num_planes;
 	struct drm_gem_object *obj;
 
+	// Block Logic: Iterate backwards through the planes to unmap their backing GEM objects.
 	while (i) {
 		--i;
+		// Block Logic: Get the GEM object for the current plane.
 		obj = drm_gem_fb_get_obj(fb, i);
+		// Conditional Logic: Skip if the GEM object for the plane is missing.
 		if (!obj)
 			continue;
+		// Conditional Logic: Skip if the mapping for the current plane is null.
 		if (iosys_map_is_null(&map[i]))
 			continue;
+		// Block Logic: Unmap the GEM object from kernel virtual address space.
 		drm_gem_vunmap(obj, &map[i]);
 	}
 }
@@ -419,17 +497,25 @@ EXPORT_SYMBOL(drm_gem_fb_vunmap);
 static void __drm_gem_fb_end_cpu_access(struct drm_framebuffer *fb, enum dma_data_direction dir,
 					unsigned int num_planes)
 {
+	/// Functional Utility: Signals the end of CPU access for a specified number of planes in a framebuffer's GEM buffer objects.
+	/// It iterates through the planes and calls `dma_buf_end_cpu_access` for imported buffers.
 	struct drm_gem_object *obj;
 	int ret;
 
+	// Block Logic: Iterate backwards through the specified number of planes.
 	while (num_planes) {
 		--num_planes;
+		// Block Logic: Get the GEM object for the current plane.
 		obj = drm_gem_fb_get_obj(fb, num_planes);
+		// Conditional Logic: Skip if the GEM object is missing.
 		if (!obj)
 			continue;
+		// Conditional Logic: Only process imported GEM objects.
 		if (!drm_gem_is_imported(obj))
 			continue;
+		// Block Logic: Signal the end of CPU access for the DMA buffer.
 		ret = dma_buf_end_cpu_access(obj->dma_buf, dir);
+		// Conditional Logic: Log an error if signalling end of CPU access fails.
 		if (ret)
 			drm_err(fb->dev, "dma_buf_end_cpu_access(%u, %d) failed: %d\n",
 				ret, num_planes, dir);
@@ -452,19 +538,27 @@ static void __drm_gem_fb_end_cpu_access(struct drm_framebuffer *fb, enum dma_dat
  */
 int drm_gem_fb_begin_cpu_access(struct drm_framebuffer *fb, enum dma_data_direction dir)
 {
+	/// Functional Utility: Prepares a framebuffer's GEM buffer objects for CPU access.
+	/// For imported buffers, it calls `dma_buf_begin_cpu_access` to synchronize CPU and DMA access.
 	struct drm_gem_object *obj;
 	unsigned int i;
 	int ret;
 
+	// Block Logic: Iterate through each plane to prepare its backing GEM object for CPU access.
 	for (i = 0; i < fb->format->num_planes; ++i) {
+		// Block Logic: Get the GEM object for the current plane.
 		obj = drm_gem_fb_get_obj(fb, i);
+		// Conditional Logic: Handle missing GEM object.
 		if (!obj) {
 			ret = -EINVAL;
 			goto err___drm_gem_fb_end_cpu_access;
 		}
+		// Conditional Logic: Only process imported GEM objects.
 		if (!drm_gem_is_imported(obj))
 			continue;
+		// Block Logic: Signal beginning of CPU access for the DMA buffer.
 		ret = dma_buf_begin_cpu_access(obj->dma_buf, dir);
+		// Conditional Logic: Handle failure to begin CPU access.
 		if (ret)
 			goto err___drm_gem_fb_end_cpu_access;
 	}
@@ -472,6 +566,7 @@ int drm_gem_fb_begin_cpu_access(struct drm_framebuffer *fb, enum dma_data_direct
 	return 0;
 
 err___drm_gem_fb_end_cpu_access:
+	// Error Handling: Call `__drm_gem_fb_end_cpu_access` to clean up partially prepared objects.
 	__drm_gem_fb_end_cpu_access(fb, dir, i);
 	return ret;
 }
@@ -490,6 +585,8 @@ EXPORT_SYMBOL(drm_gem_fb_begin_cpu_access);
  */
 void drm_gem_fb_end_cpu_access(struct drm_framebuffer *fb, enum dma_data_direction dir)
 {
+	/// Functional Utility: Signals the end of CPU access to a framebuffer's GEM buffer objects.
+	/// This function is the counterpart to `drm_gem_fb_begin_cpu_access` and performs necessary synchronization for imported buffers.
 	__drm_gem_fb_end_cpu_access(fb, dir, fb->format->num_planes);
 }
 EXPORT_SYMBOL(drm_gem_fb_end_cpu_access);
@@ -499,10 +596,14 @@ EXPORT_SYMBOL(drm_gem_fb_end_cpu_access);
 static __u32 drm_gem_afbc_get_bpp(struct drm_device *dev,
 				  const struct drm_mode_fb_cmd2 *mode_cmd)
 {
+	/// Functional Utility: Determines the bits per pixel (BPP) for a given AFBC framebuffer format.
+	/// It handles specific AFBC formats and falls back to generic DRM format BPP calculation.
 	const struct drm_format_info *info;
 
 	info = drm_get_format_info(dev, mode_cmd);
 
+	// Block Logic: Use a switch statement to return BPP for known AFBC formats.
+	// Invariant: For unsupported formats, it falls back to a generic BPP calculation.
 	switch (info->format) {
 	case DRM_FORMAT_YUV420_8BIT:
 		return 12;
@@ -519,10 +620,13 @@ static int drm_gem_afbc_min_size(struct drm_device *dev,
 				 const struct drm_mode_fb_cmd2 *mode_cmd,
 				 struct drm_afbc_framebuffer *afbc_fb)
 {
+	/// Functional Utility: Calculates the minimum required size for an AFBC framebuffer based on its dimensions,
+	/// block size, and tiling properties. This ensures sufficient memory is allocated for the compressed format.
 	__u32 n_blocks, w_alignment, h_alignment, hdr_alignment;
-	/* remove bpp when all users properly encode cpp in drm_format_info */
+	/* remove bpp when all users properly encode cpp in drivers/gpu/drm/drm_fourcc.c */
 	__u32 bpp;
 
+	// Block Logic: Determine AFBC block dimensions based on modifier.
 	switch (mode_cmd->modifier[0] & AFBC_FORMAT_MOD_BLOCK_SIZE_MASK) {
 	case AFBC_FORMAT_MOD_BLOCK_SIZE_16x16:
 		afbc_fb->block_width = 16;
@@ -543,6 +647,7 @@ static int drm_gem_afbc_min_size(struct drm_device *dev,
 	}
 
 	/* tiled header afbc */
+	// Block Logic: Determine alignment requirements based on AFBC tiling.
 	w_alignment = afbc_fb->block_width;
 	h_alignment = afbc_fb->block_height;
 	hdr_alignment = AFBC_HDR_ALIGN;
@@ -556,12 +661,15 @@ static int drm_gem_afbc_min_size(struct drm_device *dev,
 	afbc_fb->aligned_height = ALIGN(mode_cmd->height, h_alignment);
 	afbc_fb->offset = mode_cmd->offsets[0];
 
+	// Block Logic: Get BPP for the AFBC format.
 	bpp = drm_gem_afbc_get_bpp(dev, mode_cmd);
+	// Conditional Logic: Handle invalid BPP.
 	if (!bpp) {
 		drm_dbg_kms(dev, "Invalid AFBC bpp value: %d\n", bpp);
 		return -EINVAL;
 	}
 
+	// Block Logic: Calculate total AFBC size based on number of blocks and alignment.
 	n_blocks = (afbc_fb->aligned_width * afbc_fb->aligned_height)
 		   / AFBC_SUPERBLOCK_PIXELS;
 	afbc_fb->afbc_size = ALIGN(n_blocks * AFBC_HEADER_SIZE, hdr_alignment);
@@ -594,6 +702,8 @@ int drm_gem_fb_afbc_init(struct drm_device *dev,
 			 const struct drm_mode_fb_cmd2 *mode_cmd,
 			 struct drm_afbc_framebuffer *afbc_fb)
 {
+	/// Functional Utility: Completes the initialization of an AFBC-specific framebuffer,
+	/// including validation of its size against the calculated minimum AFBC size.
 	const struct drm_format_info *info;
 	struct drm_gem_object **objs;
 	int ret;
@@ -603,10 +713,13 @@ int drm_gem_fb_afbc_init(struct drm_device *dev,
 	if (!info)
 		return -EINVAL;
 
+	// Block Logic: Calculate the minimum required size for the AFBC framebuffer.
 	ret = drm_gem_afbc_min_size(dev, mode_cmd, afbc_fb);
+	// Conditional Logic: Handle errors during minimum size calculation.
 	if (ret < 0)
 		return ret;
 
+	// Conditional Logic: Validate that the allocated GEM object size is sufficient for the AFBC format.
 	if (objs[0]->size < afbc_fb->afbc_size)
 		return -EINVAL;
 

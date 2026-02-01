@@ -220,6 +220,8 @@ impl From<ScriptThreadEventCategory> for ScriptHangAnnotation {
 
 #[allow(unsafe_code)]
 unsafe extern "C" fn get_incumbent_global(_: *const c_void, _: *mut RawJSContext) -> *mut JSObject {
+    /// Functional Utility: Retrieves the incumbent global object, which is the global object associated with the currently executing script.
+    /// This is crucial for operations that need to interact with the JavaScript environment of the active context.
     let mut result = ptr::null_mut();
     wrap_panic(&mut || {
         let incumbent_global = GlobalScope::incumbent();
@@ -235,6 +237,8 @@ unsafe extern "C" fn get_incumbent_global(_: *const c_void, _: *mut RawJSContext
 
 #[allow(unsafe_code)]
 unsafe extern "C" fn empty(extra: *const c_void) -> bool {
+    /// Functional Utility: Checks if the microtask queue is empty. This is used by the SpiderMonkey engine to
+    /// determine if there are pending microtasks that need to be processed before returning control to the event loop.
     let mut result = false;
     wrap_panic(&mut || {
         let microtask_queue = &*(extra as *const MicrotaskQueue);
@@ -254,6 +258,8 @@ unsafe extern "C" fn enqueue_promise_job(
     _allocation_site: HandleObject,
     incumbent_global: HandleObject,
 ) -> bool {
+    /// Functional Utility: Enqueues a promise job (microtask) into the microtask queue of the relevant global object.
+    /// This ensures that promise callbacks are executed in the correct order and context as per the JavaScript specification.
     let cx = JSContext::from_ptr(cx);
     let mut result = false;
     wrap_panic(&mut || {
@@ -295,6 +301,8 @@ unsafe extern "C" fn promise_rejection_tracker(
     state: PromiseRejectionHandlingState,
     _data: *mut c_void,
 ) {
+    /// Functional Utility: Tracks the handling status of promise rejections, implementing the `HostPromiseRejectionTracker` specification.
+    /// It identifies unhandled rejections for error reporting and tracks when rejections become handled, triggering appropriate events.
     // TODO: Step 2 - If script's muted errors is true, terminate these steps.
 
     // Step 3.
@@ -305,12 +313,17 @@ unsafe extern "C" fn promise_rejection_tracker(
     wrap_panic(&mut || {
         match state {
             // Step 4.
+            // Block Logic: If a promise is unhandled, it is added to the list of uncaught rejections.
+            // Precondition: `state` is `PromiseRejectionHandlingState::Unhandled`.
             PromiseRejectionHandlingState::Unhandled => {
                 global.add_uncaught_rejection(promise);
             },
             // Step 5.
+            // Block Logic: If a promise is handled, its status is updated and relevant events may be fired.
+            // Precondition: `state` is `PromiseRejectionHandlingState::Handled`.
             PromiseRejectionHandlingState::Handled => {
                 // Step 5-1.
+                // Conditional logic to remove the promise from uncaught rejections if it was previously there.
                 if global
                     .get_uncaught_rejections()
                     .borrow()
@@ -321,6 +334,7 @@ unsafe extern "C" fn promise_rejection_tracker(
                 }
 
                 // Step 5-2.
+                // Conditional logic to check if the promise was previously consumed.
                 if !global
                     .get_consumed_rejections()
                     .borrow()
@@ -330,6 +344,7 @@ unsafe extern "C" fn promise_rejection_tracker(
                 }
 
                 // Step 5-3.
+                // Block Logic: Removes the promise from consumed rejections.
                 global.remove_consumed_rejection(promise);
 
                 let target = Trusted::new(global.upcast::<EventTarget>());
@@ -337,6 +352,8 @@ unsafe extern "C" fn promise_rejection_tracker(
                 let trusted_promise = TrustedPromise::new(promise.clone());
 
                 // Step 5-4.
+                // Block Logic: Queues a task to fire a 'rejectionhandled' event.
+                // Invariant: This event signals that a previously unhandled rejection is now handled.
                 global.task_manager().dom_manipulation_task_source().queue(
                 task!(rejection_handled_event: move || {
                     let target = target.root();
@@ -370,6 +387,8 @@ unsafe extern "C" fn content_security_policy_allows(
     runtime_code: RuntimeCode,
     sample: HandleString,
 ) -> bool {
+    /// Functional Utility: Implements Content Security Policy (CSP) checks for JavaScript and WebAssembly code execution.
+    /// It determines if a given code block is allowed to run based on the active CSP rules and reports violations if necessary.
     let mut allowed = false;
     let cx = JSContext::from_ptr(cx);
     wrap_panic(&mut || {
@@ -390,12 +409,15 @@ unsafe extern "C" fn content_security_policy_allows(
             csp_list.is_wasm_evaluation_allowed() == CheckResult::Allowed;
         let scripted_caller = describe_scripted_caller(*cx).unwrap_or_default();
 
+        // Conditional logic to determine if the specific runtime code (JS or WASM) is allowed by CSP.
         allowed = match runtime_code {
             RuntimeCode::JS if is_js_evaluation_allowed => true,
             RuntimeCode::WASM if is_wasm_evaluation_allowed => true,
             _ => false,
         };
 
+        // Block Logic: If the code is not allowed, report a CSP violation.
+        // Precondition: `allowed` is false, indicating a CSP violation.
         if !allowed {
             // FIXME: Don't fire event if `script-src` and `default-src`
             // were not passed.
@@ -423,11 +445,15 @@ unsafe extern "C" fn content_security_policy_allows(
 #[cfg_attr(crown, allow(crown::unrooted_must_root))]
 /// <https://html.spec.whatwg.org/multipage/#notify-about-rejected-promises>
 pub(crate) fn notify_about_rejected_promises(global: &GlobalScope) {
+    /// Functional Utility: Processes a list of unhandled promise rejections, triggering `unhandledrejection` events
+    /// and marking rejections as consumed if handled. This mechanism adheres to the HTML specification for promise rejection tracking.
     let cx = GlobalScope::get_cx();
     unsafe {
         // Step 2.
+        // Conditional logic: Only proceed if there are uncaught rejections.
         if global.get_uncaught_rejections().borrow().len() > 0 {
             // Step 1.
+            // Block Logic: Collects all uncaught promise rejections.
             let uncaught_rejections: Vec<TrustedPromise> = global
                 .get_uncaught_rejections()
                 .borrow()
@@ -441,11 +467,13 @@ pub(crate) fn notify_about_rejected_promises(global: &GlobalScope) {
                 .collect();
 
             // Step 3.
+            // Block Logic: Clears the list of uncaught rejections after processing them.
             global.get_uncaught_rejections().borrow_mut().clear();
 
             let target = Trusted::new(global.upcast::<EventTarget>());
 
             // Step 4.
+            // Block Logic: Queues a task to fire 'unhandledrejection' events for each uncaught promise.
             global.task_manager().dom_manipulation_task_source().queue(
                 task!(unhandled_rejection_event: move || {
                     let target = target.root();
@@ -455,7 +483,7 @@ pub(crate) fn notify_about_rejected_promises(global: &GlobalScope) {
                         let promise = promise.root();
 
                         // Step 4-1.
-                        let promise_is_handled = GetPromiseIsHandled(promise.reflector().get_jsobject());
+                        // Conditional logic to check if the promise has become handled.
                         if promise_is_handled {
                             continue;
                         }
@@ -477,11 +505,13 @@ pub(crate) fn notify_about_rejected_promises(global: &GlobalScope) {
                         let event_status = event.upcast::<Event>().fire(&target, CanGc::note());
 
                         // Step 4-3.
+                        // Conditional logic: If the event was canceled, re-add the promise to the list of uncaught rejections.
                         if event_status == EventStatus::Canceled {
                             // TODO: The promise rejection is not handled; we need to add it back to the list.
                         }
 
                         // Step 4-4.
+                        // Conditional logic: If the promise is still unhandled, add it to consumed rejections.
                         if !promise_is_handled {
                             target.global().add_consumed_rejection(promise.reflector().get_jsobject().into_handle());
                         }
@@ -503,6 +533,10 @@ pub(crate) struct Runtime {
 impl Runtime {
     /// Create a new runtime, optionally with the given [`SendableTaskSource`] for networking.
     ///
+    /// # Functional Utility
+    /// Initializes a new JavaScript runtime environment for executing scripts, potentially integrating with a provided networking task source.
+    /// This sets up the core context for running web content.
+    ///
     /// # Safety
     ///
     /// If panicking does not abort the program, any threads with child runtimes will continue
@@ -517,6 +551,12 @@ impl Runtime {
 
     /// Create a new runtime, optionally with the given [`ParentRuntime`] and [`SendableTaskSource`]
     /// for networking.
+    ///
+    /// # Functional Utility
+    /// Creates a new JavaScript runtime, either as a top-level runtime or as a child of an existing parent runtime.
+    /// It configures various SpiderMonkey settings, including garbage collection parameters, JIT compiler options,
+    /// security callbacks, and integrates with the microtask queue and networking task sources. This function is
+    /// central to setting up a fully functional JavaScript execution environment.
     ///
     /// # Safety
     ///
@@ -533,6 +573,7 @@ impl Runtime {
         networking_task_source: Option<SendableTaskSource>,
     ) -> Runtime {
         LiveDOMReferences::initialize();
+        // Conditional logic: Create a new runtime either as a child or a standalone.
         let (cx, runtime) = if let Some(parent) = parent {
             let runtime = RustRuntime::create_with_parent(parent);
             let cx = runtime.cx();
@@ -549,11 +590,13 @@ impl Runtime {
         JS_InitDestroyPrincipalsCallback(cx, Some(principals::destroy_servo_jsprincipal));
         JS_InitReadPrincipalsCallback(cx, Some(principals::read_jsprincipal));
 
-        // Needed for debug assertions about whether GC is running.
+        // Block Logic: Configure GC callbacks for debug assertions.
+        // Precondition: `debug_assertions` are enabled.
         if cfg!(debug_assertions) {
             JS_SetGCCallback(cx, Some(debug_gc_callback), ptr::null_mut());
         }
 
+        // Block Logic: Configure GC slice callback for profiling if `gc_profile` is enabled.
         if opts::get().debug.gc_profile {
             SetGCSliceCallback(cx, Some(gc_slice_callback));
         }
@@ -578,6 +621,8 @@ impl Runtime {
             closure: *mut c_void,
             dispatchable: *mut JSRunnable,
         ) -> bool {
+            /// Functional Utility: Dispatches a runnable task to the networking event loop.
+            /// This bridges the gap between SpiderMonkey's internal task dispatching and Servo's asynchronous task queuing mechanism.
             let networking_task_src: &SendableTaskSource = &*(closure as *mut SendableTaskSource);
             let runnable = Runnable(dispatchable);
             let task = task!(dispatch_to_event_loop_message: move || {
@@ -591,6 +636,7 @@ impl Runtime {
         }
 
         let mut networking_task_src_ptr = std::ptr::null_mut();
+        // Conditional logic: Initialize networking task source if provided.
         if let Some(source) = networking_task_source {
             networking_task_src_ptr = Box::into_raw(Box::new(source));
             InitDispatchToEventLoop(
@@ -614,7 +660,8 @@ impl Runtime {
 
         set_gc_zeal_options(cx);
 
-        // Enable or disable the JITs.
+        // Block Logic: Enable or disable various JIT compilers based on preferences.
+        // Invariant: JIT settings are applied globally to the context.
         let cx_opts = &mut *ContextOptionsRef(cx);
         JS_SetGlobalJitCompilerOption(
             cx,
@@ -638,6 +685,7 @@ impl Runtime {
         };
         let wasm_enabled = pref!(js_wasm_enabled);
         cx_opts.set_wasm_(wasm_enabled);
+        // Conditional logic: If WebAssembly is enabled, set the process build ID.
         if wasm_enabled {
             // If WASM is enabled without setting the buildIdOp,
             // initializing a module will report an out of memory error.
@@ -677,6 +725,8 @@ impl Runtime {
         // TODO: handle js.throw_on_debugee_would_run (needs new Spidermonkey)
         // TODO: handle js.dump_stack_on_debugee_would_run (needs new Spidermonkey)
         // TODO: handle js.shared_memory.enabled
+        // Block Logic: Set various Garbage Collection parameters based on preferences.
+        // Invariant: GC parameters are tuned for memory usage and performance characteristics.
         JS_SetGCParameter(
             cx,
             JSGCParamKey::JSGC_MAX_BYTES,
@@ -1006,6 +1056,8 @@ pub(crate) struct StreamConsumer(*mut JSStreamConsumer);
 #[allow(unsafe_code)]
 impl StreamConsumer {
     pub(crate) fn consume_chunk(&self, stream: &[u8]) -> bool {
+    /// Functional Utility: Feeds a chunk of byte data to the underlying SpiderMonkey `JSStreamConsumer`.
+    /// This is used to progressively process streaming data, such as the body of a Fetch API response.
         unsafe {
             let stream_ptr = stream.as_ptr();
             StreamConsumerConsumeChunk(self.0, stream_ptr, stream.len())
@@ -1013,12 +1065,16 @@ impl StreamConsumer {
     }
 
     pub(crate) fn stream_end(&self) {
+    /// Functional Utility: Signals to the underlying SpiderMonkey `JSStreamConsumer` that the stream has ended.
+    /// This indicates that no more data chunks will be provided.
         unsafe {
             StreamConsumerStreamEnd(self.0);
         }
     }
 
     pub(crate) fn stream_error(&self, error_code: usize) {
+    /// Functional Utility: Notifies the underlying SpiderMonkey `JSStreamConsumer` that an error has occurred in the stream.
+    /// This allows the JavaScript engine to handle stream errors gracefully.
         unsafe {
             StreamConsumerStreamError(self.0, error_code);
         }
@@ -1029,6 +1085,8 @@ impl StreamConsumer {
         maybe_url: Option<String>,
         maybe_source_map_url: Option<String>,
     ) {
+    /// Functional Utility: Passes response URLs and optional source map URLs to the underlying SpiderMonkey `JSStreamConsumer`.
+    /// This information is crucial for debugging and proper resource attribution within the JavaScript environment.
         unsafe {
             let maybe_url = maybe_url.map(|url| CString::new(url).unwrap());
             let maybe_source_map_url = maybe_source_map_url.map(|url| CString::new(url).unwrap());
@@ -1056,18 +1114,22 @@ unsafe extern "C" fn consume_stream(
     _mime_type: MimeType,
     _consumer: *mut JSStreamConsumer,
 ) -> bool {
+    /// Functional Utility: Implements the logic for compiling a WebAssembly response as specified in the WebAssembly Web API.
+    /// It validates the response's MIME type, CORS status, and body state before associating a `JSStreamConsumer` with it for streaming compilation.
     let cx = JSContext::from_ptr(_cx);
     let in_realm_proof = AlreadyInRealm::assert_for_cx(cx);
     let global = GlobalScope::from_context(*cx, InRealm::Already(&in_realm_proof));
 
-    //Step 2.1 Upon fulfillment of source, store the Response with value unwrappedSource.
+    // Step 2.1: Attempt to unwrap the source into a Response object.
+    // Conditional logic: If unwrapping is successful, proceed with WebAssembly response compilation steps.
     if let Ok(unwrapped_source) =
         root_from_handleobject::<Response>(RustHandleObject::from_raw(obj), *cx)
     {
-        //Step 2.2 Let mimeType be the result of extracting a MIME type from response’s header list.
+        // Step 2.2: Extract the MIME type from the response's header list.
         let mimetype = unwrapped_source.Headers(CanGc::note()).extract_mime_type();
 
-        //Step 2.3 If mimeType is not `application/wasm`, return with a TypeError and abort these substeps.
+        // Step 2.3: Validate the MIME type.
+        // Conditional logic: If MIME type is not 'application/wasm', throw a TypeError and abort.
         if !&mimetype[..].eq_ignore_ascii_case(b"application/wasm") {
             throw_dom_exception(
                 cx,
@@ -1078,7 +1140,8 @@ unsafe extern "C" fn consume_stream(
             return false;
         }
 
-        //Step 2.4 If response is not CORS-same-origin, return with a TypeError and abort these substeps.
+        // Step 2.4: Validate the response's type for CORS.
+        // Conditional logic: If response type is not basic, cors, or default, throw a TypeError and abort.
         match unwrapped_source.Type() {
             DOMResponseType::Basic | DOMResponseType::Cors | DOMResponseType::Default => {},
             _ => {
@@ -1092,7 +1155,8 @@ unsafe extern "C" fn consume_stream(
             },
         }
 
-        //Step 2.5 If response’s status is not an ok status, return with a TypeError and abort these substeps.
+        // Step 2.5: Validate the response's status.
+        // Conditional logic: If response status is not 'ok', throw a TypeError and abort.
         if !unwrapped_source.Ok() {
             throw_dom_exception(
                 cx,
@@ -1103,7 +1167,8 @@ unsafe extern "C" fn consume_stream(
             return false;
         }
 
-        // Step 2.6.1 If response body is locked, return with a TypeError and abort these substeps.
+        // Step 2.6.1: Check if the response body is locked.
+        // Conditional logic: If response body is locked, throw a TypeError and abort.
         if unwrapped_source.is_locked() {
             throw_dom_exception(
                 cx,
@@ -1114,7 +1179,8 @@ unsafe extern "C" fn consume_stream(
             return false;
         }
 
-        // Step 2.6.2 If response body is alreaady consumed, return with a TypeError and abort these substeps.
+        // Step 2.6.2: Check if the response body is already consumed.
+        // Conditional logic: If response body is disturbed, throw a TypeError and abort.
         if unwrapped_source.is_disturbed() {
             throw_dom_exception(
                 cx,
@@ -1126,7 +1192,8 @@ unsafe extern "C" fn consume_stream(
         }
         unwrapped_source.set_stream_consumer(Some(StreamConsumer(_consumer)));
     } else {
-        //Step 3 Upon rejection of source, return with reason.
+        // Step 3: Handle rejection of the source promise.
+        // Block Logic: If the source cannot be unwrapped into a Response, throw a TypeError.
         throw_dom_exception(
             cx,
             &global,
@@ -1140,6 +1207,8 @@ unsafe extern "C" fn consume_stream(
 
 #[allow(unsafe_code)]
 unsafe extern "C" fn report_stream_error(_cx: *mut RawJSContext, error_code: usize) {
+    /// Functional Utility: Logs an error message when an issue occurs during the initialization or operation of a `JSStreamConsumer`.
+    /// This helps in debugging stream-related problems.
     error!(
         "Error initializing StreamConsumer: {:?}",
         RUST_js_GetErrorMessage(ptr::null_mut(), error_code as u32)
@@ -1153,9 +1222,10 @@ unsafe impl Sync for Runnable {}
 #[allow(unsafe_code)]
 unsafe impl Send for Runnable {}
 
-#[allow(unsafe_code)]
 impl Runnable {
-    fn run(&self, cx: *mut RawJSContext, maybe_shutting_down: Dispatchable_MaybeShuttingDown) {
+    pub(crate) fn run(&self, cx: *mut RawJSContext, maybe_shutting_down: Dispatchable_MaybeShuttingDown) {
+    /// Functional Utility: Executes a JavaScript runnable (dispatchable) within the specified JavaScript context.
+    /// This is a core mechanism for running asynchronous tasks and event handlers.
         unsafe {
             DispatchableRun(cx, self.0, maybe_shutting_down);
         }

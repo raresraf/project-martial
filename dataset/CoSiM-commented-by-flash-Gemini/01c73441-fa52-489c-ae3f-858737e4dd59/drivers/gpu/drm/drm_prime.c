@@ -1,3 +1,26 @@
+/**
+ * @file drm_prime.c
+ * @brief Implements helper functions for DRM PRIME (DMA-BUF) support.
+ * This module is central to sharing graphics buffers efficiently between
+ * different DRM drivers, other kernel subsystems, and userspace applications.
+ *
+ * Functional Utility: Provides a robust framework for importing and exporting
+ * GEM objects as DMA-BUFs, ensuring proper reference counting, lifetime
+ * management, and consistent handling across various driver implementations.
+ * It addresses security considerations by using file descriptors for sharing.
+ *
+ * Key Concepts:
+ * - **DRM PRIME**: A mechanism for sharing graphics buffers across processes and devices.
+ * - **DMA-BUF**: The Linux kernel's generic mechanism for buffer sharing, providing
+ *   a consistent interface for drivers to export and import buffers.
+ * - **GEM (Graphics Execution Manager) Objects**: The primary buffer abstraction
+ *   within DRM drivers.
+ * - **Reference Counting**: Strict management of object lifetimes to prevent
+ *   use-after-free issues and memory leaks.
+ * - **Import/Export Caches**: Data structures (`drm_prime_file_private`) that
+ *   track shared buffers to ensure uniqueness of userspace handles.
+ */
+
 /*
  * Copyright © 2012 Red Hat
  *
@@ -5,8 +28,9 @@
  * copy of this software and associated documentation files (the "Software"),
  * to deal in the Software without restriction, including without limitation
  * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
+ * and/or sell copies of the Software, and/or sell copies of the Software,
+ * and to permit persons to whom the Software is furnished to do so, subject
+ * to the following conditions:
  *
  * The above copyright notice and this permission notice (including the next
  * paragraph) shall be included in all copies or substantial portions of the
@@ -96,17 +120,23 @@ struct drm_prime_member {
 static int drm_prime_add_buf_handle(struct drm_prime_file_private *prime_fpriv,
 				    struct dma_buf *dma_buf, uint32_t handle)
 {
+	/// Functional Utility: Adds a mapping between a `dma_buf` and a GEM handle to the file-private PRIME caches.
+	/// This ensures that subsequent lookups for the same `dma_buf` or handle return the already imported/exported object.
 	struct drm_prime_member *member;
 	struct rb_node **p, *rb;
 
+	// Block Logic: Allocate memory for a new `drm_prime_member`.
 	member = kmalloc(sizeof(*member), GFP_KERNEL);
+	// Conditional Logic: Handle memory allocation failure.
 	if (!member)
 		return -ENOMEM;
 
+	// Block Logic: Take a reference to the `dma_buf` and store it along with the handle.
 	get_dma_buf(dma_buf);
 	member->dma_buf = dma_buf;
 	member->handle = handle;
 
+	// Block Logic: Insert the member into the red-black tree sorted by `dma_buf` pointer.
 	rb = NULL;
 	p = &prime_fpriv->dmabufs.rb_node;
 	while (*p) {
@@ -122,6 +152,7 @@ static int drm_prime_add_buf_handle(struct drm_prime_file_private *prime_fpriv,
 	rb_link_node(&member->dmabuf_rb, rb, p);
 	rb_insert_color(&member->dmabuf_rb, &prime_fpriv->dmabufs);
 
+	// Block Logic: Insert the member into the red-black tree sorted by `handle`.
 	rb = NULL;
 	p = &prime_fpriv->handles.rb_node;
 	while (*p) {
@@ -143,17 +174,24 @@ static int drm_prime_add_buf_handle(struct drm_prime_file_private *prime_fpriv,
 static struct dma_buf *drm_prime_lookup_buf_by_handle(struct drm_prime_file_private *prime_fpriv,
 						      uint32_t handle)
 {
+	/// Functional Utility: Looks up a `dma_buf` in the file-private PRIME handle cache using a GEM handle.
+	/// This function allows retrieving the shared buffer object given its userspace handle.
 	struct rb_node *rb;
 
+	// Block Logic: Traverse the red-black tree sorted by handle to find the matching member.
+	// Invariant: The tree is sorted by handle, allowing efficient lookup.
 	rb = prime_fpriv->handles.rb_node;
 	while (rb) {
 		struct drm_prime_member *member;
 
 		member = rb_entry(rb, struct drm_prime_member, handle_rb);
+		// Conditional Logic: If handle matches, return the associated `dma_buf`.
 		if (member->handle == handle)
 			return member->dma_buf;
+		// Conditional Logic: Traverse right if current handle is smaller.
 		else if (member->handle < handle)
 			rb = rb->rb_right;
+		// Conditional Logic: Traverse left if current handle is larger.
 		else
 			rb = rb->rb_left;
 	}
@@ -165,13 +203,18 @@ static int drm_prime_lookup_buf_handle(struct drm_prime_file_private *prime_fpri
 				       struct dma_buf *dma_buf,
 				       uint32_t *handle)
 {
+	/// Functional Utility: Looks up a GEM handle in the file-private PRIME `dma_buf` cache using a `dma_buf` pointer.
+	/// This function helps in identifying if a specific `dma_buf` has already been imported or exported by this file.
 	struct rb_node *rb;
 
+	// Block Logic: Traverse the red-black tree sorted by `dma_buf` pointer to find the matching member.
+	// Invariant: The tree is sorted by `dma_buf` pointers, allowing efficient lookup.
 	rb = prime_fpriv->dmabufs.rb_node;
 	while (rb) {
 		struct drm_prime_member *member;
 
 		member = rb_entry(rb, struct drm_prime_member, dmabuf_rb);
+		// Conditional Logic: If `dma_buf` matches, return the associated handle.
 		if (member->dma_buf == dma_buf) {
 			*handle = member->handle;
 			return 0;
@@ -188,15 +231,19 @@ static int drm_prime_lookup_buf_handle(struct drm_prime_file_private *prime_fpri
 void drm_prime_remove_buf_handle(struct drm_prime_file_private *prime_fpriv,
 				 uint32_t handle)
 {
+	/// Functional Utility: Removes a mapping between a `dma_buf` and a GEM handle from the file-private PRIME caches.
+	/// This is typically called when a GEM object is released, ensuring that stale entries are cleared.
 	struct rb_node *rb;
 
 	mutex_lock(&prime_fpriv->lock);
 
+	// Block Logic: Traverse the red-black tree sorted by handle to find and remove the matching member.
 	rb = prime_fpriv->handles.rb_node;
 	while (rb) {
 		struct drm_prime_member *member;
 
 		member = rb_entry(rb, struct drm_prime_member, handle_rb);
+		// Conditional Logic: If handle matches, remove entries from both trees and free resources.
 		if (member->handle == handle) {
 			rb_erase(&member->handle_rb, &prime_fpriv->handles);
 			rb_erase(&member->dmabuf_rb, &prime_fpriv->dmabufs);
@@ -216,6 +263,8 @@ void drm_prime_remove_buf_handle(struct drm_prime_file_private *prime_fpriv,
 
 void drm_prime_init_file_private(struct drm_prime_file_private *prime_fpriv)
 {
+	/// Functional Utility: Initializes the `drm_prime_file_private` structure for a DRM file.
+	/// This sets up the mutex and initializes the red-black trees used for tracking imported/exported buffers.
 	mutex_init(&prime_fpriv->lock);
 	prime_fpriv->dmabufs = RB_ROOT;
 	prime_fpriv->handles = RB_ROOT;
@@ -223,7 +272,10 @@ void drm_prime_init_file_private(struct drm_prime_file_private *prime_fpriv)
 
 void drm_prime_destroy_file_private(struct drm_prime_file_private *prime_fpriv)
 {
+	/// Functional Utility: Destroys the `drm_prime_file_private` structure, typically during file close.
+	/// It asserts that all associated DMA-BUFs and handles have been properly released, preventing leaks.
 	/* by now drm_gem_release should've made sure the list is empty */
+	// Block Logic: Warn if the `dmabufs` red-black tree is not empty, indicating unreleased resources.
 	WARN_ON(!RB_EMPTY_ROOT(&prime_fpriv->dmabufs));
 }
 
@@ -242,13 +294,18 @@ void drm_prime_destroy_file_private(struct drm_prime_file_private *prime_fpriv)
 struct dma_buf *drm_gem_dmabuf_export(struct drm_device *dev,
 				      struct dma_buf_export_info *exp_info)
 {
+	/// Functional Utility: Exports a GEM object as a `dma_buf`, setting up its basic properties and taking necessary references.
+	/// This function is a common helper for GEM drivers to provide DMA-BUF export functionality.
 	struct drm_gem_object *obj = exp_info->priv;
 	struct dma_buf *dma_buf;
 
+	// Block Logic: Perform the actual dma_buf export using the provided info.
 	dma_buf = dma_buf_export(exp_info);
+	// Conditional Logic: Handle errors during dma_buf export.
 	if (IS_ERR(dma_buf))
 		return dma_buf;
 
+	// Block Logic: Take a reference to the DRM device and the GEM object, and set the file mapping.
 	drm_dev_get(dev);
 	drm_gem_object_get(obj);
 	dma_buf->file->f_mapping = obj->dev->anon_inode->i_mapping;
@@ -268,12 +325,16 @@ EXPORT_SYMBOL(drm_gem_dmabuf_export);
  */
 void drm_gem_dmabuf_release(struct dma_buf *dma_buf)
 {
+	/// Functional Utility: Releases the resources associated with a `dma_buf` that was exported from a GEM object.
+	/// It decrements the reference counts for the underlying GEM object and DRM device.
 	struct drm_gem_object *obj = dma_buf->priv;
 	struct drm_device *dev = obj->dev;
 
 	/* drop the reference on the export fd holds */
+	// Block Logic: Drop the reference to the GEM object.
 	drm_gem_object_put(obj);
 
+	// Block Logic: Drop the reference to the DRM device.
 	drm_dev_put(dev);
 }
 EXPORT_SYMBOL(drm_gem_dmabuf_release);
@@ -296,51 +357,67 @@ int drm_gem_prime_fd_to_handle(struct drm_device *dev,
 			       struct drm_file *file_priv, int prime_fd,
 			       uint32_t *handle)
 {
+	/// Functional Utility: Imports a `dma_buf` (identified by `prime_fd`) and associates it with a new or existing GEM handle.
+	/// This function ensures proper GEM object creation/lookup and handle management for imported buffers.
 	struct dma_buf *dma_buf;
 	struct drm_gem_object *obj;
 	int ret;
 
+	// Block Logic: Get a reference to the `dma_buf` from the file descriptor.
 	dma_buf = dma_buf_get(prime_fd);
+	// Conditional Logic: Handle errors during `dma_buf` acquisition.
 	if (IS_ERR(dma_buf))
 		return PTR_ERR(dma_buf);
 
 	mutex_lock(&file_priv->prime.lock);
 
+	// Block Logic: Look up if the `dma_buf` has already been imported/exported by this file.
 	ret = drm_prime_lookup_buf_handle(&file_priv->prime,
 			dma_buf, handle);
+	// Conditional Logic: If found, simply put the `dma_buf` and return.
 	if (ret == 0)
 		goto out_put;
 
 	/* never seen this one, need to import */
 	mutex_lock(&dev->object_name_lock);
+	// Conditional Logic: Use the driver's custom import function or the generic `drm_gem_prime_import`.
 	if (dev->driver->gem_prime_import)
 		obj = dev->driver->gem_prime_import(dev, dma_buf);
 	else
 		obj = drm_gem_prime_import(dev, dma_buf);
+	// Conditional Logic: Handle errors during GEM object import.
 	if (IS_ERR(obj)) {
 		ret = PTR_ERR(obj);
 		goto out_unlock;
 	}
 
+	// Conditional Logic: If the GEM object already has a `dma_buf` associated, warn if it's not the same.
 	if (obj->dma_buf) {
 		WARN_ON(obj->dma_buf != dma_buf);
 	} else {
+		// Block Logic: Associate the `dma_buf` with the GEM object and take a reference.
 		obj->dma_buf = dma_buf;
 		get_dma_buf(dma_buf);
 	}
 
 	/* _handle_create_tail unconditionally unlocks dev->object_name_lock. */
+	// Block Logic: Create a GEM handle for the newly imported/looked-up object.
 	ret = drm_gem_handle_create_tail(file_priv, obj, handle);
+	// Block Logic: Put a reference on the GEM object, as the handle now holds one.
 	drm_gem_object_put(obj);
+	// Conditional Logic: Handle errors during GEM handle creation.
 	if (ret)
 		goto out_put;
 
+	// Block Logic: Add the `dma_buf` and handle to the file-private PRIME caches.
 	ret = drm_prime_add_buf_handle(&file_priv->prime,
 			dma_buf, *handle);
 	mutex_unlock(&file_priv->prime.lock);
+	// Conditional Logic: Handle errors during cache addition.
 	if (ret)
 		goto fail;
 
+	// Block Logic: Put the `dma_buf` reference.
 	dma_buf_put(dma_buf);
 
 	return 0;
@@ -349,13 +426,16 @@ fail:
 	/* hmm, if driver attached, we are relying on the free-object path
 	 * to detach.. which seems ok..
 	 */
+	// Error Handling: Delete the GEM handle and put the `dma_buf` reference on failure.
 	drm_gem_handle_delete(file_priv, *handle);
 	dma_buf_put(dma_buf);
 	return ret;
 
 out_unlock:
+	// Error Handling: Unlock object name lock and put `dma_buf` reference on failure.
 	mutex_unlock(&dev->object_name_lock);
 out_put:
+	// Error Handling: Unlock file-private PRIME lock and put `dma_buf` reference on failure.
 	mutex_unlock(&file_priv->prime.lock);
 	dma_buf_put(dma_buf);
 	return ret;
@@ -365,32 +445,46 @@ EXPORT_SYMBOL(drm_gem_prime_fd_to_handle);
 int drm_prime_fd_to_handle_ioctl(struct drm_device *dev, void *data,
 				 struct drm_file *file_priv)
 {
-	struct drm_prime_handle *args = data;
-
-	if (dev->driver->prime_fd_to_handle) {
-		return dev->driver->prime_fd_to_handle(dev, file_priv, args->fd,
-						       &args->handle);
+	/// Functional Utility: Handles the `DRM_IOCTL_PRIME_FD_TO_HANDLE` IOCTL, converting a DMA-BUF file descriptor
+	/// into a GEM handle. It uses the driver's custom implementation or the generic `drm_gem_prime_fd_to_handle`.
+		struct drm_prime_handle *args = data;
+	
+		/* check flags are valid */
+		// Conditional Logic: Validate the provided flags.
+		if (args->flags & ~(DRM_CLOEXEC | DRM_RDWR))
+			return -EINVAL;
+	
+		// Conditional Logic: Use the driver's custom `prime_fd_to_handle` implementation if available.
+		if (dev->driver->prime_fd_to_handle) {
+			return dev->driver->prime_fd_to_handle(dev, file_priv, args->fd,
+							       &args->handle);
+		}
+	
+		// Block Logic: Fallback to the generic `drm_gem_prime_fd_to_handle`.
+		return drm_gem_prime_fd_to_handle(dev, file_priv, args->fd, &args->handle);
 	}
-
-	return drm_gem_prime_fd_to_handle(dev, file_priv, args->fd, &args->handle);
-}
 
 static struct dma_buf *export_and_register_object(struct drm_device *dev,
 						  struct drm_gem_object *obj,
 						  uint32_t flags)
 {
+	/// Functional Utility: Exports a GEM object as a `dma_buf` and registers it for tracking.
+	/// This function handles the actual conversion of a GEM object into a sharable DMA-BUF.
 	struct dma_buf *dmabuf;
 
 	/* prevent races with concurrent gem_close. */
+	// Conditional Logic: If no handles reference the GEM object, it might be concurrently closing; return error.
 	if (obj->handle_count == 0) {
 		dmabuf = ERR_PTR(-ENOENT);
 		return dmabuf;
 	}
 
+	// Conditional Logic: Use the GEM object's custom export function if available, otherwise use generic.
 	if (obj->funcs && obj->funcs->export)
 		dmabuf = obj->funcs->export(obj, flags);
 	else
 		dmabuf = drm_gem_prime_export(obj, flags);
+	// Conditional Logic: Handle errors during dma_buf export.
 	if (IS_ERR(dmabuf)) {
 		/* normally the created dma-buf takes ownership of the ref,
 		 * but if that fails then drop the ref
@@ -403,6 +497,7 @@ static struct dma_buf *export_and_register_object(struct drm_device *dev,
 	 * since the check for obj->handle_count guarantees that someone
 	 * will clean it up.
 	 */
+	// Block Logic: Associate the created `dma_buf` with the GEM object and take a reference.
 	obj->dma_buf = dmabuf;
 	get_dma_buf(obj->dma_buf);
 
@@ -435,18 +530,24 @@ struct dma_buf *drm_gem_prime_handle_to_dmabuf(struct drm_device *dev,
 			       struct drm_file *file_priv, uint32_t handle,
 			       uint32_t flags)
 {
+	/// Functional Utility: Converts a GEM handle into a `dma_buf` without immediately associating it with a file descriptor.
+	/// This function is used to prepare a `dma_buf` for export, allowing intermediate checks or operations.
 	struct drm_gem_object *obj;
 	int ret = 0;
 	struct dma_buf *dmabuf;
 
 	mutex_lock(&file_priv->prime.lock);
+	// Block Logic: Look up the GEM object corresponding to the provided handle.
 	obj = drm_gem_object_lookup(file_priv, handle);
+	// Conditional Logic: Handle missing GEM object.
 	if (!obj)  {
 		dmabuf = ERR_PTR(-ENOENT);
 		goto out_unlock;
 	}
 
+	// Block Logic: Check if the buffer is already in the file-private export cache.
 	dmabuf = drm_prime_lookup_buf_by_handle(&file_priv->prime, handle);
+	// Conditional Logic: If found, take a reference and return.
 	if (dmabuf) {
 		get_dma_buf(dmabuf);
 		goto out;
@@ -454,13 +555,16 @@ struct dma_buf *drm_gem_prime_handle_to_dmabuf(struct drm_device *dev,
 
 	mutex_lock(&dev->object_name_lock);
 	/* re-export the original imported/exported object */
+	// Conditional Logic: If the GEM object already has an associated `dma_buf`, re-export it.
 	if (obj->dma_buf) {
 		get_dma_buf(obj->dma_buf);
 		dmabuf = obj->dma_buf;
 		goto out_have_obj;
 	}
 
+	// Block Logic: Export the GEM object to a new `dma_buf` and register it.
 	dmabuf = export_and_register_object(dev, obj, flags);
+	// Conditional Logic: Handle errors during export.
 	if (IS_ERR(dmabuf)) {
 		/* normally the created dma-buf takes ownership of the ref,
 		 * but if that fails then drop the ref
@@ -476,16 +580,20 @@ out_have_obj:
 	 * protection of dev->object_name_lock to ensure that a racing gem close
 	 * ioctl doesn't miss to remove this buffer handle from the cache.
 	 */
+	// Block Logic: Add the exported `dma_buf` to the file-private cache.
 	ret = drm_prime_add_buf_handle(&file_priv->prime,
 				       dmabuf, handle);
 	mutex_unlock(&dev->object_name_lock);
+	// Conditional Logic: Handle errors during cache addition.
 	if (ret) {
 		dma_buf_put(dmabuf);
 		dmabuf = ERR_PTR(ret);
 	}
 out:
+	// Block Logic: Put the GEM object reference.
 	drm_gem_object_put(obj);
 out_unlock:
+	// Block Logic: Unlock the file-private PRIME mutex.
 	mutex_unlock(&file_priv->prime.lock);
 	return dmabuf;
 }
@@ -509,18 +617,24 @@ int drm_gem_prime_handle_to_fd(struct drm_device *dev,
 			       uint32_t flags,
 			       int *prime_fd)
 {
+	/// Functional Utility: Converts a GEM handle into a file descriptor representing a `dma_buf`.
+	/// This function is the primary way to export a GEM object to userspace for sharing.
 	struct dma_buf *dmabuf;
 	int fd = get_unused_fd_flags(flags);
 
+	// Conditional Logic: Handle failure to get an unused file descriptor.
 	if (fd < 0)
 		return fd;
 
+	// Block Logic: Convert the GEM handle to a `dma_buf`.
 	dmabuf = drm_gem_prime_handle_to_dmabuf(dev, file_priv, handle, flags);
+	// Conditional Logic: Handle errors during `dma_buf` conversion.
 	if (IS_ERR(dmabuf)) {
 		put_unused_fd(fd);
 		return PTR_ERR(dmabuf);
 	}
 
+	// Block Logic: Install the `dma_buf`'s file into the file descriptor table.
 	fd_install(fd, dmabuf->file);
 	*prime_fd = fd;
 	return 0;
@@ -530,6 +644,8 @@ EXPORT_SYMBOL(drm_gem_prime_handle_to_fd);
 int drm_prime_handle_to_fd_ioctl(struct drm_device *dev, void *data,
 				 struct drm_file *file_priv)
 {
+	/// Functional Utility: Handles the `DRM_IOCTL_PRIME_HANDLE_TO_FD` IOCTL, converting a GEM handle
+	/// into a DMA-BUF file descriptor. It uses the driver's custom implementation or the generic `drm_gem_prime_handle_to_fd`.
 	struct drm_prime_handle *args = data;
 
 	/* check flags are valid */
@@ -598,15 +714,22 @@ int drm_prime_handle_to_fd_ioctl(struct drm_device *dev, void *data,
 int drm_gem_map_attach(struct dma_buf *dma_buf,
 		       struct dma_buf_attachment *attach)
 {
+	/// Functional Utility: Attaches a device to a `dma_buf` and pins the underlying GEM object's pages.
+	/// This is used as a `dma_buf_ops.attach` callback, preparing the buffer for device-specific DMA.
 	struct drm_gem_object *obj = dma_buf->priv;
 
 	/*
 	 * drm_gem_map_dma_buf() requires obj->get_sg_table(), but drivers
 	 * that implement their own ->map_dma_buf() do not.
 	 */
+	// Conditional Logic: Check for compatibility with `drm_gem_map_dma_buf` requirements.
 	if (dma_buf->ops->map_dma_buf == drm_gem_map_dma_buf &&
 	    !obj->funcs->get_sg_table)
 		return -ENOSYS;
+
+	// Block Logic: Pin the underlying GEM object.
+	return drm_gem_pin(obj);
+}
 
 	return drm_gem_pin(obj);
 }
@@ -624,8 +747,11 @@ EXPORT_SYMBOL(drm_gem_map_attach);
 void drm_gem_map_detach(struct dma_buf *dma_buf,
 			struct dma_buf_attachment *attach)
 {
+	/// Functional Utility: Detaches a device from a `dma_buf` and unpins the underlying GEM object's pages.
+	/// This is used as a `dma_buf_ops.detach` callback, cleaning up resources after device-specific DMA.
 	struct drm_gem_object *obj = dma_buf->priv;
 
+	// Block Logic: Unpin the underlying GEM object.
 	drm_gem_unpin(obj);
 }
 EXPORT_SYMBOL(drm_gem_map_detach);
@@ -645,22 +771,30 @@ EXPORT_SYMBOL(drm_gem_map_detach);
 struct sg_table *drm_gem_map_dma_buf(struct dma_buf_attachment *attach,
 				     enum dma_data_direction dir)
 {
+	/// Functional Utility: Creates and maps a scatter/gather table for a `dma_buf`'s GEM object.
+	/// This provides the physical memory layout for DMA transfers to/from a device.
 	struct drm_gem_object *obj = attach->dmabuf->priv;
 	struct sg_table *sgt;
 	int ret;
 
+	// Conditional Logic: Warn if DMA direction is `DMA_NONE`.
 	if (WARN_ON(dir == DMA_NONE))
 		return ERR_PTR(-EINVAL);
 
+	// Conditional Logic: Warn if the GEM object does not implement `get_sg_table`.
 	if (WARN_ON(!obj->funcs->get_sg_table))
 		return ERR_PTR(-ENOSYS);
 
+	// Block Logic: Get the scatter/gather table from the GEM object.
 	sgt = obj->funcs->get_sg_table(obj);
+	// Conditional Logic: Handle errors during scatter/gather table acquisition.
 	if (IS_ERR(sgt))
 		return sgt;
 
+	// Block Logic: DMA map the scatter/gather table for the device.
 	ret = dma_map_sgtable(attach->dev, sgt, dir,
 			      DMA_ATTR_SKIP_CPU_SYNC);
+	// Conditional Logic: Handle DMA mapping failure.
 	if (ret) {
 		sg_free_table(sgt);
 		kfree(sgt);
@@ -683,11 +817,16 @@ void drm_gem_unmap_dma_buf(struct dma_buf_attachment *attach,
 			   struct sg_table *sgt,
 			   enum dma_data_direction dir)
 {
+	/// Functional Utility: Unmaps a previously mapped scatter/gather table for a `dma_buf`'s GEM object.
+	/// This releases DMA resources and frees the scatter/gather table structure.
 	if (!sgt)
 		return;
 
+	// Block Logic: DMA unmap the scatter/gather table.
 	dma_unmap_sgtable(attach->dev, sgt, dir, DMA_ATTR_SKIP_CPU_SYNC);
+	// Block Logic: Free the scatter/gather list.
 	sg_free_table(sgt);
+	// Block Logic: Free the `sg_table` structure.
 	kfree(sgt);
 }
 EXPORT_SYMBOL(drm_gem_unmap_dma_buf);
@@ -705,6 +844,8 @@ EXPORT_SYMBOL(drm_gem_unmap_dma_buf);
  */
 int drm_gem_dmabuf_vmap(struct dma_buf *dma_buf, struct iosys_map *map)
 {
+	/// Functional Utility: Creates a kernel virtual mapping for a `dma_buf`'s GEM object.
+	/// This provides a kernel-accessible virtual address to the underlying buffer.
 	struct drm_gem_object *obj = dma_buf->priv;
 
 	return drm_gem_vmap_locked(obj, map);
@@ -721,6 +862,8 @@ EXPORT_SYMBOL(drm_gem_dmabuf_vmap);
  */
 void drm_gem_dmabuf_vunmap(struct dma_buf *dma_buf, struct iosys_map *map)
 {
+	/// Functional Utility: Releases a kernel virtual mapping for a `dma_buf`'s GEM object.
+	/// This function reverses the mapping created by `drm_gem_dmabuf_vmap`.
 	struct drm_gem_object *obj = dma_buf->priv;
 
 	drm_gem_vunmap_locked(obj, map);
@@ -739,18 +882,23 @@ EXPORT_SYMBOL(drm_gem_dmabuf_vunmap);
  */
 int drm_gem_prime_mmap(struct drm_gem_object *obj, struct vm_area_struct *vma)
 {
+	/// Functional Utility: Sets up a userspace memory mapping for a PRIME-exported GEM object.
+	/// This allows userspace applications to directly access the buffer's contents.
 	struct drm_file *priv;
 	struct file *fil;
 	int ret;
 
 	/* Add the fake offset */
+	// Block Logic: Adjust the VMA page offset by the GEM object's VMA node start.
 	vma->vm_pgoff += drm_vma_node_start(&obj->vma_node);
 
+	// Conditional Logic: If the GEM object has a custom mmap function, use it.
 	if (obj->funcs && obj->funcs->mmap) {
 		vma->vm_ops = obj->funcs->vm_ops;
 
 		drm_gem_object_get(obj);
 		ret = obj->funcs->mmap(obj, vma);
+		// Conditional Logic: If custom mmap fails, put GEM object reference and return.
 		if (ret) {
 			drm_gem_object_put(obj);
 			return ret;
@@ -759,25 +907,33 @@ int drm_gem_prime_mmap(struct drm_gem_object *obj, struct vm_area_struct *vma)
 		return 0;
 	}
 
+	// Block Logic: Allocate temporary `drm_file` and `file` structures for mmap.
 	priv = kzalloc(sizeof(*priv), GFP_KERNEL);
 	fil = kzalloc(sizeof(*fil), GFP_KERNEL);
+	// Conditional Logic: Handle memory allocation failure.
 	if (!priv || !fil) {
 		ret = -ENOMEM;
 		goto out;
 	}
 
 	/* Used by drm_gem_mmap() to lookup the GEM object */
+	// Block Logic: Initialize temporary `drm_file` and `file` for mmap.
 	priv->minor = obj->dev->primary;
 	fil->private_data = priv;
 
+	// Block Logic: Allow VMA node for the temporary file.
 	ret = drm_vma_node_allow(&obj->vma_node, priv);
+	// Conditional Logic: Handle VMA node allowance failure.
 	if (ret)
 		goto out;
 
+	// Block Logic: Call the driver's file operations mmap.
 	ret = obj->dev->driver->fops->mmap(fil, vma);
 
+	// Block Logic: Revoke VMA node allowance.
 	drm_vma_node_revoke(&obj->vma_node, priv);
 out:
+	// Error Handling: Free temporary structures.
 	kfree(priv);
 	kfree(fil);
 
@@ -797,6 +953,8 @@ EXPORT_SYMBOL(drm_gem_prime_mmap);
  */
 int drm_gem_dmabuf_mmap(struct dma_buf *dma_buf, struct vm_area_struct *vma)
 {
+	/// Functional Utility: Memory-maps a `dma_buf` into userspace by forwarding the request to `drm_gem_prime_mmap`.
+	/// This serves as the `dma_buf_ops.mmap` callback for GEM-backed `dma_buf`s.
 	struct drm_gem_object *obj = dma_buf->priv;
 
 	return drm_gem_prime_mmap(obj, vma);
@@ -829,21 +987,29 @@ static const struct dma_buf_ops drm_gem_prime_dmabuf_ops =  {
 struct sg_table *drm_prime_pages_to_sg(struct drm_device *dev,
 				       struct page **pages, unsigned int nr_pages)
 {
+	/// Functional Utility: Converts an array of pages into a scatter/gather table, describing the physical memory layout.
+	/// This is a utility function used by drivers to create `sg_table`s for DMA operations from page arrays.
 	struct sg_table *sg;
 	size_t max_segment = 0;
 	int err;
 
+	// Block Logic: Allocate memory for the `sg_table` structure.
 	sg = kmalloc(sizeof(struct sg_table), GFP_KERNEL);
+	// Conditional Logic: Handle memory allocation failure.
 	if (!sg)
 		return ERR_PTR(-ENOMEM);
 
+	// Block Logic: Determine the maximum segment size for DMA mapping.
 	if (dev)
 		max_segment = dma_max_mapping_size(dev->dev);
+	// Conditional Logic: If no device, use `UINT_MAX` as max segment size.
 	if (max_segment == 0)
 		max_segment = UINT_MAX;
+	// Block Logic: Allocate and populate the scatter/gather table from the pages.
 	err = sg_alloc_table_from_pages_segment(sg, pages, nr_pages, 0,
 						(unsigned long)nr_pages << PAGE_SHIFT,
 						max_segment, GFP_KERNEL);
+	// Conditional Logic: Handle scatter/gather table allocation failure.
 	if (err) {
 		kfree(sg);
 		sg = ERR_PTR(err);
@@ -864,18 +1030,24 @@ EXPORT_SYMBOL(drm_prime_pages_to_sg);
  */
 unsigned long drm_prime_get_contiguous_size(struct sg_table *sgt)
 {
+	/// Functional Utility: Calculates the maximum contiguous size of a buffer in the DMA address space
+	/// as described by a scatter/gather table. This is used to verify contiguity requirements for imported buffers.
 	dma_addr_t expected = sg_dma_address(sgt->sgl);
 	struct scatterlist *sg;
 	unsigned long size = 0;
 	int i;
 
+	// Block Logic: Iterate through the scatter/gather list to calculate the contiguous size.
 	for_each_sgtable_dma_sg(sgt, sg, i) {
 		unsigned int len = sg_dma_len(sg);
 
+		// Conditional Logic: If length is zero, break (end of contiguous block).
 		if (!len)
 			break;
+		// Conditional Logic: If the DMA address is not contiguous, break.
 		if (sg_dma_address(sg) != expected)
 			break;
+		// Block Logic: Accumulate the length and update the expected next address.
 		expected += len;
 		size += len;
 	}
@@ -895,6 +1067,8 @@ EXPORT_SYMBOL(drm_prime_get_contiguous_size);
 struct dma_buf *drm_gem_prime_export(struct drm_gem_object *obj,
 				     int flags)
 {
+	/// Functional Utility: Exports a GEM object as a `dma_buf` using the standard PRIME helpers.
+	/// This serves as a default implementation for `drm_gem_object_funcs.export` for GEM drivers.
 	struct drm_device *dev = obj->dev;
 	struct dma_buf_export_info exp_info = {
 		.exp_name = KBUILD_MODNAME, /* white lie for debug */
@@ -928,13 +1102,18 @@ struct drm_gem_object *drm_gem_prime_import_dev(struct drm_device *dev,
 					    struct dma_buf *dma_buf,
 					    struct device *attach_dev)
 {
+	/// Functional Utility: Core implementation for importing a `dma_buf` and creating a GEM object from it,
+	/// allowing for a specified attachment device. This function handles the attachment, scatter/gather table mapping,
+	/// and GEM object creation for imported buffers.
 	struct dma_buf_attachment *attach;
 	struct sg_table *sgt;
 	struct drm_gem_object *obj;
 	int ret;
 
+	// Conditional Logic: Check if the imported `dma_buf` was exported by this GEM driver itself.
 	if (dma_buf->ops == &drm_gem_prime_dmabuf_ops) {
 		obj = dma_buf->priv;
+		// Conditional Logic: If exported from the same device, increment reference count and return existing object.
 		if (obj->dev == dev) {
 			/*
 			 * Importing dmabuf exported from our own gem increases
@@ -945,35 +1124,46 @@ struct drm_gem_object *drm_gem_prime_import_dev(struct drm_device *dev,
 		}
 	}
 
+	// Conditional Logic: Return error if the driver does not support `gem_prime_import_sg_table`.
 	if (!dev->driver->gem_prime_import_sg_table)
 		return ERR_PTR(-EINVAL);
 
+	// Block Logic: Attach the `dma_buf` to the specified attachment device.
 	attach = dma_buf_attach(dma_buf, attach_dev);
+	// Conditional Logic: Handle `dma_buf` attachment failure.
 	if (IS_ERR(attach))
 		return ERR_CAST(attach);
 
+	// Block Logic: Take a reference to the `dma_buf`.
 	get_dma_buf(dma_buf);
 
+	// Block Logic: Map the `dma_buf` attachment to a scatter/gather table.
 	sgt = dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
+	// Conditional Logic: Handle scatter/gather table mapping failure.
 	if (IS_ERR(sgt)) {
 		ret = PTR_ERR(sgt);
 		goto fail_detach;
 	}
 
+	// Block Logic: Import the scatter/gather table to create a GEM object.
 	obj = dev->driver->gem_prime_import_sg_table(dev, attach, sgt);
+	// Conditional Logic: Handle GEM object import failure.
 	if (IS_ERR(obj)) {
 		ret = PTR_ERR(obj);
 		goto fail_unmap;
 	}
 
+	// Block Logic: Associate the `dma_buf` attachment and reservation object with the GEM object.
 	obj->import_attach = attach;
 	obj->resv = dma_buf->resv;
 
 	return obj;
 
 fail_unmap:
+	// Error Handling: Unmap the scatter/gather table on failure.
 	dma_buf_unmap_attachment_unlocked(attach, sgt, DMA_BIDIRECTIONAL);
 fail_detach:
+	// Error Handling: Detach and put `dma_buf` on failure.
 	dma_buf_detach(dma_buf, attach);
 	dma_buf_put(dma_buf);
 
@@ -997,6 +1187,8 @@ EXPORT_SYMBOL(drm_gem_prime_import_dev);
 struct drm_gem_object *drm_gem_prime_import(struct drm_device *dev,
 					    struct dma_buf *dma_buf)
 {
+	/// Functional Utility: Helper library implementation for importing a `dma_buf` and creating a GEM object.
+	/// This function uses the `drm_gem_prime_import_dev` with the DRM device's DMA device as the attachment.
 	return drm_gem_prime_import_dev(dev, dma_buf, drm_dev_dma_dev(dev));
 }
 EXPORT_SYMBOL(drm_gem_prime_import);
@@ -1017,12 +1209,17 @@ int __deprecated drm_prime_sg_to_page_array(struct sg_table *sgt,
 					    struct page **pages,
 					    int max_entries)
 {
+	/// Functional Utility: Converts a scatter/gather table into an array of page pointers.
+	/// This function is deprecated and its use is discouraged due to potential issues with page fault handling.
 	struct sg_page_iter page_iter;
 	struct page **p = pages;
 
+	// Block Logic: Iterate through each page in the scatter/gather table.
 	for_each_sgtable_page(sgt, &page_iter, 0) {
+		// Conditional Logic: Warn if the page array is too small.
 		if (WARN_ON(p - pages >= max_entries))
 			return -1;
+		// Block Logic: Store the current page pointer in the array.
 		*p++ = sg_page_iter_page(&page_iter);
 	}
 	return 0;
@@ -1043,12 +1240,17 @@ EXPORT_SYMBOL(drm_prime_sg_to_page_array);
 int drm_prime_sg_to_dma_addr_array(struct sg_table *sgt, dma_addr_t *addrs,
 				   int max_entries)
 {
+	/// Functional Utility: Converts a scatter/gather table into an array of DMA bus addresses for each page.
+	/// This is useful for drivers that need to access the DMA addresses of the underlying memory.
 	struct sg_dma_page_iter dma_iter;
 	dma_addr_t *a = addrs;
 
+	// Block Logic: Iterate through each DMA page in the scatter/gather table.
 	for_each_sgtable_dma_page(sgt, &dma_iter, 0) {
+		// Conditional Logic: Warn if the address array is too small.
 		if (WARN_ON(a - addrs >= max_entries))
 			return -1;
+		// Block Logic: Store the DMA address of the current page in the array.
 		*a++ = sg_page_iter_dma_address(&dma_iter);
 	}
 	return 0;
@@ -1065,15 +1267,20 @@ EXPORT_SYMBOL(drm_prime_sg_to_dma_addr_array);
  */
 void drm_prime_gem_destroy(struct drm_gem_object *obj, struct sg_table *sg)
 {
+	/// Functional Utility: Cleans up a PRIME-imported GEM object, releasing its DMA-BUF attachment and unmapping any associated scatter/gather table.
+	/// This function is essential for proper resource deallocation when an imported GEM object is no longer needed.
 	struct dma_buf_attachment *attach;
 	struct dma_buf *dma_buf;
 
 	attach = obj->import_attach;
+	// Conditional Logic: If a scatter/gather table is provided, unmap the attachment.
 	if (sg)
 		dma_buf_unmap_attachment_unlocked(attach, sg, DMA_BIDIRECTIONAL);
 	dma_buf = attach->dmabuf;
+	// Block Logic: Detach the `dma_buf` from its attachment.
 	dma_buf_detach(attach->dmabuf, attach);
 	/* remove the reference */
+	// Block Logic: Put the `dma_buf` reference.
 	dma_buf_put(dma_buf);
 }
 EXPORT_SYMBOL(drm_prime_gem_destroy);

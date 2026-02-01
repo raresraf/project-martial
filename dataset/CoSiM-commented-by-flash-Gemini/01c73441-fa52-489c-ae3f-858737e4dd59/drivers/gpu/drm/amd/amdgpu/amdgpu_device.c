@@ -181,12 +181,18 @@ struct amdgpu_init_level amdgpu_init_minimal_xgmi = {
 static inline bool amdgpu_ip_member_of_hwini(struct amdgpu_device *adev,
 					     enum amd_ip_block_type block)
 {
+	/// Functional Utility: Checks if a given IP block is part of the current hardware initialization (hwini) mask.
+	/// This helps determine which hardware components are expected to be initialized at the current `amdgpu_init_level`.
 	return (adev->init_lvl->hwini_ip_block_mask & (1U << block)) != 0;
 }
 
 void amdgpu_set_init_level(struct amdgpu_device *adev,
 			   enum amdgpu_init_lvl_id lvl)
 {
+	/// Functional Utility: Sets the current initialization level for the AMDGPU device.
+	/// This function updates the `adev->init_lvl` pointer to point to the appropriate
+	/// `amdgpu_init_level` structure, controlling which IP blocks are initialized.
+	// Block Logic: Use a switch statement to select the appropriate initialization level based on the `lvl` parameter.
 	switch (lvl) {
 	case AMDGPU_INIT_LEVEL_MINIMAL_XGMI:
 		adev->init_lvl = &amdgpu_init_minimal_xgmi;
@@ -218,6 +224,8 @@ static int amdgpu_device_pm_notifier(struct notifier_block *nb, unsigned long mo
 static ssize_t amdgpu_device_get_pcie_replay_count(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
+	/// Functional Utility: Reports the total number of PCIe replays (NAKs) for the AMDGPU device via sysfs.
+	/// This provides diagnostic information about PCIe link stability and performance.
 	struct drm_device *ddev = dev_get_drvdata(dev);
 	struct amdgpu_device *adev = drm_to_adev(ddev);
 	uint64_t cnt = amdgpu_asic_get_pcie_replay_count(adev);
@@ -230,6 +238,8 @@ static DEVICE_ATTR(pcie_replay_count, 0444,
 
 static int amdgpu_device_attr_sysfs_init(struct amdgpu_device *adev)
 {
+	/// Functional Utility: Initializes sysfs attributes for the AMDGPU device, such as `pcie_replay_count`.
+	/// This exposes device-specific information to userspace via the sysfs filesystem.
 	int ret = 0;
 
 	if (!amdgpu_sriov_vf(adev))
@@ -241,6 +251,8 @@ static int amdgpu_device_attr_sysfs_init(struct amdgpu_device *adev)
 
 static void amdgpu_device_attr_sysfs_fini(struct amdgpu_device *adev)
 {
+	/// Functional Utility: Cleans up sysfs attributes created for the AMDGPU device.
+	/// This function is called during device teardown to remove sysfs entries.
 	if (!amdgpu_sriov_vf(adev))
 		sysfs_remove_file(&adev->dev->kobj,
 				  &dev_attr_pcie_replay_count.attr);
@@ -250,11 +262,14 @@ static ssize_t amdgpu_sysfs_reg_state_get(struct file *f, struct kobject *kobj,
 					  const struct bin_attribute *attr, char *buf,
 					  loff_t ppos, size_t count)
 {
+	/// Functional Utility: Provides a sysfs interface to read various hardware register states.
+	/// This enables userspace tools to query and inspect different aspects of the GPU's internal state.
 	struct device *dev = kobj_to_dev(kobj);
 	struct drm_device *ddev = dev_get_drvdata(dev);
 	struct amdgpu_device *adev = drm_to_adev(ddev);
 	ssize_t bytes_read;
 
+	// Block Logic: Use a switch statement to determine which register state to retrieve based on the `ppos` (pseudo-offset).
 	switch (ppos) {
 	case AMDGPU_SYS_REG_STATE_XGMI:
 		bytes_read = amdgpu_asic_get_reg_state(
@@ -288,11 +303,15 @@ static const BIN_ATTR(reg_state, 0444, amdgpu_sysfs_reg_state_get, NULL,
 
 int amdgpu_reg_state_sysfs_init(struct amdgpu_device *adev)
 {
+	/// Functional Utility: Initializes the sysfs entry for reading GPU register states (`reg_state`).
+	/// This allows privileged users to access detailed hardware register dumps for debugging and analysis.
 	int ret;
 
+	// Conditional Logic: If the ASIC does not support register state reporting, return success without creating sysfs entry.
 	if (!amdgpu_asic_get_reg_state_supported(adev))
 		return 0;
 
+	// Block Logic: Create the binary sysfs file for register state.
 	ret = sysfs_create_bin_file(&adev->dev->kobj, &bin_attr_reg_state);
 
 	return ret;
@@ -300,17 +319,24 @@ int amdgpu_reg_state_sysfs_init(struct amdgpu_device *adev)
 
 void amdgpu_reg_state_sysfs_fini(struct amdgpu_device *adev)
 {
+	/// Functional Utility: Cleans up the sysfs entry for reading GPU register states.
+	/// This function is called during device teardown to remove the sysfs `reg_state` entry.
 	if (!amdgpu_asic_get_reg_state_supported(adev))
 		return;
+	// Block Logic: Remove the binary sysfs file for register state.
 	sysfs_remove_bin_file(&adev->dev->kobj, &bin_attr_reg_state);
 }
 
 int amdgpu_ip_block_suspend(struct amdgpu_ip_block *ip_block)
 {
+	/// Functional Utility: Suspends a specific IP block within the AMDGPU device.
+	/// It calls the IP block's `suspend` function if available and updates its hardware status.
 	int r;
 
+	// Conditional Logic: If the IP block has a suspend function, call it.
 	if (ip_block->version->funcs->suspend) {
 		r = ip_block->version->funcs->suspend(ip_block);
+		// Conditional Logic: If suspend fails, log an error.
 		if (r) {
 			dev_err(ip_block->adev->dev,
 				"suspend of IP block <%s> failed %d\n",
@@ -319,16 +345,21 @@ int amdgpu_ip_block_suspend(struct amdgpu_ip_block *ip_block)
 		}
 	}
 
+	// Block Logic: Update the hardware status to suspended.
 	ip_block->status.hw = false;
 	return 0;
 }
 
 int amdgpu_ip_block_resume(struct amdgpu_ip_block *ip_block)
 {
+	/// Functional Utility: Resumes a specific IP block within the AMDGPU device.
+	/// It calls the IP block's `resume` function if available and updates its hardware status.
 	int r;
 
+	// Conditional Logic: If the IP block has a resume function, call it.
 	if (ip_block->version->funcs->resume) {
 		r = ip_block->version->funcs->resume(ip_block);
+		// Conditional Logic: If resume fails, log an error.
 		if (r) {
 			dev_err(ip_block->adev->dev,
 				"resume of IP block <%s> failed %d\n",
@@ -337,6 +368,7 @@ int amdgpu_ip_block_resume(struct amdgpu_ip_block *ip_block)
 		}
 	}
 
+	// Block Logic: Update the hardware status to resumed.
 	ip_block->status.hw = true;
 	return 0;
 }
@@ -361,14 +393,18 @@ static ssize_t amdgpu_device_get_board_info(struct device *dev,
 					    struct device_attribute *attr,
 					    char *buf)
 {
+	/// Functional Utility: Reports board-related information, specifically the form factor (e.g., CEM, OAM), via sysfs.
+	/// This provides system integrators and users with details about the physical packaging of the GPU.
 	struct drm_device *ddev = dev_get_drvdata(dev);
 	struct amdgpu_device *adev = drm_to_adev(ddev);
 	enum amdgpu_pkg_type pkg_type = AMDGPU_PKG_TYPE_CEM;
 	const char *pkg;
 
+	// Conditional Logic: If SMU (System Management Unit) I/O functions are available, get the package type from the ASIC.
 	if (adev->smuio.funcs && adev->smuio.funcs->get_pkg_type)
 		pkg_type = adev->smuio.funcs->get_pkg_type(adev);
 
+	// Block Logic: Use a switch statement to map the package type enum to a human-readable string.
 	switch (pkg_type) {
 	case AMDGPU_PKG_TYPE_CEM:
 		pkg = "cem";
@@ -394,10 +430,13 @@ static struct attribute *amdgpu_board_attrs[] = {
 static umode_t amdgpu_board_attrs_is_visible(struct kobject *kobj,
 					     struct attribute *attr, int n)
 {
+	/// Functional Utility: Determines the visibility of board-related sysfs attributes.
+	/// Specifically, it hides these attributes for APU (Accelerated Processing Unit) devices.
 	struct device *dev = kobj_to_dev(kobj);
 	struct drm_device *ddev = dev_get_drvdata(dev);
 	struct amdgpu_device *adev = drm_to_adev(ddev);
 
+	// Conditional Logic: Hide board information for APU devices.
 	if (adev->flags & AMD_IS_APU)
 		return 0;
 
@@ -422,8 +461,11 @@ static void amdgpu_device_get_pcie_info(struct amdgpu_device *adev);
  */
 bool amdgpu_device_supports_px(struct drm_device *dev)
 {
+	/// Functional Utility: Checks if the AMDGPU device supports PX (PowerXpress) power control.
+	/// This is typically relevant for dGPUs (discrete GPUs) in hybrid graphics setups.
 	struct amdgpu_device *adev = drm_to_adev(dev);
 
+	// Conditional Logic: Return true if the device is a dGPU (discrete GPU) and ATPX is not in hybrid mode.
 	if ((adev->flags & AMD_IS_PX) && !amdgpu_is_atpx_hybrid())
 		return true;
 	return false;
@@ -439,11 +481,15 @@ bool amdgpu_device_supports_px(struct drm_device *dev)
  */
 bool amdgpu_device_supports_boco(struct drm_device *dev)
 {
+	/// Functional Utility: Checks if the AMDGPU device supports BOCO (Black Out Clock Off) power control.
+	/// This indicates if the device can leverage ACPI power resources for power management.
 	struct amdgpu_device *adev = drm_to_adev(dev);
 
+	// Conditional Logic: Return false if PCI hotplug is not enabled.
 	if (!IS_ENABLED(CONFIG_HOTPLUG_PCI_PCIE))
 		return false;
 
+	// Conditional Logic: Return true if the device has PR3 support or is a PX device in hybrid mode.
 	if (adev->has_pr3 ||
 	    ((adev->flags & AMD_IS_PX) && amdgpu_is_atpx_hybrid()))
 		return true;
@@ -462,6 +508,8 @@ bool amdgpu_device_supports_boco(struct drm_device *dev)
  */
 int amdgpu_device_supports_baco(struct drm_device *dev)
 {
+	/// Functional Utility: Checks if the AMDGPU device supports BACO (Bus Aware Clock Off) or MACO power states.
+	/// This function queries the ASIC to determine its capabilities for specific low-power states.
 	struct amdgpu_device *adev = drm_to_adev(dev);
 
 	return amdgpu_asic_supports_baco(adev);
@@ -469,6 +517,8 @@ int amdgpu_device_supports_baco(struct drm_device *dev)
 
 void amdgpu_device_detect_runtime_pm_mode(struct amdgpu_device *adev)
 {
+	/// Functional Utility: Detects and configures the appropriate runtime power management (RPM) mode for the AMDGPU device.
+	/// It considers user-defined module parameters, device capabilities (PX, BOCO, BACO/MACO), and ASIC type.
 	struct drm_device *dev;
 	int bamaco_support;
 
@@ -477,8 +527,10 @@ void amdgpu_device_detect_runtime_pm_mode(struct amdgpu_device *adev)
 	adev->pm.rpm_mode = AMDGPU_RUNPM_NONE;
 	bamaco_support = amdgpu_device_supports_baco(dev);
 
+	// Block Logic: Determine the runtime PM mode based on the `amdgpu_runtime_pm` module parameter.
 	switch (amdgpu_runtime_pm) {
 	case 2:
+		// Conditional Logic: If `amdgpu_runtime_pm` is 2, try to force BAMACO mode, fallback to BACO if MACO not supported.
 		if (bamaco_support & MACO_SUPPORT) {
 			adev->pm.rpm_mode = AMDGPU_RUNPM_BAMACO;
 			dev_info(adev->dev, "Forcing BAMACO for runtime pm\n");
@@ -488,6 +540,7 @@ void amdgpu_device_detect_runtime_pm_mode(struct amdgpu_device *adev)
 		}
 		break;
 	case 1:
+		// Conditional Logic: If `amdgpu_runtime_pm` is 1, try to force BACO mode.
 		if (bamaco_support & BACO_SUPPORT) {
 			adev->pm.rpm_mode = AMDGPU_RUNPM_BACO;
 			dev_info(adev->dev, "Forcing BACO for runtime pm\n");
@@ -495,6 +548,7 @@ void amdgpu_device_detect_runtime_pm_mode(struct amdgpu_device *adev)
 		break;
 	case -1:
 	case -2:
+		// Conditional Logic: If `amdgpu_runtime_pm` is -1 or -2 (auto-detection).
 		if (amdgpu_device_supports_px(dev)) { /* enable PX as runtime mode */
 			adev->pm.rpm_mode = AMDGPU_RUNPM_PX;
 			dev_info(adev->dev, "Using ATPX for runtime pm\n");
@@ -502,9 +556,11 @@ void amdgpu_device_detect_runtime_pm_mode(struct amdgpu_device *adev)
 			adev->pm.rpm_mode = AMDGPU_RUNPM_BOCO;
 			dev_info(adev->dev, "Using BOCO for runtime pm\n");
 		} else {
+			// Conditional Logic: If neither PX nor BOCO, and no BACO/MACO support, exit.
 			if (!bamaco_support)
 				goto no_runtime_pm;
 
+			// Block Logic: Determine BACO/BAMACO support based on ASIC type.
 			switch (adev->asic_type) {
 			case CHIP_VEGA20:
 			case CHIP_ARCTURUS:
@@ -522,6 +578,7 @@ void amdgpu_device_detect_runtime_pm_mode(struct amdgpu_device *adev)
 				break;
 			}
 
+			// Conditional Logic: If BACO is selected, check for MACO support and use BAMACO if available.
 			if (adev->pm.rpm_mode == AMDGPU_RUNPM_BACO) {
 				if (bamaco_support & MACO_SUPPORT) {
 					adev->pm.rpm_mode = AMDGPU_RUNPM_BAMACO;
@@ -540,6 +597,7 @@ void amdgpu_device_detect_runtime_pm_mode(struct amdgpu_device *adev)
 	}
 
 no_runtime_pm:
+	// Conditional Logic: Log if no runtime PM mode is available.
 	if (adev->pm.rpm_mode == AMDGPU_RUNPM_NONE)
 		dev_info(adev->dev, "Runtime PM not available\n");
 }
@@ -554,6 +612,8 @@ no_runtime_pm:
  */
 bool amdgpu_device_supports_smart_shift(struct drm_device *dev)
 {
+	/// Functional Utility: Checks if the AMDGPU device supports Smart Shift technology.
+	/// This feature enables dynamic power sharing between CPU and GPU in certain system configurations.
 	return (amdgpu_device_supports_boco(dev) &&
 		amdgpu_acpi_is_power_shift_control_supported());
 }
@@ -574,32 +634,40 @@ bool amdgpu_device_supports_smart_shift(struct drm_device *dev)
 void amdgpu_device_mm_access(struct amdgpu_device *adev, loff_t pos,
 			     void *buf, size_t size, bool write)
 {
+	/// Functional Utility: Accesses VRAM using MM_INDEX/MM_DATA registers.
+	/// This method provides a way to read from or write to GPU VRAM by manipulating
+	/// specific hardware registers. It's used when direct VRAM aperture access is not available or sufficient.
 	unsigned long flags;
 	uint32_t hi = ~0, tmp = 0;
 	uint32_t *data = buf;
 	uint64_t last;
 	int idx;
 
+	// Conditional Logic: Check if the device is permitted to be accessed (e.g., not in suspend state).
 	if (!drm_dev_enter(adev_to_drm(adev), &idx))
 		return;
 
 	BUG_ON(!IS_ALIGNED(pos, 4) || !IS_ALIGNED(size, 4));
 
+	// Block Logic: Acquire a spinlock to protect MMIO access, then iterate through the memory region.
 	spin_lock_irqsave(&adev->mmio_idx_lock, flags);
 	for (last = pos + size; pos < last; pos += 4) {
 		tmp = pos >> 31;
 
 		WREG32_NO_KIQ(mmMM_INDEX, ((uint32_t)pos) | 0x80000000);
+		// Conditional Logic: Write to MM_INDEX_HI if the high bits of the address change.
 		if (tmp != hi) {
 			WREG32_NO_KIQ(mmMM_INDEX_HI, tmp);
 			hi = tmp;
 		}
+		// Conditional Logic: Perform a write or read operation based on the `write` flag.
 		if (write)
 			WREG32_NO_KIQ(mmMM_DATA, *data++);
 		else
 			*data++ = RREG32_NO_KIQ(mmMM_DATA);
 	}
 
+	// Block Logic: Release the spinlock and exit the device access context.
 	spin_unlock_irqrestore(&adev->mmio_idx_lock, flags);
 	drm_dev_exit(idx);
 }
@@ -618,19 +686,26 @@ void amdgpu_device_mm_access(struct amdgpu_device *adev, loff_t pos,
 size_t amdgpu_device_aper_access(struct amdgpu_device *adev, loff_t pos,
 				 void *buf, size_t size, bool write)
 {
+	/// Functional Utility: Accesses VRAM via the VRAM aperture (memory-mapped region).
+	/// This method provides direct, efficient access to GPU VRAM using `memcpy_toio` or `memcpy_fromio`.
+	/// It is typically preferred over MM_INDEX/MM_DATA register access for performance.
 #ifdef CONFIG_64BIT
 	void __iomem *addr;
 	size_t count = 0;
 	uint64_t last;
 
+	// Conditional Logic: Return 0 if the VRAM aperture base kernel address is not set.
 	if (!adev->mman.aper_base_kaddr)
 		return 0;
 
+	// Block Logic: Determine the effective size of the access within the visible VRAM.
 	last = min(pos + size, adev->gmc.visible_vram_size);
+	// Conditional Logic: Proceed if there's a valid region to access.
 	if (last > pos) {
 		addr = adev->mman.aper_base_kaddr + pos;
 		count = last - pos;
 
+		// Conditional Logic: Perform write or read operation based on the `write` flag.
 		if (write) {
 			memcpy_toio(addr, buf, count);
 			/* Make sure HDP write cache flush happens without any reordering
@@ -646,7 +721,6 @@ size_t amdgpu_device_aper_access(struct amdgpu_device *adev, loff_t pos,
 			mb();
 			memcpy_fromio(buf, addr, count);
 		}
-
 	}
 
 	return count;
@@ -667,11 +741,16 @@ size_t amdgpu_device_aper_access(struct amdgpu_device *adev, loff_t pos,
 void amdgpu_device_vram_access(struct amdgpu_device *adev, loff_t pos,
 			       void *buf, size_t size, bool write)
 {
+	/// Functional Utility: Provides a unified interface for reading from or writing to VRAM.
+	/// It attempts to use the VRAM aperture for optimal performance and falls back to
+	/// MM_INDEX/MM_DATA register access for any remaining portion of the transfer.
 	size_t count;
 
 	/* try to using vram apreature to access vram first */
+	// Block Logic: Attempt to access VRAM using the VRAM aperture first.
 	count = amdgpu_device_aper_access(adev, pos, buf, size, write);
 	size -= count;
+	// Conditional Logic: If there's remaining data to transfer, use MMIO access.
 	if (size) {
 		/* using MM to access rest vram */
 		pos += count;
@@ -687,6 +766,9 @@ void amdgpu_device_vram_access(struct amdgpu_device *adev, loff_t pos,
 /* Check if hw access should be skipped because of hotplug or device error */
 bool amdgpu_device_skip_hw_access(struct amdgpu_device *adev)
 {
+	/// Functional Utility: Determines if hardware access should be skipped due to device hotplug,
+	/// reset in progress, or other error states. This function ensures safe register access.
+	// Conditional Logic: Skip if hardware access is globally disabled.
 	if (adev->no_hw_access)
 		return true;
 
@@ -702,10 +784,14 @@ bool amdgpu_device_skip_hw_access(struct amdgpu_device *adev)
 	 * side of the lock or are the reset thread itself and hold the write side of
 	 * the lock.
 	 */
+	// Conditional Logic: Perform lockdep assertions if in a task context.
 	if (in_task()) {
+		// Block Logic: Try to acquire a read lock on the reset semaphore.
 		if (down_read_trylock(&adev->reset_domain->sem))
+			// Block Logic: If successful, immediately release the lock.
 			up_read(&adev->reset_domain->sem);
 		else
+			// Assertion: Ensure the lock is held (either read or write side).
 			lockdep_assert_held(&adev->reset_domain->sem);
 	}
 #endif
@@ -724,21 +810,29 @@ bool amdgpu_device_skip_hw_access(struct amdgpu_device *adev)
 uint32_t amdgpu_device_rreg(struct amdgpu_device *adev,
 			    uint32_t reg, uint32_t acc_flags)
 {
+	/// Functional Utility: Reads a 32-bit value from a memory-mapped I/O (MMIO) or indirect register.
+	/// This function abstracts different register access methods (direct MMIO, KIQ, PCIe) and includes
+	/// checks for safe hardware access.
 	uint32_t ret;
 
+	// Conditional Logic: Skip hardware access if the device is in a state where it's not safe.
 	if (amdgpu_device_skip_hw_access(adev))
 		return 0;
 
+	// Conditional Logic: Check if the register is within the MMIO region.
 	if ((reg * 4) < adev->rmmio_size) {
+		// Conditional Logic: Use KIQ (Kernel Interrupt Queue) for SR-IOV runtime access if allowed.
 		if (!(acc_flags & AMDGPU_REGS_NO_KIQ) &&
 		    amdgpu_sriov_runtime(adev) &&
 		    down_read_trylock(&adev->reset_domain->sem)) {
 			ret = amdgpu_kiq_rreg(adev, reg, 0);
 			up_read(&adev->reset_domain->sem);
 		} else {
+			// Block Logic: Perform a direct MMIO read.
 			ret = readl(((void __iomem *)adev->rmmio) + (reg * 4));
 		}
 	} else {
+		// Block Logic: If outside MMIO, use PCIe register access.
 		ret = adev->pcie_rreg(adev, reg * 4);
 	}
 
@@ -762,11 +856,16 @@ uint32_t amdgpu_device_rreg(struct amdgpu_device *adev,
  */
 uint8_t amdgpu_mm_rreg8(struct amdgpu_device *adev, uint32_t offset)
 {
+	/// Functional Utility: Reads an 8-bit value from a memory-mapped I/O (MMIO) register.
+	/// This is a byte-specific register access function, used for hardware that exposes 8-bit registers.
 	if (amdgpu_device_skip_hw_access(adev))
 		return 0;
 
+	// Conditional Logic: Check if the offset is within the MMIO region.
 	if (offset < adev->rmmio_size)
+		// Block Logic: Perform an 8-bit MMIO read.
 		return (readb(adev->rmmio + offset));
+	// Conditional Logic: Trigger a BUG if the offset is out of bounds for MMIO access.
 	BUG();
 }
 
@@ -785,12 +884,17 @@ uint32_t amdgpu_device_xcc_rreg(struct amdgpu_device *adev,
 				uint32_t reg, uint32_t acc_flags,
 				uint32_t xcc_id)
 {
+	/// Functional Utility: Reads a 32-bit value from a memory-mapped I/O (MMIO) or indirect register
+	/// for a specific XCC (eXtended Compute Core). This function supports multi-XCC GPUs.
 	uint32_t ret, rlcg_flag;
 
+	// Conditional Logic: Skip hardware access if the device is in a state where it's not safe.
 	if (amdgpu_device_skip_hw_access(adev))
 		return 0;
 
+	// Conditional Logic: Check if the register is within the MMIO region.
 	if ((reg * 4) < adev->rmmio_size) {
+		// Conditional Logic: Handle SR-IOV virtual function RLCG register access.
 		if (amdgpu_sriov_vf(adev) &&
 		    !amdgpu_sriov_runtime(adev) &&
 		    adev->gfx.rlc.rlcg_reg_access_supported &&
@@ -801,12 +905,15 @@ uint32_t amdgpu_device_xcc_rreg(struct amdgpu_device *adev,
 		} else if (!(acc_flags & AMDGPU_REGS_NO_KIQ) &&
 		    amdgpu_sriov_runtime(adev) &&
 		    down_read_trylock(&adev->reset_domain->sem)) {
+			// Conditional Logic: Use KIQ for SR-IOV runtime access if allowed.
 			ret = amdgpu_kiq_rreg(adev, reg, xcc_id);
 			up_read(&adev->reset_domain->sem);
 		} else {
+			// Block Logic: Perform a direct MMIO read.
 			ret = readl(((void __iomem *)adev->rmmio) + (reg * 4));
 		}
 	} else {
+		// Block Logic: If outside MMIO, use PCIe register access.
 		ret = adev->pcie_rreg(adev, reg * 4);
 	}
 
@@ -830,12 +937,17 @@ uint32_t amdgpu_device_xcc_rreg(struct amdgpu_device *adev,
  */
 void amdgpu_mm_wreg8(struct amdgpu_device *adev, uint32_t offset, uint8_t value)
 {
+	/// Functional Utility: Writes an 8-bit value to a memory-mapped I/O (MMIO) register.
+	/// This is a byte-specific register access function, used for hardware that exposes 8-bit registers.
 	if (amdgpu_device_skip_hw_access(adev))
 		return;
 
+	// Conditional Logic: Check if the offset is within the MMIO region.
 	if (offset < adev->rmmio_size)
+		// Block Logic: Perform an 8-bit MMIO write.
 		writeb(value, adev->rmmio + offset);
 	else
+		// Conditional Logic: Trigger a BUG if the offset is out of bounds for MMIO access.
 		BUG();
 }
 
@@ -853,19 +965,26 @@ void amdgpu_device_wreg(struct amdgpu_device *adev,
 			uint32_t reg, uint32_t v,
 			uint32_t acc_flags)
 {
+	/// Functional Utility: Writes a 32-bit value to a memory-mapped I/O (MMIO) or indirect register.
+	/// This function abstracts different register access methods (direct MMIO, KIQ, PCIe) and includes
+	/// checks for safe hardware access.
 	if (amdgpu_device_skip_hw_access(adev))
 		return;
 
+	// Conditional Logic: Check if the register is within the MMIO region.
 	if ((reg * 4) < adev->rmmio_size) {
+		// Conditional Logic: Use KIQ (Kernel Interrupt Queue) for SR-IOV runtime access if allowed.
 		if (!(acc_flags & AMDGPU_REGS_NO_KIQ) &&
 		    amdgpu_sriov_runtime(adev) &&
 		    down_read_trylock(&adev->reset_domain->sem)) {
 			amdgpu_kiq_wreg(adev, reg, v, 0);
 			up_read(&adev->reset_domain->sem);
 		} else {
+			// Block Logic: Perform a direct MMIO write.
 			writel(v, ((void __iomem *)adev->rmmio) + (reg * 4));
 		}
 	} else {
+		// Block Logic: If outside MMIO, use PCIe register access.
 		adev->pcie_wreg(adev, reg * 4, v);
 	}
 
@@ -886,17 +1005,23 @@ void amdgpu_mm_wreg_mmio_rlc(struct amdgpu_device *adev,
 			     uint32_t reg, uint32_t v,
 			     uint32_t xcc_id)
 {
+	/// Functional Utility: Writes to a register using either direct/indirect MMIO or through the RLC (Run List Controller) path.
+	/// This function is primarily used for debugfs register access, providing flexibility in how registers are written.
 	if (amdgpu_device_skip_hw_access(adev))
 		return;
 
+	// Conditional Logic: Check if SR-IOV full access is available and RLCG register access is supported for the given register.
 	if (amdgpu_sriov_fullaccess(adev) &&
 	    adev->gfx.rlc.funcs &&
 	    adev->gfx.rlc.funcs->is_rlcg_access_range) {
 		if (adev->gfx.rlc.funcs->is_rlcg_access_range(adev, reg))
+			// Block Logic: Use SR-IOV RLCG access if applicable.
 			return amdgpu_sriov_wreg(adev, reg, v, 0, 0, xcc_id);
 	} else if ((reg * 4) >= adev->rmmio_size) {
+		// Block Logic: If outside MMIO region, use PCIe write.
 		adev->pcie_wreg(adev, reg * 4, v);
 	} else {
+		// Block Logic: Otherwise, perform a direct MMIO write.
 		writel(v, ((void __iomem *)adev->rmmio) + (reg * 4));
 	}
 }
@@ -916,12 +1041,16 @@ void amdgpu_device_xcc_wreg(struct amdgpu_device *adev,
 			uint32_t reg, uint32_t v,
 			uint32_t acc_flags, uint32_t xcc_id)
 {
+	/// Functional Utility: Writes a 32-bit value to a memory-mapped I/O (MMIO) or indirect register
+	/// for a specific XCC (eXtended Compute Core). This function supports multi-XCC GPUs.
 	uint32_t rlcg_flag;
 
 	if (amdgpu_device_skip_hw_access(adev))
 		return;
 
+	// Conditional Logic: Check if the register is within the MMIO region.
 	if ((reg * 4) < adev->rmmio_size) {
+		// Conditional Logic: Handle SR-IOV virtual function RLCG register access.
 		if (amdgpu_sriov_vf(adev) &&
 		    !amdgpu_sriov_runtime(adev) &&
 		    adev->gfx.rlc.rlcg_reg_access_supported &&
@@ -932,12 +1061,15 @@ void amdgpu_device_xcc_wreg(struct amdgpu_device *adev,
 		} else if (!(acc_flags & AMDGPU_REGS_NO_KIQ) &&
 		    amdgpu_sriov_runtime(adev) &&
 		    down_read_trylock(&adev->reset_domain->sem)) {
+			// Conditional Logic: Use KIQ for SR-IOV runtime access if allowed.
 			amdgpu_kiq_wreg(adev, reg, v, xcc_id);
 			up_read(&adev->reset_domain->sem);
 		} else {
+			// Block Logic: Perform a direct MMIO write.
 			writel(v, ((void __iomem *)adev->rmmio) + (reg * 4));
 		}
 	} else {
+		// Block Logic: If outside MMIO, use PCIe register access.
 		adev->pcie_wreg(adev, reg * 4, v);
 	}
 }
@@ -953,6 +1085,8 @@ void amdgpu_device_xcc_wreg(struct amdgpu_device *adev,
 u32 amdgpu_device_indirect_rreg(struct amdgpu_device *adev,
 				u32 reg_addr)
 {
+	/// Functional Utility: Reads a 32-bit value from an indirect register via PCIe configuration space.
+	/// This is used for accessing registers that are not directly memory-mapped.
 	unsigned long flags, pcie_index, pcie_data;
 	void __iomem *pcie_index_offset;
 	void __iomem *pcie_data_offset;
@@ -961,13 +1095,18 @@ u32 amdgpu_device_indirect_rreg(struct amdgpu_device *adev,
 	pcie_index = adev->nbio.funcs->get_pcie_index_offset(adev);
 	pcie_data = adev->nbio.funcs->get_pcie_data_offset(adev);
 
+	// Block Logic: Acquire spinlock to protect PCIe index/data register access.
 	spin_lock_irqsave(&adev->pcie_idx_lock, flags);
 	pcie_index_offset = (void __iomem *)adev->rmmio + pcie_index * 4;
 	pcie_data_offset = (void __iomem *)adev->rmmio + pcie_data * 4;
 
+	// Block Logic: Write the register address to the PCIe index register.
 	writel(reg_addr, pcie_index_offset);
+	// Block Logic: Read from the index register to ensure the write has completed before reading data.
 	readl(pcie_index_offset);
+	// Block Logic: Read the data from the PCIe data register.
 	r = readl(pcie_data_offset);
+	// Block Logic: Release the spinlock.
 	spin_unlock_irqrestore(&adev->pcie_idx_lock, flags);
 
 	return r;
@@ -976,12 +1115,15 @@ u32 amdgpu_device_indirect_rreg(struct amdgpu_device *adev,
 u32 amdgpu_device_indirect_rreg_ext(struct amdgpu_device *adev,
 				    u64 reg_addr)
 {
+	/// Functional Utility: Reads a 32-bit value from an extended 64-bit indirect register address.
+	/// This function handles larger register addresses by utilizing high-offset index registers if available.
 	unsigned long flags, pcie_index, pcie_index_hi, pcie_data;
 	u32 r;
 	void __iomem *pcie_index_offset;
 	void __iomem *pcie_index_hi_offset;
 	void __iomem *pcie_data_offset;
 
+	// Conditional Logic: Handle cases where NBIO functions might not be available, using fallback offsets.
 	if (unlikely(!adev->nbio.funcs)) {
 		pcie_index = AMDGPU_PCIE_INDEX_FALLBACK;
 		pcie_data = AMDGPU_PCIE_DATA_FALLBACK;
@@ -990,6 +1132,7 @@ u32 amdgpu_device_indirect_rreg_ext(struct amdgpu_device *adev,
 		pcie_data = adev->nbio.funcs->get_pcie_data_offset(adev);
 	}
 
+	// Conditional Logic: Determine if a high PCIe index offset is needed for 64-bit addresses.
 	if (reg_addr >> 32) {
 		if (unlikely(!adev->nbio.funcs))
 			pcie_index_hi = AMDGPU_PCIE_INDEX_HI_FALLBACK;
@@ -999,27 +1142,35 @@ u32 amdgpu_device_indirect_rreg_ext(struct amdgpu_device *adev,
 		pcie_index_hi = 0;
 	}
 
+	// Block Logic: Acquire spinlock to protect PCIe index/data register access.
 	spin_lock_irqsave(&adev->pcie_idx_lock, flags);
 	pcie_index_offset = (void __iomem *)adev->rmmio + pcie_index * 4;
 	pcie_data_offset = (void __iomem *)adev->rmmio + pcie_data * 4;
+	// Conditional Logic: If high index offset is used, calculate its address.
 	if (pcie_index_hi != 0)
 		pcie_index_hi_offset = (void __iomem *)adev->rmmio +
 				pcie_index_hi * 4;
 
+	// Block Logic: Write the low 32 bits of the register address to the PCIe index register.
 	writel(reg_addr, pcie_index_offset);
+	// Block Logic: Read from the index register to ensure the write has completed.
 	readl(pcie_index_offset);
+	// Conditional Logic: If a high index offset is used, write the high bits of the address.
 	if (pcie_index_hi != 0) {
 		writel((reg_addr >> 32) & 0xff, pcie_index_hi_offset);
 		readl(pcie_index_hi_offset);
 	}
+	// Block Logic: Read the data from the PCIe data register.
 	r = readl(pcie_data_offset);
 
 	/* clear the high bits */
+	// Conditional Logic: If a high index offset was used, clear its value.
 	if (pcie_index_hi != 0) {
 		writel(0, pcie_index_hi_offset);
 		readl(pcie_index_hi_offset);
 	}
 
+	// Block Logic: Release the spinlock.
 	spin_unlock_irqrestore(&adev->pcie_idx_lock, flags);
 
 	return r;
@@ -1036,6 +1187,8 @@ u32 amdgpu_device_indirect_rreg_ext(struct amdgpu_device *adev,
 u64 amdgpu_device_indirect_rreg64(struct amdgpu_device *adev,
 				  u32 reg_addr)
 {
+	/// Functional Utility: Reads a 64-bit value from an indirect register.
+	/// This function accesses a 64-bit register by performing two 32-bit reads from consecutive indirect register addresses.
 	unsigned long flags, pcie_index, pcie_data;
 	void __iomem *pcie_index_offset;
 	void __iomem *pcie_data_offset;
@@ -1044,18 +1197,26 @@ u64 amdgpu_device_indirect_rreg64(struct amdgpu_device *adev,
 	pcie_index = adev->nbio.funcs->get_pcie_index_offset(adev);
 	pcie_data = adev->nbio.funcs->get_pcie_data_offset(adev);
 
+	// Block Logic: Acquire spinlock to protect PCIe index/data register access.
 	spin_lock_irqsave(&adev->pcie_idx_lock, flags);
 	pcie_index_offset = (void __iomem *)adev->rmmio + pcie_index * 4;
 	pcie_data_offset = (void __iomem *)adev->rmmio + pcie_data * 4;
 
 	/* read low 32 bits */
+	// Block Logic: Write the register address for the low 32 bits to the PCIe index register.
 	writel(reg_addr, pcie_index_offset);
+	// Block Logic: Read from the index register to ensure the write has completed.
 	readl(pcie_index_offset);
+	// Block Logic: Read the low 32 bits of data from the PCIe data register.
 	r = readl(pcie_data_offset);
 	/* read high 32 bits */
+	// Block Logic: Write the register address for the high 32 bits to the PCIe index register.
 	writel(reg_addr + 4, pcie_index_offset);
+	// Block Logic: Read from the index register to ensure the write has completed.
 	readl(pcie_index_offset);
+	// Block Logic: Read the high 32 bits of data and combine with the low bits to form a 64-bit value.
 	r |= ((u64)readl(pcie_data_offset) << 32);
+	// Block Logic: Release the spinlock.
 	spin_unlock_irqrestore(&adev->pcie_idx_lock, flags);
 
 	return r;
@@ -1064,6 +1225,9 @@ u64 amdgpu_device_indirect_rreg64(struct amdgpu_device *adev,
 u64 amdgpu_device_indirect_rreg64_ext(struct amdgpu_device *adev,
 				  u64 reg_addr)
 {
+	/// Functional Utility: Reads a 64-bit value from an extended 64-bit indirect register address.
+	/// This function extends `amdgpu_device_indirect_rreg64` to support larger register addresses,
+	/// using high-offset index registers if available.
 	unsigned long flags, pcie_index, pcie_data;
 	unsigned long pcie_index_hi = 0;
 	void __iomem *pcie_index_offset;
@@ -1073,39 +1237,52 @@ u64 amdgpu_device_indirect_rreg64_ext(struct amdgpu_device *adev,
 
 	pcie_index = adev->nbio.funcs->get_pcie_index_offset(adev);
 	pcie_data = adev->nbio.funcs->get_pcie_data_offset(adev);
+	// Conditional Logic: Determine if a high PCIe index offset is needed for 64-bit addresses.
 	if ((reg_addr >> 32) && (adev->nbio.funcs->get_pcie_index_hi_offset))
 		pcie_index_hi = adev->nbio.funcs->get_pcie_index_hi_offset(adev);
 
+	// Block Logic: Acquire spinlock to protect PCIe index/data register access.
 	spin_lock_irqsave(&adev->pcie_idx_lock, flags);
 	pcie_index_offset = (void __iomem *)adev->rmmio + pcie_index * 4;
 	pcie_data_offset = (void __iomem *)adev->rmmio + pcie_data * 4;
+	// Conditional Logic: If high index offset is used, calculate its address.
 	if (pcie_index_hi != 0)
 		pcie_index_hi_offset = (void __iomem *)adev->rmmio +
 			pcie_index_hi * 4;
 
 	/* read low 32 bits */
+	// Block Logic: Write the register address for the low 32 bits to the PCIe index register.
 	writel(reg_addr, pcie_index_offset);
+	// Block Logic: Read from the index register to ensure the write has completed.
 	readl(pcie_index_offset);
+	// Conditional Logic: If a high index offset is used, write the high bits of the address.
 	if (pcie_index_hi != 0) {
 		writel((reg_addr >> 32) & 0xff, pcie_index_hi_offset);
 		readl(pcie_index_hi_offset);
 	}
+	// Block Logic: Read the low 32 bits of data from the PCIe data register.
 	r = readl(pcie_data_offset);
 	/* read high 32 bits */
+	// Block Logic: Write the register address for the high 32 bits to the PCIe index register.
 	writel(reg_addr + 4, pcie_index_offset);
+	// Block Logic: Read from the index register to ensure the write has completed.
 	readl(pcie_index_offset);
+	// Conditional Logic: If a high index offset is used, write the high bits of the address.
 	if (pcie_index_hi != 0) {
 		writel((reg_addr >> 32) & 0xff, pcie_index_hi_offset);
 		readl(pcie_index_hi_offset);
 	}
+	// Block Logic: Read the high 32 bits of data and combine with the low bits to form a 64-bit value.
 	r |= ((u64)readl(pcie_data_offset) << 32);
 
 	/* clear the high bits */
+	// Conditional Logic: If a high index offset was used, clear its value.
 	if (pcie_index_hi != 0) {
 		writel(0, pcie_index_hi_offset);
 		readl(pcie_index_hi_offset);
 	}
 
+	// Block Logic: Release the spinlock.
 	spin_unlock_irqrestore(&adev->pcie_idx_lock, flags);
 
 	return r;
@@ -1122,6 +1299,8 @@ u64 amdgpu_device_indirect_rreg64_ext(struct amdgpu_device *adev,
 void amdgpu_device_indirect_wreg(struct amdgpu_device *adev,
 				 u32 reg_addr, u32 reg_data)
 {
+	/// Functional Utility: Writes a 32-bit value to an indirect register via PCIe configuration space.
+	/// This function is used for writing to registers that are not directly memory-mapped.
 	unsigned long flags, pcie_index, pcie_data;
 	void __iomem *pcie_index_offset;
 	void __iomem *pcie_data_offset;
@@ -1129,20 +1308,28 @@ void amdgpu_device_indirect_wreg(struct amdgpu_device *adev,
 	pcie_index = adev->nbio.funcs->get_pcie_index_offset(adev);
 	pcie_data = adev->nbio.funcs->get_pcie_data_offset(adev);
 
+	// Block Logic: Acquire spinlock to protect PCIe index/data register access.
 	spin_lock_irqsave(&adev->pcie_idx_lock, flags);
 	pcie_index_offset = (void __iomem *)adev->rmmio + pcie_index * 4;
 	pcie_data_offset = (void __iomem *)adev->rmmio + pcie_data * 4;
 
+	// Block Logic: Write the register address to the PCIe index register.
 	writel(reg_addr, pcie_index_offset);
+	// Block Logic: Read from the index register to ensure the write has completed.
 	readl(pcie_index_offset);
+	// Block Logic: Write the data to the PCIe data register.
 	writel(reg_data, pcie_data_offset);
+	// Block Logic: Read from the data register to ensure the write has completed.
 	readl(pcie_data_offset);
+	// Block Logic: Release the spinlock.
 	spin_unlock_irqrestore(&adev->pcie_idx_lock, flags);
 }
 
 void amdgpu_device_indirect_wreg_ext(struct amdgpu_device *adev,
 				     u64 reg_addr, u32 reg_data)
 {
+	/// Functional Utility: Writes a 32-bit value to an extended 64-bit indirect register address.
+	/// This function handles larger register addresses by utilizing high-offset index registers if available.
 	unsigned long flags, pcie_index, pcie_index_hi, pcie_data;
 	void __iomem *pcie_index_offset;
 	void __iomem *pcie_index_hi_offset;
@@ -1150,33 +1337,43 @@ void amdgpu_device_indirect_wreg_ext(struct amdgpu_device *adev,
 
 	pcie_index = adev->nbio.funcs->get_pcie_index_offset(adev);
 	pcie_data = adev->nbio.funcs->get_pcie_data_offset(adev);
+	// Conditional Logic: Determine if a high PCIe index offset is needed for 64-bit addresses.
 	if ((reg_addr >> 32) && (adev->nbio.funcs->get_pcie_index_hi_offset))
 		pcie_index_hi = adev->nbio.funcs->get_pcie_index_hi_offset(adev);
 	else
 		pcie_index_hi = 0;
 
+	// Block Logic: Acquire spinlock to protect PCIe index/data register access.
 	spin_lock_irqsave(&adev->pcie_idx_lock, flags);
 	pcie_index_offset = (void __iomem *)adev->rmmio + pcie_index * 4;
 	pcie_data_offset = (void __iomem *)adev->rmmio + pcie_data * 4;
+	// Conditional Logic: If high index offset is used, calculate its address.
 	if (pcie_index_hi != 0)
 		pcie_index_hi_offset = (void __iomem *)adev->rmmio +
 				pcie_index_hi * 4;
 
+	// Block Logic: Write the low 32 bits of the register address to the PCIe index register.
 	writel(reg_addr, pcie_index_offset);
+	// Block Logic: Read from the index register to ensure the write has completed.
 	readl(pcie_index_offset);
+	// Conditional Logic: If a high index offset is used, write the high bits of the address.
 	if (pcie_index_hi != 0) {
 		writel((reg_addr >> 32) & 0xff, pcie_index_hi_offset);
 		readl(pcie_index_hi_offset);
 	}
+	// Block Logic: Write the data to the PCIe data register.
 	writel(reg_data, pcie_data_offset);
+	// Block Logic: Read from the data register to ensure the write has completed.
 	readl(pcie_data_offset);
 
 	/* clear the high bits */
+	// Conditional Logic: If a high index offset was used, clear its value.
 	if (pcie_index_hi != 0) {
 		writel(0, pcie_index_hi_offset);
 		readl(pcie_index_hi_offset);
 	}
 
+	// Block Logic: Release the spinlock.
 	spin_unlock_irqrestore(&adev->pcie_idx_lock, flags);
 }
 
@@ -1191,6 +1388,8 @@ void amdgpu_device_indirect_wreg_ext(struct amdgpu_device *adev,
 void amdgpu_device_indirect_wreg64(struct amdgpu_device *adev,
 				   u32 reg_addr, u64 reg_data)
 {
+	/// Functional Utility: Writes a 64-bit value to an indirect register.
+	/// This function performs two 32-bit writes to consecutive indirect register addresses to set a 64-bit value.
 	unsigned long flags, pcie_index, pcie_data;
 	void __iomem *pcie_index_offset;
 	void __iomem *pcie_data_offset;
@@ -1198,26 +1397,39 @@ void amdgpu_device_indirect_wreg64(struct amdgpu_device *adev,
 	pcie_index = adev->nbio.funcs->get_pcie_index_offset(adev);
 	pcie_data = adev->nbio.funcs->get_pcie_data_offset(adev);
 
+	// Block Logic: Acquire spinlock to protect PCIe index/data register access.
 	spin_lock_irqsave(&adev->pcie_idx_lock, flags);
 	pcie_index_offset = (void __iomem *)adev->rmmio + pcie_index * 4;
 	pcie_data_offset = (void __iomem *)adev->rmmio + pcie_data * 4;
 
 	/* write low 32 bits */
+	// Block Logic: Write the register address for the low 32 bits to the PCIe index register.
 	writel(reg_addr, pcie_index_offset);
+	// Block Logic: Read from the index register to ensure the write has completed.
 	readl(pcie_index_offset);
+	// Block Logic: Write the low 32 bits of data to the PCIe data register.
 	writel((u32)(reg_data & 0xffffffffULL), pcie_data_offset);
+	// Block Logic: Read from the data register to ensure the write has completed.
 	readl(pcie_data_offset);
 	/* write high 32 bits */
+	// Block Logic: Write the register address for the high 32 bits to the PCIe index register.
 	writel(reg_addr + 4, pcie_index_offset);
+	// Block Logic: Read from the index register to ensure the write has completed.
 	readl(pcie_index_offset);
+	// Block Logic: Write the high 32 bits of data to the PCIe data register.
 	writel((u32)(reg_data >> 32), pcie_data_offset);
+	// Block Logic: Read from the data register to ensure the write has completed.
 	readl(pcie_data_offset);
+	// Block Logic: Release the spinlock.
 	spin_unlock_irqrestore(&adev->pcie_idx_lock, flags);
 }
 
 void amdgpu_device_indirect_wreg64_ext(struct amdgpu_device *adev,
 				   u64 reg_addr, u64 reg_data)
 {
+	/// Functional Utility: Writes a 64-bit value to an extended 64-bit indirect register address.
+	/// This function extends `amdgpu_device_indirect_wreg64` to support larger register addresses,
+	/// using high-offset index registers if available.
 	unsigned long flags, pcie_index, pcie_data;
 	unsigned long pcie_index_hi = 0;
 	void __iomem *pcie_index_offset;
@@ -1226,41 +1438,56 @@ void amdgpu_device_indirect_wreg64_ext(struct amdgpu_device *adev,
 
 	pcie_index = adev->nbio.funcs->get_pcie_index_offset(adev);
 	pcie_data = adev->nbio.funcs->get_pcie_data_offset(adev);
+	// Conditional Logic: Determine if a high PCIe index offset is needed for 64-bit addresses.
 	if ((reg_addr >> 32) && (adev->nbio.funcs->get_pcie_index_hi_offset))
 		pcie_index_hi = adev->nbio.funcs->get_pcie_index_hi_offset(adev);
 
+	// Block Logic: Acquire spinlock to protect PCIe index/data register access.
 	spin_lock_irqsave(&adev->pcie_idx_lock, flags);
 	pcie_index_offset = (void __iomem *)adev->rmmio + pcie_index * 4;
 	pcie_data_offset = (void __iomem *)adev->rmmio + pcie_data * 4;
+	// Conditional Logic: If high index offset is used, calculate its address.
 	if (pcie_index_hi != 0)
 		pcie_index_hi_offset = (void __iomem *)adev->rmmio +
 				pcie_index_hi * 4;
 
 	/* write low 32 bits */
+	// Block Logic: Write the register address for the low 32 bits to the PCIe index register.
 	writel(reg_addr, pcie_index_offset);
+	// Block Logic: Read from the index register to ensure the write has completed.
 	readl(pcie_index_offset);
+	// Conditional Logic: If a high index offset is used, write the high bits of the address.
 	if (pcie_index_hi != 0) {
 		writel((reg_addr >> 32) & 0xff, pcie_index_hi_offset);
 		readl(pcie_index_hi_offset);
 	}
+	// Block Logic: Write the low 32 bits of data to the PCIe data register.
 	writel((u32)(reg_data & 0xffffffffULL), pcie_data_offset);
+	// Block Logic: Read from the data register to ensure the write has completed.
 	readl(pcie_data_offset);
 	/* write high 32 bits */
+	// Block Logic: Write the register address for the high 32 bits to the PCIe index register.
 	writel(reg_addr + 4, pcie_index_offset);
+	// Block Logic: Read from the index register to ensure the write has completed.
 	readl(pcie_index_offset);
+	// Conditional Logic: If a high index offset is used, write the high bits of the address.
 	if (pcie_index_hi != 0) {
 		writel((reg_addr >> 32) & 0xff, pcie_index_hi_offset);
 		readl(pcie_index_hi_offset);
 	}
+	// Block Logic: Write the high 32 bits of data to the PCIe data register.
 	writel((u32)(reg_data >> 32), pcie_data_offset);
+	// Block Logic: Read from the data register to ensure the write has completed.
 	readl(pcie_data_offset);
 
 	/* clear the high bits */
+	// Conditional Logic: If a high index offset was used, clear its value.
 	if (pcie_index_hi != 0) {
 		writel(0, pcie_index_hi_offset);
 		readl(pcie_index_hi_offset);
 	}
 
+	// Block Logic: Release the spinlock.
 	spin_unlock_irqrestore(&adev->pcie_idx_lock, flags);
 }
 
@@ -1273,6 +1500,8 @@ void amdgpu_device_indirect_wreg64_ext(struct amdgpu_device *adev,
  */
 u32 amdgpu_device_get_rev_id(struct amdgpu_device *adev)
 {
+	/// Functional Utility: Queries the revision ID of the AMDGPU device.
+	/// This function retrieves a hardware-specific identifier that can be used to distinguish different revisions of an ASIC.
 	return adev->nbio.funcs->get_rev_id(adev);
 }
 
@@ -1288,6 +1517,8 @@ u32 amdgpu_device_get_rev_id(struct amdgpu_device *adev)
  */
 static uint32_t amdgpu_invalid_rreg(struct amdgpu_device *adev, uint32_t reg)
 {
+	/// Functional Utility: Dummy register read function for non-existent IP blocks or registers.
+	/// This serves as a placeholder to prevent crashes when attempting to read from unsupported hardware.
 	DRM_ERROR("Invalid callback to read register 0x%04X\n", reg);
 	BUG();
 	return 0;
@@ -1295,6 +1526,8 @@ static uint32_t amdgpu_invalid_rreg(struct amdgpu_device *adev, uint32_t reg)
 
 static uint32_t amdgpu_invalid_rreg_ext(struct amdgpu_device *adev, uint64_t reg)
 {
+	/// Functional Utility: Dummy extended register read function for non-existent IP blocks or registers.
+	/// This serves as a placeholder to prevent crashes when attempting to read from unsupported hardware.
 	DRM_ERROR("Invalid callback to read register 0x%llX\n", reg);
 	BUG();
 	return 0;
@@ -1312,6 +1545,8 @@ static uint32_t amdgpu_invalid_rreg_ext(struct amdgpu_device *adev, uint64_t reg
  */
 static void amdgpu_invalid_wreg(struct amdgpu_device *adev, uint32_t reg, uint32_t v)
 {
+	/// Functional Utility: Dummy register write function for non-existent IP blocks or registers.
+	/// This serves as a placeholder to prevent crashes when attempting to write to unsupported hardware.
 	DRM_ERROR("Invalid callback to write register 0x%04X with 0x%08X\n",
 		  reg, v);
 	BUG();
@@ -1319,6 +1554,8 @@ static void amdgpu_invalid_wreg(struct amdgpu_device *adev, uint32_t reg, uint32
 
 static void amdgpu_invalid_wreg_ext(struct amdgpu_device *adev, uint64_t reg, uint32_t v)
 {
+	/// Functional Utility: Dummy extended register write function for non-existent IP blocks or registers.
+	/// This serves as a placeholder to prevent crashes when attempting to write to unsupported hardware.
 	DRM_ERROR("Invalid callback to write register 0x%llX with 0x%08X\n",
 		  reg, v);
 	BUG();
@@ -1336,6 +1573,8 @@ static void amdgpu_invalid_wreg_ext(struct amdgpu_device *adev, uint64_t reg, ui
  */
 static uint64_t amdgpu_invalid_rreg64(struct amdgpu_device *adev, uint32_t reg)
 {
+	/// Functional Utility: Dummy 64-bit register read function for non-existent IP blocks or registers.
+	/// This serves as a placeholder to prevent crashes when attempting to read from unsupported hardware.
 	DRM_ERROR("Invalid callback to read 64 bit register 0x%04X\n", reg);
 	BUG();
 	return 0;
@@ -1343,6 +1582,8 @@ static uint64_t amdgpu_invalid_rreg64(struct amdgpu_device *adev, uint32_t reg)
 
 static uint64_t amdgpu_invalid_rreg64_ext(struct amdgpu_device *adev, uint64_t reg)
 {
+	/// Functional Utility: Dummy extended 64-bit register read function for non-existent IP blocks or registers.
+	/// This serves as a placeholder to prevent crashes when attempting to read from unsupported hardware.
 	DRM_ERROR("Invalid callback to read register 0x%llX\n", reg);
 	BUG();
 	return 0;
@@ -1360,6 +1601,8 @@ static uint64_t amdgpu_invalid_rreg64_ext(struct amdgpu_device *adev, uint64_t r
  */
 static void amdgpu_invalid_wreg64(struct amdgpu_device *adev, uint32_t reg, uint64_t v)
 {
+	/// Functional Utility: Dummy 64-bit register write function for non-existent IP blocks or registers.
+	/// This serves as a placeholder to prevent crashes when attempting to write to unsupported hardware.
 	DRM_ERROR("Invalid callback to write 64 bit register 0x%04X with 0x%08llX\n",
 		  reg, v);
 	BUG();
@@ -1367,6 +1610,8 @@ static void amdgpu_invalid_wreg64(struct amdgpu_device *adev, uint32_t reg, uint
 
 static void amdgpu_invalid_wreg64_ext(struct amdgpu_device *adev, uint64_t reg, uint64_t v)
 {
+	/// Functional Utility: Dummy extended 64-bit register write function for non-existent IP blocks or registers.
+	/// This serves as a placeholder to prevent crashes when attempting to write to unsupported hardware.
 	DRM_ERROR("Invalid callback to write 64 bit register 0x%llX with 0x%08llX\n",
 		  reg, v);
 	BUG();
@@ -1386,6 +1631,8 @@ static void amdgpu_invalid_wreg64_ext(struct amdgpu_device *adev, uint64_t reg, 
 static uint32_t amdgpu_block_invalid_rreg(struct amdgpu_device *adev,
 					  uint32_t block, uint32_t reg)
 {
+	/// Functional Utility: Dummy block-specific register read function for non-existent IP blocks or registers.
+	/// This serves as a placeholder to prevent crashes when attempting to read from unsupported hardware.
 	DRM_ERROR("Invalid callback to read register 0x%04X in block 0x%04X\n",
 		  reg, block);
 	BUG();
@@ -1407,6 +1654,8 @@ static void amdgpu_block_invalid_wreg(struct amdgpu_device *adev,
 				      uint32_t block,
 				      uint32_t reg, uint32_t v)
 {
+	/// Functional Utility: Dummy block-specific register write function for non-existent IP blocks or registers.
+	/// This serves as a placeholder to prevent crashes when attempting to write to unsupported hardware.
 	DRM_ERROR("Invalid block callback to write register 0x%04X in block 0x%04X with 0x%08X\n",
 		  reg, block, v);
 	BUG();
@@ -1414,9 +1663,13 @@ static void amdgpu_block_invalid_wreg(struct amdgpu_device *adev,
 
 static uint32_t amdgpu_device_get_vbios_flags(struct amdgpu_device *adev)
 {
+	/// Functional Utility: Determines VBIOS (Video BIOS) related flags based on the AMDGPU device's configuration.
+	/// This helps in deciding whether to skip VBIOS initialization or treat it as optional.
+	// Conditional Logic: If the device is an APU and has multiple AIDs, skip VBIOS.
 	if (hweight32(adev->aid_mask) && (adev->flags & AMD_IS_APU))
 		return AMDGPU_VBIOS_SKIP;
 
+	// Conditional Logic: If the device is in passthrough mode and has multiple AIDs, VBIOS is optional.
 	if (hweight32(adev->aid_mask) && amdgpu_passthrough(adev))
 		return AMDGPU_VBIOS_OPTIONAL;
 
@@ -1432,6 +1685,8 @@ static uint32_t amdgpu_device_get_vbios_flags(struct amdgpu_device *adev)
  */
 static int amdgpu_device_asic_init(struct amdgpu_device *adev)
 {
+	/// Functional Utility: Initializes the ASIC (Application-Specific Integrated Circuit) based on its type and VBIOS flags.
+	/// This function performs necessary hardware setup during driver initialization.
 	uint32_t flags;
 	bool optional;
 	int ret;
@@ -1440,20 +1695,25 @@ static int amdgpu_device_asic_init(struct amdgpu_device *adev)
 	flags = amdgpu_device_get_vbios_flags(adev);
 	optional = !!(flags & (AMDGPU_VBIOS_OPTIONAL | AMDGPU_VBIOS_SKIP));
 
+	// Conditional Logic: Handle ASIC initialization based on IP version.
 	if (amdgpu_ip_version(adev, GC_HWIP, 0) == IP_VERSION(9, 4, 3) ||
 	    amdgpu_ip_version(adev, GC_HWIP, 0) == IP_VERSION(9, 4, 4) ||
 	    amdgpu_ip_version(adev, GC_HWIP, 0) == IP_VERSION(9, 5, 0) ||
 	    amdgpu_ip_version(adev, GC_HWIP, 0) >= IP_VERSION(11, 0, 0)) {
 		amdgpu_psp_wait_for_bootloader(adev);
+		// Conditional Logic: Skip VBIOS initialization if optional and not present.
 		if (optional && !adev->bios)
 			return 0;
 
+		// Block Logic: Call atomfirmware ASIC initialization.
 		ret = amdgpu_atomfirmware_asic_init(adev, true);
 		return ret;
 	} else {
+		// Conditional Logic: Skip VBIOS initialization if optional and not present.
 		if (optional && !adev->bios)
 			return 0;
 
+		// Block Logic: Call atom ASIC initialization.
 		return amdgpu_atom_asic_init(adev->mode_info.atom_context);
 	}
 
@@ -1470,6 +1730,9 @@ static int amdgpu_device_asic_init(struct amdgpu_device *adev)
  */
 static int amdgpu_device_mem_scratch_init(struct amdgpu_device *adev)
 {
+	/// Functional Utility: Allocates a VRAM scratch page for the AMDGPU device.
+	/// This page is used by the driver for various temporary data storage and operations.
+	// Block Logic: Create a kernel buffer object for the scratch memory.
 	return amdgpu_bo_create_kernel(adev, AMDGPU_GPU_PAGE_SIZE, PAGE_SIZE,
 				       AMDGPU_GEM_DOMAIN_VRAM |
 				       AMDGPU_GEM_DOMAIN_GTT,
@@ -1487,6 +1750,8 @@ static int amdgpu_device_mem_scratch_init(struct amdgpu_device *adev)
  */
 static void amdgpu_device_mem_scratch_fini(struct amdgpu_device *adev)
 {
+	/// Functional Utility: Frees the VRAM scratch page previously allocated for the AMDGPU device.
+	/// This is called during driver shutdown to release resources.
 	amdgpu_bo_free_kernel(&adev->mem_scratch.robj, NULL, NULL);
 }
 
@@ -1504,22 +1769,30 @@ void amdgpu_device_program_register_sequence(struct amdgpu_device *adev,
 					     const u32 *registers,
 					     const u32 array_size)
 {
+	/// Functional Utility: Programs a sequence of GPU registers using provided masks.
+	/// This function is primarily used for setting "golden registers" during ASIC initialization
+	/// to configure the hardware to a known good state.
 	u32 tmp, reg, and_mask, or_mask;
 	int i;
 
+	// Conditional Logic: Ensure the array size is a multiple of 3 (reg, and_mask, or_mask).
 	if (array_size % 3)
 		return;
 
+	// Block Logic: Iterate through the array, programming registers in groups of three (reg, and_mask, or_mask).
 	for (i = 0; i < array_size; i += 3) {
 		reg = registers[i + 0];
 		and_mask = registers[i + 1];
 		or_mask = registers[i + 2];
 
+		// Conditional Logic: If the and_mask is full, directly write the or_mask.
 		if (and_mask == 0xffffffff) {
 			tmp = or_mask;
 		} else {
+			// Block Logic: Read the current register value, apply the masks, and write back.
 			tmp = RREG32(reg);
 			tmp &= ~and_mask;
+			// Conditional Logic: Handle family-specific masking behavior.
 			if (adev->family >= AMDGPU_FAMILY_AI)
 				tmp |= (or_mask & and_mask);
 			else
@@ -1539,6 +1812,8 @@ void amdgpu_device_program_register_sequence(struct amdgpu_device *adev,
  */
 void amdgpu_device_pci_config_reset(struct amdgpu_device *adev)
 {
+	/// Functional Utility: Resets the GPU by writing a specific value to the PCI configuration space.
+	/// This method provides a hardware-level reset for older ASICs (prior to Vega10).
 	pci_write_config_dword(adev->pdev, 0x7c, AMDGPU_ASIC_RESET_DATA);
 }
 
@@ -1551,6 +1826,8 @@ void amdgpu_device_pci_config_reset(struct amdgpu_device *adev)
  */
 int amdgpu_device_pci_reset(struct amdgpu_device *adev)
 {
+	/// Functional Utility: Resets the GPU using generic PCI reset interfaces (e.g., FLR, SBR).
+	/// This function provides a standardized way to perform a software-initiated reset of the PCI device.
 	return pci_reset_function(adev->pdev);
 }
 
@@ -1570,6 +1847,8 @@ int amdgpu_device_pci_reset(struct amdgpu_device *adev)
  */
 static void amdgpu_device_wb_fini(struct amdgpu_device *adev)
 {
+	/// Functional Utility: Disables writeback and frees the associated memory.
+	/// This function is typically called during driver shutdown to release resources used for GPU writeback operations.
 	if (adev->wb.wb_obj) {
 		amdgpu_bo_free_kernel(&adev->wb.wb_obj,
 				      &adev->wb.gpu_addr,
@@ -1589,6 +1868,8 @@ static void amdgpu_device_wb_fini(struct amdgpu_device *adev)
  */
 static int amdgpu_device_wb_init(struct amdgpu_device *adev)
 {
+	/// Functional Utility: Initializes the writeback driver info and allocates memory for writeback operations.
+	/// This function sets up resources used by the GPU to update special pages in memory (e.g., fences, ring pointers).
 	int r;
 
 	if (adev->wb.wb_obj == NULL) {
@@ -1623,6 +1904,8 @@ static int amdgpu_device_wb_init(struct amdgpu_device *adev)
  */
 int amdgpu_device_wb_get(struct amdgpu_device *adev, u32 *wb)
 {
+	/// Functional Utility: Allocates a writeback (WB) slot for use by the driver.
+	/// This function finds an available WB entry and marks it as used, providing a unique index for GPU writeback operations.
 	unsigned long flags, offset;
 
 	spin_lock_irqsave(&adev->wb.lock, flags);
@@ -1648,6 +1931,8 @@ int amdgpu_device_wb_get(struct amdgpu_device *adev, u32 *wb)
  */
 void amdgpu_device_wb_free(struct amdgpu_device *adev, u32 wb)
 {
+	/// Functional Utility: Frees a previously allocated writeback (WB) slot.
+	/// This function marks the WB entry as unused, making it available for future allocations.
 	unsigned long flags;
 
 	wb >>= 3;
@@ -1668,6 +1953,8 @@ void amdgpu_device_wb_free(struct amdgpu_device *adev, u32 wb)
  */
 int amdgpu_device_resize_fb_bar(struct amdgpu_device *adev)
 {
+	/// Functional Utility: Attempts to resize the Frame Buffer (FB) BAR (Base Address Register) to make all VRAM CPU accessible.
+	/// This is crucial for enabling large memory aperture features and optimizing VRAM access.
 	int rbar_size = pci_rebar_bytes_to_size(adev->gmc.real_vram_size);
 	struct pci_bus *root;
 	struct resource *res;
@@ -1675,17 +1962,21 @@ int amdgpu_device_resize_fb_bar(struct amdgpu_device *adev)
 	u16 cmd;
 	int r;
 
+	// Conditional Logic: Return if 64-bit physical address support is not enabled.
 	if (!IS_ENABLED(CONFIG_PHYS_ADDR_T_64BIT))
 		return 0;
 
 	/* Bypass for VF */
+	// Conditional Logic: Bypass if in SR-IOV virtual function mode.
 	if (amdgpu_sriov_vf(adev))
 		return 0;
 
+	// Conditional Logic: Return if rebar is disabled by module parameter.
 	if (!amdgpu_rebar)
 		return 0;
 
 	/* resizing on Dell G5 SE platforms causes problems with runtime pm */
+	// Conditional Logic: Apply a quirk to skip resizing on specific Dell platforms with runtime PM enabled.
 	if ((amdgpu_runtime_pm != 0) &&
 	    adev->pdev->vendor == PCI_VENDOR_ID_ATI &&
 	    adev->pdev->device == 0x731f &&
@@ -1693,19 +1984,23 @@ int amdgpu_device_resize_fb_bar(struct amdgpu_device *adev)
 		return 0;
 
 	/* PCI_EXT_CAP_ID_VNDR extended capability is located at 0x100 */
+	// Conditional Logic: Warn if extended configuration space is not accessible.
 	if (!pci_find_ext_capability(adev->pdev, PCI_EXT_CAP_ID_VNDR))
 		DRM_WARN("System can't access extended configuration space, please check!!\n");
 
 	/* skip if the bios has already enabled large BAR */
+	// Conditional Logic: Skip if the VBIOS has already configured a large BAR.
 	if (adev->gmc.real_vram_size &&
 	    (pci_resource_len(adev->pdev, 0) >= adev->gmc.real_vram_size))
 		return 0;
 
 	/* Check if the root BUS has 64bit memory resources */
+	// Block Logic: Traverse up the PCI bus hierarchy to find the root bus.
 	root = adev->pdev->bus;
 	while (root->parent)
 		root = root->parent;
 
+	// Block Logic: Iterate through root bus resources to find a 64-bit memory resource above 4GB.
 	pci_bus_for_each_resource(root, res, i) {
 		if (res && res->flags & (IORESOURCE_MEM | IORESOURCE_MEM_64) &&
 		    res->start > 0x100000000ull)
@@ -1713,40 +2008,50 @@ int amdgpu_device_resize_fb_bar(struct amdgpu_device *adev)
 	}
 
 	/* Trying to resize is pointless without a root hub window above 4GB */
+	// Conditional Logic: Return if no 64-bit memory resource above 4GB is found on the root bus.
 	if (!res)
 		return 0;
 
 	/* Limit the BAR size to what is available */
+	// Block Logic: Limit the requested BAR size to what the PCI device can support.
 	rbar_size = min(fls(pci_rebar_get_possible_sizes(adev->pdev, 0)) - 1,
 			rbar_size);
 
 	/* Disable memory decoding while we change the BAR addresses and size */
+	// Block Logic: Disable memory decoding on the PCI device.
 	pci_read_config_word(adev->pdev, PCI_COMMAND, &cmd);
 	pci_write_config_word(adev->pdev, PCI_COMMAND,
 			      cmd & ~PCI_COMMAND_MEMORY);
 
 	/* Free the VRAM and doorbell BAR, we most likely need to move both. */
+	// Block Logic: Free doorbell and VRAM BAR resources.
 	amdgpu_doorbell_fini(adev);
 	if (adev->asic_type >= CHIP_BONAIRE)
 		pci_release_resource(adev->pdev, 2);
 
 	pci_release_resource(adev->pdev, 0);
 
+	// Block Logic: Attempt to resize BAR0.
 	r = pci_resize_resource(adev->pdev, 0, rbar_size);
+	// Conditional Logic: Log messages based on resize outcome.
 	if (r == -ENOSPC)
 		DRM_INFO("Not enough PCI address space for a large BAR.");
 	else if (r && r != -ENOTSUPP)
 		DRM_ERROR("Problem resizing BAR0 (%d).", r);
 
+	// Block Logic: Assign unassigned bus resources.
 	pci_assign_unassigned_bus_resources(adev->pdev->bus);
 
 	/* When the doorbell or fb BAR isn't available we have no chance of
 	 * using the device.
 	 */
+	// Block Logic: Initialize the doorbell and check if BARs are correctly assigned.
 	r = amdgpu_doorbell_init(adev);
+	// Conditional Logic: If doorbell initialization fails or BARs are unassigned, return error.
 	if (r || (pci_resource_flags(adev->pdev, 0) & IORESOURCE_UNSET))
 		return -ENODEV;
 
+	// Block Logic: Re-enable memory decoding on the PCI device.
 	pci_write_config_word(adev->pdev, PCI_COMMAND, cmd);
 
 	return 0;
@@ -1766,17 +2071,22 @@ int amdgpu_device_resize_fb_bar(struct amdgpu_device *adev)
  */
 bool amdgpu_device_need_post(struct amdgpu_device *adev)
 {
+	/// Functional Utility: Checks if a hardware "post" (power-on self-test equivalent) is required for the GPU.
+	/// This determines whether VBIOS initialization and display setup steps are needed during driver startup or after a hardware reset.
 	uint32_t reg, flags;
 
+	// Conditional Logic: If in SR-IOV virtual function mode, VBIOS post is not needed.
 	if (amdgpu_sriov_vf(adev))
 		return false;
 
 	flags = amdgpu_device_get_vbios_flags(adev);
+	// Conditional Logic: Skip VBIOS post if the VBIOS is explicitly skipped or optional and not present.
 	if (flags & AMDGPU_VBIOS_SKIP)
 		return false;
 	if ((flags & AMDGPU_VBIOS_OPTIONAL) && !adev->bios)
 		return false;
 
+	// Conditional Logic: Handle passthrough virtualization cases for specific ASICs (e.g., FIJI).
 	if (amdgpu_passthrough(adev)) {
 		/* for FIJI: In whole GPU pass-through virtualization case, after VM reboot
 		 * some old smc fw still need driver do vPost otherwise gpu hang, while
@@ -1787,8 +2097,10 @@ bool amdgpu_device_need_post(struct amdgpu_device *adev)
 			int err;
 			uint32_t fw_ver;
 
+			// Block Logic: Request firmware for SMC and check its version.
 			err = request_firmware(&adev->pm.fw, "amdgpu/fiji_smc.bin", adev->dev);
 			/* force vPost if error occurred */
+			// Conditional Logic: Force VBIOS post if firmware request fails or firmware version is old.
 			if (err)
 				return true;
 
@@ -1800,21 +2112,26 @@ bool amdgpu_device_need_post(struct amdgpu_device *adev)
 	}
 
 	/* Don't post if we need to reset whole hive on init */
+	// Conditional Logic: Don't post if the initialization level is minimal for XGMI reset.
 	if (adev->init_lvl->level == AMDGPU_INIT_LEVEL_MINIMAL_XGMI)
 		return false;
 
+	// Conditional Logic: If a hardware reset has occurred, then post is needed.
 	if (adev->has_hw_reset) {
 		adev->has_hw_reset = false;
 		return true;
 	}
 
 	/* bios scratch used on CIK+ */
+	// Conditional Logic: For CIK+ ASICs, check if VBIOS scratch registers indicate a need for ASIC init.
 	if (adev->asic_type >= CHIP_BONAIRE)
 		return amdgpu_atombios_scratch_need_asic_init(adev);
 
 	/* check MEM_SIZE for older asics */
+	// Block Logic: For older ASICs, read MEM_SIZE register to check initialization status.
 	reg = amdgpu_asic_get_config_memsize(adev);
 
+	// Conditional Logic: If MEM_SIZE is valid, then ASIC is considered initialized.
 	if ((reg != 0) && (reg != 0xffffffff))
 		return false;
 
@@ -1830,6 +2147,8 @@ bool amdgpu_device_need_post(struct amdgpu_device *adev)
  */
 bool amdgpu_device_seamless_boot_supported(struct amdgpu_device *adev)
 {
+	/// This determines whether VBIOS initialization and display setup steps are needed during driver startup or after a hardware reset.
+	// Block Logic: Use a switch statement to handle different values of `amdgpu_seamless` module parameter.
 	switch (amdgpu_seamless) {
 	case -1:
 		break;
@@ -1843,12 +2162,15 @@ bool amdgpu_device_seamless_boot_supported(struct amdgpu_device *adev)
 		return false;
 	}
 
+	// Conditional Logic: Seamless boot is not supported for APUs.
 	if (!(adev->flags & AMD_IS_APU))
 		return false;
 
+	// Conditional Logic: Seamless boot is not supported if stolen VGA memory is kept.
 	if (adev->mman.keep_stolen_vga_memory)
 		return false;
 
+	// Conditional Logic: Seamless boot is supported only on DCE 3.0 or later IP versions.
 	return amdgpu_ip_version(adev, DCE_HWIP, 0) >= IP_VERSION(3, 0, 0);
 }
 
@@ -1862,13 +2184,17 @@ bool amdgpu_device_seamless_boot_supported(struct amdgpu_device *adev)
  */
 static bool amdgpu_device_pcie_dynamic_switching_supported(struct amdgpu_device *adev)
 {
+	/// Functional Utility: Checks if dynamic PCIe speed switching is supported for the AMDGPU device.
+	/// This function implements quirks and checks for specific CPU vendors (e.g., Intel) that may not support dynamic speed changes.
 #if IS_ENABLED(CONFIG_X86)
 	struct cpuinfo_x86 *c = &cpu_data(0);
 
 	/* eGPU change speeds based on USB4 fabric conditions */
+	// Conditional Logic: eGPUs always support dynamic switching.
 	if (dev_is_removable(adev->dev))
 		return true;
 
+	// Conditional Logic: Intel hosts currently do not support dynamic switching due to known issues.
 	if (c->x86_vendor == X86_VENDOR_INTEL)
 		return false;
 #endif
@@ -1877,15 +2203,20 @@ static bool amdgpu_device_pcie_dynamic_switching_supported(struct amdgpu_device 
 
 static bool amdgpu_device_aspm_support_quirk(struct amdgpu_device *adev)
 {
+	/// Functional Utility: Implements a quirk to determine if ASPM (Active State Power Management) should be disabled
+	/// due to compatibility issues with specific Intel host CPUs and AMDGPU versions.
 #if IS_ENABLED(CONFIG_X86)
 	struct cpuinfo_x86 *c = &cpu_data(0);
 
+	// Conditional Logic: Apply quirk only for specific GC IP versions (12.0.0 or 12.0.1).
 	if (!(amdgpu_ip_version(adev, GC_HWIP, 0) == IP_VERSION(12, 0, 0) ||
 		  amdgpu_ip_version(adev, GC_HWIP, 0) == IP_VERSION(12, 0, 1)))
 		return false;
 
+	// Conditional Logic: Check if CPU is Intel (family 6) and PCIe gen mask supports Gen5.
 	if (c->x86 == 6 &&
 		adev->pm.pcie_gen_mask & CAIL_PCIE_LINK_SPEED_SUPPORT_GEN5) {
+		// Block Logic: Use a switch statement to check for specific Intel Alder Lake/Raptor Lake models.
 		switch (c->x86_model) {
 		case VFM_MODEL(INTEL_ALDERLAKE):
 		case VFM_MODEL(INTEL_ALDERLAKE_L):
@@ -1916,6 +2247,9 @@ static bool amdgpu_device_aspm_support_quirk(struct amdgpu_device *adev)
  */
 bool amdgpu_device_should_use_aspm(struct amdgpu_device *adev)
 {
+	/// Functional Utility: Determines if ASPM (Active State Power Management) should be programmed for the AMDGPU device.
+	/// It considers module parameters, device type, and specific hardware quirks to make this decision.
+	// Block Logic: Use a switch statement to interpret the `amdgpu_aspm` module parameter.
 	switch (amdgpu_aspm) {
 	case -1:
 		break;
@@ -1926,10 +2260,13 @@ bool amdgpu_device_should_use_aspm(struct amdgpu_device *adev)
 	default:
 		return false;
 	}
+	// Conditional Logic: ASPM is not used for APU devices.
 	if (adev->flags & AMD_IS_APU)
 		return false;
+	// Conditional Logic: Return false if specific ASPM support quirks are active.
 	if (amdgpu_device_aspm_support_quirk(adev))
 		return false;
+	// Block Logic: Otherwise, check if ASPM is enabled by the PCIe bridge.
 	return pcie_aspm_enabled(adev->pdev);
 }
 
@@ -1946,9 +2283,12 @@ bool amdgpu_device_should_use_aspm(struct amdgpu_device *adev)
 static unsigned int amdgpu_device_vga_set_decode(struct pci_dev *pdev,
 		bool state)
 {
+	/// Functional Utility: Enables or disables VGA decode for the AMDGPU device.
+	/// This function controls whether the GPU handles legacy VGA I/O and memory ranges.
 	struct amdgpu_device *adev = drm_to_adev(pci_get_drvdata(pdev));
 
 	amdgpu_asic_set_vga_state(adev, state);
+	// Conditional Logic: Return appropriate VGA resource flags based on the `state`.
 	if (state)
 		return VGA_RSRC_LEGACY_IO | VGA_RSRC_LEGACY_MEM |
 		       VGA_RSRC_NORMAL_IO | VGA_RSRC_NORMAL_MEM;
@@ -1968,13 +2308,18 @@ static unsigned int amdgpu_device_vga_set_decode(struct pci_dev *pdev,
  */
 static void amdgpu_device_check_block_size(struct amdgpu_device *adev)
 {
+	/// Functional Utility: Validates the VM block size configured via a module parameter.
+	/// This function ensures that the VM block size (which defines bits in page table vs. page directory)
+	/// is within acceptable limits to prevent invalid memory management configurations.
 	/* defines number of bits in page table versus page directory,
 	 * a page is 4KB so we have 12 bits offset, minimum 9 bits in the
 	 * page table and the remaining bits are in the page directory
 	 */
+	// Conditional Logic: Return if the VM block size is at its default value.
 	if (amdgpu_vm_block_size == -1)
 		return;
 
+	// Conditional Logic: Warn and reset VM block size if it's too small.
 	if (amdgpu_vm_block_size < 9) {
 		dev_warn(adev->dev, "VM page table size (%d) too small\n",
 			 amdgpu_vm_block_size);
@@ -1992,10 +2337,13 @@ static void amdgpu_device_check_block_size(struct amdgpu_device *adev)
  */
 static void amdgpu_device_check_vm_size(struct amdgpu_device *adev)
 {
+	/// This function ensures that the configured VM size is within acceptable bounds to prevent resource allocation issues.
 	/* no need to check the default value */
+	// Conditional Logic: Return if the VM size is at its default value.
 	if (amdgpu_vm_size == -1)
 		return;
 
+	// Conditional Logic: Warn and reset VM size if it's too small.
 	if (amdgpu_vm_size < 1) {
 		dev_warn(adev->dev, "VM size (%d) too small, min is 1GB\n",
 			 amdgpu_vm_size);
@@ -2005,22 +2353,27 @@ static void amdgpu_device_check_vm_size(struct amdgpu_device *adev)
 
 static void amdgpu_device_check_smu_prv_buffer_size(struct amdgpu_device *adev)
 {
+	/// is within acceptable limits to prevent invalid memory management configurations.
 	struct sysinfo si;
 	bool is_os_64 = (sizeof(void *) == 8);
 	uint64_t total_memory;
 	uint64_t dram_size_seven_GB = 0x1B8000000;
 	uint64_t dram_size_three_GB = 0xB8000000;
 
+	// Conditional Logic: Return if SMU memory pool size is 0.
 	if (amdgpu_smu_memory_pool_size == 0)
 		return;
 
+	// Conditional Logic: Warn and fallback if OS is not 64-bit.
 	if (!is_os_64) {
 		DRM_WARN("Not 64-bit OS, feature not supported\n");
 		goto def_value;
 	}
+	// Block Logic: Get total system memory.
 	si_meminfo(&si);
 	total_memory = (uint64_t)si.totalram * si.mem_unit;
 
+	// Conditional Logic: Check if system memory is sufficient for the requested SMU memory pool size.
 	if ((amdgpu_smu_memory_pool_size == 1) ||
 		(amdgpu_smu_memory_pool_size == 2)) {
 		if (total_memory < dram_size_three_GB)
@@ -2033,11 +2386,13 @@ static void amdgpu_device_check_smu_prv_buffer_size(struct amdgpu_device *adev)
 		DRM_WARN("Smu memory pool size not supported\n");
 		goto def_value;
 	}
+	// Block Logic: Set the SMU private buffer size based on the valid module parameter.
 	adev->pm.smu_prv_buffer_size = amdgpu_smu_memory_pool_size << 28;
 
 	return;
 
 def_value1:
+	// Error Handling: Warn about insufficient system memory and set SMU private buffer size to 0.
 	DRM_WARN("No enough system memory\n");
 def_value:
 	adev->pm.smu_prv_buffer_size = 0;
@@ -2045,10 +2400,14 @@ def_value:
 
 static int amdgpu_device_init_apu_flags(struct amdgpu_device *adev)
 {
+	/// Functional Utility: Initializes APU-specific flags based on the device's ASIC type and PCI device ID.
+	/// This function helps in distinguishing different APU generations and variants (e.g., Raven, Picasso, Renoir).
+	// Conditional Logic: Return if the device is not an APU or ASIC type is older than Raven.
 	if (!(adev->flags & AMD_IS_APU) ||
 	    adev->asic_type < CHIP_RAVEN)
 		return 0;
 
+	// Block Logic: Use a switch statement to set APU-specific flags based on ASIC type and PCI device ID.
 	switch (adev->asic_type) {
 	case CHIP_RAVEN:
 		if (adev->pdev->device == 0x15dd)
@@ -2090,8 +2449,11 @@ static int amdgpu_device_init_apu_flags(struct amdgpu_device *adev)
  */
 static int amdgpu_device_check_arguments(struct amdgpu_device *adev)
 {
+	/// Functional Utility: Validates and adjusts various module parameters (e.g., scheduler jobs, GART size, VM fragment size)
+	/// to ensure they are within acceptable ranges for the AMDGPU driver.
 	int i;
 
+	// Conditional Logic: Validate `amdgpu_sched_jobs` parameter.
 	if (amdgpu_sched_jobs < 4) {
 		dev_warn(adev->dev, "sched jobs (%d) must be at least 4\n",
 			 amdgpu_sched_jobs);
@@ -2102,6 +2464,7 @@ static int amdgpu_device_check_arguments(struct amdgpu_device *adev)
 		amdgpu_sched_jobs = roundup_pow_of_two(amdgpu_sched_jobs);
 	}
 
+	// Conditional Logic: Validate `amdgpu_gart_size` parameter.
 	if (amdgpu_gart_size != -1 && amdgpu_gart_size < 32) {
 		/* gart size must be greater or equal to 32M */
 		dev_warn(adev->dev, "gart size (%d) too small\n",
@@ -2109,6 +2472,7 @@ static int amdgpu_device_check_arguments(struct amdgpu_device *adev)
 		amdgpu_gart_size = -1;
 	}
 
+	// Conditional Logic: Validate `amdgpu_gtt_size` parameter.
 	if (amdgpu_gtt_size != -1 && amdgpu_gtt_size < 32) {
 		/* gtt size must be greater or equal to 32M */
 		dev_warn(adev->dev, "gtt size (%d) too small\n",
@@ -2117,12 +2481,14 @@ static int amdgpu_device_check_arguments(struct amdgpu_device *adev)
 	}
 
 	/* valid range is between 4 and 9 inclusive */
+	// Conditional Logic: Validate `amdgpu_vm_fragment_size` parameter.
 	if (amdgpu_vm_fragment_size != -1 &&
 	    (amdgpu_vm_fragment_size > 9 || amdgpu_vm_fragment_size < 4)) {
 		dev_warn(adev->dev, "valid range is between 4 and 9\n");
 		amdgpu_vm_fragment_size = -1;
 	}
 
+	// Conditional Logic: Validate `amdgpu_sched_hw_submission` parameter.
 	if (amdgpu_sched_hw_submission < 2) {
 		dev_warn(adev->dev, "sched hw submission jobs (%d) must be at least 2\n",
 			 amdgpu_sched_hw_submission);
@@ -2133,19 +2499,25 @@ static int amdgpu_device_check_arguments(struct amdgpu_device *adev)
 		amdgpu_sched_hw_submission = roundup_pow_of_two(amdgpu_sched_hw_submission);
 	}
 
+	// Conditional Logic: Validate `amdgpu_reset_method` parameter.
 	if (amdgpu_reset_method < -1 || amdgpu_reset_method > 4) {
 		dev_warn(adev->dev, "invalid option for reset method, reverting to default\n");
 		amdgpu_reset_method = -1;
 	}
 
+	// Block Logic: Check and set SMU private buffer size.
 	amdgpu_device_check_smu_prv_buffer_size(adev);
 
+	// Block Logic: Check and set VM size.
 	amdgpu_device_check_vm_size(adev);
 
+	// Block Logic: Check and set VM block size.
 	amdgpu_device_check_block_size(adev);
 
+	// Block Logic: Determine firmware load type.
 	adev->firmware.load_type = amdgpu_ucode_get_load_type(adev, amdgpu_fw_load_type);
 
+	// Block Logic: Configure isolation enforcement based on module parameter.
 	for (i = 0; i < MAX_XCP; i++) {
 		switch (amdgpu_enforce_isolation) {
 		case -1:
@@ -2187,34 +2559,52 @@ static int amdgpu_device_check_arguments(struct amdgpu_device *adev)
 static void amdgpu_switcheroo_set_state(struct pci_dev *pdev,
 					enum vga_switcheroo_state state)
 {
+	/// Functional Utility: Sets the power state of the AMDGPU device when operating in a hybrid graphics environment (vga_switcheroo).
+	/// This function handles suspending or resuming the ASIC based on the requested switcheroo state.
 	struct drm_device *dev = pci_get_drvdata(pdev);
 	int r;
 
+	// Conditional Logic: If PX is supported and state is OFF, simply return.
 	if (amdgpu_device_supports_px(dev) && state == VGA_SWITCHEROO_OFF)
 		return;
 
+	// Conditional Logic: Handle "ON" state (resuming the device).
 	if (state == VGA_SWITCHEROO_ON) {
 		pr_info("switched on\n");
 		/* don't suspend or resume card normally */
+		// Block Logic: Set power state to changing.
 		dev->switch_power_state = DRM_SWITCH_POWER_CHANGING;
 
+		// Block Logic: Set PCI power state to D0 (full power).
 		pci_set_power_state(pdev, PCI_D0);
+		// Block Logic: Load saved PCI state.
 		amdgpu_device_load_pci_state(pdev);
+		// Block Logic: Enable the PCI device.
 		r = pci_enable_device(pdev);
+		// Conditional Logic: Warn if PCI device enabling fails.
 		if (r)
 			DRM_WARN("pci_enable_device failed (%d)\n", r);
+		// Block Logic: Resume the AMDGPU device.
 		amdgpu_device_resume(dev, true);
 
+		// Block Logic: Set power state to ON.
 		dev->switch_power_state = DRM_SWITCH_POWER_ON;
 	} else {
 		pr_info("switched off\n");
+		// Block Logic: Set power state to changing.
 		dev->switch_power_state = DRM_SWITCH_POWER_CHANGING;
+		// Block Logic: Prepare the AMDGPU device for suspend.
 		amdgpu_device_prepare(dev);
+		// Block Logic: Suspend the AMDGPU device.
 		amdgpu_device_suspend(dev, true);
+		// Block Logic: Cache the current PCI state.
 		amdgpu_device_cache_pci_state(pdev);
 		/* Shut down the device */
+		// Block Logic: Disable the PCI device.
 		pci_disable_device(pdev);
+		// Block Logic: Set PCI power state to D3cold (deepest sleep).
 		pci_set_power_state(pdev, PCI_D3cold);
+		// Block Logic: Set power state to OFF.
 		dev->switch_power_state = DRM_SWITCH_POWER_OFF;
 	}
 }
@@ -2230,6 +2620,8 @@ static void amdgpu_switcheroo_set_state(struct pci_dev *pdev,
  */
 static bool amdgpu_switcheroo_can_switch(struct pci_dev *pdev)
 {
+	/// Functional Utility: Checks if the AMDGPU device can be safely switched in a hybrid graphics environment.
+	/// This function verifies that no applications are currently using the DRM device before allowing a switch.
 	struct drm_device *dev = pci_get_drvdata(pdev);
 
        /*
@@ -2237,6 +2629,7 @@ static bool amdgpu_switcheroo_can_switch(struct pci_dev *pdev)
 	* locking inversion with the driver load path. And the access here is
 	* completely racy anyway. So don't bother with locking for now.
 	*/
+	// Block Logic: Return true if the DRM device has no open file handles (i.e., not in use by any application).
 	return atomic_read(&dev->open_count) == 0;
 }
 
@@ -2261,18 +2654,26 @@ int amdgpu_device_ip_set_clockgating_state(void *dev,
 					   enum amd_ip_block_type block_type,
 					   enum amd_clockgating_state state)
 {
+	/// Functional Utility: Sets the clockgating state (gate or ungate) for all instances of a specific hardware IP block.
+	/// This function iterates through registered IP blocks and applies the requested clockgating state to optimize power consumption.
 	struct amdgpu_device *adev = dev;
 	int i, r = 0;
 
+	// Block Logic: Iterate through all IP blocks on the device.
 	for (i = 0; i < adev->num_ip_blocks; i++) {
+		// Conditional Logic: Skip invalid IP blocks.
 		if (!adev->ip_blocks[i].status.valid)
 			continue;
+		// Conditional Logic: Skip IP blocks that are not of the specified `block_type`.
 		if (adev->ip_blocks[i].version->type != block_type)
 			continue;
+		// Conditional Logic: Skip IP blocks that do not have a `set_clockgating_state` function.
 		if (!adev->ip_blocks[i].version->funcs->set_clockgating_state)
 			continue;
+		// Block Logic: Call the IP block's `set_clockgating_state` function.
 		r = adev->ip_blocks[i].version->funcs->set_clockgating_state(
 			&adev->ip_blocks[i], state);
+		// Conditional Logic: Log an error if clockgating state setting fails.
 		if (r)
 			DRM_ERROR("set_clockgating_state of IP block <%s> failed %d\n",
 				  adev->ip_blocks[i].version->funcs->name, r);
@@ -2295,18 +2696,26 @@ int amdgpu_device_ip_set_powergating_state(void *dev,
 					   enum amd_ip_block_type block_type,
 					   enum amd_powergating_state state)
 {
+	/// Functional Utility: Sets the powergating state (gate or ungate) for all instances of a specific hardware IP block.
+	/// This function iterates through registered IP blocks and applies the requested powergating state for aggressive power savings.
 	struct amdgpu_device *adev = dev;
 	int i, r = 0;
 
+	// Block Logic: Iterate through all IP blocks on the device.
 	for (i = 0; i < adev->num_ip_blocks; i++) {
+		// Conditional Logic: Skip invalid IP blocks.
 		if (!adev->ip_blocks[i].status.valid)
 			continue;
+		// Conditional Logic: Skip IP blocks that are not of the specified `block_type`.
 		if (adev->ip_blocks[i].version->type != block_type)
 			continue;
+		// Conditional Logic: Skip IP blocks that do not have a `set_powergating_state` function.
 		if (!adev->ip_blocks[i].version->funcs->set_powergating_state)
 			continue;
+		// Block Logic: Call the IP block's `set_powergating_state` function.
 		r = adev->ip_blocks[i].version->funcs->set_powergating_state(
 			&adev->ip_blocks[i], state);
+		// Conditional Logic: Log an error if powergating state setting fails.
 		if (r)
 			DRM_ERROR("set_powergating_state of IP block <%s> failed %d\n",
 				  adev->ip_blocks[i].version->funcs->name, r);
@@ -2328,11 +2737,16 @@ int amdgpu_device_ip_set_powergating_state(void *dev,
 void amdgpu_device_ip_get_clockgating_state(struct amdgpu_device *adev,
 					    u64 *flags)
 {
+	/// Functional Utility: Retrieves the current clockgating state for all IP blocks on the device.
+	/// It walks the list of IP blocks and updates a bitmask (`flags`) to indicate which IPs have clockgating enabled.
 	int i;
 
+	// Block Logic: Iterate through all IP blocks on the device.
 	for (i = 0; i < adev->num_ip_blocks; i++) {
+		// Conditional Logic: Skip invalid IP blocks.
 		if (!adev->ip_blocks[i].status.valid)
 			continue;
+		// Conditional Logic: If the IP block has a `get_clockgating_state` function, call it.
 		if (adev->ip_blocks[i].version->funcs->get_clockgating_state)
 			adev->ip_blocks[i].version->funcs->get_clockgating_state(
 				&adev->ip_blocks[i], flags);
@@ -2351,18 +2765,26 @@ void amdgpu_device_ip_get_clockgating_state(struct amdgpu_device *adev,
 int amdgpu_device_ip_wait_for_idle(struct amdgpu_device *adev,
 				   enum amd_ip_block_type block_type)
 {
+	/// Functional Utility: Waits for a specific hardware IP block to become idle.
+	/// This is used to ensure that a hardware block has completed all its pending operations before proceeding with further commands.
 	int i, r;
 
+	// Block Logic: Iterate through all IP blocks on the device.
 	for (i = 0; i < adev->num_ip_blocks; i++) {
+		// Conditional Logic: Skip invalid IP blocks.
 		if (!adev->ip_blocks[i].status.valid)
 			continue;
+		// Conditional Logic: If the IP block matches the specified `block_type`.
 		if (adev->ip_blocks[i].version->type == block_type) {
+			// Conditional Logic: If the IP block has a `wait_for_idle` function, call it.
 			if (adev->ip_blocks[i].version->funcs->wait_for_idle) {
 				r = adev->ip_blocks[i].version->funcs->wait_for_idle(
 								&adev->ip_blocks[i]);
+				// Conditional Logic: Return error if `wait_for_idle` fails.
 				if (r)
 					return r;
 			}
+			// Block Logic: Break loop once the target IP block is found and processed.
 			break;
 		}
 	}
@@ -2382,15 +2804,18 @@ int amdgpu_device_ip_wait_for_idle(struct amdgpu_device *adev,
 bool amdgpu_device_ip_is_valid(struct amdgpu_device *adev,
 			       enum amd_ip_block_type block_type)
 {
-	int i;
-
-	for (i = 0; i < adev->num_ip_blocks; i++) {
-		if (adev->ip_blocks[i].version->type == block_type)
-			return adev->ip_blocks[i].status.valid;
+	/// Functional Utility: Checks if a specific hardware IP block is enabled and valid on the AMDGPU device.
+	/// This function can be used to query the availability of a particular hardware component.
+		int i;
+	
+		// Block Logic: Iterate through all IP blocks on the device.
+		for (i = 0; i < adev->num_ip_blocks; i++) {
+			// Conditional Logic: If the IP block matches the specified `block_type`, return its validity status.
+			if (adev->ip_blocks[i].version->type == block_type)
+				return adev->ip_blocks[i].status.valid;
+		}
+		return false;
 	}
-	return false;
-
-}
 
 /**
  * amdgpu_device_ip_get_ip_block - get a hw IP pointer
@@ -2405,9 +2830,13 @@ struct amdgpu_ip_block *
 amdgpu_device_ip_get_ip_block(struct amdgpu_device *adev,
 			      enum amd_ip_block_type type)
 {
+	/// Functional Utility: Retrieves a pointer to a specific hardware IP block structure.
+	/// This allows direct access to the functions and status of a particular IP block.
 	int i;
 
+	// Block Logic: Iterate through all IP blocks on the device.
 	for (i = 0; i < adev->num_ip_blocks; i++)
+		// Conditional Logic: If the IP block matches the specified `type`, return its pointer.
 		if (adev->ip_blocks[i].version->type == type)
 			return &adev->ip_blocks[i];
 
@@ -2429,8 +2858,11 @@ int amdgpu_device_ip_block_version_cmp(struct amdgpu_device *adev,
 				       enum amd_ip_block_type type,
 				       u32 major, u32 minor)
 {
+	/// Functional Utility: Compares the version of a given IP block with a specified major and minor version.
+	/// This function helps in determining hardware capabilities and applying version-specific workarounds or features.
 	struct amdgpu_ip_block *ip_block = amdgpu_device_ip_get_ip_block(adev, type);
 
+	// Conditional Logic: If the IP block exists and its version is greater than or equal to the specified version, return 0.
 	if (ip_block && ((ip_block->version->major > major) ||
 			((ip_block->version->major == major) &&
 			(ip_block->version->minor >= minor))))
@@ -2451,15 +2883,20 @@ int amdgpu_device_ip_block_version_cmp(struct amdgpu_device *adev,
 int amdgpu_device_ip_block_add(struct amdgpu_device *adev,
 			       const struct amdgpu_ip_block_version *ip_block_version)
 {
+	/// Functional Utility: Adds a hardware IP block's driver information to the AMDGPU device's collection of IPs.
+	/// This function registers new hardware components, handling harvest masks for certain block types.
 	if (!ip_block_version)
 		return -EINVAL;
 
+	// Block Logic: Handle harvest masks for specific IP block types.
 	switch (ip_block_version->type) {
 	case AMD_IP_BLOCK_TYPE_VCN:
+		// Conditional Logic: If VCN block is harvested, do not add it.
 		if (adev->harvest_ip_mask & AMD_HARVEST_IP_VCN_MASK)
 			return 0;
 		break;
 	case AMD_IP_BLOCK_TYPE_JPEG:
+		// Conditional Logic: If JPEG block is harvested, do not add it.
 		if (adev->harvest_ip_mask & AMD_HARVEST_IP_JPEG_MASK)
 			return 0;
 		break;
@@ -2467,11 +2904,14 @@ int amdgpu_device_ip_block_add(struct amdgpu_device *adev,
 		break;
 	}
 
+	// Block Logic: Log information about the detected IP block.
 	dev_info(adev->dev, "detected ip block number %d <%s>\n",
 		 adev->num_ip_blocks, ip_block_version->funcs->name);
 
+	// Block Logic: Assign the AMDGPU device to the IP block.
 	adev->ip_blocks[adev->num_ip_blocks].adev = adev;
 
+	// Block Logic: Add the IP block version and increment the count of IP blocks.
 	adev->ip_blocks[adev->num_ip_blocks++].version = ip_block_version;
 
 	return 0;
@@ -2491,16 +2931,21 @@ int amdgpu_device_ip_block_add(struct amdgpu_device *adev,
  */
 static void amdgpu_device_enable_virtual_display(struct amdgpu_device *adev)
 {
+	/// Functional Utility: Enables the virtual display feature based on user configuration.
+	/// This function parses module parameters to configure virtual display settings for headless or virtualized environments.
 	adev->enable_virtual_display = false;
 
+	// Conditional Logic: Process `amdgpu_virtual_display` module parameter if set.
 	if (amdgpu_virtual_display) {
 		const char *pci_address_name = pci_name(adev->pdev);
 		char *pciaddstr, *pciaddstr_tmp, *pciaddname_tmp, *pciaddname;
 
 		pciaddstr = kstrdup(amdgpu_virtual_display, GFP_KERNEL);
 		pciaddstr_tmp = pciaddstr;
+		// Block Logic: Parse the virtual display string, supporting multiple PCI addresses.
 		while ((pciaddname_tmp = strsep(&pciaddstr_tmp, ";"))) {
 			pciaddname = strsep(&pciaddname_tmp, ",");
+			// Conditional Logic: Check if the PCI address matches "all" or the current device's PCI address.
 			if (!strcmp("all", pciaddname)
 			    || !strcmp(pci_address_name, pciaddname)) {
 				long num_crtc;
@@ -2508,10 +2953,12 @@ static void amdgpu_device_enable_virtual_display(struct amdgpu_device *adev)
 
 				adev->enable_virtual_display = true;
 
+				// Conditional Logic: Parse the number of CRTCs if specified.
 				if (pciaddname_tmp)
 					res = kstrtol(pciaddname_tmp, 10,
 						      &num_crtc);
 
+				// Conditional Logic: Validate and set the number of CRTCs.
 				if (!res) {
 					if (num_crtc < 1)
 						num_crtc = 1;
@@ -2521,23 +2968,31 @@ static void amdgpu_device_enable_virtual_display(struct amdgpu_device *adev)
 				} else {
 					adev->mode_info.num_crtc = 1;
 				}
+				// Block Logic: Break loop once a match is found.
 				break;
 			}
 		}
 
+		// Block Logic: Log virtual display configuration.
 		DRM_INFO("virtual display string:%s, %s:virtual_display:%d, num_crtc:%d\n",
 			 amdgpu_virtual_display, pci_address_name,
 			 adev->enable_virtual_display, adev->mode_info.num_crtc);
 
+		// Block Logic: Free allocated string.
 		kfree(pciaddstr);
 	}
 }
 
 void amdgpu_device_set_sriov_virtual_display(struct amdgpu_device *adev)
 {
+	/// Functional Utility: Configures virtual display settings specifically for SR-IOV (Single Root I/O Virtualization) virtual functions (VFs).
+	/// This ensures that virtualized AMDGPUs have appropriate display capabilities even if not explicitly enabled by the user.
+	// Conditional Logic: If in SR-IOV VF mode and virtual display is not already enabled.
 	if (amdgpu_sriov_vf(adev) && !adev->enable_virtual_display) {
+		// Block Logic: Set default number of CRTCs and enable virtual display.
 		adev->mode_info.num_crtc = 1;
 		adev->enable_virtual_display = true;
+		// Block Logic: Log virtual display configuration.
 		DRM_INFO("virtual_display:%d, num_crtc:%d\n",
 			 adev->enable_virtual_display, adev->mode_info.num_crtc);
 	}
@@ -2555,15 +3010,19 @@ void amdgpu_device_set_sriov_virtual_display(struct amdgpu_device *adev)
  */
 static int amdgpu_device_parse_gpu_info_fw(struct amdgpu_device *adev)
 {
+	/// Functional Utility: Parses GPU information from firmware, populating ASIC configuration parameters.
+	/// This function extracts hardware details like shader engine counts, CU information, and SOC bounding box data from a firmware image.
 	const char *chip_name;
 	int err;
 	const struct gpu_info_firmware_header_v1_0 *hdr;
 
 	adev->firmware.gpu_info_fw = NULL;
 
+	// Conditional Logic: If discovery binary is already present, skip parsing firmware.
 	if (adev->mman.discovery_bin)
 		return 0;
 
+	// Block Logic: Determine chip name based on ASIC type for firmware lookup.
 	switch (adev->asic_type) {
 	default:
 		return 0;
@@ -2589,9 +3048,11 @@ static int amdgpu_device_parse_gpu_info_fw(struct amdgpu_device *adev)
 		break;
 	}
 
+	// Block Logic: Request the GPU info firmware.
 	err = amdgpu_ucode_request(adev, &adev->firmware.gpu_info_fw,
 				   AMDGPU_UCODE_OPTIONAL,
 				   "amdgpu/%s_gpu_info.bin", chip_name);
+	// Conditional Logic: Handle firmware request failure.
 	if (err) {
 		dev_err(adev->dev,
 			"Failed to get gpu_info firmware \"%s_gpu_info.bin\"\n",
@@ -2600,8 +3061,10 @@ static int amdgpu_device_parse_gpu_info_fw(struct amdgpu_device *adev)
 	}
 
 	hdr = (const struct gpu_info_firmware_header_v1_0 *)adev->firmware.gpu_info_fw->data;
+	// Block Logic: Print GPU info firmware header.
 	amdgpu_ucode_print_gpu_info_hdr(&hdr->header);
 
+	// Block Logic: Parse firmware content based on major version.
 	switch (hdr->version_major) {
 	case 1:
 	{
@@ -2612,9 +3075,11 @@ static int amdgpu_device_parse_gpu_info_fw(struct amdgpu_device *adev)
 		/*
 		 * Should be dropped when DAL no longer needs it.
 		 */
+		// Conditional Logic: Jump to SOC bounding box parsing for Navi12.
 		if (adev->asic_type == CHIP_NAVI12)
 			goto parse_soc_bounding_box;
 
+		// Block Logic: Populate GFX configuration parameters from firmware.
 		adev->gfx.config.max_shader_engines = le32_to_cpu(gpu_info_fw->gc_num_se);
 		adev->gfx.config.max_cu_per_sh = le32_to_cpu(gpu_info_fw->gc_num_cu_per_sh);
 		adev->gfx.config.max_sh_per_se = le32_to_cpu(gpu_info_fw->gc_num_sh_per_se);
@@ -2633,6 +3098,7 @@ static int amdgpu_device_parse_gpu_info_fw(struct amdgpu_device *adev)
 		adev->gfx.cu_info.max_scratch_slots_per_cu =
 			le32_to_cpu(gpu_info_fw->gc_max_scratch_slots_per_cu);
 		adev->gfx.cu_info.lds_size = le32_to_cpu(gpu_info_fw->gc_lds_size);
+		// Conditional Logic: Parse additional GFX config if minor version is 1 or greater.
 		if (hdr->version_minor >= 1) {
 			const struct gpu_info_firmware_v1_1 *gpu_info_fw =
 				(const struct gpu_info_firmware_v1_1 *)(adev->firmware.gpu_info_fw->data +
@@ -2648,6 +3114,7 @@ parse_soc_bounding_box:
 		 * soc bounding box info is not integrated in disocovery table,
 		 * we always need to parse it from gpu info firmware if needed.
 		 */
+		// Conditional Logic: Parse SOC bounding box info if minor version is 2.
 		if (hdr->version_minor == 2) {
 			const struct gpu_info_firmware_v1_2 *gpu_info_fw =
 				(const struct gpu_info_firmware_v1_2 *)(adev->firmware.gpu_info_fw->data +
@@ -2657,6 +3124,7 @@ parse_soc_bounding_box:
 		break;
 	}
 	default:
+		// Error Handling: Log and return error for unsupported GPU info table version.
 		dev_err(adev->dev,
 			"Unsupported gpu_info table %d\n", hdr->header.ucode_version);
 		err = -EINVAL;
@@ -2678,6 +3146,8 @@ out:
  */
 static int amdgpu_device_ip_early_init(struct amdgpu_device *adev)
 {
+	/// Functional Utility: Performs early initialization for all hardware IP blocks within the AMDGPU device.
+	/// This function discovers and initializes hardware IP blocks, sets up VBIOS, and configures power management features.
 	struct amdgpu_ip_block *ip_block;
 	struct pci_dev *parent;
 	bool total, skip_bios;
@@ -2686,12 +3156,15 @@ static int amdgpu_device_ip_early_init(struct amdgpu_device *adev)
 
 	amdgpu_device_enable_virtual_display(adev);
 
+	// Conditional Logic: Request full GPU if in SR-IOV VF mode.
 	if (amdgpu_sriov_vf(adev)) {
 		r = amdgpu_virt_request_full_gpu(adev, true);
+		// Conditional Logic: Handle request failure.
 		if (r)
 			return r;
 	}
 
+	// Block Logic: Use a switch statement to set IP blocks based on ASIC type.
 	switch (adev->asic_type) {
 #ifdef CONFIG_DRM_AMDGPU_SI
 	case CHIP_VERDE:
@@ -2747,12 +3220,14 @@ static int amdgpu_device_ip_early_init(struct amdgpu_device *adev)
 	}
 
 	/* Check for IP version 9.4.3 with A0 hardware */
+	// Conditional Logic: Return error if IP version 9.4.3 is detected with A0 hardware.
 	if (amdgpu_ip_version(adev, GC_HWIP, 0) == IP_VERSION(9, 4, 3) &&
 	    !amdgpu_device_get_rev_id(adev)) {
 		dev_err(adev->dev, "Unsupported A0 hardware\n");
 		return -ENODEV;	/* device unsupported - no device error */
 	}
 
+	// Conditional Logic: Set PX flag if ATPX is supported and device is not an APU and not removable.
 	if (amdgpu_has_atpx() &&
 	    (amdgpu_is_atpx_hybrid() ||
 	     amdgpu_has_atpx_dgpu_power_cntl()) &&
@@ -2760,29 +3235,38 @@ static int amdgpu_device_ip_early_init(struct amdgpu_device *adev)
 	    !dev_is_removable(&adev->pdev->dev))
 		adev->flags |= AMD_IS_PX;
 
+	// Conditional Logic: Determine if the device has PR3 (PCIe Root Port PME) capabilities.
 	if (!(adev->flags & AMD_IS_APU)) {
 		parent = pcie_find_root_port(adev->pdev);
 		adev->has_pr3 = parent ? pci_pr3_present(parent) : false;
 	}
 
+	// Block Logic: Initialize power play feature mask.
 	adev->pm.pp_feature = amdgpu_pp_feature_mask;
+	// Conditional Logic: Disable GFXOFF for SR-IOV VF or if HWS scheduler is not used.
 	if (amdgpu_sriov_vf(adev) || sched_policy == KFD_SCHED_POLICY_NO_HWS)
 		adev->pm.pp_feature &= ~PP_GFXOFF_MASK;
+	// Conditional Logic: Disable overdrive for Sienna Cichlid in SR-IOV VF mode.
 	if (amdgpu_sriov_vf(adev) && adev->asic_type == CHIP_SIENNA_CICHLID)
 		adev->pm.pp_feature &= ~PP_OVERDRIVE_MASK;
+	// Conditional Logic: Disable PCIe DPM if dynamic switching is not supported.
 	if (!amdgpu_device_pcie_dynamic_switching_supported(adev))
 		adev->pm.pp_feature &= ~PP_PCIE_DPM_MASK;
 
 	total = true;
+	// Block Logic: Iterate through all IP blocks to perform early initialization.
 	for (i = 0; i < adev->num_ip_blocks; i++) {
 		ip_block = &adev->ip_blocks[i];
 
+		// Conditional Logic: Disable IP block if specified by `amdgpu_ip_block_mask`.
 		if ((amdgpu_ip_block_mask & (1 << i)) == 0) {
 			DRM_WARN("disabled ip block: %d <%s>\n",
 				  i, adev->ip_blocks[i].version->funcs->name);
 			adev->ip_blocks[i].status.valid = false;
 		} else if (ip_block->version->funcs->early_init) {
+			// Block Logic: Call IP block's early init function.
 			r = ip_block->version->funcs->early_init(ip_block);
+			// Conditional Logic: Handle early init failure.
 			if (r == -ENOENT) {
 				adev->ip_blocks[i].status.valid = false;
 			} else if (r) {
@@ -2796,6 +3280,7 @@ static int amdgpu_device_ip_early_init(struct amdgpu_device *adev)
 			adev->ip_blocks[i].status.valid = true;
 		}
 		/* get the vbios after the asic_funcs are set up */
+		// Conditional Logic: If it's a COMMON IP block, parse GPU info firmware and initialize VBIOS.
 		if (adev->ip_blocks[i].version->type == AMD_IP_BLOCK_TYPE_COMMON) {
 			r = amdgpu_device_parse_gpu_info_fw(adev);
 			if (r)
@@ -2804,9 +3289,11 @@ static int amdgpu_device_ip_early_init(struct amdgpu_device *adev)
 			bios_flags = amdgpu_device_get_vbios_flags(adev);
 			skip_bios = !!(bios_flags & AMDGPU_VBIOS_SKIP);
 			/* Read BIOS */
+			// Conditional Logic: Read VBIOS if not skipped.
 			if (!skip_bios) {
 				bool optional =
 					!!(bios_flags & AMDGPU_VBIOS_OPTIONAL);
+				// Conditional Logic: Handle optional VBIOS.
 				if (!amdgpu_get_bios(adev) && !optional)
 					return -EINVAL;
 
@@ -2815,6 +3302,7 @@ static int amdgpu_device_ip_early_init(struct amdgpu_device *adev)
 						adev->dev,
 						"VBIOS image optional, proceeding without VBIOS image");
 
+				// Conditional Logic: Initialize VBIOS if available.
 				if (adev->bios) {
 					r = amdgpu_atombios_init(adev);
 					if (r) {
@@ -2830,18 +3318,22 @@ static int amdgpu_device_ip_early_init(struct amdgpu_device *adev)
 			}
 
 			/*get pf2vf msg info at it's earliest time*/
+			// Conditional Logic: Initialize SR-IOV virtual function data exchange.
 			if (amdgpu_sriov_vf(adev))
 				amdgpu_virt_init_data_exchange(adev);
 
 		}
 	}
+	// Conditional Logic: Return error if total early init failed for any IP block.
 	if (!total)
 		return -ENODEV;
 
+	// Conditional Logic: Perform XGMI early init if supported.
 	if (adev->gmc.xgmi.supported)
 		amdgpu_xgmi_early_init(adev);
 
 	ip_block = amdgpu_device_ip_get_ip_block(adev, AMD_IP_BLOCK_TYPE_GFX);
+	// Conditional Logic: Initialize amdkfd device if GFX IP block is valid.
 	if (ip_block->status.valid != false)
 		amdgpu_amdkfd_device_probe(adev);
 

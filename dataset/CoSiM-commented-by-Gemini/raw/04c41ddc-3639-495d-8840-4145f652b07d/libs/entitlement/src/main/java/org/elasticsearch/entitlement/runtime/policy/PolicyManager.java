@@ -1,3 +1,37 @@
+/**
+ * @file PolicyManager.java
+ * @brief Manages and enforces entitlement policies at runtime.
+ *
+ * @details
+ * This class is the core of the runtime entitlement enforcement engine. Its primary responsibility
+ * is to determine the security context (or "component") of a piece of code that is attempting
+ * a privileged action and then check if the policy associated with that component grants the
+ * necessary entitlement for the action.
+ *
+ * The `PolicyManager` operates by:
+ * 1.  **Component Identification**: When a check is triggered, it walks the call stack to find the
+ *     first frame originating from outside the entitlement library itself. It then uses the module
+ *     information of the caller's class to determine which component it belongs to (e.g., system,
+ *     server, a specific plugin, or an agent like APM).
+ *
+ * 2.  **Policy and Entitlement Resolution**: It maintains a cache (`moduleEntitlementsMap`) that maps
+ *     a Java `Module` to its calculated `ModuleEntitlements`. This record contains all entitlements
+ *     granted to that module, derived from the policies loaded during bootstrap. This caching
+ *     avoids the need to re-compute entitlements for every check.
+ *
+ * 3.  **Entitlement Checking**: For a given action (like `checkExitVM` or `checkFileRead`), it looks
+ *     up the entitlements for the calling component. If the required entitlement is present, the
+ *     action is allowed to proceed. If not, it throws a `NotEntitledException`, effectively
+ *     blocking the operation.
+ *
+ * 4.  **Trivial Allowance**: Code originating from core Java system modules (as identified by
+ *     `SYSTEM_LAYER_MODULES`) is "trivially allowed" to perform any action, bypassing the
+ *     entitlement checks. This is a fundamental trust assumption of the security model.
+ *
+ * The class handles a variety of entitlement types, including file system access (managed via
+ * a `FileAccessTree`), network operations, classloader creation, and thread management, providing
+ * a comprehensive security layer for the application.
+ */
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
  * or more contributor license agreements. Licensed under the "Elastic License
@@ -65,70 +99,12 @@ import static org.elasticsearch.entitlement.runtime.policy.PolicyManager.Compone
 import static org.elasticsearch.entitlement.runtime.policy.PolicyManager.ComponentKind.UNKNOWN;
 
 /**
- * This class is responsible for finding the <strong>component</strong> (system, server, plugin, agent) for a caller class to check,
- * retrieve the policy and entitlements for that component, and check them against the action(s) the caller wants to perform.
- * <p>
- * To find a component:
- * <ul>
- * <li>
- * For plugins, we use the Module -> Plugin name (String) passed to the ctor
- * </li>
- * <li>
- * For the system component, we build a set ({@link PolicyManager#SYSTEM_LAYER_MODULES}) of references to modules that belong that
- * component, i.e. the component containing what we consider system modules. These are the modules that:
- * <ul>
- * <li>
- * are in the boot module layer ({@link ModuleLayer#boot()});
- * </li>
- * <li>
- * are defined in {@link ModuleFinder#ofSystem()};
- * </li>
- * <li>
- * are not in the ({@link PolicyManager#MODULES_EXCLUDED_FROM_SYSTEM_MODULES}) (currently: {@code java.desktop})
- * </li>
- * </ul>
- * </li>
- * <li>
- * For the server component, we build a set ({@link PolicyManager#SERVER_LAYER_MODULES}) as the set of modules that are in the boot module
- * layer but not in the system component.
- * </li>
- * </ul>
- * <p>
- * When a check is performed (e.g. {@link PolicyManager#checkExitVM(Class)}, we get the module the caller class belongs to via
- * {@link Class#getModule} and try (in order) to see if that class belongs to:
- * <ol>
- * <li>
- * The system component - if a module is contained in {@link PolicyManager#SYSTEM_LAYER_MODULES}
- * </li>
- * <li>
- * The server component - if a module is contained in {@link PolicyManager#SERVER_LAYER_MODULES}
- * </li>
- * <li>
- * One of the plugins or modules - if the module is present in the {@code PluginsResolver} map
- * </li>
- * <li>
- * A known agent (APM)
- * </li>
- * <li>
- * Something else
- * </li>
- * </ol>
- * <p>
- * Once it has a component, this class maps it to a policy and check the action performed by the caller class against its entitlements,
- * either allowing it to proceed or raising a {@link NotEntitledException} if the caller class is not entitled to perform the action.
- * </p>
- * <p>
- * All these methods start in the same way: the components identified in the previous section are used to establish if and how to check:
- * If the caller class belongs to {@link PolicyManager#SYSTEM_LAYER_MODULES}, no check is performed (the call is trivially allowed, see
- * {@link PolicyManager#isTriviallyAllowed}).
- * Otherwise, we lazily compute and create a {@link PolicyManager.ModuleEntitlements} record (see
- * {@link PolicyManager#computeEntitlements}). The record is cached so it can be used in following checks, stored in a
- * {@code Module -> ModuleEntitlement} map.
- * </p>
+ * This class is the central authority for managing and enforcing entitlement policies at runtime.
+ * It determines the component identity of a caller and checks its permissions against loaded policies.
  */
 public class PolicyManager {
     /**
-     * Use this if you don't have a {@link ModuleEntitlements} in hand.
+     * A general-purpose logger for operations where a specific module context is not available.
      */
     private static final Logger generalLogger = LogManager.getLogger(PolicyManager.class);
 
@@ -137,7 +113,8 @@ public class PolicyManager {
     static final Set<String> MODULES_EXCLUDED_FROM_SYSTEM_MODULES = Set.of("java.desktop");
 
     /**
-     * Identifies a particular entitlement {@link Scope} within a {@link Policy}.
+     * Identifies a particular entitlement {@link Scope} within a {@link Policy}, linking it to a
+     * specific component and module.
      */
     public record PolicyScope(ComponentKind kind, String componentName, String moduleName) {
         public PolicyScope {
@@ -164,6 +141,9 @@ public class PolicyManager {
         }
     }
 
+    /**
+     * Enumerates the different kinds of components recognized by the policy manager.
+     */
     public enum ComponentKind {
         UNKNOWN("(unknown)"),
         SERVER("(server)"),
@@ -171,8 +151,8 @@ public class PolicyManager {
         PLUGIN(null);
 
         /**
-         * If this kind corresponds to a single component, this is that component's name;
-         * otherwise null.
+         * A fixed name for singleton components like SERVER, or null for kinds like PLUGIN
+         * which can have multiple instances.
          */
         final String componentName;
 
@@ -182,23 +162,14 @@ public class PolicyManager {
     }
 
     /**
-     * This class contains all the entitlements by type, plus the {@link FileAccessTree} for the special case of filesystem entitlements.
-     * <p>
-     * We use layers when computing {@link ModuleEntitlements}; first, we check whether the module we are building it for is in the
-     * server layer ({@link PolicyManager#SERVER_LAYER_MODULES}) (*).
-     * If it is, we use the server policy, using the same caller class module name as the scope, and read the entitlements for that scope.
-     * Otherwise, we use the {@code PluginResolver} to identify the correct plugin layer and find the policy for it (if any).
-     * If the plugin is modular, we again use the same caller class module name as the scope, and read the entitlements for that scope.
-     * If it's not, we use the single {@code ALL-UNNAMED} scope – in this case there is one scope and all entitlements apply
-     * to all the plugin code.
-     * </p>
-     * <p>
-     * (*) implementation detail: this is currently done in an indirect way: we know the module is not in the system layer
-     * (otherwise the check would have been already trivially allowed), so we just check that the module is named, and it belongs to the
-     * boot {@link ModuleLayer}. We might want to change this in the future to make it more consistent/easier to maintain.
-     * </p>
+     * A container for the resolved entitlements of a specific module.
+     * It includes entitlements grouped by type and a specialized `FileAccessTree` for efficient
+     * file permission checks. This record is cached to optimize performance.
      *
-     * @param componentName the plugin name or else one of the special component names like "(server)".
+     * @param componentName The name of the component (e.g., "server", "my-plugin").
+     * @param entitlementsByType A map of entitlement classes to a list of granted entitlements of that type.
+     * @param fileAccess A tree structure for efficiently checking file path permissions.
+     * @param logger A logger specific to the component and module.
      */
     record ModuleEntitlements(
         String componentName,
@@ -228,12 +199,12 @@ public class PolicyManager {
         return FileAccessTree.withoutExclusivePaths(FilesEntitlement.EMPTY, pathLookup, componentPath);
     }
 
-    // pkg private for testing
+    // Creates a default, empty set of entitlements for a component.
     ModuleEntitlements defaultEntitlements(String componentName, Path componentPath, String moduleName) {
         return new ModuleEntitlements(componentName, Map.of(), getDefaultFileAccess(componentPath), getLogger(componentName, moduleName));
     }
 
-    // pkg private for testing
+    // Creates a set of entitlements from a policy scope.
     ModuleEntitlements policyEntitlements(String componentName, Path componentPath, String moduleName, List<Entitlement> entitlements) {
         FilesEntitlement filesEntitlement = FilesEntitlement.EMPTY;
         for (Entitlement entitlement : entitlements) {
@@ -249,6 +220,7 @@ public class PolicyManager {
         );
     }
 
+    // A concurrent map to cache resolved entitlements for each module.
     final Map<Module, ModuleEntitlements> moduleEntitlementsMap = new ConcurrentHashMap<>();
 
     private final Map<String, List<Entitlement>> serverEntitlements;
@@ -260,6 +232,7 @@ public class PolicyManager {
 
     public static final String ALL_UNNAMED = "ALL-UNNAMED";
 
+    // A set of modules considered part of the trusted "system" layer (e.g., core Java modules).
     private static final Set<Module> SYSTEM_LAYER_MODULES = findSystemLayerModules();
 
     private static Set<Module> findSystemLayerModules() {
@@ -269,9 +242,7 @@ public class PolicyManager {
             .map(ModuleReference::descriptor)
             .collect(Collectors.toUnmodifiableSet());
         return Stream.concat(
-            // entitlements is a "system" module, we can do anything from it
             Stream.of(PolicyManager.class.getModule()),
-            // anything in the boot layer is also part of the system
             ModuleLayer.boot()
                 .modules()
                 .stream()
@@ -282,7 +253,7 @@ public class PolicyManager {
         ).collect(Collectors.toUnmodifiableSet());
     }
 
-    // Anything in the boot layer that is not in the system layer, is in the server layer
+    // Modules in the boot layer that are not part of the system layer are considered server-level modules.
     public static final Set<Module> SERVER_LAYER_MODULES = ModuleLayer.boot()
         .modules()
         .stream()
@@ -291,16 +262,8 @@ public class PolicyManager {
 
     private final Map<String, Path> sourcePaths;
 
-    /**
-     * Frames originating from this module are ignored in the permission logic.
-     */
     private final Module entitlementsModule;
 
-    /**
-     * Paths that are only allowed for a single module. Used to generate
-     * structures to indicate other modules aren't allowed to use these
-     * files in {@link FileAccessTree}s.
-     */
     private final List<ExclusivePath> exclusivePaths;
 
     public PolicyManager(
@@ -375,10 +338,6 @@ public class PolicyManager {
         checkEntitlementPresent(callerClass, ReadStoreAttributesEntitlement.class);
     }
 
-    /**
-     * @param operationDescription is only called when the operation is not trivially allowed, meaning the check is about to fail;
-     *                            therefore, its performance is not a major concern.
-     */
     private void neverEntitled(Class<?> callerClass, Supplier<String> operationDescription) {
         var requestingClass = requestingClass(callerClass);
         if (isTriviallyAllowed(requestingClass)) {
@@ -420,8 +379,6 @@ public class PolicyManager {
     }
 
     private Optional<String> walkStackForCheckMethodName() {
-        // Look up the check$ method to compose an informative error message.
-        // This way, we don't need to painstakingly describe every individual global-state change.
         return StackWalker.getInstance()
             .walk(
                 frames -> frames.map(StackFrame::getMethodName)
@@ -431,16 +388,10 @@ public class PolicyManager {
             .map(this::operationDescription);
     }
 
-    /**
-     * Check for operations that can modify the way network operations are handled
-     */
     public void checkChangeNetworkHandling(Class<?> callerClass) {
         checkChangeJVMGlobalState(callerClass);
     }
 
-    /**
-     * Check for operations that can modify the way file operations are handled
-     */
     public void checkChangeFilesHandling(Class<?> callerClass) {
         checkChangeJVMGlobalState(callerClass);
     }
@@ -549,8 +500,6 @@ public class PolicyManager {
     }
 
     public void checkCreateTempFile(Class<?> callerClass) {
-        // in production there should only ever be a single temp directory
-        // so we can safely assume we only need to check the sole element in this stream
         checkFileWrite(callerClass, pathLookup.getBaseDirPaths(TEMP).findFirst().get());
     }
 
@@ -558,8 +507,6 @@ public class PolicyManager {
     public void checkFileWithZipMode(Class<?> callerClass, File file, int zipMode) {
         assert zipMode == OPEN_READ || zipMode == (OPEN_READ | OPEN_DELETE);
         if ((zipMode & OPEN_DELETE) == OPEN_DELETE) {
-            // This needs both read and write, but we happen to know that checkFileWrite
-            // actually checks both.
             checkFileWrite(callerClass, file);
         } else {
             checkFileRead(callerClass, file);
@@ -574,24 +521,15 @@ public class PolicyManager {
         neverEntitled(callerClass, () -> "write file descriptor");
     }
 
-    /**
-     * Invoked when we try to get an arbitrary {@code FileAttributeView} class. Such a class can modify attributes, like owner etc.;
-     * we could think about introducing checks for each of the operations, but for now we over-approximate this and simply deny when it is
-     * used directly.
-     */
     public void checkGetFileAttributeView(Class<?> callerClass) {
         neverEntitled(callerClass, () -> "get file attribute view");
     }
 
-    /**
-     * Check for operations that can access sensitive network information, e.g. secrets, tokens or SSL sessions
-     */
     public void checkLoadingNativeLibraries(Class<?> callerClass) {
         checkEntitlementPresent(callerClass, LoadNativeLibrariesEntitlement.class);
     }
 
     private String operationDescription(String methodName) {
-        // TODO: Use a more human-readable description. Perhaps share code with InstrumentationServiceImpl.parseCheckerMethodName
         return methodName.substring(methodName.indexOf('$'));
     }
 
@@ -684,7 +622,6 @@ public class PolicyManager {
 
     private void notEntitled(String message, Class<?> callerClass, ModuleEntitlements entitlements) {
         var exception = new NotEntitledException(message);
-        // Don't emit a log for muted classes, e.g. classes containing self tests
         if (mutedClasses.contains(callerClass) == false) {
             entitlements.logger().warn("Not entitled: {}", message, exception);
         }
@@ -696,14 +633,6 @@ public class PolicyManager {
         return MODULE_LOGGERS.computeIfAbsent(PolicyManager.class.getName() + loggerSuffix, LogManager::getLogger);
     }
 
-    /**
-     * We want to use the same {@link Logger} object for a given name, because we want {@link ModuleEntitlements}
-     * {@code equals} and {@code hashCode} to work.
-     * <p>
-     * This would not be required if LogManager
-     * <a href="https://github.com/elastic/elasticsearch/issues/87511">memoized the loggers</a>,
-     * but here we are.
-     */
     private static final ConcurrentHashMap<String, Logger> MODULE_LOGGERS = new ConcurrentHashMap<>();
 
     public void checkManageThreadsEntitlement(Class<?> callerClass) {
@@ -737,7 +666,6 @@ public class PolicyManager {
                 );
             }
             case APM_AGENT -> {
-                // The APM agent is the only thing running non-modular in the system classloader
                 return policyEntitlements(
                     APM_AGENT.componentName,
                     getComponentPathFromClass(requestingClass),
@@ -760,7 +688,6 @@ public class PolicyManager {
         }
     }
 
-    // pkg private for testing
     static Path getComponentPathFromClass(Class<?> requestingClass) {
         var codeSource = requestingClass.getProtectionDomain().getCodeSource();
         if (codeSource == null) {
@@ -769,7 +696,6 @@ public class PolicyManager {
         try {
             return Paths.get(codeSource.getLocation().toURI());
         } catch (Exception e) {
-            // If we get a URISyntaxException, or any other Exception due to an invalid URI, we return null to safely skip this location
             generalLogger.info(
                 "Cannot get component path for [{}]: [{}] cannot be converted to a valid Path",
                 requestingClass.getName(),
@@ -793,17 +719,14 @@ public class PolicyManager {
     }
 
     /**
-     * Walks the stack to determine which class should be checked for entitlements.
+     * Walks the stack to identify the first class outside of the entitlement library, which is
+     * considered the "requesting class" for an entitlement check.
      *
-     * @param callerClass when non-null will be returned;
-     *                    this is a fast-path check that can avoid the stack walk
-     *                    in cases where the caller class is available.
-     * @return the requesting class, or {@code null} if the entire call stack
-     * comes from the entitlement library itself.
+     * @param callerClass A potential fast-path if the caller is already known.
+     * @return The Class that is requesting the privileged operation.
      */
     Class<?> requestingClass(Class<?> callerClass) {
         if (callerClass != null) {
-            // fast path
             return callerClass;
         }
         Optional<Class<?>> result = StackWalker.getInstance(RETAIN_CLASS_REFERENCE)
@@ -812,7 +735,7 @@ public class PolicyManager {
     }
 
     /**
-     * Given a stream of {@link StackFrame}s, identify the one whose entitlements should be checked.
+     * Finds the first relevant stack frame for an entitlement check.
      */
     Optional<StackFrame> findRequestingFrame(Stream<StackFrame> frames) {
         return frames.filter(f -> f.getDeclaringClass().getModule() != entitlementsModule) // ignore entitlements library
@@ -821,7 +744,9 @@ public class PolicyManager {
     }
 
     /**
-     * @return true if permission is granted regardless of the entitlement
+     * Determines if a class is part of the trusted system layer, in which case it is
+     * granted all permissions by default.
+     * @return true if the class belongs to a system module.
      */
     private static boolean isTriviallyAllowed(Class<?> requestingClass) {
         if (generalLogger.isTraceEnabled()) {
@@ -843,9 +768,6 @@ public class PolicyManager {
         return false;
     }
 
-    /**
-     * @return the {@code requestingClass}'s module name as it would appear in an entitlement policy file
-     */
     private static String getModuleName(Class<?> requestingClass) {
         String name = requestingClass.getModule().getName();
         return (name == null) ? ALL_UNNAMED : name;

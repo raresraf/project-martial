@@ -1,11 +1,26 @@
-/* This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
+/*!
+This module provides the core runtime environment for executing JavaScript in Servo.
+It includes the `Runtime` struct, which encapsulates a SpiderMonkey JavaScript runtime,
+and provides the necessary hooks and callbacks for integrating the JavaScript engine with
+the rest of the browser.
 
-//! The script runtime contains common traits and structs commonly used by the
-//! script thread, the dom, and the worker threads.
+The `Runtime` struct is responsible for:
+- Creating and managing the JavaScript context.
+- Setting up the garbage collector and its callbacks.
+- Integrating the JavaScript engine with the event loop and microtask queue.
+- Handling promise rejections and other script errors.
+- Enforcing the Content Security Policy (CSP).
 
-#![allow(dead_code)]
+This module also defines the `JSContextHelper` trait, which provides additional
+functionality to the `JSContext` type, such as generating memory reports.
+
+The `StreamConsumer` struct is used to consume streams of data, such as the
+response body of a fetch request. It provides methods for consuming chunks of
+data, handling the end of the stream, and reporting errors.
+
+The `Runnable` struct is a wrapper around a `JSRunnable` that can be sent across
+threads. This is used to dispatch tasks to the event loop from other threads.
+*/
 
 use core::ffi::c_char;
 use std::cell::Cell;
@@ -85,48 +100,80 @@ use crate::script_module::EnsureModuleHooksInitialized;
 use crate::script_thread::trace_thread;
 use crate::task_source::SendableTaskSource;
 
+/// The `JobQueueTraps` for the script runtime.
 static JOB_QUEUE_TRAPS: JobQueueTraps = JobQueueTraps {
     getIncumbentGlobal: Some(get_incumbent_global),
     enqueuePromiseJob: Some(enqueue_promise_job),
     empty: Some(empty),
 };
 
+/// The `JSSecurityCallbacks` for the script runtime.
 static SECURITY_CALLBACKS: JSSecurityCallbacks = JSSecurityCallbacks {
     contentSecurityPolicyAllows: Some(content_security_policy_allows),
     subsumes: Some(principals::subsumes),
 };
 
+/// The category of a script thread event.
 #[derive(Clone, Copy, Debug, Eq, Hash, JSTraceable, MallocSizeOf, PartialEq)]
 pub(crate) enum ScriptThreadEventCategory {
+    /// An event to attach a layout.
     AttachLayout,
+    /// An event from the constellation.
     ConstellationMsg,
+    /// An event to access the database.
     DatabaseAccessEvent,
+    /// An event from the devtools.
     DevtoolsMsg,
+    /// A DOM event.
     DocumentEvent,
+    /// An event to read a file.
     FileRead,
+    /// An event to load a font.
     FontLoading,
+    /// An event for a planned navigation from a form.
     FormPlannedNavigation,
+    /// A history event.
     HistoryEvent,
+    /// An event from the image cache.
     ImageCacheMsg,
+    /// An input event.
     InputEvent,
+    /// A network event.
     NetworkEvent,
+    /// A port message event.
     PortMessage,
+    /// A rendering event.
     Rendering,
+    /// A resize event.
     Resize,
+    /// A script event.
     ScriptEvent,
+    /// An event to set the scroll state.
     SetScrollState,
+    /// An event to set the viewport.
     SetViewport,
+    /// An event to load a stylesheet.
     StylesheetLoad,
+    /// A timer event.
     TimerEvent,
+    /// An event to update a replaced element.
     UpdateReplacedElement,
+    /// A WebSocket event.
     WebSocketEvent,
+    /// A worker event.
     WorkerEvent,
+    /// A worklet event.
     WorkletEvent,
+    /// A service worker event.
     ServiceWorkerEvent,
+    /// An event to enter fullscreen.
     EnterFullscreen,
+    /// An event to exit fullscreen.
     ExitFullscreen,
+    /// A performance timeline task.
     PerformanceTimelineTask,
     #[cfg(feature = "webgpu")]
+    /// A WebGPU message.
     WebGPUMsg,
 }
 
@@ -224,6 +271,7 @@ impl From<ScriptThreadEventCategory> for ScriptHangAnnotation {
     }
 }
 
+/// Returns the incumbent global object.
 #[allow(unsafe_code)]
 unsafe extern "C" fn get_incumbent_global(_: *const c_void, _: *mut RawJSContext) -> *mut JSObject {
     let mut result = ptr::null_mut();
@@ -239,6 +287,7 @@ unsafe extern "C" fn get_incumbent_global(_: *const c_void, _: *mut RawJSContext
     result
 }
 
+/// Returns whether the microtask queue is empty.
 #[allow(unsafe_code)]
 unsafe extern "C" fn empty(extra: *const c_void) -> bool {
     let mut result = false;
@@ -370,6 +419,7 @@ unsafe extern "C" fn promise_rejection_tracker(
     })
 }
 
+/// Checks if the Content Security Policy allows the given runtime code to be executed.
 #[allow(unsafe_code)]
 unsafe extern "C" fn content_security_policy_allows(
     cx: *mut RawJSContext,
@@ -477,11 +527,16 @@ pub(crate) fn notify_about_rejected_promises(global: &GlobalScope) {
     }
 }
 
+/// The JavaScript runtime.
 #[derive(JSTraceable)]
 pub(crate) struct Runtime {
+    /// The underlying SpiderMonkey runtime.
     rt: RustRuntime,
+    /// The microtask queue for this runtime.
     pub(crate) microtask_queue: Rc<MicrotaskQueue>,
+    /// The job queue for this runtime.
     job_queue: *mut JobQueue,
+    /// The task source for networking.
     networking_task_src: Option<Box<SendableTaskSource>>,
 }
 
@@ -741,6 +796,7 @@ impl Runtime {
         }
     }
 
+    /// Returns a thread-safe handle to the JavaScript context.
     pub(crate) fn thread_safe_js_context(&self) -> ThreadSafeJSContext {
         self.rt.thread_safe_js_context()
     }
@@ -766,6 +822,7 @@ impl Deref for Runtime {
     }
 }
 
+/// A struct that sets up the JavaScript engine.
 pub struct JSEngineSetup(JSEngine);
 
 impl Default for JSEngineSetup {
@@ -786,8 +843,10 @@ impl Drop for JSEngineSetup {
     }
 }
 
+/// The global JavaScript engine.
 static JS_ENGINE: Mutex<Option<JSEngineHandle>> = Mutex::new(None);
 
+/// Returns `Some(val)` if `val` is in the range `[min, max)`, and `None` otherwise.
 fn in_range<T: PartialOrd + Copy>(val: T, min: T, max: T) -> Option<T> {
     if val < min || val >= max {
         None
@@ -796,8 +855,10 @@ fn in_range<T: PartialOrd + Copy>(val: T, min: T, max: T) -> Option<T> {
     }
 }
 
+/// A thread-local variable that holds a pointer to the `MallocSizeOfOps`.
 thread_local!(static MALLOC_SIZE_OF_OPS: Cell<*mut MallocSizeOfOps> = const { Cell::new(ptr::null_mut()) });
 
+/// Returns the size of a DOM object.
 #[allow(unsafe_code)]
 unsafe extern "C" fn get_size(obj: *mut JSObject) -> usize {
     match get_dom_class(obj) {
@@ -814,9 +875,12 @@ unsafe extern "C" fn get_size(obj: *mut JSObject) -> usize {
     }
 }
 
+/// A thread-local variable that holds the start time of a GC cycle.
 thread_local!(static GC_CYCLE_START: Cell<Option<Instant>> = const { Cell::new(None) });
+/// A thread-local variable that holds the start time of a GC slice.
 thread_local!(static GC_SLICE_START: Cell<Option<Instant>> = const { Cell::new(None) });
 
+/// A callback that is called during garbage collection.
 #[allow(unsafe_code)]
 unsafe extern "C" fn gc_slice_callback(
     _cx: *mut RawJSContext,
@@ -855,6 +919,7 @@ unsafe extern "C" fn gc_slice_callback(
     let _ = stdout().flush();
 }
 
+/// A callback that is called during garbage collection.
 #[allow(unsafe_code)]
 unsafe extern "C" fn debug_gc_callback(
     _cx: *mut RawJSContext,
@@ -868,6 +933,7 @@ unsafe extern "C" fn debug_gc_callback(
     }
 }
 
+/// A callback that is called to trace the roots of the garbage collector.
 #[allow(unsafe_code)]
 unsafe extern "C" fn trace_rust_roots(tr: *mut JSTracer, _data: *mut os::raw::c_void) {
     if !runtime_is_alive() {
@@ -881,6 +947,7 @@ unsafe extern "C" fn trace_rust_roots(tr: *mut JSTracer, _data: *mut os::raw::c_
     trace!("done custom root handler");
 }
 
+/// A callback that is called to get the build ID of the application.
 #[allow(unsafe_code)]
 unsafe extern "C" fn servo_build_id(build_id: *mut BuildIdCharVector) -> bool {
     let servo_id = b"Servo\0";
@@ -889,6 +956,7 @@ unsafe extern "C" fn servo_build_id(build_id: *mut BuildIdCharVector) -> bool {
 
 #[allow(unsafe_code)]
 #[cfg(feature = "debugmozjs")]
+/// Sets the GC zeal options.
 unsafe fn set_gc_zeal_options(cx: *mut RawJSContext) {
     use js::jsapi::SetGCZeal;
 
@@ -906,6 +974,7 @@ unsafe fn set_gc_zeal_options(cx: *mut RawJSContext) {
 
 #[allow(unsafe_code)]
 #[cfg(not(feature = "debugmozjs"))]
+/// Sets the GC zeal options.
 unsafe fn set_gc_zeal_options(_: *mut RawJSContext) {}
 
 pub(crate) use script_bindings::script_runtime::JSContext;
@@ -913,6 +982,7 @@ pub(crate) use script_bindings::script_runtime::JSContext;
 /// Extra methods for the JSContext type defined in script_bindings, when
 /// the methods are only called by code in the script crate.
 pub(crate) trait JSContextHelper {
+    /// Returns a list of memory reports.
     fn get_reports(&self, path_seg: String, ops: &mut MallocSizeOfOps) -> Vec<Report>;
 }
 
@@ -979,10 +1049,12 @@ impl JSContextHelper for JSContext {
     }
 }
 
+/// A consumer for a stream of data.
 pub(crate) struct StreamConsumer(*mut JSStreamConsumer);
 
 #[allow(unsafe_code)]
 impl StreamConsumer {
+    /// Consumes a chunk of the stream.
     pub(crate) fn consume_chunk(&self, stream: &[u8]) -> bool {
         unsafe {
             let stream_ptr = stream.as_ptr();
@@ -990,18 +1062,21 @@ impl StreamConsumer {
         }
     }
 
+    /// Signals the end of the stream.
     pub(crate) fn stream_end(&self) {
         unsafe {
             StreamConsumerStreamEnd(self.0);
         }
     }
 
+    /// Signals an error in the stream.
     pub(crate) fn stream_error(&self, error_code: usize) {
         unsafe {
             StreamConsumerStreamError(self.0, error_code);
         }
     }
 
+    /// Notes the response URLs of the stream.
     pub(crate) fn note_response_urls(
         &self,
         maybe_url: Option<String>,
@@ -1116,6 +1191,7 @@ unsafe extern "C" fn consume_stream(
     true
 }
 
+/// Reports an error that occurred while initializing a stream consumer.
 #[allow(unsafe_code)]
 unsafe extern "C" fn report_stream_error(_cx: *mut RawJSContext, error_code: usize) {
     error!(
@@ -1124,6 +1200,7 @@ unsafe extern "C" fn report_stream_error(_cx: *mut RawJSContext, error_code: usi
     );
 }
 
+/// A runnable that can be sent across threads.
 pub(crate) struct Runnable(*mut JSRunnable);
 
 #[allow(unsafe_code)]
@@ -1133,6 +1210,7 @@ unsafe impl Send for Runnable {}
 
 #[allow(unsafe_code)]
 impl Runnable {
+    /// Runs the runnable.
     fn run(&self, cx: *mut RawJSContext, maybe_shutting_down: Dispatchable_MaybeShuttingDown) {
         unsafe {
             DispatchableRun(cx, self.0, maybe_shutting_down);

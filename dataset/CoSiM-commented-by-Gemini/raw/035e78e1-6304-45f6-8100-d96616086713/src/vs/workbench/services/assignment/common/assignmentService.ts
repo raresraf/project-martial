@@ -3,6 +3,12 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/**
+ * @file This file provides the implementation of the workbench-specific assignment service.
+ * This service is responsible for fetching, caching, and reporting experimental assignments
+ * from a Microsoft online service, which is used for A/B testing and feature flagging.
+ */
+
 import { localize } from '../../../../nls.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import type { IKeyValueStorage, IExperimentationTelemetry } from 'tas-client-umd';
@@ -23,27 +29,59 @@ import { IEnvironmentService } from '../../../../platform/environment/common/env
 
 export const IWorkbenchAssignmentService = createDecorator<IWorkbenchAssignmentService>('WorkbenchAssignmentService');
 
+/**
+ * @interface IWorkbenchAssignmentService
+ * @extends IAssignmentService
+ * @description Provides methods to interact with the assignment service, including fetching current experimental assignments.
+ */
 export interface IWorkbenchAssignmentService extends IAssignmentService {
+	/**
+	 * @returns A promise that resolves to an array of current experiment names, or undefined if not available.
+	 */
 	getCurrentExperiments(): Promise<string[] | undefined>;
 }
 
+/**
+ * @class MementoKeyValueStorage
+ * @implements IKeyValueStorage
+ * @description An implementation of IKeyValueStorage that uses a Memento object for persistence.
+ * This class acts as a bridge between the memento pattern and a generic key-value storage interface.
+ */
 class MementoKeyValueStorage implements IKeyValueStorage {
 	private mementoObj: MementoObject;
 	constructor(private memento: Memento) {
 		this.mementoObj = memento.getMemento(StorageScope.APPLICATION, StorageTarget.MACHINE);
 	}
 
+	/**
+	 * Retrieves a value from the storage.
+	 * @param key The key of the value to retrieve.
+	 * @param defaultValue The default value to return if the key is not found.
+	 * @returns A promise that resolves to the retrieved value or the default value.
+	 */
 	async getValue<T>(key: string, defaultValue?: T | undefined): Promise<T | undefined> {
 		const value = await this.mementoObj[key];
 		return value || defaultValue;
 	}
 
+	/**
+	 * Stores a value in the storage.
+	 * @param key The key under which to store the value.
+	 * @param value The value to store.
+	 */
 	setValue<T>(key: string, value: T): void {
 		this.mementoObj[key] = value;
 		this.memento.saveMemento();
 	}
 }
 
+/**
+ * @class WorkbenchAssignmentServiceTelemetry
+ * @implements IExperimentationTelemetry
+ * @description Implements the telemetry reporting for the assignment service.
+ * This class is responsible for sending experiment-related events and properties
+ * to the telemetry service.
+ */
 class WorkbenchAssignmentServiceTelemetry implements IExperimentationTelemetry {
 	private _lastAssignmentContext: string | undefined;
 	constructor(
@@ -51,10 +89,19 @@ class WorkbenchAssignmentServiceTelemetry implements IExperimentationTelemetry {
 		private productService: IProductService
 	) { }
 
+	/**
+	 * Gets the last recorded assignment context.
+	 */
 	get assignmentContext(): string[] | undefined {
 		return this._lastAssignmentContext?.split(';');
 	}
 
+	/**
+	 * Sets a shared property for telemetry. If the property is the assignment context,
+	 * it is stored locally.
+	 * @param name The name of the property.
+	 * @param value The value of the property.
+	 */
 	// __GDPR__COMMON__ "abexp.assignmentcontext" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
 	setSharedProperty(name: string, value: string): void {
 		if (name === this.productService.tasConfig?.assignmentContextTelemetryPropertyName) {
@@ -64,6 +111,11 @@ class WorkbenchAssignmentServiceTelemetry implements IExperimentationTelemetry {
 		this.telemetryService.setExperimentProperty(name, value);
 	}
 
+	/**
+	 * Posts a telemetry event.
+	 * @param eventName The name of the event.
+	 * @param props A map of properties to include in the event.
+	 */
 	postEvent(eventName: string, props: Map<string, string>): void {
 		const data: ITelemetryData = {};
 		for (const [key, value] of props.entries()) {
@@ -81,6 +133,12 @@ class WorkbenchAssignmentServiceTelemetry implements IExperimentationTelemetry {
 	}
 }
 
+/**
+ * @class WorkbenchAssignmentService
+ * @extends BaseAssignmentService
+ * @description The core implementation of the workbench-specific assignment service. It initializes
+ * the underlying TAS client and provides methods for accessing treatment variables.
+ */
 export class WorkbenchAssignmentService extends BaseAssignmentService {
 	constructor(
 		@ITelemetryService private telemetryService: ITelemetryService,
@@ -101,6 +159,10 @@ export class WorkbenchAssignmentService extends BaseAssignmentService {
 		);
 	}
 
+	/**
+	 * Determines if experiments are enabled based on environment, configuration, and testing flags.
+	 * @returns `true` if experiments are enabled, `false` otherwise.
+	 */
 	protected override get experimentsEnabled(): boolean {
 		return !this.environmentService.disableExperiments &&
 			!this.environmentService.extensionTestsLocationURI &&
@@ -108,6 +170,12 @@ export class WorkbenchAssignmentService extends BaseAssignmentService {
 			this.configurationService.getValue('workbench.enableExperiments') === true;
 	}
 
+	/**
+	 * Retrieves a treatment value for a given experiment name.
+	 * Also logs the treatment read event to telemetry.
+	 * @param name The name of the experiment.
+	 * @returns A promise that resolves to the treatment value, or undefined if not available.
+	 */
 	override async getTreatment<T extends string | number | boolean>(name: string): Promise<T | undefined> {
 		const result = await super.getTreatment<T>(name);
 		type TASClientReadTreatmentData = {
@@ -128,6 +196,10 @@ export class WorkbenchAssignmentService extends BaseAssignmentService {
 		return result;
 	}
 
+	/**
+	 * Gets the list of current experiments.
+	 * @returns A promise that resolves to an array of experiment names, or undefined if the service is not available.
+	 */
 	async getCurrentExperiments(): Promise<string[] | undefined> {
 		if (!this.tasClient) {
 			return undefined;
@@ -143,7 +215,10 @@ export class WorkbenchAssignmentService extends BaseAssignmentService {
 	}
 }
 
+// Register the assignment service as a singleton.
 registerSingleton(IWorkbenchAssignmentService, WorkbenchAssignmentService, InstantiationType.Delayed);
+
+// Register the configuration setting for enabling/disabling experiments.
 const registry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration);
 registry.registerConfiguration({
 	...workbenchConfigurationNodeBase,

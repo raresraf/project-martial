@@ -1,3 +1,30 @@
+/**
+ * @file genericapiserver.go
+ * @brief Implements the generic Kubernetes API server.
+ *
+ * @details
+ * This file provides the core implementation of a generic API server for Kubernetes.
+ * It is designed to be reusable and extensible, allowing different API groups and resources
+ * to be plugged in. The `GenericAPIServer` type is the central component, configured via a `Config` struct.
+ *
+ * Key functionalities include:
+ * - **HTTP Server Setup**: Configures and runs secure (HTTPS) and insecure (HTTP) listeners.
+ * - **Request Handling**: Sets up a request handling chain that includes authentication, authorization,
+ *   auditing, and admission control. It uses `go-restful` for routing and handling API requests.
+ * - **API Group Installation**: Provides mechanisms to install and expose different API groups,
+ *   each with its own set of versioned resources and storage backends. This includes handling both
+ *   legacy API groups (like `/api/v1`) and newer, prefixed groups (like `/apis/apps/v1`).
+ * - **Discovery**: Implements the API discovery endpoints (`/api`, `/apis`) that allow clients
+ *   to dynamically discover the available API groups, versions, and resources.
+ * - **Swagger/OpenAPI**: Integrates with Swagger and OpenAPI to automatically generate and serve
+ *   API documentation, facilitating client generation and interactive exploration of the API.
+ * - **Proxying and Logging**: Includes support for proxying requests to other services and for
+ *   detailed request logging and profiling (`pprof`).
+ *
+ * The architecture is built around a series of composable handlers and filters that process
+ * incoming HTTP requests before they reach the final REST storage layer. This modular design
+ * allows for fine-grained control over the API server's behavior and security.
+ */
 /*
 Copyright 2014 The Kubernetes Authors.
 
@@ -97,6 +124,10 @@ type APIGroupInfo struct {
 }
 
 // Config is a structure used to configure a GenericAPIServer.
+// Its fields are sorted into three broad categories:
+//   1. Execution options for the GenericAPIServer itself.
+//   2. Access control methods for the GenericAPIServer.
+//   3. Storage options for the GenericAPIServer.
 type Config struct {
 	// The storage factory for other objects
 	StorageFactory     StorageFactory
@@ -119,7 +150,9 @@ type Config struct {
 	EnableIndex           bool
 	EnableProfiling       bool
 	EnableWatchCache      bool
+	// APIPrefix is the prefix for REST API paths.
 	APIPrefix             string
+	// APIGroupPrefix is the prefix for API groups.
 	APIGroupPrefix        string
 	CorsAllowedOriginList []string
 	Authenticator         authenticator.Request
@@ -226,11 +259,10 @@ type GenericAPIServer struct {
 	// TODO eventually we should be able to factor this out to take place during initialization.
 	enableSwaggerSupport bool
 
-	// legacyAPIPrefix is the prefix used for legacy API groups that existed before we had API groups
-	// usuallly /api
+	// legacyAPIPrefix is the prefix for the legacy API group, which is the only API group that lives at /api.
 	legacyAPIPrefix string
 
-	// apiPrefix is the prefix where API groups live, usually /apis
+	// apiPrefix is the prefix for all API groups, usually /apis.
 	apiPrefix string
 
 	// admissionControl is used to build the RESTStorage that backs an API Group.
@@ -268,7 +300,9 @@ type GenericAPIServer struct {
 	Serializer runtime.NegotiatedSerializer
 
 	// "Outputs"
+	// Handler holds the handlers for all API paths.
 	Handler         http.Handler
+	// InsecureHandler holds the handlers for all API paths without authentication and authorization.
 	InsecureHandler http.Handler
 
 	// Used for custom proxy dialing, and proxy TLS options
@@ -360,27 +394,11 @@ func setDefaults(c *Config) {
 }
 
 // New returns a new instance of GenericAPIServer from the given config.
-// Certain config fields will be set to a default value if unset,
-// including:
-//   ServiceClusterIPRange
-//   ServiceNodePortRange
-//   MasterCount
-//   ReadWritePort
-//   PublicAddress
-// Public fields:
-//   Handler -- The returned GenericAPIServer has a field TopHandler which is an
-//   http.Handler which handles all the endpoints provided by the GenericAPIServer,
-//   including the API, the UI, and miscellaneous debugging endpoints.  All
-//   these are subject to authorization and authentication.
-//   InsecureHandler -- an http.Handler which handles all the same
-//   endpoints as Handler, but no authorization and authentication is done.
-// Public methods:
-//   HandleWithAuth -- Allows caller to add an http.Handler for an endpoint
-//   that uses the same authentication and authorization (if any is configured)
-//   as the GenericAPIServer's built-in endpoints.
-//   If the caller wants to add additional endpoints not using the GenericAPIServer's
-//   auth, then the caller should create a handler for those endpoints, which delegates the
-//   any unhandled paths to "Handler".
+// It is the main entry point for creating a new API server.
+// Certain config fields will be set to a default value if unset.
+// The returned GenericAPIServer has two main handlers:
+// - Handler: The main handler for all API endpoints, which includes authentication and authorization.
+// - InsecureHandler: A handler that exposes the same endpoints without any security checks, typically used for local access or health checks.
 func New(c *Config) (*GenericAPIServer, error) {
 	if c.Serializer == nil {
 		return nil, fmt.Errorf("Genericapiserver.New() called with config.Serializer == nil")
@@ -473,7 +491,7 @@ func NewHandlerContainer(mux *http.ServeMux, s runtime.NegotiatedSerializer) *re
 	return container
 }
 
-// init initializes GenericAPIServer.
+// init initializes the API server by setting up the HTTP handlers, authentication, authorization, and other middleware.
 func (s *GenericAPIServer) init(c *Config) {
 
 	if c.ProxyDialer != nil || c.ProxyTLSClientConfig != nil {
@@ -680,6 +698,8 @@ func DefaultAndValidateRunOptions(options *options.ServerRunOptions) {
 	}
 }
 
+// Run starts the secure and insecure listeners for the API server.
+// It also sets up a long-running request handler and a request timeout handler.
 func (s *GenericAPIServer) Run(options *options.ServerRunOptions) {
 	if s.enableSwaggerSupport {
 		s.InstallSwaggerAPI()

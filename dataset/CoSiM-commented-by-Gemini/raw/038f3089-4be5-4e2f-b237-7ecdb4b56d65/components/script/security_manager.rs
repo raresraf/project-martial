@@ -1,3 +1,9 @@
+//! This module handles the reporting of Content Security Policy (CSP) violations.
+//! It defines the logic for creating and dispatching violation reports, both by
+//! firing a `SecurityPolicyViolationEvent` and by sending a report to a URI
+//! specified in the CSP. This is a core part of the browser's security model,
+//! ensuring that policy violations are auditable and can be collected for analysis.
+
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -33,14 +39,21 @@ use crate::network_listener::{PreInvoke, ResourceTimingListener, submit_timing};
 use crate::script_runtime::CanGc;
 use crate::task::TaskOnce;
 
+/// A task that handles the reporting of a single CSP violation.
+/// This includes firing a local event and sending a report to a remote endpoint.
 pub(crate) struct CSPViolationReportTask {
+    /// The global scope in which the violation occurred.
     global: Trusted<GlobalScope>,
+    /// The target for the violation event.
     event_target: Trusted<EventTarget>,
+    /// The detailed information about the violation.
     violation_report: SecurityPolicyViolationReport,
+    /// The policy that was violated.
     violation_policy: csp::Policy,
 }
 
 impl CSPViolationReportTask {
+    /// Creates a new task to report a CSP violation.
     pub fn new(
         global: Trusted<GlobalScope>,
         event_target: Trusted<EventTarget>,
@@ -55,6 +68,8 @@ impl CSPViolationReportTask {
         }
     }
 
+    /// Fires a `SecurityPolicyViolationEvent` at the designated event target.
+    /// This makes the violation observable to scripts in the page.
     fn fire_violation_event(&self, can_gc: CanGc) {
         let event = SecurityPolicyViolationEvent::new(
             &self.global.root(),
@@ -71,38 +86,40 @@ impl CSPViolationReportTask {
             .fire(&self.event_target.root(), can_gc);
     }
 
-    /// <https://www.w3.org/TR/CSP/#deprecated-serialize-violation>
+    /// Serializes the violation report into a JSON format suitable for sending
+    /// to a reporting endpoint, as defined by the CSP specification.
+    /// See: <https://www.w3.org/TR/CSP/#deprecated-serialize-violation>
     fn serialize_violation(&self) -> Option<RequestBody> {
         let report_body = CSPReportUriViolationReport {
-            // Steps 1-3.
+            // Steps 1-3 from the specification.
             csp_report: self.violation_report.clone().into(),
         };
-        // Step 4. Return the result of serialize an infra value to JSON bytes given «[ "csp-report" → body ]».
+        // Step 4. Return the result of serializing to JSON.
         Some(create_request_body_with_content(
             &serde_json::to_string(&report_body).unwrap_or("".to_owned()),
         ))
     }
 
-    /// Step 3.4 of <https://www.w3.org/TR/CSP/#report-violation>
+    /// Sends the serialized CSP violation report to the endpoints specified
+    /// in the `report-uri` directive of the policy.
+    /// See: Step 3.4 of <https://www.w3.org/TR/CSP/#report-violation>
     fn post_csp_violation_to_report_uri(&self, report_uri_directive: &csp::Directive) {
         let global = self.global.root();
-        // Step 3.4.1. If violation’s policy’s directive set contains a directive named
-        // "report-to", skip the remaining substeps.
+        // Step 3.4.1. If a "report-to" directive exists, it takes precedence.
         if self
             .violation_policy
             .contains_a_directive_whose_name_is("report-to")
         {
             return;
         }
-        // Step 3.4.2. For each token of directive’s value:
+        // Step 3.4.2. For each token in the directive's value:
         for token in &report_uri_directive.value {
-            // Step 3.4.2.1. Let endpoint be the result of executing the URL parser with token as the input,
-            // and violation’s url as the base URL.
+            // Step 3.4.2.1. Parse the token as a URL.
             let Ok(endpoint) = ServoUrl::parse_with_base(Some(&global.get_url()), token) else {
-                // Step 3.4.2.2. If endpoint is not a valid URL, skip the remaining substeps.
+                // Step 3.4.2.2. If parsing fails, skip this token.
                 continue;
             };
-            // Step 3.4.2.3. Let request be a new request, initialized as follows:
+            // Step 3.4.2.3. Create a new POST request for the report.
             let mut headers = HeaderMap::with_capacity(1);
             headers.typed_insert(ContentType::from(
                 "application/csp-report".parse::<mime::Mime>().unwrap(),
@@ -124,7 +141,7 @@ impl CSPViolationReportTask {
             .origin(global.origin().immutable().clone())
             .credentials_mode(CredentialsMode::CredentialsSameOrigin)
             .headers(headers);
-            // Step 3.4.2.4. Fetch request. The result will be ignored.
+            // Step 3.4.2.4. Fetch the request, ignoring the result.
             global.fetch(
                 request,
                 Arc::new(Mutex::new(CSPReportUriFetchListener {
@@ -138,16 +155,14 @@ impl CSPViolationReportTask {
     }
 }
 
-/// Corresponds to the operation in 5.5 Report Violation
+/// Implements the main logic for reporting a CSP violation, as specified in:
 /// <https://w3c.github.io/webappsec-csp/#report-violation>
-/// > Queue a task to run the following steps:
+/// This task is queued to run asynchronously.
 impl TaskOnce for CSPViolationReportTask {
     fn run_once(self) {
-        // > If target implements EventTarget, fire an event named securitypolicyviolation
-        // > that uses the SecurityPolicyViolationEvent interface
-        // > at target with its attributes initialized as follows:
+        // Fire the `securitypolicyviolation` event at the target.
         self.fire_violation_event(CanGc::note());
-        // Step 3.4. If violation’s policy’s directive set contains a directive named "report-uri" directive:
+        // Step 3.4. If a "report-uri" directive exists, send the report.
         if let Some(report_uri_directive) = self
             .violation_policy
             .directive_set
@@ -159,12 +174,14 @@ impl TaskOnce for CSPViolationReportTask {
     }
 }
 
+/// Listener for the network fetch of a CSP violation report.
+/// This is primarily used to gather resource timing information for the report itself.
 struct CSPReportUriFetchListener {
-    /// Endpoint URL of this request.
+    /// The endpoint URL to which the report is being sent.
     endpoint: ServoUrl,
-    /// Timing data for this resource.
+    /// Timing data for this resource fetch.
     resource_timing: ResourceFetchTiming,
-    /// The global object fetching the report uri violation
+    /// The global scope from which the report is being sent.
     global: Trusted<GlobalScope>,
 }
 
@@ -178,10 +195,12 @@ impl FetchResponseListener for CSPReportUriFetchListener {
         _: RequestId,
         fetch_metadata: Result<FetchMetadata, NetworkError>,
     ) {
+        // The response to a CSP report is typically ignored.
         _ = fetch_metadata;
     }
 
     fn process_response_chunk(&mut self, _: RequestId, chunk: Vec<u8>) {
+        // The response body is ignored.
         _ = chunk;
     }
 
@@ -190,6 +209,7 @@ impl FetchResponseListener for CSPReportUriFetchListener {
         _: RequestId,
         response: Result<ResourceFetchTiming, NetworkError>,
     ) {
+        // The final timing information is processed, but the result itself is not used further.
         _ = response;
     }
 
@@ -206,22 +226,27 @@ impl FetchResponseListener for CSPReportUriFetchListener {
     }
 
     fn process_csp_violations(&mut self, _request_id: RequestId, violations: Vec<csp::Violation>) {
+        // Recursively report any CSP violations that occur while sending a CSP report.
         let global = &self.resource_timing_global();
         report_csp_violations(global, violations, None);
     }
 }
 
 impl ResourceTimingListener for CSPReportUriFetchListener {
+    /// Provides the initiator type and URL for resource timing entries.
     fn resource_timing_information(&self) -> (InitiatorType, ServoUrl) {
         (InitiatorType::Other, self.endpoint.clone())
     }
 
+    /// Returns the global scope associated with this fetch.
     fn resource_timing_global(&self) -> DomRoot<GlobalScope> {
         self.global.root()
     }
 }
 
 impl PreInvoke for CSPReportUriFetchListener {
+    /// Determines whether the listener's methods should be invoked.
+    /// For CSP reports, this is always true.
     fn should_invoke(&self) -> bool {
         true
     }

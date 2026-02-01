@@ -1,6 +1,19 @@
-/* This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
+/*!
+This module implements the `EventSource` API, which provides a way for web
+pages to open a connection to a server and receive server-sent events.
+
+The `EventSource` struct is the main entry point for this API. It creates a
+new `EventSource` object, which opens a connection to the specified URL. The
+`EventSource` object then dispatches events as they are received from the
+server.
+
+The `EventSourceContext` struct holds the state for an `EventSource`
+connection. It is responsible for parsing the event stream and dispatching
+events to the `EventSource` object.
+
+The `EventSource` API is defined in the HTML specification:
+<https://html.spec.whatwg.org/multipage/comms.html#server-sent-events>
+*/
 
 use std::cell::Cell;
 use std::mem;
@@ -49,40 +62,49 @@ use crate::realms::enter_realm;
 use crate::script_runtime::CanGc;
 use crate::timers::OneshotTimerCallback;
 
+/// The default reconnection time for an `EventSource` connection.
 const DEFAULT_RECONNECTION_TIME: Duration = Duration::from_millis(5000);
 
+/// A unique identifier for an `EventSource` connection.
 #[derive(Clone, Copy, Debug, JSTraceable, MallocSizeOf, PartialEq)]
 struct GenerationId(u32);
 
 #[derive(Clone, Copy, Debug, JSTraceable, MallocSizeOf, PartialEq)]
 /// <https://html.spec.whatwg.org/multipage/#dom-eventsource-readystate>
 enum ReadyState {
+    /// The `EventSource` is connecting.
     Connecting = 0,
+    /// The `EventSource` is open.
     Open = 1,
+    /// The `EventSource` is closed.
     Closed = 2,
 }
 
+/// A droppable `EventSource` that cancels the connection when dropped.
 #[derive(JSTraceable, MallocSizeOf)]
 struct DroppableEventSource {
     canceller: DomRefCell<FetchCanceller>,
 }
 
 impl DroppableEventSource {
+    /// Creates a new `DroppableEventSource`.
     pub(crate) fn new(canceller: DomRefCell<FetchCanceller>) -> Self {
         DroppableEventSource { canceller }
     }
 
+    /// Cancels the `EventSource` connection.
     pub(crate) fn cancel(&self) {
         self.canceller.borrow_mut().cancel();
     }
 
+    /// Sets the `FetchCanceller` for the `EventSource`.
     pub(crate) fn set_canceller(&self, data: FetchCanceller) {
         *self.canceller.borrow_mut() = data;
     }
 }
 
 // https://html.spec.whatwg.org/multipage/#garbage-collection-2
-impl Drop for DroppableEventSource {
+implement Drop for DroppableEventSource {
     fn drop(&mut self) {
         // If an EventSource object is garbage collected while its connection is still open,
         // the user agent must abort any instance of the fetch algorithm opened by this EventSource.
@@ -90,6 +112,7 @@ impl Drop for DroppableEventSource {
     }
 }
 
+/// The `EventSource` struct.
 #[dom_struct]
 pub(crate) struct EventSource {
     eventtarget: EventTarget,
@@ -106,13 +129,19 @@ pub(crate) struct EventSource {
     droppable: DroppableEventSource,
 }
 
+/// The state of the `EventSource` parser.
 enum ParserState {
+    /// Parsing a field.
     Field,
+    /// Parsing a comment.
     Comment,
+    /// Parsing a value.
     Value,
+    /// End of line.
     Eol,
 }
 
+/// The context for an `EventSource` connection.
 struct EventSourceContext {
     incomplete_utf8: Option<utf8::Incomplete>,
 
@@ -432,7 +461,7 @@ impl FetchResponseListener for EventSourceContext {
                 Err(utf8::DecodeError::Invalid {
                     valid_prefix,
                     remaining_input,
-                    ..
+                    .. 
                 }) => {
                     self.parse(valid_prefix.chars(), CanGc::note());
                     self.parse("\u{FFFD}".chars(), CanGc::note());
@@ -498,6 +527,7 @@ impl PreInvoke for EventSourceContext {
 }
 
 impl EventSource {
+    /// Creates a new `EventSource`.
     fn new_inherited(url: ServoUrl, with_credentials: bool) -> EventSource {
         EventSource {
             eventtarget: EventTarget::new_inherited(),
@@ -513,6 +543,7 @@ impl EventSource {
         }
     }
 
+    /// Creates a new `EventSource`.
     fn new(
         global: &GlobalScope,
         proto: Option<HandleObject>,
@@ -549,10 +580,12 @@ impl EventSource {
         );
     }
 
+    /// Returns the request builder for the `EventSource`.
     pub(crate) fn request(&self) -> RequestBuilder {
         self.request.borrow().clone().unwrap()
     }
 
+    /// Returns the URL of the `EventSource`.
     pub(crate) fn url(&self) -> &ServoUrl {
         &self.url
     }
@@ -697,6 +730,7 @@ impl EventSourceMethods<crate::DomTypeHolder> for EventSource {
     }
 }
 
+/// A callback for when an `EventSource` timeout occurs.
 #[derive(JSTraceable, MallocSizeOf)]
 pub(crate) struct EventSourceTimeoutCallback {
     #[ignore_malloc_size_of = "Because it is non-owning"]

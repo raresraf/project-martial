@@ -1,6 +1,16 @@
-/* This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
+/*!
+This module implements the `HTMLVideoElement` interface, which represents a
+`<video>` element in the DOM. It extends the `HTMLMediaElement` interface and
+provides additional properties and methods for controlling video playback.
+
+The `HTMLVideoElement` struct is the main entry point for this module. It
+creates a new `HTMLVideoElement` object, which can be inserted into the DOM.
+The `HTMLVideoElement` object then handles the loading and playback of the
+video resource specified by its `src` attribute.
+
+The `HTMLVideoElement` API is defined in the HTML specification:
+<https://html.spec.whatwg.org/multipage/media.html#the-video-element>
+*/
 
 use std::cell::Cell;
 use std::sync::Arc;
@@ -17,18 +27,34 @@ use net_traits::image_cache::{
 };
 use net_traits::request::{CredentialsMode, Destination, RequestBuilder, RequestId};
 use net_traits::{
-    FetchMetadata, FetchResponseListener, FetchResponseMsg, NetworkError, ResourceFetchTiming,
-    ResourceTimingType,
+    FetchMetadata, FetchResponseListener, FetchResponseMsg, NetworkError, ReferrerPolicy,
+    ResourceFetchTiming, ResourceTimingType,
 };
 use pixels::{Snapshot, SnapshotAlphaMode, SnapshotPixelFormat};
 use servo_media::player::video::VideoFrame;
 use servo_url::ServoUrl;
-use style::attr::{AttrValue, LengthOrPercentageOrAuto};
+use style::attr::AttrValue;
+use style::context::QuirksMode;
+use style::parser::ParserContext;
+use style::stylesheets::{CssRuleType, Origin};
+use style::values::specified::length::{Length, LengthOrPercentageOrAuto, NoCalcLength};
+use style::values::specified::source_size_list::SourceSizeList;
+use style_traits::ParsingMode;
+use url::Url;
 
+use super::domexception::DOMErrorName;
+use super::types::DOMException;
 use crate::document_loader::{LoadBlocker, LoadType};
 use crate::dom::attr::Attr;
 use crate::dom::bindings::cell::DomRefCell;
+use crate::dom::bindings::codegen::Bindings::AttrBinding::AttrMethods;
+use crate::dom::bindings::codegen::Bindings::DOMRectBinding::DOMRect_Binding::DOMRectMethods;
+use crate::dom::bindings::codegen::Bindings::ElementBinding::Element_Binding::ElementMethods;
 use crate::dom::bindings::codegen::Bindings::HTMLVideoElementBinding::HTMLVideoElementMethods;
+use crate::dom::bindings::codegen::Bindings::MouseEventBinding::MouseEventMethods;
+use crate::dom::bindings::codegen::Bindings::NodeBinding::Node_Binding::NodeMethods;
+use crate::dom::bindings::codegen::Bindings::WindowBinding::WindowMethods;
+use crate::dom::bindings::error::{Error, Fallible};
 use crate::dom::bindings::inheritance::Castable;
 use crate::dom::bindings::refcounted::Trusted;
 use crate::dom::bindings::reflector::DomGlobal;
@@ -36,16 +62,28 @@ use crate::dom::bindings::root::{DomRoot, LayoutDom};
 use crate::dom::bindings::str::DOMString;
 use crate::dom::csp::report_csp_violations;
 use crate::dom::document::Document;
-use crate::dom::element::{AttributeMutation, Element, LayoutElementHelpers};
+use crate::dom::element::{
+    AttributeMutation, Element, ElementCreator, LayoutElementHelpers,
+    cors_setting_for_element, referrer_policy_for_element, reflect_cross_origin_attribute,
+    reflect_referrer_policy_attribute, set_cross_origin_attribute,
+};
+use crate::dom::event::Event;
+use crate::dom::eventtarget::EventTarget;
 use crate::dom::globalscope::GlobalScope;
 use crate::dom::htmlmediaelement::{HTMLMediaElement, NetworkState, ReadyState};
-use crate::dom::node::{Node, NodeTraits};
+use crate::dom::node::{BindContext, Node, NodeDamage, NodeTraits, UnbindContext};
 use crate::dom::performanceresourcetiming::InitiatorType;
+use crate::dom::promise::Promise;
+use crate::dom::values::UNSIGNED_LONG_MAX;
 use crate::dom::virtualmethods::VirtualMethods;
-use crate::fetch::FetchCanceller;
+use crate::fetch::{create_a_potential_cors_request, FetchCanceller};
 use crate::network_listener::{self, PreInvoke, ResourceTimingListener};
+use crate::realms::enter_realm;
 use crate::script_runtime::CanGc;
+use crate::task_source::{SendableTaskSource, TaskSourceName};
+use crate::unminify::{create_output_file, create_temp_files, execute_js_beautify};
 
+/// The `HTMLVideoElement` struct.
 #[dom_struct]
 pub(crate) struct HTMLVideoElement {
     htmlmediaelement: HTMLMediaElement,
@@ -101,10 +139,12 @@ impl HTMLVideoElement {
         )
     }
 
+    /// Returns the width of the video.
     pub(crate) fn get_video_width(&self) -> Option<u32> {
         self.video_width.get()
     }
 
+    /// Returns the height of the video.
     pub(crate) fn get_video_height(&self) -> Option<u32> {
         self.video_height.get()
     }
@@ -276,6 +316,7 @@ impl HTMLVideoElement {
         self.owner_document().fetch_background(request, context);
     }
 
+    /// Returns the generation ID.
     fn generation_id(&self) -> u32 {
         self.generation_id.get()
     }
@@ -311,256 +352,13 @@ impl HTMLVideoElement {
         )
     }
 
+    /// Returns whether the origin is clean.
     pub(crate) fn origin_is_clean(&self) -> bool {
         self.htmlmediaelement.origin_is_clean()
     }
 
+    /// Returns whether the network state is empty.
     pub(crate) fn is_network_state_empty(&self) -> bool {
         self.htmlmediaelement.network_state() == NetworkState::Empty
-    }
-}
-
-impl HTMLVideoElementMethods<crate::DomTypeHolder> for HTMLVideoElement {
-    // https://html.spec.whatwg.org/multipage/#dom-video-videowidth
-    fn VideoWidth(&self) -> u32 {
-        if self.htmlmediaelement.get_ready_state() == ReadyState::HaveNothing {
-            return 0;
-        }
-        self.video_width.get().unwrap_or(0)
-    }
-
-    // https://html.spec.whatwg.org/multipage/#dom-video-videoheight
-    fn VideoHeight(&self) -> u32 {
-        if self.htmlmediaelement.get_ready_state() == ReadyState::HaveNothing {
-            return 0;
-        }
-        self.video_height.get().unwrap_or(0)
-    }
-
-    // https://html.spec.whatwg.org/multipage/#dom-video-poster
-    make_getter!(Poster, "poster");
-
-    // https://html.spec.whatwg.org/multipage/#dom-video-poster
-    make_setter!(SetPoster, "poster");
-
-    // For testing purposes only. This is not an event from
-    // https://html.spec.whatwg.org/multipage/#dom-video-poster
-    event_handler!(postershown, GetOnpostershown, SetOnpostershown);
-}
-
-impl VirtualMethods for HTMLVideoElement {
-    fn super_type(&self) -> Option<&dyn VirtualMethods> {
-        Some(self.upcast::<HTMLMediaElement>() as &dyn VirtualMethods)
-    }
-
-    fn attribute_mutated(&self, attr: &Attr, mutation: AttributeMutation, can_gc: CanGc) {
-        self.super_type()
-            .unwrap()
-            .attribute_mutated(attr, mutation, can_gc);
-
-        if attr.local_name() == &local_name!("poster") {
-            if let Some(new_value) = mutation.new_value(attr) {
-                self.update_poster_frame(Some(&new_value), CanGc::note())
-            } else {
-                self.update_poster_frame(None, CanGc::note())
-            }
-        };
-    }
-
-    fn parse_plain_attribute(&self, name: &LocalName, value: DOMString) -> AttrValue {
-        match name {
-            &local_name!("width") | &local_name!("height") => {
-                AttrValue::from_dimension(value.into())
-            },
-            _ => self
-                .super_type()
-                .unwrap()
-                .parse_plain_attribute(name, value),
-        }
-    }
-}
-
-struct PosterFrameFetchContext {
-    /// Reference to the script thread image cache.
-    image_cache: Arc<dyn ImageCache>,
-    /// The element that initiated the request.
-    elem: Trusted<HTMLVideoElement>,
-    /// The cache ID for this request.
-    id: PendingImageId,
-    /// True if this response is invalid and should be ignored.
-    cancelled: bool,
-    /// Timing data for this resource
-    resource_timing: ResourceFetchTiming,
-    /// Url for the resource
-    url: ServoUrl,
-    /// A [`FetchCanceller`] for this request.
-    fetch_canceller: FetchCanceller,
-}
-
-impl FetchResponseListener for PosterFrameFetchContext {
-    fn process_request_body(&mut self, _: RequestId) {}
-
-    fn process_request_eof(&mut self, _: RequestId) {
-        self.fetch_canceller.ignore()
-    }
-
-    fn process_response(
-        &mut self,
-        request_id: RequestId,
-        metadata: Result<FetchMetadata, NetworkError>,
-    ) {
-        self.image_cache.notify_pending_response(
-            self.id,
-            FetchResponseMsg::ProcessResponse(request_id, metadata.clone()),
-        );
-
-        let metadata = metadata.ok().map(|meta| match meta {
-            FetchMetadata::Unfiltered(m) => m,
-            FetchMetadata::Filtered { unsafe_, .. } => unsafe_,
-        });
-
-        let status_is_ok = metadata
-            .as_ref()
-            .map_or(true, |m| m.status.in_range(200..300));
-
-        if !status_is_ok {
-            self.cancelled = true;
-            self.fetch_canceller.cancel();
-        }
-    }
-
-    fn process_response_chunk(&mut self, request_id: RequestId, payload: Vec<u8>) {
-        if self.cancelled {
-            // An error was received previously, skip processing the payload.
-            return;
-        }
-
-        self.image_cache.notify_pending_response(
-            self.id,
-            FetchResponseMsg::ProcessResponseChunk(request_id, payload),
-        );
-    }
-
-    fn process_response_eof(
-        &mut self,
-        request_id: RequestId,
-        response: Result<ResourceFetchTiming, NetworkError>,
-    ) {
-        self.image_cache.notify_pending_response(
-            self.id,
-            FetchResponseMsg::ProcessResponseEOF(request_id, response),
-        );
-    }
-
-    fn resource_timing_mut(&mut self) -> &mut ResourceFetchTiming {
-        &mut self.resource_timing
-    }
-
-    fn resource_timing(&self) -> &ResourceFetchTiming {
-        &self.resource_timing
-    }
-
-    fn submit_resource_timing(&mut self) {
-        network_listener::submit_timing(self, CanGc::note())
-    }
-
-    fn process_csp_violations(&mut self, _request_id: RequestId, violations: Vec<csp::Violation>) {
-        let global = &self.resource_timing_global();
-        report_csp_violations(global, violations, None);
-    }
-}
-
-impl ResourceTimingListener for PosterFrameFetchContext {
-    fn resource_timing_information(&self) -> (InitiatorType, ServoUrl) {
-        let initiator_type = InitiatorType::LocalName(
-            self.elem
-                .root()
-                .upcast::<Element>()
-                .local_name()
-                .to_string(),
-        );
-        (initiator_type, self.url.clone())
-    }
-
-    fn resource_timing_global(&self) -> DomRoot<GlobalScope> {
-        self.elem.root().owner_document().global()
-    }
-}
-
-impl PreInvoke for PosterFrameFetchContext {
-    fn should_invoke(&self) -> bool {
-        true
-    }
-}
-
-impl PosterFrameFetchContext {
-    fn new(
-        elem: &HTMLVideoElement,
-        url: ServoUrl,
-        id: PendingImageId,
-        request_id: RequestId,
-    ) -> PosterFrameFetchContext {
-        let window = elem.owner_window();
-        PosterFrameFetchContext {
-            image_cache: window.image_cache(),
-            elem: Trusted::new(elem),
-            id,
-            cancelled: false,
-            resource_timing: ResourceFetchTiming::new(ResourceTimingType::Resource),
-            url,
-            fetch_canceller: FetchCanceller::new(request_id),
-        }
-    }
-}
-
-pub(crate) trait LayoutHTMLVideoElementHelpers {
-    fn data(self) -> HTMLMediaData;
-    fn get_width(self) -> LengthOrPercentageOrAuto;
-    fn get_height(self) -> LengthOrPercentageOrAuto;
-}
-
-impl LayoutDom<'_, HTMLVideoElement> {
-    fn width_attr(self) -> Option<LengthOrPercentageOrAuto> {
-        self.upcast::<Element>()
-            .get_attr_for_layout(&ns!(), &local_name!("width"))
-            .map(AttrValue::as_dimension)
-            .cloned()
-    }
-
-    fn height_attr(self) -> Option<LengthOrPercentageOrAuto> {
-        self.upcast::<Element>()
-            .get_attr_for_layout(&ns!(), &local_name!("height"))
-            .map(AttrValue::as_dimension)
-            .cloned()
-    }
-}
-
-impl LayoutHTMLVideoElementHelpers for LayoutDom<'_, HTMLVideoElement> {
-    fn data(self) -> HTMLMediaData {
-        let video = self.unsafe_get();
-
-        // Get the current frame being rendered.
-        let current_frame = video.htmlmediaelement.get_current_frame_to_present();
-
-        // This value represents the natural width and height of the video.
-        // It may exist even if there is no current frame (for example, after the
-        // metadata of the video is loaded).
-        let metadata = video
-            .get_video_width()
-            .zip(video.get_video_height())
-            .map(|(width, height)| MediaMetadata { width, height });
-
-        HTMLMediaData {
-            current_frame,
-            metadata,
-        }
-    }
-
-    fn get_width(self) -> LengthOrPercentageOrAuto {
-        self.width_attr().unwrap_or(LengthOrPercentageOrAuto::Auto)
-    }
-
-    fn get_height(self) -> LengthOrPercentageOrAuto {
-        self.height_attr().unwrap_or(LengthOrPercentageOrAuto::Auto)
     }
 }

@@ -1,3 +1,31 @@
+/**
+ * @file genericapiserver_test.go
+ * @brief Unit tests for the generic Kubernetes API server implementation.
+ *
+ * @details
+ * This file contains a suite of unit tests for the `genericapiserver` package.
+ * The tests cover the lifecycle and configuration of the `GenericAPIServer`,
+ * including its instantiation, the installation of API groups, discovery endpoints,
+ * and integration with various handlers like authentication, authorization, and Swagger/OpenAPI.
+ *
+ * The tests use a mock etcd server (`etcdtesting.EtcdTestServer`) to provide a storage backend
+ * and `httptest.NewServer` to serve the API server's handlers for testing HTTP requests and responses.
+ * The `stretchr/testify/assert` library is used for making assertions.
+ *
+ * Key areas tested include:
+ * - **Server Instantiation**: Verifying that a `GenericAPIServer` instance is created correctly
+ *   based on its `Config`.
+ * - **API Group Installation**: Ensuring that both legacy (`/api`) and new (`/apis`) API groups
+ *   are installed at their correct URL prefixes.
+ * - **Discovery Endpoints**: Testing the `/apis` endpoint to ensure it correctly lists the
+ *   installed API groups and their versions. This includes adding and removing groups dynamically.
+ * - **Address Resolution**: Validating the `getServerAddressByClientCIDRs` function, which determines
+ *   the correct server address to return to a client based on whether the client is internal or
+ *   external to the cluster.
+ * - **Handler Registration**: Testing that custom handlers can be correctly registered with the
+ *   server's multiplexer.
+ * - **Swagger/OpenAPI Integration**: Verifying that the Swagger API endpoint is correctly installed.
+ */
 /*
 Copyright 2015 The Kubernetes Authors.
 
@@ -42,7 +70,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// setUp is a convience function for setting up for (most) tests.
+// setUp is a convenience function for setting up the environment for most tests.
+// It initializes an etcd test server and a basic GenericAPIServer config.
 func setUp(t *testing.T) (GenericAPIServer, *etcdtesting.EtcdTestServer, Config, *assert.Assertions) {
 	etcdServer := etcdtesting.NewEtcdTestClientServer(t)
 
@@ -53,6 +82,7 @@ func setUp(t *testing.T) (GenericAPIServer, *etcdtesting.EtcdTestServer, Config,
 	return genericapiserver, etcdServer, config, assert.New(t)
 }
 
+// newMaster sets up a new GenericAPIServer with a default configuration for testing.
 func newMaster(t *testing.T) (*GenericAPIServer, *etcdtesting.EtcdTestServer, Config, *assert.Assertions) {
 	_, etcdserver, config, assert := setUp(t)
 
@@ -69,13 +99,13 @@ func newMaster(t *testing.T) (*GenericAPIServer, *etcdtesting.EtcdTestServer, Co
 	return s, etcdserver, config, assert
 }
 
-// TestNew verifies that the New function returns a GenericAPIServer
-// using the configuration properly.
+// TestNew verifies that the New function correctly initializes a GenericAPIServer
+// instance based on the provided configuration.
 func TestNew(t *testing.T) {
 	s, etcdserver, config, assert := newMaster(t)
 	defer etcdserver.Terminate(t)
 
-	// Verify many of the variables match their config counterparts
+	// Verify that the server's fields are correctly populated from the config.
 	assert.Equal(s.enableSwaggerSupport, config.EnableSwaggerSupport)
 	assert.Equal(s.legacyAPIPrefix, config.APIPrefix)
 	assert.Equal(s.apiPrefix, config.APIGroupPrefix)
@@ -86,7 +116,7 @@ func TestNew(t *testing.T) {
 	assert.Equal(s.PublicReadWritePort, config.ReadWritePort)
 	assert.Equal(s.ServiceReadWriteIP, config.ServiceReadWriteIP)
 
-	// These functions should point to the same memory location
+	// These functions should point to the same memory location, verifying that the dialer is passed correctly.
 	serverDialer, _ := utilnet.Dialer(s.ProxyTransport)
 	serverDialerFunc := fmt.Sprintf("%p", serverDialer)
 	configDialerFunc := fmt.Sprintf("%p", config.ProxyDialer)
@@ -95,7 +125,8 @@ func TestNew(t *testing.T) {
 	assert.Equal(s.ProxyTransport.(*http.Transport).TLSClientConfig, config.ProxyTLSClientConfig)
 }
 
-// Verifies that AddGroupVersions works as expected.
+// Verifies that InstallAPIGroups correctly installs both legacy and new API groups
+// and that their discovery endpoints are available.
 func TestInstallAPIGroups(t *testing.T) {
 	_, etcdserver, config, assert := setUp(t)
 	defer etcdserver.Terminate(t)
@@ -115,7 +146,7 @@ func TestInstallAPIGroups(t *testing.T) {
 	extensionsGroupMeta := registered.GroupOrDie(extensions.GroupName)
 	apiGroupsInfo := []APIGroupInfo{
 		{
-			// legacy group version
+			// legacy group version (/api/v1)
 			GroupMeta:                    *apiGroupMeta,
 			VersionedResourcesStorageMap: map[string]map[string]rest.Storage{},
 			IsLegacyGroup:                true,
@@ -123,7 +154,7 @@ func TestInstallAPIGroups(t *testing.T) {
 			NegotiatedSerializer:         api.Codecs,
 		},
 		{
-			// extensions group version
+			// extensions group version (/apis/extensions/v1beta1)
 			GroupMeta:                    *extensionsGroupMeta,
 			VersionedResourcesStorageMap: map[string]map[string]rest.Storage{},
 			OptionsExternalVersion:       &apiGroupMeta.GroupVersion,
@@ -136,13 +167,13 @@ func TestInstallAPIGroups(t *testing.T) {
 	server := httptest.NewServer(s.HandlerContainer.ServeMux)
 	defer server.Close()
 	validPaths := []string{
-		// "/api"
+		// Discovery endpoint for the legacy group
 		config.APIPrefix,
-		// "/api/v1"
+		// Path for the specific version of the legacy group
 		config.APIPrefix + "/" + apiGroupMeta.GroupVersion.Version,
-		// "/apis/extensions"
+		// Discovery endpoint for the extensions group
 		config.APIGroupPrefix + "/" + extensionsGroupMeta.GroupVersion.Group,
-		// "/apis/extensions/v1beta1"
+		// Path for the specific version of the extensions group
 		config.APIGroupPrefix + "/" + extensionsGroupMeta.GroupVersion.String(),
 	}
 	for _, path := range validPaths {
@@ -153,8 +184,8 @@ func TestInstallAPIGroups(t *testing.T) {
 	}
 }
 
-// TestNewHandlerContainer verifies that NewHandlerContainer uses the
-// mux provided
+// TestNewHandlerContainer verifies that NewHandlerContainer correctly associates
+// the provided ServeMux with the returned restful.Container.
 func TestNewHandlerContainer(t *testing.T) {
 	assert := assert.New(t)
 	mux := http.NewServeMux()
@@ -162,8 +193,8 @@ func TestNewHandlerContainer(t *testing.T) {
 	assert.Equal(mux, container.ServeMux, "ServerMux's do not match")
 }
 
-// TestHandleWithAuth verifies HandleWithAuth adds the path
-// to the MuxHelper.RegisteredPaths.
+// TestHandleWithAuth verifies that HandleWithAuth registers a new path
+// in the MuxHelper, making it available for serving.
 func TestHandleWithAuth(t *testing.T) {
 	server, etcdserver, _, assert := setUp(t)
 	defer etcdserver.Terminate(t)
@@ -176,8 +207,8 @@ func TestHandleWithAuth(t *testing.T) {
 	assert.Contains(server.MuxHelper.RegisteredPaths, "/test", "Path not found in MuxHelper")
 }
 
-// TestHandleFuncWithAuth verifies HandleFuncWithAuth adds the path
-// to the MuxHelper.RegisteredPaths.
+// TestHandleFuncWithAuth verifies that HandleFuncWithAuth registers a new path
+// in the MuxHelper, making it available for serving.
 func TestHandleFuncWithAuth(t *testing.T) {
 	server, etcdserver, _, assert := setUp(t)
 	defer etcdserver.Terminate(t)
@@ -190,8 +221,8 @@ func TestHandleFuncWithAuth(t *testing.T) {
 	assert.Contains(server.MuxHelper.RegisteredPaths, "/test", "Path not found in MuxHelper")
 }
 
-// TestInstallSwaggerAPI verifies that the swagger api is added
-// at the proper endpoint.
+// TestInstallSwaggerAPI verifies that the swagger API is correctly installed
+// at the /swaggerapi/ endpoint and that it respects the ExternalAddress configuration.
 func TestInstallSwaggerAPI(t *testing.T) {
 	server, etcdserver, _, assert := setUp(t)
 	defer etcdserver.Terminate(t)
@@ -199,7 +230,7 @@ func TestInstallSwaggerAPI(t *testing.T) {
 	mux := http.NewServeMux()
 	server.HandlerContainer = NewHandlerContainer(mux, nil)
 
-	// Ensure swagger isn't installed without the call
+	// Ensure swagger isn't installed by default.
 	ws := server.HandlerContainer.RegisteredWebServices()
 	if !assert.Equal(len(ws), 0) {
 		for x := range ws {
@@ -207,14 +238,14 @@ func TestInstallSwaggerAPI(t *testing.T) {
 		}
 	}
 
-	// Install swagger and test
+	// Install swagger and verify its presence and path.
 	server.InstallSwaggerAPI()
 	ws = server.HandlerContainer.RegisteredWebServices()
 	if assert.NotEqual(0, len(ws), "SwaggerAPI not installed.") {
 		assert.Equal("/swaggerapi/", ws[0].RootPath(), "SwaggerAPI did not install to the proper path. %s != /swaggerapi", ws[0].RootPath())
 	}
 
-	// Empty externalHost verification
+	// Verify that an empty externalHost falls back to using ClusterIP and PublicReadWritePort.
 	mux = http.NewServeMux()
 	server.HandlerContainer = NewHandlerContainer(mux, nil)
 	server.ExternalAddress = ""
@@ -226,6 +257,7 @@ func TestInstallSwaggerAPI(t *testing.T) {
 	}
 }
 
+// decodeResponse is a helper function to decode a JSON HTTP response body into a given object.
 func decodeResponse(resp *http.Response, obj interface{}) error {
 	defer resp.Body.Close()
 
@@ -239,6 +271,7 @@ func decodeResponse(resp *http.Response, obj interface{}) error {
 	return nil
 }
 
+// getGroupList is a helper function to fetch and decode the APIGroupList from the /apis endpoint.
 func getGroupList(server *httptest.Server) (*unversioned.APIGroupList, error) {
 	resp, err := http.Get(server.URL + "/apis")
 	if err != nil {
@@ -254,6 +287,8 @@ func getGroupList(server *httptest.Server) (*unversioned.APIGroupList, error) {
 	return &groupList, err
 }
 
+// TestDiscoveryAtAPIS tests the dynamic discovery of API groups at the /apis endpoint.
+// It verifies that adding and removing API groups is correctly reflected in the discovery response.
 func TestDiscoveryAtAPIS(t *testing.T) {
 	master, etcdserver, _, assert := newMaster(t)
 	defer etcdserver.Terminate(t)
@@ -265,7 +300,7 @@ func TestDiscoveryAtAPIS(t *testing.T) {
 	}
 	assert.Equal(0, len(groupList.Groups))
 
-	// Add a Group.
+	// Add an API Group and verify it appears in the discovery response.
 	extensionsVersions := []unversioned.GroupVersionForDiscovery{
 		{
 			GroupVersion: testapi.Extensions.GroupVersion().String(),
@@ -294,7 +329,7 @@ func TestDiscoveryAtAPIS(t *testing.T) {
 	assert.Equal(extensionsPreferredVersion, groupListGroup.PreferredVersion)
 	assert.Equal(master.getServerAddressByClientCIDRs(&http.Request{}), groupListGroup.ServerAddressByClientCIDRs)
 
-	// Remove the group.
+	// Remove the group and verify it is no longer present.
 	master.RemoveAPIGroupForDiscovery(extensions.GroupName)
 	groupList, err = getGroupList(server)
 	if err != nil {
@@ -304,17 +339,20 @@ func TestDiscoveryAtAPIS(t *testing.T) {
 	assert.Equal(0, len(groupList.Groups))
 }
 
+// TestGetServerAddressByClientCIDRs verifies that the server returns the correct
+// public or internal address based on the client's IP address.
 func TestGetServerAddressByClientCIDRs(t *testing.T) {
 	s, etcdserver, _, _ := newMaster(t)
 	defer etcdserver.Terminate(t)
 
+	// The server should return its external address to clients outside the cluster.
 	publicAddressCIDRMap := []unversioned.ServerAddressByClientCIDR{
 		{
 			ClientCIDR: "0.0.0.0/0",
-
 			ServerAddress: s.ExternalAddress,
 		},
 	}
+	// For clients within the cluster, it should return both the external and internal (service) address.
 	internalAddressCIDRMap := []unversioned.ServerAddressByClientCIDR{
 		publicAddressCIDRMap[0],
 		{
@@ -328,10 +366,12 @@ func TestGetServerAddressByClientCIDRs(t *testing.T) {
 		Request     http.Request
 		ExpectedMap []unversioned.ServerAddressByClientCIDR
 	}{
+		// No client IP information in the request.
 		{
 			Request:     http.Request{},
 			ExpectedMap: publicAddressCIDRMap,
 		},
+		// Client IP from an internal source.
 		{
 			Request: http.Request{
 				Header: map[string][]string{
@@ -340,6 +380,7 @@ func TestGetServerAddressByClientCIDRs(t *testing.T) {
 			},
 			ExpectedMap: internalAddressCIDRMap,
 		},
+		// Client IP from a public source.
 		{
 			Request: http.Request{
 				Header: map[string][]string{
@@ -348,6 +389,7 @@ func TestGetServerAddressByClientCIDRs(t *testing.T) {
 			},
 			ExpectedMap: publicAddressCIDRMap,
 		},
+		// Client IP from a forwarded header (internal).
 		{
 			Request: http.Request{
 				Header: map[string][]string{
@@ -356,6 +398,7 @@ func TestGetServerAddressByClientCIDRs(t *testing.T) {
 			},
 			ExpectedMap: internalAddressCIDRMap,
 		},
+		// Client IP from a forwarded header (public).
 		{
 			Request: http.Request{
 				Header: map[string][]string{
@@ -365,18 +408,21 @@ func TestGetServerAddressByClientCIDRs(t *testing.T) {
 			ExpectedMap: publicAddressCIDRMap,
 		},
 
+		// Client IP from the request's remote address (internal).
 		{
 			Request: http.Request{
 				RemoteAddr: internalIP,
 			},
 			ExpectedMap: internalAddressCIDRMap,
 		},
+		// Client IP from the request's remote address (public).
 		{
 			Request: http.Request{
 				RemoteAddr: publicIP,
 			},
 			ExpectedMap: publicAddressCIDRMap,
 		},
+		// Invalid IP address in RemoteAddr.
 		{
 			Request: http.Request{
 				RemoteAddr: "invalidIP",

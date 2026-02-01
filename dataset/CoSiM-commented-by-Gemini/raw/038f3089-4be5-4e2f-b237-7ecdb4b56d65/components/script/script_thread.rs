@@ -1,21 +1,14 @@
-/* This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
-
-//! The script thread is the thread that owns the DOM in memory, runs JavaScript, and triggers
-//! layout. It's in charge of processing events for all same-origin pages in a frame
-//! tree, and manages the entire lifetime of pages in the frame tree from initial request to
-//! teardown.
+//! This module provides the core functionality for the script thread, which is responsible
+//! for managing the DOM, running JavaScript, and orchestrating layout. The script thread
+//! processes events for same-origin pages within a frame tree and manages their complete
+//! lifecycle, from initial request to final destruction.
 //!
-//! Page loads follow a two-step process. When a request for a new page load is received, the
-//! network request is initiated and the relevant data pertaining to the new page is stashed.
-//! While the non-blocking request is ongoing, the script thread is free to process further events,
-//! noting when they pertain to ongoing loads (such as resizes/viewport adjustments). When the
-//! initial response is received for an ongoing load, the second phase starts - the frame tree
-//! entry is created, along with the Window and Document objects, and the appropriate parser
-//! takes over the response body. Once parsing is complete, the document lifecycle for loading
-//! a page runs its course and the script thread returns to processing events in the main event
-//! loop.
+//! Page loading is a two-step process. First, a network request for a new page is
+//! initiated, and relevant data is stored. During this non-blocking request, the script
+//! thread remains responsive to other events, such as resizes. When the initial response is
+//! received, the second phase begins: the frame tree entry, Window, and Document objects
+//! are created. A parser then processes the response body. After parsing, the document
+//! lifecycle proceeds, and the script thread returns to its main event loop.
 
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
@@ -29,7 +22,10 @@ use std::thread;
 use std::time::{Duration, Instant, SystemTime};
 
 use background_hang_monitor_api::{
-    BackgroundHangMonitor, BackgroundHangMonitorExitSignal, HangAnnotation, MonitoredComponentId,
+    BackgroundHangMonitor,
+    BackgroundHangMonitorExitSignal,
+    HangAnnotation,
+    MonitoredComponentId,
     MonitoredComponentType,
 };
 use base::cross_process_instant::CrossProcessInstant;
@@ -38,21 +34,41 @@ use canvas_traits::webgl::WebGLPipeline;
 use chrono::{DateTime, Local};
 use compositing_traits::{CompositorMsg, CrossProcessCompositorApi, PipelineExitSource};
 use constellation_traits::{
-    JsEvalResult, LoadData, LoadOrigin, NavigationHistoryBehavior, ScriptToConstellationChan,
-    ScriptToConstellationMessage, StructuredSerializedData, WindowSizeType,
+    JsEvalResult,
+    LoadData,
+    LoadOrigin,
+    NavigationHistoryBehavior,
+    ScriptToConstellationChan,
+    ScriptToConstellationMessage,
+    StructuredSerializedData,
+    WindowSizeType,
 };
 use content_security_policy::{self as csp};
 use crossbeam_channel::unbounded;
 use data_url::mime::Mime;
 use devtools_traits::{
-    CSSError, DevtoolScriptControlMsg, DevtoolsPageInfo, NavigationState,
-    ScriptToDevtoolsControlMsg, WorkerId,
+    CSSError,
+    DevtoolScriptControlMsg,
+    DevtoolsPageInfo,
+    NavigationState,
+    ScriptToDevtoolsControlMsg,
+    WorkerId,
 };
 use embedder_traits::user_content_manager::UserContentManager;
 use embedder_traits::{
-    CompositorHitTestResult, EmbedderMsg, FocusSequenceNumber, InputEvent,
-    JavaScriptEvaluationError, JavaScriptEvaluationId, MediaSessionActionType, MouseButton,
-    MouseButtonAction, MouseButtonEvent, Theme, ViewportDetails, WebDriverScriptCommand,
+    CompositorHitTestResult,
+    EmbedderMsg,
+    FocusSequenceNumber,
+    InputEvent,
+    JavaScriptEvaluationError,
+    JavaScriptEvaluationId,
+    MediaSessionActionType,
+    MouseButton,
+    MouseButtonAction,
+    MouseButtonEvent,
+    Theme,
+    ViewportDetails,
+    WebDriverScriptCommand,
 };
 use euclid::Point2D;
 use euclid::default::Rect;
@@ -65,7 +81,10 @@ use ipc_channel::ipc;
 use ipc_channel::router::ROUTER;
 use js::glue::GetWindowProxyClass;
 use js::jsapi::{
-    JS_AddInterruptCallback, JSContext as UnsafeJSContext, JSTracer, SetWindowProxyClass,
+    JS_AddInterruptCallback,
+    JSContext as UnsafeJSContext,
+    JSTracer,
+    SetWindowProxyClass,
 };
 use js::jsval::UndefinedValue;
 use js::rust::ParentRuntime;
@@ -77,16 +96,29 @@ use net_traits::request::{Referrer, RequestId};
 use net_traits::response::ResponseInit;
 use net_traits::storage_thread::StorageType;
 use net_traits::{
-    FetchMetadata, FetchResponseListener, FetchResponseMsg, Metadata, NetworkError,
-    ResourceFetchTiming, ResourceThreads, ResourceTimingType,
+    FetchMetadata,
+    FetchResponseListener,
+    FetchResponseMsg,
+    Metadata,
+    NetworkError,
+    ResourceFetchTiming,
+    ResourceThreads,
+    ResourceTimingType,
 };
 use percent_encoding::percent_decode;
 use profile_traits::mem::{ProcessReports, ReportsChan, perform_memory_report};
 use profile_traits::time::ProfilerCategory;
 use profile_traits::time_profile;
 use script_traits::{
-    ConstellationInputEvent, DiscardBrowsingContext, DocumentActivity, InitialScriptState,
-    NewLayoutInfo, Painter, ProgressiveWebMetricType, ScriptThreadMessage, UpdatePipelineIdReason,
+    ConstellationInputEvent,
+    DiscardBrowsingContext,
+    DocumentActivity,
+    InitialScriptState,
+    NewLayoutInfo,
+    Painter,
+    ProgressiveWebMetricType,
+    ScriptThreadMessage,
+    UpdatePipelineIdReason,
 };
 use servo_config::opts;
 use servo_url::{ImmutableOrigin, MutableOrigin, ServoUrl};
@@ -103,28 +135,42 @@ use crate::document_collection::DocumentCollection;
 use crate::document_loader::DocumentLoader;
 use crate::dom::bindings::cell::DomRefCell;
 use crate::dom::bindings::codegen::Bindings::DocumentBinding::{
-    DocumentMethods, DocumentReadyState,
+    DocumentMethods,
+    DocumentReadyState,
 };
 use crate::dom::bindings::codegen::Bindings::NavigatorBinding::NavigatorMethods;
 use crate::dom::bindings::codegen::Bindings::WindowBinding::WindowMethods;
 use crate::dom::bindings::conversions::{
-    ConversionResult, FromJSValConvertible, StringificationBehavior,
+    ConversionResult,
+    FromJSValConvertible,
+    StringificationBehavior,
 };
 use crate::dom::bindings::inheritance::Castable;
 use crate::dom::bindings::refcounted::Trusted;
 use crate::dom::bindings::reflector::DomGlobal;
 use crate::dom::bindings::root::{
-    Dom, DomRoot, MutNullableDom, RootCollection, ThreadLocalStackRoots,
+    Dom,
+    DomRoot,
+    MutNullableDom,
+    RootCollection,
+    ThreadLocalStackRoots,
 };
 use crate::dom::bindings::settings_stack::AutoEntryScript;
 use crate::dom::bindings::str::DOMString;
 use crate::dom::bindings::trace::{HashMapTracedValues, JSTraceable};
 use crate::dom::csp::report_csp_violations;
 use crate::dom::customelementregistry::{
-    CallbackReaction, CustomElementDefinition, CustomElementReactionStack,
+    CallbackReaction,
+    CustomElementDefinition,
+    CustomElementReactionStack,
 };
 use crate::dom::document::{
-    Document, DocumentSource, FocusInitiator, HasBrowsingContext, IsHTMLDocument, TouchEventResult,
+    Document,
+    DocumentSource,
+    FocusInitiator,
+    HasBrowsingContext,
+    IsHTMLDocument,
+    TouchEventResult,
 };
 use crate::dom::element::Element;
 use crate::dom::globalscope::GlobalScope;
@@ -142,8 +188,12 @@ use crate::dom::worklet::WorkletThreadPool;
 use crate::dom::workletglobalscope::WorkletGlobalScopeInit;
 use crate::fetch::FetchCanceller;
 use crate::messaging::{
-    CommonScriptMsg, MainThreadScriptMsg, MixedMessage, ScriptEventLoopSender,
-    ScriptThreadReceivers, ScriptThreadSenders,
+    CommonScriptMsg,
+    MainThreadScriptMsg,
+    MixedMessage,
+    ScriptEventLoopSender,
+    ScriptThreadReceivers,
+    ScriptThreadSenders,
 };
 use crate::microtask::{Microtask, MicrotaskQueue};
 use crate::mime::{APPLICATION, MimeExt, TEXT, XML};
@@ -151,15 +201,28 @@ use crate::navigation::{InProgressLoad, NavigationListener};
 use crate::realms::enter_realm;
 use crate::script_module::ScriptFetchOptions;
 use crate::script_runtime::{
-    CanGc, JSContext, JSContextHelper, Runtime, ScriptThreadEventCategory, ThreadSafeJSContext,
+    CanGc,
+    JSContext,
+    JSContextHelper,
+    Runtime,
+    ScriptThreadEventCategory,
+    ThreadSafeJSContext,
 };
 use crate::task_queue::TaskQueue;
 use crate::task_source::{SendableTaskSource, TaskSourceName};
 use crate::webdriver_handlers::jsval_to_webdriver;
 use crate::{devtools, webdriver_handlers};
 
+/// A thread-local static variable that holds a raw pointer to the `ScriptThread`.
+/// This allows functions within the same thread to access the `ScriptThread` instance
+/// without passing it as an argument. The use of a raw pointer requires careful
+/// memory management to avoid dangling pointers, especially when the `ScriptThread` is destroyed.
 thread_local!(static SCRIPT_THREAD_ROOT: Cell<Option<*const ScriptThread>> = const { Cell::new(None) });
 
+/// Provides a safe way to access the `ScriptThread` instance from thread-local storage.
+/// It takes a closure and passes it an `Option<&ScriptThread>`.
+/// If the `ScriptThread` pointer is set, it is safely converted to a reference and passed
+/// to the closure. If the pointer is not set, the closure receives `None`.
 fn with_optional_script_thread<R>(f: impl FnOnce(Option<&ScriptThread>) -> R) -> R {
     SCRIPT_THREAD_ROOT.with(|root| {
         f(root
@@ -168,15 +231,21 @@ fn with_optional_script_thread<R>(f: impl FnOnce(Option<&ScriptThread>) -> R) ->
     })
 }
 
+/// A convenience function that simplifies access to the `ScriptThread`.
+/// It is similar to `with_optional_script_thread` but expects the `ScriptThread` to be present.
+/// If the `ScriptThread` is available, it executes the provided closure with a reference to it.
+/// If the `ScriptThread` is not available, it returns a default value for the closure's return type `R`.
 pub(crate) fn with_script_thread<R: Default>(f: impl FnOnce(&ScriptThread) -> R) -> R {
     with_optional_script_thread(|script_thread| script_thread.map(f).unwrap_or_default())
 }
 
+/// Traces the `ScriptThread` for garbage collection.
 /// # Safety
-///
-/// The `JSTracer` argument must point to a valid `JSTracer` in memory. In addition,
-/// implementors of this method must ensure that all active objects are properly traced
-/// or else the garbage collector may end up collecting objects that are still reachable.
+/// This function is marked as `unsafe` because it deals with raw pointers. The caller must
+/// ensure that the `JSTracer` pointer `tr` is valid. It accesses the thread-local
+/// `ScriptThread` and calls its `trace` method, which is essential for the garbage collector
+/// to identify and manage live objects. Failure to trace all reachable objects can lead to
+/// memory leaks or use-after-free bugs.
 pub(crate) unsafe fn trace_thread(tr: *mut JSTracer) {
     with_script_thread(|script_thread| {
         trace!("tracing fields of ScriptThread");
@@ -184,6 +253,10 @@ pub(crate) unsafe fn trace_thread(tr: *mut JSTracer) {
     })
 }
 
+/// Holds a list of parser contexts that are still being processed.
+/// This is necessary because parsing can be interrupted by other tasks, such as JavaScript
+/// evaluation or garbage collection. The contexts are wrapped in a `RefCell` to allow for
+/// mutable borrowing even when the `ScriptThread` is otherwise immutably borrowed.
 // We borrow the incomplete parser contexts mutably during parsing,
 // which is fine except that parsing can trigger evaluation,
 // which can trigger GC, and so we can end up tracing the script
@@ -191,147 +264,160 @@ pub(crate) unsafe fn trace_thread(tr: *mut JSTracer) {
 // incomplete parser contexts during GC.
 pub(crate) struct IncompleteParserContexts(RefCell<Vec<(PipelineId, ParserContext)>>);
 
+// The `unsafe_no_jsmanaged_fields` macro indicates that `TaskQueue<MainThreadScriptMsg>`
+// does not contain any fields managed by the JavaScript garbage collector. This is an
+// optimization that allows the garbage collector to skip tracing this type.
 unsafe_no_jsmanaged_fields!(TaskQueue<MainThreadScriptMsg>);
 
+/// A type alias for a `HashSet` of `String`, used to store unique identifiers for nodes.
 type NodeIdSet = HashSet<String>;
 
+/// The central structure that manages the execution of a web page.
+///
+/// It holds all the state necessary for a page to run, including its documents,
+/// window proxies, and ongoing network loads. It also manages communication with other
+/// parts of the browser, such as the compositor and resource threads. The `JSTraceable`
+/// derive macro indicates that this struct can be traced by the garbage collector.
 #[derive(JSTraceable)]
 // ScriptThread instances are rooted on creation, so this is okay
 #[cfg_attr(crown, allow(crown::unrooted_must_root))]
 pub struct ScriptThread {
+    /// Stores the timestamp of the last time a rendering update was possible. This is used
+    /// to schedule animations and other rendering-related tasks.
     /// <https://html.spec.whatwg.org/multipage/#last-render-opportunity-time>
     last_render_opportunity_time: DomRefCell<Option<Instant>>,
-    /// The documents for pipelines managed by this thread
+    /// A collection of all the documents managed by this script thread, keyed by their pipeline ID.
     documents: DomRefCell<DocumentCollection>,
-    /// The window proxies known by this thread
+    /// A map of browsing context IDs to their corresponding `WindowProxy` objects, allowing
+    /// for efficient lookup of window proxies.
     /// TODO: this map grows, but never shrinks. Issue #15258.
     window_proxies: DomRefCell<HashMapTracedValues<BrowsingContextId, Dom<WindowProxy>>>,
-    /// A list of data pertaining to loads that have not yet received a network response
+    /// A list of network loads that are in progress but have not yet received a response.
     incomplete_loads: DomRefCell<Vec<InProgressLoad>>,
-    /// A vector containing parser contexts which have not yet been fully processed
+    /// A vector of parser contexts that are not yet fully processed.
     incomplete_parser_contexts: IncompleteParserContexts,
-    /// Image cache for this script thread.
+    /// A shared handle to the image cache for this script thread.
     #[no_trace]
     image_cache: Arc<dyn ImageCache>,
 
-    /// A [`ScriptThreadReceivers`] holding all of the incoming `Receiver`s for messages
-    /// to this [`ScriptThread`].
+    /// Holds all the incoming channels for messages to this `ScriptThread`.
     receivers: ScriptThreadReceivers,
 
-    /// A [`ScriptThreadSenders`] that holds all outgoing sending channels necessary to communicate
-    /// to other parts of Servo.
+    /// Holds all the outgoing channels for this `ScriptThread` to communicate with other parts of Servo.
     senders: ScriptThreadSenders,
 
-    /// A handle to the resource thread. This is an `Arc` to avoid running out of file descriptors if
-    /// there are many iframes.
+    /// A shared handle to the resource threads, used for network requests and other I/O operations.
     #[no_trace]
     resource_threads: ResourceThreads,
 
-    /// A queue of tasks to be executed in this script-thread.
+    /// A queue of tasks to be executed by this script thread.
     task_queue: TaskQueue<MainThreadScriptMsg>,
 
-    /// The dedicated means of communication with the background-hang-monitor for this script-thread.
+    /// A dedicated communication channel with the background hang monitor for this script thread.
     #[no_trace]
     background_hang_monitor: Box<dyn BackgroundHangMonitor>,
-    /// A flag set to `true` by the BHM on exit, and checked from within the interrupt handler.
+    /// An atomic flag that is set to `true` by the background hang monitor when the thread should exit.
     closing: Arc<AtomicBool>,
 
-    /// A [`TimerScheduler`] used to schedule timers for this [`ScriptThread`]. Timers are handled
-    /// in the [`ScriptThread`] event loop.
+    /// Used to schedule timers for this `ScriptThread`.
     #[no_trace]
     timer_scheduler: RefCell<TimerScheduler>,
 
-    /// A proxy to the `SystemFontService` to use for accessing system font lists.
+    /// A proxy to the system's font service, used for accessing system fonts.
     #[no_trace]
     system_font_service: Arc<SystemFontServiceProxy>,
 
-    /// The JavaScript runtime.
+    /// The JavaScript runtime for this script thread.
     js_runtime: Rc<Runtime>,
 
-    /// The topmost element over the mouse.
+    /// The element that is currently under the mouse cursor.
     topmost_mouse_over_target: MutNullableDom<Element>,
 
-    /// List of pipelines that have been owned and closed by this script thread.
+    /// A set of pipeline IDs that have been closed and are no longer active.
     #[no_trace]
     closed_pipelines: DomRefCell<HashSet<PipelineId>>,
 
+    /// The queue for microtasks, which are small tasks that run after the current task
+    /// completes but before the next event loop tick.
     /// <https://html.spec.whatwg.org/multipage/#microtask-queue>
     microtask_queue: Rc<MicrotaskQueue>,
 
-    /// Microtask Queue for adding support for mutation observer microtasks
+    /// A flag indicating whether a microtask for mutation observers has been queued.
     mutation_observer_microtask_queued: Cell<bool>,
 
-    /// The unit of related similar-origin browsing contexts' list of MutationObserver objects
+    /// A list of all `MutationObserver` objects for the browsing contexts managed by this script thread.
     mutation_observers: DomRefCell<Vec<Dom<MutationObserver>>>,
 
+    /// A list of `HTMLSlotElement` objects that need to be processed.
     /// <https://dom.spec.whatwg.org/#signal-slot-list>
     signal_slots: DomRefCell<Vec<Dom<HTMLSlotElement>>>,
 
-    /// A handle to the WebGL thread
+    /// An optional channel for communicating with the WebGL thread.
     #[no_trace]
     webgl_chan: Option<WebGLPipeline>,
 
-    /// The WebXR device registry
+    /// An optional registry for WebXR devices.
     #[no_trace]
     #[cfg(feature = "webxr")]
     webxr_registry: Option<webxr_api::Registry>,
 
-    /// The worklet thread pool
+    /// A thread pool for running worklets.
     worklet_thread_pool: DomRefCell<Option<Rc<WorkletThreadPool>>>,
 
-    /// A list of pipelines containing documents that finished loading all their blocking
-    /// resources during a turn of the event loop.
+    /// A set of documents that have finished loading all their blocking resources during a turn of the event loop.
     docs_with_no_blocking_loads: DomRefCell<HashSet<Dom<Document>>>,
 
+    /// A stack for custom element reactions, which are callbacks that are triggered when
+    /// a custom element's state changes.
     /// <https://html.spec.whatwg.org/multipage/#custom-element-reactions-stack>
     custom_element_reaction_stack: CustomElementReactionStack,
 
-    /// Cross-process access to the compositor's API.
+    /// Provides cross-process access to the compositor's API.
     #[no_trace]
     compositor_api: CrossProcessCompositorApi,
 
-    /// Periodically print out on which events script threads spend their processing time.
+    /// A flag that enables profiling of script events.
     profile_script_events: bool,
 
-    /// Print Progressive Web Metrics to console.
+    /// A flag that enables printing of Progressive Web Metrics to the console.
     print_pwm: bool,
 
-    /// Emits notifications when there is a relayout.
+    /// A flag that emits notifications when there is a relayout.
     relayout_event: bool,
 
-    /// Unminify Javascript.
+    /// A flag that enables un-minifying of JavaScript.
     unminify_js: bool,
 
-    /// Directory with stored unminified scripts
+    /// An optional directory with stored un-minified scripts.
     local_script_source: Option<String>,
 
-    /// Unminify Css.
+    /// A flag that enables un-minifying of CSS.
     unminify_css: bool,
 
-    /// User content manager
+    /// A manager for user-provided content.
     #[no_trace]
     user_content_manager: UserContentManager,
 
-    /// Application window's GL Context for Media player
+    /// The application window's GL context for the media player.
     #[no_trace]
     player_context: WindowGLContext,
 
-    /// A map from pipelines to all owned nodes ever created in this script thread
+    /// A map from pipeline IDs to a set of all owned nodes ever created in this script thread.
     #[no_trace]
     pipeline_to_node_ids: DomRefCell<HashMap<PipelineId, NodeIdSet>>,
 
-    /// Code is running as a consequence of a user interaction
+    /// A flag that indicates whether the code is running as a consequence of a user interaction.
     is_user_interacting: Cell<bool>,
 
-    /// Identity manager for WebGPU resources
+    /// An identity manager for WebGPU resources.
     #[no_trace]
     #[cfg(feature = "webgpu")]
     gpu_id_hub: Arc<IdentityHub>,
 
-    // Secure context
+    // An optional boolean that indicates whether the context is secure.
     inherited_secure_context: Option<bool>,
 
-    /// A factory for making new layouts. This allows layout to depend on script.
+    /// A factory for creating new layouts, allowing layout to depend on script.
     #[no_trace]
     layout_factory: Arc<dyn LayoutFactory>,
 
@@ -339,31 +425,38 @@ pub struct ScriptThread {
     #[no_trace]
     relative_mouse_down_point: Cell<Point2D<f32, DevicePixel>>,
 
-    /// The [`TimerId`] of the scheduled ScriptThread-only animation tick timer, if any.
-    /// This may be non-`None` when rAF callbacks do not trigger display list creation. In
-    /// that case the compositor will never trigger a new animation tick because it's
-    /// dependent on the rendering of a new WebRender frame.
+    /// The `TimerId` of the scheduled script-thread-only animation tick timer, if any.
     #[no_trace]
     scheduled_script_thread_animation_timer: RefCell<Option<TimerId>>,
 
-    /// A flag that lets the [`ScriptThread`]'s main loop know that the
-    /// [`Self::scheduled_script_thread_animation_timer`] timer fired and it should
-    /// trigger an animation tick "update the rendering" call.
+    /// A flag that lets the `ScriptThread`'s main loop know that the
+    /// `scheduled_script_thread_animation_timer` timer fired and it should trigger an animation tick.
     should_trigger_script_thread_animation_tick: Arc<AtomicBool>,
 }
 
+/// A struct that implements the `BackgroundHangMonitorExitSignal` trait.
+/// It is used to signal the `ScriptThread` to exit when a hang is detected.
 struct BHMExitSignal {
+    /// An atomic boolean that is set to `true` to indicate that the `ScriptThread` should exit.
     closing: Arc<AtomicBool>,
+    /// A thread-safe handle to the JavaScript context, used to request an interrupt.
     js_context: ThreadSafeJSContext,
 }
 
 impl BackgroundHangMonitorExitSignal for BHMExitSignal {
+    /// Signals the `ScriptThread` to exit. This is called by the background hang monitor
+    /// when a hang is detected. It sets the `closing` flag to `true` and requests an
+    /// interrupt in the JavaScript context, which will cause the `ScriptThread`'s event
+    /// loop to terminate.
     fn signal_to_exit(&self) {
         self.closing.store(true, Ordering::SeqCst);
         self.js_context.request_interrupt_callback();
     }
 }
 
+/// A C-style callback function that is registered with the JavaScript engine.
+/// It is called periodically to allow for interruption of long-running scripts. It checks
+/// if the `ScriptThread` can continue running and, if not, prepares it for shutdown.
 #[allow(unsafe_code)]
 unsafe extern "C" fn interrupt_callback(_cx: *mut UnsafeJSContext) -> bool {
     let res = ScriptThread::can_continue_running();
@@ -373,25 +466,33 @@ unsafe extern "C" fn interrupt_callback(_cx: *mut UnsafeJSContext) -> bool {
     res
 }
 
-/// In the event of thread panic, all data on the stack runs its destructor. However, there
-/// are no reachable, owning pointers to the DOM memory, so it never gets freed by default
-/// when the script thread fails. The ScriptMemoryFailsafe uses the destructor bomb pattern
-/// to forcibly tear down the JS realms for pages associated with the failing ScriptThread.
+/// A struct that acts as a failsafe to ensure that DOM memory is freed in case of a
+/// panic in the `ScriptThread`. It uses the "destructor bomb" pattern: its `drop`
+/// method is called when the `ScriptThread` panics, and it then tears down the
+/// JavaScript realms for all associated pages.
 struct ScriptMemoryFailsafe<'a> {
+    /// An optional reference to the `ScriptThread` that this failsafe is associated with.
     owner: Option<&'a ScriptThread>,
 }
 
 impl<'a> ScriptMemoryFailsafe<'a> {
+    /// Deactivates the failsafe by setting its `owner` to `None`.
+    /// This is called when the `ScriptThread` is shutting down cleanly, to prevent the
+    /// `drop` method from being called unnecessarily.
     fn neuter(&mut self) {
         self.owner = None;
     }
 
+    /// Creates a new `ScriptMemoryFailsafe` for the given `ScriptThread`.
     fn new(owner: &'a ScriptThread) -> ScriptMemoryFailsafe<'a> {
         ScriptMemoryFailsafe { owner: Some(owner) }
     }
 }
 
 impl Drop for ScriptMemoryFailsafe<'_> {
+    /// The `drop` method of `ScriptMemoryFailsafe` is called when the `ScriptThread` panics.
+    /// It iterates over all the documents owned by the `ScriptThread` and clears their
+    /// JavaScript runtimes, which frees the associated DOM memory.
     #[cfg_attr(crown, allow(crown::unrooted_must_root))]
     fn drop(&mut self) {
         if let Some(owner) = self.owner {
@@ -403,6 +504,10 @@ impl Drop for ScriptMemoryFailsafe<'_> {
 }
 
 impl ScriptThreadFactory for ScriptThread {
+    /// The entry point for creating a new `ScriptThread`.
+    /// It spawns a new thread and initializes it with the provided `InitialScriptState`.
+    /// It also sets up the necessary infrastructure for the `ScriptThread` to run,
+    /// such as the thread-local storage and the memory profiler.
     fn create(
         state: InitialScriptState,
         layout_factory: Arc<dyn LayoutFactory>,
@@ -442,14 +547,8 @@ impl ScriptThreadFactory for ScriptThread {
                 script_thread.pre_page_load(in_progress_load);
 
                 memory_profiler_sender.run_with_memory_reporting(
-                    || {
-                        script_thread.start(CanGc::note());
-
-                        let _ = script_thread
-                            .senders
-                            .content_process_shutdown_sender
-                            .send(());
-                    },
+                    ||
+                        script_thread.start(CanGc::note()),
                     reporter_name,
                     ScriptEventLoopSender::MainThread(script_thread.senders.self_sender.clone()),
                     CommonScriptMsg::CollectReports,
@@ -463,32 +562,39 @@ impl ScriptThreadFactory for ScriptThread {
 }
 
 impl ScriptThread {
+    /// Returns a `ParentRuntime` handle that can be used to create new child runtimes.
     pub(crate) fn runtime_handle() -> ParentRuntime {
         with_optional_script_thread(|script_thread| {
             script_thread.unwrap().js_runtime.prepare_for_new_child()
         })
     }
 
+    /// Checks whether the script thread can continue running. This is used by the interrupt
+    /// callback to determine whether to terminate the event loop.
     pub(crate) fn can_continue_running() -> bool {
         with_script_thread(|script_thread| script_thread.can_continue_running_inner())
     }
 
+    /// Prepares the script thread for shutdown by canceling all tasks.
     pub(crate) fn prepare_for_shutdown() {
         with_script_thread(|script_thread| {
             script_thread.prepare_for_shutdown_inner();
         })
     }
 
+    /// Sets a flag indicating that a mutation observer microtask has been queued.
     pub(crate) fn set_mutation_observer_microtask_queued(value: bool) {
         with_script_thread(|script_thread| {
             script_thread.mutation_observer_microtask_queued.set(value);
         })
     }
 
+    /// Checks if a mutation observer microtask has been queued.
     pub(crate) fn is_mutation_observer_microtask_queued() -> bool {
         with_script_thread(|script_thread| script_thread.mutation_observer_microtask_queued.get())
     }
 
+    /// Adds a `MutationObserver` to the list of observers for this script thread.
     pub(crate) fn add_mutation_observer(observer: &MutationObserver) {
         with_script_thread(|script_thread| {
             script_thread
@@ -498,6 +604,7 @@ impl ScriptThread {
         })
     }
 
+    /// Returns a list of all mutation observers for this script thread.
     pub(crate) fn get_mutation_observers() -> Vec<DomRoot<MutationObserver>> {
         with_script_thread(|script_thread| {
             script_thread
@@ -509,6 +616,7 @@ impl ScriptThread {
         })
     }
 
+    /// Adds an `HTMLSlotElement` to the list of signal slots that need to be processed.
     pub(crate) fn add_signal_slot(observer: &HTMLSlotElement) {
         with_script_thread(|script_thread| {
             script_thread
@@ -518,6 +626,7 @@ impl ScriptThread {
         })
     }
 
+    /// Removes and returns all signal slots that need to be processed.
     pub(crate) fn take_signal_slots() -> Vec<DomRoot<HTMLSlotElement>> {
         with_script_thread(|script_thread| {
             script_thread
@@ -532,6 +641,7 @@ impl ScriptThread {
         })
     }
 
+    /// Marks a document as having no more blocking loads.
     pub(crate) fn mark_document_with_no_blocked_loads(doc: &Document) {
         with_script_thread(|script_thread| {
             script_thread
@@ -541,6 +651,7 @@ impl ScriptThread {
         })
     }
 
+    /// Called when the headers for a page have been received. This kicks off the page load process.
     pub(crate) fn page_headers_available(
         id: &PipelineId,
         metadata: Option<Metadata>,
@@ -551,9 +662,8 @@ impl ScriptThread {
         })
     }
 
-    /// Process a single event as if it were the next event
-    /// in the queue for this window event-loop.
-    /// Returns a boolean indicating whether further events should be processed.
+    /// Processes a single event from the event loop. Returns `true` if the event loop
+    /// should continue running, and `false` otherwise.
     pub(crate) fn process_event(msg: CommonScriptMsg) -> bool {
         with_script_thread(|script_thread| {
             if !script_thread.can_continue_running_inner() {
@@ -564,11 +674,12 @@ impl ScriptThread {
         })
     }
 
-    /// Schedule a [`TimerEventRequest`] on this [`ScriptThread`]'s [`TimerScheduler`].
+    /// Schedules a timer to fire after a given duration.
     pub(crate) fn schedule_timer(&self, request: TimerEventRequest) -> TimerId {
         self.timer_scheduler.borrow_mut().schedule_timer(request)
     }
 
+    /// Enqueues a microtask to be run when the system is in a stable state.
     // https://html.spec.whatwg.org/multipage/#await-a-stable-state
     pub(crate) fn await_stable_state(task: Microtask) {
         with_script_thread(|script_thread| {
@@ -578,8 +689,8 @@ impl ScriptThread {
         });
     }
 
-    /// Check that two origins are "similar enough",
-    /// for now only used to prevent cross-origin JS url evaluation.
+    /// Checks if two origins are "similar enough" to allow a load. This is used to prevent
+    /// cross-origin JavaScript URL evaluation.
     ///
     /// <https://github.com/whatwg/html/issues/2591>
     pub(crate) fn check_load_origin(source: &LoadOrigin, target: &ImmutableOrigin) -> bool {
@@ -598,7 +709,9 @@ impl ScriptThread {
         }
     }
 
-    /// Step 13 of <https://html.spec.whatwg.org/multipage/#navigate>
+    /// Handles the navigation of a browsing context to a new URL. It follows the steps
+    /// outlined in the HTML specification for navigation.
+    /// <https://html.spec.whatwg.org/multipage/#navigate>
     pub(crate) fn navigate(
         browsing_context: BrowsingContextId,
         pipeline_id: PipelineId,
@@ -661,19 +774,20 @@ impl ScriptThread {
         });
     }
 
+    /// Processes a message to attach a new layout to the script thread.
     pub(crate) fn process_attach_layout(new_layout_info: NewLayoutInfo, origin: MutableOrigin) {
         with_script_thread(|script_thread| {
             let pipeline_id = Some(new_layout_info.new_pipeline_id);
             script_thread.profile_event(
                 ScriptThreadEventCategory::AttachLayout,
                 pipeline_id,
-                || {
-                    script_thread.handle_new_layout(new_layout_info, origin);
-                },
+                ||
+                    script_thread.handle_new_layout(new_layout_info, origin),
             )
         });
     }
 
+    /// Asks the constellation for the top-level browsing context for a given browsing context.
     pub(crate) fn get_top_level_for_browsing_context(
         sender_pipeline: PipelineId,
         browsing_context_id: BrowsingContextId,
@@ -683,20 +797,24 @@ impl ScriptThread {
         })
     }
 
+    /// Finds a document by its pipeline ID.
     pub(crate) fn find_document(id: PipelineId) -> Option<DomRoot<Document>> {
         with_script_thread(|script_thread| script_thread.documents.borrow().find_document(id))
     }
 
+    /// Sets a flag indicating whether the user is currently interacting with the page.
     pub(crate) fn set_user_interacting(interacting: bool) {
         with_script_thread(|script_thread| {
             script_thread.is_user_interacting.set(interacting);
         });
     }
 
+    /// Checks if the user is currently interacting with the page.
     pub(crate) fn is_user_interacting() -> bool {
         with_script_thread(|script_thread| script_thread.is_user_interacting.get())
     }
 
+    /// Returns a set of all fully active document IDs.
     pub(crate) fn get_fully_active_document_ids() -> HashSet<PipelineId> {
         with_script_thread(|script_thread| {
             script_thread
@@ -717,6 +835,7 @@ impl ScriptThread {
         })
     }
 
+    /// Finds a window proxy by its browsing context ID.
     pub(crate) fn find_window_proxy(id: BrowsingContextId) -> Option<DomRoot<WindowProxy>> {
         with_script_thread(|script_thread| {
             script_thread
@@ -727,6 +846,7 @@ impl ScriptThread {
         })
     }
 
+    /// Finds a window proxy by its name.
     pub(crate) fn find_window_proxy_by_name(name: &DOMString) -> Option<DomRoot<WindowProxy>> {
         with_script_thread(|script_thread| {
             for (_, proxy) in script_thread.window_proxies.borrow().iter() {
@@ -738,6 +858,7 @@ impl ScriptThread {
         })
     }
 
+    /// Returns a handle to the worklet thread pool.
     pub(crate) fn worklet_thread_pool() -> Rc<WorkletThreadPool> {
         with_optional_script_thread(|script_thread| {
             let script_thread = script_thread.unwrap();
@@ -768,6 +889,7 @@ impl ScriptThread {
         })
     }
 
+    /// Handles a message to register a paint worklet.
     fn handle_register_paint_worklet(
         &self,
         pipeline_id: PipelineId,
@@ -785,6 +907,7 @@ impl ScriptThread {
             .register_paint_worklet_modules(name, properties, painter);
     }
 
+    /// Pushes a new element queue onto the custom element reaction stack.
     pub(crate) fn push_new_element_queue() {
         with_script_thread(|script_thread| {
             script_thread
@@ -793,6 +916,7 @@ impl ScriptThread {
         })
     }
 
+    /// Pops the current element queue from the custom element reaction stack.
     pub(crate) fn pop_current_element_queue(can_gc: CanGc) {
         with_script_thread(|script_thread| {
             script_thread
@@ -801,6 +925,7 @@ impl ScriptThread {
         })
     }
 
+    /// Enqueues a callback reaction for a custom element.
     pub(crate) fn enqueue_callback_reaction(
         element: &Element,
         reaction: CallbackReaction,
@@ -813,6 +938,7 @@ impl ScriptThread {
         })
     }
 
+    /// Enqueues an upgrade reaction for a custom element.
     pub(crate) fn enqueue_upgrade_reaction(
         element: &Element,
         definition: Rc<CustomElementDefinition>,
@@ -824,6 +950,7 @@ impl ScriptThread {
         })
     }
 
+    /// Invokes the backup element queue.
     pub(crate) fn invoke_backup_element_queue(can_gc: CanGc) {
         with_script_thread(|script_thread| {
             script_thread
@@ -832,6 +959,7 @@ impl ScriptThread {
         })
     }
 
+    /// Saves a node ID for a given pipeline.
     pub(crate) fn save_node_id(pipeline: PipelineId, node_id: String) {
         with_script_thread(|script_thread| {
             script_thread
@@ -843,6 +971,7 @@ impl ScriptThread {
         })
     }
 
+    /// Checks if a node ID exists for a given pipeline.
     pub(crate) fn has_node_id(pipeline: PipelineId, node_id: &str) -> bool {
         with_script_thread(|script_thread| {
             script_thread
@@ -882,7 +1011,8 @@ impl ScriptThread {
         let (ipc_devtools_sender, ipc_devtools_receiver) = ipc::channel().unwrap();
         let devtools_server_receiver = devtools_server_sender
             .as_ref()
-            .map(|_| ROUTER.route_ipc_receiver_to_new_crossbeam_receiver(ipc_devtools_receiver))
+            .map(|_|
+                ROUTER.route_ipc_receiver_to_new_crossbeam_receiver(ipc_devtools_receiver))
             .unwrap_or_else(crossbeam_channel::never);
 
         let task_queue = TaskQueue::new(self_receiver, self_sender.clone());
@@ -982,12 +1112,13 @@ impl ScriptThread {
         }
     }
 
+    /// Returns a handle to the JavaScript context.
     #[allow(unsafe_code)]
     pub(crate) fn get_cx(&self) -> JSContext {
         unsafe { JSContext::from_ptr(self.js_runtime.cx()) }
     }
 
-    /// Check if we are closing.
+    /// Checks if we are closing.
     fn can_continue_running_inner(&self) -> bool {
         if self.closing.load(Ordering::SeqCst) {
             return false;
@@ -995,7 +1126,7 @@ impl ScriptThread {
         true
     }
 
-    /// We are closing, ensure no script can run and potentially hang.
+    /// If we are closing, ensures no script can run and potentially hang.
     fn prepare_for_shutdown_inner(&self) {
         let docs = self.documents.borrow();
         for (_, document) in docs.iter() {
@@ -1006,8 +1137,8 @@ impl ScriptThread {
         }
     }
 
-    /// Starts the script thread. After calling this method, the script thread will loop receiving
-    /// messages on its port.
+    /// Starts the script thread. After calling this method, the script thread will loop
+    /// receiving messages on its port.
     pub(crate) fn start(&self, can_gc: CanGc) {
         debug!("Starting script thread.");
         while self.handle_msgs(can_gc) {
@@ -1017,7 +1148,7 @@ impl ScriptThread {
         debug!("Stopped script thread.");
     }
 
-    /// Process a compositor mouse move event.
+    /// Processes a compositor mouse move event.
     fn process_mouse_move_event(
         &self,
         document: &Document,
@@ -1085,7 +1216,7 @@ impl ScriptThread {
         }
     }
 
-    /// Process compositor events as part of a "update the rendering task".
+    /// Processes compositor events as part of an "update the rendering task".
     fn process_pending_input_events(&self, pipeline_id: PipelineId, can_gc: CanGc) {
         let Some(document) = self.documents.borrow().find_document(pipeline_id) else {
             warn!("Processing pending compositor events for closed pipeline {pipeline_id}.");
@@ -1181,6 +1312,7 @@ impl ScriptThread {
         ScriptThread::set_user_interacting(false);
     }
 
+    /// Notifies the WebDriver that an input event has been completed.
     fn notify_webdriver_input_event_completed(&self, pipeline_id: PipelineId, event: &InputEvent) {
         let Some(id) = event.webdriver_message_id() else {
             return;
@@ -1196,7 +1328,7 @@ impl ScriptThread {
 
     /// <https://html.spec.whatwg.org/multipage/#update-the-rendering>
     ///
-    /// Attempt to update the rendering and then do a microtask checkpoint if rendering was actually
+    /// Attempts to update the rendering and then does a microtask checkpoint if rendering was actually
     /// updated.
     pub(crate) fn update_the_rendering(&self, requested_by_renderer: bool, can_gc: CanGc) {
         *self.last_render_opportunity_time.borrow_mut() = Some(Instant::now());
@@ -1383,6 +1515,7 @@ impl ScriptThread {
         }
     }
 
+    /// Schedules a rendering opportunity if necessary.
     // If there are any pending reflows and we are not having rendering opportunities
     // driven by the compositor, then schedule the next rendering opportunity.
     //
@@ -1473,7 +1606,7 @@ impl ScriptThread {
         *scheduled_script_thread_animation_timer = Some(timer_id);
     }
 
-    /// Handle incoming messages from other tasks and the task queue.
+    /// Handles incoming messages from other tasks and the task queue.
     fn handle_msgs(&self, can_gc: CanGc) -> bool {
         // Proritize rendering tasks and others, and gather all other events as `sequential`.
         let mut sequential = vec![];
@@ -1513,35 +1646,34 @@ impl ScriptThread {
                     self.profile_event(
                         ScriptThreadEventCategory::AttachLayout,
                         Some(pipeline_id),
-                        || {
-                            // If this is an about:blank or about:srcdoc load, it must share the
-                            // creator's origin. This must match the logic in the constellation
-                            // when creating a new pipeline
-                            let not_an_about_blank_and_about_srcdoc_load =
-                                new_layout_info.load_data.url.as_str() != "about:blank" &&
-                                    new_layout_info.load_data.url.as_str() != "about:srcdoc";
-                            let origin = if not_an_about_blank_and_about_srcdoc_load {
-                                MutableOrigin::new(new_layout_info.load_data.url.origin())
-                            } else if let Some(parent) =
-                                new_layout_info.parent_info.and_then(|pipeline_id| {
-                                    self.documents.borrow().find_document(pipeline_id)
-                                })
+                        ||
                             {
-                                parent.origin().clone()
-                            } else if let Some(creator) = new_layout_info
-                                .load_data
-                                .creator_pipeline_id
-                                .and_then(|pipeline_id| {
-                                    self.documents.borrow().find_document(pipeline_id)
-                                })
-                            {
-                                creator.origin().clone()
-                            } else {
-                                MutableOrigin::new(ImmutableOrigin::new_opaque())
-                            };
+                                // If this is an about:blank or about:srcdoc load, it must share the
+                                // creator's origin. This must match the logic in the constellation
+                                // when creating a new pipeline
+                                let not_an_about_blank_and_about_srcdoc_load =
+                                    new_layout_info.load_data.url.as_str() != "about:blank" &&
+                                        new_layout_info.load_data.url.as_str() != "about:srcdoc";
+                                let origin = if not_an_about_blank_and_about_srcdoc_load {
+                                    MutableOrigin::new(new_layout_info.load_data.url.origin())
+                                } else if let Some(parent) =
+                                    new_layout_info.parent_info.and_then(|pipeline_id|
+                                        self.documents.borrow().find_document(pipeline_id))
+                                {
+                                    parent.origin().clone()
+                                } else if let Some(creator) = new_layout_info
+                                    .load_data
+                                    .creator_pipeline_id
+                                    .and_then(|pipeline_id|
+                                        self.documents.borrow().find_document(pipeline_id))
+                                {
+                                    creator.origin().clone()
+                                } else {
+                                    MutableOrigin::new(ImmutableOrigin::new_opaque())
+                                };
 
-                            self.handle_new_layout(new_layout_info, origin);
-                        },
+                                self.handle_new_layout(new_layout_info, origin);
+                            },
                     )
                 },
                 MixedMessage::FromConstellation(ScriptThreadMessage::Resize(
@@ -1691,6 +1823,7 @@ impl ScriptThread {
         true
     }
 
+    /// Categorizes a message for profiling purposes.
     fn categorize_msg(&self, msg: &MixedMessage) -> ScriptThreadEventCategory {
         match *msg {
             MixedMessage::FromConstellation(ref inner_msg) => match *inner_msg {
@@ -1713,6 +1846,7 @@ impl ScriptThread {
         }
     }
 
+    /// Profiles an event.
     fn profile_event<F, R>(
         &self,
         category: ScriptThreadEventCategory,
@@ -1878,6 +2012,7 @@ impl ScriptThread {
         value
     }
 
+    /// Handles a message from the constellation.
     fn handle_msg_from_constellation(&self, msg: ScriptThreadMessage, can_gc: CanGc) {
         match msg {
             ScriptThreadMessage::StopDelayingLoadEventsMode(pipeline_id) => {
@@ -2018,11 +2153,16 @@ impl ScriptThread {
                     ROUTER.route_ipc_receiver_to_new_crossbeam_receiver(port);
             },
             msg @ ScriptThreadMessage::AttachLayout(..) |
-            msg @ ScriptThreadMessage::Viewport(..) |
-            msg @ ScriptThreadMessage::Resize(..) |
-            msg @ ScriptThreadMessage::ExitFullScreen(..) |
-            msg @ ScriptThreadMessage::SendInputEvent(..) |
-            msg @ ScriptThreadMessage::TickAllAnimations(..) |
+            msg @ ScriptThreadMessage::Viewport(..)
+            |
+            msg @ ScriptThreadMessage::Resize(..)
+            |
+            msg @ ScriptThreadMessage::ExitFullScreen(..)
+            |
+            msg @ ScriptThreadMessage::SendInputEvent(..)
+            |
+            msg @ ScriptThreadMessage::TickAllAnimations(..)
+            |
             msg @ ScriptThreadMessage::ExitScriptThread => {
                 panic!("should have handled {:?} already", msg)
             },
@@ -2035,6 +2175,7 @@ impl ScriptThread {
         }
     }
 
+    /// Handles a message to set the scroll states of a pipeline.
     fn handle_set_scroll_states(
         &self,
         pipeline_id: PipelineId,
@@ -2048,14 +2189,14 @@ impl ScriptThread {
         self.profile_event(
             ScriptThreadEventCategory::SetScrollState,
             Some(pipeline_id),
-            || {
+            ||
                 window
                     .layout_mut()
-                    .set_scroll_offsets_from_renderer(&scroll_states);
-            },
+                    .set_scroll_offsets_from_renderer(&scroll_states),
         )
     }
 
+    /// Handles a message from the WebGPU server.
     #[cfg(feature = "webgpu")]
     fn handle_msg_from_webgpu_server(&self, msg: WebGPUMsg, can_gc: CanGc) {
         match msg {
@@ -2110,6 +2251,7 @@ impl ScriptThread {
         }
     }
 
+    /// Handles a message from the script thread itself.
     fn handle_msg_from_script(&self, msg: MainThreadScriptMsg) {
         match msg {
             MainThreadScriptMsg::Common(CommonScriptMsg::Task(_, task, pipeline_id, _)) => {
@@ -2142,6 +2284,7 @@ impl ScriptThread {
         }
     }
 
+    /// Handles a message from the devtools.
     fn handle_msg_from_devtools(&self, msg: DevtoolScriptControlMsg, can_gc: CanGc) {
         let documents = self.documents.borrow();
         match msg {
@@ -2222,6 +2365,7 @@ impl ScriptThread {
         }
     }
 
+    /// Handles a message from the image cache.
     fn handle_msg_from_image_cache(&self, response: ImageCacheResponseMessage) {
         match response {
             ImageCacheResponseMessage::NotifyPendingImageLoadStatus(pending_image_response) => {
@@ -2242,6 +2386,7 @@ impl ScriptThread {
         };
     }
 
+    /// Handles a message from the WebDriver.
     fn handle_webdriver_msg(
         &self,
         pipeline_id: PipelineId,
@@ -2590,6 +2735,7 @@ impl ScriptThread {
         }
     }
 
+    /// Handles a request to exit fullscreen.
     // exit_fullscreen creates a new JS promise object, so we need to have entered a realm
     fn handle_exit_fullscreen(&self, id: PipelineId, can_gc: CanGc) {
         let document = self.documents.borrow().find_document(id);
@@ -2599,6 +2745,7 @@ impl ScriptThread {
         }
     }
 
+    /// Handles a request to set the viewport of a page.
     fn handle_viewport(&self, id: PipelineId, rect: Rect<f32>) {
         let document = self.documents.borrow().find_document(id);
         if let Some(document) = document {
@@ -2612,6 +2759,7 @@ impl ScriptThread {
         warn!("Page rect message sent to nonexistent pipeline");
     }
 
+    /// Handles a message to create a new layout.
     fn handle_new_layout(&self, new_layout_info: NewLayoutInfo, origin: MutableOrigin) {
         let NewLayoutInfo {
             parent_info,
@@ -2646,6 +2794,7 @@ impl ScriptThread {
         }
     }
 
+    /// Collects memory reports from all documents and the JavaScript context.
     fn collect_reports(&self, reports_chan: ReportsChan) {
         let documents = self.documents.borrow();
         let urls = itertools::join(documents.iter().map(|(_, d)| d.url().to_string()), ", ");
@@ -2682,6 +2831,7 @@ impl ScriptThread {
         }
     }
 
+    /// Handles a message to set the throttled state of a pipeline.
     fn handle_set_throttled_msg(&self, id: PipelineId, throttled: bool) {
         // Separate message sent since parent script thread could be different (Iframe of different
         // domain)
@@ -2737,6 +2887,7 @@ impl ScriptThread {
         warn!("change of activity sent to nonexistent pipeline");
     }
 
+    /// Handles a message to focus an iframe.
     fn handle_focus_iframe_msg(
         &self,
         parent_pipeline_id: PipelineId,
@@ -2763,7 +2914,7 @@ impl ScriptThread {
 
         if document.get_focus_sequence() > sequence {
             debug!(
-                "Disregarding the FocusIFrame message because the contained sequence number is \
+                "Disregarding the FocusIFrame message because the contained sequence number is \\
                 too old ({:?} < {:?})",
                 sequence,
                 document.get_focus_sequence()
@@ -2774,6 +2925,7 @@ impl ScriptThread {
         document.request_focus(Some(&iframe_element_root), FocusInitiator::Remote, can_gc);
     }
 
+    /// Handles a message to focus a document.
     fn handle_focus_document_msg(
         &self,
         pipeline_id: PipelineId,
@@ -2783,7 +2935,7 @@ impl ScriptThread {
         if let Some(doc) = self.documents.borrow().find_document(pipeline_id) {
             if doc.get_focus_sequence() > sequence {
                 debug!(
-                    "Disregarding the FocusDocument message because the contained sequence number is \
+                    "Disregarding the FocusDocument message because the contained sequence number is \\
                     too old ({:?} < {:?})",
                     sequence,
                     doc.get_focus_sequence()
@@ -2798,6 +2950,7 @@ impl ScriptThread {
         }
     }
 
+    /// Handles a message to unfocus a document.
     fn handle_unfocus_msg(
         &self,
         pipeline_id: PipelineId,
@@ -2807,7 +2960,7 @@ impl ScriptThread {
         if let Some(doc) = self.documents.borrow().find_document(pipeline_id) {
             if doc.get_focus_sequence() > sequence {
                 debug!(
-                    "Disregarding the Unfocus message because the contained sequence number is \
+                    "Disregarding the Unfocus message because the contained sequence number is \\
                     too old ({:?} < {:?})",
                     sequence,
                     doc.get_focus_sequence()
@@ -2822,6 +2975,7 @@ impl ScriptThread {
         }
     }
 
+    /// Handles a postMessage message.
     fn handle_post_message_msg(
         &self,
         pipeline_id: PipelineId,
@@ -2857,6 +3011,7 @@ impl ScriptThread {
         }
     }
 
+    /// Handles a message to stop delaying load events.
     fn handle_stop_delaying_load_events_mode(&self, pipeline_id: PipelineId) {
         let window = self.documents.borrow().find_window(pipeline_id);
         if let Some(window) = window {
@@ -2870,6 +3025,7 @@ impl ScriptThread {
         }
     }
 
+    /// Handles a message to unload a document.
     fn handle_unload_document(&self, pipeline_id: PipelineId, can_gc: CanGc) {
         let document = self.documents.borrow().find_document(pipeline_id);
         if let Some(document) = document {
@@ -2877,6 +3033,7 @@ impl ScriptThread {
         }
     }
 
+    /// Handles a message to update the pipeline ID of an iframe.
     fn handle_update_pipeline_id(
         &self,
         parent_pipeline_id: PipelineId,
@@ -2910,6 +3067,7 @@ impl ScriptThread {
         }
     }
 
+    /// Handles a message to update the history state.
     fn handle_update_history_state_msg(
         &self,
         pipeline_id: PipelineId,
@@ -2931,6 +3089,7 @@ impl ScriptThread {
         }
     }
 
+    /// Handles a message to remove history states.
     fn handle_remove_history_states(
         &self,
         pipeline_id: PipelineId,
@@ -3204,6 +3363,7 @@ impl ScriptThread {
         }
     }
 
+    /// Asks the constellation for information about a browsing context.
     fn ask_constellation_for_browsing_context_info(
         &self,
         pipeline_id: PipelineId,
@@ -3219,6 +3379,7 @@ impl ScriptThread {
             .expect("Failed to get browsing context info from constellation.")
     }
 
+    /// Asks the constellation for the top-level browsing context for a given browsing context.
     fn ask_constellation_for_top_level_info(
         &self,
         sender_pipeline: PipelineId,
@@ -3238,6 +3399,7 @@ impl ScriptThread {
             .expect("Failed to get top-level id from constellation.")
     }
 
+    /// Gets a remote window proxy for a pipeline that may exist in another script thread.
     // Get the browsing context for a pipeline that may exist in another
     // script thread.  If the browsing context already exists in the
     // `window_proxies` map, we return it, otherwise we recursively
@@ -3251,8 +3413,7 @@ impl ScriptThread {
         pipeline_id: PipelineId,
         opener: Option<BrowsingContextId>,
     ) -> Option<DomRoot<WindowProxy>> {
-        let (browsing_context_id, parent_pipeline_id) =
-            self.ask_constellation_for_browsing_context_info(pipeline_id)?;
+        let (browsing_context_id, parent_pipeline_id) = self.ask_constellation_for_browsing_context_info(pipeline_id)?;
         if let Some(window_proxy) = self.window_proxies.borrow().get(&browsing_context_id) {
             return Some(DomRoot::from_ref(window_proxy));
         }
@@ -3282,6 +3443,7 @@ impl ScriptThread {
         Some(window_proxy)
     }
 
+    /// Gets a local window proxy for a pipeline that exists in this script thread.
     // Get the browsing context for a pipeline that exists in this
     // script thread.  If the browsing context already exists in the
     // `window_proxies` map, we return it, otherwise we recursively
@@ -3355,8 +3517,9 @@ impl ScriptThread {
                 .unwrap();
         }
         debug!(
-            "ScriptThread: loading {} on pipeline {:?}",
-            incomplete.load_data.url, incomplete.pipeline_id
+            "ScriptThread: loading {} on pipeline ?",
+            incomplete.load_data.url,
+            incomplete.pipeline_id
         );
 
         let origin = if final_url.as_str() == "about:blank" || final_url.as_str() == "about:srcdoc"
@@ -3598,6 +3761,7 @@ impl ScriptThread {
         document.get_current_parser().unwrap()
     }
 
+    /// Notifies the devtools that a new global has been created.
     fn notify_devtools(
         &self,
         title: DOMString,
@@ -3770,6 +3934,7 @@ impl ScriptThread {
         self.incomplete_loads.borrow_mut().push(incomplete);
     }
 
+    /// Handles a navigation response message.
     fn handle_navigation_response(&self, pipeline_id: PipelineId, message: FetchResponseMsg) {
         if let Some(metadata) = NavigationListener::http_redirect_metadata(&message) {
             self.handle_navigation_redirect(pipeline_id, metadata);
@@ -3794,6 +3959,7 @@ impl ScriptThread {
         }
     }
 
+    /// Handles fetch metadata.
     fn handle_fetch_metadata(
         &self,
         id: PipelineId,
@@ -3817,6 +3983,7 @@ impl ScriptThread {
         }
     }
 
+    /// Handles a chunk of fetch data.
     fn handle_fetch_chunk(&self, pipeline_id: PipelineId, request_id: RequestId, chunk: Vec<u8>) {
         let mut incomplete_parser_contexts = self.incomplete_parser_contexts.0.borrow_mut();
         let parser = incomplete_parser_contexts
@@ -3827,6 +3994,7 @@ impl ScriptThread {
         }
     }
 
+    /// Handles the end of a fetch.
     fn handle_fetch_eof(
         &self,
         id: PipelineId,
@@ -3846,6 +4014,7 @@ impl ScriptThread {
         }
     }
 
+    /// Handles CSP violations.
     fn handle_csp_violations(&self, id: PipelineId, _: RequestId, violations: Vec<csp::Violation>) {
         if let Some(global) = self.documents.borrow().find_global(id) {
             // TODO(https://github.com/w3c/webappsec-csp/issues/687): Update after spec is resolved
@@ -3853,6 +4022,7 @@ impl ScriptThread {
         }
     }
 
+    /// Handles a navigation redirect.
     fn handle_navigation_redirect(&self, id: PipelineId, metadata: &Metadata) {
         // TODO(mrobinson): This tries to accomplish some steps from
         // <https://html.spec.whatwg.org/multipage/#process-a-navigate-fetch>, but it's
@@ -3965,6 +4135,7 @@ impl ScriptThread {
         );
     }
 
+    /// Handles CSS error reporting.
     fn handle_css_error_reporting(
         &self,
         pipeline_id: PipelineId,
@@ -3992,6 +4163,7 @@ impl ScriptThread {
         }
     }
 
+    /// Handles a request to reload a page.
     fn handle_reload(&self, pipeline_id: PipelineId, can_gc: CanGc) {
         let window = self.documents.borrow().find_window(pipeline_id);
         if let Some(window) = window {
@@ -3999,6 +4171,7 @@ impl ScriptThread {
         }
     }
 
+    /// Handles a paint metric message.
     fn handle_paint_metric(
         &self,
         pipeline_id: PipelineId,
@@ -4017,6 +4190,7 @@ impl ScriptThread {
         }
     }
 
+    /// Handles a media session action.
     fn handle_media_session_action(
         &self,
         pipeline_id: PipelineId,
@@ -4031,6 +4205,7 @@ impl ScriptThread {
         };
     }
 
+    /// Enqueues a microtask to be executed.
     pub(crate) fn enqueue_microtask(job: Microtask) {
         with_script_thread(|script_thread| {
             script_thread
@@ -4039,6 +4214,7 @@ impl ScriptThread {
         });
     }
 
+    /// Performs a microtask checkpoint, which runs all queued microtasks.
     fn perform_a_microtask_checkpoint(&self, can_gc: CanGc) {
         // Only perform the checkpoint if we're not shutting down.
         if self.can_continue_running_inner() {
@@ -4058,6 +4234,7 @@ impl ScriptThread {
         }
     }
 
+    /// Handles a request to evaluate JavaScript.
     fn handle_evaluate_javascript(
         &self,
         pipeline_id: PipelineId,
@@ -4107,6 +4284,7 @@ impl ScriptThread {
 }
 
 impl Drop for ScriptThread {
+    /// The drop implementation for `ScriptThread`.
     fn drop(&mut self) {
         SCRIPT_THREAD_ROOT.with(|root| {
             root.set(None);

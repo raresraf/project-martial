@@ -1,6 +1,22 @@
-/* This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
+//! This module is responsible for loading external stylesheets in Servo. It defines the
+//! `StylesheetLoader` struct, which implements the `StyleStylesheetLoader` trait from
+//! the `style` crate. This trait is used by the style system to request the loading of
+//! external stylesheets.
+//!
+//! The `StylesheetLoader` is created for a given `HTMLElement` (either a `<link>` or
+//! `<style>` element) and is responsible for creating a `StylesheetContext` for each
+//! stylesheet to be loaded. The `StylesheetContext` holds the state required for
+//! asynchronously loading an external stylesheet, such as the element that initiated
+//! the request, the URL of the stylesheet, and the response body received to date.
+//!
+//! The `StylesheetContext` implements the `FetchResponseListener` trait, which is used
+//! to process the response from the network layer. When the stylesheet has been fully
+//
+//! loaded, the `StylesheetContext` parses the stylesheet and applies it to the
+//! document.
+//!
+//! The `StylesheetOwner` trait is implemented by `HTMLLinkElement` and `HTMLStyleElement`
+//! and is used to notify the element when a stylesheet has been loaded.
 
 use std::io::{Read, Seek, Write};
 use std::sync::atomic::AtomicBool;
@@ -49,51 +65,70 @@ use crate::unminify::{
     BeautifyFileType, create_output_file, create_temp_files, execute_js_beautify,
 };
 
+/// A trait for objects that can own a stylesheet. This is implemented by elements
+/// that can trigger a stylesheet load, such as `<link>` and `<style>`.
 pub(crate) trait StylesheetOwner {
-    /// Returns whether this element was inserted by the parser (i.e., it should
-    /// trigger a document-load-blocking load).
+    /// Returns whether this element was inserted by the parser, which determines if
+    /// it should trigger a document-load-blocking load.
     fn parser_inserted(&self) -> bool;
 
-    /// Which referrer policy should loads triggered by this owner follow
+    /// Specifies the referrer policy that loads triggered by this owner should follow.
     fn referrer_policy(&self) -> ReferrerPolicy;
 
     /// Notes that a new load is pending to finish.
     fn increment_pending_loads_count(&self);
 
-    /// Returns None if there are still pending loads, or whether any load has
-    /// failed since the loads started.
+    /// Returns `None` if there are still pending loads, or `Some(bool)` indicating
+    /// whether any load has failed since the loads started.
     fn load_finished(&self, successful: bool) -> Option<bool>;
 
-    /// Sets origin_clean flag.
+    /// Sets the `origin_clean` flag.
     fn set_origin_clean(&self, origin_clean: bool);
 }
 
+/// Represents the source of a stylesheet context, which can either be a `<link>`
+/// element or an `@import` rule within another stylesheet.
 pub(crate) enum StylesheetContextSource {
     // NB: `media` is just an option so we avoid cloning it.
-    LinkElement { media: Option<MediaList> },
+    /// The stylesheet was loaded from a `<link>` element.
+    LinkElement {
+        /// The media query for the stylesheet.
+        media: Option<MediaList>,
+    },
+    /// The stylesheet was loaded from an `@import` rule.
     Import(Arc<Stylesheet>),
 }
 
-/// The context required for asynchronously loading an external stylesheet.
+/// Holds the context required for asynchronously loading an external stylesheet.
+/// This includes information about the initiating element, the URL, and the state
+/// of the fetch operation.
 pub(crate) struct StylesheetContext {
     /// The element that initiated the request.
     elem: Trusted<HTMLElement>,
+    /// The source of the stylesheet context.
     source: StylesheetContextSource,
+    /// The URL of the stylesheet.
     url: ServoUrl,
+    /// The metadata of the response.
     metadata: Option<Metadata>,
     /// The response body received to date.
     data: Vec<u8>,
-    /// The node document for elem when the load was initiated.
+    /// The node document for `elem` when the load was initiated.
     document: Trusted<Document>,
+    /// The shadow root containing the element.
     shadow_root: Option<Trusted<ShadowRoot>>,
+    /// Whether the origin of the stylesheet is clean.
     origin_clean: bool,
     /// A token which must match the generation id of the `HTMLLinkElement` for it to load the stylesheet.
     /// This is ignored for `HTMLStyleElement` and imports.
     request_generation_id: Option<RequestGenerationId>,
+    /// The resource timing information for the stylesheet.
     resource_timing: ResourceFetchTiming,
 }
 
 impl StylesheetContext {
+    /// Unminifies the given CSS data using an external beautifier tool.
+    /// If the unminification is successful, the formatted CSS is returned.
     fn unminify_css(&self, data: Vec<u8>, file_url: ServoUrl) -> Vec<u8> {
         let Some(unminified_dir) = self.document.root().window().unminified_css_dir() else {
             return data;
@@ -320,17 +355,24 @@ impl ResourceTimingListener for StylesheetContext {
     }
 }
 
+/// A loader for stylesheets, responsible for initiating the download and processing
+/// of external CSS files. It is associated with a specific `HTMLElement` that
+/// triggers the load.
 pub(crate) struct StylesheetLoader<'a> {
+    /// The element that owns the stylesheet.
     elem: &'a HTMLElement,
 }
 
 impl<'a> StylesheetLoader<'a> {
+    /// Creates a new `StylesheetLoader` for the given element.
     pub(crate) fn for_element(element: &'a HTMLElement) -> Self {
         StylesheetLoader { elem: element }
     }
 }
 
 impl StylesheetLoader<'_> {
+    /// Loads a stylesheet from the given URL. This method creates a `StylesheetContext`
+    /// and initiates a network request to fetch the stylesheet.
     pub(crate) fn load(
         &self,
         source: StylesheetContextSource,
@@ -394,8 +436,9 @@ impl StylesheetLoader<'_> {
 }
 
 impl StyleStylesheetLoader for StylesheetLoader<'_> {
-    /// Request a stylesheet after parsing a given `@import` rule, and return
-    /// the constructed `@import` rule.
+    /// Requests a stylesheet after parsing a given `@import` rule, and returns
+    /// the constructed `@import` rule. This is called by the style system when it
+    /// encounters an `@import` rule in a stylesheet.
     fn request_stylesheet(
         &self,
         url: CssUrl,

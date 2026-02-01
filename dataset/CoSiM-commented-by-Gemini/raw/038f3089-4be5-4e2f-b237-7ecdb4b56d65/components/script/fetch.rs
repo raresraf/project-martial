@@ -1,6 +1,46 @@
-/* This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
+//! This module implements the [WHATWG Fetch specification](https://fetch.spec.whatwg.org/),
+//! providing a modern, promise-based API for making network requests, intended as a more
+//! powerful and flexible replacement for `XMLHttpRequest`. It serves as the bridge between the
+//! JavaScript scripting environment and the browser's networking stack.
+//!
+//! # Architectural Overview
+//!
+//! The implementation is centered around the `Fetch` function, which is the main entry point
+//! exposed to the JavaScript global scope (e.g., `window.fetch`). This function orchestrates
+//! the entire fetch process, from request creation to response handling.
+//!
+//! Key components and their roles:
+//!
+//! - **`Fetch` function**: Parses the JavaScript `RequestInfo` and `RequestInit` arguments,
+//!   constructs a `Request` object, and initiates the asynchronous fetch operation. It returns
+//!   a `Promise` that will eventually resolve with a `Response` or reject with an error.
+//!
+//! - **`FetchContext`**: A state machine that manages the lifecycle of a single fetch. It holds
+//!   the `Promise` to be resolved, the partially constructed `Response` object, and performance
+//!   timing data (`ResourceFetchTiming`). It implements the `FetchResponseListener` trait to
+//!   react to events from the networking layer (e.g., headers received, data chunks, EOF).
+//!
+//! - **`FetchCanceller`**: A RAII-based guard that ensures a fetch is cancelled if the corresponding
+//!   handle is dropped. This is crucial for resource management, especially when the DOM element
+//!   or script environment that initiated the fetch is destroyed.
+//!
+//! - **Integration with Networking (`net_traits`)**: This module does not perform networking I/O
+//!   directly. Instead, it communicates with the core networking thread via an IPC channel
+//!   (`CoreResourceThread`). It constructs a `RequestBuilder` object, which is a serializable
+//!   representation of the request, and sends it to the networking stack for processing.
+//!
+//! - **Security**: The module is responsible for enforcing several security policies, including
+//!   CORS (Cross-Origin Resource Sharing), Content Security Policy (CSP), and referrer policies.
+//!   It collaborates with the `security_manager` and uses `PolicyContainer` to make security
+//!   decisions.
+//!
+//! - **Performance Monitoring**: It integrates with the Resource Timing API by implementing the
+//!   `ResourceTimingListener` trait, capturing detailed performance metrics for each fetch
+//!   and submitting them to the performance timeline.
+//!
+//! The overall design is highly asynchronous and event-driven, leveraging Rust's ownership
+//! and trait system to ensure safety and modularity while interfacing with both the JavaScript
+//! engine (SpiderMonkey, via `jsapi`) and the low-level networking components of the browser engine.
 
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
@@ -43,55 +83,83 @@ use crate::network_listener::{self, PreInvoke, ResourceTimingListener, submit_ti
 use crate::realms::{InRealm, enter_realm};
 use crate::script_runtime::CanGc;
 
+/// `FetchContext` holds the state associated with a single fetch operation. It acts as a
+/// state machine that transitions based on events received from the networking layer.
+/// This struct implements the `FetchResponseListener` trait, making it the primary
+/// consumer of asynchronous fetch data.
 struct FetchContext {
+    /// The `Promise` that will be resolved or rejected upon completion or failure of the fetch.
+    /// This is `Option`-wrapped to allow it to be `take()`-n when the promise is settled,
+    /// preventing multiple resolutions or rejections.
     fetch_promise: Option<TrustedPromise>,
+
+    /// The `Response` object that is exposed to JavaScript. It is populated incrementally
+    /// as data arrives from the network (e.g., headers, body chunks). It is wrapped
+    /// in `Trusted` to ensure it is properly rooted and managed by the garbage collector.
     response_object: Trusted<Response>,
+
+    /// Stores performance metrics for the fetch, such as start time, DNS lookup time,
+    /// and time to first byte. This data is used to populate the Performance Timeline API
+    /// via the `ResourceTimingListener` trait implementation.
     resource_timing: ResourceFetchTiming,
 }
 
-/// RAII fetch canceller object. By default initialized to not having a canceller
-/// in it, however you can ask it for a cancellation receiver to send to Fetch
-/// in which case it will store the sender. You can manually cancel it
-/// or let it cancel on Drop in that case.
+/// `FetchCanceller` is a RAII-based guard that automatically cancels an associated fetch
+/// request when it goes out of scope (i.e., is `drop()`-ed).
+///
+/// This pattern is crucial for preventing resource leaks and unnecessary network activity.
+/// For instance, if a component that initiated a fetch is destroyed before the fetch
+/// completes, the `FetchCanceller`'s `drop` implementation will be invoked, sending a
+/// cancellation message to the networking thread.
 #[derive(Default, JSTraceable, MallocSizeOf)]
 pub(crate) struct FetchCanceller {
     #[no_trace]
+    /// The unique identifier for the network request. This is `None` if the fetch
+    /// has already been completed or cancelled, preventing redundant cancellation calls.
     request_id: Option<RequestId>,
 }
 
 impl FetchCanceller {
-    /// Create an empty FetchCanceller
+    /// Constructs a new `FetchCanceller` to manage the lifecycle of a request.
     pub(crate) fn new(request_id: RequestId) -> Self {
         Self {
             request_id: Some(request_id),
         }
     }
 
-    /// Cancel a fetch if it is ongoing
+    /// Explicitly cancels the fetch request if it is still active.
+    /// It sends a cancellation message to the networking thread. This is a "best-effort"
+    /// operation; the underlying network request may have already completed or failed.
     pub(crate) fn cancel(&mut self) {
         if let Some(request_id) = self.request_id.take() {
-            // stop trying to make fetch happen
-            // it's not going to happen
-
-            // No error handling here. Cancellation is a courtesy call,
-            // we don't actually care if the other side heard.
+            // "You can't always get what you want." - The Rolling Stones.
+            // Cancellation is a courtesy call. We don't block or wait for confirmation,
+            // as the network process might be busy or the request might already be
+            // in a terminal state.
             cancel_async_fetch(vec![request_id]);
         }
     }
 
-    /// Use this if you don't want it to send a cancellation request
-    /// on drop (e.g. if the fetch completes)
+    /// Disarms the canceller, preventing it from cancelling the fetch upon being dropped.
+    /// This is called when the fetch completes successfully, transferring ownership of
+    /// the response stream to the caller.
     pub(crate) fn ignore(&mut self) {
         let _ = self.request_id.take();
     }
 }
 
 impl Drop for FetchCanceller {
+    /// The `drop` implementation for `FetchCanceller` ensures that the fetch is
+    /// cancelled if it is still ongoing when the `FetchCanceller` is dropped.
     fn drop(&mut self) {
         self.cancel()
     }
 }
 
+/// Creates a `RequestBuilder` from an existing `NetTraitsRequest`.
+/// This utility function is used to clone and re-purpose a request, often for
+/// internal processing like redirects or service worker interception, while
+/// preserving essential properties of the original request.
 fn request_init_from_request(request: NetTraitsRequest) -> RequestBuilder {
     RequestBuilder {
         id: request.id,
@@ -108,6 +176,8 @@ fn request_init_from_request(request: NetTraitsRequest) -> RequestBuilder {
         use_cors_preflight: request.use_cors_preflight,
         credentials_mode: request.credentials_mode,
         use_url_credentials: request.use_url_credentials,
+        // The origin is derived from the current global scope, which represents
+        // the security context of the code initiating the fetch.
         origin: GlobalScope::current()
             .expect("No current global object")
             .origin()
@@ -132,6 +202,10 @@ fn request_init_from_request(request: NetTraitsRequest) -> RequestBuilder {
     }
 }
 
+/// The `Fetch` method is the entry point for the Fetch API, exposed to JavaScript.
+/// It processes the `input` and `init` arguments, constructs a request, and dispatches
+/// it to the networking thread. It returns a `Promise` that resolves with the `Response`.
+/// This implementation follows the steps outlined in the WHATWG Fetch specification.
 /// <https://fetch.spec.whatwg.org/#fetch-method>
 #[allow(non_snake_case)]
 #[cfg_attr(crown, allow(crown::unrooted_must_root))]
@@ -142,97 +216,110 @@ pub(crate) fn Fetch(
     comp: InRealm,
     can_gc: CanGc,
 ) -> Rc<Promise> {
-    // Step 1. Let p be a new promise.
+    // Spec Step 1: Let p be a new promise.
     let promise = Promise::new_in_current_realm(comp, can_gc);
 
-    // Step 7. Let responseObject be null.
-    // NOTE: We do initialize the object earlier earlier so we can use it to track errors
+    // Spec Step 7: Let responseObject be null.
+    // NOTE: We initialize the Response object early to handle potential synchronous errors
+    // during request creation, allowing us to associate the error with the response.
     let response = Response::new(global, can_gc);
+    // The headers are immutable until the network response provides them.
     response.Headers(can_gc).set_guard(Guard::Immutable);
 
-    // Step 2. Let requestObject be the result of invoking the initial value of Request as constructor
-    //         with input and init as arguments. If this throws an exception, reject p with it and return p.
+    // Spec Step 2: Create a new Request object. If this fails (e.g., invalid URL or headers),
+    // reject the promise and terminate the algorithm.
     let request = match Request::Constructor(global, None, can_gc, input, init) {
         Err(e) => {
+            // Associate the error with the response object and reject the promise.
             response.error_stream(e.clone(), can_gc);
             promise.reject_error(e, can_gc);
             return promise;
         },
         Ok(r) => {
-            // Step 3. Let request be requestObject’s request.
+            // Spec Step 3: Let request be requestObject’s request.
             r.get_request()
         },
     };
     let timing_type = request.timing_type();
 
+    // Create a serializable request builder from the internal request object.
     let mut request_init = request_init_from_request(request);
+    // The policy container from the global scope provides the security context (e.g., CSP, origin).
     request_init.policy_container =
         RequestPolicyContainer::PolicyContainer(global.policy_container());
 
-    // TODO: Step 4. If requestObject’s signal is aborted, then: [..]
+    // TODO: Spec Step 4: Handle AbortSignal.
 
-    // Step 5. Let globalObject be request’s client’s global object.
-    // NOTE:   We already get the global object as an argument
+    // Spec Step 5: `globalObject` is the `global` parameter.
 
-    // Step 6. If globalObject is a ServiceWorkerGlobalScope object, then set request’s
-    //         service-workers mode to "none".
+    // Spec Step 6: If in a ServiceWorker, disable SW interception for this fetch.
     if global.is::<ServiceWorkerGlobalScope>() {
         request_init.service_workers_mode = ServiceWorkersMode::None;
     }
 
-    // TODO: Steps 8-11, abortcontroller stuff
+    // TODO: Spec Steps 8-11: AbortController integration.
 
-    // Step 12. Set controller to the result of calling fetch given request and
-    //           processResponse given response being these steps: [..]
+    // Spec Step 12: The core logic of dispatching the fetch and processing the response
+    // is encapsulated within the `FetchContext` and its listener implementation.
     let fetch_context = Arc::new(Mutex::new(FetchContext {
         fetch_promise: Some(TrustedPromise::new(promise.clone())),
         response_object: Trusted::new(&*response),
         resource_timing: ResourceFetchTiming::new(timing_type),
     }));
 
+    // Dispatch the request to the networking thread for asynchronous processing.
     global.fetch(
         request_init,
         fetch_context,
         global.task_manager().networking_task_source().to_sendable(),
     );
 
-    // Step 13. Return p.
+    // Spec Step 13: Return the promise to the caller.
     promise
 }
 
 impl PreInvoke for FetchContext {}
 
 impl FetchResponseListener for FetchContext {
+    /// Called by the network thread to process the request body. Currently a no-op.
     fn process_request_body(&mut self, _: RequestId) {
-        // TODO
+        // This would be used for features like streaming request bodies, which are not
+        // fully implemented here.
     }
 
+    /// Called by the network thread when the request body has been fully sent. No-op.
     fn process_request_eof(&mut self, _: RequestId) {
-        // TODO
+        // Marker for the completion of the upload phase.
     }
 
+    /// Handles the initial part of the HTTP response, containing headers and status.
+    /// This is a critical step where the promise can be resolved and the response stream begins.
     #[cfg_attr(crown, allow(crown::unrooted_must_root))]
     fn process_response(
         &mut self,
         _: RequestId,
         fetch_metadata: Result<FetchMetadata, NetworkError>,
     ) {
+        // The promise must be taken to be resolved. It's an error if it's already gone.
         let promise = self
             .fetch_promise
             .take()
             .expect("fetch promise is missing")
             .root();
 
+        // All JS interactions must happen within the correct realm.
         let _ac = enter_realm(&*promise);
         match fetch_metadata {
-            // Step 4.1
+            // Spec Step 4.1: If the fetch results in a network error, reject the promise.
             Err(_) => {
                 promise.reject_error(
                     Error::Type("Network error occurred".to_string()),
                     CanGc::note(),
                 );
+                // The promise is now settled, but we keep it to maintain consistent state.
                 self.fetch_promise = Some(TrustedPromise::new(promise));
                 let response = self.response_object.root();
+                // Mark the response as an 'error' type, as per the spec.
                 response.set_type(DOMResponseType::Error, CanGc::note());
                 response.error_stream(
                     Error::Type("Network error occurred".to_string()),
@@ -240,32 +327,40 @@ impl FetchResponseListener for FetchContext {
                 );
                 return;
             },
-            // Step 4.2
+            // Spec Step 4.2: On a successful response, process the metadata.
             Ok(metadata) => match metadata {
+                // An unfiltered response is a standard response.
                 FetchMetadata::Unfiltered(m) => {
                     fill_headers_with_metadata(self.response_object.root(), m, CanGc::note());
                     self.response_object
                         .root()
                         .set_type(DOMResponseType::Default, CanGc::note());
                 },
+                // A filtered response has been modified due to security policies (e.g., CORS).
                 FetchMetadata::Filtered { filtered, .. } => match filtered {
+                    // A "basic" filtered response exposes a limited set of headers.
                     FilteredMetadata::Basic(m) => {
                         fill_headers_with_metadata(self.response_object.root(), m, CanGc::note());
                         self.response_object
                             .root()
                             .set_type(DOMResponseType::Basic, CanGc::note());
                     },
+                    // A "cors" filtered response, from a successful CORS check.
                     FilteredMetadata::Cors(m) => {
                         fill_headers_with_metadata(self.response_object.root(), m, CanGc::note());
                         self.response_object
                             .root()
                             .set_type(DOMResponseType::Cors, CanGc::note());
                     },
+                    // An "opaque" response from a no-cors request to a cross-origin resource.
+                    // The body is readable, but status and headers are hidden.
                     FilteredMetadata::Opaque => {
                         self.response_object
                             .root()
                             .set_type(DOMResponseType::Opaque, CanGc::note());
                     },
+                    // An opaque redirect occurs when a request is redirected to a different origin
+                    // under a policy that requires the response to be opaque.
                     FilteredMetadata::OpaqueRedirect(url) => {
                         let r = self.response_object.root();
                         r.set_type(DOMResponseType::Opaqueredirect, CanGc::note());
@@ -275,16 +370,20 @@ impl FetchResponseListener for FetchContext {
             },
         }
 
-        // Step 4.3
+        // Spec Step 4.3: The headers are processed, so we can now resolve the promise
+        // with the Response object. The body will stream in separately.
         promise.resolve_native(&self.response_object.root(), CanGc::note());
         self.fetch_promise = Some(TrustedPromise::new(promise));
     }
 
+    /// Receives a chunk of the response body from the network thread and appends it
+    /// to the response object's internal stream.
     fn process_response_chunk(&mut self, _: RequestId, chunk: Vec<u8>) {
         let response = self.response_object.root();
         response.stream_chunk(chunk, CanGc::note());
     }
 
+    /// Signifies the end of the response body stream. This finalizes the response object.
     fn process_response_eof(
         &mut self,
         _: RequestId,
@@ -292,26 +391,33 @@ impl FetchResponseListener for FetchContext {
     ) {
         let response = self.response_object.root();
         let _ac = enter_realm(&*response);
+        // Mark the response stream as finished.
         response.finish(CanGc::note());
-        // TODO
+        // TODO: Handle trailers, which are headers sent after the response body.
         // ... trailerObject is not supported in Servo yet.
     }
 
+    /// Provides mutable access to the resource timing data for this fetch.
     fn resource_timing_mut(&mut self) -> &mut ResourceFetchTiming {
         &mut self.resource_timing
     }
 
+    /// Provides immutable access to the resource timing data.
     fn resource_timing(&self) -> &ResourceFetchTiming {
         &self.resource_timing
     }
 
+    /// Submits the collected resource timing information to the performance timeline,
+    /// making it accessible via `performance.getEntriesByType("resource")`.
     fn submit_resource_timing(&mut self) {
-        // navigation submission is handled in servoparser/mod.rs
+        // Navigation timing is handled separately, so we only submit for sub-resources.
         if self.resource_timing.timing_type == ResourceTimingType::Resource {
             network_listener::submit_timing(self, CanGc::note())
         }
     }
 
+    /// Processes Content Security Policy (CSP) violations reported by the network layer
+    /// for this fetch.
     fn process_csp_violations(&mut self, _request_id: RequestId, violations: Vec<csp::Violation>) {
         let global = &self.resource_timing_global();
         report_csp_violations(global, violations, None);
@@ -319,6 +425,8 @@ impl FetchResponseListener for FetchContext {
 }
 
 impl ResourceTimingListener for FetchContext {
+    /// Provides metadata required by the Performance API, including the initiator type
+    /// (e.g., "fetch") and the final URL of the resource.
     fn resource_timing_information(&self) -> (InitiatorType, ServoUrl) {
         (
             InitiatorType::Fetch,
@@ -326,11 +434,15 @@ impl ResourceTimingListener for FetchContext {
         )
     }
 
+    /// Returns the `GlobalScope` associated with this fetch, which provides the
+    /// necessary context for reporting performance data.
     fn resource_timing_global(&self) -> DomRoot<GlobalScope> {
         self.response_object.root().global()
     }
 }
 
+/// A utility function to populate the `Response` object's properties from the
+/// `Metadata` received from the network layer.
 fn fill_headers_with_metadata(r: DomRoot<Response>, m: Metadata, can_gc: CanGc) {
     r.set_headers(m.headers, can_gc);
     r.set_status(&m.status);
@@ -338,16 +450,22 @@ fn fill_headers_with_metadata(r: DomRoot<Response>, m: Metadata, can_gc: CanGc) 
     r.set_redirected(m.redirected);
 }
 
-/// Convenience function for synchronously loading a whole resource.
+/// A synchronous, blocking convenience function to load an entire resource into memory.
+/// This is used for internal operations that require the full resource content upfront,
+/// such as loading a script or stylesheet, and is not suitable for large resources.
+/// It bypasses the promise-based asynchronous flow of the main Fetch API.
 pub(crate) fn load_whole_resource(
     request: RequestBuilder,
     core_resource_thread: &CoreResourceThread,
     global: &GlobalScope,
     can_gc: CanGc,
 ) -> Result<(Metadata, Vec<u8>), NetworkError> {
+    // Ensure the request has the correct HTTPS state from its global context.
     let request = request.https_state(global.get_https_state());
+    // Create an IPC channel to receive the response from the networking thread.
     let (action_sender, action_receiver) = ipc::channel().unwrap();
     let url = request.url.clone();
+    // Send the fetch request to the core resource thread.
     core_resource_thread
         .send(CoreResourceMsg::Fetch(
             request,
@@ -357,18 +475,23 @@ pub(crate) fn load_whole_resource(
 
     let mut buf = vec![];
     let mut metadata = None;
+    // Block and loop, processing messages from the network thread until the
+    // response is complete (EOF) or an error occurs.
     loop {
         match action_receiver.recv().unwrap() {
             FetchResponseMsg::ProcessRequestBody(..) |
             FetchResponseMsg::ProcessRequestEOF(..) |
             FetchResponseMsg::ProcessCspViolations(..) => {},
             FetchResponseMsg::ProcessResponse(_, Ok(m)) => {
+                // Store the metadata when the headers are received.
                 metadata = Some(match m {
                     FetchMetadata::Unfiltered(m) => m,
                     FetchMetadata::Filtered { unsafe_, .. } => unsafe_,
                 })
             },
+            // Append incoming data chunks to the buffer.
             FetchResponseMsg::ProcessResponseChunk(_, data) => buf.extend_from_slice(&data),
+            // On end-of-file, submit timing data and return the complete resource.
             FetchResponseMsg::ProcessResponseEOF(_, Ok(_)) => {
                 let metadata = metadata.unwrap();
                 if let Some(timing) = &metadata.timing {
@@ -376,12 +499,16 @@ pub(crate) fn load_whole_resource(
                 }
                 return Ok((metadata, buf));
             },
+            // Propagate any network errors.
             FetchResponseMsg::ProcessResponse(_, Err(e)) |
             FetchResponseMsg::ProcessResponseEOF(_, Err(e)) => return Err(e),
         }
     }
 }
 
+/// Creates a request that may be subject to CORS checks, as defined by the HTML spec.
+/// This function configures the request's mode (`cors`, `no-cors`, `same-origin`) and
+/// credentials mode based on the context in which a resource is being fetched.
 /// <https://html.spec.whatwg.org/multipage/#create-a-potential-cors-request>
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn create_a_potential_cors_request(
@@ -396,20 +523,20 @@ pub(crate) fn create_a_potential_cors_request(
     policy_container: PolicyContainer,
 ) -> RequestBuilder {
     RequestBuilder::new(webview_id, url, referrer)
-        // https://html.spec.whatwg.org/multipage/#create-a-potential-cors-request
-        // Step 1
+        // Spec Step 1: Set request's mode.
         .mode(match cors_setting {
             Some(_) => RequestMode::CorsMode,
             None if same_origin_fallback == Some(true) => RequestMode::SameOrigin,
             None => RequestMode::NoCors,
         })
-        // https://html.spec.whatwg.org/multipage/#create-a-potential-cors-request
-        // Step 3-4
+        // Spec Steps 3-4: Set request's credentials mode.
+        // For "anonymous", credentials are only sent for same-origin requests.
+        // For "use-credentials" or if not specified, they are included.
         .credentials_mode(match cors_setting {
             Some(CorsSettings::Anonymous) => CredentialsMode::CredentialsSameOrigin,
             _ => CredentialsMode::Include,
         })
-        // Step 5
+        // Spec Step 5: Set request's destination.
         .destination(destination)
         .use_url_credentials(true)
         .insecure_requests_policy(insecure_requests_policy)

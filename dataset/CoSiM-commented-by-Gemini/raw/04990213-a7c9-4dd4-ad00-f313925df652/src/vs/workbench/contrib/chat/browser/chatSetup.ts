@@ -1,3 +1,31 @@
+/**
+ * @file This file is responsible for the setup and initialization of the integrated chat feature,
+ * often associated with services like GitHub Copilot, within the VS Code workbench.
+ *
+ * @description
+ * The core responsibility of this module is to manage the user-facing setup flow for the chat
+ * feature. This includes:
+ * - **Agent Registration**: It defines and registers "setup agents" (`SetupAgent`) that act as
+ *   placeholders in the chat UI before the full feature is enabled. These agents guide the user
+ *   through the setup process.
+ * - **Entitlement and Authentication**: It coordinates with the `IChatEntitlementService` and
+ *   `IAuthenticationService` to check the user's licensing status (e.g., free, pro, enterprise)
+ *   and to handle the sign-in flow.
+ * - **UI/UX Flow**: It orchestrates the user interaction, including showing dialogs (`ChatSetup`),
+ *   progress notifications, and activity badges to provide a smooth onboarding experience.
+ * - **Extension Installation**: It triggers the installation of the necessary chat extension
+ *   (e.g., the GitHub Copilot Chat extension) once the user has completed the setup.
+ * - **Request Forwarding**: After a successful setup, it is responsible for seamlessly forwarding
+ *   the user's initial chat request (which was originally sent to the setup agent) to the
+ *   newly activated, fully functional chat agent.
+ * - **Action and Command Registration**: It registers various workbench actions (`Action2`) and
+ *   commands related to the chat setup, such as triggering the setup flow, hiding the feature,
+ *   and handling URL-based activation.
+ *
+ * The central orchestrator is the `ChatSetupController`, which manages the state machine of the
+ * setup process (e.g., `SigningIn`, `Installing`). The `ChatSetupContribution` class serves as
+ * the main entry point, integrating this entire flow into the workbench's contribution model.
+ */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -68,6 +96,7 @@ import { CHAT_CATEGORY, CHAT_OPEN_ACTION_ID, CHAT_SETUP_ACTION_ID } from './acti
 import { ChatViewId, IChatWidgetService, showCopilotView } from './chat.js';
 import { CHAT_SIDEBAR_PANEL_ID } from './chatViewPane.js';
 
+// Default configuration for the chat feature, sourced from product.json.
 const defaultChat = {
 	extensionId: product.defaultChatAgent?.extensionId ?? '',
 	chatExtensionId: product.defaultChatAgent?.chatExtensionId ?? '',
@@ -91,14 +120,24 @@ const defaultChat = {
 
 //#region Contribution
 
+// Context key expression that determines when the "tools agent" mode is available.
 const ToolsAgentContextKey = ContextKeyExpr.and(
 	ContextKeyExpr.equals(`config.${ChatConfiguration.AgentEnabled}`, true),
 	ChatContextKeys.Editing.agentModeDisallowed.negate(),
 	ContextKeyExpr.not(`previewFeaturesDisabled`) // Set by extension
 );
 
+/**
+ * Implements a placeholder chat agent that guides the user through the setup process
+ * for the chat feature. This agent is active when the full chat extension is not yet
+ * installed or configured.
+ */
 class SetupAgent extends Disposable implements IChatAgentImplementation {
 
+	/**
+	 * Registers the default placeholder agents for different chat locations (panel, terminal, etc.).
+	 * These agents are responsible for initiating the setup flow when invoked.
+	 */
 	static registerDefaultAgents(instantiationService: IInstantiationService, location: ChatAgentLocation, mode: ChatMode | undefined, context: ChatEntitlementContext, controller: Lazy<ChatSetupController>): { agent: SetupAgent; disposable: IDisposable } {
 		return instantiationService.invokeFunction(accessor => {
 			const chatAgentService = accessor.get(IChatAgentService);
@@ -132,6 +171,9 @@ class SetupAgent extends Disposable implements IChatAgentImplementation {
 		});
 	}
 
+	/**
+	 * Registers a specialized agent for asking questions specifically about VS Code.
+	 */
 	static registerVSCodeAgent(instantiationService: IInstantiationService, context: ChatEntitlementContext, controller: Lazy<ChatSetupController>): { agent: SetupAgent; disposable: IDisposable } {
 		return instantiationService.invokeFunction(accessor => {
 			const chatAgentService = accessor.get(IChatAgentService);
@@ -141,6 +183,7 @@ class SetupAgent extends Disposable implements IChatAgentImplementation {
 			const { agent, disposable } = SetupAgent.doRegisterAgent(instantiationService, chatAgentService, 'setup.vscode', 'vscode', false, localize2('vscodeAgentDescription', "Ask questions about VS Code").value, ChatAgentLocation.Panel, undefined, context, controller);
 			disposables.add(disposable);
 
+			// Registers a placeholder tool for creating a new workspace.
 			disposables.add(SetupTool.registerTool(instantiationService, {
 				id: 'setup.tools.createNewWorkspace',
 				source: {
@@ -160,6 +203,9 @@ class SetupAgent extends Disposable implements IChatAgentImplementation {
 		});
 	}
 
+	/**
+	 * Generic method to perform the registration of a setup agent.
+	 */
 	private static doRegisterAgent(instantiationService: IInstantiationService, chatAgentService: IChatAgentService, id: string, name: string, isDefault: boolean, description: string, location: ChatAgentLocation, mode: ChatMode | undefined, context: ChatEntitlementContext, controller: Lazy<ChatSetupController>): { agent: SetupAgent; disposable: IDisposable } {
 		const disposables = new DisposableStore();
 		disposables.add(chatAgentService.registerAgent(id, {
@@ -188,6 +234,10 @@ class SetupAgent extends Disposable implements IChatAgentImplementation {
 	private static readonly SETUP_NEEDED_MESSAGE = new MarkdownString(localize('settingUpCopilotNeeded', "You need to set up Copilot to use Chat."));
 
 	private readonly _onUnresolvableError = this._register(new Emitter<void>());
+	/**
+	 * Fired when the setup process encounters an error from which it cannot recover,
+	 * signaling that the placeholder agent should be removed.
+	 */
 	readonly onUnresolvableError = this._onUnresolvableError.event;
 
 	private readonly pendingForwardedRequests = new Map<string, Promise<void>>();
@@ -204,6 +254,10 @@ class SetupAgent extends Disposable implements IChatAgentImplementation {
 		super();
 	}
 
+	/**
+	 * The main invocation method for the setup agent. It determines whether to run the setup flow
+	 * or to directly forward the request if the setup is already complete but waiting for services.
+	 */
 	async invoke(request: IChatAgentRequest, progress: (part: IChatProgress) => void): Promise<IChatAgentResult> {
 		return this.instantiationService.invokeFunction(async accessor /* using accessor for lazy loading */ => {
 			const chatService = accessor.get(IChatService);
@@ -217,13 +271,20 @@ class SetupAgent extends Disposable implements IChatAgentImplementation {
 	}
 
 	private async doInvoke(request: IChatAgentRequest, progress: (part: IChatProgress) => void, chatService: IChatService, languageModelsService: ILanguageModelsService, chatWidgetService: IChatWidgetService, chatAgentService: IChatAgentService, languageModelToolsService: ILanguageModelToolsService): Promise<IChatAgentResult> {
+		// Functional Utility: Determines the execution path based on the current state of the chat extension and entitlement.
 		if (!this.context.state.installed || this.context.state.entitlement === ChatEntitlement.Available || this.context.state.entitlement === ChatEntitlement.Unknown) {
+			// If the extension is not installed or entitlement is still being checked, run the full setup flow.
 			return this.doInvokeWithSetup(request, progress, chatService, languageModelsService, chatWidgetService, chatAgentService, languageModelToolsService);
 		}
 
+		// If setup is complete but services are just not ready yet, forward the request without showing setup UI.
 		return this.doInvokeWithoutSetup(request, progress, chatService, languageModelsService, chatWidgetService, chatAgentService, languageModelToolsService);
 	}
 
+	/**
+	 * Handles the case where the setup UI is not needed, but we must wait for the real agent
+	 * and models to become available before forwarding the request.
+	 */
 	private async doInvokeWithoutSetup(request: IChatAgentRequest, progress: (part: IChatProgress) => void, chatService: IChatService, languageModelsService: ILanguageModelsService, chatWidgetService: IChatWidgetService, chatAgentService: IChatAgentService, languageModelToolsService: ILanguageModelToolsService): Promise<IChatAgentResult> {
 		const requestModel = chatWidgetService.getWidgetBySessionId(request.sessionId)?.viewModel?.model.getRequests().at(-1);
 		if (!requestModel) {
@@ -241,6 +302,9 @@ class SetupAgent extends Disposable implements IChatAgentImplementation {
 		return {};
 	}
 
+	/**
+	 * Manages the forwarding of a request to the actual Copilot agent once all dependencies are ready.
+	 */
 	private async forwardRequestToCopilot(requestModel: IChatRequestModel, progress: (part: IChatProgress) => void, chatService: IChatService, languageModelsService: ILanguageModelsService, chatAgentService: IChatAgentService, chatWidgetService: IChatWidgetService, languageModelToolsService: ILanguageModelToolsService): Promise<void> {
 		try {
 			await this.doForwardRequestToCopilot(requestModel, progress, chatService, languageModelsService, chatAgentService, chatWidgetService, languageModelToolsService);
@@ -267,15 +331,17 @@ class SetupAgent extends Disposable implements IChatAgentImplementation {
 		}
 	}
 
+	/**
+	 * Waits for the default agent, language models, and tools (if needed) to be registered
+	 * before re-sending the request.
+	 */
 	private async doForwardRequestToCopilotWhenReady(requestModel: IChatRequestModel, progress: (part: IChatProgress) => void, chatService: IChatService, languageModelsService: ILanguageModelsService, chatAgentService: IChatAgentService, chatWidgetService: IChatWidgetService, languageModelToolsService: ILanguageModelToolsService): Promise<void> {
 		const widget = chatWidgetService.getWidgetBySessionId(requestModel.session.sessionId);
 		const mode = widget?.input.currentMode;
 		const languageModel = widget?.input.currentLanguageModel;
 
-		// We need a signal to know when we can resend the request to
-		// Copilot. Waiting for the registration of the agent is not
-		// enough, we also need a language/tools model to be available.
-
+		// Block Logic: Waits for multiple asynchronous conditions to be met before proceeding.
+		// This ensures that the real agent and all its dependencies are available.
 		const whenAgentReady = this.whenAgentReady(chatAgentService, mode);
 		const whenLanguageModelReady = this.whenLanguageModelReady(languageModelsService);
 		const whenToolsModelReady = this.whenToolsModelReady(languageModelToolsService, requestModel);
@@ -314,9 +380,13 @@ class SetupAgent extends Disposable implements IChatAgentImplementation {
 			}
 		}
 
+		// Functional Utility: Re-sends the original request, which will now be routed to the actual Copilot agent.
 		await chatService.resendRequest(requestModel, { mode, userSelectedModelId: languageModel });
 	}
 
+	/**
+	 * Returns a promise that resolves when a default language model is available.
+	 */
 	private whenLanguageModelReady(languageModelsService: ILanguageModelsService): Promise<unknown> | void {
 		for (const id of languageModelsService.getLanguageModelIds()) {
 			const model = languageModelsService.lookupLanguageModel(id);
@@ -328,6 +398,10 @@ class SetupAgent extends Disposable implements IChatAgentImplementation {
 		return Event.toPromise(Event.filter(languageModelsService.onDidChangeLanguageModels, e => e.added?.some(added => added.metadata.isDefault) ?? false));
 	}
 
+	/**
+	 * Returns a promise that resolves when tools (other than internal setup tools) are registered,
+	 * if the request requires them.
+	 */
 	private whenToolsModelReady(languageModelToolsService: ILanguageModelToolsService, requestModel: IChatRequestModel): Promise<unknown> | void {
 		const needsToolsModel = requestModel.message.parts.some(part => part instanceof ChatRequestToolPart);
 		if (!needsToolsModel) {
@@ -352,6 +426,9 @@ class SetupAgent extends Disposable implements IChatAgentImplementation {
 		}));
 	}
 
+	/**
+	 * Returns a promise that resolves when a non-core default agent is registered for the current location.
+	 */
 	private whenAgentReady(chatAgentService: IChatAgentService, mode: ChatMode | undefined): Promise<unknown> | void {
 		const defaultAgent = chatAgentService.getDefaultAgent(this.location, mode);
 		if (defaultAgent && !defaultAgent.isCore) {
@@ -364,17 +441,26 @@ class SetupAgent extends Disposable implements IChatAgentImplementation {
 		}));
 	}
 
+	/**
+	 * Returns a promise that resolves if the activation of the default agent fails.
+	 * This is a fallback mechanism to detect a failure state.
+	 */
 	private async whenDefaultAgentFailed(chatService: IChatService): Promise<void> {
 		return new Promise<void>(resolve => {
 			chatService.activateDefaultAgent(this.location).catch(() => resolve());
 		});
 	}
 
+	/**
+	 * Orchestrates the full setup flow, including showing dialogs, handling sign-in,
+	 * and triggering extension installation.
+	 */
 	private async doInvokeWithSetup(request: IChatAgentRequest, progress: (part: IChatProgress) => void, chatService: IChatService, languageModelsService: ILanguageModelsService, chatWidgetService: IChatWidgetService, chatAgentService: IChatAgentService, languageModelToolsService: ILanguageModelToolsService): Promise<IChatAgentResult> {
 		this.telemetryService.publicLog2<WorkbenchActionExecutedEvent, WorkbenchActionExecutedClassification>('workbenchActionExecuted', { id: CHAT_SETUP_ACTION_ID, from: 'chat' });
 
 		const requestModel = chatWidgetService.getWidgetBySessionId(request.sessionId)?.viewModel?.model.getRequests().at(-1);
 
+		// Subscribe to state changes from the controller to show progress messages.
 		const setupListener = Event.runAndSubscribe(this.controller.value.onDidChange, (() => {
 			switch (this.controller.value.step) {
 				case ChatSetupStep.SigningIn:
@@ -394,6 +480,7 @@ class SetupAgent extends Disposable implements IChatAgentImplementation {
 
 		let result: IChatSetupResult | undefined = undefined;
 		try {
+			// Run the setup process, which may involve showing a dialog to the user.
 			result = await ChatSetup.getInstance(this.instantiationService, this.context, this.controller).run();
 		} catch (error) {
 			this.logService.error(`[chat setup] Error during setup: ${toErrorMessage(error)}`);
@@ -401,7 +488,7 @@ class SetupAgent extends Disposable implements IChatAgentImplementation {
 			setupListener.dispose();
 		}
 
-		// User has agreed to run the setup
+		// If the user agreed to the setup...
 		if (typeof result?.success === 'boolean') {
 			if (result.success) {
 				if (result.dialogSkipped) {
@@ -410,6 +497,7 @@ class SetupAgent extends Disposable implements IChatAgentImplementation {
 						content: new MarkdownString(localize('copilotSetupSuccess', "Copilot setup finished successfully."))
 					});
 				} else if (requestModel) {
+					// ...forward the original request to the newly installed agent.
 					let newRequest = this.replaceAgentInRequestModel(requestModel, chatAgentService); 	// Replace agent part with the actual Copilot agent...
 					newRequest = this.replaceToolInRequestModel(newRequest); 							// ...then replace any tool parts with the actual Copilot tools
 
@@ -423,8 +511,9 @@ class SetupAgent extends Disposable implements IChatAgentImplementation {
 			}
 		}
 
-		// User has cancelled the setup
+		// If the user canceled the setup...
 		else {
+			// ...display a message indicating that setup is required.
 			progress({
 				kind: 'markdownContent',
 				content: SetupAgent.SETUP_NEEDED_MESSAGE,
@@ -434,6 +523,9 @@ class SetupAgent extends Disposable implements IChatAgentImplementation {
 		return {};
 	}
 
+	/**
+	 * Replaces the placeholder setup agent in the request model with the real agent ID.
+	 */
 	private replaceAgentInRequestModel(requestModel: IChatRequestModel, chatAgentService: IChatAgentService): IChatRequestModel {
 		const agentPart = requestModel.message.parts.find((r): r is ChatRequestAgentPart => r instanceof ChatRequestAgentPart);
 		if (!agentPart) {
@@ -469,6 +561,9 @@ class SetupAgent extends Disposable implements IChatAgentImplementation {
 		});
 	}
 
+	/**
+	 * Replaces the placeholder setup tool in the request model with the real tool ID.
+	 */
 	private replaceToolInRequestModel(requestModel: IChatRequestModel): IChatRequestModel {
 		const toolPart = requestModel.message.parts.find((r): r is ChatRequestToolPart => r instanceof ChatRequestToolPart);
 		if (!toolPart) {
@@ -520,6 +615,9 @@ class SetupAgent extends Disposable implements IChatAgentImplementation {
 }
 
 
+/**
+ * A placeholder tool implementation used during the setup process.
+ */
 class SetupTool extends Disposable implements IToolImpl {
 
 	static registerTool(instantiationService: IInstantiationService, toolData: IToolData): { tool: SetupTool; disposable: IDisposable } {
@@ -555,6 +653,9 @@ class SetupTool extends Disposable implements IToolImpl {
 	}
 }
 
+/**
+ * Defines the different strategies or outcomes of the initial setup dialog.
+ */
 enum ChatSetupStrategy {
 	Canceled = 0,
 	DefaultSetup = 1,
@@ -567,6 +668,10 @@ interface IChatSetupResult {
 	readonly dialogSkipped: boolean;
 }
 
+/**
+ * Manages the presentation of the setup dialog and the overall setup flow logic.
+ * It's a singleton that ensures only one setup process runs at a time.
+ */
 class ChatSetup {
 
 	private static instance: ChatSetup | undefined = undefined;
@@ -598,10 +703,17 @@ class ChatSetup {
 		@IConfigurationService private readonly configurationService: IConfigurationService
 	) { }
 
+	/**
+	 * Allows the setup dialog to be skipped once, for flows where the user has
+	 * already implicitly agreed to the setup (e.g., by clicking a specific action).
+	 */
 	skipDialog(): void {
 		this.skipDialogOnce = true;
 	}
 
+	/**
+	 * Runs the entire setup process. Manages a single pending promise to prevent concurrent setup attempts.
+	 */
 	async run(): Promise<IChatSetupResult> {
 		if (this.pendingRun) {
 			return this.pendingRun;
@@ -621,6 +733,7 @@ class ChatSetup {
 		this.skipDialogOnce = false;
 
 		let setupStrategy: ChatSetupStrategy;
+		// Functional Utility: Determines which setup path to take based on user status and whether the dialog should be skipped.
 		if (dialogSkipped || this.chatEntitlementService.entitlement === ChatEntitlement.Pro || this.chatEntitlementService.entitlement === ChatEntitlement.Limited) {
 			setupStrategy = ChatSetupStrategy.DefaultSetup; // existing pro/free users setup without a dialog
 		} else {
@@ -652,6 +765,10 @@ class ChatSetup {
 		return { success, dialogSkipped };
 	}
 
+	/**
+	 * Displays the setup dialog to the user, offering different sign-in options.
+	 * @returns A promise that resolves with the user's chosen setup strategy.
+	 */
 	private async showDialog(): Promise<ChatSetupStrategy> {
 		const disposables = new DisposableStore();
 
@@ -728,6 +845,9 @@ class ChatSetup {
 	}
 }
 
+/**
+ * A workbench contribution that initializes and manages the chat setup lifecycle.
+ */
 export class ChatSetupContribution extends Disposable implements IWorkbenchContribution {
 
 	static readonly ID = 'workbench.contrib.chatSetup';
@@ -745,7 +865,7 @@ export class ChatSetupContribution extends Disposable implements IWorkbenchContr
 		const context = chatEntitlementService.context?.value;
 		const requests = chatEntitlementService.requests?.value;
 		if (!context || !requests) {
-			return; // disabled
+			return; // The feature is disabled if context or requests are not available.
 		}
 
 		const controller = new Lazy(() => this._register(this.instantiationService.createInstance(ChatSetupController, context, requests)));
@@ -755,6 +875,10 @@ export class ChatSetupContribution extends Disposable implements IWorkbenchContr
 		this.registerUrlLinkHandler();
 	}
 
+	/**
+	 * Registers the placeholder agents and manages their lifecycle based on the installation
+	 * and entitlement state.
+	 */
 	private registerSetupAgents(context: ChatEntitlementContext, controller: Lazy<ChatSetupController>): void {
 		const defaultAgentDisposables = markAsSingleton(new MutableDisposable()); // prevents flicker on window reload
 		const vscodeAgentDisposables = markAsSingleton(new MutableDisposable());
@@ -763,52 +887,56 @@ export class ChatSetupContribution extends Disposable implements IWorkbenchContr
 			const disabled = context.state.hidden;
 			if (!disabled) {
 
-				// Default Agents (always, even if installed to allow for speedy requests right on startup)
+				// Default Agents (always registered, even if installed, to allow for speedy requests right on startup)
 				if (!defaultAgentDisposables.value) {
 					const disposables = defaultAgentDisposables.value = new DisposableStore();
 
-					// Panel Agents
+					// Panel Agents for different modes (Ask, Edit, Agent)
 					const panelAgentDisposables = disposables.add(new DisposableStore());
 					for (const mode of [ChatMode.Ask, ChatMode.Edit, ChatMode.Agent]) {
 						const { agent, disposable } = SetupAgent.registerDefaultAgents(this.instantiationService, ChatAgentLocation.Panel, mode, context, controller);
 						panelAgentDisposables.add(disposable);
+						// Block Logic: Handles unrecoverable errors from the setup agent registration.
+						// If the real Copilot agent fails to initialize properly, this mechanism
+						// unregisters the placeholder agent to prevent a broken user experience.
 						panelAgentDisposables.add(agent.onUnresolvableError(() => {
-							// An unresolvable error from our agent registrations means that
-							// Copilot is unhealthy for some reason. We clear our panel
-							// registration to give Copilot a chance to show a custom message
-							// to the user from the views and stop pretending as if there was
-							// a functional agent.
 							this.logService.error('[chat setup] Unresolvable error from Copilot agent registration, clearing registration.');
 							panelAgentDisposables.dispose();
 						}));
 					}
 
-					// Inline Agents
+					// Agents for other locations like Terminal, Notebook, and Editor.
 					disposables.add(SetupAgent.registerDefaultAgents(this.instantiationService, ChatAgentLocation.Terminal, undefined, context, controller).disposable);
 					disposables.add(SetupAgent.registerDefaultAgents(this.instantiationService, ChatAgentLocation.Notebook, undefined, context, controller).disposable);
 					disposables.add(SetupAgent.registerDefaultAgents(this.instantiationService, ChatAgentLocation.Editor, undefined, context, controller).disposable);
 				}
 
-				// VSCode Agent + Tool (unless installed)
+				// VSCode-specific Agent and Tool (only registered if the main extension is not yet installed).
 				if (!context.state.installed && !vscodeAgentDisposables.value) {
 					const disposables = vscodeAgentDisposables.value = new DisposableStore();
-
 					disposables.add(SetupAgent.registerVSCodeAgent(this.instantiationService, context, controller).disposable);
 				}
 			} else {
+				// If the feature is hidden, dispose of all agent registrations.
 				defaultAgentDisposables.clear();
 				vscodeAgentDisposables.clear();
 			}
 
+			// If the main extension is installed, the placeholder VSCode agent is no longer needed.
 			if (context.state.installed) {
-				vscodeAgentDisposables.clear(); // we need to do this to prevent showing duplicate agent/tool entries in the list
+				vscodeAgentDisposables.clear();
 			}
 		};
 
 		this._register(Event.runAndSubscribe(context.onDidChange, () => updateRegistration()));
 	}
 
+	/**
+	 * Registers actions related to the chat setup flow, such as triggering the setup,
+	 * hiding the feature, and upgrading the user's plan.
+	 */
 	private registerActions(context: ChatEntitlementContext, requests: ChatEntitlementRequests, controller: Lazy<ChatSetupController>): void {
+		// Context key to determine when the setup actions should be visible/enabled.
 		const chatSetupTriggerContext = ContextKeyExpr.or(
 			ChatContextKeys.Setup.installed.negate(),
 			ChatContextKeys.Entitlement.canSignUp
@@ -816,6 +944,9 @@ export class ChatSetupContribution extends Disposable implements IWorkbenchContr
 
 		const CHAT_SETUP_ACTION_LABEL = localize2('triggerChatSetup', "Use AI Features with Copilot for free...");
 
+		/**
+		 * Action to trigger the main chat setup flow.
+		 */
 		class ChatSetupTriggerAction extends Action2 {
 
 			constructor() {
@@ -860,6 +991,9 @@ export class ChatSetupContribution extends Disposable implements IWorkbenchContr
 			}
 		}
 
+		/**
+		 * Action to trigger the setup flow without showing the initial dialog.
+		 */
 		class ChatSetupTriggerWithoutDialogAction extends Action2 {
 
 			constructor() {
@@ -883,6 +1017,9 @@ export class ChatSetupContribution extends Disposable implements IWorkbenchContr
 			}
 		}
 
+		/**
+		 * Action to trigger the setup flow from the accounts menu.
+		 */
 		class ChatSetupFromAccountsAction extends Action2 {
 
 			constructor() {
@@ -907,6 +1044,9 @@ export class ChatSetupContribution extends Disposable implements IWorkbenchContr
 			}
 		}
 
+		/**
+		 * Action to hide the chat setup UI and related components.
+		 */
 		class ChatSetupHideAction extends Action2 {
 
 			static readonly ID = 'workbench.action.chat.hideSetup';
@@ -957,6 +1097,9 @@ export class ChatSetupContribution extends Disposable implements IWorkbenchContr
 		}
 
 		const windowFocusListener = this._register(new MutableDisposable());
+		/**
+		 * Action to open the upgrade URL for the user to change their plan (e.g., from Free to Pro).
+		 */
 		class UpgradePlanAction extends Action2 {
 			constructor() {
 				super({
@@ -991,9 +1134,9 @@ export class ChatSetupContribution extends Disposable implements IWorkbenchContr
 				openerService.open(URI.parse(defaultChat.upgradePlanUrl));
 
 				const entitlement = context.state.entitlement;
+				// If the user is not yet Pro, we listen for window focus to refresh tokens,
+				// assuming the user might complete the upgrade in the browser and return.
 				if (entitlement !== ChatEntitlement.Pro) {
-					// If the user is not yet Pro, we listen to window focus to refresh the token
-					// when the user has come back to the window assuming the user signed up.
 					windowFocusListener.value = hostService.onDidChangeFocus(focus => this.onWindowFocus(focus, commandService));
 				}
 			}
@@ -1017,6 +1160,9 @@ export class ChatSetupContribution extends Disposable implements IWorkbenchContr
 		registerAction2(UpgradePlanAction);
 	}
 
+	/**
+	 * Registers a URL handler to allow triggering the chat setup flow via a custom URL scheme.
+	 */
 	private registerUrlLinkHandler(): void {
 		this._register(ExtensionUrlHandlerOverrideRegistry.registerHandler({
 			canHandleURL: url => {
@@ -1051,12 +1197,18 @@ type InstallChatEvent = {
 	signUpErrorCode: number | undefined;
 };
 
+/**
+ * Represents the different steps in the chat setup process.
+ */
 enum ChatSetupStep {
 	Initial = 1,
 	SigningIn,
 	Installing
 }
 
+/**
+ * A controller that manages the state and logic of the chat setup process.
+ */
 class ChatSetupController extends Disposable {
 
 	private readonly _onDidChange = this._register(new Emitter<void>());
@@ -1100,6 +1252,9 @@ class ChatSetupController extends Disposable {
 		this._onDidChange.fire();
 	}
 
+	/**
+	 * Initiates the full setup process, showing progress to the user.
+	 */
 	async setup(options?: { forceSignIn?: boolean }): Promise<boolean> {
 		const watch = new StopWatch(false);
 		const title = localize('setupChatProgress', "Getting Copilot ready...");
@@ -1118,6 +1273,9 @@ class ChatSetupController extends Disposable {
 		}
 	}
 
+	/**
+	 * The core logic for the setup process, handling sign-in, trust, and installation.
+	 */
 	private async doSetup(options: { forceSignIn?: boolean }, watch: StopWatch): Promise<boolean> {
 		this.context.suspend();  // reduces flicker
 
@@ -1127,7 +1285,7 @@ class ChatSetupController extends Disposable {
 			let session: AuthenticationSession | undefined;
 			let entitlement: ChatEntitlement | undefined;
 
-			// Entitlement Unknown or `forceSignIn`: we need to sign-in user
+			// If entitlement is unknown or sign-in is forced, start the sign-in flow.
 			if (this.context.state.entitlement === ChatEntitlement.Unknown || options.forceSignIn) {
 				this.setStep(ChatSetupStep.SigningIn);
 				const result = await this.signIn(providerId);
@@ -1140,6 +1298,7 @@ class ChatSetupController extends Disposable {
 				entitlement = result.entitlement;
 			}
 
+			// Ensure the workspace is trusted before proceeding.
 			const trusted = await this.workspaceTrustRequestService.requestWorkspaceTrust({
 				message: localize('copilotWorkspaceTrust', "Copilot is currently only supported in trusted workspaces.")
 			});
@@ -1148,7 +1307,7 @@ class ChatSetupController extends Disposable {
 				return false;
 			}
 
-			// Install
+			// Proceed with the extension installation.
 			this.setStep(ChatSetupStep.Installing);
 			success = await this.install(session, entitlement ?? this.context.state.entitlement, providerId, watch);
 		} finally {
@@ -1184,12 +1343,16 @@ class ChatSetupController extends Disposable {
 		return { session, entitlement: entitlements?.entitlement };
 	}
 
+	/**
+	 * Handles the installation of the chat extension and any necessary sign-up steps.
+	 */
 	private async install(session: AuthenticationSession | undefined, entitlement: ChatEntitlement, providerId: string, watch: StopWatch): Promise<boolean> {
 		const wasInstalled = this.context.state.installed;
 		let signUpResult: boolean | { errorCode: number } | undefined = undefined;
 
 		try {
 
+			// If the user is not already entitled, attempt to sign them up for the free/limited tier.
 			if (
 				entitlement !== ChatEntitlement.Limited &&	// User is not signed up to Copilot Free
 				entitlement !== ChatEntitlement.Pro &&		// User is not signed up to Copilot Pro
@@ -1215,6 +1378,7 @@ class ChatSetupController extends Disposable {
 				}
 			}
 
+			// Install the main chat extension.
 			await this.doInstall();
 		} catch (error) {
 			this.logService.error(`[chat setup] install: error ${error}`);
@@ -1266,8 +1430,13 @@ class ChatSetupController extends Disposable {
 		}
 	}
 
+	/**
+	 * Handles the setup flow for users with an enterprise provider, which may involve
+	 * configuring a custom instance URL.
+	 */
 	async setupWithProvider(options: { useEnterpriseProvider: boolean }): Promise<boolean> {
 		const registry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration);
+		// Dynamically register configuration properties to allow for enterprise settings.
 		registry.registerConfiguration({
 			'id': 'copilot.setup',
 			'type': 'object',
@@ -1298,6 +1467,7 @@ class ChatSetupController extends Disposable {
 			existingAdvancedSetting = {};
 		}
 
+		// Update user settings to point to the correct auth provider.
 		if (options.useEnterpriseProvider) {
 			await this.configurationService.updateValue(`${defaultChat.completionsAdvancedSetting}`, {
 				...existingAdvancedSetting,
@@ -1311,9 +1481,13 @@ class ChatSetupController extends Disposable {
 			await this.configurationService.updateValue(defaultChat.providerUriSetting, undefined, ConfigurationTarget.USER);
 		}
 
+		// After configuring the provider, run the standard setup flow, forcing a sign-in.
 		return this.setup({ ...options, forceSignIn: true });
 	}
 
+	/**
+	 * Prompts the user for their enterprise instance URL and validates it.
+	 */
 	private async handleEnterpriseInstance(): Promise<boolean /* success */> {
 		const domainRegEx = /^[a-zA-Z\-_]+$/;
 		const fullUriRegEx = /^(https:\/\/)?([a-zA-Z0-9-]+\.)*[a-zA-Z0-9-]+\.ghe\.com\/?$/;
@@ -1385,6 +1559,10 @@ class ChatSetupController extends Disposable {
 
 //#endregion
 
+/**
+ * Executes commands to refresh the authentication tokens for both completions and chat features.
+ * This is necessary after a change in entitlement status.
+ */
 function refreshTokens(commandService: ICommandService): void {
 	// ugly, but we need to signal to the extension that entitlements changed
 	commandService.executeCommand(defaultChat.completionsRefreshTokenCommand);

@@ -1,3 +1,33 @@
+/**
+ * @file EntitlementInitialization.java
+ * @brief Initializes the Elasticsearch entitlement system by dynamically instrumenting the JVM.
+ *
+ * @details
+ * This class is the core of the entitlement agent's initialization process. It is called
+ * reflectively by the agent's `agentmain` method after being attached to the running JVM.
+ * Its primary responsibility is to set up and activate the runtime security checks that enforce
+ * entitlements based on predefined policies.
+ *
+ * The initialization process involves several key steps:
+ * 1.  **Policy Management**: It creates a `PolicyManager` that consolidates security policies from
+ *     the server, plugins, and modules. This includes defining default entitlements for core
+ *     Java and Elasticsearch components (e.g., file access, network operations, thread management).
+ * 2.  **Instrumentation Setup**: It identifies the set of methods across the JDK and Elasticsearch
+ *     that need to be instrumented for security checks. This is a crucial step for intercepting
+ *     potentially sensitive operations.
+ * 3.  **Dynamic Implementation Lookup**: For platform-dependent APIs (like `FileSystemProvider`), it
+ *     dynamically discovers the concrete implementation class at runtime and targets its methods
+ *     for instrumentation.
+ * 4.  **Bytecode Transformation**: It uses the Java Instrumentation API (`java.lang.instrument`) to
+ *     install a `ClassFileTransformer`. This transformer injects bytecode at class load time,
+ *     inserting calls to the `EntitlementChecker` before the original method bodies.
+ * 5.  **Re-transformation**: It re-transforms classes that were already loaded before the agent was
+ *     attached, ensuring that entitlement checks are applied retroactively to the entire application.
+ *
+ * This mechanism allows for a flexible and powerful security model that can be applied to a running
+ * application without modifying its source code, enforcing fine-grained access control based on
+ * the entitlements granted to different parts of the system.
+ */
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
  * or more contributor license agreements. Licensed under the "Elastic License
@@ -82,11 +112,9 @@ import static org.elasticsearch.entitlement.runtime.policy.entitlements.FilesEnt
 import static org.elasticsearch.entitlement.runtime.policy.entitlements.FilesEntitlement.Mode.READ_WRITE;
 
 /**
- * Called by the agent during {@code agentmain} to configure the entitlement system,
- * instantiate and configure an {@link EntitlementChecker},
- * make it available to the bootstrap library via {@link #checker()},
- * and then install the {@link org.elasticsearch.entitlement.instrumentation.Instrumenter}
- * to begin injecting our instrumentation.
+ * This class is the main entry point for the entitlement agent. It is called via reflection
+ * during the `agentmain` phase to configure the entitlement system, instantiate the
+ * {@link EntitlementChecker}, and install the necessary bytecode instrumentation.
  */
 public class EntitlementInitialization {
 
@@ -94,51 +122,26 @@ public class EntitlementInitialization {
 
     private static ElasticsearchEntitlementChecker manager;
 
+    @FunctionalInterface
     interface InstrumentationInfoFactory {
         InstrumentationService.InstrumentationInfo of(String methodName, Class<?>... parameterTypes) throws ClassNotFoundException,
             NoSuchMethodException;
     }
 
-    // Note: referenced by bridge reflectively
+    /**
+     * Provides access to the initialized entitlement checker instance.
+     * This method is referenced reflectively by the agent bridge.
+     */
     public static EntitlementChecker checker() {
         return manager;
     }
 
     /**
-     * Initializes the Entitlement system:
-     * <ol>
-     * <li>
-     * Finds the version-specific subclass of {@link EntitlementChecker} to use
-     * </li>
-     * <li>
-     * Builds the set of methods to instrument using {@link InstrumentationService#lookupMethods}
-     * </li>
-     * <li>
-     * Augment this set “dynamically” using {@link InstrumentationService#lookupImplementationMethod}
-     * </li>
-     * <li>
-     * Creates an {@link Instrumenter} via {@link InstrumentationService#newInstrumenter}, and adds a new {@link Transformer} (derived from
-     * {@link java.lang.instrument.ClassFileTransformer}) that uses it. Transformers are invoked when a class is about to load, after its
-     * bytes have been deserialized to memory but before the class is initialized.
-     * </li>
-     * <li>
-     * Re-transforms all already loaded classes: we force the {@link Instrumenter} to run on classes that might have been already loaded
-     * before entitlement initialization by calling the {@link java.lang.instrument.Instrumentation#retransformClasses} method on all
-     * classes that were already loaded.
-     * </li>
-     * </ol>
-     * <p>
-     * The third step is needed as the JDK exposes some API through interfaces that have different (internal) implementations
-     * depending on the JVM host platform. As we cannot instrument an interfaces, we find its concrete implementation.
-     * A prime example is {@link FileSystemProvider}, which has different implementations (e.g. {@code UnixFileSystemProvider} or
-     * {@code WindowsFileSystemProvider}). At runtime, we find the implementation class which is currently used by the JVM, and add
-     * its methods to the set of methods to instrument. See e.g. {@link EntitlementInitialization#fileSystemProviderChecks}.
-     * </p>
-     * <p>
-     * <strong>NOTE:</strong> this method is referenced by the agent reflectively
-     * </p>
+     * Initializes the entire entitlement system. This method orchestrates the creation of the policy manager,
+     * identification of methods to instrument, and the application of bytecode transformations.
      *
-     * @param inst the JVM instrumentation class instance
+     * @param inst The {@link Instrumentation} instance provided by the JVM.
+     * @throws Exception if any part of the initialization fails.
      */
     public static void initialize(Instrumentation inst) throws Exception {
         manager = initChecker();
@@ -150,6 +153,8 @@ public class EntitlementInitialization {
             ensureClassesSensitiveToVerificationAreInitialized();
         }
 
+        // Block Logic: Gathers all methods that require security checks. This includes methods from platform-dependent
+        // implementations (like file system providers) which are resolved dynamically at runtime.
         Map<MethodKey, CheckMethod> checkMethods = new HashMap<>(INSTRUMENTATION_SERVICE.lookupMethods(latestCheckerInterface));
         Stream.of(
             fileSystemProviderChecks(),
@@ -170,22 +175,22 @@ public class EntitlementInitialization {
 
         var classesToTransform = checkMethods.keySet().stream().map(MethodKey::className).collect(Collectors.toSet());
 
+        // Create and install the transformer that will inject the entitlement checks.
         Instrumenter instrumenter = INSTRUMENTATION_SERVICE.newInstrumenter(latestCheckerInterface, checkMethods);
         var transformer = new Transformer(instrumenter, classesToTransform, verifyBytecode);
         inst.addTransformer(transformer, true);
 
+        // Block Logic: Re-transforms all classes that were already loaded before the agent was attached.
+        // This ensures that the security policy is applied comprehensively to the entire application.
         var classesToRetransform = findClassesToRetransform(inst.getAllLoadedClasses(), classesToTransform);
         try {
             inst.retransformClasses(classesToRetransform);
         } catch (VerifyError e) {
-            // Turn on verification and try to retransform one class at the time to get detailed diagnostic
+            // If re-transformation fails, enable detailed verification and retry class by class for diagnostics.
             transformer.enableClassVerification();
-
             for (var classToRetransform : classesToRetransform) {
                 inst.retransformClasses(classToRetransform);
             }
-
-            // We should have failed already in the loop above, but just in case we did not, rethrow.
             throw e;
         }
     }
@@ -200,16 +205,22 @@ public class EntitlementInitialization {
         return retransform.toArray(new Class<?>[0]);
     }
 
+    /**
+     * Creates and configures the `PolicyManager`, which is responsible for loading and managing
+     * all security policies from the server, plugins, and modules.
+     * @return An initialized `PolicyManager`.
+     */
     private static PolicyManager createPolicyManager() {
         EntitlementBootstrap.BootstrapArgs bootstrapArgs = EntitlementBootstrap.bootstrapArgs();
         Map<String, Policy> pluginPolicies = bootstrapArgs.pluginPolicies();
         PathLookup pathLookup = bootstrapArgs.pathLookup();
 
+        // Block Logic: Defines the default security scopes and file access entitlements for core Elasticsearch components.
         List<Scope> serverScopes = new ArrayList<>();
         List<FileData> serverModuleFileDatas = new ArrayList<>();
         Collections.addAll(
             serverModuleFileDatas,
-            // Base ES directories
+            // Defines base directory permissions
             FileData.ofBaseDirPath(PLUGINS, READ),
             FileData.ofBaseDirPath(MODULES, READ),
             FileData.ofBaseDirPath(CONFIG, READ),
@@ -220,21 +231,15 @@ public class EntitlementInitialization {
             // exclusive settings file
             FileData.ofRelativePath(Path.of("operator/settings.json"), CONFIG, READ_WRITE).withExclusive(true),
 
-            // OS release on Linux
+            // Platform-specific file permissions for Linux
             FileData.ofPath(Path.of("/etc/os-release"), READ).withPlatform(LINUX),
             FileData.ofPath(Path.of("/etc/system-release"), READ).withPlatform(LINUX),
             FileData.ofPath(Path.of("/usr/lib/os-release"), READ).withPlatform(LINUX),
-            // read max virtual memory areas
             FileData.ofPath(Path.of("/proc/sys/vm/max_map_count"), READ).withPlatform(LINUX),
             FileData.ofPath(Path.of("/proc/meminfo"), READ).withPlatform(LINUX),
-            // load averages on Linux
             FileData.ofPath(Path.of("/proc/loadavg"), READ).withPlatform(LINUX),
-            // control group stats on Linux. cgroup v2 stats are in an unpredicable
-            // location under `/sys/fs/cgroup`, so unfortunately we have to allow
-            // read access to the entire directory hierarchy.
             FileData.ofPath(Path.of("/proc/self/cgroup"), READ).withPlatform(LINUX),
             FileData.ofPath(Path.of("/sys/fs/cgroup/"), READ).withPlatform(LINUX),
-            // // io stats on Linux
             FileData.ofPath(Path.of("/proc/self/mountinfo"), READ).withPlatform(LINUX),
             FileData.ofPath(Path.of("/proc/diskstats"), READ).withPlatform(LINUX)
         );
@@ -242,6 +247,7 @@ public class EntitlementInitialization {
             serverModuleFileDatas.add(FileData.ofPath(pathLookup.pidFile(), READ_WRITE));
         }
 
+        // Defines default entitlements for core modules.
         Collections.addAll(
             serverScopes,
             new Scope(
@@ -291,9 +297,8 @@ public class EntitlementInitialization {
             )
         );
 
-        // conditionally add FIPS entitlements if FIPS only functionality is enforced
+        // Conditionally add FIPS-related entitlements if FIPS mode is enabled.
         if (Booleans.parseBoolean(System.getProperty("org.bouncycastle.fips.approved_only"), false)) {
-            // if custom trust store is set, grant read access to its location, otherwise use the default JDK trust store
             String trustStore = System.getProperty("javax.net.ssl.trustStore");
             Path trustStorePath = trustStore != null
                 ? Path.of(trustStore)
@@ -311,7 +316,6 @@ public class EntitlementInitialization {
                 ),
                 new Scope(
                     "org.bouncycastle.fips.core",
-                    // read to lib dir is required for checksum validation
                     List.of(new FilesEntitlement(List.of(FileData.ofBaseDirPath(LIB, READ))), new ManageThreadsEntitlement())
                 )
             );
@@ -324,9 +328,7 @@ public class EntitlementInitialization {
                 : PolicyUtils.mergeScopes(serverScopes, bootstrapArgs.serverPolicyPatch().scopes())
         );
 
-        // agents run without a module, so this is a special hack for the apm agent
-        // this should be removed once https://github.com/elastic/elasticsearch/issues/109335 is completed
-        // See also modules/apm/src/main/plugin-metadata/entitlement-policy.yaml
+        // A special case to grant entitlements to the APM agent, which runs in an unnamed module.
         List<Entitlement> agentEntitlements = List.of(
             new CreateClassLoaderEntitlement(),
             new ManageThreadsEntitlement(),
@@ -357,7 +359,11 @@ public class EntitlementInitialization {
         );
     }
 
-    // package visible for tests
+    /**
+     * Validates that plugin policies do not grant forbidden file access permissions.
+     * @param pluginPolicies The policies to validate.
+     * @param pathLookup The path lookup utility.
+     */
     static void validateFilesEntitlements(Map<String, Policy> pluginPolicies, PathLookup pathLookup) {
         Set<Path> readAccessForbidden = new HashSet<>();
         pathLookup.getBaseDirPaths(PLUGINS).forEach(p -> readAccessForbidden.add(p.toAbsolutePath().normalize()));
@@ -404,7 +410,6 @@ public class EntitlementInitialization {
         FileAccessTree fileAccessTree,
         Set<Path> readForbiddenPaths
     ) {
-
         for (Path forbiddenPath : readForbiddenPaths) {
             if (fileAccessTree.canRead(forbiddenPath)) {
                 throw buildValidationException(componentName, moduleName, forbiddenPath, READ);
@@ -433,6 +438,10 @@ public class EntitlementInitialization {
         return PathUtils.get(userHome);
     }
 
+    /**
+     * Dynamically finds and collects methods from the platform-specific `FileSystemProvider` implementation that need to be instrumented.
+     * @return A stream of `InstrumentationInfo` objects for file system operations.
+     */
     private static Stream<InstrumentationService.InstrumentationInfo> fileSystemProviderChecks() throws ClassNotFoundException,
         NoSuchMethodException {
         var fileSystemProviderClass = FileSystems.getDefault().provider().getClass();
@@ -574,11 +583,8 @@ public class EntitlementInitialization {
     }
 
     /**
-     * If bytecode verification is enabled, ensure these classes get loaded before transforming/retransforming them.
-     * For these classes, the order in which we transform and verify them matters. Verification during class transformation is at least an
-     * unforeseen (if not unsupported) scenario: we are loading a class, and while we are still loading it (during transformation) we try
-     * to verify it. This in turn leads to more classes loading (for verification purposes), which could turn into those classes to be
-     * transformed and undergo verification. In order to avoid circularity errors as much as possible, we force a partial order.
+     * Pre-loads certain sensitive classes if bytecode verification is enabled. This helps to avoid
+     * circular class loading issues during the transformation and verification process.
      */
     private static void ensureClassesSensitiveToVerificationAreInitialized() {
         var classesToInitialize = Set.of(
@@ -596,10 +602,8 @@ public class EntitlementInitialization {
     }
 
     /**
-     * Returns the "most recent" checker class compatible with the current runtime Java version.
-     * For checkers, we have (optionally) version specific classes, each with a prefix (e.g. Java23).
-     * The mapping cannot be automatic, as it depends on the actual presence of these classes in the final Jar (see
-     * the various mainXX source sets).
+     * Selects the appropriate version-specific `EntitlementChecker` class based on the current Java runtime version.
+     * This allows for handling API changes across different JDK versions.
      */
     private static Class<?> getVersionSpecificCheckerClass(Class<?> baseClass, int javaVersion) {
         String packageName = baseClass.getPackageName();
@@ -607,12 +611,10 @@ public class EntitlementInitialization {
 
         final String classNamePrefix;
         if (javaVersion < 19) {
-            // For older Java versions, the basic EntitlementChecker interface and implementation contains all the supported checks
             classNamePrefix = "";
         } else if (javaVersion < 23) {
             classNamePrefix = "Java" + javaVersion;
         } else {
-            // All Java version from 23 onwards will be able to use che checks in the Java23EntitlementChecker interface and implementation
             classNamePrefix = "Java23";
         }
 
@@ -626,6 +628,10 @@ public class EntitlementInitialization {
         return clazz;
     }
 
+    /**
+     * Instantiates the version-specific `ElasticsearchEntitlementChecker` using the created `PolicyManager`.
+     * @return An instance of the entitlement checker.
+     */
     private static ElasticsearchEntitlementChecker initChecker() {
         final PolicyManager policyManager = createPolicyManager();
 

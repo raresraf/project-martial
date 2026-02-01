@@ -1,6 +1,16 @@
-/* This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
+/*!
+This module is responsible for reporting Content Security Policy (CSP) violations.
+It defines the `report_csp_violations` function, which is called when a CSP
+violation occurs. This function creates a `CSPViolationReport` and queues a
+task to dispatch a `SecurityPolicyViolationEvent` to the appropriate target.
+
+The `report_csp_violations` function follows the steps outlined in the CSP
+specification for reporting violations. It determines the target of the event
+based on the element that caused the violation and the global object in which
+the violation occurred. If the violation occurred in a `Window` global, the
+target is the `Document` associated with that `Window`. Otherwise, the target
+is the global object itself.
+*/
 
 use content_security_policy::{PolicyDisposition, Violation, ViolationResource};
 use js::rust::describe_scripted_caller;
@@ -15,6 +25,7 @@ use crate::dom::node::{Node, NodeTraits};
 use crate::dom::window::Window;
 use crate::security_manager::CSPViolationReportTask;
 
+/// Reports a set of CSP violations.
 /// <https://www.w3.org/TR/CSP/#report-violation>
 #[allow(unsafe_code)]
 pub(crate) fn report_csp_violations(

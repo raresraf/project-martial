@@ -1,3 +1,10 @@
+/**
+ * @file openapi.go
+ * @brief Provides fake implementations of OpenAPI schema-related interfaces for testing.
+ * @details This file is crucial for testing components that depend on OpenAPI schemas
+ * without requiring a live API server. It includes utilities to load schemas from
+ * files and mock resource lookups.
+ */
 /*
 Copyright 2017 The Kubernetes Authors.
 
@@ -31,17 +38,18 @@ import (
 	"github.com/googleapis/gnostic/compiler"
 )
 
-// Fake opens and returns a openapi swagger from a file Path. It will
-// parse only once and then return the same copy everytime.
+// Fake implements a mock for fetching an OpenAPI schema from a local file path.
+// It uses sync.Once to ensure the file is read and parsed only once.
 type Fake struct {
-	Path string
+	Path string // Path to the OpenAPI swagger file.
 
 	once     sync.Once
 	document *openapi_v2.Document
 	err      error
 }
 
-// OpenAPISchema returns the openapi document and a potential error.
+// OpenAPISchema returns the OpenAPI document. It reads and parses the document
+// from the file path on the first call and caches the result for subsequent calls.
 func (f *Fake) OpenAPISchema() (*openapi_v2.Document, error) {
 	f.once.Do(func() {
 		_, err := os.Stat(f.Path)
@@ -65,24 +73,24 @@ func (f *Fake) OpenAPISchema() (*openapi_v2.Document, error) {
 	return f.document, f.err
 }
 
-// FakeResources is a wrapper to directly load the openapi schema from a
-// file, and get the schema for given GVK. This is only for test since
-// it's assuming that the file is there and everything will go fine.
+// FakeResources provides an implementation of openapi.Resources that uses a
+// local OpenAPI schema file for resource lookups.
 type FakeResources struct {
 	fake Fake
 }
 
 var _ openapi.Resources = &FakeResources{}
 
-// NewFakeResources creates a new FakeResources.
+// NewFakeResources creates a new FakeResources instance for a given file path.
 func NewFakeResources(path string) *FakeResources {
 	return &FakeResources{
 		fake: Fake{Path: path},
 	}
 }
 
-// LookupResource will read the schema, parse it and return the
-// resources. It doesn't return errors and will panic instead.
+// LookupResource finds the schema for a given GroupVersionKind from the
+// OpenAPI document loaded from the file. It will panic if any error occurs
+// during schema loading or parsing.
 func (f *FakeResources) LookupResource(gvk schema.GroupVersionKind) proto.Schema {
 	s, err := f.fake.OpenAPISchema()
 	if err != nil {
@@ -95,17 +103,18 @@ func (f *FakeResources) LookupResource(gvk schema.GroupVersionKind) proto.Schema
 	return resources.LookupResource(gvk)
 }
 
-// EmptyResources implement a Resources that just doesn't have any resources.
+// EmptyResources implements the openapi.Resources interface but contains no resources.
 type EmptyResources struct{}
 
 var _ openapi.Resources = EmptyResources{}
 
-// LookupResource will always return nil. It doesn't have any resources.
+// LookupResource for EmptyResources always returns nil.
 func (f EmptyResources) LookupResource(gvk schema.GroupVersionKind) proto.Schema {
 	return nil
 }
 
-// CreateOpenAPISchemaFunc returns a function useful for the TestFactory.
+// CreateOpenAPISchemaFunc is a helper function that returns a factory function
+// for creating openapi.Resources. This is useful for dependency injection in tests.
 func CreateOpenAPISchemaFunc(path string) func() (openapi.Resources, error) {
 	return func() (openapi.Resources, error) {
 		return NewFakeResources(path), nil

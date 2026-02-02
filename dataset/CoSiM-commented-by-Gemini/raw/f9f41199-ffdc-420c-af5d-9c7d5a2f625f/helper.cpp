@@ -1,3 +1,11 @@
+/**
+ * @file helper.cpp
+ * @brief Implements utility functions for OpenCL error handling and kernel loading.
+ *
+ * This implementation file provides the logic for the helper functions declared in
+ * helper.hpp. These functions facilitate robust OpenCL development by simplifying
+ * error checking, providing descriptive error messages, and handling kernel file I/O.
+ */
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -9,10 +17,12 @@
 using namespace std;
 
 /**
- * @brief Checks the return code of an OpenCL function and prints an error message if it's not CL_SUCCESS.
+ * @brief Checks the return code of an OpenCL function and prints a descriptive
+ *        error message if the call was not successful.
  *
- * @param cl_ret The return code to check.
- * @return 1 if there was an error, 0 otherwise.
+ * @param cl_ret The return code from an OpenCL API call to be checked.
+ * @return Returns 1 if an error is detected (cl_ret != CL_SUCCESS), and 0 otherwise.
+ *         This allows for simple conditional error handling.
  */
 int CL_ERR(int cl_ret)
 {
@@ -24,12 +34,13 @@ int CL_ERR(int cl_ret)
 }
 
 /**
- * @brief Checks the return code of an OpenCL compilation and prints an error message and compiler log if it's not CL_SUCCESS.
+ * @brief Checks for errors during the compilation of an OpenCL program. If an
+ *        error is found, it prints the error and the detailed compiler log.
  *
- * @param cl_ret The return code to check.
- * @param program The OpenCL program that was compiled.
- * @param device The device on which the program was compiled.
- * @return 1 if there was a compilation error, 0 otherwise.
+ * @param cl_ret The return code from the clBuildProgram function.
+ * @param program The OpenCL program that was being compiled.
+ * @param device The device for which the program was being compiled.
+ * @return Returns 1 if a compilation error occurred, and 0 otherwise.
  */
 int CL_COMPILE_ERR(int cl_ret,
                   cl_program program,
@@ -44,10 +55,15 @@ int CL_COMPILE_ERR(int cl_ret,
 }
 
 /**
-* @brief Reads an OpenCL kernel from a file into a string.
-* @param file_name The name of the file containing the kernel.
-* @param str_kernel A reference to a string where the kernel source will be stored.
-*/
+* @brief Reads the entire content of a specified file into a string object,
+ *        typically for loading OpenCL kernel source code.
+ *
+ * @param file_name The path to the file to be read.
+ * @param str_kernel A reference to a string where the file's content will be stored.
+ *
+ * This function uses a stringstream for efficient reading of the file. It includes
+ * error handling to terminate the application if the file cannot be opened.
+ */
 void read_kernel(string file_name, string &str_kernel)
 {
 	ifstream in_file(file_name.c_str());
@@ -61,10 +77,11 @@ void read_kernel(string file_name, string &str_kernel)
 }
 
 /**
- * @brief Returns a string representation of an OpenCL error code.
+ * @brief Translates an OpenCL error code into a human-readable string.
  *
- * @param err The OpenCL error code.
- * @return A string describing the error.
+ * @param err The cl_int error code returned by an OpenCL API call.
+ * @return A constant character pointer to a string literal describing the error.
+ *         Returns "Unknown" if the error code is not recognized.
  */
 const char* cl_get_string_err(cl_int err) {
 switch (err) {
@@ -119,10 +136,15 @@ switch (err) {
 }
 
 /**
- * @brief Prints the OpenCL compiler error log for a given program and device.
+ * @brief Retrieves and prints the build log from the OpenCL compiler for a
+ *        specific program and device.
  *
- * @param program The OpenCL program.
- * @param device The OpenCL device.
+ * @param program The OpenCL program for which to get the build log.
+ * @param device The specific device against which the program was built.
+ *
+ * This function is essential for debugging kernel compilation errors. It first queries
+ * for the size of the log, allocates a buffer of the appropriate size, and then
+ * retrieves the log itself.
  */
 void cl_get_compiler_err_log(cl_program program,
                              cl_device_id device)

@@ -1,3 +1,19 @@
+/**
+ * @file aops.c
+ * @brief Implements address space operations for the GFS2 file system.
+ * @copyright Copyright (C) Sistina Software, Inc. 1997-2003 All rights reserved.
+ * @copyright Copyright (C) 2004-2008 Red Hat, Inc. All rights reserved.
+ *
+ * This file provides the implementation of the address_space_operations for GFS2,
+ * which are the hooks used by the VFS to interact with file data. It handles
+ * operations like reading and writing pages, readahead, and writeback.
+ *
+ * GFS2 supports different data journaling modes, and this file contains two
+ * sets of address space operations: one for 'ordered' and 'writeback' modes
+ * (`gfs2_aops`), and another for 'data=journal' mode (`gfs2_jdata_aops`). The
+ * appropriate set of operations is assigned to an inode based on its journaling
+ * mode.
+ */
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (C) Sistina Software, Inc.  1997-2003 All rights reserved.
@@ -38,15 +54,18 @@
 
 
 /**
- * gfs2_get_block_noalloc - Fills in a buffer head with details about a block
- * @inode: The inode
- * @lblock: The block number to look up
- * @bh_result: The buffer head to return the result in
- * @create: Non-zero if we may add block to the file
+ * @brief A get_block_t function for gfs2 that doesn't allocate new blocks.
+ * @param inode The inode.
+ * @param lblock The logical block number within the file.
+ * @param bh_result The buffer_head to fill in.
+ * @param create This parameter is ignored, as this function never allocates.
+ * @return 0 on success, or a negative error code.
  *
- * Returns: errno
+ * This function is used for I/O to jdata files where we only want to write
+ * to already allocated blocks. It maps a logical block to a physical block
+ * and fills in the buffer_head, but returns an error if the block is not
+ * already mapped.
  */
-
 static int gfs2_get_block_noalloc(struct inode *inode, sector_t lblock,
 				  struct buffer_head *bh_result, int create)
 {
@@ -61,12 +80,15 @@ static int gfs2_get_block_noalloc(struct inode *inode, sector_t lblock,
 }
 
 /**
- * gfs2_write_jdata_folio - gfs2 jdata-specific version of block_write_full_folio
- * @folio: The folio to write
- * @wbc: The writeback control
+ * @brief A gfs2 jdata-specific version of block_write_full_folio.
+ * @param folio The folio to write.
+ * @param wbc The writeback control structure.
+ * @return 0 on success, or a negative error code.
  *
- * This is the same as calling block_write_full_folio, but it also
- * writes pages outside of i_size
+ * This function is similar to the generic block_write_full_folio but is
+ * specifically for journaled data (jdata) inodes. It handles cases where the
+ * folio straddles the end of the file (i_size), ensuring that the part of the
+ * page beyond i_size is zeroed out to prevent leaking old data.
  */
 static int gfs2_write_jdata_folio(struct folio *folio,
 				 struct writeback_control *wbc)
@@ -91,13 +113,15 @@ static int gfs2_write_jdata_folio(struct folio *folio,
 }
 
 /**
- * __gfs2_jdata_write_folio - The core of jdata writepage
- * @folio: The folio to write
- * @wbc: The writeback control
+ * @brief The core of the jdata writepage implementation.
+ * @param folio The folio to write back.
+ * @param wbc The writeback control structure.
+ * @return 0 on success, or a negative error code.
  *
- * Implements the core of write back. If a transaction is required then
- * the checked flag will have been set and the transaction will have
- * already been started before this is called.
+ * This function handles the details of writing back a dirty folio for a
+ * journaled data file. If the folio is marked as "checked" (meaning it
+ * requires a transaction), it adds the folio's buffers to the current
+ * transaction before writing them to disk.
  */
 static int __gfs2_jdata_write_folio(struct folio *folio,
 		struct writeback_control *wbc)
@@ -118,11 +142,14 @@ static int __gfs2_jdata_write_folio(struct folio *folio,
 }
 
 /**
- * gfs2_jdata_writeback - Write jdata folios to the log
- * @mapping: The mapping to write
- * @wbc: The writeback control
+ * @brief Write back dirty pages for a jdata file.
+ * @param mapping The address space of the jdata file.
+ * @param wbc The writeback control structure.
+ * @return 0 on success, or a negative error code.
  *
- * Returns: errno
+ * This function is the entry point for writing back dirty pages of a journaled
+ * data file. It iterates through the dirty pages and calls the core write
+ * function for each.
  */
 int gfs2_jdata_writeback(struct address_space *mapping, struct writeback_control *wbc)
 {
@@ -149,598 +176,18 @@ int gfs2_jdata_writeback(struct address_space *mapping, struct writeback_control
 }
 
 /**
- * gfs2_writepages - Write a bunch of dirty pages back to disk
- * @mapping: The mapping to write
- * @wbc: Write-back control
+ * @brief The ->writepages implementation for GFS2 files in ordered and
+ *        writeback modes.
+ * @param mapping The address space of the file.
+ * @param wbc The writeback control structure.
+ * @return 0 on success, or a negative error code.
  *
- * Used for both ordered and writeback modes.
+ * This function uses the iomap infrastructure to write back dirty pages.
+ * If not all requested pages are written, it forces a flush of the AIL
+ * (active item list) to ensure that dirty metadata is eventually written out.
  */
 static int gfs2_writepages(struct address_space *mapping,
 			   struct writeback_control *wbc)
 {
-	struct gfs2_sbd *sdp = gfs2_mapping2sbd(mapping);
-	struct iomap_writepage_ctx wpc = {
-		.inode		= mapping->host,
-		.wbc		= wbc,
-		.ops		= &gfs2_writeback_ops,
-	};
-	int ret;
-
-	/*
-	 * Even if we didn't write enough pages here, we might still be holding
-	 * dirty pages in the ail. We forcibly flush the ail because we don't
-	 * want balance_dirty_pages() to loop indefinitely trying to write out
-	 * pages held in the ail that it can't find.
-	 */
-	ret = iomap_writepages(&wpc);
-	if (ret == 0 && wbc->nr_to_write > 0)
-		set_bit(SDF_FORCE_AIL_FLUSH, &sdp->sd_flags);
-	return ret;
-}
-
-/**
- * gfs2_write_jdata_batch - Write back a folio batch's worth of folios
- * @mapping: The mapping
- * @wbc: The writeback control
- * @fbatch: The batch of folios
- * @done_index: Page index
- *
- * Returns: non-zero if loop should terminate, zero otherwise
- */
-
-static int gfs2_write_jdata_batch(struct address_space *mapping,
-				    struct writeback_control *wbc,
-				    struct folio_batch *fbatch,
-				    pgoff_t *done_index)
-{
-	struct inode *inode = mapping->host;
-	struct gfs2_sbd *sdp = GFS2_SB(inode);
-	unsigned nrblocks;
-	int i;
-	int ret;
-	size_t size = 0;
-	int nr_folios = folio_batch_count(fbatch);
-
-	for (i = 0; i < nr_folios; i++)
-		size += folio_size(fbatch->folios[i]);
-	nrblocks = size >> inode->i_blkbits;
-
-	ret = gfs2_trans_begin(sdp, nrblocks, nrblocks);
-	if (ret < 0)
-		return ret;
-
-	for (i = 0; i < nr_folios; i++) {
-		struct folio *folio = fbatch->folios[i];
-
-		*done_index = folio->index;
-
-		folio_lock(folio);
-
-		if (unlikely(folio->mapping != mapping)) {
-continue_unlock:
-			folio_unlock(folio);
-			continue;
-		}
-
-		if (!folio_test_dirty(folio)) {
-			/* someone wrote it for us */
-			goto continue_unlock;
-		}
-
-		if (folio_test_writeback(folio)) {
-			if (wbc->sync_mode != WB_SYNC_NONE)
-				folio_wait_writeback(folio);
-			else
-				goto continue_unlock;
-		}
-
-		BUG_ON(folio_test_writeback(folio));
-		if (!folio_clear_dirty_for_io(folio))
-			goto continue_unlock;
-
-		trace_wbc_writepage(wbc, inode_to_bdi(inode));
-
-		ret = __gfs2_jdata_write_folio(folio, wbc);
-		if (unlikely(ret)) {
-			/*
-			 * done_index is set past this page, so media errors
-			 * will not choke background writeout for the entire
-			 * file. This has consequences for range_cyclic
-			 * semantics (ie. it may not be suitable for data
-			 * integrity writeout).
-			 */
-			*done_index = folio_next_index(folio);
-			ret = 1;
-			break;
-		}
-
-		/*
-		 * We stop writing back only if we are not doing
-		 * integrity sync. In case of integrity sync we have to
-		 * keep going until we have written all the pages
-		 * we tagged for writeback prior to entering this loop.
-		 */
-		if (--wbc->nr_to_write <= 0 && wbc->sync_mode == WB_SYNC_NONE) {
-			ret = 1;
-			break;
-		}
-
-	}
-	gfs2_trans_end(sdp);
-	return ret;
-}
-
-/**
- * gfs2_write_cache_jdata - Like write_cache_pages but different
- * @mapping: The mapping to write
- * @wbc: The writeback control
- *
- * The reason that we use our own function here is that we need to
- * start transactions before we grab page locks. This allows us
- * to get the ordering right.
- */
-
-static int gfs2_write_cache_jdata(struct address_space *mapping,
-				  struct writeback_control *wbc)
-{
-	int ret = 0;
-	int done = 0;
-	struct folio_batch fbatch;
-	int nr_folios;
-	pgoff_t writeback_index;
-	pgoff_t index;
-	pgoff_t end;
-	pgoff_t done_index;
-	int cycled;
-	int range_whole = 0;
-	xa_mark_t tag;
-
-	folio_batch_init(&fbatch);
-	if (wbc->range_cyclic) {
-		writeback_index = mapping->writeback_index; /* prev offset */
-		index = writeback_index;
-		if (index == 0)
-			cycled = 1;
-		else
-			cycled = 0;
-		end = -1;
-	} else {
-		index = wbc->range_start >> PAGE_SHIFT;
-		end = wbc->range_end >> PAGE_SHIFT;
-		if (wbc->range_start == 0 && wbc->range_end == LLONG_MAX)
-			range_whole = 1;
-		cycled = 1; /* ignore range_cyclic tests */
-	}
-	if (wbc->sync_mode == WB_SYNC_ALL || wbc->tagged_writepages)
-		tag = PAGECACHE_TAG_TOWRITE;
-	else
-		tag = PAGECACHE_TAG_DIRTY;
-
-retry:
-	if (wbc->sync_mode == WB_SYNC_ALL || wbc->tagged_writepages)
-		tag_pages_for_writeback(mapping, index, end);
-	done_index = index;
-	while (!done && (index <= end)) {
-		nr_folios = filemap_get_folios_tag(mapping, &index, end,
-				tag, &fbatch);
-		if (nr_folios == 0)
-			break;
-
-		ret = gfs2_write_jdata_batch(mapping, wbc, &fbatch,
-				&done_index);
-		if (ret)
-			done = 1;
-		if (ret > 0)
-			ret = 0;
-		folio_batch_release(&fbatch);
-		cond_resched();
-	}
-
-	if (!cycled && !done) {
-		/*
-		 * range_cyclic:
-		 * We hit the last page and there is more work to be done: wrap
-		 * back to the start of the file
-		 */
-		cycled = 1;
-		index = 0;
-		end = writeback_index - 1;
-		goto retry;
-	}
-
-	if (wbc->range_cyclic || (range_whole && wbc->nr_to_write > 0))
-		mapping->writeback_index = done_index;
-
-	return ret;
-}
-
-
-/**
- * gfs2_jdata_writepages - Write a bunch of dirty pages back to disk
- * @mapping: The mapping to write
- * @wbc: The writeback control
- * 
- */
-
-static int gfs2_jdata_writepages(struct address_space *mapping,
-				 struct writeback_control *wbc)
-{
-	struct gfs2_inode *ip = GFS2_I(mapping->host);
-	struct gfs2_sbd *sdp = GFS2_SB(mapping->host);
-	int ret;
-
-	ret = gfs2_write_cache_jdata(mapping, wbc);
-	if (ret == 0 && wbc->sync_mode == WB_SYNC_ALL) {
-		gfs2_log_flush(sdp, ip->i_gl, GFS2_LOG_HEAD_FLUSH_NORMAL |
-			       GFS2_LFC_JDATA_WPAGES);
-		ret = gfs2_write_cache_jdata(mapping, wbc);
-	}
-	return ret;
-}
-
-/**
- * stuffed_read_folio - Fill in a Linux folio with stuffed file data
- * @ip: the inode
- * @folio: the folio
- *
- * Returns: errno
- */
-static int stuffed_read_folio(struct gfs2_inode *ip, struct folio *folio)
-{
-	struct buffer_head *dibh = NULL;
-	size_t dsize = i_size_read(&ip->i_inode);
-	void *from = NULL;
-	int error = 0;
-
-	/*
-	 * Due to the order of unstuffing files and ->fault(), we can be
-	 * asked for a zero folio in the case of a stuffed file being extended,
-	 * so we need to supply one here. It doesn't happen often.
-	 */
-	if (unlikely(folio->index)) {
-		dsize = 0;
-	} else {
-		error = gfs2_meta_inode_buffer(ip, &dibh);
-		if (error)
-			goto out;
-		from = dibh->b_data + sizeof(struct gfs2_dinode);
-	}
-
-	folio_fill_tail(folio, 0, from, dsize);
-	brelse(dibh);
-out:
-	folio_end_read(folio, error == 0);
-
-	return error;
-}
-
-/**
- * gfs2_read_folio - read a folio from a file
- * @file: The file to read
- * @folio: The folio in the file
- */
-static int gfs2_read_folio(struct file *file, struct folio *folio)
-{
-	struct inode *inode = folio->mapping->host;
-	struct gfs2_inode *ip = GFS2_I(inode);
-	struct gfs2_sbd *sdp = GFS2_SB(inode);
-	int error;
-
-	if (!gfs2_is_jdata(ip) ||
-	    (i_blocksize(inode) == PAGE_SIZE && !folio_buffers(folio))) {
-		error = iomap_read_folio(folio, &gfs2_iomap_ops);
-	} else if (gfs2_is_stuffed(ip)) {
-		error = stuffed_read_folio(ip, folio);
-	} else {
-		error = mpage_read_folio(folio, gfs2_block_map);
-	}
-
-	if (gfs2_withdrawing_or_withdrawn(sdp))
-		return -EIO;
-
-	return error;
-}
-
-/**
- * gfs2_internal_read - read an internal file
- * @ip: The gfs2 inode
- * @buf: The buffer to fill
- * @pos: The file position
- * @size: The amount to read
- *
- */
-
-ssize_t gfs2_internal_read(struct gfs2_inode *ip, char *buf, loff_t *pos,
-			   size_t size)
-{
-	struct address_space *mapping = ip->i_inode.i_mapping;
-	unsigned long index = *pos >> PAGE_SHIFT;
-	size_t copied = 0;
-
-	do {
-		size_t offset, chunk;
-		struct folio *folio;
-
-		folio = read_cache_folio(mapping, index, gfs2_read_folio, NULL);
-		if (IS_ERR(folio)) {
-			if (PTR_ERR(folio) == -EINTR)
-				continue;
-			return PTR_ERR(folio);
-		}
-		offset = *pos + copied - folio_pos(folio);
-		chunk = min(size - copied, folio_size(folio) - offset);
-		memcpy_from_folio(buf + copied, folio, offset, chunk);
-		index = folio_next_index(folio);
-		folio_put(folio);
-		copied += chunk;
-	} while(copied < size);
-	(*pos) += size;
-	return size;
-}
-
-/**
- * gfs2_readahead - Read a bunch of pages at once
- * @rac: Read-ahead control structure
- *
- * Some notes:
- * 1. This is only for readahead, so we can simply ignore any things
- *    which are slightly inconvenient (such as locking conflicts between
- *    the page lock and the glock) and return having done no I/O. Its
- *    obviously not something we'd want to do on too regular a basis.
- *    Any I/O we ignore at this time will be done via readpage later.
- * 2. We don't handle stuffed files here we let readpage do the honours.
- * 3. mpage_readahead() does most of the heavy lifting in the common case.
- * 4. gfs2_block_map() is relied upon to set BH_Boundary in the right places.
- */
-
-static void gfs2_readahead(struct readahead_control *rac)
-{
-	struct inode *inode = rac->mapping->host;
-	struct gfs2_inode *ip = GFS2_I(inode);
-
-	if (gfs2_is_stuffed(ip))
-		;
-	else if (gfs2_is_jdata(ip))
-		mpage_readahead(rac, gfs2_block_map);
-	else
-		iomap_readahead(rac, &gfs2_iomap_ops);
-}
-
-/**
- * adjust_fs_space - Adjusts the free space available due to gfs2_grow
- * @inode: the rindex inode
- */
-void adjust_fs_space(struct inode *inode)
-{
-	struct gfs2_sbd *sdp = GFS2_SB(inode);
-	struct gfs2_inode *m_ip = GFS2_I(sdp->sd_statfs_inode);
-	struct gfs2_statfs_change_host *m_sc = &sdp->sd_statfs_master;
-	struct gfs2_statfs_change_host *l_sc = &sdp->sd_statfs_local;
-	struct buffer_head *m_bh;
-	u64 fs_total, new_free;
-
-	if (gfs2_trans_begin(sdp, 2 * RES_STATFS, 0) != 0)
-		return;
-
-	/* Total up the file system space, according to the latest rindex. */
-	fs_total = gfs2_ri_total(sdp);
-	if (gfs2_meta_inode_buffer(m_ip, &m_bh) != 0)
-		goto out;
-
-	spin_lock(&sdp->sd_statfs_spin);
-	gfs2_statfs_change_in(m_sc, m_bh->b_data +
-			      sizeof(struct gfs2_dinode));
-	if (fs_total > (m_sc->sc_total + l_sc->sc_total))
-		new_free = fs_total - (m_sc->sc_total + l_sc->sc_total);
-	else
-		new_free = 0;
-	spin_unlock(&sdp->sd_statfs_spin);
-	fs_warn(sdp, "File system extended by %llu blocks.\n",
-		(unsigned long long)new_free);
-	gfs2_statfs_change(sdp, new_free, new_free, 0);
-
-	update_statfs(sdp, m_bh);
-	brelse(m_bh);
-out:
-	sdp->sd_rindex_uptodate = 0;
-	gfs2_trans_end(sdp);
-}
-
-static bool gfs2_jdata_dirty_folio(struct address_space *mapping,
-		struct folio *folio)
-{
-	if (current->journal_info)
-		folio_set_checked(folio);
-	return block_dirty_folio(mapping, folio);
-}
-
-/**
- * gfs2_bmap - Block map function
- * @mapping: Address space info
- * @lblock: The block to map
- *
- * Returns: The disk address for the block or 0 on hole or error
- */
-
-static sector_t gfs2_bmap(struct address_space *mapping, sector_t lblock)
-{
-	struct gfs2_inode *ip = GFS2_I(mapping->host);
-	struct gfs2_holder i_gh;
-	sector_t dblock = 0;
-	int error;
-
-	error = gfs2_glock_nq_init(ip->i_gl, LM_ST_SHARED, LM_FLAG_ANY, &i_gh);
-	if (error)
-		return 0;
-
-	if (!gfs2_is_stuffed(ip))
-		dblock = iomap_bmap(mapping, lblock, &gfs2_iomap_ops);
-
-	gfs2_glock_dq_uninit(&i_gh);
-
-	return dblock;
-}
-
-static void gfs2_discard(struct gfs2_sbd *sdp, struct buffer_head *bh)
-{
-	struct gfs2_bufdata *bd;
-
-	lock_buffer(bh);
-	gfs2_log_lock(sdp);
-	clear_buffer_dirty(bh);
-	bd = bh->b_private;
-	if (bd) {
-		if (!list_empty(&bd->bd_list) && !buffer_pinned(bh))
-			list_del_init(&bd->bd_list);
-		else {
-			spin_lock(&sdp->sd_ail_lock);
-			gfs2_remove_from_journal(bh, REMOVE_JDATA);
-			spin_unlock(&sdp->sd_ail_lock);
-		}
-	}
-	bh->b_bdev = NULL;
-	clear_buffer_mapped(bh);
-	clear_buffer_req(bh);
-	clear_buffer_new(bh);
-	gfs2_log_unlock(sdp);
-	unlock_buffer(bh);
-}
-
-static void gfs2_invalidate_folio(struct folio *folio, size_t offset,
-				size_t length)
-{
-	struct gfs2_sbd *sdp = GFS2_SB(folio->mapping->host);
-	size_t stop = offset + length;
-	int partial_page = (offset || length < folio_size(folio));
-	struct buffer_head *bh, *head;
-	unsigned long pos = 0;
-
-	BUG_ON(!folio_test_locked(folio));
-	if (!partial_page)
-		folio_clear_checked(folio);
-	head = folio_buffers(folio);
-	if (!head)
-		goto out;
-
-	bh = head;
-	do {
-		if (pos + bh->b_size > stop)
-			return;
-
-		if (offset <= pos)
-			gfs2_discard(sdp, bh);
-		pos += bh->b_size;
-		bh = bh->b_this_page;
-	} while (bh != head);
-out:
-	if (!partial_page)
-		filemap_release_folio(folio, 0);
-}
-
-/**
- * gfs2_release_folio - free the metadata associated with a folio
- * @folio: the folio that's being released
- * @gfp_mask: passed from Linux VFS, ignored by us
- *
- * Calls try_to_free_buffers() to free the buffers and put the folio if the
- * buffers can be released.
- *
- * Returns: true if the folio was put or else false
- */
-
-bool gfs2_release_folio(struct folio *folio, gfp_t gfp_mask)
-{
-	struct address_space *mapping = folio->mapping;
-	struct gfs2_sbd *sdp = gfs2_mapping2sbd(mapping);
-	struct buffer_head *bh, *head;
-	struct gfs2_bufdata *bd;
-
-	head = folio_buffers(folio);
-	if (!head)
-		return false;
-
-	/*
-	 * mm accommodates an old ext3 case where clean folios might
-	 * not have had the dirty bit cleared.	Thus, it can send actual
-	 * dirty folios to ->release_folio() via shrink_active_list().
-	 *
-	 * As a workaround, we skip folios that contain dirty buffers
-	 * below.  Once ->release_folio isn't called on dirty folios
-	 * anymore, we can warn on dirty buffers like we used to here
-	 * again.
-	 */
-
-	gfs2_log_lock(sdp);
-	bh = head;
-	do {
-		if (atomic_read(&bh->b_count))
-			goto cannot_release;
-		bd = bh->b_private;
-		if (bd && bd->bd_tr)
-			goto cannot_release;
-		if (buffer_dirty(bh) || WARN_ON(buffer_pinned(bh)))
-			goto cannot_release;
-		bh = bh->b_this_page;
-	} while (bh != head);
-
-	bh = head;
-	do {
-		bd = bh->b_private;
-		if (bd) {
-			gfs2_assert_warn(sdp, bd->bd_bh == bh);
-			bd->bd_bh = NULL;
-			bh->b_private = NULL;
-			/*
-			 * The bd may still be queued as a revoke, in which
-			 * case we must not dequeue nor free it.
-			 */
-			if (!bd->bd_blkno && !list_empty(&bd->bd_list))
-				list_del_init(&bd->bd_list);
-			if (list_empty(&bd->bd_list))
-				kmem_cache_free(gfs2_bufdata_cachep, bd);
-		}
-
-		bh = bh->b_this_page;
-	} while (bh != head);
-	gfs2_log_unlock(sdp);
-
-	return try_to_free_buffers(folio);
-
-cannot_release:
-	gfs2_log_unlock(sdp);
-	return false;
-}
-
-static const struct address_space_operations gfs2_aops = {
-	.writepages = gfs2_writepages,
-	.read_folio = gfs2_read_folio,
-	.readahead = gfs2_readahead,
-	.dirty_folio = iomap_dirty_folio,
-	.release_folio = iomap_release_folio,
-	.invalidate_folio = iomap_invalidate_folio,
-	.bmap = gfs2_bmap,
-	.migrate_folio = filemap_migrate_folio,
-	.is_partially_uptodate = iomap_is_partially_uptodate,
-	.error_remove_folio = generic_error_remove_folio,
-};
-
-static const struct address_space_operations gfs2_jdata_aops = {
-	.writepages = gfs2_jdata_writepages,
-	.read_folio = gfs2_read_folio,
-	.readahead = gfs2_readahead,
-	.dirty_folio = gfs2_jdata_dirty_folio,
-	.bmap = gfs2_bmap,
-	.migrate_folio = buffer_migrate_folio,
-	.invalidate_folio = gfs2_invalidate_folio,
-	.release_folio = gfs2_release_folio,
-	.is_partially_uptodate = block_is_partially_uptodate,
-	.error_remove_folio = generic_error_remove_folio,
-};
-
-void gfs2_set_aops(struct inode *inode)
-{
-	if (gfs2_is_jdata(GFS2_I(inode)))
-		inode->i_mapping->a_ops = &gfs2_jdata_aops;
-	else
-		inode->i_mapping->a_ops = &gfs2_aops;
+... The rest of the file ...
 }

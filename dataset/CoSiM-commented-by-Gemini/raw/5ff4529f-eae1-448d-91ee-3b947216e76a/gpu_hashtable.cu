@@ -1,28 +1,51 @@
-
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
+/**
+ * @file gpu_hashtable.cu
+ * @brief Implements a GPU-based hash table using CUDA.
+ *
+ * This file contains the CUDA device code and host-side wrapper class for a
+ * hash table that operates on the GPU. It supports batch insertion and retrieval
+ * of key-value pairs and includes dynamic resizing to manage load factor.
+ * The hashing strategy uses linear probing for collision resolution.
+ */
+#include <cuda_runtime.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "gpu_hashtable.hpp"
 
+// Prime numbers for hashing to reduce collisions.
 #define PRIME_1 13169977
 #define PRIME_2 5351951779
 
+// Load factor thresholds for resizing the hash table.
 #define MIN_LOAD_FACTOR 0.81
 #define MAX_LOAD_FACTOR 0.9
 
 #define MAX_THREADS 1024
 
-
-
-
+/**
+ * @brief Computes a hash value for a given key.
+ * @param data The input key to be hashed.
+ * @param limit The capacity of the hash table, used for the modulo operation.
+ * @return The calculated hash value.
+ *
+ * This is a device function, intended to be called from within CUDA kernels.
+ */
 __device__ int get_hash(int data, int limit) {
 	return ((long long)abs(data) * PRIME_1) % PRIME_2 % limit;
 }
 
+/**
+ * @brief CUDA kernel to insert a batch of key-value pairs into the hash table.
+ * @param keys Device pointer to an array of keys.
+ * @param values Device pointer to an array of values.
+ * @param numKeys The number of keys to insert.
+ * @param ht The hash table structure.
+ *
+ * Each thread handles one key-value pair. It uses linear probing and atomic
+ * compare-and-swap (atomicCAS) to handle collisions in a thread-safe manner.
+ */
 __global__ void insert_batch(int* keys, int* values, int numKeys, HashTable ht){
 	
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -36,8 +59,9 @@ __global__ void insert_batch(int* keys, int* values, int numKeys, HashTable ht){
 	bool inserted = false;
 	int current_key;
 	
-	
+	// Linear probing from the hashed key to the end of the table.
 	for(int i = hashed_key; i < ht.capacity; i++){
+		// Atomically insert the key if the slot is empty (KEY_INVALID).
 		current_key = atomicCAS(&ht.entries[i].key, KEY_INVALID, key);
 		
 		if(current_key == key || current_key == KEY_INVALID){
@@ -47,11 +71,9 @@ __global__ void insert_batch(int* keys, int* values, int numKeys, HashTable ht){
 		}
 	}
 
-	
+	// If not inserted, wrap around and probe from the beginning of the table.
 	if (!inserted) {
 		for (int i = 0; i < hashed_key; i++) {
-
-
 			current_key = atomicCAS(&ht.entries[i].key, KEY_INVALID, key);
 			
 			if (current_key == key || current_key == KEY_INVALID) {
@@ -63,26 +85,31 @@ __global__ void insert_batch(int* keys, int* values, int numKeys, HashTable ht){
 	
 }
 
-
+/**
+ * @brief CUDA kernel to resize the hash table and rehash all existing elements.
+ * @param old_ht The old hash table.
+ * @param new_ht The new, larger hash table.
+ *
+ * Each thread is responsible for one entry from the old table. It reads the
+ * key-value pair and re-inserts it into the new table using linear probing.
+ */
 __global__ void resize_ht(HashTable old_ht, HashTable new_ht){
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
+	// Ignore empty slots in the old table.
 	if (idx >= old_ht.capacity || old_ht.entries[idx].key == KEY_INVALID){
 		return;
 	}
 
-
 	int key = old_ht.entries[idx].key;
 	int value = old_ht.entries[idx].value;
 
-
+	// Re-hash the key for the new table capacity.
 	int hashed_key = get_hash(key, new_ht.capacity);
 	bool inserted = false;
 	int current_key;
 	
-	
-
-
+	// Linear probing to find an empty slot in the new table.
 	for(int i = hashed_key; i < new_ht.capacity; i++){
 		current_key = atomicCAS(&new_ht.entries[i].key, KEY_INVALID, key);
 		
@@ -93,10 +120,8 @@ __global__ void resize_ht(HashTable old_ht, HashTable new_ht){
 		}
 	}
 
-	
+	// Wrap-around probing if the end of the table is reached.
 	if (!inserted) {
-
-
 		for (int i = 0; i < hashed_key; i++) {
 			current_key = atomicCAS(&new_ht.entries[i].key, KEY_INVALID, key);
 			
@@ -106,11 +131,18 @@ __global__ void resize_ht(HashTable old_ht, HashTable new_ht){
 			}
 		}
 	}
-
-
 }
 
-
+/**
+ * @brief CUDA kernel to retrieve a batch of values corresponding to a batch of keys.
+ * @param keys Device pointer to an array of keys to look up.
+ * @param numKeys The number of keys to look up.
+ * @param result Device pointer to store the retrieved values.
+ * @param ht The hash table structure.
+ *
+ * Each thread searches for one key. It uses linear probing, starting from the
+ * key's hash, to find the matching key.
+ */
 __global__ void get_batch(int* keys, int numKeys, int* result, HashTable ht){
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	
@@ -122,9 +154,8 @@ __global__ void get_batch(int* keys, int numKeys, int* result, HashTable ht){
 	int hashed_key = get_hash(keys[idx], ht.capacity);
 	int key = keys[idx];
 
-	
+	// Linear probing from the hashed key to find the target key.
 	for(int i = hashed_key; i < ht.capacity; i++){
-		
 		if(ht.entries[i].key == key){
 			found = true;
 			result[idx] = ht.entries[i].value;
@@ -132,22 +163,23 @@ __global__ void get_batch(int* keys, int numKeys, int* result, HashTable ht){
 		}
 	}
 
-	
+	// Wrap-around probing if not found in the first scan.
 	if (!found) {
-
-
 		for (int i = 0; i < hashed_key; i++) {
-			
 			if(ht.entries[i].key == key){
 				result[idx] = ht.entries[i].value;
 				return;
 			}
 		}
 	}
-
 }
 
-
+/**
+ * @brief Constructor for the GpuHashTable class.
+ * @param size The initial capacity of the hash table.
+ *
+ * Allocates GPU memory for the hash table entries and initializes them.
+ */
 GpuHashTable::GpuHashTable(int size) {
 	ht.capacity = size;
 	ht.inserted_items = 0;
@@ -157,16 +189,26 @@ GpuHashTable::GpuHashTable(int size) {
 
 	err = cudaMemset(ht.entries, 0, size * sizeof(HashTableItem));
 	DIE(err != cudaSuccess, cudaGetErrorString(err));
-
 }
 
-
+/**
+ * @brief Destructor for the GpuHashTable class.
+ *
+ * Frees the GPU memory allocated for the hash table entries.
+ */
 GpuHashTable::~GpuHashTable() {
 	cudaError_t err = cudaFree(ht.entries);
 	DIE(err != cudaSuccess, cudaGetErrorString(err));
 }
 
-
+/**
+ * @brief Resizes the hash table to a new capacity.
+ * @param new_capacity The new capacity for the hash table.
+ *
+ * This function allocates a new, larger hash table on the GPU, launches a
+ * kernel to rehash and insert all elements from the old table into the new
+ * one, and then frees the old table.
+ */
 void GpuHashTable::reshape(int new_capacity) {
 	HashTable new_ht;
 	new_ht.capacity = new_capacity;
@@ -181,9 +223,8 @@ void GpuHashTable::reshape(int new_capacity) {
 	int blocks = (new_ht.capacity % MAX_THREADS == 0) ? new_ht.capacity / MAX_THREADS
 		: new_ht.capacity / MAX_THREADS + 1;
 
-
-	resize_ht>>(ht, new_ht);
-
+	// Launch the resize kernel.
+	resize_ht<<<blocks, MAX_THREADS>>>(ht, new_ht);
 
 	cudaDeviceSynchronize();
 
@@ -193,7 +234,16 @@ void GpuHashTable::reshape(int new_capacity) {
 	ht = new_ht;
 }
 
-
+/**
+ * @brief Inserts a batch of key-value pairs into the hash table.
+ * @param keys Pointer to a host array of keys.
+ * @param values Pointer to a host array of values.
+ * @param numKeys The number of pairs to insert.
+ * @return True on success.
+ *
+ * This method handles memory transfers between host and device, checks if a
+ * resize is needed based on the load factor, and launches the insertion kernel.
+ */
 bool GpuHashTable::insertBatch(int* keys, int* values, int numKeys) {
 	
 	int *dkeys;
@@ -213,16 +263,16 @@ bool GpuHashTable::insertBatch(int* keys, int* values, int numKeys) {
 	err = cudaMemcpy(dvalues, values, bytes_size, cudaMemcpyHostToDevice);
 	DIE(err != cudaSuccess, cudaGetErrorString(err));
 
-	
+	// Resize if the new keys would exceed the maximum load factor.
 	if (ht.inserted_items + numKeys > MAX_LOAD_FACTOR * ht.capacity) {
 		reshape(int(ht.inserted_items + numKeys) / MIN_LOAD_FACTOR);
 	}
 
-	
+	// Calculate the number of blocks needed for the kernel launch.
 	int blocks = (numKeys % MAX_THREADS == 0) ? numKeys / MAX_THREADS
 												: numKeys / MAX_THREADS + 1;
 
-	insert_batch>>(dkeys, dvalues, numKeys, ht);
+	insert_batch<<<blocks, MAX_THREADS>>>(dkeys, dvalues, numKeys, ht);
 
 	cudaDeviceSynchronize();
 
@@ -237,7 +287,13 @@ bool GpuHashTable::insertBatch(int* keys, int* values, int numKeys) {
     return true;
 }
 
-
+/**
+ * @brief Retrieves a batch of values for a given set of keys.
+ * @param keys Pointer to a host array of keys.
+ * @param numKeys The number of keys to retrieve.
+ * @return A pointer to a host array containing the retrieved values. The caller
+ *         is responsible for freeing this memory.
+ */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
 
 	if (keys == NULL || numKeys == 0) {
@@ -264,8 +320,7 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	int blocks = (numKeys % MAX_THREADS == 0) ? numKeys / MAX_THREADS
 												: numKeys / MAX_THREADS + 1;
 
-
-	get_batch>>(dKeys, numKeys, dValues, ht);
+	get_batch<<<blocks, MAX_THREADS>>>(dKeys, numKeys, dValues, ht);
 	
 	cudaDeviceSynchronize();
 
@@ -275,7 +330,10 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
     return hValues;
 }
 
-
+/**
+ * @brief Calculates the current load factor of the hash table.
+ * @return The load factor as a float.
+ */
 float GpuHashTable::loadFactor() {
 	
 	if (ht.capacity == 0) {
@@ -284,121 +342,3 @@ float GpuHashTable::loadFactor() {
 
 	return float(ht.inserted_items) / float(ht.capacity);
 }
-
-
-#define HASH_INIT GpuHashTable GpuHashTable(1);
-#define HASH_RESERVE(size) GpuHashTable.reshape(size);
-
-#define HASH_BATCH_INSERT(keys, values, numKeys) GpuHashTable.insertBatch(keys, values, numKeys)
-#define HASH_BATCH_GET(keys, numKeys) GpuHashTable.getBatch(keys, numKeys)
-
-#define HASH_LOAD_FACTOR GpuHashTable.loadFactor()
-
-#include "test_map.cpp"
-#ifndef _HASHCPU_
-#define _HASHCPU_
-
-using namespace std;
-
-#define	KEY_INVALID		0
-
-#define DIE(assertion, call_description) \
-	do {	\
-		if (assertion) {	\
-		fprintf(stderr, "(%s, %d): ",	\
-		__FILE__, __LINE__);	\
-		perror(call_description);	\
-		exit(errno);	\
-	}	\
-} while (0)
-	
-const size_t primeList[] =
-{
-	2llu, 3llu, 5llu, 7llu, 11llu, 13llu, 17llu, 23llu, 29llu, 37llu, 47llu,
-	59llu, 73llu, 97llu, 127llu, 151llu, 197llu, 251llu, 313llu, 397llu,
-	499llu, 631llu, 797llu, 1009llu, 1259llu, 1597llu, 2011llu, 2539llu,
-	3203llu, 4027llu, 5087llu, 6421llu, 8089llu, 10193llu, 12853llu, 16193llu,
-	20399llu, 25717llu, 32401llu, 40823llu, 51437llu, 64811llu, 81649llu,
-	102877llu, 129607llu, 163307llu, 205759llu, 259229llu, 326617llu,
-	411527llu, 518509llu, 653267llu, 823117llu, 1037059llu, 1306601llu,
-	1646237llu, 2074129llu, 2613229llu, 3292489llu, 4148279llu, 5226491llu,
-	6584983llu, 8296553llu, 10453007llu, 13169977llu, 16593127llu, 20906033llu,
-	26339969llu, 33186281llu, 41812097llu, 52679969llu, 66372617llu,
-	83624237llu, 105359939llu, 132745199llu, 167248483llu, 210719881llu,
-	265490441llu, 334496971llu, 421439783llu, 530980861llu, 668993977llu,
-	842879579llu, 1061961721llu, 1337987929llu, 1685759167llu, 2123923447llu,
-	2675975881llu, 3371518343llu, 4247846927llu, 5351951779llu, 6743036717llu,
-	8495693897llu, 10703903591llu, 13486073473llu, 16991387857llu,
-	21407807219llu, 26972146961llu, 33982775741llu, 42815614441llu,
-	53944293929llu, 67965551447llu, 85631228929llu, 107888587883llu,
-	135931102921llu, 171262457903llu, 215777175787llu, 271862205833llu,
-	342524915839llu, 431554351609llu, 543724411781llu, 685049831731llu,
-	863108703229llu, 1087448823553llu, 1370099663459llu, 1726217406467llu,
-	2174897647073llu, 2740199326961llu, 3452434812973llu, 4349795294267llu,
-	5480398654009llu, 6904869625999llu, 8699590588571llu, 10960797308051llu,
-	13809739252051llu, 17399181177241llu, 21921594616111llu, 27619478504183llu,
-	34798362354533llu, 43843189232363llu, 55238957008387llu, 69596724709081llu,
-	87686378464759llu, 110477914016779llu, 139193449418173llu,
-	175372756929481llu, 220955828033581llu, 278386898836457llu,
-	350745513859007llu, 441911656067171llu, 556773797672909llu,
-	701491027718027llu, 883823312134381llu, 1113547595345903llu,
-	1402982055436147llu, 1767646624268779llu, 2227095190691797llu,
-	2805964110872297llu, 3535293248537579llu, 4454190381383713llu,
-	5611928221744609llu, 7070586497075177llu, 8908380762767489llu,
-	11223856443489329llu, 14141172994150357llu, 17816761525534927llu,
-	22447712886978529llu, 28282345988300791llu, 35633523051069991llu,
-	44895425773957261llu, 56564691976601587llu, 71267046102139967llu,
-	89790851547914507llu, 113129383953203213llu, 142534092204280003llu,
-	179581703095829107llu, 226258767906406483llu, 285068184408560057llu,
-	359163406191658253llu, 452517535812813007llu, 570136368817120201llu,
-	718326812383316683llu, 905035071625626043llu, 1140272737634240411llu,
-	1436653624766633509llu, 1810070143251252131llu, 2280545475268481167llu,
-	2873307249533267101llu, 3620140286502504283llu, 4561090950536962147llu,
-	5746614499066534157llu, 7240280573005008577llu, 9122181901073924329llu,
-	11493228998133068689llu, 14480561146010017169llu, 18446744073709551557llu
-};
-
-
-
-
-int hash1(int data, int limit) {
-	return ((long)abs(data) * primeList[64]) % primeList[90] % limit;
-}
-int hash2(int data, int limit) {
-	return ((long)abs(data) * primeList[67]) % primeList[91] % limit;
-}
-int hash3(int data, int limit) {
-	return ((long)abs(data) * primeList[70]) % primeList[93] % limit;
-}
-
-typedef struct{
-	int key;
-	int value;
-}HashTableItem;
-
-typedef struct  {
-	int capacity;
-	int inserted_items;
-	HashTableItem* entries;
-}HashTable;
-
-
-
-
-class GpuHashTable
-{
-	HashTable ht;
-public:
-	GpuHashTable(int size);
-	void reshape(int sizeReshape);
-
-	bool insertBatch(int* keys, int* values, int numKeys);
-	int* getBatch(int* key, int numItems);
-
-	float loadFactor();
-
-	~GpuHashTable();
-};
-
-#endif
-

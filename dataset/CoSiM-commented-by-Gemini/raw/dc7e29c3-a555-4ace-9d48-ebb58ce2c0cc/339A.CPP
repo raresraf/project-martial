@@ -1,3 +1,22 @@
+/**
+ * @file 339A.CPP
+ * @brief Solves the "Helpful Maths" problem from Codeforces.
+ * @details The program takes a string representing a sum of single-digit numbers
+ * (1, 2, or 3) and rearranges them into non-decreasing order.
+ *
+ * Algorithm:
+ * 1. Read the input string which is a sum, e.g., "3+2+1".
+ * 2. The numbers are at even indices (0, 2, 4, ...).
+ * 3. A simple bubble sort is applied to the characters at these even indices.
+ * 4. The nested loops compare each number with every other number and swap them
+ *    if they are in the wrong order.
+ * 5. Finally, the modified string with sorted numbers is printed.
+ *
+ * Time Complexity: O(N^2), where N is the number of digits in the sum. This is due
+ * to the bubble sort implementation. Given the constraints on the input size in
+ * the problem, this is acceptable.
+ * Space Complexity: O(L), where L is the length of the input string.
+ */
 #include <bits/stdc++.h>
 using namespace std;
 
@@ -60,6 +79,12 @@ using namespace std;
 int main() {
   fastIO string s;
   cin >> s;
+
+  /**
+   * Block Logic: Sorts the numbers in the sum.
+   * The numbers are located at even indices of the string.
+   * This code implements a bubble sort on the characters at these positions.
+   */
   for (int i = 0; i < s.size(); i += 2)
     for (int j = 0; j < s.size(); j += 2)
       if (s[i] < s[j])

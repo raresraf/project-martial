@@ -1,3 +1,13 @@
+/**
+ * @file seek.c
+ * @brief Implements SEEK_HOLE and SEEK_DATA for iomap-based filesystems.
+ * @copyright Copyright (C) 2017 Red Hat, Inc.
+ * @copyright Copyright (c) 2018-2021 Christoph Hellwig.
+ *
+ * This file provides generic implementations for the SEEK_HOLE and SEEK_DATA
+ * llseek operations. Filesystems that use the iomap interface can use these
+ * helpers to efficiently find the next hole or data segment in a file.
+ */
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (C) 2017 Red Hat, Inc.
@@ -6,6 +16,17 @@
 #include <linux/iomap.h>
 #include <linux/pagemap.h>
 
+/**
+ * @brief Processes a single iomap extent during a SEEK_HOLE operation.
+ * @param iter The iomap iterator.
+ * @param hole_pos Pointer to store the position of the found hole.
+ * @return 0 to stop, or a positive value to continue iteration.
+ *
+ * This helper function checks the type of the current iomap extent. If it's
+ * a hole, it records the position and stops. If it's an unwritten extent, it
+ * consults the page cache to find a hole within it. Otherwise, it advances
+ * to the next extent.
+ */
 static int iomap_seek_hole_iter(struct iomap_iter *iter,
 		loff_t *hole_pos)
 {
@@ -26,6 +47,13 @@ static int iomap_seek_hole_iter(struct iomap_iter *iter,
 	}
 }
 
+/**
+ * @brief Generic implementation of SEEK_HOLE using the iomap interface.
+ * @param inode The inode to search in.
+ * @param pos The starting offset for the search.
+ * @param ops The iomap operations for the filesystem.
+ * @return The starting offset of the next hole, or -ENXIO if no hole is found.
+ */
 loff_t
 iomap_seek_hole(struct inode *inode, loff_t pos, const struct iomap_ops *ops)
 {
@@ -52,8 +80,19 @@ iomap_seek_hole(struct inode *inode, loff_t pos, const struct iomap_ops *ops)
 }
 EXPORT_SYMBOL_GPL(iomap_seek_hole);
 
+/**
+ * @brief Processes a single iomap extent during a SEEK_DATA operation.
+ * @param iter The iomap iterator.
+ * @param data_pos Pointer to store the position of the found data.
+ * @return 0 to stop, or a positive value to continue iteration.
+ *
+ * This helper function checks the type of the current iomap extent. If it's
+ * mapped or inline data, it records the position and stops. If it's an
+ * unwritten extent, it consults the page cache to find a data segment within
+ * it. Otherwise, it advances to the next extent.
+ */
 static int iomap_seek_data_iter(struct iomap_iter *iter,
-		loff_t *hole_pos)
+		loff_t *data_pos)
 {
 	loff_t length = iomap_length(iter);
 
@@ -61,17 +100,25 @@ static int iomap_seek_data_iter(struct iomap_iter *iter,
 	case IOMAP_HOLE:
 		return iomap_iter_advance(iter, &length);
 	case IOMAP_UNWRITTEN:
-		*hole_pos = mapping_seek_hole_data(iter->inode->i_mapping,
+		*data_pos = mapping_seek_hole_data(iter->inode->i_mapping,
 				iter->pos, iter->pos + length, SEEK_DATA);
-		if (*hole_pos < 0)
+		if (*data_pos < 0)
 			return iomap_iter_advance(iter, &length);
 		return 0;
 	default:
-		*hole_pos = iter->pos;
+		*data_pos = iter->pos;
 		return 0;
 	}
 }
 
+/**
+ * @brief Generic implementation of SEEK_DATA using the iomap interface.
+ * @param inode The inode to search in.
+ * @param pos The starting offset for the search.
+ * @param ops The iomap operations for the filesystem.
+ * @return The starting offset of the next data segment, or -ENXIO if no data
+ * is found.
+ */
 loff_t
 iomap_seek_data(struct inode *inode, loff_t pos, const struct iomap_ops *ops)
 {

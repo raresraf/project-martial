@@ -1,3 +1,9 @@
+//! This module provides the core HTTP loading functionality, encompassing the entire lifecycle
+//! of network requests from initiation to response handling. It manages various aspects
+//! suchs as caching, redirection, cookie management, authentication, and integration with
+//! developer tools. The implementation adheres to Fetch API specifications and
+//! web security policies like Referrer Policy and Cross-Origin Resource Policy (CORP).
+
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -93,102 +99,165 @@ pub enum HttpCacheEntryState {
 type HttpCacheState = Mutex<HashMap<CacheKey, Arc<(Mutex<HttpCacheEntryState>, Condvar)>>>;
 
 pub struct HttpState {
+    /// Manages the list of HTTP Strict Transport Security (HSTS) hosts.
     pub hsts_list: RwLock<HstsList>,
+    /// Stores and manages HTTP cookies.
     pub cookie_jar: RwLock<CookieStorage>,
+    /// Manages the HTTP cache for storing and retrieving responses.
     pub http_cache: RwLock<HttpCache>,
     /// A map of cache key to entry state,
     /// reflecting whether the cache entry is ready to read from,
     /// or whether a concurrent pending store should be awaited.
     pub http_cache_state: HttpCacheState,
+    /// Caches authentication credentials for various origins.
     pub auth_cache: RwLock<AuthCache>,
+    /// Stores history states, typically for navigation or session management.
     pub history_states: RwLock<HashMap<HistoryStateId, Vec<u8>>>,
+    /// The Hyper client used for making HTTP requests.
     pub client: Client<Connector, crate::connector::BoxedBody>,
+    /// Manages overrides for certificate errors.
     pub override_manager: CertificateErrorOverrideManager,
+    /// Provides an interface for the embedder to interact with the HTTP loader.
     pub embedder_proxy: Mutex<EmbedderProxy>,
 }
 
 /// Step 13 of <https://fetch.spec.whatwg.org/#concept-fetch>.
+/// Sets the default `Accept` header for a given HTTP request based on its destination.
+///
+/// This function implements Step 13 of the Fetch specification:
+/// <https://fetch.spec.whatwg.org/#concept-fetch>.
 pub(crate) fn set_default_accept(request: &mut Request) {
+    // Block Logic: Checks if the request already contains an `Accept` header.
+    // Invariant: If an `Accept` header is present, no default is set, preserving existing preference.
     if request.headers.contains_key(header::ACCEPT) {
         return;
     }
 
+    // Block Logic: Determines the appropriate `Accept` header value based on the request's initiator and destination.
+    // Invariant: A default `Accept` header value is chosen that best matches the expected content type for the request.
     let value = if request.initiator == Initiator::Prefetch {
+        // Functional Utility: Uses a predefined `Accept` header value for prefetch requests.
         DOCUMENT_ACCEPT_HEADER_VALUE
     } else {
         match request.destination {
+            // Functional Utility: Uses a predefined `Accept` header value for document, frame, or iframe destinations.
             Destination::Document | Destination::Frame | Destination::IFrame => {
                 DOCUMENT_ACCEPT_HEADER_VALUE
             },
+            // Functional Utility: Specifies `Accept` headers for image destinations.
             Destination::Image => {
                 HeaderValue::from_static("image/png,image/svg+xml,image/*;q=0.8,*/*;q=0.5")
             },
+            // Functional Utility: Specifies `Accept` headers for JSON destinations.
             Destination::Json => HeaderValue::from_static("application/json,*/*;q=0.5"),
+            // Functional Utility: Specifies `Accept` headers for style destinations.
             Destination::Style => HeaderValue::from_static("text/css,*/*;q=0.1"),
+            // Functional Utility: Provides a generic `Accept` header for other destinations.
             _ => HeaderValue::from_static("*/*"),
         }
     };
 
+    // Functional Utility: Inserts the determined `Accept` header value into the request headers.
     request.headers.insert(header::ACCEPT, value);
 }
 
+/// Sets the default `Accept-Encoding` header if it's not already present.
 fn set_default_accept_encoding(headers: &mut HeaderMap) {
+    // Block Logic: Checks if the `Accept-Encoding` header is already present.
+    // Invariant: If an `Accept-Encoding` header is present, no default is set, preserving existing preference.
     if headers.contains_key(header::ACCEPT_ENCODING) {
         return;
     }
 
     // TODO(eijebong): Change this once typed headers are done
+    // Functional Utility: Inserts the default `Accept-Encoding` header value for common compression algorithms.
     headers.insert(
         header::ACCEPT_ENCODING,
         HeaderValue::from_static("gzip, deflate, br"),
     );
 }
 
-/// <https://w3c.github.io/webappsec-referrer-policy/#referrer-policy-state-no-referrer-when-downgrade>
+/// Implements the "no-referrer-when-downgrade" referrer policy.
+///
+/// This policy sends a full URL as a referrer when the protocol security level
+/// stays the same or improves (HTTP to HTTPS), but sends no referrer when
+/// the security level downgrades (HTTPS to HTTP).
+/// See <https://w3c.github.io/webappsec-referrer-policy/#referrer-policy-no-referrer-when-downgrade>
 fn no_referrer_when_downgrade(referrer_url: ServoUrl, current_url: ServoUrl) -> Option<ServoUrl> {
-    // Step 1
+    // Block Logic: Implements Step 1 of the no-referrer-when-downgrade policy.
+    // If the referrer URL is potentially trustworthy but the current URL is not,
+    // then no referrer information is sent.
+    // Invariant: Prevents sending referrer from a secure context to an insecure one.
     if referrer_url.is_potentially_trustworthy() && !current_url.is_potentially_trustworthy() {
         return None;
     }
-    // Step 2
+    // Functional Utility: Implements Step 2: Strips sensitive information from the referrer URL.
     strip_url_for_use_as_referrer(referrer_url, false)
 }
 
-/// <https://w3c.github.io/webappsec-referrer-policy/#referrer-policy-strict-origin>
+/// Implements the "strict-origin" referrer policy.
+///
+/// This policy sends the referrer's origin when the protocol security level
+/// stays the same or improves, but sends no referrer when the security level
+/// downgrades. It always strips paths and query strings.
+/// See <https://w3c.github.io/webappsec-referrer-policy/#referrer-policy-strict-origin>
 fn strict_origin(referrer_url: ServoUrl, current_url: ServoUrl) -> Option<ServoUrl> {
-    // Step 1
+    // Block Logic: Implements Step 1 of the strict-origin policy.
+    // If the referrer URL is potentially trustworthy but the current URL is not,
+    // then no referrer information is sent.
+    // Invariant: Prevents sending referrer from a secure context to an insecure one.
     if referrer_url.is_potentially_trustworthy() && !current_url.is_potentially_trustworthy() {
         return None;
     }
-    // Step 2
+    // Functional Utility: Implements Step 2: Strips path and query information from the referrer URL,
+    // sending only the origin.
     strip_url_for_use_as_referrer(referrer_url, true)
 }
 
-/// <https://w3c.github.io/webappsec-referrer-policy/#referrer-policy-strict-origin-when-cross-origin>
+/// Implements the "strict-origin-when-cross-origin" referrer policy.
+///
+/// This policy sends a full URL when performing a same-origin request,
+/// only the origin when performing a cross-origin request, and sends no
+/// referrer when the security level downgrades.
+/// See <https://w3c.github.io/webappsec-referrer-policy/#referrer-policy-strict-origin-when-cross-origin>
 fn strict_origin_when_cross_origin(
     referrer_url: ServoUrl,
     current_url: ServoUrl,
 ) -> Option<ServoUrl> {
-    // Step 1
+    // Block Logic: Implements Step 1 of the policy.
+    // If the request is same-origin, send the full referrer URL.
+    // Invariant: Full referrer is sent for same-origin requests.
     if referrer_url.origin() == current_url.origin() {
         return strip_url_for_use_as_referrer(referrer_url, false);
     }
-    // Step 2
+    // Block Logic: Implements Step 2 of the policy.
+    // If the referrer URL is potentially trustworthy but the current URL is not,
+    // then no referrer information is sent.
+    // Invariant: Prevents sending referrer from a secure context to an insecure one.
     if referrer_url.is_potentially_trustworthy() && !current_url.is_potentially_trustworthy() {
         return None;
     }
-    // Step 3
+    // Functional Utility: Implements Step 3: For cross-origin requests, strips sensitive information,
+    // sending only the origin.
     strip_url_for_use_as_referrer(referrer_url, true)
 }
 
-/// <https://html.spec.whatwg.org/multipage/#concept-site-same-site>
+/// Determines if two given `ImmutableOrigin`s are "same site" according to the HTML specification.
+///
+/// This involves comparing their scheme and host values, with special handling for opaque origins.
+/// See <https://html.spec.whatwg.org/multipage/#concept-site-same-site>
 fn is_same_site(site_a: &ImmutableOrigin, site_b: &ImmutableOrigin) -> bool {
-    // Step 1. If A and B are the same opaque origin, then return true.
+    // Block Logic: Implements Step 1.
+    // If both origins are opaque and identical, they are considered same-site.
+    // Invariant: Opaque origins are only same-site if they are exactly the same instance.
     if !site_a.is_tuple() && !site_b.is_tuple() && site_a == site_b {
         return true;
     }
 
-    // Step 2. If A or B is an opaque origin, then return false.
+    // Block Logic: Implements Step 2.
+    // If either origin is opaque (but not both identical opaque origins, handled above),
+    // they cannot be same-site with a tuple origin.
+    // Invariant: Comparison continues only if both origins are tuples.
     let ImmutableOrigin::Tuple(scheme_a, host_a, _) = site_a else {
         return false;
     };
@@ -196,50 +265,75 @@ fn is_same_site(site_a: &ImmutableOrigin, site_b: &ImmutableOrigin) -> bool {
         return false;
     };
 
-    // Step 3. If A's and B's scheme values are different, then return false.
+    // Block Logic: Implements Step 3.
+    // If schemes differ, they are not same-site.
+    // Invariant: Schemes must match for same-site determination.
     if scheme_a != scheme_b {
         return false;
     }
 
-    // Step 4. If A's and B's host values are not equal, then return false.
+    // Block Logic: Implements Step 4.
+    // If hosts differ, they are not same-site.
+    // Invariant: Hosts must match for same-site determination.
     if host_a != host_b {
         return false;
     }
 
-    // Step 5. Return true.
+    // Functional Utility: Implements Step 5.
+    // If all checks pass, they are same-site.
     true
 }
 
-/// <https://html.spec.whatwg.org/multipage/#schemelessly-same-site>
+/// Determines if two given `ImmutableOrigin`s are "schemelessly same site" according to the HTML specification.
+///
+/// This comparison primarily focuses on host and registrable domain, ignoring the scheme.
+/// See <https://html.spec.whatwg.org/multipage/#schemelessly-same-site>
 fn is_schemelessy_same_site(site_a: &ImmutableOrigin, site_b: &ImmutableOrigin) -> bool {
-    // Step 1
+    // Block Logic: Implements Step 1.
+    // If both origins are opaque and identical, they are considered schemelessly same-site.
+    // Invariant: Opaque origins are only same-site if they are exactly the same instance.
     if !site_a.is_tuple() && !site_b.is_tuple() && site_a == site_b {
         true
     } else if site_a.is_tuple() && site_b.is_tuple() {
-        // Step 2.1
+        // Block Logic: Implements Step 2.1.
+        // Extracts and normalizes the host components of the origins.
         let host_a = site_a.host().map(|h| h.to_string()).unwrap_or_default();
         let host_b = site_b.host().map(|h| h.to_string()).unwrap_or_default();
 
+        // Functional Utility: Retrieves the registrable domain for each host.
         let host_a_reg = reg_suffix(&host_a);
         let host_b_reg = reg_suffix(&host_b);
 
-        // Step 2.2-2.3
+        // Block Logic: Implements Step 2.2-2.3.
+        // Checks if hosts are identical OR if registrable domains are identical and non-empty.
+        // Invariant: Comparison correctly identifies schemelessly same-site based on host or registrable domain.
         (site_a.host() == site_b.host() && host_a_reg.is_empty()) ||
             (host_a_reg == host_b_reg && !host_a_reg.is_empty())
     } else {
-        // Step 3
+        // Functional Utility: Implements Step 3.
+        // If one is a tuple origin and the other is opaque (and not identical opaque origins), they are not same-site.
         false
     }
 }
 
-/// <https://w3c.github.io/webappsec-referrer-policy/#strip-url>
+/// Strips sensitive information from a URL before it is used as a referrer,
+/// according to the rules defined in the Referrer Policy specification.
+///
+/// This function removes username, password, and fragment. It can optionally
+/// strip path and query if `origin_only` is true or if the URL length exceeds a maximum.
+/// See <https://w3c.github.io/webappsec-referrer-policy/#strip-url>
 fn strip_url_for_use_as_referrer(mut url: ServoUrl, origin_only: bool) -> Option<ServoUrl> {
     const MAX_REFERRER_URL_LENGTH: usize = 4096;
-    // Step 2
+    // Block Logic: Implements Step 2.
+    // Referrers are not sent for local schemes.
+    // Invariant: URLs with local schemes are not used as referrers.
     if url.is_local_scheme() {
         return None;
     }
-    // Step 3-6
+    // Block Logic: Implements Steps 3-6.
+    // Strips username, password, and fragment from the URL.
+    // Optionally strips path and query if only the origin is required or if the URL is too long.
+    // Invariant: Sensitive parts of the URL are removed.
     {
         let url = url.as_mut_url();
         let _ = url.set_username("");
@@ -253,62 +347,101 @@ fn strip_url_for_use_as_referrer(mut url: ServoUrl, origin_only: bool) -> Option
             url.set_query(None);
         }
     }
-    // Step 7
+    // Functional Utility: Implements Step 7.
+    // Returns the modified URL.
     Some(url)
 }
 
-/// <https://w3c.github.io/webappsec-referrer-policy/#referrer-policy-same-origin>
+/// Implements the "same-origin" referrer policy.
+///
+/// This policy sends a full URL when performing a same-origin request,
+/// but sends no referrer when performing a cross-origin request.
+/// See <https://w3c.github.io/webappsec-referrer-policy/#referrer-policy-same-origin>
 fn same_origin(referrer_url: ServoUrl, current_url: ServoUrl) -> Option<ServoUrl> {
-    // Step 1
+    // Block Logic: Implements Step 1 of the same-origin policy.
+    // If the referrer's origin is the same as the current URL's origin,
+    // the full referrer URL (stripped of sensitive parts) is sent.
+    // Invariant: Full referrer is sent only for same-origin requests.
     if referrer_url.origin() == current_url.origin() {
         return strip_url_for_use_as_referrer(referrer_url, false);
     }
-    // Step 2
+    // Functional Utility: Implements Step 2.
+    // For cross-origin requests, no referrer information is sent.
     None
 }
 
-/// <https://w3c.github.io/webappsec-referrer-policy/#referrer-policy-origin-when-cross-origin>
+/// Implements the "origin-when-cross-origin" referrer policy.
+///
+/// This policy sends a full URL when performing a same-origin request,
+/// and only the origin when performing a cross-origin request.
+/// See <https://w3c.github.io/webappsec-referrer-policy/#referrer-policy-origin-when-cross-origin>
 fn origin_when_cross_origin(referrer_url: ServoUrl, current_url: ServoUrl) -> Option<ServoUrl> {
-    // Step 1
+    // Block Logic: Implements Step 1 of the origin-when-cross-origin policy.
+    // If the referrer's origin is the same as the current URL's origin,
+    // the full referrer URL (stripped of sensitive parts) is sent.
+    // Invariant: Full referrer is sent for same-origin requests.
     if referrer_url.origin() == current_url.origin() {
         return strip_url_for_use_as_referrer(referrer_url, false);
     }
-    // Step 2
+    // Functional Utility: Implements Step 2.
+    // For cross-origin requests, only the origin of the referrer URL is sent.
     strip_url_for_use_as_referrer(referrer_url, true)
 }
 
-/// <https://w3c.github.io/webappsec-referrer-policy/#determine-requests-referrer>
+/// Determines the referrer URL to be used for a request based on the provided `ReferrerPolicy`.
+///
+/// This function acts as a dispatcher, applying the rules of the specified referrer policy.
+/// See <https://w3c.github.io/webappsec-referrer-policy/#determine-requests-referrer>
 pub fn determine_requests_referrer(
     referrer_policy: ReferrerPolicy,
     referrer_source: ServoUrl,
     current_url: ServoUrl,
 ) -> Option<ServoUrl> {
+    // Block Logic: Matches the referrer policy to the appropriate handling function.
+    // Invariant: The correct referrer URL (or None) is returned based on the active policy.
     match referrer_policy {
+        // Functional Utility: For "EmptyString" or "NoReferrer" policies, no referrer is sent.
         ReferrerPolicy::EmptyString | ReferrerPolicy::NoReferrer => None,
+        // Functional Utility: For "Origin" policy, only the origin of the referrer source is sent.
         ReferrerPolicy::Origin => strip_url_for_use_as_referrer(referrer_source, true),
+        // Functional Utility: For "UnsafeUrl" policy, the full referrer source is sent.
         ReferrerPolicy::UnsafeUrl => strip_url_for_use_as_referrer(referrer_source, false),
+        // Functional Utility: Dispatches to the `strict_origin` handler.
         ReferrerPolicy::StrictOrigin => strict_origin(referrer_source, current_url),
+        // Functional Utility: Dispatches to the `strict_origin_when_cross_origin` handler.
         ReferrerPolicy::StrictOriginWhenCrossOrigin => {
             strict_origin_when_cross_origin(referrer_source, current_url)
         },
+        // Functional Utility: Dispatches to the `same_origin` handler.
         ReferrerPolicy::SameOrigin => same_origin(referrer_source, current_url),
+        // Functional Utility: Dispatches to the `origin_when_cross_origin` handler.
         ReferrerPolicy::OriginWhenCrossOrigin => {
             origin_when_cross_origin(referrer_source, current_url)
         },
+        // Functional Utility: Dispatches to the `no_referrer_when_downgrade` handler.
         ReferrerPolicy::NoReferrerWhenDowngrade => {
             no_referrer_when_downgrade(referrer_source, current_url)
         },
     }
 }
 
+/// Sets the `Cookie` header in a request based on cookies stored in the `CookieStorage`.
+///
+/// It retrieves relevant cookies for the given URL, removes expired ones, and
+/// appends them to the request headers.
 fn set_request_cookies(
     url: &ServoUrl,
     headers: &mut HeaderMap,
     cookie_jar: &RwLock<CookieStorage>,
 ) {
+    // Functional Utility: Acquires a write lock on the cookie jar to manage cookies.
     let mut cookie_jar = cookie_jar.write().unwrap();
+    // Functional Utility: Removes any expired cookies relevant to the URL.
     cookie_jar.remove_expired_cookies_for_url(url);
+    // Block Logic: If there are cookies for the given URL, they are formatted and added to the request headers.
+    // Invariant: The `Cookie` header accurately reflects the non-expired HTTP-sourced cookies for the URL.
     if let Some(cookie_list) = cookie_jar.cookies_for_url(url, CookieSource::HTTP) {
+        // Functional Utility: Inserts the formatted cookie string into the request headers.
         headers.insert(
             header::COOKIE,
             HeaderValue::from_bytes(cookie_list.as_bytes()).unwrap(),
@@ -316,27 +449,51 @@ fn set_request_cookies(
     }
 }
 
+/// Parses a raw cookie string and stores it in the `CookieStorage` for a given URL.
+///
+/// This function attempts to parse the `cookie_val` string into a `ServoCookie`
+/// and, if successful, adds it to the cookie jar.
 fn set_cookie_for_url(cookie_jar: &RwLock<CookieStorage>, request: &ServoUrl, cookie_val: &str) {
+    // Functional Utility: Acquires a write lock on the cookie jar to add a new cookie.
     let mut cookie_jar = cookie_jar.write().unwrap();
     let source = CookieSource::HTTP;
 
+    // Block Logic: Attempts to parse the raw cookie string into a `ServoCookie`.
+    // If successful, the cookie is pushed into the cookie jar.
+    // Invariant: Only validly parsed cookies are added to the storage.
     if let Some(cookie) = ServoCookie::from_cookie_string(cookie_val.into(), request, source) {
+        // Functional Utility: Stores the parsed cookie in the cookie jar.
         cookie_jar.push(cookie, request, source);
     }
 }
 
+/// Extracts and processes `Set-Cookie` headers from an HTTP response to update the `CookieStorage`.
+///
+/// This function iterates through all `Set-Cookie` headers, converts their values to UTF-8,
+/// and attempts to store each cookie in the cookie jar.
 fn set_cookies_from_headers(
     url: &ServoUrl,
     headers: &HeaderMap,
     cookie_jar: &RwLock<CookieStorage>,
 ) {
+    // Block Logic: Iterates over all `Set-Cookie` headers found in the response.
+    // Invariant: Each `Set-Cookie` header is processed for potential storage.
     for cookie in headers.get_all(header::SET_COOKIE) {
+        // Block Logic: Converts the header value to a UTF-8 string.
+        // If successful, it attempts to set the cookie in the cookie jar.
+        // Invariant: Only valid UTF-8 cookie strings are considered for storage.
         if let Ok(cookie_str) = std::str::from_utf8(cookie.as_bytes()) {
+            // Functional Utility: Delegates to `set_cookie_for_url` to parse and store the cookie.
             set_cookie_for_url(cookie_jar, url, cookie_str);
         }
     }
 }
 
+/// Prepares a `ChromeToDevtoolsControlMsg::NetworkEvent` for an HTTP request
+/// to be sent to DevTools.
+///
+/// This function constructs a `DevtoolsHttpRequest` with detailed information
+/// about the network request, including timing and request body.
 #[allow(clippy::too_many_arguments)]
 fn prepare_devtools_request(
     request_id: String,
@@ -349,7 +506,9 @@ fn prepare_devtools_request(
     send_time: Duration,
     is_xhr: bool,
 ) -> ChromeToDevtoolsControlMsg {
+    // Functional Utility: Captures the current system time to mark when the request started.
     let started_date_time = SystemTime::now();
+    // Functional Utility: Constructs the `DevtoolsHttpRequest` structure with all provided details.
     let request = DevtoolsHttpRequest {
         url,
         method,
@@ -357,6 +516,7 @@ fn prepare_devtools_request(
         body,
         pipeline_id,
         started_date_time,
+        // Functional Utility: Calculates the timestamp as seconds since UNIX_EPOCH.
         time_stamp: started_date_time
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
@@ -365,20 +525,32 @@ fn prepare_devtools_request(
         send_time,
         is_xhr,
     };
+    // Functional Utility: Wraps the HTTP request into a generic `NetworkEvent`.
     let net_event = NetworkEvent::HttpRequest(request);
 
+    // Functional Utility: Creates the final `ChromeToDevtoolsControlMsg` to be sent.
     ChromeToDevtoolsControlMsg::NetworkEvent(request_id, net_event)
 }
 
+/// Sends a `ChromeToDevtoolsControlMsg` to the DevTools channel.
+///
+/// This function is a utility to dispatch network-related messages to connected DevTools clients.
 fn send_request_to_devtools(
     msg: ChromeToDevtoolsControlMsg,
     devtools_chan: &Sender<DevtoolsControlMsg>,
 ) {
+    // Functional Utility: Sends the prepared message to the DevTools control channel.
+    // The `unwrap()` indicates an expectation that the channel send will not fail,
+    // which typically implies the channel is always open in a stable state.
     devtools_chan
         .send(DevtoolsControlMsg::FromChrome(msg))
         .unwrap();
 }
 
+/// Prepares and sends an HTTP response message to the DevTools channel.
+///
+/// This function constructs a `DevtoolsHttpResponse` from the provided details
+/// and dispatches it as a `NetworkEvent` to connected DevTools clients.
 fn send_response_to_devtools(
     devtools_chan: &Sender<DevtoolsControlMsg>,
     request_id: String,
@@ -386,36 +558,50 @@ fn send_response_to_devtools(
     status: HttpStatus,
     pipeline_id: PipelineId,
 ) {
+    // Functional Utility: Constructs the `DevtoolsHttpResponse` structure.
     let response = DevtoolsHttpResponse {
         headers,
         status,
-        body: None,
+        body: None, // Response body is typically handled separately or streamed.
         pipeline_id,
     };
+    // Functional Utility: Wraps the HTTP response into a generic `NetworkEvent`.
     let net_event_response = NetworkEvent::HttpResponse(response);
 
+    // Functional Utility: Creates the final `ChromeToDevtoolsControlMsg` to be sent.
     let msg = ChromeToDevtoolsControlMsg::NetworkEvent(request_id, net_event_response);
+    // Functional Utility: Sends the message to the DevTools channel, ignoring the result.
     let _ = devtools_chan.send(DevtoolsControlMsg::FromChrome(msg));
 }
 
+/// Retrieves basic authentication credentials from the `AuthCache` for a given origin.
+///
+/// This function looks up the provided `origin` in the authentication cache
+/// and, if found, constructs an `Authorization` header with basic credentials.
 fn auth_from_cache(
     auth_cache: &RwLock<AuthCache>,
     origin: &ImmutableOrigin,
 ) -> Option<Authorization<Basic>> {
+    // Block Logic: Attempts to read from the authentication cache.
+    // Invariant: If an entry exists for the origin, its credentials are used to form an `Authorization` header.
     if let Some(auth_entry) = auth_cache
         .read()
-        .unwrap()
+        .unwrap() // Functional Utility: Acquires a read lock on the authentication cache.
         .entries
         .get(&origin.ascii_serialization())
     {
         let user_name = &auth_entry.user_name;
         let password = &auth_entry.password;
+        // Functional Utility: Constructs an `Authorization` header with basic authentication.
         Some(Authorization::basic(user_name, password))
     } else {
+        // Functional Utility: Returns None if no authentication entry is found for the origin.
         None
     }
 }
 
+/// Messages from the IPC route to the fetch worker,
+/// used to fill the body with bytes coming-in over IPC.
 /// Messages from the IPC route to the fetch worker,
 /// used to fill the body with bytes coming-in over IPC.
 enum BodyChunk {
@@ -425,6 +611,7 @@ enum BodyChunk {
     Done,
 }
 
+/// The stream side of the body passed to hyper.
 /// The stream side of the body passed to hyper.
 enum BodyStream {
     /// A receiver that can be used in Body::wrap_stream,
@@ -437,6 +624,8 @@ enum BodyStream {
 
 /// The sink side of the body passed to hyper,
 /// used to enqueue chunks.
+/// The sink side of the body passed to hyper,
+/// used to enqueue chunks.
 enum BodySink {
     /// A Tokio sender used to feed chunks to the network stream.
     Chunked(TokioSender<Result<Frame<Bytes>, hyper::Error>>),
@@ -447,23 +636,39 @@ enum BodySink {
 }
 
 impl BodySink {
+    /// Transmits a chunk of bytes through the appropriate sender.
+    ///
+    /// Depending on whether the body is chunked or buffered, it uses a Tokio
+    /// sender (asynchronously) or a Crossbeam sender (synchronously).
     fn transmit_bytes(&self, bytes: Vec<u8>) {
         match self {
+            // Block Logic: Handles transmitting bytes for a chunked body.
+            // Invariant: Bytes are sent asynchronously to the network stream.
             BodySink::Chunked(ref sender) => {
                 let sender = sender.clone();
+                // Functional Utility: Spawns an asynchronous task to send the byte chunk.
                 HANDLE.lock().unwrap().as_mut().unwrap().spawn(async move {
                     let _ = sender.send(Ok(Frame::data(bytes.into()))).await;
                 });
             },
+            // Block Logic: Handles transmitting bytes for a buffered body.
+            // Invariant: Bytes are sent synchronously to the fetch worker for buffering.
             BodySink::Buffered(ref sender) => {
+                // Functional Utility: Sends the byte chunk to the unbounded channel.
                 let _ = sender.send(BodyChunk::Chunk(bytes));
             },
         }
     }
 
+    /// Closes the body sink, signaling that no more chunks will be sent.
+    ///
+    /// For buffered bodies, this sends a `Done` message. For chunked bodies,
+    /// no explicit close action is needed on the sender.
     fn close(&self) {
         match self {
+            // Functional Utility: No explicit close action for chunked bodies, as the sender's drop handles it.
             BodySink::Chunked(_) => { /* no need to close sender */ },
+            // Functional Utility: Sends a `Done` message to indicate the end of the buffered body.
             BodySink::Buffered(ref sender) => {
                 let _ = sender.send(BodyChunk::Done);
             },
@@ -471,6 +676,11 @@ impl BodySink {
     }
 }
 
+/// Asynchronously obtains an HTTP response using the Hyper client.
+///
+/// This function constructs and sends an HTTP request, handles streaming of the request body
+/// (if present), captures network timing metrics, and integrates with DevTools for network logging.
+/// It also manages certificate error overrides.
 #[allow(clippy::too_many_arguments)]
 async fn obtain_response(
     client: &Client<Connector, crate::connector::BoxedBody>,
@@ -486,10 +696,13 @@ async fn obtain_response(
     fetch_terminated: UnboundedSender<bool>,
 ) -> Result<(HyperResponse<Decoder>, Option<ChromeToDevtoolsControlMsg>), NetworkError> {
     {
+        // Functional Utility: Clones the request headers to be used in the Hyper request.
         let mut headers = request_headers.clone();
 
+        // Functional Utility: Initializes a buffer to store the request body for DevTools.
         let devtools_bytes = StdArc::new(Mutex::new(vec![]));
 
+        // Functional Utility: Percent-encodes the URL according to the URL specification.
         // https://url.spec.whatwg.org/#percent-encoded-bytes
         let encoded_url = url
             .clone()
@@ -499,12 +712,18 @@ async fn obtain_response(
             .replace('{', "%7B")
             .replace('}', "%7D");
 
+        // Block Logic: Constructs the Hyper request based on whether a request body is present.
+        // Invariant: A valid Hyper request is built, ready to be sent over the network.
         let request = if let Some(chunk_requester) = body {
+            // Block Logic: Determines the appropriate body sink and stream based on whether the source is null.
+            // Invariant: The body streaming mechanism is correctly configured.
             let (sink, stream) = if source_is_null {
                 // Step 4.2 of https://fetch.spec.whatwg.org/#concept-http-network-fetch
                 // TODO: this should not be set for HTTP/2(currently not supported?).
+                // Functional Utility: Sets the `Transfer-Encoding` header to "chunked" for streaming bodies.
                 headers.insert(TRANSFER_ENCODING, HeaderValue::from_static("chunked"));
 
+                // Functional Utility: Creates a Tokio channel for chunked body streaming.
                 let (sender, receiver) = channel(1);
                 (BodySink::Chunked(sender), BodyStream::Chunked(receiver))
             } else {
@@ -514,23 +733,32 @@ async fn obtain_response(
                 // However since this doesn't appear documented, and we're using an ancient version,
                 // for now we buffer manually to ensure we don't stream requests
                 // to servers that might not know how to handle them.
+                // Functional Utility: Creates an unbounded channel for buffered body streaming.
                 let (sender, receiver) = unbounded_channel();
                 (BodySink::Buffered(sender), BodyStream::Buffered(receiver))
             };
 
+            // Functional Utility: Establishes an IPC channel for body chunk requests/responses.
             let (body_chan, body_port) = ipc::channel().unwrap();
 
+            // Block Logic: If a chunk requester is available, it sends a connection message and requests the first chunk.
+            // Invariant: The IPC communication for body streaming is initiated.
             if let Ok(requester) = chunk_requester.lock() {
+                // Functional Utility: Sends a connection message to the chunk requester.
                 let _ = requester.send(BodyChunkRequest::Connect(body_chan));
 
                 // https://fetch.spec.whatwg.org/#concept-request-transmit-body
                 // Request the first chunk, corresponding to Step 3 and 4.
+                // Functional Utility: Requests the first chunk of the body.
                 let _ = requester.send(BodyChunkRequest::Chunk);
             }
 
+            // Functional Utility: Clones necessary Arcs for use within the IPC router's closure.
             let devtools_bytes = devtools_bytes.clone();
             let chunk_requester2 = chunk_requester.clone();
 
+            // Block Logic: Adds a typed route to the IPC router to handle incoming body chunks.
+            // This closure processes received chunks, logs them for DevTools, transmits them, and requests the next chunk.
             ROUTER.add_typed_route(
                 body_port,
                 Box::new(move |message| {
@@ -539,7 +767,9 @@ async fn obtain_response(
                         BodyChunkResponse::Chunk(bytes) => bytes,
                         BodyChunkResponse::Done => {
                             // Step 3, abort these parallel steps.
+                            // Functional Utility: Signals that the fetch is terminated without error.
                             let _ = fetch_terminated.send(false);
+                            // Functional Utility: Closes the body sink.
                             sink.close();
 
                             return;
@@ -548,21 +778,26 @@ async fn obtain_response(
                             // Step 4 and/or 5.
                             // TODO: differentiate between the two steps,
                             // where step 5 requires setting an `aborted` flag on the fetch.
+                            // Functional Utility: Signals that the fetch was terminated due to an error.
                             let _ = fetch_terminated.send(true);
+                            // Functional Utility: Closes the body sink.
                             sink.close();
 
                             return;
                         },
                     };
 
+                    // Functional Utility: Extends the DevTools bytes buffer with the received chunk.
                     devtools_bytes.lock().unwrap().extend_from_slice(&bytes);
 
                     // Step 5.1.2.2, transmit chunk over the network,
                     // currently implemented by sending the bytes to the fetch worker.
+                    // Functional Utility: Transmits the received bytes to the body sink.
                     sink.transmit_bytes(bytes);
 
                     // Step 5.1.2.3
                     // Request the next chunk.
+                    // Functional Utility: Requests the next body chunk.
                     let _ = chunk_requester2
                         .lock()
                         .unwrap()
@@ -570,31 +805,38 @@ async fn obtain_response(
                 }),
             );
 
+            // Block Logic: Creates the request body based on the chosen streaming method (chunked or buffered).
+            // Invariant: The Hyper request body is correctly prepared for sending.
             let body = match stream {
                 BodyStream::Chunked(receiver) => {
+                    // Functional Utility: Wraps the Tokio receiver into a `ReceiverStream` for chunked transfer.
                     let stream = ReceiverStream::new(receiver);
                     BoxBody::new(http_body_util::StreamBody::new(stream))
                 },
                 BodyStream::Buffered(mut receiver) => {
                     // Accumulate bytes received over IPC into a vector.
                     let mut body = vec![];
+                    // Block Logic: Loops to receive all body chunks over IPC and accumulate them.
                     loop {
                         match receiver.recv().await {
                             Some(BodyChunk::Chunk(mut bytes)) => {
                                 body.append(&mut bytes);
                             },
-                            Some(BodyChunk::Done) => break,
+                            Some(BodyChunk::Done) => break, // Functional Utility: Breaks loop when `Done` signal is received.
                             None => warn!("Failed to read all chunks from request body."),
                         }
                     }
+                    // Functional Utility: Creates a full buffered body from the accumulated bytes.
                     Full::new(body.into()).map_err(|_| unreachable!()).boxed()
                 },
             };
+            // Functional Utility: Builds a Hyper request with the method, encoded URL, and prepared body.
             HyperRequest::builder()
                 .method(method)
                 .uri(encoded_url)
                 .body(body)
         } else {
+            // Functional Utility: Builds a Hyper request with no body if `chunk_requester` is None.
             HyperRequest::builder()
                 .method(method)
                 .uri(encoded_url)
@@ -605,6 +847,7 @@ async fn obtain_response(
                 )
         };
 
+        // Functional Utility: Records the start of domain lookup in resource timing.
         context
             .timing
             .lock()
@@ -613,6 +856,7 @@ async fn obtain_response(
 
         // TODO(#21261) connect_start: set if a persistent connection is *not* used and the last non-redirected
         // fetch passes the timing allow check
+        // Functional Utility: Records the start of connection in resource timing.
         let connect_start = CrossProcessInstant::now();
         context
             .timing
@@ -623,6 +867,7 @@ async fn obtain_response(
         // TODO: We currently don't know when the handhhake before the connection is done
         // so our best bet would be to set `secure_connection_start` here when we are currently
         // fetching on a HTTPS url.
+        // Block Logic: Records secure connection start if the URL scheme is HTTPS.
         if url.scheme() == "https" {
             context
                 .timing
@@ -631,12 +876,15 @@ async fn obtain_response(
                 .set_attribute(ResourceAttribute::SecureConnectionStart);
         }
 
+        // Functional Utility: Handles potential errors during request construction.
         let mut request = match request {
             Ok(request) => request,
             Err(e) => return Err(NetworkError::from_http_error(&e)),
         };
+        // Functional Utility: Overwrites the request headers with the modified headers.
         *request.headers_mut() = headers.clone();
 
+        // Functional Utility: Records the end of connection in resource timing.
         let connect_end = CrossProcessInstant::now();
         context
             .timing
@@ -644,24 +892,33 @@ async fn obtain_response(
             .unwrap()
             .set_attribute(ResourceAttribute::ConnectEnd(connect_end));
 
+        // Functional Utility: Clones request ID, pipeline ID, URL, and method for use in async blocks.
         let request_id = request_id.map(|v| v.to_owned());
         let pipeline_id = *pipeline_id;
         let closure_url = url.clone();
         let method = method.clone();
+        // Functional Utility: Records the start of sending the request.
         let send_start = CrossProcessInstant::now();
 
+        // Functional Utility: Extracts and clones host, override manager, and headers for use in async blocks.
         let host = request.uri().host().unwrap_or("").to_owned();
         let override_manager = context.state.override_manager.clone();
         let headers = headers.clone();
+        // Functional Utility: Determines if the URL scheme is secure.
         let is_secure_scheme = url.is_secure_scheme();
 
+        // Block Logic: Sends the HTTP request using the Hyper client and processes the response.
+        // Invariant: The HTTP request is sent, and a raw Hyper response is received or an error is returned.
         client
             .request(request)
             .and_then(move |res| {
+                // Functional Utility: Records the end of sending the request.
                 let send_end = CrossProcessInstant::now();
 
                 // TODO(#21271) response_start: immediately after receiving first byte of response
 
+                // Block Logic: Prepares a DevTools message with network event details if request_id and pipeline_id are present.
+                // Invariant: DevTools is notified about the HTTP request with relevant timing and header information.
                 let msg = if let Some(request_id) = request_id {
                     if let Some(pipeline_id) = pipeline_id {
                         Some(prepare_devtools_request(
@@ -688,11 +945,13 @@ async fn obtain_response(
                     None
                 };
 
+                // Functional Utility: Decodes the Hyper response body using `Decoder::detect`.
                 future::ready(Ok((
                     Decoder::detect(res.map(|r| r.boxed()), is_secure_scheme),
                     msg,
                 )))
             })
+            // Functional Utility: Maps Hyper errors to custom `NetworkError`s, including certificate error removal.
             .map_err(move |error| {
                 NetworkError::from_hyper_error(
                     &error,
@@ -703,7 +962,11 @@ async fn obtain_response(
     }
 }
 
-/// [HTTP fetch](https://fetch.spec.whatwg.org#http-fetch)
+/// Implements the main HTTP fetch algorithm as specified by the Fetch standard.
+///
+/// This function handles the entire fetch lifecycle, including service worker interception,
+/// CORS preflight checks, network or cache fetching, and redirect processing.
+/// See [HTTP fetch](https://fetch.spec.whatwg.org#http-fetch)
 #[async_recursion]
 #[allow(clippy::too_many_arguments)]
 pub async fn http_fetch(
@@ -716,16 +979,16 @@ pub async fn http_fetch(
     done_chan: &mut DoneChannel,
     context: &FetchContext,
 ) -> Response {
-    // This is a new async fetch, reset the channel we are waiting on
+    // Functional Utility: Resets the done channel at the beginning of a new async fetch.
     *done_chan = None;
-    // Step 1 Let request be fetchParams’s request.
+    // Functional Utility: References `fetchParams’s request` (Step 1).
     let request = &mut fetch_params.request;
 
-    // Step 2
-    // Let response and internalResponse be null.
+    // Functional Utility: Initializes `response` to null (Step 2).
     let mut response: Option<Response> = None;
 
-    // Step 3
+    // Block Logic: Handles service worker interception (Step 3).
+    // Invariant: Service worker interaction is processed before proceeding with network fetch.
     if request.service_workers_mode == ServiceWorkersMode::All {
         // TODO: Substep 1
         // Set response to the result of invoking handle fetch for request.
@@ -739,12 +1002,14 @@ pub async fn http_fetch(
             // nothing to do, since actual_response is a function on response
 
             // Subsubstep 3
+            // Functional Utility: Checks conditions that indicate a request failure for opaque responses or redirects.
             if (res.response_type == ResponseType::Opaque && request.mode != RequestMode::NoCors) ||
                 (res.response_type == ResponseType::OpaqueRedirect &&
                     request.redirect_mode != RedirectMode::Manual) ||
                 (res.url_list.len() > 1 && request.redirect_mode != RedirectMode::Follow) ||
                 res.is_network_error()
             {
+                // Functional Utility: Returns a network error if the request fails under specific conditions.
                 return Response::network_error(NetworkError::Internal("Request failed".into()));
             }
 
@@ -753,30 +1018,40 @@ pub async fn http_fetch(
         }
     }
 
-    // Step 4
+    // Block Logic: If no response has been obtained yet, proceeds with preflight and network/cache fetch (Step 4).
+    // Invariant: A response is obtained either from the cache/network or through preflight failures.
     if response.is_none() {
-        // Substep 1
+        // Block Logic: Handles CORS preflight checks (Substep 1).
+        // Invariant: Preflight checks are performed if `cors_preflight_flag` is true,
+        //            ensuring that cross-origin requests are compliant before the main fetch.
         if cors_preflight_flag {
+            // Functional Utility: Checks if the request method matches the cache.
             let method_cache_match = cache.match_method(request, request.method.clone());
 
+            // Functional Utility: Determines if the method is mismatched (not safelisted or requires preflight).
             let method_mismatch = !method_cache_match &&
                 (!is_cors_safelisted_method(&request.method) || request.use_cors_preflight);
+            // Functional Utility: Determines if any headers are mismatched (not safelisted or not in cache).
             let header_mismatch = request.headers.iter().any(|(name, value)| {
                 !cache.match_header(request, name) &&
                     !is_cors_safelisted_request_header(&name, &value)
             });
 
             // Sub-substep 1
+            // Block Logic: If there is a method or header mismatch, performs a CORS preflight fetch.
             if method_mismatch || header_mismatch {
+                // Functional Utility: Executes the CORS preflight fetch.
                 let preflight_result = cors_preflight_fetch(request, cache, context).await;
                 // Sub-substep 2
+                // Block Logic: If the preflight fetch results in a network error, returns that error.
                 if let Some(e) = preflight_result.get_network_error() {
                     return Response::network_error(e.clone());
                 }
             }
         }
 
-        // Substep 2
+        // Block Logic: Adjusts service worker mode if redirect mode is "Follow" (Substep 2).
+        // Invariant: Service workers are bypassed for requests that follow redirects.
         if request.redirect_mode == RedirectMode::Follow {
             request.service_workers_mode = ServiceWorkersMode::None;
         }
@@ -784,12 +1059,14 @@ pub async fn http_fetch(
         // Generally, we use a persistent connection, so we will also set other PerformanceResourceTiming
         //   attributes to this as well (domain_lookup_start, domain_lookup_end, connect_start, connect_end,
         //   secure_connection_start)
+        // Functional Utility: Records the start of the request for resource timing.
         context
             .timing
             .lock()
             .unwrap()
             .set_attribute(ResourceAttribute::RequestStart);
 
+        // Functional Utility: Executes an HTTP network or cache fetch.
         let mut fetch_result = http_network_or_cache_fetch(
             fetch_params,
             authentication_fetch_flag,
@@ -800,22 +1077,29 @@ pub async fn http_fetch(
         .await;
 
         // Substep 4
+        // Block Logic: Performs a CORS check if `cors_flag` is true.
+        // Invariant: If CORS check fails, a network error is returned.
         if cors_flag && cors_check(&fetch_params.request, &fetch_result).is_err() {
             return Response::network_error(NetworkError::Internal("CORS check failed".into()));
         }
 
+        // Functional Utility: Marks the response as not being an internal response.
         fetch_result.return_internal = false;
+        // Functional Utility: Sets the obtained fetch result as the response.
         response = Some(fetch_result);
     }
 
+    // Functional Utility: References `fetchParams’s request` again.
     let request = &mut fetch_params.request;
 
     // response is guaranteed to be something by now
+    // Functional Utility: Unwraps the response, which is guaranteed to be present at this point.
     let mut response = response.unwrap();
 
     // TODO: Step 5: cross-origin resource policy check
 
-    // Step 6
+    // Block Logic: Handles HTTP redirects (Step 6).
+    // Invariant: Redirect responses are processed according to the request's redirect mode.
     if response
         .actual_response()
         .status
@@ -823,11 +1107,13 @@ pub async fn http_fetch(
         .is_some_and(is_redirect_status)
     {
         // Substep 1.
+        // TODO: send RST_STREAM frame
         if response.actual_response().status != StatusCode::SEE_OTHER {
             // TODO: send RST_STREAM frame
         }
 
         // Substep 2-3.
+        // Functional Utility: Extracts and parses the `Location` header to determine the redirect URL.
         let mut location = response
             .actual_response()
             .headers
@@ -842,20 +1128,28 @@ pub async fn http_fetch(
             });
 
         // Substep 4.
+        // Block Logic: Appends the fragment from the current URL to the redirect location if missing.
+        // Invariant: Fragment identifiers are preserved across redirects.
         if let Some(Ok(ref mut location)) = location {
             if location.fragment().is_none() {
                 let current_url = request.current_url();
                 location.set_fragment(current_url.fragment());
             }
         }
+        // Functional Utility: Updates the actual response's location URL.
         response.actual_response_mut().location_url = location;
 
         // Substep 5.
+        // Block Logic: Processes the redirect based on the request's `RedirectMode`.
+        // Invariant: The response is adjusted according to the redirect handling policy.
         response = match request.redirect_mode {
+            // Functional Utility: Returns a network error if redirect mode is "Error".
             RedirectMode::Error => {
                 Response::network_error(NetworkError::Internal("Redirect mode error".into()))
             },
+            // Functional Utility: Filters the response to "OpaqueRedirect" for manual redirects.
             RedirectMode::Manual => response.to_filtered(ResponseType::OpaqueRedirect),
+            // Functional Utility: Recursively calls `http_redirect_fetch` for "Follow" redirects.
             RedirectMode::Follow => {
                 // set back to default
                 response.return_internal = true;
@@ -874,7 +1168,9 @@ pub async fn http_fetch(
     }
 
     // set back to default
+    // Functional Utility: Ensures `return_internal` is true for the final response.
     response.return_internal = true;
+    // Functional Utility: Records the number of redirects for resource timing.
     context
         .timing
         .lock()
@@ -883,25 +1179,40 @@ pub async fn http_fetch(
             fetch_params.request.redirect_count as u16,
         ));
 
+    // Functional Utility: Assigns the resource timing information to the response.
     response.resource_timing = Arc::clone(&context.timing);
 
     // Step 6
+    // Functional Utility: Returns the final processed response.
     response
 }
 
-// Convenience struct that implements Drop, for setting redirectEnd on function return
+/// Convenience struct that implements `Drop` to automatically record `redirectEnd` timing.
+///
+/// This struct is used to ensure that `redirectEnd` is set in `ResourceFetchTiming`
+/// when the struct goes out of scope, typically at the end of a redirect chain.
 struct RedirectEndTimer(Option<Arc<Mutex<ResourceFetchTiming>>>);
 
 impl RedirectEndTimer {
+    /// Prevents the `redirectEnd` timing from being recorded when this timer is dropped.
+    ///
+    /// This is useful when the timing should be neutered, e.g., if a new timer is
+    /// created later in the process.
     fn neuter(&mut self) {
         self.0 = None;
     }
 }
 
 impl Drop for RedirectEndTimer {
+    /// The `drop` implementation for `RedirectEndTimer`.
+    ///
+    /// When the `RedirectEndTimer` goes out of scope, this method is called
+    /// to set the `RedirectEnd` attribute in the associated `ResourceFetchTiming`.
     fn drop(&mut self) {
         let RedirectEndTimer(resource_fetch_timing_opt) = self;
 
+        // Functional Utility: If `resource_fetch_timing_opt` is Some, it locks the mutex
+        // and sets the `RedirectEnd` attribute.
         resource_fetch_timing_opt.as_ref().map_or((), |t| {
             t.lock()
                 .unwrap()
@@ -910,7 +1221,11 @@ impl Drop for RedirectEndTimer {
     }
 }
 
-/// [HTTP redirect fetch](https://fetch.spec.whatwg.org#http-redirect-fetch)
+/// Implements the HTTP redirect fetch algorithm as specified by the Fetch standard.
+///
+/// This function is responsible for processing a redirect response, updating the request
+/// accordingly, and recursively fetching the new URL.
+/// See [HTTP redirect fetch](https://fetch.spec.whatwg.org#http-redirect-fetch)
 #[async_recursion]
 pub async fn http_redirect_fetch(
     fetch_params: &mut FetchParams,
@@ -921,34 +1236,41 @@ pub async fn http_redirect_fetch(
     done_chan: &mut DoneChannel,
     context: &FetchContext,
 ) -> Response {
+    // Functional Utility: Initializes a timer to record the `redirectEnd` timing attribute.
     let mut redirect_end_timer = RedirectEndTimer(Some(context.timing.clone()));
 
-    // Step 1: Let request be fetchParams’s request.
+    // Functional Utility: References `fetchParams’s request` (Step 1).
     let request = &mut fetch_params.request;
 
+    // Functional Utility: Asserts that the response is internal.
     assert!(response.return_internal);
 
+    // Functional Utility: Clones the `location_url` from the actual response.
     let location_url = response.actual_response().location_url.clone();
+    // Block Logic: Processes the `location_url` from the redirect response.
+    // Invariant: The redirect URL is validated and parsed correctly, or an error is returned.
     let location_url = match location_url {
-        // Step 2
+        // Functional Utility: Implements Step 2. If no location URL, returns the original response.
         None => return response,
-        // Step 3
+        // Functional Utility: Implements Step 3. If location URL parsing fails, returns a network error.
         Some(Err(err)) => {
             return Response::network_error(NetworkError::Internal(
                 "Location URL parse failure: ".to_owned() + &err,
             ));
         },
-        // Step 4
+        // Functional Utility: Implements Step 4. If the scheme is not HTTP or HTTPS, returns a network error.
         Some(Ok(ref url)) if !matches!(url.scheme(), "http" | "https") => {
             return Response::network_error(NetworkError::Internal(
                 "Location URL not an HTTP(S) scheme".into(),
             ));
         },
+        // Functional Utility: Extracts the valid URL.
         Some(Ok(url)) => url,
     };
 
     // Step 1 of https://w3c.github.io/resource-timing/#dom-performanceresourcetiming-fetchstart
     // TODO: check origin and timing allow check
+    // Functional Utility: Records the `RedirectStart` timing attribute.
     context
         .timing
         .lock()
@@ -957,6 +1279,7 @@ pub async fn http_redirect_fetch(
             RedirectStartValue::FetchStart,
         ));
 
+    // Functional Utility: Records the `FetchStart` timing attribute.
     context
         .timing
         .lock()
@@ -964,12 +1287,14 @@ pub async fn http_redirect_fetch(
         .set_attribute(ResourceAttribute::FetchStart);
 
     // start_time should equal redirect_start if nonzero; else fetch_start
+    // Functional Utility: Sets the `StartTime` attribute to `FetchStart`.
     context
         .timing
         .lock()
         .unwrap()
         .set_attribute(ResourceAttribute::StartTime(ResourceTimeValue::FetchStart));
 
+    // Functional Utility: Updates the `StartTime` attribute if `RedirectStart` is non-zero.
     context
         .timing
         .lock()
@@ -978,50 +1303,55 @@ pub async fn http_redirect_fetch(
             ResourceTimeValue::RedirectStart,
         )); // updates start_time only if redirect_start is nonzero (implying TAO)
 
-    // Step 7: If request’s redirect count is 20, then return a network error.
+    // Block Logic: Implements Step 7. Checks for too many redirects.
+    // Invariant: The redirect chain does not exceed the maximum allowed count.
     if request.redirect_count >= 20 {
         return Response::network_error(NetworkError::Internal("Too many redirects".into()));
     }
 
-    // Step 8: Increase request’s redirect count by 1.
+    // Functional Utility: Implements Step 8. Increments the redirect count.
     request.redirect_count += 1;
 
     // Step 7
+    // Block Logic: Determines if the request is same-origin with the redirect target.
     let same_origin = match request.origin {
         Origin::Origin(ref origin) => *origin == location_url.origin(),
+        // Functional Utility: Panics if the origin is `Client` at this stage, indicating an unexpected state.
         Origin::Client => panic!(
             "Request origin should not be client for {}",
             request.current_url()
         ),
     };
 
+    // Functional Utility: Checks if the `location_url` has credentials.
     let has_credentials = has_credentials(&location_url);
 
+    // Block Logic: Implements a CORS credential check.
+    // Invariant: Cross-origin requests with credentials are blocked if not same-origin.
     if request.mode == RequestMode::CorsMode && !same_origin && has_credentials {
         return Response::network_error(NetworkError::Internal(
             "Cross-origin credentials check failed".into(),
         ));
     }
 
-    // Step 9
+    // Block Logic: Implements Step 9. Sets the request origin to opaque if CORS flag is true and origins differ.
     if cors_flag && location_url.origin() != request.current_url().origin() {
         request.origin = Origin::Origin(ImmutableOrigin::new_opaque());
     }
 
-    // Step 10
+    // Block Logic: Implements Step 10. Blocks cross-origin requests with credentials if CORS flag is true.
     if cors_flag && has_credentials {
         return Response::network_error(NetworkError::Internal("Credentials check failed".into()));
     }
 
-    // Step 11: If internalResponse’s status is not 303, request’s body is non-null, and request’s
-    // body’s source is null, then return a network error.
+    // Block Logic: Implements Step 11. Checks for specific conditions related to status code and request body.
     if response.actual_response().status != StatusCode::SEE_OTHER &&
         request.body.as_ref().is_some_and(|b| b.source_is_null())
     {
         return Response::network_error(NetworkError::Internal("Request body is not done".into()));
     }
 
-    // Step 12
+    // Block Logic: Implements Step 12. Adjusts request method and headers for specific redirect status codes.
     if response
         .actual_response()
         .status
@@ -1034,10 +1364,11 @@ pub async fn http_redirect_fetch(
                     request.method != Method::GET)
         })
     {
-        // Step 12.1
+        // Functional Utility: Implements Step 12.1. Changes the request method to GET.
         request.method = Method::GET;
+        // Functional Utility: Clears the request body.
         request.body = None;
-        // Step 12.2
+        // Functional Utility: Implements Step 12.2. Removes specific content headers.
         for name in &[
             CONTENT_ENCODING,
             CONTENT_LANGUAGE,
@@ -1048,34 +1379,31 @@ pub async fn http_redirect_fetch(
         }
     }
 
-    // Step 13: If request’s current URL’s origin is not same origin with locationURL’s origin, then
-    // for each headerName of CORS non-wildcard request-header name, delete headerName from
-    // request’s header list.
+    // Block Logic: Implements Step 13. Removes CORS non-wildcard request headers if origins differ.
     if location_url.origin() != request.current_url().origin() {
         // This list currently only contains the AUTHORIZATION header
         // https://fetch.spec.whatwg.org/#cors-non-wildcard-request-header-name
+        // Functional Utility: Removes the `Authorization` header.
         request.headers.remove(AUTHORIZATION);
     }
 
-    // Step 14: If request’s body is non-null, then set request’s body to the body of the result of
-    // safely extracting request’s body’s source.
+    // Block Logic: Implements Step 14. Safely extracts the request body's source if non-null.
     if let Some(body) = request.body.as_mut() {
         body.extract_source();
     }
 
     // Steps 15-17 relate to timing, which is not implemented 1:1 with the spec.
 
-    // Step 18: Append locationURL to request’s URL list.
+    // Functional Utility: Implements Step 18. Appends the new location URL to the request's URL list.
     request.url_list.push(location_url);
 
-    // Step 19: Invoke set request’s referrer policy on redirect on request and internalResponse.
+    // Functional Utility: Implements Step 19. Sets the request's referrer policy on redirect.
     set_requests_referrer_policy_on_redirect(request, response.actual_response());
 
-    // Step 20: Let recursive be true.
-    // Step 21: If request’s redirect mode is "manual", then...
+    // Functional Utility: Implements Step 20 & 21. Determines the recursive flag based on redirect mode.
     let recursive_flag = request.redirect_mode != RedirectMode::Manual;
 
-    // Step 22: Return the result of running main fetch given fetchParams and recursive.
+    // Functional Utility: Implements Step 22. Recursively calls `main_fetch` with updated parameters.
     let fetch_response = main_fetch(
         fetch_params,
         cache,
@@ -1087,6 +1415,7 @@ pub async fn http_redirect_fetch(
     .await;
 
     // TODO: timing allow check
+    // Functional Utility: Records the `RedirectEnd` timing attribute.
     context
         .timing
         .lock()
@@ -1094,8 +1423,10 @@ pub async fn http_redirect_fetch(
         .set_attribute(ResourceAttribute::RedirectEnd(
             RedirectEndValue::ResponseEnd,
         ));
+    // Functional Utility: Prevents the `redirectEnd` timer from setting the timing again on drop.
     redirect_end_timer.neuter();
 
+    // Functional Utility: Returns the fetch response.
     fetch_response
 }
 

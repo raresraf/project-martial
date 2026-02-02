@@ -1,14 +1,58 @@
+/**
+ * @file cblas.h
+ * @brief C Interface for Basic Linear Algebra Subprograms (BLAS).
+ *
+ * Functional Utility: This header provides a standardized C language interface
+ * to the BLAS (Basic Linear Algebra Subprograms) library, enabling high-performance
+ * vector and matrix operations. It defines functions for Level 1 (vector-vector),
+ * Level 2 (matrix-vector), and Level 3 (matrix-matrix) operations across
+ * various data types (real, complex, single, double precision).
+ */
 #ifndef CBLAS_H
 #define CBLAS_H
 #include <stddef.h>
 
-
+/**
+ * @typedef CBLAS_INDEX
+ * @brief Type definition for CBLAS array indices.
+ * Functional Utility: Ensures consistent sizing for array indices used across CBLAS functions,
+ * typically mapping to `size_t` for broader compatibility and addressing range.
+ */
 #define CBLAS_INDEX size_t  
 
+/**
+ * @enum CBLAS_ORDER
+ * @brief Specifies whether matrices are stored in row-major or column-major order.
+ * Functional Utility: Directs BLAS functions on how to interpret the layout of matrix data in memory,
+ * crucial for correct access and computation.
+ */
 enum CBLAS_ORDER {CblasRowMajor=101, CblasColMajor=102};
+/**
+ * @enum CBLAS_TRANSPOSE
+ * @brief Specifies the transposition operation to be applied to a matrix.
+ * Functional Utility: Controls whether a matrix operand should be used as is (no transpose),
+ * transposed, or conjugate transposed in linear algebra operations.
+ */
 enum CBLAS_TRANSPOSE {CblasNoTrans=111, CblasTrans=112, CblasConjTrans=113};
+/**
+ * @enum CBLAS_UPLO
+ * @brief Specifies whether the upper or lower triangular part of a symmetric or Hermitian matrix is used.
+ * Functional Utility: Optimizes computations by indicating which half of a symmetric/Hermitian matrix
+ * contains the relevant data, reducing redundant operations.
+ */
 enum CBLAS_UPLO {CblasUpper=121, CblasLower=122};
+/**
+ * @enum CBLAS_DIAG
+ * @brief Specifies whether the diagonal elements of a triangular matrix are unit (all ones) or non-unit.
+ * Functional Utility: Informs BLAS functions whether to implicitly treat diagonal elements as 1.0,
+ * which can simplify input and sometimes optimize calculation for triangular matrices.
+ */
 enum CBLAS_DIAG {CblasNonUnit=131, CblasUnit=132};
+/**
+ * @enum CBLAS_SIDE
+ * @brief Specifies whether matrix A is multiplied from the left or right side of matrix B.
+ * Functional Utility: Dictates the order of matrix multiplication for operations like `C = A * B` vs. `C = B * A`.
+ */
 enum CBLAS_SIDE {CblasLeft=141, CblasRight=142};
 
 #ifdef __cplusplus

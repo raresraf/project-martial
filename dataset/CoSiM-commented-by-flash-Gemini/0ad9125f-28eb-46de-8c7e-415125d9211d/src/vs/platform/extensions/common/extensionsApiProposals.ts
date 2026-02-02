@@ -37,403 +37,931 @@
  */
 const _allApiProposals = {
 	activeComment: {
+		/**
+		 * @brief API proposal for managing active comment threads.
+		 * Functional Utility: Enables extensions to interact with and control the state of comment UI elements.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.activeComment.d.ts',
 	},
 	aiRelatedInformation: {
+		/**
+		 * @brief API proposal for providing AI-related contextual information.
+		 * Functional Utility: Allows extensions to contribute information relevant to AI features, such as suggestions or explanations.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.aiRelatedInformation.d.ts',
 	},
 	aiTextSearchProvider: {
+		/**
+		 * @brief API proposal for integrating AI-powered text search capabilities.
+		 * Functional Utility: Enables extensions to provide intelligent text search suggestions or results based on AI models.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.aiTextSearchProvider.d.ts',
 		version: 2
 	},
 	authLearnMore: {
+		/**
+		 * @brief API proposal for linking to authentication "learn more" resources.
+		 * Functional Utility: Provides a mechanism for extensions to guide users to additional information about authentication flows or issues.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.authLearnMore.d.ts',
 	},
 	authSession: {
+		/**
+		 * @brief API proposal for managing authentication sessions.
+		 * Functional Utility: Enables extensions to securely manage user authentication tokens and session states.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.authSession.d.ts',
 	},
 	canonicalUriProvider: {
+		/**
+		 * @brief API proposal for providing a canonical URI for a given resource.
+		 * Functional Utility: Allows extensions to define a standard, normalized URI for resources, which can be useful for consistent referencing across different contexts.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.canonicalUriProvider.d.ts',
 	},
 	chatEditing: {
+		/**
+		 * @brief API proposal for programmatic editing of chat messages.
+		 * Functional Utility: Enables extensions to modify or update messages within a chat interface, supporting features like AI-driven message refinement or correction.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.chatEditing.d.ts',
 	},
 	chatParticipantAdditions: {
+		/**
+		 * @brief API proposal for extending chat participant capabilities.
+		 * Functional Utility: Allows extensions to add new functionalities or roles to chat participants, enhancing interactive chat experiences.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.chatParticipantAdditions.d.ts',
 	},
 	chatParticipantPrivate: {
+		/**
+		 * @brief API proposal for managing private chat participant interactions.
+		 * Functional Utility: Facilitates secure and private communication channels or features for specific chat participants within an extension.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.chatParticipantPrivate.d.ts',
 		version: 5
 	},
 	chatProvider: {
+		/**
+		 * @brief API proposal for implementing custom chat providers.
+		 * Functional Utility: Allows extensions to integrate diverse chat services or platforms directly into the VS Code environment.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.chatProvider.d.ts',
 	},
 	chatReferenceBinaryData: {
+		/**
+		 * @brief API proposal for referencing binary data within chat.
+		 * Functional Utility: Enables extensions to embed or link binary data (e.g., images, files) within chat conversations, enhancing rich communication.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.chatReferenceBinaryData.d.ts',
 	},
 	chatReferenceDiagnostic: {
+		/**
+		 * @brief API proposal for referencing diagnostic information within chat.
+		 * Functional Utility: Allows extensions to share and discuss code diagnostics (errors, warnings) directly within chat interfaces, improving collaborative debugging.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.chatReferenceDiagnostic.d.ts',
 	},
 	chatTab: {
+		/**
+		 * @brief API proposal for integrating chat functionality into editor tabs.
+		 * Functional Utility: Enables extensions to provide persistent chat experiences directly within a dedicated tab in the editor workbench.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.chatTab.d.ts',
 	},
 	codeActionAI: {
+		/**
+		 * @brief API proposal for AI-powered code actions.
+		 * Functional Utility: Allows extensions to provide intelligent code refactorings, suggestions, or fixes using AI.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.codeActionAI.d.ts',
 	},
 	codeActionRanges: {
+		/**
+		 * @brief API proposal for specifying code action ranges.
+		 * Functional Utility: Enables extensions to define specific ranges within a document where a code action is applicable, improving precision and user experience.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.codeActionRanges.d.ts',
 	},
 	codiconDecoration: {
+		/**
+		 * @brief API proposal for applying VS Code Codicon decorations.
+		 * Functional Utility: Allows extensions to use the built-in VS Code icon font for visual cues and decorations within the editor or UI.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.codiconDecoration.d.ts',
 	},
 	commentReactor: {
+		/**
+		 * @brief API proposal for implementing comment reactions.
+		 * Functional Utility: Enables extensions to add interactive reaction features (e.g., emojis) to comments within the editor.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.commentReactor.d.ts',
 	},
 	commentReveal: {
+		/**
+		 * @brief API proposal for revealing specific comments in the UI.
+		 * Functional Utility: Allows extensions to programmatically scroll to and highlight particular comments, improving navigation and context in code reviews.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.commentReveal.d.ts',
 	},
 	commentThreadApplicability: {
+		/**
+		 * @brief API proposal for defining the applicability of comment threads.
+		 * Functional Utility: Enables extensions to control where comment threads can be created or displayed, based on specific criteria or contexts.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.commentThreadApplicability.d.ts',
 	},
 	commentingRangeHint: {
+		/**
+		 * @brief API proposal for providing hints for commenting ranges.
+		 * Functional Utility: Allows extensions to suggest optimal or valid ranges within a document where comments can be added, improving user guidance.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.commentingRangeHint.d.ts',
 	},
 	commentsDraftState: {
+		/**
+		 * @brief API proposal for managing draft states of comments.
+		 * Functional Utility: Enables extensions to support saving and restoring comment drafts, improving user workflow and preventing loss of work.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.commentsDraftState.d.ts',
 	},
 	contribAccessibilityHelpContent: {
+		/**
+		 * @brief API proposal for contributing accessibility help content.
+		 * Functional Utility: Allows extensions to provide context-sensitive accessibility information or instructions to users.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.contribAccessibilityHelpContent.d.ts',
 	},
 	contribCommentEditorActionsMenu: {
+		/**
+		 * @brief API proposal for contributing actions to the comment editor menu.
+		 * Functional Utility: Enables extensions to add custom commands or options directly within the context menu of comment editors.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.contribCommentEditorActionsMenu.d.ts',
 	},
 	contribCommentPeekContext: {
+		/**
+		 * @brief API proposal for contributing to the comment peek context.
+		 * Functional Utility: Allows extensions to provide additional information or actions when a comment is "peeked" at, enhancing contextual understanding.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.contribCommentPeekContext.d.ts',
 	},
 	contribCommentThreadAdditionalMenu: {
+		/**
+		 * @brief API proposal for contributing to additional menu options for comment threads.
+		 * Functional Utility: Enables extensions to extend the functionality of comment threads with custom menu actions beyond the default set.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.contribCommentThreadAdditionalMenu.d.ts',
 	},
 	contribCommentsViewThreadMenus: {
+		/**
+		 * @brief API proposal for contributing to comment thread menus in the comments view.
+		 * Functional Utility: Allows extensions to add custom menu items specifically to comment threads displayed within the dedicated comments view.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.contribCommentsViewThreadMenus.d.ts',
 	},
 	contribDebugCreateConfiguration: {
+		/**
+		 * @brief API proposal for contributing debug configuration creation.
+		 * Functional Utility: Enables extensions to provide custom wizards or templates for generating debug configurations, streamlining the setup process for developers.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.contribDebugCreateConfiguration.d.ts',
 	},
 	contribDiffEditorGutterToolBarMenus: {
+		/**
+		 * @brief API proposal for contributing to diff editor gutter toolbar menus.
+		 * Functional Utility: Allows extensions to add actions to the toolbar within the diff editor's gutter, enhancing version control and code review workflows.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.contribDiffEditorGutterToolBarMenus.d.ts',
 	},
 	contribEditSessions: {
+		/**
+		 * @brief API proposal for contributing to edit sessions management.
+		 * Functional Utility: Enables extensions to provide custom functionality related to collaborative editing sessions, such as sharing or managing session data.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.contribEditSessions.d.ts',
 	},
 	contribEditorContentMenu: {
+		/**
+		 * @brief API proposal for contributing to the editor's content menu.
+		 * Functional Utility: Allows extensions to add custom commands and actions to the right-click context menu within the editor area.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.contribEditorContentMenu.d.ts',
 	},
 	contribLabelFormatterWorkspaceTooltip: {
+		/**
+		 * @brief API proposal for contributing workspace tooltip label formatters.
+		 * Functional Utility: Enables extensions to customize the display format of workspace-related tooltips, providing richer context to the user.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.contribLabelFormatterWorkspaceTooltip.d.ts',
 	},
 	contribMenuBarHome: {
+		/**
+		 * @brief API proposal for contributing to the menu bar's "Home" section.
+		 * Functional Utility: Allows extensions to add custom entries or actions to a dedicated home-like menu in the application's menu bar.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.contribMenuBarHome.d.ts',
 	},
 	contribMergeEditorMenus: {
+		/**
+		 * @brief API proposal for contributing menus to the merge editor.
+		 * Functional Utility: Enables extensions to add custom actions and controls to the user interface of the merge editor, enhancing conflict resolution workflows.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.contribMergeEditorMenus.d.ts',
 	},
 	contribMultiDiffEditorMenus: {
+		/**
+		 * @brief API proposal for contributing menus to the multi-diff editor.
+		 * Functional Utility: Allows extensions to add custom commands and options to the user interface of multi-file diff editors, enhancing comparison and review workflows.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.contribMultiDiffEditorMenus.d.ts',
 	},
 	contribNotebookStaticPreloads: {
+		/**
+		 * @brief API proposal for contributing static preloads for notebooks.
+		 * Functional Utility: Enables extensions to define resources that are pre-loaded when a notebook editor is opened, optimizing performance for common notebook assets.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.contribNotebookStaticPreloads.d.ts',
 	},
 	contribRemoteHelp: {
+		/**
+		 * @brief API proposal for contributing remote help resources.
+		 * Functional Utility: Allows extensions to integrate documentation or support for remote development scenarios.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.contribRemoteHelp.d.ts',
 	},
 	contribShareMenu: {
+		/**
+		 * @brief API proposal for contributing to the share menu.
+		 * Functional Utility: Enables extensions to add custom sharing options for various content within VS Code.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.contribShareMenu.d.ts',
 	},
 	contribSourceControlHistoryItemMenu: {
+		/**
+		 * @brief API proposal for contributing to source control history item menus.
+		 * Functional Utility: Allows extensions to add custom actions to individual items within the source control history view, enabling more granular version control operations.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.contribSourceControlHistoryItemMenu.d.ts',
 	},
 	contribSourceControlHistoryTitleMenu: {
+		/**
+		 * @brief API proposal for contributing to source control history title menus.
+		 * Functional Utility: Enables extensions to add global actions or settings to the title bar of the source control history view.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.contribSourceControlHistoryTitleMenu.d.ts',
 	},
 	contribSourceControlInputBoxMenu: {
+		/**
+		 * @brief API proposal for contributing to the source control input box menu.
+		 * Functional Utility: Allows extensions to add commands or options to the context menu of the source control commit message input box.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.contribSourceControlInputBoxMenu.d.ts',
 	},
 	contribSourceControlTitleMenu: {
+		/**
+		 * @brief API proposal for contributing to the source control title menu.
+		 * Functional Utility: Enables extensions to add custom actions or indicators directly to the title bar of the source control view.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.contribSourceControlTitleMenu.d.ts',
 	},
 	contribStatusBarItems: {
+		/**
+		 * @brief API proposal for contributing items to the status bar.
+		 * Functional Utility: Allows extensions to display information or provide quick actions directly in the VS Code status bar.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.contribStatusBarItems.d.ts',
 	},
 	contribViewContainerTitle: {
+		/**
+		 * @brief API proposal for contributing to view container titles.
+		 * Functional Utility: Enables extensions to customize the title or add actions to the title bar of view containers (e.g., in the sidebar).
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.contribViewContainerTitle.d.ts',
 	},
 	contribViewsRemote: {
+		/**
+		 * @brief API proposal for contributing remote-specific views.
+		 * Functional Utility: Allows extensions to provide specialized views or UI elements that are relevant in remote development environments.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.contribViewsRemote.d.ts',
 	},
 	contribViewsWelcome: {
+		/**
+		 * @brief API proposal for contributing welcome content to views.
+		 * Functional Utility: Enables extensions to display custom introductory or instructional content within empty views, guiding new users.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.contribViewsWelcome.d.ts',
 	},
 	customEditorMove: {
+		/**
+		 * @brief API proposal for moving custom editors.
+		 * Functional Utility: Enables extensions to programmatically control the movement and layout of custom editor instances within the VS Code UI.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.customEditorMove.d.ts',
 	},
 	debugVisualization: {
+		/**
+		 * @brief API proposal for debug visualization features.
+		 * Functional Utility: Enables extensions to provide custom visualizers for debug data, enhancing the debugging experience.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.debugVisualization.d.ts',
 	},
 	defaultChatParticipant: {
+		/**
+		 * @brief API proposal for defining default chat participants.
+		 * Functional Utility: Allows extensions to specify the default participants for a chat session, streamlining chat initiation.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.defaultChatParticipant.d.ts',
 		version: 2
 	},
 	diffCommand: {
+		/**
+		 * @brief API proposal for customizing diff commands.
+		 * Functional Utility: Enables extensions to integrate external diff tools or provide custom diffing logic.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.diffCommand.d.ts',
 	},
 	diffContentOptions: {
+		/**
+		 * @brief API proposal for controlling diff content display options.
+		 * Functional Utility: Allows extensions to customize how differences are presented to the user, such as word-based diffing or ignore whitespace options.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.diffContentOptions.d.ts',
 	},
 	documentFiltersExclusive: {
+		/**
+		 * @brief API proposal for exclusive document filters.
+		 * Functional Utility: Enables extensions to register document filters that take precedence over others, ensuring specific handlers for certain document types.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.documentFiltersExclusive.d.ts',
 	},
 	editSessionIdentityProvider: {
+		/**
+		 * @brief API proposal for providing edit session identity.
+		 * Functional Utility: Enables extensions to integrate with different identity providers for collaborative editing sessions.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.editSessionIdentityProvider.d.ts',
 	},
 	editorHoverVerbosityLevel: {
+		/**
+		 * @brief API proposal for controlling editor hover verbosity levels.
+		 * Functional Utility: Allows extensions to adjust the amount of information displayed in editor hovers, catering to different user preferences or contexts.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.editorHoverVerbosityLevel.d.ts',
 	},
 	editorInsets: {
+		/**
+		 * @brief API proposal for managing editor insets.
+		 * Functional Utility: Enables extensions to add custom UI elements or content within the editor's padding areas, enhancing contextual information display.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.editorInsets.d.ts',
 	},
 	embeddings: {
+		/**
+		 * @brief API proposal for integrating text embeddings.
+		 * Functional Utility: Allows extensions to utilize or generate vector representations of text, enabling advanced text analysis and search features.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.embeddings.d.ts',
 	},
 	extensionRuntime: {
+		/**
+		 * @brief API proposal for querying and managing extension runtime information.
+		 * Functional Utility: Enables extensions to inspect their own runtime environment or that of other extensions, which can be useful for diagnostics or compatibility checks.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.extensionRuntime.d.ts',
 	},
 	extensionsAny: {
+		/**
+		 * @brief API proposal for broader extension querying.
+		 * Functional Utility: Allows extensions to query for any installed extension, regardless of its specific capabilities, potentially for broad dependency checking or marketplace integration.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.extensionsAny.d.ts',
 	},
 	externalUriOpener: {
+		/**
+		 * @brief API proposal for customizing external URI opening behavior.
+		 * Functional Utility: Enables extensions to intercept and handle requests to open external URIs, allowing for custom logic or secure handling of external links.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.externalUriOpener.d.ts',
 	},
 	fileSearchProvider: {
+		/**
+		 * @brief API proposal for implementing custom file search providers.
+		 * Functional Utility: Enables extensions to integrate with external search services or implement specialized file search logic within the IDE.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.fileSearchProvider.d.ts',
 	},
 	fileSearchProvider2: {
+		/**
+		 * @brief API proposal for an updated version of file search providers.
+		 * Functional Utility: Offers enhanced capabilities or a revised interface for extensions to integrate with file search, potentially improving performance or flexibility.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.fileSearchProvider2.d.ts',
 	},
 	findFiles2: {
+		/**
+		 * @brief API proposal for an updated file search capability.
+		 * Functional Utility: Provides extensions with a more powerful or refined method for programmatically finding files within the workspace, potentially with improved filtering or performance.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.findFiles2.d.ts',
 		version: 2
 	},
 	findTextInFiles: {
+		/**
+		 * @brief API proposal for searching text across multiple files.
+		 * Functional Utility: Enables extensions to perform powerful text searches across the entire workspace or specified file sets, useful for refactoring or analysis tools.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.findTextInFiles.d.ts',
 	},
 	findTextInFiles2: {
+		/**
+		 * @brief API proposal for an updated version of text search across multiple files.
+		 * Functional Utility: Offers enhanced capabilities or a revised interface for extensions to perform advanced text searches, potentially with improved performance or more flexible options.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.findTextInFiles2.d.ts',
 	},
 	fsChunks: {
+		/**
+		 * @brief API proposal for file system chunk-based operations.
+		 * Functional Utility: Enables extensions to read or write files in chunks, optimizing performance for large files or network-constrained environments.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.fsChunks.d.ts',
 	},
 	idToken: {
+		/**
+		 * @brief API proposal for retrieving identity tokens.
+		 * Functional Utility: Enables extensions to obtain authentication tokens for interacting with external services, supporting secure integrations.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.idToken.d.ts',
 	},
 	inlineCompletionsAdditions: {
+		/**
+		 * @brief API proposal for additions to inline completions.
+		 * Functional Utility: Extends the capabilities of inline code completion providers, allowing for richer or more dynamic suggestions.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.inlineCompletionsAdditions.d.ts',
 	},
 	inlineEdit: {
+		/**
+		 * @brief API proposal for inline editing features.
+		 * Functional Utility: Allows extensions to provide direct, in-place editing experiences within the editor, improving efficiency for quick changes.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.inlineEdit.d.ts',
 	},
 	interactive: {
+		/**
+		 * @brief API proposal for enhancing interactive experiences within the editor.
+		 * Functional Utility: Enables extensions to create dynamic and responsive UI elements or workflows, such as interactive tutorials or data visualizations.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.interactive.d.ts',
 	},
 	interactiveWindow: {
+		/**
+		 * @brief API proposal for managing interactive windows (e.g., Python Interactive).
+		 * Functional Utility: Allows extensions to create and control interactive programming environments, supporting execution of code snippets and display of rich results.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.interactiveWindow.d.ts',
 	},
 	ipc: {
+		/**
+		 * @brief API proposal for inter-process communication.
+		 * Functional Utility: Enables extensions to communicate with other processes or components within the VS Code environment, facilitating complex integrations or background tasks.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.ipc.d.ts',
 	},
 	languageModelCapabilities: {
+		/**
+		 * @brief API proposal for querying language model capabilities.
+		 * Functional Utility: Allows extensions to discover and adapt to the features and limitations of available language models.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.languageModelCapabilities.d.ts',
 	},
 	languageModelSystem: {
+		/**
+		 * @brief API proposal for interacting with the core language model system.
+		 * Functional Utility: Enables extensions to access and leverage the underlying language models for tasks like code generation, completion, or analysis.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.languageModelSystem.d.ts',
 	},
 	languageStatusText: {
+		/**
+		 * @brief API proposal for controlling language status text.
+		 * Functional Utility: Allows extensions to display language-specific status information in the status bar, providing users with context about the current programming language.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.languageStatusText.d.ts',
 	},
 	mappedEditsProvider: {
+		/**
+		 * @brief API proposal for providing mapped edits.
+		 * Functional Utility: Enables extensions to define transformations between different representations of code, facilitating advanced refactoring or code generation scenarios.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.mappedEditsProvider.d.ts',
 	},
 	multiDocumentHighlightProvider: {
+		/**
+		 * @brief API proposal for highlighting across multiple documents.
+		 * Functional Utility: Allows extensions to provide highlighting for symbols or text occurrences that span across several open files, improving code navigation and understanding.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.multiDocumentHighlightProvider.d.ts',
 	},
 	nativeWindowHandle: {
+		/**
+		 * @brief API proposal for accessing the native window handle.
+		 * Functional Utility: Provides extensions with a way to interact with the underlying operating system's windowing system, potentially for advanced UI integrations or platform-specific functionalities.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.nativeWindowHandle.d.ts',
 	},
 	newSymbolNamesProvider: {
+		/**
+		 * @brief API proposal for providing new symbol names.
+		 * Functional Utility: Enables extensions to contribute to renaming or suggesting new names for symbols in the code, improving refactoring capabilities.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.newSymbolNamesProvider.d.ts',
 	},
 	notebookCellExecution: {
+		/**
+		 * @brief API proposal for controlling notebook cell execution.
+		 * Functional Utility: Enables extensions to programmatically execute, manage, and monitor the execution state of individual cells within a notebook.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.notebookCellExecution.d.ts',
 	},
 	notebookCellExecutionState: {
+		/**
+		 * @brief API proposal for managing notebook cell execution states.
+		 * Functional Utility: Allows extensions to provide detailed feedback or control over the lifecycle of notebook cell execution (e.g., pending, running, success, error).
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.notebookCellExecutionState.d.ts',
 	},
 	notebookControllerAffinityHidden: {
+		/**
+		 * @brief API proposal for controlling the hidden affinity of notebook controllers.
+		 * Functional Utility: Enables extensions to influence the visibility or priority of notebook controllers based on their affinity settings.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.notebookControllerAffinityHidden.d.ts',
 	},
 	notebookDeprecated: {
+		/**
+		 * @brief API proposal for deprecation of certain notebook features.
+		 * Functional Utility: Signals to extensions that certain notebook-related APIs or functionalities are being phased out, allowing them to adapt to newer alternatives.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.notebookDeprecated.d.ts',
 	},
 	notebookExecution: {
+		/**
+		 * @brief API proposal for managing notebook execution.
+		 * Functional Utility: Provides extensions with comprehensive control over the execution of entire notebooks, including starting, stopping, and monitoring execution.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.notebookExecution.d.ts',
 	},
 	notebookKernelSource: {
+		/**
+		 * @brief API proposal for specifying notebook kernel source.
+		 * Functional Utility: Enables extensions to define or provide the source code for notebook kernels, allowing for custom execution environments or language support.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.notebookKernelSource.d.ts',
 	},
 	notebookLiveShare: {
+		/**
+		 * @brief API proposal for integrating notebook Live Share functionality.
+		 * Functional Utility: Enables extensions to participate in collaborative editing and execution of notebooks using Live Share.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.notebookLiveShare.d.ts',
 	},
 	notebookMessaging: {
+		/**
+		 * @brief API proposal for handling notebook messages.
+		 * Functional Utility: Allows extensions to send and receive messages within the notebook environment, enabling interactive communication between extensions and notebook kernels.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.notebookMessaging.d.ts',
 	},
 	notebookMime: {
+		/**
+		 * @brief API proposal for handling notebook MIME types.
+		 * Functional Utility: Enables extensions to register custom MIME type renderers for notebook outputs, allowing for rich and interactive data visualizations.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.notebookMime.d.ts',
 	},
 	notebookReplDocument: {
+		/**
+		 * @brief API proposal for managing notebook REPL documents.
+		 * Functional Utility: Enables extensions to provide an interactive Read-Eval-Print Loop (REPL) experience within notebooks, facilitating rapid prototyping and experimentation.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.notebookReplDocument.d.ts',
 	},
 	notebookVariableProvider: {
+		/**
+		 * @brief API proposal for providing notebook variables.
+		 * Functional Utility: Enables extensions to expose and manage variables within the notebook environment, allowing for inspection and interaction with computational states.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.notebookVariableProvider.d.ts',
 	},
 	portsAttributes: {
+		/**
+		 * @brief API proposal for defining port attributes.
+		 * Functional Utility: Enables extensions to specify properties and behaviors for network ports, particularly useful in remote development scenarios for port forwarding and visibility.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.portsAttributes.d.ts',
 	},
 	profileContentHandlers: {
+		/**
+		 * @brief API proposal for customizing profile content handlers.
+		 * Functional Utility: Enables extensions to provide custom handling for different types of content within user profiles, facilitating personalized experiences.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.profileContentHandlers.d.ts',
 	},
 	quickDiffProvider: {
+		/**
+		 * @brief API proposal for providing quick diff functionality.
+		 * Functional Utility: Enables extensions to integrate with version control systems to show inline "quick diff" annotations in the editor gutter, indicating changes since the last commit.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.quickDiffProvider.d.ts',
 	},
 	quickInputButtonLocation: {
+		/**
+		 * @brief API proposal for customizing quick input button locations.
+		 * Functional Utility: Allows extensions to specify the placement of buttons within quick input UI elements, improving usability and consistency.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.quickInputButtonLocation.d.ts',
 	},
 	quickPickItemTooltip: {
+		/**
+		 * @brief API proposal for adding tooltips to quick pick items.
+		 * Functional Utility: Enables extensions to provide additional descriptive information when a user hovers over an item in a quick pick list.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.quickPickItemTooltip.d.ts',
 	},
 	quickPickSortByLabel: {
+		/**
+		 * @brief API proposal for sorting quick pick items by label.
+		 * Functional Utility: Enables extensions to control the sorting order of items in quick pick lists, improving navigability for users.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.quickPickSortByLabel.d.ts',
 	},
 	resolvers: {
+		/**
+		 * @brief API proposal for custom URI resolvers.
+		 * Functional Utility: Enables extensions to provide custom logic for resolving URIs, allowing access to resources from non-standard locations or protocols.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.resolvers.d.ts',
 	},
 	scmActionButton: {
+		/**
+		 * @brief API proposal for customizing source control action buttons.
+		 * Functional Utility: Enables extensions to add custom buttons to the Source Control view, providing quick access to common SCM operations.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.scmActionButton.d.ts',
 	},
 	scmHistoryProvider: {
+		/**
+		 * @brief API proposal for providing source control history.
+		 * Functional Utility: Enables extensions to integrate with version control systems to display and manage the history of changes for files and repositories.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.scmHistoryProvider.d.ts',
 	},
 	scmMultiDiffEditor: {
+		/**
+		 * @brief API proposal for integrating multi-file diff editors with source control.
+		 * Functional Utility: Enables extensions to provide a specialized diff viewing experience for changes spanning multiple files within a source control context.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.scmMultiDiffEditor.d.ts',
 	},
 	scmSelectedProvider: {
+		/**
+		 * @brief API proposal for managing the selected source control provider.
+		 * Functional Utility: Enables extensions to programmatically determine or set the active source control provider, facilitating integration with different SCM systems.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.scmSelectedProvider.d.ts',
 	},
 	scmTextDocument: {
+		/**
+		 * @brief API proposal for interacting with source control text documents.
+		 * Functional Utility: Enables extensions to access and manipulate text content related to source control operations, such as staged changes or diff views.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.scmTextDocument.d.ts',
 	},
 	scmValidation: {
+		/**
+		 * @brief API proposal for source control validation.
+		 * Functional Utility: Enables extensions to implement custom validation rules or checks for source control operations, such as pre-commit hooks or policy enforcement.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.scmValidation.d.ts',
 	},
 	shareProvider: {
+		/**
+		 * @brief API proposal for implementing custom share providers.
+		 * Functional Utility: Allows extensions to integrate with various sharing services or platforms, enabling users to easily share content from VS Code.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.shareProvider.d.ts',
 	},
 	speech: {
+		/**
+		 * @brief API proposal for speech recognition and synthesis.
+		 * Functional Utility: Enables extensions to incorporate voice commands, dictation, or text-to-speech features into the IDE.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.speech.d.ts',
 	},
 	statusBarItemTooltip: {
+		/**
+		 * @brief API proposal for customizing status bar item tooltips.
+		 * Functional Utility: Enables extensions to provide rich and dynamic tooltips for items in the status bar, offering more information to users on hover.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.statusBarItemTooltip.d.ts',
 	},
 	tabInputMultiDiff: {
+		/**
+		 * @brief API proposal for handling multi-diff editor tab inputs.
+		 * Functional Utility: Enables extensions to provide input for multi-file diff editors displayed in a tab, facilitating complex code comparison scenarios.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.tabInputMultiDiff.d.ts',
 	},
 	tabInputTextMerge: {
+		/**
+		 * @brief API proposal for handling text merge editor tab inputs.
+		 * Functional Utility: Enables extensions to provide input for text merge editors displayed in a tab, facilitating complex merge conflict resolution.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.tabInputTextMerge.d.ts',
 	},
 	taskPresentationGroup: {
+		/**
+		 * @brief API proposal for grouping task presentations.
+		 * Functional Utility: Enables extensions to organize and categorize tasks in the UI, improving user experience for complex build or run configurations.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.taskPresentationGroup.d.ts',
 	},
 	telemetry: {
+		/**
+		 * @brief API proposal for sending telemetry data.
+		 * Functional Utility: Enables extensions to collect anonymous usage data and error reports, helping developers improve their extensions.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.telemetry.d.ts',
 	},
 	terminalCompletionProvider: {
+		/**
+		 * @brief API proposal for providing terminal completions.
+		 * Functional Utility: Enables extensions to offer intelligent auto-completion suggestions for commands and arguments within the integrated terminal.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.terminalCompletionProvider.d.ts',
 	},
 	terminalDataWriteEvent: {
+		/**
+		 * @brief API proposal for subscribing to terminal data write events.
+		 * Functional Utility: Enables extensions to monitor output written to the terminal, allowing for custom parsing, highlighting, or command execution based on terminal activity.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.terminalDataWriteEvent.d.ts',
 	},
 	terminalDimensions: {
+		/**
+		 * @brief API proposal for accessing terminal dimensions.
+		 * Functional Utility: Allows extensions to retrieve information about the size and layout of the integrated terminal, which can be useful for rendering terminal UIs or adapting output.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.terminalDimensions.d.ts',
 	},
 	terminalExecuteCommandEvent: {
+		/**
+		 * @brief API proposal for handling terminal execute command events.
+		 * Functional Utility: Enables extensions to be notified when commands are executed in the terminal, allowing for custom processing or integration with command history.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.terminalExecuteCommandEvent.d.ts',
 	},
 	terminalQuickFixProvider: {
+		/**
+		 * @brief API proposal for providing terminal quick fixes.
+		 * Functional Utility: Enables extensions to offer context-sensitive suggestions and automated fixes for issues detected in terminal output.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.terminalQuickFixProvider.d.ts',
 	},
 	terminalSelection: {
+		/**
+		 * @brief API proposal for managing terminal selections.
+		 * Functional Utility: Enables extensions to programmatically read or modify the selected text within the integrated terminal, supporting copy/paste enhancements or command parsing.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.terminalSelection.d.ts',
 	},
 	terminalShellEnv: {
+		/**
+		 * @brief API proposal for managing terminal shell environment variables.
+		 * Functional Utility: Allows extensions to inspect or modify environment variables used by the integrated terminal's shell, enabling custom configurations or tool integrations.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.terminalShellEnv.d.ts',
 	},
 	terminalShellType: {
+		/**
+		 * @brief API proposal for identifying the terminal shell type.
+		 * Functional Utility: Enables extensions to determine the type of shell running in the integrated terminal (e.g., bash, zsh, PowerShell), allowing for shell-specific customizations or commands.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.terminalShellType.d.ts',
 	},
 	testObserver: {
+		/**
+		 * @brief API proposal for observing test execution.
+		 * Functional Utility: Enables extensions to monitor and react to the progress and results of test runs within the IDE, supporting test reporting or analysis tools.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.testObserver.d.ts',
 	},
 	testRelatedCode: {
+		/**
+		 * @brief API proposal for identifying code related to tests.
+		 * Functional Utility: Enables extensions to link test files with the source code they cover, facilitating navigation and understanding of test coverage.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.testRelatedCode.d.ts',
 	},
 	textDocumentEncoding: {
+		/**
+		 * @brief API proposal for controlling text document encoding.
+		 * Functional Utility: Enables extensions to specify or detect the character encoding of text documents, ensuring correct display and manipulation of file content.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.textDocumentEncoding.d.ts',
 	},
 	textEditorDiffInformation: {
+		/**
+		 * @brief API proposal for retrieving text editor diff information.
+		 * Functional Utility: Enables extensions to access detailed difference information between two versions of a text document displayed in the editor, useful for various comparison and merge tools.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.textEditorDiffInformation.d.ts',
 	},
 	textSearchComplete2: {
+		/**
+		 * @brief API proposal for enhanced text search completion.
+		 * Functional Utility: Provides extensions with more comprehensive or refined results for text search operations, improving the accuracy and utility of search features.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.textSearchComplete2.d.ts',
 	},
 	textSearchProvider: {
+		/**
+		 * @brief API proposal for implementing custom text search providers.
+		 * Functional Utility: Enables extensions to integrate with external search services or implement specialized text search logic within the IDE.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.textSearchProvider.d.ts',
 	},
 	textSearchProvider2: {
+		/**
+		 * @brief API proposal for an updated version of text search providers.
+		 * Functional Utility: Offers enhanced capabilities or a revised interface for extensions to integrate with text search, potentially improving performance or flexibility.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.textSearchProvider2.d.ts',
 	},
 	timeline: {
+		/**
+		 * @brief API proposal for integrating with the timeline view.
+		 * Functional Utility: Enables extensions to contribute events and activities to the timeline view, providing users with a chronological history of changes and actions.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.timeline.d.ts',
 	},
 	tokenInformation: {
+		/**
+		 * @brief API proposal for retrieving token information.
+		 * Functional Utility: Enables extensions to access lexical token information for a given position in a document, which can be used for syntax highlighting, semantic analysis, or code navigation.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.tokenInformation.d.ts',
 	},
 	treeViewActiveItem: {
+		/**
+		 * @brief API proposal for managing the active item in a tree view.
+		 * Functional Utility: Enables extensions to programmatically set or retrieve the currently active item within a tree view, facilitating navigation and interaction.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.treeViewActiveItem.d.ts',
 	},
 	treeViewMarkdownMessage: {
+		/**
+		 * @brief API proposal for displaying Markdown messages in tree views.
+		 * Functional Utility: Enables extensions to present rich, formatted information within tree views using Markdown syntax, enhancing the user interface.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.treeViewMarkdownMessage.d.ts',
 	},
 	treeViewReveal: {
+		/**
+		 * @brief API proposal for revealing elements in a tree view.
+		 * Functional Utility: Enables extensions to programmatically scroll to and highlight specific elements within a tree view, improving navigation and user experience.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.treeViewReveal.d.ts',
 	},
 	tunnelFactory: {
+		/**
+		 * @brief API proposal for creating custom tunnel factories.
+		 * Functional Utility: Enables extensions to provide alternative methods for creating network tunnels, facilitating flexible and secure connections in various environments.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.tunnelFactory.d.ts',
 	},
 	tunnels: {
+		/**
+		 * @brief API proposal for managing network tunnels.
+		 * Functional Utility: Provides extensions with a programmatic interface to create, manage, and tear down network tunnels, essential for remote development and secure access.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.tunnels.d.ts',
 	},
 	valueSelectionInQuickPick: {
+		/**
+		 * @brief API proposal for controlling value selection in quick pick.
+		 * Functional Utility: Enables extensions to pre-select or define the initial selection state of items within quick pick lists, improving user interaction and default behavior.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.valueSelectionInQuickPick.d.ts',
 	},
 	workspaceTrust: {
+		/**
+		 * @brief API proposal for managing workspace trust.
+		 * Functional Utility: Enables extensions to interact with VS Code's workspace trust feature, allowing them to provide different functionalities or warnings based on the trust state of a workspace.
+		 */
 		proposal: 'https://raw.githubusercontent.com/microsoft/vscode/main/src/vscode-dts/vscode.proposed.workspaceTrust.d.ts',
 	}
 };

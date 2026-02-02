@@ -14,6 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+/**
+ * @file This file contains utility functions for running scheduler performance tests in Kubernetes.
+ *
+ * It provides functionality for setting up a test environment with a Kubernetes API server and scheduler,
+ * creating and managing test data, collecting performance metrics such as scheduling throughput and latency,
+ * and formatting the results into a JSON format suitable for performance dashboards.
+ */
 package benchmark
 
 import (
@@ -126,6 +133,7 @@ func makeBasePod() *v1.Pod {
 	return basePod
 }
 
+// dataItems2JSONFile converts a DataItems struct to a JSON file.
 func dataItems2JSONFile(dataItems DataItems, namePrefix string) error {
 	b, err := json.Marshal(dataItems)
 	if err != nil {
@@ -152,6 +160,7 @@ type metricsCollector struct {
 	labels map[string]string
 }
 
+// newMetricsCollector creates a new metricsCollector.
 func newMetricsCollector(config *metricsCollectorConfig, labels map[string]string) *metricsCollector {
 	return &metricsCollector{
 		metricsCollectorConfig: config,
@@ -159,10 +168,12 @@ func newMetricsCollector(config *metricsCollectorConfig, labels map[string]strin
 	}
 }
 
+// run is a no-op for metricsCollector.
 func (*metricsCollector) run(ctx context.Context) {
 	// metricCollector doesn't need to start before the tests, so nothing to do here.
 }
 
+// collect collects histogram metrics and returns a slice of DataItem.
 func (pc *metricsCollector) collect() []DataItem {
 	var dataItems []DataItem
 	for _, metric := range pc.Metrics {
@@ -174,6 +185,7 @@ func (pc *metricsCollector) collect() []DataItem {
 	return dataItems
 }
 
+// collectHistogram collects a single histogram metric.
 func collectHistogram(metric string, labels map[string]string) *DataItem {
 	hist, err := testutil.GetHistogramFromGatherer(legacyregistry.DefaultGatherer, metric)
 	if err != nil {
@@ -217,6 +229,7 @@ func collectHistogram(metric string, labels map[string]string) *DataItem {
 	}
 }
 
+// throughputCollector collects scheduling throughput data.
 type throughputCollector struct {
 	podInformer           coreinformers.PodInformer
 	schedulingThroughputs []float64
@@ -224,6 +237,7 @@ type throughputCollector struct {
 	namespaces            []string
 }
 
+// newThroughputCollector creates a new throughputCollector.
 func newThroughputCollector(podInformer coreinformers.PodInformer, labels map[string]string, namespaces []string) *throughputCollector {
 	return &throughputCollector{
 		podInformer: podInformer,
@@ -232,6 +246,8 @@ func newThroughputCollector(podInformer coreinformers.PodInformer, labels map[st
 	}
 }
 
+// run starts the throughput collector. It periodically samples the number of scheduled pods
+// and calculates the scheduling throughput.
 func (tc *throughputCollector) run(ctx context.Context) {
 	podsScheduled, err := getScheduledPods(tc.podInformer, tc.namespaces...)
 	if err != nil {
@@ -260,6 +276,7 @@ func (tc *throughputCollector) run(ctx context.Context) {
 	}
 }
 
+// collect summarizes the collected throughput data and returns it as a DataItem.
 func (tc *throughputCollector) collect() []DataItem {
 	throughputSummary := DataItem{Labels: tc.labels}
 	if length := len(tc.schedulingThroughputs); length > 0 {

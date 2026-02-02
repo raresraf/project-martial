@@ -1,4 +1,14 @@
 // SPDX-License-Identifier: GPL-2.0-only
+/**
+ * @file
+ * @brief This file implements the Bluetooth device coredump functionality.
+ *
+ * It provides a state machine and a set of APIs for drivers to register
+ * for coredump events, initiate a coredump, append data to the dump,
+ * and signal completion or abortion of the dump process. The coredump data
+ * is exposed to userspace via the devcoredump interface and can also be
+ * sent as a diagnostic packet.
+ */
 /*
  * Copyright (C) 2023 Google Corporation
  */
@@ -26,7 +36,7 @@ struct hci_devcoredump_skb_pattern {
 	u32 len;
 } __packed;
 
-#define hci_dmp_cb(skb)	((struct hci_devcoredump_skb_cb *)((skb)->cb))
+#define hci_dmp_cb(skb) ((struct hci_devcoredump_skb_cb *)((skb)->cb))
 
 #define DBG_UNEXPECTED_STATE() \
 	bt_dev_dbg(hdev, \
@@ -35,6 +45,13 @@ struct hci_devcoredump_skb_pattern {
 
 #define MAX_DEVCOREDUMP_HDR_SIZE	512	/* bytes */
 
+/**
+ * @brief Updates the header of the coredump buffer with the current state.
+ * @param buf The buffer to write the header to.
+ * @param size The size of the buffer.
+ * @param state The current coredump state.
+ * @return The number of bytes written to the buffer.
+ */
 static int hci_devcd_update_hdr_state(char *buf, size_t size, int state)
 {
 	int len = 0;
@@ -47,7 +64,12 @@ static int hci_devcd_update_hdr_state(char *buf, size_t size, int state)
 	return len + 1; /* scnprintf adds \0 at the end upon state rewrite */
 }
 
-/* Call with hci_dev_lock only. */
+/**
+ * @brief Updates the coredump state for an HCI device.
+ * @param hdev The HCI device.
+ * @param state The new coredump state.
+ * @return The number of bytes written to the header.
+ */
 static int hci_devcd_update_state(struct hci_dev *hdev, int state)
 {
 	bt_dev_dbg(hdev, "Updating devcoredump state from %d to %d.",
@@ -59,6 +81,12 @@ static int hci_devcd_update_state(struct hci_dev *hdev, int state)
 					  hdev->dump.alloc_size, state);
 }
 
+/**
+ * @brief Creates the header for a device coredump.
+ * @param hdev The HCI device.
+ * @param skb The socket buffer to write the header to.
+ * @return The length of the header.
+ */
 static int hci_devcd_mkheader(struct hci_dev *hdev, struct sk_buff *skb)
 {
 	char dump_start[] = "--- Start dump ---\n";
@@ -77,14 +105,23 @@ static int hci_devcd_mkheader(struct hci_dev *hdev, struct sk_buff *skb)
 	return skb->len;
 }
 
-/* Do not call with hci_dev_lock since this calls driver code. */
+/**
+ * @brief Notifies the driver of a coredump state change.
+ * @param hdev The HCI device.
+ * @param state The new coredump state.
+ */
 static void hci_devcd_notify(struct hci_dev *hdev, int state)
 {
 	if (hdev->dump.notify_change)
 		hdev->dump.notify_change(hdev, state);
 }
 
-/* Call with hci_dev_lock only. */
+/**
+ * @brief Resets the coredump state for an HCI device.
+ * @param hdev The HCI device.
+ *
+ * This function frees any allocated memory and resets the coredump state machine.
+ */
 void hci_devcd_reset(struct hci_dev *hdev)
 {
 	hdev->dump.head = NULL;
@@ -97,7 +134,10 @@ void hci_devcd_reset(struct hci_dev *hdev)
 	skb_queue_purge(&hdev->dump.dump_q);
 }
 
-/* Call with hci_dev_lock only. */
+/**
+ * @brief Frees the coredump buffer and resets the state.
+ * @param hdev The HCI device.
+ */
 static void hci_devcd_free(struct hci_dev *hdev)
 {
 	vfree(hdev->dump.head);
@@ -105,7 +145,12 @@ static void hci_devcd_free(struct hci_dev *hdev)
 	hci_devcd_reset(hdev);
 }
 
-/* Call with hci_dev_lock only. */
+/**
+ * @brief Allocates memory for a device coredump.
+ * @param hdev The HCI device.
+ * @param size The size of the dump to allocate.
+ * @return 0 on success, or a negative error code on failure.
+ */
 static int hci_devcd_alloc(struct hci_dev *hdev, u32 size)
 {
 	hdev->dump.head = vmalloc(size);
@@ -121,7 +166,13 @@ static int hci_devcd_alloc(struct hci_dev *hdev, u32 size)
 	return 0;
 }
 
-/* Call with hci_dev_lock only. */
+/**
+ * @brief Copies data into the coredump buffer.
+ * @param hdev The HCI device.
+ * @param buf The data to copy.
+ * @param size The size of the data.
+ * @return True on success, false if the buffer is full.
+ */
 static bool hci_devcd_copy(struct hci_dev *hdev, char *buf, u32 size)
 {
 	if (hdev->dump.tail + size > hdev->dump.end)
@@ -133,7 +184,13 @@ static bool hci_devcd_copy(struct hci_dev *hdev, char *buf, u32 size)
 	return true;
 }
 
-/* Call with hci_dev_lock only. */
+/**
+ * @brief Fills a portion of the coredump buffer with a pattern.
+ * @param hdev The HCI device.
+ * @param pattern The pattern to fill with.
+ * @param len The number of bytes to fill.
+ * @return True on success, false if the buffer is full.
+ */
 static bool hci_devcd_memset(struct hci_dev *hdev, u8 pattern, u32 len)
 {
 	if (hdev->dump.tail + len > hdev->dump.end)
@@ -145,7 +202,12 @@ static bool hci_devcd_memset(struct hci_dev *hdev, u8 pattern, u32 len)
 	return true;
 }
 
-/* Call with hci_dev_lock only. */
+/**
+ * @brief Prepares the coredump buffer and header.
+ * @param hdev The HCI device.
+ * @param dump_size The size of the dump data.
+ * @return 0 on success, or a negative error code on failure.
+ */
 static int hci_devcd_prepare(struct hci_dev *hdev, u32 dump_size)
 {
 	struct sk_buff *skb;
@@ -177,7 +239,11 @@ hdr_free:
 
 	return err;
 }
-
+/**
+ * @brief Handles an HCI_DEVCOREDUMP_PKT_INIT packet.
+ * @param hdev The HCI device.
+ * @param skb The socket buffer containing the packet.
+ */
 static void hci_devcd_handle_pkt_init(struct hci_dev *hdev, struct sk_buff *skb)
 {
 	u32 dump_size;
@@ -207,7 +273,11 @@ static void hci_devcd_handle_pkt_init(struct hci_dev *hdev, struct sk_buff *skb)
 	queue_delayed_work(hdev->workqueue, &hdev->dump.dump_timeout,
 			   hdev->dump.timeout);
 }
-
+/**
+ * @brief Handles an HCI_DEVCOREDUMP_PKT_SKB packet.
+ * @param hdev The HCI device.
+ * @param skb The socket buffer containing the packet.
+ */
 static void hci_devcd_handle_pkt_skb(struct hci_dev *hdev, struct sk_buff *skb)
 {
 	if (hdev->dump.state != HCI_DEVCOREDUMP_ACTIVE) {
@@ -218,7 +288,11 @@ static void hci_devcd_handle_pkt_skb(struct hci_dev *hdev, struct sk_buff *skb)
 	if (!hci_devcd_copy(hdev, skb->data, skb->len))
 		bt_dev_dbg(hdev, "Failed to insert skb");
 }
-
+/**
+ * @brief Handles an HCI_DEVCOREDUMP_PKT_PATTERN packet.
+ * @param hdev The HCI device.
+ * @param skb The socket buffer containing the packet.
+ */
 static void hci_devcd_handle_pkt_pattern(struct hci_dev *hdev,
 					 struct sk_buff *skb)
 {
@@ -239,7 +313,10 @@ static void hci_devcd_handle_pkt_pattern(struct hci_dev *hdev,
 	if (!hci_devcd_memset(hdev, pattern->pattern, pattern->len))
 		bt_dev_dbg(hdev, "Failed to set pattern");
 }
-
+/**
+ * @brief Emits a devcoredump for the HCI device.
+ * @param hdev The HCI device.
+ */
 static void hci_devcd_dump(struct hci_dev *hdev)
 {
 	struct sk_buff *skb;
@@ -259,7 +336,11 @@ static void hci_devcd_dump(struct hci_dev *hdev)
 		hci_recv_diag(hdev, skb);
 	}
 }
-
+/**
+ * @brief Handles an HCI_DEVCOREDUMP_PKT_COMPLETE packet.
+ * @param hdev The HCI device.
+ * @param skb The socket buffer containing the packet.
+ */
 static void hci_devcd_handle_pkt_complete(struct hci_dev *hdev,
 					  struct sk_buff *skb)
 {
@@ -278,7 +359,11 @@ static void hci_devcd_handle_pkt_complete(struct hci_dev *hdev,
 
 	hci_devcd_dump(hdev);
 }
-
+/**
+ * @brief Handles an HCI_DEVCOREDUMP_PKT_ABORT packet.
+ * @param hdev The HCI device.
+ * @param skb The socket buffer containing the packet.
+ */
 static void hci_devcd_handle_pkt_abort(struct hci_dev *hdev,
 				       struct sk_buff *skb)
 {
@@ -298,35 +383,14 @@ static void hci_devcd_handle_pkt_abort(struct hci_dev *hdev,
 	hci_devcd_dump(hdev);
 }
 
-/* Bluetooth devcoredump state machine.
+/**
+ * @brief Processes incoming devcoredump packets from a workqueue.
  *
- * Devcoredump states:
+ * This function implements the state machine for handling devcoredump packets.
+ * It processes packets from the dump queue and transitions the state machine
+ * accordingly.
  *
- *      HCI_DEVCOREDUMP_IDLE: The default state.
- *
- *      HCI_DEVCOREDUMP_ACTIVE: A devcoredump will be in this state once it has
- *              been initialized using hci_devcd_init(). Once active, the driver
- *              can append data using hci_devcd_append() or insert a pattern
- *              using hci_devcd_append_pattern().
- *
- *      HCI_DEVCOREDUMP_DONE: Once the dump collection is complete, the drive
- *              can signal the completion using hci_devcd_complete(). A
- *              devcoredump is generated indicating the completion event and
- *              then the state machine is reset to the default state.
- *
- *      HCI_DEVCOREDUMP_ABORT: The driver can cancel ongoing dump collection in
- *              case of any error using hci_devcd_abort(). A devcoredump is
- *              still generated with the available data indicating the abort
- *              event and then the state machine is reset to the default state.
- *
- *      HCI_DEVCOREDUMP_TIMEOUT: A timeout timer for HCI_DEVCOREDUMP_TIMEOUT sec
- *              is started during devcoredump initialization. Once the timeout
- *              occurs, the driver is notified, a devcoredump is generated with
- *              the available data indicating the timeout event and then the
- *              state machine is reset to the default state.
- *
- * The driver must register using hci_devcd_register() before using the hci
- * devcoredump APIs.
+ * @param work The work struct.
  */
 void hci_devcd_rx(struct work_struct *work)
 {
@@ -392,10 +456,17 @@ void hci_devcd_rx(struct work_struct *work)
 }
 EXPORT_SYMBOL(hci_devcd_rx);
 
+/**
+ * @brief Handles a timeout during a device coredump.
+ * @param work The work struct.
+ *
+ * This function is called when the coredump process times out. It notifies the
+ * driver, generates a coredump with the available data, and resets the state machine.
+ */
 void hci_devcd_timeout(struct work_struct *work)
 {
 	struct hci_dev *hdev = container_of(work, struct hci_dev,
-					    dump.dump_timeout.work);
+						    dump.dump_timeout.work);
 	u32 dump_size;
 
 	hci_devcd_notify(hdev, HCI_DEVCOREDUMP_TIMEOUT);
@@ -418,6 +489,14 @@ void hci_devcd_timeout(struct work_struct *work)
 }
 EXPORT_SYMBOL(hci_devcd_timeout);
 
+/**
+ * @brief Registers a driver for device coredump functionality.
+ * @param hdev The HCI device.
+ * @param coredump The driver's coredump function.
+ * @param dmp_hdr The driver's dump header function.
+ * @param notify_change The driver's state change notification function.
+ * @return 0 on success, or -EINVAL if the driver callbacks are missing.
+ */
 int hci_devcd_register(struct hci_dev *hdev, coredump_t coredump,
 		       dmp_hdr_t dmp_hdr, notify_change_t notify_change)
 {
@@ -442,11 +521,22 @@ int hci_devcd_register(struct hci_dev *hdev, coredump_t coredump,
 }
 EXPORT_SYMBOL(hci_devcd_register);
 
+/**
+ * @brief Checks if device coredump is enabled for an HCI device.
+ * @param hdev The HCI device.
+ * @return True if enabled, false otherwise.
+ */
 static inline bool hci_devcd_enabled(struct hci_dev *hdev)
 {
 	return hdev->dump.supported;
 }
 
+/**
+ * @brief Initializes a device coredump.
+ * @param hdev The HCI device.
+ * @param dump_size The size of the dump data.
+ * @return 0 on success, or a negative error code on failure.
+ */
 int hci_devcd_init(struct hci_dev *hdev, u32 dump_size)
 {
 	struct sk_buff *skb;
@@ -468,6 +558,12 @@ int hci_devcd_init(struct hci_dev *hdev, u32 dump_size)
 }
 EXPORT_SYMBOL(hci_devcd_init);
 
+/**
+ * @brief Appends a socket buffer to the device coredump.
+ * @param hdev The HCI device.
+ * @param skb The socket buffer to append.
+ * @return 0 on success, or a negative error code on failure.
+ */
 int hci_devcd_append(struct hci_dev *hdev, struct sk_buff *skb)
 {
 	if (!skb)
@@ -487,6 +583,13 @@ int hci_devcd_append(struct hci_dev *hdev, struct sk_buff *skb)
 }
 EXPORT_SYMBOL(hci_devcd_append);
 
+/**
+ * @brief Appends a pattern to the device coredump.
+ * @param hdev The HCI device.
+ * @param pattern The pattern to append.
+ * @param len The length of the pattern.
+ * @return 0 on success, or a negative error code on failure.
+ */
 int hci_devcd_append_pattern(struct hci_dev *hdev, u8 pattern, u32 len)
 {
 	struct hci_devcoredump_skb_pattern p;
@@ -512,6 +615,11 @@ int hci_devcd_append_pattern(struct hci_dev *hdev, u8 pattern, u32 len)
 }
 EXPORT_SYMBOL(hci_devcd_append_pattern);
 
+/**
+ * @brief Signals the completion of a device coredump.
+ * @param hdev The HCI device.
+ * @return 0 on success, or a negative error code on failure.
+ */
 int hci_devcd_complete(struct hci_dev *hdev)
 {
 	struct sk_buff *skb;
@@ -532,6 +640,11 @@ int hci_devcd_complete(struct hci_dev *hdev)
 }
 EXPORT_SYMBOL(hci_devcd_complete);
 
+/**
+ * @brief Aborts an ongoing device coredump.
+ * @param hdev The HCI device.
+ * @return 0 on success, or a negative error code on failure.
+ */
 int hci_devcd_abort(struct hci_dev *hdev)
 {
 	struct sk_buff *skb;

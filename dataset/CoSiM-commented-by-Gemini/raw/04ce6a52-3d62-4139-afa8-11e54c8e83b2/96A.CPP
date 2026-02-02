@@ -3,6 +3,12 @@
 
 using namespace std;
 
+/**
+ * @brief This program determines if a given binary string contains a sequence of seven identical digits.
+ *
+ * It reads a binary string from the standard input, searches for the substrings "1111111" or "0000000",
+ * and prints "YES" if either is found, otherwise it prints "NO".
+ */
 int main() {
   size_t n;
   bool is_found = false;

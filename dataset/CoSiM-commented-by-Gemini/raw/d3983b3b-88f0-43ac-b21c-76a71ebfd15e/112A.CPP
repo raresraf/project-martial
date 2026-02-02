@@ -2,6 +2,19 @@
 
 using namespace std;
 
+/**
+ * @brief This program compares two strings lexicographically, ignoring case.
+ *
+ * It reads two strings from the standard input, converts them to lowercase,
+ * and then compares them character by character.
+ *
+ * @return 0 on successful execution.
+ *
+ * The program prints:
+ * - "1" if the first string is lexicographically greater than the second.
+ * - "-1" if the first string is lexicographically smaller than the second.
+ * - "0" if the strings are equal.
+ */
 int main() {
   int ln1, ln2, i, k = 0;
   string str1, str2;

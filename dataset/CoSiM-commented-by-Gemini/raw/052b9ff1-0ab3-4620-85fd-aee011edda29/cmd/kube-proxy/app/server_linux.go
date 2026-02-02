@@ -17,8 +17,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package app does all of the work necessary to configure and run a
-// Kubernetes app process.
+/**
+ * @file This file contains the Linux-specific implementation of the kube-proxy server.
+ *
+ * It is responsible for setting up and managing the proxying of network traffic
+ * for Kubernetes services on Linux nodes. This includes handling different proxy
+ * modes like iptables, IPVS, and nftables, as well as managing conntrack entries
+ * and detecting local traffic.
+ */
 package app
 
 import (
@@ -329,6 +335,7 @@ func (s *ProxyServer) createProxier(ctx context.Context, config *proxyconfigapi.
 	return proxier, nil
 }
 
+// setupConntrack configures the conntrack settings on the node.
 func (s *ProxyServer) setupConntrack(ctx context.Context, ct Conntracker) error {
 	max, err := getConntrackMax(ctx, s.Config.Linux.Conntrack)
 	if err != nil {
@@ -390,6 +397,7 @@ func (s *ProxyServer) setupConntrack(ctx context.Context, ct Conntracker) error 
 	return nil
 }
 
+// getConntrackMax gets the maximum number of conntrack entries.
 func getConntrackMax(ctx context.Context, config proxyconfigapi.KubeProxyConntrackConfiguration) (int, error) {
 	logger := klog.FromContext(ctx)
 	if config.MaxPerCore != nil && *config.MaxPerCore > 0 {
@@ -408,6 +416,7 @@ func getConntrackMax(ctx context.Context, config proxyconfigapi.KubeProxyConntra
 	return 0, nil
 }
 
+// waitForPodCIDR waits for the node to be assigned a PodCIDR.
 func waitForPodCIDR(ctx context.Context, client clientset.Interface, nodeName string) (*v1.Node, error) {
 	// since allocators can assign the podCIDR after the node registers, we do a watch here to wait
 	// for podCIDR to be assigned, instead of assuming that the Get() on startup will have it.
@@ -452,6 +461,7 @@ func waitForPodCIDR(ctx context.Context, client clientset.Interface, nodeName st
 	return nil, fmt.Errorf("event object not of type node")
 }
 
+// detectNumCPU detects the number of CPUs on the node.
 func detectNumCPU() int {
 	// try get numCPU from /sys firstly due to a known issue (https://github.com/kubernetes/kubernetes/issues/99225)
 	_, numCPU, err := machine.GetTopology(sysfs.NewRealSysFs())
@@ -461,6 +471,7 @@ func detectNumCPU() int {
 	return numCPU
 }
 
+// getLocalDetectors returns a map of local traffic detectors for each IP family.
 func getLocalDetectors(logger klog.Logger, primaryIPFamily v1.IPFamily, config *proxyconfigapi.KubeProxyConfiguration, nodePodCIDRs []string) map[v1.IPFamily]proxyutil.LocalTrafficDetector {
 	localDetectors := map[v1.IPFamily]proxyutil.LocalTrafficDetector{
 		v1.IPv4Protocol: proxyutil.NewNoOpLocalDetector(),

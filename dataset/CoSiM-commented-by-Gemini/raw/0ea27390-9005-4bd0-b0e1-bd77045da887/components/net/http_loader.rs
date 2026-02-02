@@ -2,6 +2,15 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
+/**
+ * @file This file implements the HTTP loading mechanism for the Servo browser engine.
+ *
+ * It is responsible for handling HTTP requests, including fetching resources from the network,
+ * managing the HTTP cache, and enforcing security policies such as CORS and Referrer-Policy.
+ * The implementation follows the WHATWG Fetch Standard and interacts with various other
+ * components of the Servo engine, such as the cookie jar, HSTS list, and authentication cache.
+ */
+
 use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;
 use std::sync::{Arc as StdArc, Condvar, Mutex, RwLock};
@@ -132,6 +141,12 @@ pub(crate) fn set_default_accept(request: &mut Request) {
     request.headers.insert(header::ACCEPT, value);
 }
 
+/**
+ * @brief Sets the default `Accept-Encoding` header if not already present.
+ * @param headers The `HeaderMap` to modify.
+ * This function adds a default `Accept-Encoding` header with support for gzip,
+ * deflate, and br compression algorithms if one is not already set.
+ */
 fn set_default_accept_encoding(headers: &mut HeaderMap) {
     if headers.contains_key(header::ACCEPT_ENCODING) {
         return;
@@ -301,6 +316,14 @@ pub fn determine_requests_referrer(
     }
 }
 
+/**
+ * @brief Sets the `Cookie` header on a request.
+ * @param url The URL of the request.
+ * @param headers The `HeaderMap` of the request.
+ * @param cookie_jar A `RwLock` containing the `CookieStorage`.
+ * This function retrieves the appropriate cookies for the given URL from the
+ * cookie jar and adds them to the request headers.
+ */
 fn set_request_cookies(
     url: &ServoUrl,
     headers: &mut HeaderMap,
@@ -316,6 +339,12 @@ fn set_request_cookies(
     }
 }
 
+/**
+ * @brief Adds a cookie to the cookie jar for a given URL.
+ * @param cookie_jar A `RwLock` containing the `CookieStorage`.
+ * @param request The URL of the request that set the cookie.
+ * @param cookie_val The value of the `Set-Cookie` header.
+ */
 fn set_cookie_for_url(cookie_jar: &RwLock<CookieStorage>, request: &ServoUrl, cookie_val: &str) {
     let mut cookie_jar = cookie_jar.write().unwrap();
     let source = CookieSource::HTTP;
@@ -325,6 +354,13 @@ fn set_cookie_for_url(cookie_jar: &RwLock<CookieStorage>, request: &ServoUrl, co
     }
 }
 
+/**
+ * @brief Extracts cookies from the `Set-Cookie` headers of a response and adds
+ *        them to the cookie jar.
+ * @param url The URL of the request.
+ * @param headers The `HeaderMap` of the response.
+ * @param cookie_jar A `RwLock` containing the `CookieStorage`.
+ */
 fn set_cookies_from_headers(
     url: &ServoUrl,
     headers: &HeaderMap,
@@ -337,6 +373,19 @@ fn set_cookies_from_headers(
     }
 }
 
+/**
+ * @brief Prepares an `HttpRequest` for DevTools.
+ * @param request_id The unique ID for the request.
+ * @param url The URL of the request.
+ * @param method The HTTP method of the request.
+ * @param headers The headers of the request.
+ * @param body The body of the request.
+ * @param pipeline_id The ID of the pipeline that initiated the request.
+ * @param connect_time The time it took to connect.
+ * @param send_time The time it took to send the request.
+ * @param is_xhr A boolean indicating if the request is an XMLHttpRequest.
+ * @return A `ChromeToDevtoolsControlMsg` containing the request information.
+ */
 #[allow(clippy::too_many_arguments)]
 fn prepare_devtools_request(
     request_id: String,
@@ -370,6 +419,11 @@ fn prepare_devtools_request(
     ChromeToDevtoolsControlMsg::NetworkEvent(request_id, net_event)
 }
 
+/**
+ * @brief Sends an `HttpRequest` to DevTools.
+ * @param msg The `ChromeToDevtoolsControlMsg` containing the request.
+ * @param devtools_chan The channel for sending messages to DevTools.
+ */
 fn send_request_to_devtools(
     msg: ChromeToDevtoolsControlMsg,
     devtools_chan: &Sender<DevtoolsControlMsg>,
@@ -379,6 +433,14 @@ fn send_request_to_devtools(
         .unwrap();
 }
 
+/**
+ * @brief Sends an `HttpResponse` to DevTools.
+ * @param devtools_chan The channel for sending messages to DevTools.
+ * @param request_id The unique ID of the corresponding request.
+ * @param headers The headers of the response.
+ * @param status The status of the response.
+ * @param pipeline_id The ID of the pipeline.
+ */
 fn send_response_to_devtools(
     devtools_chan: &Sender<DevtoolsControlMsg>,
     request_id: String,
@@ -398,6 +460,13 @@ fn send_response_to_devtools(
     let _ = devtools_chan.send(DevtoolsControlMsg::FromChrome(msg));
 }
 
+/**
+ * @brief Retrieves authentication credentials from the cache for a given origin.
+ * @param auth_cache A `RwLock` containing the `AuthCache`.
+ * @param origin The origin to look up.
+ * @return An `Option` containing the `Authorization<Basic>` header if found,
+ *         otherwise `None`.
+ */
 fn auth_from_cache(
     auth_cache: &RwLock<AuthCache>,
     origin: &ImmutableOrigin,
@@ -447,6 +516,10 @@ enum BodySink {
 }
 
 impl BodySink {
+    /**
+     * @brief Transmits a chunk of bytes for the request body.
+     * @param bytes The bytes to transmit.
+     */
     fn transmit_bytes(&self, bytes: Vec<u8>) {
         match self {
             BodySink::Chunked(ref sender) => {
@@ -461,6 +534,9 @@ impl BodySink {
         }
     }
 
+    /**
+     * @brief Closes the body sink, signaling that all data has been sent.
+     */
     fn close(&self) {
         match self {
             BodySink::Chunked(_) => { /* no need to close sender */ },
@@ -471,6 +547,22 @@ impl BodySink {
     }
 }
 
+/**
+ * @brief Obtains a response from the network.
+ * @param client The hyper client.
+ * @param url The URL of the request.
+ * @param method The HTTP method of the request.
+ * @param request_headers The headers of the request.
+ * @param body An optional IPC sender for streaming the request body.
+ * @param source_is_null A boolean indicating if the request body source is null.
+ * @param pipeline_id The ID of the pipeline.
+ * @param request_id The unique ID of the request.
+ * @param is_xhr A boolean indicating if the request is an XMLHttpRequest.
+ * @param context The fetch context.
+ * @param fetch_terminated An unbounded sender for signaling fetch termination.
+ * @return A `Result` containing the `HyperResponse` and an optional
+ *         `ChromeToDevtoolsControlMsg`, or a `NetworkError`.
+ */
 #[allow(clippy::too_many_arguments)]
 async fn obtain_response(
     client: &Client<Connector, crate::connector::BoxedBody>,
@@ -600,8 +692,7 @@ async fn obtain_response(
                 .uri(encoded_url)
                 .body(
                     http_body_util::Empty::new()
-                        .map_err(|_| unreachable!())
-                        .boxed(),
+                        .map_err(|_| unreachable!()).boxed(),
                 )
         };
 
@@ -703,7 +794,20 @@ async fn obtain_response(
     }
 }
 
-/// [HTTP fetch](https://fetch.spec.whatwg.org#http-fetch)
+/**
+ * @brief This is the main entry point for an HTTP fetch, as defined by the Fetch Standard.
+ * @param fetch_params The parameters for the fetch.
+ * @param cache The CORS cache.
+ * @param cors_flag A boolean indicating if CORS is enabled.
+ * @param cors_preflight_flag A boolean indicating if a CORS preflight is required.
+ * @param authentication_fetch_flag A boolean indicating if this is an authentication fetch.
+ * @param target The target of the fetch.
+ * @param done_chan A channel for signaling fetch completion.
+ * @param context The fetch context.
+ * @return A `Response` object.
+ * This function orchestrates the entire fetch process, including handling service
+ * workers, CORS preflights, and redirects.
+ */
 #[async_recursion]
 #[allow(clippy::too_many_arguments)]
 pub async fn http_fetch(
@@ -893,12 +997,19 @@ pub async fn http_fetch(
 struct RedirectEndTimer(Option<Arc<Mutex<ResourceFetchTiming>>>);
 
 impl RedirectEndTimer {
+    /**
+     * @brief Disables the timer, preventing it from setting `redirectEnd`.
+     */
     fn neuter(&mut self) {
         self.0 = None;
     }
 }
 
 impl Drop for RedirectEndTimer {
+    /**
+     * @brief Sets the `redirectEnd` attribute on the `ResourceFetchTiming`
+     *        when the timer is dropped.
+     */
     fn drop(&mut self) {
         let RedirectEndTimer(resource_fetch_timing_opt) = self;
 
@@ -910,7 +1021,17 @@ impl Drop for RedirectEndTimer {
     }
 }
 
-/// [HTTP redirect fetch](https://fetch.spec.whatwg.org#http-redirect-fetch)
+/**
+ * @brief Handles an HTTP redirect fetch.
+ * @param fetch_params The parameters for the fetch.
+ * @param cache The CORS cache.
+ * @param response The response that triggered the redirect.
+ * @param cors_flag A boolean indicating if CORS is enabled.
+ * @param target The target of the fetch.
+ * @param done_chan A channel for signaling fetch completion.
+ * @param context The fetch context.
+ * @return A `Response` object for the final destination of the redirect.
+ */
 #[async_recursion]
 pub async fn http_redirect_fetch(
     fetch_params: &mut FetchParams,
@@ -975,8 +1096,8 @@ pub async fn http_redirect_fetch(
         .lock()
         .unwrap()
         .set_attribute(ResourceAttribute::StartTime(
-            ResourceTimeValue::RedirectStart,
-        )); // updates start_time only if redirect_start is nonzero (implying TAO)
+            ResourceTimeValue::RedirectStart, // updates start_time only if redirect_start is nonzero (implying TAO)
+        )); 
 
     // Step 7: If request’s redirect count is 20, then return a network error.
     if request.redirect_count >= 20 {
@@ -1099,7 +1220,15 @@ pub async fn http_redirect_fetch(
     fetch_response
 }
 
-/// [HTTP network or cache fetch](https://fetch.spec.whatwg.org#http-network-or-cache-fetch)
+/**
+ * @brief Performs a network or cache fetch for an HTTP request.
+ * @param fetch_params The parameters for the fetch.
+ * @param authentication_fetch_flag A boolean indicating if this is an authentication fetch.
+ * @param cors_flag A boolean indicating if CORS is enabled.
+ * @param done_chan A channel for signaling fetch completion.
+ * @param context The fetch context.
+ * @return A `Response` object.
+ */
 #[async_recursion]
 async fn http_network_or_cache_fetch(
     fetch_params: &mut FetchParams,
@@ -1355,10 +1484,12 @@ async fn http_network_or_cache_fetch(
             &*state_map
                 .entry(entry_key)
                 .or_insert_with(|| {
-                    Arc::new((
-                        Mutex::new(HttpCacheEntryState::ReadyToConstruct),
-                        Condvar::new(),
-                    ))
+                    Arc::new(
+                        (
+                            Mutex::new(HttpCacheEntryState::ReadyToConstruct),
+                            Condvar::new(),
+                        )
+                    )
                 })
                 .clone()
         };
@@ -1444,9 +1575,13 @@ async fn http_network_or_cache_fetch(
         // End of critical section on http-cache state.
     }
 
-    // Decrement the number of pending stores,
-    // and set the state to ready to construct,
-    // if no stores are pending.
+    /**
+     * @brief Decrements the number of pending stores and updates the HTTP cache state.
+     * @param context The fetch context.
+     * @param http_request The HTTP request.
+     * If the number of pending stores becomes zero, the state is set to
+     * `ReadyToConstruct` and waiting threads are notified.
+     */
     fn update_http_cache_state(context: &FetchContext, http_request: &Request) {
         let (lock, cvar) = {
             let entry_key = CacheKey::new(http_request);
@@ -1469,6 +1604,14 @@ async fn http_network_or_cache_fetch(
         }
     }
 
+    /**
+     * @brief Waits for a cached response to be fully received.
+     * @param done_chan A channel for signaling fetch completion.
+     * @param response The response object.
+     * This function is used when a response is being streamed from the cache.
+     * It waits for the `Done` or `Cancelled` message on the `done_chan` to
+     * determine the final state of the response.
+     */
     async fn wait_for_cached_response(
         done_chan: &mut DoneChannel,
         response: &mut Option<Response>,
@@ -1710,405 +1853,13 @@ async fn http_network_or_cache_fetch(
     response
 }
 
-/// <https://fetch.spec.whatwg.org/#cross-origin-resource-policy-check>
-///
-/// This is obtained from [cross_origin_resource_policy_check]
-#[derive(PartialEq)]
-enum CrossOriginResourcePolicy {
-    Allowed,
-    Blocked,
-}
-
-// TODO(#33615): Judging from the name, this appears to be https://fetch.spec.whatwg.org/#cross-origin-resource-policy-check,
-//       but the steps aren't even close to the spec. Perhaps this needs to be rewritten?
-fn cross_origin_resource_policy_check(
-    request: &Request,
-    response: &Response,
-) -> CrossOriginResourcePolicy {
-    // Step 1
-    if request.mode != RequestMode::NoCors {
-        return CrossOriginResourcePolicy::Allowed;
-    }
-
-    // Step 2
-    let current_url_origin = request.current_url().origin();
-    let same_origin = if let Origin::Origin(ref origin) = request.origin {
-        *origin == request.current_url().origin()
-    } else {
-        false
-    };
-
-    if same_origin {
-        return CrossOriginResourcePolicy::Allowed;
-    }
-
-    // Step 3
-    let policy = response
-        .headers
-        .get(HeaderName::from_static("cross-origin-resource-policy"))
-        .map(|h| h.to_str().unwrap_or(""))
-        .unwrap_or("");
-
-    // Step 4
-    if policy == "same-origin" {
-        return CrossOriginResourcePolicy::Blocked;
-    }
-
-    // Step 5
-    if let Origin::Origin(ref request_origin) = request.origin {
-        let schemeless_same_origin = is_schemelessy_same_site(request_origin, &current_url_origin);
-        if schemeless_same_origin &&
-            (request_origin.scheme() == Some("https") ||
-                response.https_state == HttpsState::None)
-        {
-            return CrossOriginResourcePolicy::Allowed;
-        }
-    };
-
-    // Step 6
-    if policy == "same-site" {
-        return CrossOriginResourcePolicy::Blocked;
-    }
-
-    CrossOriginResourcePolicy::Allowed
-}
-
-// Convenience struct that implements Done, for setting responseEnd on function return
-struct ResponseEndTimer(Option<Arc<Mutex<ResourceFetchTiming>>>);
-
-impl ResponseEndTimer {
-    fn neuter(&mut self) {
-        self.0 = None;
-    }
-}
-
-impl Drop for ResponseEndTimer {
-    fn drop(&mut self) {
-        let ResponseEndTimer(resource_fetch_timing_opt) = self;
-
-        resource_fetch_timing_opt.as_ref().map_or((), |t| {
-            t.lock()
-                .unwrap()
-                .set_attribute(ResourceAttribute::ResponseEnd);
-        })
-    }
-}
-
-fn prompt_user_for_credentials(
-    embedder_proxy: &Mutex<EmbedderProxy>,
-    webview_id: WebViewId,
-) -> Option<PromptCredentialsInput> {
-    let proxy = embedder_proxy.lock().unwrap();
-
-    let (ipc_sender, ipc_receiver) = ipc::channel().unwrap();
-
-    proxy.send(EmbedderMsg::Prompt(
-        webview_id,
-        PromptDefinition::Credentials(ipc_sender),
-        PromptOrigin::Trusted,
-    ));
-
-    let Ok(credentials) = ipc_receiver.recv() else {
-        warn!("error getting user credentials");
-        return None;
-    };
-
-    Some(credentials)
-}
-
-/// [HTTP network fetch](https://fetch.spec.whatwg.org/#http-network-fetch)
-async fn http_network_fetch(
-    fetch_params: &mut FetchParams,
-    credentials_flag: bool,
-    done_chan: &mut DoneChannel,
-    context: &FetchContext,
-) -> Response {
-    let mut response_end_timer = ResponseEndTimer(Some(context.timing.clone()));
-
-    // Step 1: Let request be fetchParams’s request.
-    let request = &mut fetch_params.request;
-
-    // Step 2
-    // TODO be able to create connection using current url's origin and credentials
-
-    // Step 3
-    // TODO be able to tell if the connection is a failure
-
-    // Step 4
-    // TODO: check whether the connection is HTTP/2
-
-    // Step 5
-    let url = request.current_url();
-
-    let request_id = context
-        .devtools_chan
-        .as_ref()
-        .map(|_| uuid::Uuid::new_v4().simple().to_string());
-
-    if log_enabled!(log::Level::Info) {
-        info!("{:?} request for {}", request.method, url);
-        for header in request.headers.iter() {
-            debug!(" - {:?}", header);
-        }
-    }
-
-    // XHR uses the default destination; other kinds of fetches (which haven't been implemented yet)
-    // do not. Once we support other kinds of fetches we'll need to be more fine grained here
-    // since things like image fetches are classified differently by devtools
-    let is_xhr = request.destination == Destination::None;
-
-    // The receiver will receive true if there has been an error streaming the request body.
-    let (fetch_terminated_sender, mut fetch_terminated_receiver) = unbounded_channel();
-
-    let body = request.body.as_ref().map(|body| body.take_stream());
-
-    if body.is_none() {
-        // There cannot be an error streaming a non-existent body.
-        // However in such a case the channel will remain unused
-        // and drop inside `obtain_response`.
-        // Send the confirmation now, ensuring the receiver will not dis-connect first.
-        let _ = fetch_terminated_sender.send(false);
-    }
-
-    let response_future = obtain_response(
-        &context.state.client,
-        &url,
-        &request.method,
-        &mut request.headers,
-        body,
-        request
-            .body
-            .as_ref()
-            .map(|body| body.source_is_null())
-            .unwrap_or(false),
-        &request.pipeline_id,
-        request_id.as_deref(),
-        is_xhr,
-        context,
-        fetch_terminated_sender,
-    );
-
-    let pipeline_id = request.pipeline_id;
-    // This will only get the headers, the body is read later
-    let (res, msg) = match response_future.await {
-        Ok(wrapped_response) => wrapped_response,
-        Err(error) => return Response::network_error(error),
-    };
-
-    if log_enabled!(log::Level::Info) {
-        debug!("{:?} response for {}", res.version(), url);
-        for header in res.headers().iter() {
-            debug!(" - {:?}", header);
-        }
-    }
-
-    // Check if there was an error while streaming the request body.
-    //
-    match fetch_terminated_receiver.recv().await {
-        Some(true) => {
-            return Response::network_error(NetworkError::Internal(
-                "Request body streaming failed.".into(),
-            ));
-        },
-        Some(false) => {},
-        _ => warn!("Failed to receive confirmation request was streamed without error."),
-    }
-
-    let header_strings: Vec<&str> = res
-        .headers()
-        .get_all("Timing-Allow-Origin")
-        .iter()
-        .map(|header_value| header_value.to_str().unwrap_or(""))
-        .collect();
-    let wildcard_present = header_strings.iter().any(|header_str| *header_str == "*");
-    // The spec: https://www.w3.org/TR/resource-timing-2/#sec-timing-allow-origin
-    // says that a header string is either an origin or a wildcard so we can just do a straight
-    // check against the document origin
-    let req_origin_in_timing_allow = header_strings
-        .iter()
-        .any(|header_str| match request.origin {
-            SpecificOrigin(ref immutable_request_origin) => {
-                *header_str == immutable_request_origin.ascii_serialization()
-            },
-            _ => false,
-        });
-
-    let is_same_origin = request.url_list.iter().all(|url| match request.origin {
-        SpecificOrigin(ref immutable_request_origin) => url.origin() == *immutable_request_origin,
-        _ => false,
-    });
-
-    if !(is_same_origin || req_origin_in_timing_allow || wildcard_present) {
-        context.timing.lock().unwrap().mark_timing_check_failed();
-    }
-
-    let timing = context.timing.lock().unwrap().clone();
-    let mut response = Response::new(url.clone(), timing);
-
-    let status_text = res
-        .extensions()
-        .get::<ReasonPhrase>()
-        .map(ReasonPhrase::as_bytes)
-        .or_else(|| res.status().canonical_reason().map(str::as_bytes))
-        .map(Vec::from)
-        .unwrap_or_default();
-    response.status = HttpStatus::new(res.status(), status_text);
-
-    info!("got {:?} response for {:?}", res.status(), request.url());
-    response.headers = res.headers().clone();
-    response.referrer = request.referrer.to_url().cloned();
-    response.referrer_policy = request.referrer_policy;
-
-    let res_body = response.body.clone();
-
-    // We're about to spawn a future to be waited on here
-    let (done_sender, done_receiver) = unbounded_channel();
-    *done_chan = Some((done_sender.clone(), done_receiver));
-    let meta = match response
-        .metadata()
-        .expect("Response metadata should exist at this stage")
-    {
-        FetchMetadata::Unfiltered(m) => m,
-        FetchMetadata::Filtered { unsafe_, .. } => unsafe_,
-    };
-
-    let devtools_sender = context.devtools_chan.clone();
-    let meta_status = meta.status;
-    let meta_headers = meta.headers;
-    let cancellation_listener = context.cancellation_listener.clone();
-    if cancellation_listener.cancelled() {
-        return Response::network_error(NetworkError::Internal("Fetch aborted".into()));
-    }
-
-    *res_body.lock().unwrap() = ResponseBody::Receiving(vec![]);
-    let res_body2 = res_body.clone();
-
-    if let Some(ref sender) = devtools_sender {
-        let sender = sender.lock().unwrap();
-        if let Some(m) = msg {
-            send_request_to_devtools(m, &sender);
-        }
-
-        // --- Tell devtools that we got a response
-        // Send an HttpResponse message to devtools with the corresponding request_id
-        if let Some(pipeline_id) = pipeline_id {
-            send_response_to_devtools(
-                &sender,
-                request_id.unwrap(),
-                meta_headers.map(Serde::into_inner),
-                meta_status,
-                pipeline_id,
-            );
-        }
-    }
-
-    let done_sender2 = done_sender.clone();
-    let done_sender3 = done_sender.clone();
-    let timing_ptr2 = context.timing.clone();
-    let timing_ptr3 = context.timing.clone();
-    let url1 = request.url();
-    let url2 = url1.clone();
-
-    HANDLE.lock().unwrap().as_ref().unwrap().spawn(
-        res.into_body()
-            .map_err(|e| {
-                warn!("Error streaming response body: {:?}", e);
-            })
-            .try_fold(res_body, move |res_body, chunk| {
-                if cancellation_listener.cancelled() {
-                    *res_body.lock().unwrap() = ResponseBody::Done(vec![]);
-                    let _ = done_sender.send(Data::Cancelled);
-                    return future::ready(Err(()));
-                }
-                if let ResponseBody::Receiving(ref mut body) = *res_body.lock().unwrap() {
-                    let bytes = chunk;
-                    body.extend_from_slice(&bytes);
-                    let _ = done_sender.send(Data::Payload(bytes.to_vec()));
-                }
-                future::ready(Ok(res_body))
-            })
-            .and_then(move |res_body| {
-                debug!("successfully finished response for {:?}", url1);
-                let mut body = res_body.lock().unwrap();
-                let completed_body = match *body {
-                    ResponseBody::Receiving(ref mut body) => std::mem::take(body),
-                    _ => vec![],
-                };
-                *body = ResponseBody::Done(completed_body);
-                timing_ptr2
-                    .lock()
-                    .unwrap()
-                    .set_attribute(ResourceAttribute::ResponseEnd);
-                let _ = done_sender2.send(Data::Done);
-                future::ready(Ok(()))
-            })
-            .map_err(move |_| {
-                debug!("finished response for {:?}", url2);
-                let mut body = res_body2.lock().unwrap();
-                let completed_body = match *body {
-                    ResponseBody::Receiving(ref mut body) => std::mem::take(body),
-                    _ => vec![],
-                };
-                *body = ResponseBody::Done(completed_body);
-                timing_ptr3
-                    .lock()
-                    .unwrap()
-                    .set_attribute(ResourceAttribute::ResponseEnd);
-                let _ = done_sender3.send(Data::Done);
-            }),
-    );
-
-    // TODO these substeps aren't possible yet
-    // Substep 1
-
-    // Substep 2
-
-    response.https_state = match url.scheme() {
-        "https" => HttpsState::Modern,
-        _ => HttpsState::None,
-    };
-
-    // TODO Read request
-
-    // Step 6-11
-    // (needs stream bodies)
-
-    // Step 13
-    // TODO this step isn't possible yet (CSP)
-
-    // Step 14, update the cached response, done via the shared response body.
-
-    // TODO this step isn't possible yet
-    // Step 15
-    if credentials_flag {
-        set_cookies_from_headers(&url, &response.headers, &context.state.cookie_jar);
-    }
-    context
-        .state
-        .hsts_list
-        .write()
-        .unwrap()
-        .update_hsts_list_from_response(&url, &response.headers);
-
-    // TODO these steps
-    // Step 16
-    // Substep 1
-    // Substep 2
-    // Sub-substep 1
-    // Sub-substep 2
-    // Sub-substep 3
-    // Sub-substep 4
-    // Substep 3
-
-    // Step 16
-
-    // Ensure we don't override "responseEnd" on successful return of this function
-    response_end_timer.neuter();
-
-    response
-}
-
-/// [CORS preflight fetch](https://fetch.spec.whatwg.org#cors-preflight-fetch)
+/**
+ * @brief Performs a CORS preflight fetch.
+ * @param request The original request.
+ * @param cache The CORS cache.
+ * @param context The fetch context.
+ * @return A `Response` object for the preflight request.
+ */
 async fn cors_preflight_fetch(
     request: &Request,
     cache: &mut CorsCache,
@@ -2282,7 +2033,12 @@ async fn cors_preflight_fetch(
     Response::network_error(NetworkError::Internal("CORS check failed".into()))
 }
 
-/// [CORS check](https://fetch.spec.whatwg.org#concept-cors-check)
+/**
+ * @brief Performs a CORS check on a response.
+ * @param request The original request.
+ * @param response The response to check.
+ * @return `Ok(())` if the check passes, `Err(())` otherwise.
+ */
 fn cors_check(request: &Request, response: &Response) -> Result<(), ()> {
     // Step 1
     let origin = response.headers.typed_get::<AccessControlAllowOrigin>();
@@ -2294,7 +2050,7 @@ fn cors_check(request: &Request, response: &Response) -> Result<(), ()> {
     if request.credentials_mode != CredentialsMode::Include &&
         origin == AccessControlAllowOrigin::ANY
     {
-        return Ok(());
+        return Ok(())
     }
 
     // Step 4
@@ -2311,7 +2067,7 @@ fn cors_check(request: &Request, response: &Response) -> Result<(), ()> {
 
     // Step 5
     if request.credentials_mode != CredentialsMode::Include {
-        return Ok(());
+        return Ok(())
     }
 
     // Step 6
@@ -2321,17 +2077,27 @@ fn cors_check(request: &Request, response: &Response) -> Result<(), ()> {
 
     // Step 7
     if credentials.is_some() {
-        return Ok(());
+        return Ok(())
     }
 
     // Step 8
     Err(())
 }
 
+/**
+ * @brief Checks if a URL has credentials.
+ * @param url The URL to check.
+ * @return `true` if the URL has a username or password, `false` otherwise.
+ */
 fn has_credentials(url: &ServoUrl) -> bool {
     !url.username().is_empty() || url.password().is_some()
 }
 
+/**
+ * @brief Checks if a set of headers indicates a "no-store" cache mode.
+ * @param headers The headers to check.
+ * @return `true` if any of the conditional request headers are present, `false` otherwise.
+ */
 fn is_no_store_cache(headers: &HeaderMap) -> bool {
     headers.contains_key(header::IF_MODIFIED_SINCE) |
         headers.contains_key(header::IF_NONE_MATCH) |

@@ -1,19 +1,8 @@
-#include <iostream>
-#include <fstream>
-#include <sstream>
-#include <string>
-#include <vector>
-
 #include "helper.hpp"
 
 using namespace std;
 
-/**
- * @brief Checks the return code of an OpenCL function and prints an error message if it's not CL_SUCCESS.
- *
- * @param cl_ret The return code to check.
- * @return 1 if there was an error, 0 otherwise.
- */
+
 int CL_ERR(int cl_ret)
 {
 	if(cl_ret != CL_SUCCESS){
@@ -23,17 +12,21 @@ int CL_ERR(int cl_ret)
 	return 0;
 }
 
-/**
- * @brief Checks the return code of an OpenCL compilation and prints an error message and compiler log if it's not CL_SUCCESS.
- *
- * @param cl_ret The return code to check.
- * @param program The OpenCL program that was compiled.
- * @param device The device on which the program was compiled.
- * @return 1 if there was a compilation error, 0 otherwise.
- */
-int CL_COMPILE_ERR(int cl_ret,
-                  cl_program program,
-                  cl_device_id device)
+
+void read_kernel(string file_name, string &str_kernel)
+{
+  ifstream in_file(file_name.c_str());
+  in_file.open(file_name.c_str());
+  DIE( !in_file.is_open(), "ERR OpenCL kernel file. Same directory as binary ?" );
+
+  stringstream str_stream;
+  str_stream << in_file.rdbuf();
+
+  str_kernel = str_stream.str();
+}
+
+
+int CL_COMPILE_ERR(int cl_ret, cl_program program, cl_device_id device)
 {
 	if(cl_ret != CL_SUCCESS){
 		cout << endl << cl_get_string_err(cl_ret) << endl;
@@ -43,29 +36,7 @@ int CL_COMPILE_ERR(int cl_ret,
 	return 0;
 }
 
-/**
-* @brief Reads an OpenCL kernel from a file into a string.
-* @param file_name The name of the file containing the kernel.
-* @param str_kernel A reference to a string where the kernel source will be stored.
-*/
-void read_kernel(string file_name, string &str_kernel)
-{
-	ifstream in_file(file_name.c_str());
-	in_file.open(file_name.c_str());
-	DIE( !in_file.is_open(), "ERR OpenCL kernel file. Same directory as binary ?" );
 
-	stringstream str_stream;
-	str_stream << in_file.rdbuf();
-
-	str_kernel = str_stream.str();
-}
-
-/**
- * @brief Returns a string representation of an OpenCL error code.
- *
- * @param err The OpenCL error code.
- * @return A string describing the error.
- */
 const char* cl_get_string_err(cl_int err) {
 switch (err) {
   case CL_SUCCESS:                     	return  "Success!";
@@ -118,24 +89,18 @@ switch (err) {
   }
 }
 
-/**
- * @brief Prints the OpenCL compiler error log for a given program and device.
- *
- * @param program The OpenCL program.
- * @param device The OpenCL device.
- */
-void cl_get_compiler_err_log(cl_program program,
-                             cl_device_id device)
+
+void cl_get_compiler_err_log(cl_program program, cl_device_id device)
 {
 	char* build_log;
 	size_t log_size;
 
-	/* first call to know the proper size */
+	
 	clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG,
 						  0, NULL, &log_size);
 	build_log = new char[ log_size + 1 ];
 
-	/* second call to get the log */
+	
 	clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG,
 						  log_size, build_log, NULL);
 	build_log[ log_size ] = '\0';

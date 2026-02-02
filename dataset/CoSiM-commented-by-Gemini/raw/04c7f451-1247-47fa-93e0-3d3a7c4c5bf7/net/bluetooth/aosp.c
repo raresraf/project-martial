@@ -1,4 +1,14 @@
 // SPDX-License-Identifier: GPL-2.0-only
+/**
+ * @file
+ * @brief Manages Android Open Source Project (AOSP) vendor-specific Bluetooth capabilities.
+ *
+ * This file implements the logic for querying and handling AOSP-specific
+ * Bluetooth controller features, particularly related to vendor capabilities
+ * and Bluetooth Quality Reports (BQR). It communicates with the Bluetooth
+ * controller using HCI commands to determine supported features and to
+ * enable or disable them.
+ */
 /*
  * Copyright (C) 2021 Intel Corporation
  */
@@ -40,6 +50,16 @@ struct aosp_rp_le_get_vendor_capa {
 #define VENDOR_CAPA_BASE_SIZE		15
 #define VENDOR_CAPA_0_98_SIZE		21
 
+/**
+ * @brief Initializes AOSP-specific Bluetooth extensions for a given HCI device.
+ *
+ * This function is called when an HCI device is opened. It queries the
+ * controller for AOSP vendor-specific capabilities and configures the
+ * device accordingly. It checks the supported AOSP version and enables
+ * features like Bluetooth Quality Reports (BQR) if available.
+ *
+ * @param hdev The HCI device to initialize.
+ */
 void aosp_do_open(struct hci_dev *hdev)
 {
 	struct sk_buff *skb;
@@ -90,10 +110,10 @@ void aosp_do_open(struct hci_dev *hdev)
 		goto length_error;
 
 	/* The bluetooth_quality_report_support is defined at version
-	 * v0.98. Refer to
-	 * https://cs.android.com/android/platform/superproject/+/
-	 *         master:system/bt/gd/hci/controller.cc;l=477
-	 */
+ * v0.98. Refer to
+ * https://cs.android.com/android/platform/superproject/+/
+ *         master:system/bt/gd/hci/controller.cc;l=477
+ */
 	if (rp->bluetooth_quality_report_support) {
 		hdev->aosp_quality_report = true;
 		bt_dev_info(hdev, "AOSP quality report is supported");
@@ -108,6 +128,14 @@ done:
 	kfree_skb(skb);
 }
 
+/**
+ * @brief Cleans up AOSP-specific Bluetooth extensions for a given HCI device.
+ *
+ * This function is called when an HCI device is closed. It performs any
+ * necessary cleanup related to AOSP extensions.
+ *
+ * @param hdev The HCI device to clean up.
+ */
 void aosp_do_close(struct hci_dev *hdev)
 {
 	if (!hdev->aosp_capable)
@@ -130,7 +158,7 @@ void aosp_do_close(struct hci_dev *hdev)
 #define A2DP_AUDIO_CHOPPY		BIT(2)
 #define SCO_VOICE_CHOPPY		BIT(3)
 
-#define DEFAULT_BQR_EVENT_MASK	(QUALITY_MONITORING | APPRAOCHING_LSTO | \
+#define DEFAULT_BQR_EVENT_MASK	(QUALITY_MONITORING | APPRAOCHING_LSTO |
 				 A2DP_AUDIO_CHOPPY | SCO_VOICE_CHOPPY)
 
 /* Reporting at milliseconds so as not to stress the controller too much.
@@ -144,6 +172,15 @@ struct aosp_bqr_cp {
 	__u16	min_report_interval;
 } __packed;
 
+/**
+ * @brief Enables Bluetooth Quality Reports (BQR) on the controller.
+ *
+ * Sends an HCI command to the controller to start monitoring and reporting
+ * on various quality metrics, such as link quality and audio choppiness.
+ *
+ * @param hdev The HCI device.
+ * @return 0 on success, or a negative error code on failure.
+ */
 static int enable_quality_report(struct hci_dev *hdev)
 {
 	struct sk_buff *skb;
@@ -168,6 +205,15 @@ static int enable_quality_report(struct hci_dev *hdev)
 	return 0;
 }
 
+/**
+ * @brief Disables Bluetooth Quality Reports (BQR) on the controller.
+ *
+ * Sends an HCI command to the controller to stop monitoring and reporting
+ * on quality metrics.
+ *
+ * @param hdev The HCI device.
+ * @return 0 on success, or a negative error code on failure.
+ */
 static int disable_quality_report(struct hci_dev *hdev)
 {
 	struct sk_buff *skb;
@@ -190,11 +236,25 @@ static int disable_quality_report(struct hci_dev *hdev)
 	return 0;
 }
 
+/**
+ * @brief Checks if the HCI device supports Bluetooth Quality Reports (BQR).
+ *
+ * @param hdev The HCI device.
+ * @return True if BQR is supported, false otherwise.
+ */
 bool aosp_has_quality_report(struct hci_dev *hdev)
 {
 	return hdev->aosp_quality_report;
 }
 
+/**
+ * @brief Enables or disables Bluetooth Quality Reports (BQR) for a given HCI device.
+ *
+ * @param hdev The HCI device.
+ * @param enable True to enable BQR, false to disable it.
+ * @return 0 on success, -EOPNOTSUPP if the feature is not supported, or another
+ *         negative error code on failure.
+ */
 int aosp_set_quality_report(struct hci_dev *hdev, bool enable)
 {
 	if (!aosp_has_quality_report(hdev))

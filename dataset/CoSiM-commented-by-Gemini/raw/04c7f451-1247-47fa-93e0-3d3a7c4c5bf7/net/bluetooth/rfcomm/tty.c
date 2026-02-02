@@ -21,8 +21,16 @@
    SOFTWARE IS DISCLAIMED.
 */
 
-/*
- * RFCOMM TTY.
+/**
+ * @file
+ * @brief This file provides the TTY layer for the RFCOMM protocol, enabling the
+ * emulation of serial ports over Bluetooth connections.
+ *
+ * It manages the lifecycle of RFCOMM TTY devices, handling their creation,
+ * registration, and destruction. It also implements the TTY operations,
+ * such as open, close, read, write, and ioctl, by translating them into
+ * RFCOMM DLC operations. This allows user-space applications to interact
+ * with remote Bluetooth devices as if they were standard serial ports.
  */
 
 #include <linux/module.h>
@@ -77,6 +85,14 @@ static void rfcomm_dev_modem_status(struct rfcomm_dlc *dlc, u8 v24_sig);
 
 /* ---- Device functions ---- */
 
+/**
+ * @brief Destructor for an RFCOMM TTY port.
+ * @param port The TTY port to be destructed.
+ *
+ * This function cleans up the resources associated with an RFCOMM device,
+ * including detaching it from the DLC, unregistering the TTY device, and
+ * freeing the device structure.
+ */
 static void rfcomm_dev_destruct(struct tty_port *port)
 {
 	struct rfcomm_dev *dev = container_of(port, struct rfcomm_dev, port);
@@ -106,7 +122,15 @@ static void rfcomm_dev_destruct(struct tty_port *port)
 	module_put(THIS_MODULE);
 }
 
-/* device-specific initialization: open the dlc */
+/**
+ * @brief Activates an RFCOMM TTY port.
+ * @param port The TTY port to be activated.
+ * @param tty The TTY structure.
+ * @return 0 on success, or a negative error code on failure.
+ *
+ * This function is called when the TTY device is opened. It initiates the
+ * opening of the underlying RFCOMM DLC.
+ */
 static int rfcomm_dev_activate(struct tty_port *port, struct tty_struct *tty)
 {
 	struct rfcomm_dev *dev = container_of(port, struct rfcomm_dev, port);
@@ -118,7 +142,15 @@ static int rfcomm_dev_activate(struct tty_port *port, struct tty_struct *tty)
 	return err;
 }
 
-/* we block the open until the dlc->state becomes BT_CONNECTED */
+/**
+ * @brief Checks if the carrier is raised for an RFCOMM TTY port.
+ * @param port The TTY port.
+ * @return True if the carrier is raised, false otherwise.
+ *
+ * This function is used by the TTY layer to determine if the connection is
+ * established. It checks if the underlying RFCOMM DLC is in the BT_CONNECTED
+ * state.
+ */
 static bool rfcomm_dev_carrier_raised(struct tty_port *port)
 {
 	struct rfcomm_dev *dev = container_of(port, struct rfcomm_dev, port);
@@ -126,7 +158,13 @@ static bool rfcomm_dev_carrier_raised(struct tty_port *port)
 	return (dev->dlc->state == BT_CONNECTED);
 }
 
-/* device-specific cleanup: close the dlc */
+/**
+ * @brief Shuts down an RFCOMM TTY port.
+ * @param port The TTY port to be shut down.
+ *
+ * This function is called when the TTY device is closed. It closes the
+ * underlying RFCOMM DLC.
+ */
 static void rfcomm_dev_shutdown(struct tty_port *port)
 {
 	struct rfcomm_dev *dev = container_of(port, struct rfcomm_dev, port);
@@ -145,6 +183,11 @@ static const struct tty_port_operations rfcomm_port_ops = {
 	.carrier_raised = rfcomm_dev_carrier_raised,
 };
 
+/**
+ * @brief Looks up an RFCOMM device by its ID.
+ * @param id The ID of the device to look up.
+ * @return A pointer to the RFCOMM device, or NULL if not found.
+ */
 static struct rfcomm_dev *__rfcomm_dev_lookup(int id)
 {
 	struct rfcomm_dev *dev;
@@ -156,6 +199,12 @@ static struct rfcomm_dev *__rfcomm_dev_lookup(int id)
 	return NULL;
 }
 
+/**
+ * @brief Gets a reference to an RFCOMM device by its ID.
+ * @param id The ID of the device.
+ * @return A pointer to the RFCOMM device with an incremented reference count,
+ *         or NULL if not found.
+ */
 static struct rfcomm_dev *rfcomm_dev_get(int id)
 {
 	struct rfcomm_dev *dev;
@@ -172,6 +221,13 @@ static struct rfcomm_dev *rfcomm_dev_get(int id)
 	return dev;
 }
 
+/**
+ * @brief Reparents the TTY device to the corresponding HCI connection device.
+ * @param dev The RFCOMM device.
+ *
+ * This function moves the TTY device in the sysfs hierarchy to be a child
+ * of the HCI connection device, providing a more intuitive device tree.
+ */
 static void rfcomm_reparent_device(struct rfcomm_dev *dev)
 {
 	struct hci_dev *hdev;
@@ -197,14 +253,28 @@ static void rfcomm_reparent_device(struct rfcomm_dev *dev)
 	hci_dev_put(hdev);
 }
 
-static ssize_t address_show(struct device *tty_dev,
+/**
+ * @brief Show function for the 'address' sysfs attribute.
+ * @param tty_dev The device structure.
+ * @param attr The device attribute.
+ * @param buf The buffer to write the address to.
+ * @return The number of bytes written.
+ */
+static ssize_t address_show(struct device *tty_dev, 
 			    struct device_attribute *attr, char *buf)
 {
 	struct rfcomm_dev *dev = dev_get_drvdata(tty_dev);
 	return sysfs_emit(buf, "%pMR\n", &dev->dst);
 }
 
-static ssize_t channel_show(struct device *tty_dev,
+/**
+ * @brief Show function for the 'channel' sysfs attribute.
+ * @param tty_dev The device structure.
+ * @param attr The device attribute.
+ * @param buf The buffer to write the channel to.
+ * @return The number of bytes written.
+ */
+static ssize_t channel_show(struct device *tty_dev, 
 			    struct device_attribute *attr, char *buf)
 {
 	struct rfcomm_dev *dev = dev_get_drvdata(tty_dev);
@@ -214,7 +284,16 @@ static ssize_t channel_show(struct device *tty_dev,
 static DEVICE_ATTR_RO(address);
 static DEVICE_ATTR_RO(channel);
 
-static struct rfcomm_dev *__rfcomm_dev_add(struct rfcomm_dev_req *req,
+/**
+ * @brief Adds a new RFCOMM device.
+ * @param req The device request structure.
+ * @param dlc The RFCOMM DLC to associate with the device.
+ * @return A pointer to the new device, or an error pointer on failure.
+ *
+ * This function allocates and initializes a new RFCOMM device structure,
+ * links it to the provided DLC, and adds it to the global list of devices.
+ */
+static struct rfcomm_dev *__rfcomm_dev_add(struct rfcomm_dev_req *req, 
 					   struct rfcomm_dlc *dlc)
 {
 	struct rfcomm_dev *dev, *entry;
@@ -291,12 +370,12 @@ static struct rfcomm_dev *__rfcomm_dev_add(struct rfcomm_dev_req *req,
 		}
 	}
 
-	dlc->data_ready   = rfcomm_dev_data_ready;
-	dlc->state_change = rfcomm_dev_state_change;
-	dlc->modem_status = rfcomm_dev_modem_status;
+	dlc->data_ready 	= rfcomm_dev_data_ready;
+	dlc->state_change 	= rfcomm_dev_state_change;
+	dlc->modem_status 	= rfcomm_dev_modem_status;
 
 	dlc->owner = dev;
-	dev->dlc   = dlc;
+	dev->dlc 	= dlc;
 
 	rfcomm_dev_modem_status(dlc, dlc->remote_v24_sig);
 
@@ -314,7 +393,12 @@ out:
 	kfree(dev);
 	return ERR_PTR(err);
 }
-
+/**
+ * @brief Creates and registers a new RFCOMM TTY device.
+ * @param req The device request structure.
+ * @param dlc The RFCOMM DLC to associate with the device.
+ * @return The ID of the new device, or a negative error code on failure.
+ */
 static int rfcomm_dev_add(struct rfcomm_dev_req *req, struct rfcomm_dlc *dlc)
 {
 	struct rfcomm_dev *dev;
@@ -349,6 +433,11 @@ static int rfcomm_dev_add(struct rfcomm_dev_req *req, struct rfcomm_dlc *dlc)
 }
 
 /* ---- Send buffer ---- */
+/**
+ * @brief Gets the available room in the transmit buffer of an RFCOMM device.
+ * @param dev The RFCOMM device.
+ * @return The number of bytes available in the transmit buffer.
+ */
 static inline unsigned int rfcomm_room(struct rfcomm_dev *dev)
 {
 	struct rfcomm_dlc *dlc = dev->dlc;
@@ -358,7 +447,13 @@ static inline unsigned int rfcomm_room(struct rfcomm_dev *dev)
 
 	return max(0, pending) * dlc->mtu;
 }
-
+/**
+ * @brief Destructor for socket buffers sent on an RFCOMM device.
+ * @param skb The socket buffer.
+ *
+ * This function decrements the write memory allocation counter and wakes up
+ * the TTY port if necessary.
+ */
 static void rfcomm_wfree(struct sk_buff *skb)
 {
 	struct rfcomm_dev *dev = (void *) skb->sk;
@@ -367,7 +462,11 @@ static void rfcomm_wfree(struct sk_buff *skb)
 		tty_port_tty_wakeup(&dev->port);
 	tty_port_put(&dev->port);
 }
-
+/**
+ * @brief Sets the owner of a socket buffer to an RFCOMM device.
+ * @param skb The socket buffer.
+ * @param dev The RFCOMM device.
+ */
 static void rfcomm_set_owner_w(struct sk_buff *skb, struct rfcomm_dev *dev)
 {
 	tty_port_get(&dev->port);
@@ -375,7 +474,13 @@ static void rfcomm_set_owner_w(struct sk_buff *skb, struct rfcomm_dev *dev)
 	skb->sk = (void *) dev;
 	skb->destructor = rfcomm_wfree;
 }
-
+/**
+ * @brief Allocates a socket buffer for writing to an RFCOMM device.
+ * @param dev The RFCOMM device.
+ * @param size The size of the buffer to allocate.
+ * @param priority The GFP allocation flags.
+ * @return A pointer to the new socket buffer, or NULL on failure.
+ */
 static struct sk_buff *rfcomm_wmalloc(struct rfcomm_dev *dev, unsigned long size, gfp_t priority)
 {
 	struct sk_buff *skb = alloc_skb(size, priority);
@@ -388,6 +493,12 @@ static struct sk_buff *rfcomm_wmalloc(struct rfcomm_dev *dev, unsigned long size
 
 #define NOCAP_FLAGS ((1 << RFCOMM_REUSE_DLC) | (1 << RFCOMM_RELEASE_ONHUP))
 
+/**
+ * @brief Creates a new RFCOMM device.
+ * @param sk The socket initiating the request.
+ * @param arg A user-space pointer to a rfcomm_dev_req structure.
+ * @return The ID of the new device on success, or a negative error code on failure.
+ */
 static int __rfcomm_create_dev(struct sock *sk, void __user *arg)
 {
 	struct rfcomm_dev_req req;
@@ -433,7 +544,11 @@ static int __rfcomm_create_dev(struct sock *sk, void __user *arg)
 
 	return id;
 }
-
+/**
+ * @brief Releases an RFCOMM device.
+ * @param arg A user-space pointer to a rfcomm_dev_req structure.
+ * @return 0 on success, or a negative error code on failure.
+ */
 static int __rfcomm_release_dev(void __user *arg)
 {
 	struct rfcomm_dev_req req;
@@ -476,7 +591,12 @@ static int __rfcomm_release_dev(void __user *arg)
 	tty_port_put(&dev->port);
 	return 0;
 }
-
+/**
+ * @brief Handles the RFCOMMCREATEDEV ioctl.
+ * @param sk The socket.
+ * @param arg A user-space pointer to a rfcomm_dev_req structure.
+ * @return The ID of the new device on success, or a negative error code on failure.
+ */
 static int rfcomm_create_dev(struct sock *sk, void __user *arg)
 {
 	int ret;
@@ -488,6 +608,11 @@ static int rfcomm_create_dev(struct sock *sk, void __user *arg)
 	return ret;
 }
 
+/**
+ * @brief Handles the RFCOMMRELEASEDEV ioctl.
+ * @param arg A user-space pointer to a rfcomm_dev_req structure.
+ * @return 0 on success, or a negative error code on failure.
+ */
 static int rfcomm_release_dev(void __user *arg)
 {
 	int ret;
@@ -499,6 +624,11 @@ static int rfcomm_release_dev(void __user *arg)
 	return ret;
 }
 
+/**
+ * @brief Handles the RFCOMMGETDEVLIST ioctl.
+ * @param arg A user-space pointer to a rfcomm_dev_list_req structure.
+ * @return 0 on success, or a negative error code on failure.
+ */
 static int rfcomm_get_dev_list(void __user *arg)
 {
 	struct rfcomm_dev *dev;
@@ -527,9 +657,9 @@ static int rfcomm_get_dev_list(void __user *arg)
 	list_for_each_entry(dev, &rfcomm_dev_list, list) {
 		if (!tty_port_get(&dev->port))
 			continue;
-		di[n].id      = dev->id;
-		di[n].flags   = dev->flags;
-		di[n].state   = dev->dlc->state;
+		di[n].id 	= dev->id;
+		di[n].flags 	= dev->flags;
+		di[n].state 	= dev->dlc->state;
 		di[n].channel = dev->channel;
 		bacpy(&di[n].src, &dev->src);
 		bacpy(&di[n].dst, &dev->dst);
@@ -546,7 +676,11 @@ static int rfcomm_get_dev_list(void __user *arg)
 
 	return err ? -EFAULT : 0;
 }
-
+/**
+ * @brief Handles the RFCOMMGETDEVINFO ioctl.
+ * @param arg A user-space pointer to a rfcomm_dev_info structure.
+ * @return 0 on success, or a negative error code on failure.
+ */
 static int rfcomm_get_dev_info(void __user *arg)
 {
 	struct rfcomm_dev *dev;
@@ -562,9 +696,9 @@ static int rfcomm_get_dev_info(void __user *arg)
 	if (!dev)
 		return -ENODEV;
 
-	di.flags   = dev->flags;
+	di.flags 	= dev->flags;
 	di.channel = dev->channel;
-	di.state   = dev->dlc->state;
+	di.state 	= dev->dlc->state;
 	bacpy(&di.src, &dev->src);
 	bacpy(&di.dst, &dev->dst);
 
@@ -574,7 +708,13 @@ static int rfcomm_get_dev_info(void __user *arg)
 	tty_port_put(&dev->port);
 	return err;
 }
-
+/**
+ * @brief Handles RFCOMM-specific ioctls on a socket.
+ * @param sk The socket.
+ * @param cmd The ioctl command.
+ * @param arg A user-space pointer to the argument.
+ * @return 0 on success, or a negative error code on failure.
+ */
 int rfcomm_dev_ioctl(struct sock *sk, unsigned int cmd, void __user *arg)
 {
 	BT_DBG("cmd %d arg %p", cmd, arg);
@@ -597,6 +737,11 @@ int rfcomm_dev_ioctl(struct sock *sk, unsigned int cmd, void __user *arg)
 }
 
 /* ---- DLC callbacks ---- */
+/**
+ * @brief Callback function for when data is ready on an RFCOMM DLC.
+ * @param dlc The RFCOMM DLC.
+ * @param skb The socket buffer containing the data.
+ */
 static void rfcomm_dev_data_ready(struct rfcomm_dlc *dlc, struct sk_buff *skb)
 {
 	struct rfcomm_dev *dev = dlc->owner;
@@ -618,7 +763,11 @@ static void rfcomm_dev_data_ready(struct rfcomm_dlc *dlc, struct sk_buff *skb)
 
 	kfree_skb(skb);
 }
-
+/**
+ * @brief Callback function for when the state of an RFCOMM DLC changes.
+ * @param dlc The RFCOMM DLC.
+ * @param err The error code associated with the state change.
+ */
 static void rfcomm_dev_state_change(struct rfcomm_dlc *dlc, int err)
 {
 	struct rfcomm_dev *dev = dlc->owner;
@@ -635,7 +784,11 @@ static void rfcomm_dev_state_change(struct rfcomm_dlc *dlc, int err)
 	} else if (dlc->state == BT_CLOSED)
 		tty_port_tty_hangup(&dev->port, false);
 }
-
+/**
+ * @brief Callback function for when the modem status of an RFCOMM DLC changes.
+ * @param dlc The RFCOMM DLC.
+ * @param v24_sig The new V.24 signals.
+ */
 static void rfcomm_dev_modem_status(struct rfcomm_dlc *dlc, u8 v24_sig)
 {
 	struct rfcomm_dev *dev = dlc->owner;
@@ -655,6 +808,10 @@ static void rfcomm_dev_modem_status(struct rfcomm_dlc *dlc, u8 v24_sig)
 }
 
 /* ---- TTY functions ---- */
+/**
+ * @brief Copies pending data from the DLC to the TTY flip buffer.
+ * @param dev The RFCOMM device.
+ */
 static void rfcomm_tty_copy_pending(struct rfcomm_dev *dev)
 {
 	struct sk_buff *skb;
@@ -666,7 +823,7 @@ static void rfcomm_tty_copy_pending(struct rfcomm_dev *dev)
 
 	while ((skb = skb_dequeue(&dev->pending))) {
 		inserted += tty_insert_flip_string(&dev->port, skb->data,
-				skb->len);
+								skb->len);
 		kfree_skb(skb);
 	}
 
@@ -676,8 +833,9 @@ static void rfcomm_tty_copy_pending(struct rfcomm_dev *dev)
 		tty_flip_buffer_push(&dev->port);
 }
 
-/* do the reverse of install, clearing the tty fields and releasing the
- * reference to tty_port
+/**
+ * @brief Cleans up the TTY structure.
+ * @param tty The TTY structure.
  */
 static void rfcomm_tty_cleanup(struct tty_struct *tty)
 {
@@ -698,9 +856,11 @@ static void rfcomm_tty_cleanup(struct tty_struct *tty)
 	tty_port_put(&dev->port);
 }
 
-/* we acquire the tty_port reference since it's here the tty is first used
- * by setting the termios. We also populate the driver_data field and install
- * the tty port
+/**
+ * @brief Installs a TTY device.
+ * @param driver The TTY driver.
+ * @param tty The TTY structure.
+ * @return 0 on success, or a negative error code on failure.
  */
 static int rfcomm_tty_install(struct tty_driver *driver, struct tty_struct *tty)
 {
@@ -739,7 +899,12 @@ static int rfcomm_tty_install(struct tty_driver *driver, struct tty_struct *tty)
 
 	return 0;
 }
-
+/**
+ * @brief Opens an RFCOMM TTY device.
+ * @param tty The TTY structure.
+ * @param filp The file pointer.
+ * @return 0 on success, or a negative error code on failure.
+ */
 static int rfcomm_tty_open(struct tty_struct *tty, struct file *filp)
 {
 	struct rfcomm_dev *dev = tty->driver_data;
@@ -765,7 +930,11 @@ static int rfcomm_tty_open(struct tty_struct *tty, struct file *filp)
 
 	return 0;
 }
-
+/**
+ * @brief Closes an RFCOMM TTY device.
+ * @param tty The TTY structure.
+ * @param filp The file pointer.
+ */
 static void rfcomm_tty_close(struct tty_struct *tty, struct file *filp)
 {
 	struct rfcomm_dev *dev = tty->driver_data;
@@ -775,8 +944,14 @@ static void rfcomm_tty_close(struct tty_struct *tty, struct file *filp)
 
 	tty_port_close(&dev->port, tty, filp);
 }
-
-static ssize_t rfcomm_tty_write(struct tty_struct *tty, const u8 *buf,
+/**
+ * @brief Writes data to an RFCOMM TTY device.
+ * @param tty The TTY structure.
+ * @param buf The data to write.
+ * @param count The number of bytes to write.
+ * @return The number of bytes written.
+ */
+static ssize_t rfcomm_tty_write(struct tty_struct *tty, const u8 *buf, 
 				size_t count)
 {
 	struct rfcomm_dev *dev = tty->driver_data;
@@ -797,7 +972,7 @@ static ssize_t rfcomm_tty_write(struct tty_struct *tty, const u8 *buf,
 
 		skb_put_data(skb, buf + sent, size);
 
-		rfcomm_dlc_send_noerror(dlc, skb);
+	rfcomm_dlc_send_noerror(dlc, skb);
 
 		sent  += size;
 		count -= size;
@@ -805,7 +980,11 @@ static ssize_t rfcomm_tty_write(struct tty_struct *tty, const u8 *buf,
 
 	return sent;
 }
-
+/**
+ * @brief Gets the available room in the TTY write buffer.
+ * @param tty The TTY structure.
+ * @return The number of bytes available.
+ */
 static unsigned int rfcomm_tty_write_room(struct tty_struct *tty)
 {
 	struct rfcomm_dev *dev = tty->driver_data;
@@ -818,7 +997,13 @@ static unsigned int rfcomm_tty_write_room(struct tty_struct *tty)
 
 	return room;
 }
-
+/**
+ * @brief Handles ioctls for an RFCOMM TTY device.
+ * @param tty The TTY structure.
+ * @param cmd The ioctl command.
+ * @param arg The ioctl argument.
+ * @return 0 on success, or a negative error code on failure.
+ */
 static int rfcomm_tty_ioctl(struct tty_struct *tty, unsigned int cmd, unsigned long arg)
 {
 	BT_DBG("tty %p cmd 0x%02x", tty, cmd);
@@ -851,8 +1036,12 @@ static int rfcomm_tty_ioctl(struct tty_struct *tty, unsigned int cmd, unsigned l
 
 	return -ENOIOCTLCMD;
 }
-
-static void rfcomm_tty_set_termios(struct tty_struct *tty,
+/**
+ * @brief Sets the termios settings for an RFCOMM TTY device.
+ * @param tty The TTY structure.
+ * @param old The old termios settings.
+ */
+static void rfcomm_tty_set_termios(struct tty_struct *tty, 
 				   const struct ktermios *old)
 {
 	struct ktermios *new = &tty->termios;
@@ -991,7 +1180,10 @@ static void rfcomm_tty_set_termios(struct tty_struct *tty,
 				data_bits, stop_bits, parity,
 				RFCOMM_RPN_FLOW_NONE, x_on, x_off, changes);
 }
-
+/**
+ * @brief Throttles the TTY device.
+ * @param tty The TTY structure.
+ */
 static void rfcomm_tty_throttle(struct tty_struct *tty)
 {
 	struct rfcomm_dev *dev = tty->driver_data;
@@ -1000,7 +1192,10 @@ static void rfcomm_tty_throttle(struct tty_struct *tty)
 
 	rfcomm_dlc_throttle(dev->dlc);
 }
-
+/**
+ * @brief Unthrottles the TTY device.
+ * @param tty The TTY structure.
+ */
 static void rfcomm_tty_unthrottle(struct tty_struct *tty)
 {
 	struct rfcomm_dev *dev = tty->driver_data;
@@ -1009,7 +1204,11 @@ static void rfcomm_tty_unthrottle(struct tty_struct *tty)
 
 	rfcomm_dlc_unthrottle(dev->dlc);
 }
-
+/**
+ * @brief Gets the number of characters in the TTY write buffer.
+ * @param tty The TTY structure.
+ * @return The number of characters.
+ */
 static unsigned int rfcomm_tty_chars_in_buffer(struct tty_struct *tty)
 {
 	struct rfcomm_dev *dev = tty->driver_data;
@@ -1024,7 +1223,10 @@ static unsigned int rfcomm_tty_chars_in_buffer(struct tty_struct *tty)
 
 	return 0;
 }
-
+/**
+ * @brief Flushes the TTY write buffer.
+ * @param tty The TTY structure.
+ */
 static void rfcomm_tty_flush_buffer(struct tty_struct *tty)
 {
 	struct rfcomm_dev *dev = tty->driver_data;
@@ -1037,17 +1239,28 @@ static void rfcomm_tty_flush_buffer(struct tty_struct *tty)
 	skb_queue_purge(&dev->dlc->tx_queue);
 	tty_wakeup(tty);
 }
-
+/**
+ * @brief Sends an XON/XOFF character.
+ * @param tty The TTY structure.
+ * @param ch The character to send.
+ */
 static void rfcomm_tty_send_xchar(struct tty_struct *tty, u8 ch)
 {
 	BT_DBG("tty %p ch %c", tty, ch);
 }
-
+/**
+ * @brief Waits until all characters in the write buffer have been sent.
+ * @param tty The TTY structure.
+ * @param timeout The timeout in jiffies.
+ */
 static void rfcomm_tty_wait_until_sent(struct tty_struct *tty, int timeout)
 {
 	BT_DBG("tty %p timeout %d", tty, timeout);
 }
-
+/**
+ * @brief Hangs up the TTY device.
+ * @param tty The TTY structure.
+ */
 static void rfcomm_tty_hangup(struct tty_struct *tty)
 {
 	struct rfcomm_dev *dev = tty->driver_data;
@@ -1056,7 +1269,11 @@ static void rfcomm_tty_hangup(struct tty_struct *tty)
 
 	tty_port_hangup(&dev->port);
 }
-
+/**
+ * @brief Gets the modem status signals.
+ * @param tty The TTY structure.
+ * @return The modem status signals.
+ */
 static int rfcomm_tty_tiocmget(struct tty_struct *tty)
 {
 	struct rfcomm_dev *dev = tty->driver_data;
@@ -1065,7 +1282,13 @@ static int rfcomm_tty_tiocmget(struct tty_struct *tty)
 
 	return dev->modem_status;
 }
-
+/**
+ * @brief Sets the modem status signals.
+ * @param tty The TTY structure.
+ * @param set A bitmask of signals to set.
+ * @param clear A bitmask of signals to clear.
+ * @return 0 on success.
+ */
 static int rfcomm_tty_tiocmset(struct tty_struct *tty, unsigned int set, unsigned int clear)
 {
 	struct rfcomm_dev *dev = tty->driver_data;
@@ -1117,10 +1340,14 @@ static const struct tty_operations rfcomm_ops = {
 	.wait_until_sent	= rfcomm_tty_wait_until_sent,
 	.tiocmget		= rfcomm_tty_tiocmget,
 	.tiocmset		= rfcomm_tty_tiocmset,
-	.install                = rfcomm_tty_install,
-	.cleanup                = rfcomm_tty_cleanup,
+	.install		= rfcomm_tty_install,
+	.cleanup		= rfcomm_tty_cleanup,
 };
 
+/**
+ * @brief Initializes the RFCOMM TTY layer.
+ * @return 0 on success, or a negative error code on failure.
+ */
 int __init rfcomm_init_ttys(void)
 {
 	int error;
@@ -1152,7 +1379,9 @@ int __init rfcomm_init_ttys(void)
 
 	return 0;
 }
-
+/**
+ * @brief Cleans up the RFCOMM TTY layer.
+ */
 void rfcomm_cleanup_ttys(void)
 {
 	tty_unregister_driver(rfcomm_tty_driver);

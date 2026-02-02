@@ -25,6 +25,17 @@
 
 using namespace std;
 
+/**
+ * @brief This program determines if a given situation in a football match is "dangerous".
+ *
+ * A situation is considered dangerous if there are at least 7 consecutive players
+ * from the same team. The team alignment is represented by a binary string, where
+ * '0' and '1' represent players from the two different teams.
+ *
+ * The program reads a binary string from the standard input, iterates through it
+ * to find the longest sequence of identical characters, and prints "YES" if this
+ * sequence is 7 or longer, and "NO" otherwise.
+ */
 int main() {
 
   string str;

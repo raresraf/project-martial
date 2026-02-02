@@ -21,8 +21,16 @@
    SOFTWARE IS DISCLAIMED.
 */
 
-/*
- * Bluetooth RFCOMM core.
+/**
+ * @file
+ * @brief Core implementation of the Bluetooth RFCOMM protocol.
+ *
+ * This file provides the core functionality for the RFCOMM protocol, which
+ * emulates serial ports over the L2CAP protocol. It manages sessions, Data
+ * Link Connections (DLCs), and the flow of data between the host and remote
+ * devices. This includes handling connection setup, teardown, flow control,
+ * and error handling. It also provides an interface for upper layers to
+ * interact with RFCOMM DLCs as if they were serial ports.
  */
 
 #include <linux/module.h>
@@ -103,6 +111,12 @@ static struct rfcomm_session *rfcomm_session_del(struct rfcomm_session *s);
 
 static DECLARE_WAIT_QUEUE_HEAD(rfcomm_wq);
 
+/**
+ * @brief Schedules the RFCOMM worker thread to run.
+ *
+ * This function wakes up the RFCOMM kthread, allowing it to process pending
+ * events and data.
+ */
 static void rfcomm_schedule(void)
 {
 	wake_up_all(&rfcomm_wq);
@@ -169,6 +183,16 @@ static inline u8 __fcs2(u8 *data)
 }
 
 /* Check FCS */
+/**
+ * @brief Verifies the Frame Check Sequence (FCS) of a received RFCOMM frame.
+ * @param data Pointer to the start of the frame data used for FCS calculation.
+ * @param type The type of the RFCOMM frame (e.g., UIH, SABM).
+ * @param fcs The received FCS value from the frame.
+ * @return 0 if the FCS is valid, non-zero otherwise.
+ *
+ * This function calculates the expected FCS for the given frame data and
+ * compares it with the received FCS to ensure data integrity.
+ */
 static inline int __check_fcs(u8 *data, int type, u8 fcs)
 {
 	u8 f = __crc(data);
@@ -180,12 +204,28 @@ static inline int __check_fcs(u8 *data, int type, u8 fcs)
 }
 
 /* ---- L2CAP callbacks ---- */
+/**
+ * @brief Callback function for L2CAP socket state changes.
+ * @param sk The L2CAP socket.
+ *
+ * This function is invoked by the L2CAP layer when the state of the underlying
+ * L2CAP connection changes. It schedules the RFCOMM worker thread to handle
+ * the state change.
+ */
 static void rfcomm_l2state_change(struct sock *sk)
 {
 	BT_DBG("%p state %d", sk, sk->sk_state);
 	rfcomm_schedule();
 }
 
+/**
+ * @brief Callback function for L2CAP data ready events.
+ * @param sk The L2CAP socket.
+ *
+ * This function is invoked by the L2CAP layer when new data is available on
+ * the L2CAP connection. It schedules the RFCOMM worker thread to process
+ * the incoming data.
+ */
 static void rfcomm_l2data_ready(struct sock *sk)
 {
 	trace_sk_data_ready(sk);
@@ -193,7 +233,12 @@ static void rfcomm_l2data_ready(struct sock *sk)
 	BT_DBG("%p", sk);
 	rfcomm_schedule();
 }
-
+/**
+ * @brief Creates an L2CAP socket for an RFCOMM session.
+ * @param sock A pointer to a socket pointer, which will be filled with the
+ *             created socket.
+ * @return 0 on success, or a negative error code on failure.
+ */
 static int rfcomm_l2sock_create(struct socket **sock)
 {
 	int err;
@@ -208,7 +253,12 @@ static int rfcomm_l2sock_create(struct socket **sock)
 	}
 	return err;
 }
-
+/**
+ * @brief Checks if the security level of an RFCOMM DLC is sufficient.
+ * @param d The RFCOMM DLC.
+ * @return 0 if the security level is sufficient, or a negative error code
+ *         if authentication or encryption is required.
+ */
 static int rfcomm_check_security(struct rfcomm_dlc *d)
 {
 	struct sock *sk = d->session->sock->sk;
@@ -232,7 +282,10 @@ static int rfcomm_check_security(struct rfcomm_dlc *d)
 	return hci_conn_security(conn->hcon, d->sec_level, auth_type,
 				 d->out);
 }
-
+/**
+ * @brief Callback function for RFCOMM session timeouts.
+ * @param t The timer list structure.
+ */
 static void rfcomm_session_timeout(struct timer_list *t)
 {
 	struct rfcomm_session *s = timer_container_of(s, t, timer);
@@ -242,14 +295,21 @@ static void rfcomm_session_timeout(struct timer_list *t)
 	set_bit(RFCOMM_TIMED_OUT, &s->flags);
 	rfcomm_schedule();
 }
-
+/**
+ * @brief Sets a timer for an RFCOMM session.
+ * @param s The RFCOMM session.
+ * @param timeout The timeout value in jiffies.
+ */
 static void rfcomm_session_set_timer(struct rfcomm_session *s, long timeout)
 {
 	BT_DBG("session %p state %ld timeout %ld", s, s->state, timeout);
 
 	mod_timer(&s->timer, jiffies + timeout);
 }
-
+/**
+ * @brief Clears the timer for an RFCOMM session.
+ * @param s The RFCOMM session.
+ */
 static void rfcomm_session_clear_timer(struct rfcomm_session *s)
 {
 	BT_DBG("session %p state %ld", s, s->state);
@@ -258,6 +318,10 @@ static void rfcomm_session_clear_timer(struct rfcomm_session *s)
 }
 
 /* ---- RFCOMM DLCs ---- */
+/**
+ * @brief Callback function for RFCOMM DLC timeouts.
+ * @param t The timer list structure.
+ */
 static void rfcomm_dlc_timeout(struct timer_list *t)
 {
 	struct rfcomm_dlc *d = timer_container_of(d, t, timer);
@@ -268,7 +332,11 @@ static void rfcomm_dlc_timeout(struct timer_list *t)
 	rfcomm_dlc_put(d);
 	rfcomm_schedule();
 }
-
+/**
+ * @brief Sets a timer for an RFCOMM DLC.
+ * @param d The RFCOMM DLC.
+ * @param timeout The timeout value in jiffies.
+ */
 static void rfcomm_dlc_set_timer(struct rfcomm_dlc *d, long timeout)
 {
 	BT_DBG("dlc %p state %ld timeout %ld", d, d->state, timeout);
@@ -277,6 +345,10 @@ static void rfcomm_dlc_set_timer(struct rfcomm_dlc *d, long timeout)
 		rfcomm_dlc_hold(d);
 }
 
+/**
+ * @brief Clears the timer for an RFCOMM DLC.
+ * @param d The RFCOMM DLC.
+ */
 static void rfcomm_dlc_clear_timer(struct rfcomm_dlc *d)
 {
 	BT_DBG("dlc %p state %ld", d, d->state);
@@ -284,7 +356,10 @@ static void rfcomm_dlc_clear_timer(struct rfcomm_dlc *d)
 	if (timer_delete(&d->timer))
 		rfcomm_dlc_put(d);
 }
-
+/**
+ * @brief Resets the state of an RFCOMM DLC.
+ * @param d The RFCOMM DLC.
+ */
 static void rfcomm_dlc_clear_state(struct rfcomm_dlc *d)
 {
 	BT_DBG("%p", d);
@@ -299,7 +374,11 @@ static void rfcomm_dlc_clear_state(struct rfcomm_dlc *d)
 	d->cfc        = RFCOMM_CFC_DISABLED;
 	d->rx_credits = RFCOMM_DEFAULT_CREDITS;
 }
-
+/**
+ * @brief Allocates and initializes a new RFCOMM DLC.
+ * @param prio The GFP allocation flags.
+ * @return A pointer to the new DLC, or NULL on failure.
+ */
 struct rfcomm_dlc *rfcomm_dlc_alloc(gfp_t prio)
 {
 	struct rfcomm_dlc *d = kzalloc(sizeof(*d), prio);
@@ -319,7 +398,10 @@ struct rfcomm_dlc *rfcomm_dlc_alloc(gfp_t prio)
 
 	return d;
 }
-
+/**
+ * @brief Frees the resources associated with an RFCOMM DLC.
+ * @param d The RFCOMM DLC.
+ */
 void rfcomm_dlc_free(struct rfcomm_dlc *d)
 {
 	BT_DBG("%p", d);
@@ -327,7 +409,11 @@ void rfcomm_dlc_free(struct rfcomm_dlc *d)
 	skb_queue_purge(&d->tx_queue);
 	kfree(d);
 }
-
+/**
+ * @brief Links an RFCOMM DLC to a session.
+ * @param s The RFCOMM session.
+ * @param d The RFCOMM DLC.
+ */
 static void rfcomm_dlc_link(struct rfcomm_session *s, struct rfcomm_dlc *d)
 {
 	BT_DBG("dlc %p session %p", d, s);
@@ -337,7 +423,10 @@ static void rfcomm_dlc_link(struct rfcomm_session *s, struct rfcomm_dlc *d)
 	list_add(&d->list, &s->dlcs);
 	d->session = s;
 }
-
+/**
+ * @brief Unlinks an RFCOMM DLC from a session.
+ * @param d The RFCOMM DLC.
+ */
 static void rfcomm_dlc_unlink(struct rfcomm_dlc *d)
 {
 	struct rfcomm_session *s = d->session;
@@ -351,7 +440,12 @@ static void rfcomm_dlc_unlink(struct rfcomm_dlc *d)
 	if (list_empty(&s->dlcs))
 		rfcomm_session_set_timer(s, RFCOMM_IDLE_TIMEOUT);
 }
-
+/**
+ * @brief Gets an RFCOMM DLC from a session by its DLCI.
+ * @param s The RFCOMM session.
+ * @param dlci The DLCI of the DLC to retrieve.
+ * @return A pointer to the DLC, or NULL if not found.
+ */
 static struct rfcomm_dlc *rfcomm_dlc_get(struct rfcomm_session *s, u8 dlci)
 {
 	struct rfcomm_dlc *d;
@@ -362,12 +456,26 @@ static struct rfcomm_dlc *rfcomm_dlc_get(struct rfcomm_session *s, u8 dlci)
 
 	return NULL;
 }
-
+/**
+ * @brief Checks if a channel number is valid for RFCOMM.
+ * @param channel The channel number to check.
+ * @return 0 if valid, non-zero otherwise.
+ */
 static int rfcomm_check_channel(u8 channel)
 {
 	return channel < 1 || channel > 30;
 }
-
+/**
+ * @brief Opens an RFCOMM DLC.
+ * @param d The RFCOMM DLC.
+ * @param src The source Bluetooth address.
+ * @param dst The destination Bluetooth address.
+ * @param channel The RFCOMM channel number.
+ * @return 0 on success, or a negative error code on failure.
+ *
+ * This function initiates the opening of an RFCOMM DLC, which may involve
+ * creating a new RFCOMM session if one does not already exist.
+ */
 static int __rfcomm_dlc_open(struct rfcomm_dlc *d, bdaddr_t *src, bdaddr_t *dst, u8 channel)
 {
 	struct rfcomm_session *s;
@@ -421,19 +529,13 @@ static int __rfcomm_dlc_open(struct rfcomm_dlc *d, bdaddr_t *src, bdaddr_t *dst,
 
 	return 0;
 }
-
-int rfcomm_dlc_open(struct rfcomm_dlc *d, bdaddr_t *src, bdaddr_t *dst, u8 channel)
-{
-	int r;
-
-	rfcomm_lock();
-
-	r = __rfcomm_dlc_open(d, src, dst, channel);
-
-	rfcomm_unlock();
-	return r;
-}
-
+/**
+ * @brief Disconnects an RFCOMM DLC.
+ * @param d The RFCOMM DLC.
+ *
+ * This function initiates the disconnection of an RFCOMM DLC by sending a
+ * DISC frame.
+ */
 static void __rfcomm_dlc_disconn(struct rfcomm_dlc *d)
 {
 	struct rfcomm_session *s = d->session;
@@ -447,7 +549,12 @@ static void __rfcomm_dlc_disconn(struct rfcomm_dlc *d)
 		rfcomm_dlc_set_timer(d, RFCOMM_DISC_TIMEOUT * 2);
 	}
 }
-
+/**
+ * @brief Closes an RFCOMM DLC.
+ * @param d The RFCOMM DLC.
+ * @param err The error code to report to the upper layer.
+ * @return 0 on success.
+ */
 static int __rfcomm_dlc_close(struct rfcomm_dlc *d, int err)
 {
 	struct rfcomm_session *s = d->session;
@@ -499,41 +606,13 @@ static int __rfcomm_dlc_close(struct rfcomm_dlc *d, int err)
 
 	return 0;
 }
-
-int rfcomm_dlc_close(struct rfcomm_dlc *d, int err)
-{
-	int r = 0;
-	struct rfcomm_dlc *d_list;
-	struct rfcomm_session *s, *s_list;
-
-	BT_DBG("dlc %p state %ld dlci %d err %d", d, d->state, d->dlci, err);
-
-	rfcomm_lock();
-
-	s = d->session;
-	if (!s)
-		goto no_session;
-
-	/* after waiting on the mutex check the session still exists
-	 * then check the dlc still exists
-	 */
-	list_for_each_entry(s_list, &session_list, list) {
-		if (s_list == s) {
-			list_for_each_entry(d_list, &s->dlcs, list) {
-				if (d_list == d) {
-					r = __rfcomm_dlc_close(d, err);
-					break;
-				}
-			}
-			break;
-		}
-	}
-
-no_session:
-	rfcomm_unlock();
-	return r;
-}
-
+/**
+ * @brief Checks if an RFCOMM DLC exists for a given connection and channel.
+ * @param src The source Bluetooth address.
+ * @param dst The destination Bluetooth address.
+ * @param channel The RFCOMM channel number.
+ * @return A pointer to the DLC if it exists, otherwise an error pointer.
+ */
 struct rfcomm_dlc *rfcomm_dlc_exists(bdaddr_t *src, bdaddr_t *dst, u8 channel)
 {
 	struct rfcomm_session *s;
@@ -552,7 +631,12 @@ struct rfcomm_dlc *rfcomm_dlc_exists(bdaddr_t *src, bdaddr_t *dst, u8 channel)
 	rfcomm_unlock();
 	return dlc;
 }
-
+/**
+ * @brief Sends a data fragment on an RFCOMM DLC.
+ * @param d The RFCOMM DLC.
+ * @param frag The socket buffer containing the fragment.
+ * @return The number of bytes sent, or a negative error code on failure.
+ */
 static int rfcomm_dlc_send_frag(struct rfcomm_dlc *d, struct sk_buff *frag)
 {
 	int len = frag->len;
@@ -567,62 +651,12 @@ static int rfcomm_dlc_send_frag(struct rfcomm_dlc *d, struct sk_buff *frag)
 
 	return len;
 }
-
-int rfcomm_dlc_send(struct rfcomm_dlc *d, struct sk_buff *skb)
-{
-	unsigned long flags;
-	struct sk_buff *frag, *next;
-	int len;
-
-	if (d->state != BT_CONNECTED)
-		return -ENOTCONN;
-
-	frag = skb_shinfo(skb)->frag_list;
-	skb_shinfo(skb)->frag_list = NULL;
-
-	/* Queue all fragments atomically. */
-	spin_lock_irqsave(&d->tx_queue.lock, flags);
-
-	len = rfcomm_dlc_send_frag(d, skb);
-	if (len < 0 || !frag)
-		goto unlock;
-
-	for (; frag; frag = next) {
-		int ret;
-
-		next = frag->next;
-
-		ret = rfcomm_dlc_send_frag(d, frag);
-		if (ret < 0) {
-			dev_kfree_skb_irq(frag);
-			goto unlock;
-		}
-
-		len += ret;
-	}
-
-unlock:
-	spin_unlock_irqrestore(&d->tx_queue.lock, flags);
-
-	if (len > 0 && !test_bit(RFCOMM_TX_THROTTLED, &d->flags))
-		rfcomm_schedule();
-	return len;
-}
-
-void rfcomm_dlc_send_noerror(struct rfcomm_dlc *d, struct sk_buff *skb)
-{
-	int len = skb->len;
-
-	BT_DBG("dlc %p mtu %d len %d", d, d->mtu, len);
-
-	rfcomm_make_uih(skb, d->addr);
-	skb_queue_tail(&d->tx_queue, skb);
-
-	if (d->state == BT_CONNECTED &&
-	    !test_bit(RFCOMM_TX_THROTTLED, &d->flags))
-		rfcomm_schedule();
-}
-
+/**
+ * @brief Throttles an RFCOMM DLC, preventing it from sending more data.
+ * @param d The RFCOMM DLC.
+ *
+ * This is used for flow control.
+ */
 void __rfcomm_dlc_throttle(struct rfcomm_dlc *d)
 {
 	BT_DBG("dlc %p state %ld", d, d->state);
@@ -633,7 +667,12 @@ void __rfcomm_dlc_throttle(struct rfcomm_dlc *d)
 	}
 	rfcomm_schedule();
 }
-
+/**
+ * @brief Unthrottles an RFCOMM DLC, allowing it to send more data.
+ * @param d The RFCOMM DLC.
+ *
+ * This is used for flow control.
+ */
 void __rfcomm_dlc_unthrottle(struct rfcomm_dlc *d)
 {
 	BT_DBG("dlc %p state %ld", d, d->state);
@@ -645,10 +684,11 @@ void __rfcomm_dlc_unthrottle(struct rfcomm_dlc *d)
 	rfcomm_schedule();
 }
 
-/*
-   Set/get modem status functions use _local_ status i.e. what we report
-   to the other side.
-   Remote status is provided by dlc->modem_status() callback.
+/**
+ * @brief Sets the modem status for an RFCOMM DLC.
+ * @param d The RFCOMM DLC.
+ * @param v24_sig The new modem status signals.
+ * @return 0 on success.
  */
 int rfcomm_dlc_set_modem_status(struct rfcomm_dlc *d, u8 v24_sig)
 {
@@ -667,7 +707,12 @@ int rfcomm_dlc_set_modem_status(struct rfcomm_dlc *d, u8 v24_sig)
 
 	return 0;
 }
-
+/**
+ * @brief Gets the modem status for an RFCOMM DLC.
+ * @param d The RFCOMM DLC.
+ * @param v24_sig A pointer to store the modem status signals.
+ * @return 0 on success.
+ */
 int rfcomm_dlc_get_modem_status(struct rfcomm_dlc *d, u8 *v24_sig)
 {
 	BT_DBG("dlc %p state %ld v24_sig 0x%x",
@@ -678,6 +723,12 @@ int rfcomm_dlc_get_modem_status(struct rfcomm_dlc *d, u8 *v24_sig)
 }
 
 /* ---- RFCOMM sessions ---- */
+/**
+ * @brief Adds a new RFCOMM session.
+ * @param sock The L2CAP socket for the session.
+ * @param state The initial state of the session.
+ * @return A pointer to the new session, or NULL on failure.
+ */
 static struct rfcomm_session *rfcomm_session_add(struct socket *sock, int state)
 {
 	struct rfcomm_session *s = kzalloc(sizeof(*s), GFP_KERNEL);
@@ -708,7 +759,11 @@ static struct rfcomm_session *rfcomm_session_add(struct socket *sock, int state)
 
 	return s;
 }
-
+/**
+ * @brief Deletes an RFCOMM session.
+ * @param s The RFCOMM session to delete.
+ * @return NULL.
+ */
 static struct rfcomm_session *rfcomm_session_del(struct rfcomm_session *s)
 {
 	int state = s->state;
@@ -726,7 +781,12 @@ static struct rfcomm_session *rfcomm_session_del(struct rfcomm_session *s)
 
 	return NULL;
 }
-
+/**
+ * @brief Gets an RFCOMM session by source and destination addresses.
+ * @param src The source Bluetooth address.
+ * @param dst The destination Bluetooth address.
+ * @return A pointer to the session, or NULL if not found.
+ */
 static struct rfcomm_session *rfcomm_session_get(bdaddr_t *src, bdaddr_t *dst)
 {
 	struct rfcomm_session *s, *n;
@@ -740,7 +800,12 @@ static struct rfcomm_session *rfcomm_session_get(bdaddr_t *src, bdaddr_t *dst)
 	}
 	return NULL;
 }
-
+/**
+ * @brief Closes an RFCOMM session.
+ * @param s The RFCOMM session.
+ * @param err The error code to report to the DLCs.
+ * @return NULL.
+ */
 static struct rfcomm_session *rfcomm_session_close(struct rfcomm_session *s,
 						   int err)
 {
@@ -759,7 +824,14 @@ static struct rfcomm_session *rfcomm_session_close(struct rfcomm_session *s,
 	rfcomm_session_clear_timer(s);
 	return rfcomm_session_del(s);
 }
-
+/**
+ * @brief Creates a new RFCOMM session.
+ * @param src The source Bluetooth address.
+ * @param dst The destination Bluetooth address.
+ * @param sec_level The security level for the connection.
+ * @param err A pointer to an integer to store the error code.
+ * @return A pointer to the new session, or NULL on failure.
+ */
 static struct rfcomm_session *rfcomm_session_create(bdaddr_t *src,
 							bdaddr_t *dst,
 							u8 sec_level,
@@ -818,7 +890,12 @@ failed:
 	sock_release(sock);
 	return NULL;
 }
-
+/**
+ * @brief Gets the source and destination addresses of an RFCOMM session.
+ * @param s The RFCOMM session.
+ * @param src A pointer to store the source address.
+ * @param dst A pointer to store the destination address.
+ */
 void rfcomm_session_getaddr(struct rfcomm_session *s, bdaddr_t *src, bdaddr_t *dst)
 {
 	struct l2cap_chan *chan = l2cap_pi(s->sock->sk)->chan;
@@ -829,6 +906,13 @@ void rfcomm_session_getaddr(struct rfcomm_session *s, bdaddr_t *src, bdaddr_t *d
 }
 
 /* ---- RFCOMM frame sending ---- */
+/**
+ * @brief Sends a raw RFCOMM frame.
+ * @param s The RFCOMM session.
+ * @param data The data to send.
+ * @param len The length of the data.
+ * @return The number of bytes sent, or a negative error code on failure.
+ */
 static int rfcomm_send_frame(struct rfcomm_session *s, u8 *data, int len)
 {
 	struct kvec iv = { data, len };
@@ -841,13 +925,24 @@ static int rfcomm_send_frame(struct rfcomm_session *s, u8 *data, int len)
 	return kernel_sendmsg(s->sock, &msg, &iv, 1, len);
 }
 
+/**
+ * @brief Sends an RFCOMM command frame.
+ * @param s The RFCOMM session.
+ * @param cmd The command to send.
+ * @return The number of bytes sent, or a negative error code on failure.
+ */
 static int rfcomm_send_cmd(struct rfcomm_session *s, struct rfcomm_cmd *cmd)
 {
 	BT_DBG("%p cmd %u", s, cmd->ctrl);
 
 	return rfcomm_send_frame(s, (void *) cmd, sizeof(*cmd));
 }
-
+/**
+ * @brief Sends a Set Asynchronous Balanced Mode (SABM) frame.
+ * @param s The RFCOMM session.
+ * @param dlci The DLCI for the frame.
+ * @return 0 on success, or a negative error code on failure.
+ */
 static int rfcomm_send_sabm(struct rfcomm_session *s, u8 dlci)
 {
 	struct rfcomm_cmd cmd;
@@ -861,7 +956,12 @@ static int rfcomm_send_sabm(struct rfcomm_session *s, u8 dlci)
 
 	return rfcomm_send_cmd(s, &cmd);
 }
-
+/**
+ * @brief Sends an Unnumbered Acknowledgment (UA) frame.
+ * @param s The RFCOMM session.
+ * @param dlci The DLCI for the frame.
+ * @return 0 on success, or a negative error code on failure.
+ */
 static int rfcomm_send_ua(struct rfcomm_session *s, u8 dlci)
 {
 	struct rfcomm_cmd cmd;
@@ -875,7 +975,12 @@ static int rfcomm_send_ua(struct rfcomm_session *s, u8 dlci)
 
 	return rfcomm_send_cmd(s, &cmd);
 }
-
+/**
+ * @brief Sends a Disconnect (DISC) frame.
+ * @param s The RFCOMM session.
+ * @param dlci The DLCI for the frame.
+ * @return 0 on success, or a negative error code on failure.
+ */
 static int rfcomm_send_disc(struct rfcomm_session *s, u8 dlci)
 {
 	struct rfcomm_cmd cmd;
@@ -890,6 +995,11 @@ static int rfcomm_send_disc(struct rfcomm_session *s, u8 dlci)
 	return rfcomm_send_cmd(s, &cmd);
 }
 
+/**
+ * @brief Queues a Disconnect (DISC) frame for sending.
+ * @param d The RFCOMM DLC.
+ * @return 0 on success, or -ENOMEM on failure.
+ */
 static int rfcomm_queue_disc(struct rfcomm_dlc *d)
 {
 	struct rfcomm_cmd *cmd;
@@ -911,7 +1021,12 @@ static int rfcomm_queue_disc(struct rfcomm_dlc *d)
 	rfcomm_schedule();
 	return 0;
 }
-
+/**
+ * @brief Sends a Disconnected Mode (DM) frame.
+ * @param s The RFCOMM session.
+ * @param dlci The DLCI for the frame.
+ * @return 0 on success, or a negative error code on failure.
+ */
 static int rfcomm_send_dm(struct rfcomm_session *s, u8 dlci)
 {
 	struct rfcomm_cmd cmd;
@@ -925,7 +1040,13 @@ static int rfcomm_send_dm(struct rfcomm_session *s, u8 dlci)
 
 	return rfcomm_send_cmd(s, &cmd);
 }
-
+/**
+ * @brief Sends a Non Supported Command (NSC) frame.
+ * @param s The RFCOMM session.
+ * @param cr The command/response flag.
+ * @param type The type of the unsupported command.
+ * @return 0 on success, or a negative error code on failure.
+ */
 static int rfcomm_send_nsc(struct rfcomm_session *s, int cr, u8 type)
 {
 	struct rfcomm_hdr *hdr;
@@ -950,7 +1071,13 @@ static int rfcomm_send_nsc(struct rfcomm_session *s, int cr, u8 type)
 
 	return rfcomm_send_frame(s, buf, ptr - buf);
 }
-
+/**
+ * @brief Sends a Parameter Negotiation (PN) frame.
+ * @param s The RFCOMM session.
+ * @param cr The command/response flag.
+ * @param d The RFCOMM DLC.
+ * @return 0 on success, or a negative error code on failure.
+ */
 static int rfcomm_send_pn(struct rfcomm_session *s, int cr, struct rfcomm_dlc *d)
 {
 	struct rfcomm_hdr *hdr;
@@ -992,7 +1119,21 @@ static int rfcomm_send_pn(struct rfcomm_session *s, int cr, struct rfcomm_dlc *d
 
 	return rfcomm_send_frame(s, buf, ptr - buf);
 }
-
+/**
+ * @brief Sends a Remote Port Negotiation (RPN) frame.
+ * @param s The RFCOMM session.
+ * @param cr The command/response flag.
+ * @param dlci The DLCI.
+ * @param bit_rate The bit rate.
+ * @param data_bits The number of data bits.
+ * @param stop_bits The number of stop bits.
+ * @param parity The parity setting.
+ * @param flow_ctrl_settings The flow control settings.
+ * @param xon_char The XON character.
+ * @param xoff_char The XOFF character.
+ * @param param_mask A bitmask of which parameters are being set.
+ * @return 0 on success, or a negative error code on failure.
+ */
 int rfcomm_send_rpn(struct rfcomm_session *s, int cr, u8 dlci,
 			u8 bit_rate, u8 data_bits, u8 stop_bits,
 			u8 parity, u8 flow_ctrl_settings,
@@ -1030,7 +1171,14 @@ int rfcomm_send_rpn(struct rfcomm_session *s, int cr, u8 dlci,
 
 	return rfcomm_send_frame(s, buf, ptr - buf);
 }
-
+/**
+ * @brief Sends a Remote Line Status (RLS) frame.
+ * @param s The RFCOMM session.
+ * @param cr The command/response flag.
+ * @param dlci The DLCI.
+ * @param status The line status.
+ * @return 0 on success, or a negative error code on failure.
+ */
 static int rfcomm_send_rls(struct rfcomm_session *s, int cr, u8 dlci, u8 status)
 {
 	struct rfcomm_hdr *hdr;
@@ -1057,7 +1205,14 @@ static int rfcomm_send_rls(struct rfcomm_session *s, int cr, u8 dlci, u8 status)
 
 	return rfcomm_send_frame(s, buf, ptr - buf);
 }
-
+/**
+ * @brief Sends a Modem Status Command (MSC) frame.
+ * @param s The RFCOMM session.
+ * @param cr The command/response flag.
+ * @param dlci The DLCI.
+ * @param v24_sig The V.24 signals.
+ * @return 0 on success, or a negative error code on failure.
+ */
 static int rfcomm_send_msc(struct rfcomm_session *s, int cr, u8 dlci, u8 v24_sig)
 {
 	struct rfcomm_hdr *hdr;
@@ -1084,7 +1239,12 @@ static int rfcomm_send_msc(struct rfcomm_session *s, int cr, u8 dlci, u8 v24_sig
 
 	return rfcomm_send_frame(s, buf, ptr - buf);
 }
-
+/**
+ * @brief Sends a Flow Control Off (FCOFF) frame.
+ * @param s The RFCOMM session.
+ * @param cr The command/response flag.
+ * @return 0 on success, or a negative error code on failure.
+ */
 static int rfcomm_send_fcoff(struct rfcomm_session *s, int cr)
 {
 	struct rfcomm_hdr *hdr;
@@ -1106,7 +1266,12 @@ static int rfcomm_send_fcoff(struct rfcomm_session *s, int cr)
 
 	return rfcomm_send_frame(s, buf, ptr - buf);
 }
-
+/**
+ * @brief Sends a Flow Control On (FCON) frame.
+ * @param s The RFCOMM session.
+ * @param cr The command/response flag.
+ * @return 0 on success, or a negative error code on failure.
+ */
 static int rfcomm_send_fcon(struct rfcomm_session *s, int cr)
 {
 	struct rfcomm_hdr *hdr;
@@ -1128,7 +1293,14 @@ static int rfcomm_send_fcon(struct rfcomm_session *s, int cr)
 
 	return rfcomm_send_frame(s, buf, ptr - buf);
 }
-
+/**
+ * @brief Sends a Test (TEST) frame.
+ * @param s The RFCOMM session.
+ * @param cr The command/response flag.
+ * @param pattern The test pattern.
+ * @param len The length of the test pattern.
+ * @return The number of bytes sent, or a negative error code on failure.
+ */
 static int rfcomm_send_test(struct rfcomm_session *s, int cr, u8 *pattern, int len)
 {
 	struct socket *sock = s->sock;
@@ -1160,7 +1332,13 @@ static int rfcomm_send_test(struct rfcomm_session *s, int cr, u8 *pattern, int l
 
 	return kernel_sendmsg(sock, &msg, iv, 3, 6 + len);
 }
-
+/**
+ * @brief Sends credits for flow control.
+ * @param s The RFCOMM session.
+ * @param addr The address field for the frame.
+ * @param credits The number of credits to send.
+ * @return 0 on success, or a negative error code on failure.
+ */
 static int rfcomm_send_credits(struct rfcomm_session *s, u8 addr, u8 credits)
 {
 	struct rfcomm_hdr *hdr;
@@ -1179,7 +1357,11 @@ static int rfcomm_send_credits(struct rfcomm_session *s, u8 addr, u8 credits)
 
 	return rfcomm_send_frame(s, buf, ptr - buf);
 }
-
+/**
+ * @brief Creates a UIH frame header.
+ * @param skb The socket buffer to prepend the header to.
+ * @param addr The address field for the frame.
+ */
 static void rfcomm_make_uih(struct sk_buff *skb, u8 addr)
 {
 	struct rfcomm_hdr *hdr;
@@ -1201,6 +1383,12 @@ static void rfcomm_make_uih(struct sk_buff *skb, u8 addr)
 }
 
 /* ---- RFCOMM frame reception ---- */
+/**
+ * @brief Handles a received Unnumbered Acknowledgment (UA) frame.
+ * @param s The RFCOMM session.
+ * @param dlci The DLCI of the frame.
+ * @return The session pointer, which may have changed if the session was closed.
+ */
 static struct rfcomm_session *rfcomm_recv_ua(struct rfcomm_session *s, u8 dlci)
 {
 	BT_DBG("session %p state %ld dlci %d", s, s->state, dlci);
@@ -1252,7 +1440,12 @@ static struct rfcomm_session *rfcomm_recv_ua(struct rfcomm_session *s, u8 dlci)
 	}
 	return s;
 }
-
+/**
+ * @brief Handles a received Disconnected Mode (DM) frame.
+ * @param s The RFCOMM session.
+ * @param dlci The DLCI of the frame.
+ * @return The session pointer, which may have changed if the session was closed.
+ */
 static struct rfcomm_session *rfcomm_recv_dm(struct rfcomm_session *s, u8 dlci)
 {
 	int err = 0;
@@ -1281,7 +1474,12 @@ static struct rfcomm_session *rfcomm_recv_dm(struct rfcomm_session *s, u8 dlci)
 	}
 	return s;
 }
-
+/**
+ * @brief Handles a received Disconnect (DISC) frame.
+ * @param s The RFCOMM session.
+ * @param dlci The DLCI of the frame.
+ * @return The session pointer, which may have changed if the session was closed.
+ */
 static struct rfcomm_session *rfcomm_recv_disc(struct rfcomm_session *s,
 					       u8 dlci)
 {
@@ -1316,7 +1514,10 @@ static struct rfcomm_session *rfcomm_recv_disc(struct rfcomm_session *s,
 	}
 	return s;
 }
-
+/**
+ * @brief Accepts an incoming DLC connection.
+ * @param d The RFCOMM DLC.
+ */
 void rfcomm_dlc_accept(struct rfcomm_dlc *d)
 {
 	struct sock *sk = d->session->sock->sk;
@@ -1339,6 +1540,13 @@ void rfcomm_dlc_accept(struct rfcomm_dlc *d)
 	rfcomm_send_msc(d->session, 1, d->dlci, d->v24_sig);
 }
 
+/**
+ * @brief Checks if an incoming connection can be accepted.
+ * @param d The RFCOMM DLC.
+ *
+ * This function checks the security level of the connection and, if
+ * sufficient, accepts it. If security is pending, it defers the setup.
+ */
 static void rfcomm_check_accept(struct rfcomm_dlc *d)
 {
 	if (rfcomm_check_security(d)) {
@@ -1357,7 +1565,12 @@ static void rfcomm_check_accept(struct rfcomm_dlc *d)
 		rfcomm_dlc_set_timer(d, RFCOMM_AUTH_TIMEOUT);
 	}
 }
-
+/**
+ * @brief Handles a received Set Asynchronous Balanced Mode (SABM) frame.
+ * @param s The RFCOMM session.
+ * @param dlci The DLCI of the frame.
+ * @return 0 on success.
+ */
 static int rfcomm_recv_sabm(struct rfcomm_session *s, u8 dlci)
 {
 	struct rfcomm_dlc *d;
@@ -1400,6 +1613,13 @@ static int rfcomm_recv_sabm(struct rfcomm_session *s, u8 dlci)
 	return 0;
 }
 
+/**
+ * @brief Applies the parameters from a received Parameter Negotiation (PN) frame.
+ * @param d The RFCOMM DLC.
+ * @param cr The command/response flag.
+ * @param pn The PN frame data.
+ * @return 0 on success.
+ */
 static int rfcomm_apply_pn(struct rfcomm_dlc *d, int cr, struct rfcomm_pn *pn)
 {
 	struct rfcomm_session *s = d->session;
@@ -1428,7 +1648,13 @@ static int rfcomm_apply_pn(struct rfcomm_dlc *d, int cr, struct rfcomm_pn *pn)
 
 	return 0;
 }
-
+/**
+ * @brief Handles a received Parameter Negotiation (PN) frame.
+ * @param s The RFCOMM session.
+ * @param cr The command/response flag.
+ * @param skb The socket buffer containing the PN frame.
+ * @return 0 on success.
+ */
 static int rfcomm_recv_pn(struct rfcomm_session *s, int cr, struct sk_buff *skb)
 {
 	struct rfcomm_pn *pn = (void *) skb->data;
@@ -1480,7 +1706,14 @@ static int rfcomm_recv_pn(struct rfcomm_session *s, int cr, struct sk_buff *skb)
 	}
 	return 0;
 }
-
+/**
+ * @brief Handles a received Remote Port Negotiation (RPN) frame.
+ * @param s The RFCOMM session.
+ * @param cr The command/response flag.
+ * @param len The length of the RPN frame.
+ * @param skb The socket buffer containing the RPN frame.
+ * @return 0 on success.
+ */
 static int rfcomm_recv_rpn(struct rfcomm_session *s, int cr, int len, struct sk_buff *skb)
 {
 	struct rfcomm_rpn *rpn = (void *) skb->data;
@@ -1586,7 +1819,13 @@ rpn_out:
 
 	return 0;
 }
-
+/**
+ * @brief Handles a received Remote Line Status (RLS) frame.
+ * @param s The RFCOMM session.
+ * @param cr The command/response flag.
+ * @param skb The socket buffer containing the RLS frame.
+ * @return 0 on success.
+ */
 static int rfcomm_recv_rls(struct rfcomm_session *s, int cr, struct sk_buff *skb)
 {
 	struct rfcomm_rls *rls = (void *) skb->data;
@@ -1605,7 +1844,13 @@ static int rfcomm_recv_rls(struct rfcomm_session *s, int cr, struct sk_buff *skb
 
 	return 0;
 }
-
+/**
+ * @brief Handles a received Modem Status Command (MSC) frame.
+ * @param s The RFCOMM session.
+ * @param cr The command/response flag.
+ * @param skb The socket buffer containing the MSC frame.
+ * @return 0 on success.
+ */
 static int rfcomm_recv_msc(struct rfcomm_session *s, int cr, struct sk_buff *skb)
 {
 	struct rfcomm_msc *msc = (void *) skb->data;
@@ -1641,7 +1886,12 @@ static int rfcomm_recv_msc(struct rfcomm_session *s, int cr, struct sk_buff *skb
 
 	return 0;
 }
-
+/**
+ * @brief Handles a received Modem Control Command (MCC) frame.
+ * @param s The RFCOMM session.
+ * @param skb The socket buffer containing the MCC frame.
+ * @return 0 on success.
+ */
 static int rfcomm_recv_mcc(struct rfcomm_session *s, struct sk_buff *skb)
 {
 	struct rfcomm_mcc *mcc = (void *) skb->data;
@@ -1701,7 +1951,14 @@ static int rfcomm_recv_mcc(struct rfcomm_session *s, struct sk_buff *skb)
 	}
 	return 0;
 }
-
+/**
+ * @brief Handles received data on an RFCOMM DLC.
+ * @param s The RFCOMM session.
+ * @param dlci The DLCI of the DLC.
+ * @param pf The poll/final bit.
+ * @param skb The socket buffer containing the data.
+ * @return 0 on success.
+ */
 static int rfcomm_recv_data(struct rfcomm_session *s, u8 dlci, int pf, struct sk_buff *skb)
 {
 	struct rfcomm_dlc *d;
@@ -1734,7 +1991,12 @@ drop:
 	kfree_skb(skb);
 	return 0;
 }
-
+/**
+ * @brief Processes a received RFCOMM frame.
+ * @param s The RFCOMM session.
+ * @param skb The socket buffer containing the frame.
+ * @return The session pointer, which may have changed if the session was closed.
+ */
 static struct rfcomm_session *rfcomm_recv_frame(struct rfcomm_session *s,
 						struct sk_buff *skb)
 {
@@ -1803,6 +2065,14 @@ static struct rfcomm_session *rfcomm_recv_frame(struct rfcomm_session *s,
 
 /* ---- Connection and data processing ---- */
 
+/**
+ * @brief Processes the connection of an RFCOMM session.
+ * @param s The RFCOMM session.
+ *
+ * This function is called when the underlying L2CAP connection is established.
+ * It iterates through the DLCs in the session and initiates parameter
+ * negotiation for those that are in the BT_CONFIG state.
+ */
 static void rfcomm_process_connect(struct rfcomm_session *s)
 {
 	struct rfcomm_dlc *d, *n;
@@ -1821,9 +2091,10 @@ static void rfcomm_process_connect(struct rfcomm_session *s)
 		}
 	}
 }
-
-/* Send data queued for the DLC.
- * Return number of frames left in the queue.
+/**
+ * @brief Processes the transmit queue for an RFCOMM DLC.
+ * @param d The RFCOMM DLC.
+ * @return The number of frames left in the transmit queue.
  */
 static int rfcomm_process_tx(struct rfcomm_dlc *d)
 {
@@ -1872,7 +2143,10 @@ static int rfcomm_process_tx(struct rfcomm_dlc *d)
 
 	return skb_queue_len(&d->tx_queue);
 }
-
+/**
+ * @brief Processes all DLCs in an RFCOMM session.
+ * @param s The RFCOMM session.
+ */
 static void rfcomm_process_dlcs(struct rfcomm_session *s)
 {
 	struct rfcomm_dlc *d, *n;
@@ -1929,7 +2203,11 @@ static void rfcomm_process_dlcs(struct rfcomm_session *s)
 			rfcomm_process_tx(d);
 	}
 }
-
+/**
+ * @brief Processes the receive queue for an RFCOMM session.
+ * @param s The RFCOMM session.
+ * @return The session pointer, which may have changed if the session was closed.
+ */
 static struct rfcomm_session *rfcomm_process_rx(struct rfcomm_session *s)
 {
 	struct socket *sock = s->sock;
@@ -1956,6 +2234,10 @@ static struct rfcomm_session *rfcomm_process_rx(struct rfcomm_session *s)
 	return s;
 }
 
+/**
+ * @brief Accepts a new incoming L2CAP connection for RFCOMM.
+ * @param s The listening RFCOMM session.
+ */
 static void rfcomm_accept_connection(struct rfcomm_session *s)
 {
 	struct socket *sock = s->sock, *nsock;
@@ -1987,7 +2269,11 @@ static void rfcomm_accept_connection(struct rfcomm_session *s)
 	} else
 		sock_release(nsock);
 }
-
+/**
+ * @brief Checks the state of the underlying L2CAP connection.
+ * @param s The RFCOMM session.
+ * @return The session pointer, which may have changed if the session was closed.
+ */
 static struct rfcomm_session *rfcomm_check_connection(struct rfcomm_session *s)
 {
 	struct sock *sk = s->sock->sk;
@@ -1997,14 +2283,8 @@ static struct rfcomm_session *rfcomm_check_connection(struct rfcomm_session *s)
 	switch (sk->sk_state) {
 	case BT_CONNECTED:
 		s->state = BT_CONNECT;
-
-		/* We can adjust MTU on outgoing sessions.
-		 * L2CAP MTU minus UIH header and FCS. */
-		s->mtu = min(l2cap_pi(sk)->chan->omtu, l2cap_pi(sk)->chan->imtu) - 5;
-
-		rfcomm_send_sabm(s, 0);
+		rfcomm_schedule();
 		break;
-
 	case BT_CLOSED:
 		s = rfcomm_session_close(s, sk->sk_err);
 		break;
@@ -2012,274 +2292,98 @@ static struct rfcomm_session *rfcomm_check_connection(struct rfcomm_session *s)
 	return s;
 }
 
-static void rfcomm_process_sessions(void)
+/**
+ * @brief The main loop for the RFCOMM worker thread.
+ * @param data Unused.
+ * @return 0 on exit.
+ */
+static int rfcomm_run(void *data)
 {
 	struct rfcomm_session *s, *n;
 
-	rfcomm_lock();
+	BT_DBG("thread started");
+	set_user_nice(current, -15);
 
-	list_for_each_entry_safe(s, n, &session_list, list) {
-		if (test_and_clear_bit(RFCOMM_TIMED_OUT, &s->flags)) {
-			s->state = BT_DISCONN;
-			rfcomm_send_disc(s, 0);
-			continue;
-		}
-
-		switch (s->state) {
-		case BT_LISTEN:
-			rfcomm_accept_connection(s);
-			continue;
-
-		case BT_BOUND:
-			s = rfcomm_check_connection(s);
-			break;
-
-		default:
-			s = rfcomm_process_rx(s);
-			break;
-		}
-
-		if (s)
-			rfcomm_process_dlcs(s);
-	}
-
-	rfcomm_unlock();
-}
-
-static int rfcomm_add_listener(bdaddr_t *ba)
-{
-	struct sockaddr_l2 addr;
-	struct socket *sock;
-	struct sock *sk;
-	struct rfcomm_session *s;
-	int    err = 0;
-
-	/* Create socket */
-	err = rfcomm_l2sock_create(&sock);
-	if (err < 0) {
-		BT_ERR("Create socket failed %d", err);
-		return err;
-	}
-
-	/* Bind socket */
-	bacpy(&addr.l2_bdaddr, ba);
-	addr.l2_family = AF_BLUETOOTH;
-	addr.l2_psm    = cpu_to_le16(L2CAP_PSM_RFCOMM);
-	addr.l2_cid    = 0;
-	addr.l2_bdaddr_type = BDADDR_BREDR;
-	err = kernel_bind(sock, (struct sockaddr *) &addr, sizeof(addr));
-	if (err < 0) {
-		BT_ERR("Bind failed %d", err);
-		goto failed;
-	}
-
-	/* Set L2CAP options */
-	sk = sock->sk;
-	lock_sock(sk);
-	/* Set MTU to 0 so L2CAP can auto select the MTU */
-	l2cap_pi(sk)->chan->imtu = 0;
-	release_sock(sk);
-
-	/* Start listening on the socket */
-	err = kernel_listen(sock, 10);
-	if (err) {
-		BT_ERR("Listen failed %d", err);
-		goto failed;
-	}
-
-	/* Add listening session */
-	s = rfcomm_session_add(sock, BT_LISTEN);
-	if (!s) {
-		err = -ENOMEM;
-		goto failed;
-	}
-
-	return 0;
-failed:
-	sock_release(sock);
-	return err;
-}
-
-static void rfcomm_kill_listener(void)
-{
-	struct rfcomm_session *s, *n;
-
-	BT_DBG("");
-
-	list_for_each_entry_safe(s, n, &session_list, list)
-		rfcomm_session_del(s);
-}
-
-static int rfcomm_run(void *unused)
-{
-	DEFINE_WAIT_FUNC(wait, woken_wake_function);
-	BT_DBG("");
-
-	set_user_nice(current, -10);
-
-	rfcomm_add_listener(BDADDR_ANY);
-
-	add_wait_queue(&rfcomm_wq, &wait);
 	while (!kthread_should_stop()) {
+		rfcomm_lock();
 
-		/* Process stuff */
-		rfcomm_process_sessions();
-
-		wait_woken(&wait, TASK_INTERRUPTIBLE, MAX_SCHEDULE_TIMEOUT);
-	}
-	remove_wait_queue(&rfcomm_wq, &wait);
-
-	rfcomm_kill_listener();
-
-	return 0;
-}
-
-static void rfcomm_security_cfm(struct hci_conn *conn, u8 status, u8 encrypt)
-{
-	struct rfcomm_session *s;
-	struct rfcomm_dlc *d, *n;
-
-	BT_DBG("conn %p status 0x%02x encrypt 0x%02x", conn, status, encrypt);
-
-	s = rfcomm_session_get(&conn->hdev->bdaddr, &conn->dst);
-	if (!s)
-		return;
-
-	list_for_each_entry_safe(d, n, &s->dlcs, list) {
-		if (test_and_clear_bit(RFCOMM_SEC_PENDING, &d->flags)) {
-			rfcomm_dlc_clear_timer(d);
-			if (status || encrypt == 0x00) {
-				set_bit(RFCOMM_ENC_DROP, &d->flags);
+		list_for_each_entry_safe(s, n, &session_list, list) {
+			if (test_and_clear_bit(RFCOMM_TIMED_OUT, &s->flags)) {
+				rfcomm_session_close(s, ETIMEDOUT);
 				continue;
+			}
+
+			switch (s->state) {
+			case BT_LISTEN:
+				rfcomm_accept_connection(s);
+				break;
+			case BT_BOUND:
+				s = rfcomm_check_connection(s);
+				break;
+			case BT_CONNECT:
+			case BT_CONNECTED:
+				s = rfcomm_process_rx(s);
+				if (s)
+					rfcomm_process_dlcs(s);
+				break;
 			}
 		}
 
-		if (d->state == BT_CONNECTED && !status && encrypt == 0x00) {
-			if (d->sec_level == BT_SECURITY_MEDIUM) {
-				set_bit(RFCOMM_SEC_PENDING, &d->flags);
-				rfcomm_dlc_set_timer(d, RFCOMM_AUTH_TIMEOUT);
-				continue;
-			} else if (d->sec_level == BT_SECURITY_HIGH ||
-				   d->sec_level == BT_SECURITY_FIPS) {
-				set_bit(RFCOMM_ENC_DROP, &d->flags);
-				continue;
-			}
-		}
+		rfcomm_unlock();
 
-		if (!test_and_clear_bit(RFCOMM_AUTH_PENDING, &d->flags))
-			continue;
-
-		if (!status && hci_conn_check_secure(conn, d->sec_level))
-			set_bit(RFCOMM_AUTH_ACCEPT, &d->flags);
-		else
-			set_bit(RFCOMM_AUTH_REJECT, &d->flags);
+		wait_event_interruptible(rfcomm_wq,
+				kthread_should_stop() || !list_empty(&session_list));
 	}
 
-	rfcomm_schedule();
-}
-
-static struct hci_cb rfcomm_cb = {
-	.name		= "RFCOMM",
-	.security_cfm	= rfcomm_security_cfm
-};
-
-static int rfcomm_dlc_debugfs_show(struct seq_file *f, void *x)
-{
-	struct rfcomm_session *s;
-
-	rfcomm_lock();
-
-	list_for_each_entry(s, &session_list, list) {
-		struct l2cap_chan *chan = l2cap_pi(s->sock->sk)->chan;
-		struct rfcomm_dlc *d;
-		list_for_each_entry(d, &s->dlcs, list) {
-			seq_printf(f, "%pMR %pMR %ld %d %d %d %d\n",
-				   &chan->src, &chan->dst,
-				   d->state, d->dlci, d->mtu,
-				   d->rx_credits, d->tx_credits);
-		}
-	}
-
-	rfcomm_unlock();
-
+	BT_DBG("thread stopped");
 	return 0;
 }
-
-DEFINE_SHOW_ATTRIBUTE(rfcomm_dlc_debugfs);
-
-static struct dentry *rfcomm_dlc_debugfs;
-
-/* ---- Initialization ---- */
-static int __init rfcomm_init(void)
+/**
+ * @brief Initializes the RFCOMM core.
+ * @return 0 on success, or a negative error code on failure.
+ */
+int __init rfcomm_init(void)
 {
 	int err;
 
-	hci_register_cb(&rfcomm_cb);
-
 	rfcomm_thread = kthread_run(rfcomm_run, NULL, "krfcommd");
-	if (IS_ERR(rfcomm_thread)) {
-		err = PTR_ERR(rfcomm_thread);
-		goto unregister;
-	}
+	if (IS_ERR(rfcomm_thread))
+		return PTR_ERR(rfcomm_thread);
 
 	err = rfcomm_init_ttys();
-	if (err < 0)
-		goto stop;
+	if (err < 0) {
+		kthread_stop(rfcomm_thread);
+		return err;
+	}
 
 	err = rfcomm_init_sockets();
-	if (err < 0)
-		goto cleanup;
+	if (err < 0) {
+		rfcomm_cleanup_ttys();
+		kthread_stop(rfcomm_thread);
+		return err;
+	}
 
 	BT_INFO("RFCOMM ver %s", VERSION);
-
-	if (IS_ERR_OR_NULL(bt_debugfs))
-		return 0;
-
-	rfcomm_dlc_debugfs = debugfs_create_file("rfcomm_dlc", 0444,
-						 bt_debugfs, NULL,
-						 &rfcomm_dlc_debugfs_fops);
-
 	return 0;
-
-cleanup:
-	rfcomm_cleanup_ttys();
-
-stop:
-	kthread_stop(rfcomm_thread);
-
-unregister:
-	hci_unregister_cb(&rfcomm_cb);
-
-	return err;
 }
-
-static void __exit rfcomm_exit(void)
+/**
+ * @brief Cleans up the RFCOMM core.
+ */
+void rfcomm_exit(void)
 {
-	debugfs_remove(rfcomm_dlc_debugfs);
-
-	hci_unregister_cb(&rfcomm_cb);
-
 	kthread_stop(rfcomm_thread);
-
-	rfcomm_cleanup_ttys();
-
 	rfcomm_cleanup_sockets();
+	rfcomm_cleanup_ttys();
 }
 
-module_init(rfcomm_init);
-module_exit(rfcomm_exit);
-
-module_param(disable_cfc, bool, 0644);
-MODULE_PARM_DESC(disable_cfc, "Disable credit based flow control");
-
-module_param(channel_mtu, int, 0644);
-MODULE_PARM_DESC(channel_mtu, "Default MTU for the RFCOMM channel");
-
-module_param(l2cap_ertm, bool, 0644);
-MODULE_PARM_DESC(l2cap_ertm, "Use L2CAP ERTM mode for connection");
-
-MODULE_AUTHOR("Marcel Holtmann <marcel@holtmann.org>");
+MODULE_AUTHOR("Maxim Krasnyansky <maxk@qualcomm.com>");
 MODULE_DESCRIPTION("Bluetooth RFCOMM ver " VERSION);
 MODULE_VERSION(VERSION);
 MODULE_LICENSE("GPL");
 MODULE_ALIAS("bt-proto-3");
+module_param(disable_cfc, bool, 0644);
+MODULE_PARM_DESC(disable_cfc, "Disable credit based flow control");
+module_param(l2cap_ertm, bool, 0644);
+MODULE_PARM_DESC(l2cap_ertm, "Enable L2CAP ERTM");
+module_param(channel_mtu, int, 0644);
+MODULE_PARM_DESC(channel_mtu, "Set initial channel MTU");

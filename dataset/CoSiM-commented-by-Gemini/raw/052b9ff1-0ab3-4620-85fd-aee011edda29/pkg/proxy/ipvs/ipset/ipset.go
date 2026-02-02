@@ -17,6 +17,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+/**
+ * @file This file provides an interface for interacting with the ipset utility.
+ *
+ * It defines a set of functions for creating, deleting, and managing ipsets,
+ * as well as for adding and removing entries. The implementation uses the
+ * `ipset` command-line tool to perform these operations.
+ */
 package ipset
 
 import (
@@ -273,6 +280,7 @@ func (e *Entry) checkIP(set *IPSet) bool {
 	return true
 }
 
+// runner implements the Interface interface by executing ipset commands.
 type runner struct {
 	exec utilexec.Interface
 }

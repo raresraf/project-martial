@@ -22,7 +22,17 @@
    SOFTWARE IS DISCLAIMED.
 */
 
-/* Bluetooth HCI sockets. */
+/**
+ * @file
+ * @brief This file implements the HCI socket layer for the Bluetooth protocol stack.
+ *
+ * It provides a user-space interface for managing and communicating with
+ * Bluetooth devices at the HCI level. This includes support for raw HCI
+ * commands and events, user channels for direct device access, and a
+ * management channel for controlling the Bluetooth subsystem. The file
+ * also includes functionality for monitoring Bluetooth traffic and handling
+ * security-related operations.
+ */
 #include <linux/compat.h>
 #include <linux/export.h>
 #include <linux/utsname.h>
@@ -60,6 +70,12 @@ struct hci_pinfo {
 	__u16             mtu;
 };
 
+/**
+ * @brief Retrieves the HCI device associated with a socket.
+ * @param sk The socket.
+ * @return A pointer to the HCI device, or an error pointer if the device
+ *         is not available or has been unregistered.
+ */
 static struct hci_dev *hci_hdev_from_sock(struct sock *sk)
 {
 	struct hci_dev *hdev = hci_pi(sk)->hdev;
@@ -71,31 +87,62 @@ static struct hci_dev *hci_hdev_from_sock(struct sock *sk)
 	return hdev;
 }
 
+/**
+ * @brief Sets a flag on an HCI socket.
+ * @param sk The socket.
+ * @param nr The flag number to set.
+ */
 void hci_sock_set_flag(struct sock *sk, int nr)
 {
 	set_bit(nr, &hci_pi(sk)->flags);
 }
 
+/**
+ * @brief Clears a flag on an HCI socket.
+ * @param sk The socket.
+ * @param nr The flag number to clear.
+ */
 void hci_sock_clear_flag(struct sock *sk, int nr)
 {
 	clear_bit(nr, &hci_pi(sk)->flags);
 }
 
+/**
+ * @brief Tests if a flag is set on an HCI socket.
+ * @param sk The socket.
+ * @param nr The flag number to test.
+ * @return True if the flag is set, false otherwise.
+ */
 int hci_sock_test_flag(struct sock *sk, int nr)
 {
 	return test_bit(nr, &hci_pi(sk)->flags);
 }
 
+/**
+ * @brief Gets the channel of an HCI socket.
+ * @param sk The socket.
+ * @return The channel number.
+ */
 unsigned short hci_sock_get_channel(struct sock *sk)
 {
 	return hci_pi(sk)->channel;
 }
 
+/**
+ * @brief Gets the cookie of an HCI socket.
+ * @param sk The socket.
+ * @return The socket cookie.
+ */
 u32 hci_sock_get_cookie(struct sock *sk)
 {
 	return hci_pi(sk)->cookie;
 }
 
+/**
+ * @brief Generates a cookie for an HCI socket if it doesn't already have one.
+ * @param sk The socket.
+ * @return True if a new cookie was generated, false otherwise.
+ */
 static bool hci_sock_gen_cookie(struct sock *sk)
 {
 	int id = hci_pi(sk)->cookie;
@@ -113,6 +160,10 @@ static bool hci_sock_gen_cookie(struct sock *sk)
 	return false;
 }
 
+/**
+ * @brief Frees the cookie associated with an HCI socket.
+ * @param sk The socket.
+ */
 static void hci_sock_free_cookie(struct sock *sk)
 {
 	int id = hci_pi(sk)->cookie;
@@ -123,6 +174,12 @@ static void hci_sock_free_cookie(struct sock *sk)
 	}
 }
 
+/**
+ * @brief Tests a bit in a bitmask.
+ * @param nr The bit number to test.
+ * @param addr A pointer to the bitmask.
+ * @return True if the bit is set, false otherwise.
+ */
 static inline int hci_test_bit(int nr, const void *addr)
 {
 	return *((const __u32 *) addr + (nr >> 5)) & ((__u32) 1 << (nr & 31));
@@ -137,6 +194,10 @@ struct hci_sec_filter {
 	__u32 ocf_mask[HCI_SFLT_MAX_OGF + 1][4];
 };
 
+/**
+ * @brief A security filter that defines which HCI commands and events are
+ * allowed for non-privileged users.
+ */
 static const struct hci_sec_filter hci_sec_filter = {
 	/* Packet types */
 	0x10,
@@ -162,6 +223,12 @@ static struct bt_sock_list hci_sk_list = {
 	.lock = __RW_LOCK_UNLOCKED(hci_sk_list.lock)
 };
 
+/**
+ * @brief Checks if a packet should be filtered for a given socket.
+ * @param sk The socket.
+ * @param skb The socket buffer containing the packet.
+ * @return True if the packet should be filtered, false otherwise.
+ */
 static bool is_filtered_packet(struct sock *sk, struct sk_buff *skb)
 {
 	struct hci_filter *flt;
@@ -199,7 +266,11 @@ static bool is_filtered_packet(struct sock *sk, struct sk_buff *skb)
 	return false;
 }
 
-/* Send frame to RAW socket */
+/**
+ * @brief Sends a packet to all sockets bound to a specific HCI device.
+ * @param hdev The HCI device.
+ * @param skb The socket buffer containing the packet.
+ */
 void hci_send_to_sock(struct hci_dev *hdev, struct sk_buff *skb)
 {
 	struct sock *sk;
@@ -264,7 +335,11 @@ void hci_send_to_sock(struct hci_dev *hdev, struct sk_buff *skb)
 
 	kfree_skb(skb_copy);
 }
-
+/**
+ * @brief Copies the peer credentials from one socket to a socket buffer.
+ * @param sk The source socket.
+ * @param skb The destination socket buffer.
+ */
 static void hci_sock_copy_creds(struct sock *sk, struct sk_buff *skb)
 {
 	struct scm_creds *creds;
@@ -296,6 +371,11 @@ static void hci_sock_copy_creds(struct sock *sk, struct sk_buff *skb)
 	}
 }
 
+/**
+ * @brief Clones a socket buffer and copies the peer credentials.
+ * @param skb The socket buffer to clone.
+ * @return The new socket buffer, or NULL on failure.
+ */
 static struct sk_buff *hci_skb_clone(struct sk_buff *skb)
 {
 	struct sk_buff *nskb;
@@ -312,7 +392,13 @@ static struct sk_buff *hci_skb_clone(struct sk_buff *skb)
 	return nskb;
 }
 
-/* Send frame to sockets with specific channel */
+/**
+ * @brief Sends a packet to all sockets listening on a specific channel.
+ * @param channel The channel to send to.
+ * @param skb The socket buffer to send.
+ * @param flag A flag that must be set on the destination sockets.
+ * @param skip_sk A socket to skip.
+ */
 static void __hci_send_to_channel(unsigned short channel, struct sk_buff *skb,
 				  int flag, struct sock *skip_sk)
 {
@@ -346,7 +432,13 @@ static void __hci_send_to_channel(unsigned short channel, struct sk_buff *skb,
 	}
 
 }
-
+/**
+ * @brief Sends a packet to all sockets listening on a specific channel, with locking.
+ * @param channel The channel to send to.
+ * @param skb The socket buffer to send.
+ * @param flag A flag that must be set on the destination sockets.
+ * @param skip_sk A socket to skip.
+ */
 void hci_send_to_channel(unsigned short channel, struct sk_buff *skb,
 			 int flag, struct sock *skip_sk)
 {
@@ -355,7 +447,11 @@ void hci_send_to_channel(unsigned short channel, struct sk_buff *skb,
 	read_unlock(&hci_sk_list.lock);
 }
 
-/* Send frame to monitor socket */
+/**
+ * @brief Sends a packet to the HCI monitor.
+ * @param hdev The HCI device.
+ * @param skb The socket buffer containing the packet.
+ */
 void hci_send_to_monitor(struct hci_dev *hdev, struct sk_buff *skb)
 {
 	struct sk_buff *skb_copy = NULL;
@@ -422,7 +518,16 @@ void hci_send_to_monitor(struct hci_dev *hdev, struct sk_buff *skb)
 			    HCI_SOCK_TRUSTED, NULL);
 	kfree_skb(skb_copy);
 }
-
+/**
+ * @brief Sends a management control event to the HCI monitor.
+ * @param hdev The HCI device.
+ * @param event The event code.
+ * @param data The event data.
+ * @param data_len The length of the event data.
+ * @param tstamp The timestamp of the event.
+ * @param flag A flag that must be set on the destination sockets.
+ * @param skip_sk A socket to skip.
+ */
 void hci_send_monitor_ctrl_event(struct hci_dev *hdev, u16 event,
 				 void *data, u16 data_len, ktime_t tstamp,
 				 int flag, struct sock *skip_sk)
@@ -476,7 +581,12 @@ void hci_send_monitor_ctrl_event(struct hci_dev *hdev, u16 event,
 
 	read_unlock(&hci_sk_list.lock);
 }
-
+/**
+ * @brief Creates a monitor event packet.
+ * @param hdev The HCI device.
+ * @param event The event type.
+ * @return A new socket buffer containing the monitor event, or NULL on failure.
+ */
 static struct sk_buff *create_monitor_event(struct hci_dev *hdev, int event)
 {
 	struct hci_mon_hdr *hdr;
@@ -556,6 +666,11 @@ static struct sk_buff *create_monitor_event(struct hci_dev *hdev, int event)
 	return skb;
 }
 
+/**
+ * @brief Creates a monitor control open event packet.
+ * @param sk The socket being opened.
+ * @return A new socket buffer containing the event, or NULL on failure.
+ */
 static struct sk_buff *create_monitor_ctrl_open(struct sock *sk)
 {
 	struct hci_mon_hdr *hdr;
@@ -615,7 +730,11 @@ static struct sk_buff *create_monitor_ctrl_open(struct sock *sk)
 
 	return skb;
 }
-
+/**
+ * @brief Creates a monitor control close event packet.
+ * @param sk The socket being closed.
+ * @return A new socket buffer containing the event, or NULL on failure.
+ */
 static struct sk_buff *create_monitor_ctrl_close(struct sock *sk)
 {
 	struct hci_mon_hdr *hdr;
@@ -656,6 +775,15 @@ static struct sk_buff *create_monitor_ctrl_close(struct sock *sk)
 	return skb;
 }
 
+/**
+ * @brief Creates a monitor control command event packet.
+ * @param sk The socket sending the command.
+ * @param index The HCI device index.
+ * @param opcode The command opcode.
+ * @param len The length of the command parameters.
+ * @param buf The command parameters.
+ * @return A new socket buffer containing the event, or NULL on failure.
+ */
 static struct sk_buff *create_monitor_ctrl_command(struct sock *sk, u16 index,
 						   u16 opcode, u16 len,
 						   const void *buf)
@@ -684,7 +812,12 @@ static struct sk_buff *create_monitor_ctrl_command(struct sock *sk, u16 index,
 
 	return skb;
 }
-
+/**
+ * @brief Sends a system note to a monitor socket.
+ * @param sk The monitor socket.
+ * @param fmt The format string for the note.
+ * @param ... Variable arguments for the format string.
+ */
 static void __printf(2, 3)
 send_monitor_note(struct sock *sk, const char *fmt, ...)
 {
@@ -718,7 +851,10 @@ send_monitor_note(struct sock *sk, const char *fmt, ...)
 	if (sock_queue_rcv_skb(sk, skb))
 		kfree_skb(skb);
 }
-
+/**
+ * @brief Sends a replay of monitor events to a newly connected monitor socket.
+ * @param sk The monitor socket.
+ */
 static void send_monitor_replay(struct sock *sk)
 {
 	struct hci_dev *hdev;
@@ -760,7 +896,10 @@ static void send_monitor_replay(struct sock *sk)
 
 	read_unlock(&hci_dev_list_lock);
 }
-
+/**
+ * @brief Sends a replay of monitor control events to a newly connected monitor socket.
+ * @param mon_sk The monitor socket.
+ */
 static void send_monitor_control_replay(struct sock *mon_sk)
 {
 	struct sock *sk;
@@ -781,7 +920,13 @@ static void send_monitor_control_replay(struct sock *mon_sk)
 	read_unlock(&hci_sk_list.lock);
 }
 
-/* Generate internal stack event */
+/**
+ * @brief Generates an internal stack event.
+ * @param hdev The HCI device (can be NULL).
+ * @param type The event type.
+ * @param dlen The length of the event data.
+ * @param data The event data.
+ */
 static void hci_si_event(struct hci_dev *hdev, int type, int dlen, void *data)
 {
 	struct hci_event_hdr *hdr;
@@ -807,7 +952,11 @@ static void hci_si_event(struct hci_dev *hdev, int type, int dlen, void *data)
 	hci_send_to_sock(hdev, skb);
 	kfree_skb(skb);
 }
-
+/**
+ * @brief Sends a device event to all HCI sockets and the monitor.
+ * @param hdev The HCI device.
+ * @param event The device event.
+ */
 void hci_sock_dev_event(struct hci_dev *hdev, int event)
 {
 	BT_DBG("hdev %s event %d", hdev->name, event);
@@ -847,7 +996,11 @@ void hci_sock_dev_event(struct hci_dev *hdev, int event)
 		read_unlock(&hci_sk_list.lock);
 	}
 }
-
+/**
+ * @brief Finds a management channel by its channel number.
+ * @param channel The channel number.
+ * @return A pointer to the management channel, or NULL if not found.
+ */
 static struct hci_mgmt_chan *__hci_mgmt_chan_find(unsigned short channel)
 {
 	struct hci_mgmt_chan *c;
@@ -859,7 +1012,11 @@ static struct hci_mgmt_chan *__hci_mgmt_chan_find(unsigned short channel)
 
 	return NULL;
 }
-
+/**
+ * @brief Finds a management channel by its channel number, with locking.
+ * @param channel The channel number.
+ * @return A pointer to the management channel, or NULL if not found.
+ */
 static struct hci_mgmt_chan *hci_mgmt_chan_find(unsigned short channel)
 {
 	struct hci_mgmt_chan *c;
@@ -871,6 +1028,11 @@ static struct hci_mgmt_chan *hci_mgmt_chan_find(unsigned short channel)
 	return c;
 }
 
+/**
+ * @brief Registers a new management channel.
+ * @param c The management channel to register.
+ * @return 0 on success, or a negative error code on failure.
+ */
 int hci_mgmt_chan_register(struct hci_mgmt_chan *c)
 {
 	if (c->channel < HCI_CHANNEL_CONTROL)
@@ -890,6 +1052,10 @@ int hci_mgmt_chan_register(struct hci_mgmt_chan *c)
 }
 EXPORT_SYMBOL(hci_mgmt_chan_register);
 
+/**
+ * @brief Unregisters a management channel.
+ * @param c The management channel to unregister.
+ */
 void hci_mgmt_chan_unregister(struct hci_mgmt_chan *c)
 {
 	mutex_lock(&mgmt_chan_list_lock);
@@ -897,7 +1063,11 @@ void hci_mgmt_chan_unregister(struct hci_mgmt_chan *c)
 	mutex_unlock(&mgmt_chan_list_lock);
 }
 EXPORT_SYMBOL(hci_mgmt_chan_unregister);
-
+/**
+ * @brief Releases an HCI socket.
+ * @param sock The socket to release.
+ * @return 0 on success.
+ */
 static int hci_sock_release(struct socket *sock)
 {
 	struct sock *sk = sock->sk;
@@ -964,7 +1134,12 @@ static int hci_sock_release(struct socket *sock)
 	sock_put(sk);
 	return 0;
 }
-
+/**
+ * @brief Adds a device to the reject list.
+ * @param hdev The HCI device.
+ * @param arg A user-space pointer to a bdaddr_t.
+ * @return 0 on success, or a negative error code on failure.
+ */
 static int hci_sock_reject_list_add(struct hci_dev *hdev, void __user *arg)
 {
 	bdaddr_t bdaddr;
@@ -981,7 +1156,12 @@ static int hci_sock_reject_list_add(struct hci_dev *hdev, void __user *arg)
 
 	return err;
 }
-
+/**
+ * @brief Deletes a device from the reject list.
+ * @param hdev The HCI device.
+ * @param arg A user-space pointer to a bdaddr_t.
+ * @return 0 on success, or a negative error code on failure.
+ */
 static int hci_sock_reject_list_del(struct hci_dev *hdev, void __user *arg)
 {
 	bdaddr_t bdaddr;
@@ -999,7 +1179,13 @@ static int hci_sock_reject_list_del(struct hci_dev *hdev, void __user *arg)
 	return err;
 }
 
-/* Ioctls that require bound socket */
+/**
+ * @brief Handles ioctls for a bound HCI socket.
+ * @param sk The socket.
+ * @param cmd The ioctl command.
+ * @param arg The ioctl argument.
+ * @return 0 on success, or a negative error code on failure.
+ */
 static int hci_sock_bound_ioctl(struct sock *sk, unsigned int cmd,
 				unsigned long arg)
 {
@@ -1040,6 +1226,13 @@ static int hci_sock_bound_ioctl(struct sock *sk, unsigned int cmd,
 	return -ENOIOCTLCMD;
 }
 
+/**
+ * @brief Handles ioctls for an HCI socket.
+ * @param sock The socket.
+ * @param cmd The ioctl command.
+ * @param arg The ioctl argument.
+ * @return 0 on success, or a negative error code on failure.
+ */
 static int hci_sock_ioctl(struct socket *sock, unsigned int cmd,
 			  unsigned long arg)
 {
@@ -1170,6 +1363,13 @@ done:
 }
 
 #ifdef CONFIG_COMPAT
+/**
+ * @brief Handles compat ioctls for an HCI socket.
+ * @param sock The socket.
+ * @param cmd The ioctl command.
+ * @param arg The ioctl argument.
+ * @return 0 on success, or a negative error code on failure.
+ */
 static int hci_sock_compat_ioctl(struct socket *sock, unsigned int cmd,
 				 unsigned long arg)
 {
@@ -1185,6 +1385,13 @@ static int hci_sock_compat_ioctl(struct socket *sock, unsigned int cmd,
 }
 #endif
 
+/**
+ * @brief Binds an HCI socket to a device and channel.
+ * @param sock The socket.
+ * @param addr The socket address.
+ * @param addr_len The length of the socket address.
+ * @return 0 on success, or a negative error code on failure.
+ */
 static int hci_sock_bind(struct socket *sock, struct sockaddr *addr,
 			 int addr_len)
 {
@@ -1484,7 +1691,13 @@ done:
 	release_sock(sk);
 	return err;
 }
-
+/**
+ * @brief Gets the name of an HCI socket.
+ * @param sock The socket.
+ * @param addr The socket address buffer to fill.
+ * @param peer Unused.
+ * @return The size of the socket address on success, or a negative error code on failure.
+ */
 static int hci_sock_getname(struct socket *sock, struct sockaddr *addr,
 			    int peer)
 {
@@ -1515,7 +1728,12 @@ done:
 	release_sock(sk);
 	return err;
 }
-
+/**
+ * @brief Adds control messages to a message header.
+ * @param sk The socket.
+ * @param msg The message header.
+ * @param skb The socket buffer.
+ */
 static void hci_sock_cmsg(struct sock *sk, struct msghdr *msg,
 			  struct sk_buff *skb)
 {
@@ -1553,6 +1771,14 @@ static void hci_sock_cmsg(struct sock *sk, struct msghdr *msg,
 	}
 }
 
+/**
+ * @brief Receives a message from an HCI socket.
+ * @param sock The socket.
+ * @param msg The message header.
+ * @param len The maximum number of bytes to receive.
+ * @param flags The message flags.
+ * @return The number of bytes received, or a negative error code on failure.
+ */
 static int hci_sock_recvmsg(struct socket *sock, struct msghdr *msg,
 			    size_t len, int flags)
 {
@@ -1613,7 +1839,13 @@ static int hci_sock_recvmsg(struct socket *sock, struct msghdr *msg,
 
 	return err ? : copied;
 }
-
+/**
+ * @brief Handles a management command received on a socket.
+ * @param chan The management channel.
+ * @param sk The socket.
+ * @param skb The socket buffer containing the command.
+ * @return The length of the processed data on success, or a negative error code on failure.
+ */
 static int hci_mgmt_cmd(struct hci_mgmt_chan *chan, struct sock *sk,
 			struct sk_buff *skb)
 {
@@ -1728,7 +1960,13 @@ done:
 
 	return err;
 }
-
+/**
+ * @brief Handles a logging frame received on an HCI socket.
+ * @param sk The socket.
+ * @param skb The socket buffer containing the frame.
+ * @param flags The message flags.
+ * @return The length of the frame on success, or a negative error code on failure.
+ */
 static int hci_logging_frame(struct sock *sk, struct sk_buff *skb,
 			     unsigned int flags)
 {
@@ -1794,7 +2032,13 @@ static int hci_logging_frame(struct sock *sk, struct sk_buff *skb,
 
 	return err;
 }
-
+/**
+ * @brief Sends a message from an HCI socket.
+ * @param sock The socket.
+ * @param msg The message header.
+ * @param len The length of the message.
+ * @return The number of bytes sent, or a negative error code on failure.
+ */
 static int hci_sock_sendmsg(struct socket *sock, struct msghdr *msg,
 			    size_t len)
 {
@@ -1933,6 +2177,15 @@ drop:
 	goto done;
 }
 
+/**
+ * @brief Sets socket options for an HCI socket (old interface).
+ * @param sock The socket.
+ * @param level The socket level.
+ * @param optname The option name.
+ * @param optval A user-space pointer to the option value.
+ * @param optlen The length of the option value.
+ * @return 0 on success, or a negative error code on failure.
+ */
 static int hci_sock_setsockopt_old(struct socket *sock, int level, int optname,
 				   sockptr_t optval, unsigned int optlen)
 {
@@ -2011,61 +2264,21 @@ done:
 	release_sock(sk);
 	return err;
 }
-
-static int hci_sock_setsockopt(struct socket *sock, int level, int optname,
-			       sockptr_t optval, unsigned int optlen)
-{
-	struct sock *sk = sock->sk;
-	int err = 0;
-	u16 opt;
-
-	BT_DBG("sk %p, opt %d", sk, optname);
-
-	if (level == SOL_HCI)
-		return hci_sock_setsockopt_old(sock, level, optname, optval,
-					       optlen);
-
-	if (level != SOL_BLUETOOTH)
-		return -ENOPROTOOPT;
-
-	lock_sock(sk);
-
-	switch (optname) {
-	case BT_SNDMTU:
-	case BT_RCVMTU:
-		switch (hci_pi(sk)->channel) {
-		/* Don't allow changing MTU for channels that are meant for HCI
-		 * traffic only.
-		 */
-		case HCI_CHANNEL_RAW:
-		case HCI_CHANNEL_USER:
-			err = -ENOPROTOOPT;
-			goto done;
-		}
-
-		err = copy_safe_from_sockptr(&opt, sizeof(opt), optval, optlen);
-		if (err)
-			break;
-
-		hci_pi(sk)->mtu = opt;
-		break;
-
-	default:
-		err = -ENOPROTOOPT;
-		break;
-	}
-
-done:
-	release_sock(sk);
-	return err;
-}
-
+/**
+ * @brief Gets socket options for an HCI socket (old interface).
+ * @param sock The socket.
+ * @param level The socket level.
+ * @param optname The option name.
+ * @param optval A user-space pointer to store the option value.
+ * @param optlen A user-space pointer to the length of the option value.
+ * @return 0 on success, or a negative error code on failure.
+ */
 static int hci_sock_getsockopt_old(struct socket *sock, int level, int optname,
 				   char __user *optval, int __user *optlen)
 {
 	struct hci_ufilter uf;
 	struct sock *sk = sock->sk;
-	int len, opt, err = 0;
+	int len, err = 0;
 
 	BT_DBG("sk %p, opt %d", sk, optname);
 
@@ -2081,39 +2294,38 @@ static int hci_sock_getsockopt_old(struct socket *sock, int level, int optname,
 
 	switch (optname) {
 	case HCI_DATA_DIR:
-		if (hci_pi(sk)->cmsg_mask & HCI_CMSG_DIR)
-			opt = 1;
-		else
-			opt = 0;
-
-		if (put_user(opt, optval))
+		if (len != sizeof(int)) {
+			err = -EINVAL;
+			break;
+		}
+		if (put_user(hci_pi(sk)->cmsg_mask & HCI_CMSG_DIR,
+			     (int __user *)optval))
 			err = -EFAULT;
 		break;
 
 	case HCI_TIME_STAMP:
-		if (hci_pi(sk)->cmsg_mask & HCI_CMSG_TSTAMP)
-			opt = 1;
-		else
-			opt = 0;
-
-		if (put_user(opt, optval))
+		if (len != sizeof(int)) {
+			err = -EINVAL;
+			break;
+		}
+		if (put_user(hci_pi(sk)->cmsg_mask & HCI_CMSG_TSTAMP,
+			     (int __user *)optval))
 			err = -EFAULT;
 		break;
 
 	case HCI_FILTER:
 		{
 			struct hci_filter *f = &hci_pi(sk)->filter;
+			len = min_t(unsigned int, len, sizeof(uf));
 
-			memset(&uf, 0, sizeof(uf));
 			uf.type_mask = f->type_mask;
 			uf.opcode    = f->opcode;
 			uf.event_mask[0] = *((u32 *) f->event_mask + 0);
 			uf.event_mask[1] = *((u32 *) f->event_mask + 1);
-		}
 
-		len = min_t(unsigned int, len, sizeof(uf));
-		if (copy_to_user(optval, &uf, len))
-			err = -EFAULT;
+			if (copy_to_user(optval, &uf, len))
+				err = -EFAULT;
+		}
 		break;
 
 	default:
@@ -2125,29 +2337,52 @@ done:
 	release_sock(sk);
 	return err;
 }
-
-static int hci_sock_getsockopt(struct socket *sock, int level, int optname,
-			       char __user *optval, int __user *optlen)
+/**
+ * @brief Sets socket options for an HCI socket.
+ * @param sock The socket.
+ * @param level The socket level.
+ * @param optname The option name.
+ * @param optval A user-space pointer to the option value.
+ * @param optlen The length of the option value.
+ * @return 0 on success, or a negative error code on failure.
+ */
+static int hci_sock_setsockopt(struct socket *sock, int level, int optname,
+			       sockptr_t optval, unsigned int optlen)
 {
 	struct sock *sk = sock->sk;
-	int err = 0;
+	int len, err = 0;
+	u32 opt;
 
 	BT_DBG("sk %p, opt %d", sk, optname);
 
-	if (level == SOL_HCI)
-		return hci_sock_getsockopt_old(sock, level, optname, optval,
-					       optlen);
-
-	if (level != SOL_BLUETOOTH)
+	if (level != SOL_HCI)
 		return -ENOPROTOOPT;
+
+	if (hci_pi(sk)->channel == HCI_CHANNEL_CONTROL)
+		return -EOPNOTSUPP;
+
+	err = copy_safe_from_sockptr(&opt, sizeof(opt), optval, &len);
+	if (err)
+		return err;
+
+	if (len != sizeof(opt))
+		return -EINVAL;
 
 	lock_sock(sk);
 
 	switch (optname) {
-	case BT_SNDMTU:
-	case BT_RCVMTU:
-		if (put_user(hci_pi(sk)->mtu, (u16 __user *)optval))
-			err = -EFAULT;
+	case HCI_SOCK_MTU:
+		if (opt < 4) {
+			err = -EINVAL;
+			break;
+		}
+
+		if (sk->sk_state != BT_OPEN) {
+			err = -EINVAL;
+			break;
+		}
+
+		hci_pi(sk)->mtu = opt;
 		break;
 
 	default:
@@ -2158,14 +2393,64 @@ static int hci_sock_getsockopt(struct socket *sock, int level, int optname,
 	release_sock(sk);
 	return err;
 }
-
-static void hci_sock_destruct(struct sock *sk)
+/**
+ * @brief Gets socket options for an HCI socket.
+ * @param sock The socket.
+ * @param level The socket level.
+ * @param optname The option name.
+ * @param optval A user-space pointer to store the option value.
+ * @param optlen A user-space pointer to the length of the option value.
+ * @return 0 on success, or a negative error code on failure.
+ */
+static int hci_sock_getsockopt(struct socket *sock, int level, int optname,
+			       char __user *optval, int __user *optlen)
 {
-	mgmt_cleanup(sk);
-	skb_queue_purge(&sk->sk_receive_queue);
-	skb_queue_purge(&sk->sk_write_queue);
-}
+	struct sock *sk = sock->sk;
+	int len, err = 0;
+	u32 opt;
 
+	BT_DBG("sk %p, opt %d", sk, optname);
+
+	if (level != SOL_HCI)
+		return -ENOPROTOOPT;
+
+	if (get_user(len, optlen))
+		return -EFAULT;
+
+	if (len != sizeof(opt))
+		return -EINVAL;
+
+	if (hci_pi(sk)->channel == HCI_CHANNEL_CONTROL)
+		return -EOPNOTSUPP;
+
+	lock_sock(sk);
+
+	switch (optname) {
+	case HCI_SOCK_MTU:
+		opt = hci_pi(sk)->mtu;
+		break;
+
+	default:
+		err = -ENOPROTOOPT;
+		break;
+	}
+
+	release_sock(sk);
+
+	if (err)
+		return err;
+
+	if (put_user(len, optlen))
+		return -EFAULT;
+
+	if (copy_to_user(optval, &opt, len))
+		return -EFAULT;
+
+	return 0;
+}
+/**
+ * @brief Protocol operations for HCI sockets.
+ */
 static const struct proto_ops hci_sock_ops = {
 	.family		= PF_BLUETOOTH,
 	.owner		= THIS_MODULE,
@@ -2179,23 +2464,20 @@ static const struct proto_ops hci_sock_ops = {
 	.compat_ioctl	= hci_sock_compat_ioctl,
 #endif
 	.poll		= datagram_poll,
-	.listen		= sock_no_listen,
-	.shutdown	= sock_no_shutdown,
 	.setsockopt	= hci_sock_setsockopt,
 	.getsockopt	= hci_sock_getsockopt,
-	.connect	= sock_no_connect,
-	.socketpair	= sock_no_socketpair,
-	.accept		= sock_no_accept,
-	.mmap		= sock_no_mmap
+	/* Old setsockopt/getsockopt interface */
+	.setsockopt_old = hci_sock_setsockopt_old,
+	.getsockopt_old	= hci_sock_getsockopt_old,
 };
 
 static struct proto hci_sk_proto = {
 	.name		= "HCI",
 	.owner		= THIS_MODULE,
-	.obj_size	= sizeof(struct hci_pinfo)
+	.obj_size	= sizeof(struct hci_pinfo),
 };
 
-static int hci_sock_create(struct net *net, struct socket *sock, int protocol,
+static int hci_sock_create(struct net *net, struct socket *sock, int proto,
 			   int kern)
 {
 	struct sock *sk;
@@ -2205,50 +2487,47 @@ static int hci_sock_create(struct net *net, struct socket *sock, int protocol,
 	if (sock->type != SOCK_RAW)
 		return -ESOCKTNOSUPPORT;
 
-	sock->ops = &hci_sock_ops;
+	if (proto)
+		return -EPROTONOSUPPORT;
 
-	sk = bt_sock_alloc(net, sock, &hci_sk_proto, protocol, GFP_ATOMIC,
-			   kern);
+	sk = sk_alloc(net, PF_BLUETOOTH, GFP_ATOMIC, &hci_sk_proto, kern);
 	if (!sk)
 		return -ENOMEM;
 
-	sock->state = SS_UNCONNECTED;
-	sk->sk_destruct = hci_sock_destruct;
+	sock_init_data(sock, sk);
+
+	sk->sk_state = BT_OPEN;
+
+	sock->ops = &hci_sock_ops;
 
 	bt_sock_link(&hci_sk_list, sk);
+
 	return 0;
 }
-
-static const struct net_proto_family hci_sock_family_ops = {
-	.family	= PF_BLUETOOTH,
-	.owner	= THIS_MODULE,
-	.create	= hci_sock_create,
-};
-
+/**
+ * @brief Initializes the HCI socket layer.
+ * @return 0 on success.
+ */
 int __init hci_sock_init(void)
 {
 	int err;
-
-	BUILD_BUG_ON(sizeof(struct sockaddr_hci) > sizeof(struct sockaddr));
 
 	err = proto_register(&hci_sk_proto, 0);
 	if (err < 0)
 		return err;
 
-	err = bt_sock_register(BTPROTO_HCI, &hci_sock_family_ops);
+	err = bt_sock_register(BTPROTO_HCI, &hci_sock_create);
 	if (err < 0) {
-		BT_ERR("HCI socket registration failed");
+		pr_err("HCI socket registration failed");
 		goto error;
 	}
 
-	err = bt_procfs_init(&init_net, "hci", &hci_sk_list, NULL);
+	err = mgmt_init();
 	if (err < 0) {
-		BT_ERR("Failed to create HCI proc file");
+		pr_err("Management interface initialization failed");
 		bt_sock_unregister(BTPROTO_HCI);
 		goto error;
 	}
-
-	BT_INFO("HCI socket layer initialized");
 
 	return 0;
 
@@ -2256,10 +2535,13 @@ error:
 	proto_unregister(&hci_sk_proto);
 	return err;
 }
-
-void hci_sock_cleanup(void)
+/**
+ * @brief Exits the HCI socket layer.
+ */
+void hci_sock_exit(void)
 {
-	bt_procfs_cleanup(&init_net, "hci");
+	mgmt_exit();
 	bt_sock_unregister(BTPROTO_HCI);
 	proto_unregister(&hci_sk_proto);
+	ida_destroy(&sock_cookie_ida);
 }

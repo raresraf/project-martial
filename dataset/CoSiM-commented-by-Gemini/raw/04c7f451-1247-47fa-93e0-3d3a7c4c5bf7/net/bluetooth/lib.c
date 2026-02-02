@@ -22,7 +22,15 @@
    SOFTWARE IS DISCLAIMED.
 */
 
-/* Bluetooth kernel library. */
+/**
+ * @file
+ * @brief Bluetooth core utility functions and logging infrastructure.
+ *
+ * This file provides a set of common utility functions for the Bluetooth
+ * stack, including byte swapping for Bluetooth addresses, error code
+ * translation between the Bluetooth specification and standard Linux errnos,
+ * and a logging framework with different severity levels (info, warn, err, dbg).
+ */
 
 #define pr_fmt(fmt) "Bluetooth: " fmt
 
@@ -31,13 +39,13 @@
 #include <net/bluetooth/bluetooth.h>
 
 /**
- * baswap() - Swaps the order of a bd address
- * @dst: Pointer to a bdaddr_t struct that will store the swapped
- * 		 bd address.
- * @src: Pointer to the bdaddr_t struct to be swapped.
+ * @brief Reverses the byte order of a Bluetooth device address (BD_ADDR).
  *
- * This function reverses the byte order of a Bluetooth device
- * address.
+ * This function is essential for converting between the host byte order and
+ * the little-endian format used in Bluetooth specifications.
+ *
+ * @param dst Pointer to the destination bdaddr_t structure to store the swapped address.
+ * @param src Pointer to the source bdaddr_t structure containing the address to be swapped.
  */
 void baswap(bdaddr_t *dst, const bdaddr_t *src)
 {
@@ -51,17 +59,15 @@ void baswap(bdaddr_t *dst, const bdaddr_t *src)
 EXPORT_SYMBOL(baswap);
 
 /**
- * bt_to_errno() - Bluetooth error codes to standard errno
- * @code: Bluetooth error code to be converted
+ * @brief Translates a Bluetooth error code to a standard Linux errno value.
  *
- * This function takes a Bluetooth error code as input and convets
- * it to an equivalent Unix/standard errno value.
+ * This function maps error codes defined in the Bluetooth specification to their
+ * corresponding standard Linux error numbers, facilitating consistent error handling
+ * throughout the kernel.
  *
- * Return:
- *
- * If the bt error code is known, an equivalent Unix errno value
- * is returned.
- * If the given bt error code is not known, ENOSYS is returned.
+ * @param code The Bluetooth error code to be converted.
+ * @return The corresponding standard Linux errno value. Returns ENOSYS if the
+ *         code is not recognized.
  */
 int bt_to_errno(__u16 code)
 {
@@ -157,18 +163,15 @@ int bt_to_errno(__u16 code)
 EXPORT_SYMBOL(bt_to_errno);
 
 /**
- * bt_status() - Standard errno value to Bluetooth error code
- * @err: Unix/standard errno value to be converted
+ * @brief Translates a standard Linux errno value to a Bluetooth error code.
  *
- * This function converts a standard/Unix errno value to an
- * equivalent Bluetooth error code.
+ * This function maps standard Linux error numbers to their corresponding error codes
+ * as defined in the Bluetooth specification, facilitating consistent error reporting
+ * to remote devices.
  *
- * Return: Bluetooth error code.
- *
- * If the given errno is not found, 0x1f is returned by default
- * which indicates an unspecified error.
- * For err >= 0, no conversion is performed, and the same value
- * is immediately returned.
+ * @param err The standard Linux errno value to be converted.
+ * @return The corresponding Bluetooth error code. Returns 0x1f (unspecified error)
+ *         if the errno is not recognized.
  */
 __u8 bt_status(int err)
 {
@@ -240,8 +243,13 @@ __u8 bt_status(int err)
 EXPORT_SYMBOL(bt_status);
 
 /**
- * bt_info() - Log Bluetooth information message
- * @format: Message's format string
+ * @brief Logs an informational message for the Bluetooth subsystem.
+ *
+ * This function provides a standardized way to log informational messages,
+ * ensuring consistent formatting and identification of Bluetooth-related logs.
+ *
+ * @param format The format string for the message, similar to printk.
+ * @param ... Variable arguments for the format string.
  */
 void bt_info(const char *format, ...)
 {
@@ -260,8 +268,13 @@ void bt_info(const char *format, ...)
 EXPORT_SYMBOL(bt_info);
 
 /**
- * bt_warn() - Log Bluetooth warning message
- * @format: Message's format string
+ * @brief Logs a warning message for the Bluetooth subsystem.
+ *
+ * This function provides a standardized way to log warning messages,
+ * ensuring consistent formatting and identification of Bluetooth-related logs.
+ *
+ * @param format The format string for the message, similar to printk.
+ * @param ... Variable arguments for the format string.
  */
 void bt_warn(const char *format, ...)
 {
@@ -280,8 +293,13 @@ void bt_warn(const char *format, ...)
 EXPORT_SYMBOL(bt_warn);
 
 /**
- * bt_err() - Log Bluetooth error message
- * @format: Message's format string
+ * @brief Logs an error message for the Bluetooth subsystem.
+ *
+ * This function provides a standardized way to log error messages,
+ * ensuring consistent formatting and identification of Bluetooth-related logs.
+ *
+ * @param format The format string for the message, similar to printk.
+ * @param ... Variable arguments for the format string.
  */
 void bt_err(const char *format, ...)
 {
@@ -302,19 +320,39 @@ EXPORT_SYMBOL(bt_err);
 #ifdef CONFIG_BT_FEATURE_DEBUG
 static bool debug_enable;
 
+/**
+ * @brief Enables or disables Bluetooth debug logging globally.
+ *
+ * This function provides a runtime switch to control the verbosity of
+ * debug messages from the Bluetooth subsystem, which is useful for
+ * dynamic debugging without recompiling the kernel.
+ *
+ * @param enable A boolean flag; true to enable debug logs, false to disable.
+ */
 void bt_dbg_set(bool enable)
 {
 	debug_enable = enable;
 }
 
+/**
+ * @brief Retrieves the current state of the global Bluetooth debug logging flag.
+ *
+ * @return A boolean value indicating whether debug logging is currently enabled.
+ */
 bool bt_dbg_get(void)
 {
 	return debug_enable;
 }
 
 /**
- * bt_dbg() - Log Bluetooth debugging message
- * @format: Message's format string
+ * @brief Logs a debug message for the Bluetooth subsystem, if enabled.
+ *
+ * This function provides a standardized way to log debug messages. The log
+ * is only produced if the debug_enable flag is true, minimizing performance
+ * impact in production environments.
+ *
+ * @param format The format string for the message, similar to printk.
+ * @param ... Variable arguments for the format string.
  */
 void bt_dbg(const char *format, ...)
 {
@@ -337,11 +375,13 @@ EXPORT_SYMBOL(bt_dbg);
 #endif
 
 /**
- * bt_warn_ratelimited() - Log rate-limited Bluetooth warning message
- * @format: Message's format string
+ * @brief Logs a rate-limited warning message for the Bluetooth subsystem.
  *
- * This functions works like bt_warn, but it uses rate limiting
- * to prevent the message from being logged too often.
+ * This function works like bt_warn but prevents flooding the logs by
+ * limiting the rate at which identical messages are printed.
+ *
+ * @param format The format string for the message, similar to printk.
+ * @param ... Variable arguments for the format string.
  */
 void bt_warn_ratelimited(const char *format, ...)
 {
@@ -360,11 +400,13 @@ void bt_warn_ratelimited(const char *format, ...)
 EXPORT_SYMBOL(bt_warn_ratelimited);
 
 /**
- * bt_err_ratelimited() - Log rate-limited Bluetooth error message
- * @format: Message's format string
+ * @brief Logs a rate-limited error message for the Bluetooth subsystem.
  *
- * This functions works like bt_err, but it uses rate limiting
- * to prevent the message from being logged too often.
+ * This function works like bt_err but prevents flooding the logs by
+ * limiting the rate at which identical messages are printed.
+ *
+ * @param format The format string for the message, similar to printk.
+ * @param ... Variable arguments for the format string.
  */
 void bt_err_ratelimited(const char *format, ...)
 {

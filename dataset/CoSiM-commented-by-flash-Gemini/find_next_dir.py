@@ -1,40 +1,54 @@
-
 """
-This script provides utility functions to navigate a dataset of code, identifying the next directory that has not yet been processed.
-It is designed to facilitate an iterative workflow for augmenting code with semantic documentation, ensuring that processing resumes from the last unfinished task.
+@package find_next_dir
+@brief This script is designed to manage an iterative processing workflow for a dataset of code directories.
+It identifies the next subdirectory that has not yet been marked as processed by a '.checkpoint' file,
+facilitating continuous integration or analysis tasks by ensuring work resumes from the last uncompleted unit.
+Algorithm: Directory traversal and checkpoint file detection.
+Time Complexity: O(D * F), where D is the number of subdirectories and F is the average time to check for a file's existence within each directory.
+Space Complexity: O(D) to store the list of directory names.
 """
 import os
 
 def find_next_unprocessed_directory(base_path):
     """
-    Identifies the next directory within `base_path` that does not contain a '.checkpoint' file.
+    @brief Identifies the next directory within `base_path` that does not contain a '.checkpoint' file.
     This function is crucial for maintaining an iterative processing workflow, allowing the system
     to pick up from where it left off, avoiding redundant work on previously processed directories.
 
-    Args:
-        base_path (str): The root directory where subdirectories (representing individual code snippets or tasks) are located.
+    @param base_path (str): The root directory where subdirectories (representing individual code snippets or tasks) are located.
 
-    Returns:
-        str: The name of the next unprocessed directory, or None if all directories have been processed.
+    @return str: The name of the next unprocessed directory, or None if all directories have been processed.
     """
-    # Retrieve all immediate subdirectories within the base_path and sort them to ensure consistent iteration order.
+    # Block Logic: List all immediate subdirectories and sort them for consistent, deterministic processing order.
+    # Precondition: `base_path` exists and is accessible.
+    # Invariant: `all_dirs` contains only directory names, sorted alphabetically.
     all_dirs = sorted([d for d in os.listdir(base_path) if os.path.isdir(os.path.join(base_path, d))])
-    # Iterate through each discovered directory to check for the presence of a '.checkpoint' file.
+
+    # Block Logic: Iterate through each subdirectory to determine if it has been processed.
+    # Precondition: `all_dirs` contains a list of candidate directories.
+    # Invariant: Each directory is checked for a '.checkpoint' file exactly once.
     for d in all_dirs:
-        # If a directory does not contain a '.checkpoint' file, it signifies that it is yet to be processed.
+        # Block Logic: Check for the existence of a '.checkpoint' file within the current subdirectory.
+        # A missing checkpoint file signifies an unprocessed directory.
+        # Precondition: `d` is a valid subdirectory name.
+        # Invariant: `os.path.exists` correctly reports the presence of the checkpoint.
         if not os.path.exists(os.path.join(base_path, d, '.checkpoint')):
+            # Functional Utility: Return the name of the first unprocessed directory found.
             return d
-    # If all directories contain a '.checkpoint' file, all tasks are considered complete.
+    # Functional Utility: If the loop completes, all directories have '.checkpoint' files, indicating full processing.
     return None
 
-# Define the base path for the dataset, pointing to the location where code directories are stored.
+# Functional Utility: Set the current working directory as the base path for scanning.
 base_path = os.getcwd()
-# Determine the next directory requiring processing based on the presence of a '.checkpoint' file.
+# Functional Utility: Invoke the directory scanner to find the next pending task.
 next_dir = find_next_unprocessed_directory(base_path)
-# Conditional output based on whether an unprocessed directory was found.
+
+# Block Logic: Provide output indicating the status of the dataset processing.
+# Precondition: `next_dir` holds the result of the scan (either a directory name or None).
+# Invariant: A clear status message is printed to standard output.
 if next_dir:
-    # Print the name of the next directory to be processed.
+    # Output the name of the directory that requires further action.
     print(next_dir)
 else:
-    # Indicate that all directories have been successfully processed.
+    # Indicate successful completion of all processing tasks in the dataset.
     print("All directories processed.")

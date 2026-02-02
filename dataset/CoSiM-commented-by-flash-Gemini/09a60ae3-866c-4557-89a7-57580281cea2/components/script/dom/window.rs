@@ -2,6 +2,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
+/// @file window.rs
+/// @brief This file implements the `Window` object, which represents a window containing a DOM document.
+/// It serves as the global object for JavaScript code, provides access to the DOM document,
+/// manages browsing context operations (navigation, history, security), handles events,
+/// and interacts with various browser subsystems like layout, image caching, and web workers.
+/// Functional Utility: Centralizes all browser-level functionality and global JavaScript execution
+/// context for a given document.
+
 use std::borrow::ToOwned;
 use std::cell::{Cell, RefCell, RefMut};
 use std::cmp;
@@ -121,7 +129,9 @@ use crate::dom::bindings::weakref::DOMTracker;
 #[cfg(feature = "bluetooth")]
 use crate::dom::bluetooth::BluetoothExtraPermissionData;
 use crate::dom::crypto::Crypto;
-use crate::dom::cssstyledeclaration::{CSSModificationAccess, CSSStyleDeclaration, CSSStyleOwner};
+use crate::dom::cssstyledeclaration::{{
+    CSSModificationAccess, CSSStyleDeclaration, CSSStyleOwner,
+}};
 use crate::dom::customelementregistry::CustomElementRegistry;
 use crate::dom::document::{AnimationFrameCallback, Document, ReflowTriggerCondition};
 use crate::dom::element::Element;
@@ -156,7 +166,7 @@ use crate::dom::workletglobalscope::WorkletGlobalScopeType;
 use crate::layout_image::fetch_image_for_layout;
 use crate::messaging::{MainThreadScriptMsg, ScriptEventLoopReceiver, ScriptEventLoopSender};
 use crate::microtask::MicrotaskQueue;
-use crate::realms::{InRealm, enter_realm};
+use crate::realms::enter_realm;
 use crate::script_runtime::{CanGc, JSContext, Runtime};
 use crate::script_thread::ScriptThread;
 use crate::timers::{IsInterval, TimerCallback};
@@ -164,7 +174,10 @@ use crate::unminify::unminified_path;
 use crate::webdriver_handlers::jsval_to_webdriver;
 use crate::{fetch, window_named_properties};
 
-/// A callback to call when a response comes back from the `ImageCache`.
+/// @struct PendingImageCallback
+/// @brief A callback to call when a response comes back from the `ImageCache`.
+/// Functional Utility: Encapsulates a callback function that is executed when an
+/// image loading operation completes, allowing the `Window` to react to image status changes.
 ///
 /// This is wrapped in a struct so that we can implement `MallocSizeOf`
 /// for this type.
@@ -174,7 +187,10 @@ pub struct PendingImageCallback(
     Box<dyn Fn(PendingImageResponse) + 'static>,
 );
 
-/// Current state of the window object
+/// @enum WindowState
+/// @brief Current state of the window object.
+/// Functional Utility: Tracks the lifecycle state of the `Window`, differentiating
+/// between an active window and one that has been closed but not yet garbage collected.
 #[derive(Clone, Copy, Debug, JSTraceable, MallocSizeOf, PartialEq)]
 enum WindowState {
     Alive,
@@ -195,6 +211,11 @@ const INITIAL_REFLOW_DELAY: Duration = Duration::from_millis(200);
 ///    but not display the contents.
 ///
 /// For more information see: <https://github.com/servo/servo/pull/6028>.
+/// @enum LayoutBlocker
+/// @brief Represents the current state of layout blocking during page loading.
+/// Functional Utility: Controls when layout operations are permitted, preventing
+/// premature or excessive reflows during document parsing to optimize performance
+/// and avoid visual artifacts.
 #[derive(Clone, Copy, MallocSizeOf)]
 enum LayoutBlocker {
     /// The first load event hasn't been fired and we have not started to parse the `<body>` yet.
@@ -208,221 +229,245 @@ enum LayoutBlocker {
 }
 
 impl LayoutBlocker {
+    /// @brief Checks if layout is currently blocked.
+    /// @return `true` if layout is blocked, `false` otherwise.
     fn layout_blocked(&self) -> bool {
         !matches!(self, Self::FiredLoadEventOrParsingTimerExpired)
     }
 }
 
+/// @struct Window
+/// @brief Represents the `Window` object, the global object for JavaScript in a browsing context.
+/// Functional Utility: Provides the top-level interface for interacting with the browser window,
+/// including access to the DOM, global functions, timers, and inter-window communication.
+///
+/// <https://html.spec.whatwg.org/multipage/#the-window-object>
 #[dom_struct]
 pub(crate) struct Window {
-    globalscope: GlobalScope,
+    globalscope: GlobalScope, //!< Inherited properties and methods from `GlobalScope`.
     /// The webview that contains this [`Window`].
     ///
     /// This may not be the top-level [`Window`], in the case of frames.
     #[no_trace]
-    webview_id: WebViewId,
-    script_chan: Sender<MainThreadScriptMsg>,
+    webview_id: WebViewId, //!< The unique ID of the web view containing this window.
+    script_chan: Sender<MainThreadScriptMsg>, //!< Channel for sending messages to the main script thread.
     #[no_trace]
     #[ignore_malloc_size_of = "TODO: Add MallocSizeOf support to layout"]
-    layout: RefCell<Box<dyn Layout>>,
+    layout: RefCell<Box<dyn Layout>>, //!< The layout engine instance for this window.
     /// A [`FontContext`] which is used to store and match against fonts for this `Window` and to
     /// trigger the download of web fonts.
     #[no_trace]
     #[conditional_malloc_size_of]
-    font_context: Arc<FontContext>,
-    navigator: MutNullableDom<Navigator>,
+    font_context: Arc<FontContext>, //!< Manages fonts for this window.
+    navigator: MutNullableDom<Navigator>, //!< The `Navigator` object.
     #[ignore_malloc_size_of = "Arc"]
     #[no_trace]
-    image_cache: Arc<dyn ImageCache>,
+    image_cache: Arc<dyn ImageCache>, //!< The image cache for this window.
     #[no_trace]
-    image_cache_sender: IpcSender<PendingImageResponse>,
-    window_proxy: MutNullableDom<WindowProxy>,
-    document: MutNullableDom<Document>,
-    location: MutNullableDom<Location>,
-    history: MutNullableDom<History>,
-    custom_element_registry: MutNullableDom<CustomElementRegistry>,
-    performance: MutNullableDom<Performance>,
+    image_cache_sender: IpcSender<PendingImageResponse>, //!< Sender for image cache responses.
+    window_proxy: MutNullableDom<WindowProxy>, //!< The `WindowProxy` object representing this window to other browsing contexts.
+    document: MutNullableDom<Document>, //!< The `Document` object loaded in this window.
+    location: MutNullableDom<Location>, //!< The `Location` object for managing the window's URL.
+    history: MutNullableDom<History>, //!< The `History` object for managing browsing history.
+    custom_element_registry: MutNullableDom<CustomElementRegistry>, //!< The `CustomElementRegistry` for managing custom elements.
+    performance: MutNullableDom<Performance>, //!< The `Performance` object for measuring web performance.
     #[no_trace]
-    navigation_start: Cell<CrossProcessInstant>,
-    screen: MutNullableDom<Screen>,
-    session_storage: MutNullableDom<Storage>,
-    local_storage: MutNullableDom<Storage>,
-    status: DomRefCell<DOMString>,
-    trusted_types: MutNullableDom<TrustedTypePolicyFactory>,
+    navigation_start: Cell<CrossProcessInstant>, //!< Timestamp when the current navigation started.
+    screen: MutNullableDom<Screen>, //!< The `Screen` object for display information.
+    session_storage: MutNullableDom<Storage>, //!< The `Storage` object for session-scoped data.
+    local_storage: MutNullableDom<Storage>, //!< The `Storage` object for local-scoped data.
+    status: DomRefCell<DOMString>, //!< The `status` bar message.
+    trusted_types: MutNullableDom<TrustedTypePolicyFactory>, //!< The `TrustedTypePolicyFactory` for enforcing trusted types.
 
     /// For sending timeline markers. Will be ignored if
     /// no devtools server
     #[no_trace]
-    devtools_markers: DomRefCell<HashSet<TimelineMarkerType>>,
+    devtools_markers: DomRefCell<HashSet<TimelineMarkerType>>, //!< Set of active devtools timeline marker types.
     #[no_trace]
-    devtools_marker_sender: DomRefCell<Option<IpcSender<Option<TimelineMarker>>>>,
+    devtools_marker_sender: DomRefCell<Option<IpcSender<Option<TimelineMarker>>>>, //!< Sender for devtools timeline markers.
 
     /// Most recent unhandled resize event, if any.
     #[no_trace]
-    unhandled_resize_event: DomRefCell<Option<(ViewportDetails, WindowSizeType)>>,
+    unhandled_resize_event: DomRefCell<Option<(ViewportDetails, WindowSizeType)>>, //!< Pending resize events.
 
     /// Platform theme.
     #[no_trace]
-    theme: Cell<PrefersColorScheme>,
+    theme: Cell<PrefersColorScheme>, //!< The preferred color scheme (light/dark).
 
     /// Parent id associated with this page, if any.
     #[no_trace]
-    parent_info: Option<PipelineId>,
+    parent_info: Option<PipelineId>, //!< The `PipelineId` of the parent browsing context.
 
     /// Global static data related to the DOM.
-    dom_static: GlobalStaticData,
+    dom_static: GlobalStaticData, //!< Static data for the DOM.
 
     /// The JavaScript runtime.
     #[ignore_malloc_size_of = "Rc<T> is hard"]
-    js_runtime: DomRefCell<Option<Rc<Runtime>>>,
+    js_runtime: DomRefCell<Option<Rc<Runtime>>>, //!< The JavaScript runtime instance.
 
     /// The [`ViewportDetails`] of this [`Window`]'s frame.
     #[no_trace]
-    viewport_details: Cell<ViewportDetails>,
+    viewport_details: Cell<ViewportDetails>, //!< Details about the viewport.
 
     /// A handle for communicating messages to the bluetooth thread.
     #[no_trace]
     #[cfg(feature = "bluetooth")]
-    bluetooth_thread: IpcSender<BluetoothRequest>,
+    bluetooth_thread: IpcSender<BluetoothRequest>, //!< Bluetooth thread communication channel.
 
     #[cfg(feature = "bluetooth")]
-    bluetooth_extra_permission_data: BluetoothExtraPermissionData,
+    bluetooth_extra_permission_data: BluetoothExtraPermissionData, //!< Bluetooth permission data.
 
     /// An enlarged rectangle around the page contents visible in the viewport, used
     /// to prevent creating display list items for content that is far away from the viewport.
     #[no_trace]
-    page_clip_rect: Cell<UntypedRect<Au>>,
+    page_clip_rect: Cell<UntypedRect<Au>>, //!< The clipping rectangle for page content.
 
     /// See the documentation for [`LayoutBlocker`]. Essentially, this flag prevents
     /// layouts from happening before the first load event, apart from a few exceptional
     /// cases.
     #[no_trace]
-    layout_blocker: Cell<LayoutBlocker>,
+    layout_blocker: Cell<LayoutBlocker>, //!< Manages when layout operations are blocked.
 
     /// A channel for communicating results of async scripts back to the webdriver server
     #[no_trace]
-    webdriver_script_chan: DomRefCell<Option<IpcSender<WebDriverJSResult>>>,
+    webdriver_script_chan: DomRefCell<Option<IpcSender<WebDriverJSResult>>>, //!< Channel for WebDriver script results.
 
     /// The current state of the window object
-    current_state: Cell<WindowState>,
+    current_state: Cell<WindowState>, //!< The current state of the window (alive/zombie).
 
     #[no_trace]
-    current_viewport: Cell<UntypedRect<Au>>,
+    current_viewport: Cell<UntypedRect<Au>>, //!< The current viewport rectangle.
 
-    error_reporter: CSSErrorReporter,
+    error_reporter: CSSErrorReporter, //!< Reports CSS parsing errors.
 
     /// A list of scroll offsets for each scrollable element.
     #[no_trace]
-    scroll_offsets: DomRefCell<HashMap<OpaqueNode, Vector2D<f32, LayoutPixel>>>,
+    scroll_offsets: DomRefCell<HashMap<OpaqueNode, Vector2D<f32, LayoutPixel>>>, //!< Cached scroll offsets.
 
     /// All the MediaQueryLists we need to update
-    media_query_lists: DOMTracker<MediaQueryList>,
+    media_query_lists: DOMTracker<MediaQueryList>, //!< Tracks active `MediaQueryList` objects.
 
     #[cfg(feature = "bluetooth")]
-    test_runner: MutNullableDom<TestRunner>,
+    test_runner: MutNullableDom<TestRunner>, //!< Test runner instance for Bluetooth.
 
     /// A handle for communicating messages to the WebGL thread, if available.
     #[ignore_malloc_size_of = "channels are hard"]
     #[no_trace]
-    webgl_chan: Option<WebGLChan>,
+    webgl_chan: Option<WebGLChan>, //!< WebGL communication channel.
 
     #[ignore_malloc_size_of = "defined in webxr"]
     #[no_trace]
     #[cfg(feature = "webxr")]
-    webxr_registry: Option<webxr_api::Registry>,
+    webxr_registry: Option<webxr_api::Registry>, //!< WebXR registry.
 
     /// When an element triggers an image load or starts watching an image load from the
     /// `ImageCache` it adds an entry to this list. When those loads are triggered from
     /// layout, they also add an etry to [`Self::pending_layout_images`].
     #[no_trace]
-    pending_image_callbacks: DomRefCell<HashMap<PendingImageId, Vec<PendingImageCallback>>>,
+    pending_image_callbacks: DomRefCell<HashMap<PendingImageId, Vec<PendingImageCallback>>>, //!< Pending image callbacks from ImageCache.
 
     /// All of the elements that have an outstanding image request that was
     /// initiated by layout during a reflow. They are stored in the script thread
     /// to ensure that the element can be marked dirty when the image data becomes
     /// available at some point in the future.
-    pending_layout_images: DomRefCell<HashMapTracedValues<PendingImageId, Vec<Dom<Node>>>>,
+    pending_layout_images: DomRefCell<HashMapTracedValues<PendingImageId, Vec<Dom<Node>>>>, //!< Image requests initiated by layout.
 
     /// Directory to store unminified css for this window if unminify-css
     /// opt is enabled.
-    unminified_css_dir: DomRefCell<Option<String>>,
+    unminified_css_dir: DomRefCell<Option<String>>, //!< Directory for unminified CSS.
 
     /// Directory with stored unminified scripts
-    local_script_source: Option<String>,
+    local_script_source: Option<String>, //!< Local script source directory.
 
     /// Worklets
-    test_worklet: MutNullableDom<Worklet>,
+    test_worklet: MutNullableDom<Worklet>, //!< Test worklet instance.
     /// <https://drafts.css-houdini.org/css-paint-api-1/#paint-worklet>
-    paint_worklet: MutNullableDom<Worklet>,
+    paint_worklet: MutNullableDom<Worklet>, //!< Paint worklet instance.
     /// The Webrender Document id associated with this window.
     #[ignore_malloc_size_of = "defined in webrender_api"]
     #[no_trace]
-    webrender_document: DocumentId,
+    webrender_document: DocumentId, //!< Webrender document ID.
 
     /// Flag to identify whether mutation observers are present(true)/absent(false)
-    exists_mut_observer: Cell<bool>,
+    exists_mut_observer: Cell<bool>, //!< Flag for presence of mutation observers.
 
     /// Cross-process access to the compositor.
     #[ignore_malloc_size_of = "Wraps an IpcSender"]
     #[no_trace]
-    compositor_api: CrossProcessCompositorApi,
+    compositor_api: CrossProcessCompositorApi, //!< Compositor API channel.
 
     /// Indicate whether a SetDocumentStatus message has been sent after a reflow is complete.
     /// It is used to avoid sending idle message more than once, which is unneccessary.
-    has_sent_idle_message: Cell<bool>,
+    has_sent_idle_message: Cell<bool>, //!< Flag for idle message sent status.
 
     /// Emits notifications when there is a relayout.
-    relayout_event: bool,
+    relayout_event: bool, //!< Flag to emit relayout events.
 
     /// Unminify Css.
-    unminify_css: bool,
+    unminify_css: bool, //!< Flag to unminify CSS.
 
     /// User content manager
     #[no_trace]
-    user_content_manager: UserContentManager,
+    user_content_manager: UserContentManager, //!< Manages user-defined scripts.
 
     /// Window's GL context from application
     #[ignore_malloc_size_of = "defined in script_thread"]
     #[no_trace]
-    player_context: WindowGLContext,
+    player_context: WindowGLContext, //!< OpenGL context for the window.
 
-    throttled: Cell<bool>,
+    throttled: Cell<bool>, //!< Flag indicating if the window's activity is throttled.
 
     /// A shared marker for the validity of any cached layout values. A value of true
     /// indicates that any such values remain valid; any new layout that invalidates
     /// those values will cause the marker to be set to false.
     #[ignore_malloc_size_of = "Rc is hard"]
-    layout_marker: DomRefCell<Rc<Cell<bool>>>,
+    layout_marker: DomRefCell<Rc<Cell<bool>>>, //!< Marker for cached layout values validity.
 
     /// <https://dom.spec.whatwg.org/#window-current-event>
-    current_event: DomRefCell<Option<Dom<Event>>>,
+    current_event: DomRefCell<Option<Dom<Event>>>, //!< The event currently being dispatched.
 }
 
 impl Window {
+    /// @brief Returns the `WebViewId` associated with this window.
+    /// @return The `WebViewId`.
     pub(crate) fn webview_id(&self) -> WebViewId {
         self.webview_id
     }
 
+    /// @brief Returns an immutable reference to the `GlobalScope` base object.
+    /// @return A reference to `GlobalScope`.
     pub(crate) fn as_global_scope(&self) -> &GlobalScope {
         self.upcast::<GlobalScope>()
     }
 
+    /// @brief Returns an immutable reference to the layout engine.
+    /// @return A `Ref` to `Box<dyn Layout>`.
     pub(crate) fn layout(&self) -> Ref<Box<dyn Layout>> {
         self.layout.borrow()
     }
 
+    /// @brief Returns a mutable reference to the layout engine.
+    /// @return A `RefMut` to `Box<dyn Layout>`.
     pub(crate) fn layout_mut(&self) -> RefMut<Box<dyn Layout>> {
         self.layout.borrow_mut()
     }
 
+    /// @brief Returns whether mutation observers are present.
+    /// @return `true` if mutation observers exist, `false` otherwise.
     pub(crate) fn get_exists_mut_observer(&self) -> bool {
         self.exists_mut_observer.get()
     }
 
+    /// @brief Sets the flag indicating the presence of mutation observers.
     pub(crate) fn set_exists_mut_observer(&self) {
         self.exists_mut_observer.set(true);
     }
 
+    /// @brief Clears the JavaScript runtime for script deallocation.
+    /// Functional Utility: Prepares the `Window` object for garbage collection
+    /// by disconnecting it from the JavaScript runtime and cancelling associated tasks.
+    ///
+    /// @pre `self` must be safe for script deallocation.
     #[allow(unsafe_code)]
     pub(crate) fn clear_js_runtime_for_script_deallocation(&self) {
         self.as_global_scope()
@@ -437,7 +482,9 @@ impl Window {
         }
     }
 
-    /// A convenience method for
+    /// @brief Discards the browsing context associated with this window.
+    /// Functional Utility: Initiates the process of tearing down the browsing context,
+    /// including discarding the `WindowProxy` and cancelling tasks.
     /// <https://html.spec.whatwg.org/multipage/#a-browsing-context-is-discarded>
     pub(crate) fn discard_browsing_context(&self) {
         let proxy = match self.window_proxy.get() {
@@ -453,32 +500,49 @@ impl Window {
             .cancel_all_tasks_and_ignore_future_tasks();
     }
 
-    /// Get a sender to the time profiler thread.
+    /// @brief Returns a sender to the time profiler thread.
+    /// @return A reference to `TimeProfilerChan`.
     pub(crate) fn time_profiler_chan(&self) -> &TimeProfilerChan {
         self.globalscope.time_profiler_chan()
     }
 
+    /// @brief Returns the mutable origin of the document.
+    /// @return A reference to `MutableOrigin`.
     pub(crate) fn origin(&self) -> &MutableOrigin {
         self.globalscope.origin()
     }
 
+    /// @brief Returns the JavaScript context (`JSContext`).
+    /// Functional Utility: Provides access to the underlying SpiderMonkey JavaScript context
+    /// for direct JavaScript engine interaction.
+    ///
+    /// @pre The `js_runtime` must be initialized (not `None`).
+    /// @return The `JSContext`.
     #[allow(unsafe_code)]
     pub(crate) fn get_cx(&self) -> JSContext {
         unsafe { JSContext::from_ptr(self.js_runtime.borrow().as_ref().unwrap().cx()) }
     }
 
+    /// @brief Returns an immutable reference to the JavaScript runtime.
+    /// @return A `Ref` to `Option<Rc<Runtime>>`.
     pub(crate) fn get_js_runtime(&self) -> Ref<Option<Rc<Runtime>>> {
         self.js_runtime.borrow()
     }
 
+    /// @brief Returns a sender for messages to the main thread script.
+    /// @return A reference to `Sender<MainThreadScriptMsg>`.
     pub(crate) fn main_thread_script_chan(&self) -> &Sender<MainThreadScriptMsg> {
         &self.script_chan
     }
 
+    /// @brief Returns the `PipelineId` of the parent browsing context.
+    /// @return An `Option<PipelineId>`.
     pub(crate) fn parent_info(&self) -> Option<PipelineId> {
         self.parent_info
     }
 
+    /// @brief Creates a new pair of script event loop sender and receiver.
+    /// @return A tuple of `(ScriptEventLoopSender, ScriptEventLoopReceiver)`.
     pub(crate) fn new_script_pair(&self) -> (ScriptEventLoopSender, ScriptEventLoopReceiver) {
         let (sender, receiver) = unbounded();
         (
@@ -487,21 +551,35 @@ impl Window {
         )
     }
 
+    /// @brief Returns a sender for events to the script event loop.
+    /// @return A `ScriptEventLoopSender`.
     pub(crate) fn event_loop_sender(&self) -> ScriptEventLoopSender {
         ScriptEventLoopSender::MainThread(self.script_chan.clone())
     }
 
+    /// @brief Returns the image cache for this window.
+    /// @return An `Arc<dyn ImageCache>`.
     pub(crate) fn image_cache(&self) -> Arc<dyn ImageCache> {
         self.image_cache.clone()
     }
 
-    /// This can panic if it is called after the browsing context has been discarded
+    /// @brief Returns the `WindowProxy` for this window.
+    /// Functional Utility: Provides access to the `WindowProxy` object, which is used
+    /// for inter-window communication and for accessing properties of this window
+    /// from other browsing contexts.
+    ///
+    /// @pre This method can panic if called after the browsing context has been discarded.
+    /// @return The `DomRoot<WindowProxy>`.
     pub(crate) fn window_proxy(&self) -> DomRoot<WindowProxy> {
         self.window_proxy.get().unwrap()
     }
 
-    /// Returns the window proxy if it has not been discarded.
+    /// @brief Returns the `WindowProxy` if it has not been discarded.
+    /// Functional Utility: Provides a safe way to access the `WindowProxy` only if
+    /// the browsing context is still active.
     /// <https://html.spec.whatwg.org/multipage/#a-browsing-context-is-discarded>
+    ///
+    /// @return An `Option<DomRoot<WindowProxy>>`.
     pub(crate) fn undiscarded_window_proxy(&self) -> Option<DomRoot<WindowProxy>> {
         self.window_proxy.get().and_then(|window_proxy| {
             if window_proxy.is_browsing_context_discarded() {
@@ -512,30 +590,42 @@ impl Window {
         })
     }
 
-    /// Returns the window proxy of the webview, which is the top-level ancestor browsing context.
+    /// @brief Returns the `WindowProxy` of the top-level browsing context.
+    /// Functional Utility: Provides access to the top-most `WindowProxy` in the browsing
+    /// context hierarchy.
     /// <https://html.spec.whatwg.org/multipage/#top-level-browsing-context>
+    ///
+    /// @return An `Option<DomRoot<WindowProxy>>`.
     pub(crate) fn webview_window_proxy(&self) -> Option<DomRoot<WindowProxy>> {
         self.undiscarded_window_proxy()
             .and_then(|window_proxy| ScriptThread::find_window_proxy(window_proxy.webview_id().0))
     }
 
     #[cfg(feature = "bluetooth")]
+    /// @brief Returns a sender for messages to the Bluetooth thread.
+    /// @return An `IpcSender<BluetoothRequest>`.
     pub(crate) fn bluetooth_thread(&self) -> IpcSender<BluetoothRequest> {
         self.bluetooth_thread.clone()
     }
 
     #[cfg(feature = "bluetooth")]
+    /// @brief Returns the Bluetooth extra permission data.
+    /// @return A reference to `BluetoothExtraPermissionData`.
     pub(crate) fn bluetooth_extra_permission_data(&self) -> &BluetoothExtraPermissionData {
         &self.bluetooth_extra_permission_data
     }
 
+    /// @brief Returns the CSS error reporter.
+    /// @return An `Option<&dyn ParseErrorReporter>`.
     pub(crate) fn css_error_reporter(&self) -> Option<&dyn ParseErrorReporter> {
         Some(&self.error_reporter)
     }
 
-    /// Sets a new list of scroll offsets.
+    /// @brief Sets a new list of scroll offsets.
+    /// Functional Utility: Updates the cached scroll offsets for scrollable elements, 
+    /// typically called when layout provides new scroll positions.
     ///
-    /// This is called when layout gives us new ones and WebRender is in use.
+    /// @param offsets A `HashMap` mapping `OpaqueNode` to `Vector2D<f32, LayoutPixel>`.
     pub(crate) fn set_scroll_offsets(
         &self,
         offsets: HashMap<OpaqueNode, Vector2D<f32, LayoutPixel>>,
@@ -543,10 +633,14 @@ impl Window {
         *self.scroll_offsets.borrow_mut() = offsets
     }
 
+    /// @brief Returns the current viewport rectangle.
+    /// @return An `UntypedRect<Au>`.
     pub(crate) fn current_viewport(&self) -> UntypedRect<Au> {
         self.current_viewport.clone().get()
     }
 
+    /// @brief Returns the WebGL command sender, if available.
+    /// @return An `Option<WebGLCommandSender>`.
     pub(crate) fn webgl_chan(&self) -> Option<WebGLCommandSender> {
         self.webgl_chan
             .as_ref()
@@ -554,15 +648,30 @@ impl Window {
     }
 
     #[cfg(feature = "webxr")]
+    /// @brief Returns the WebXR registry, if available.
+    /// @return An `Option<webxr_api::Registry>`.
     pub(crate) fn webxr_registry(&self) -> Option<webxr_api::Registry> {
         self.webxr_registry.clone()
     }
 
+    /// @brief Creates a new paint worklet.
+    /// Functional Utility: Initializes a new CSS Paint API worklet, allowing custom
+    /// rendering logic to be executed in a separate thread.
+    ///
+    /// @param can_gc A `CanGc` token.
+    /// @return A `DomRoot<Worklet>`.
     fn new_paint_worklet(&self, can_gc: CanGc) -> DomRoot<Worklet> {
         debug!("Creating new paint worklet.");
         Worklet::new(self, WorkletGlobalScopeType::Paint, can_gc)
     }
 
+    /// @brief Registers a listener for image cache responses.
+    /// Functional Utility: Sets up a callback to be invoked when an image loading operation
+    /// completes, allowing the `Window` to react to image status changes.
+    ///
+    /// @param id The `PendingImageId` for the pending image request.
+    /// @param callback A closure to call with the `PendingImageResponse`.
+    /// @return An `IpcSender<PendingImageResponse>`.
     pub(crate) fn register_image_cache_listener(
         &self,
         id: PendingImageId,
@@ -576,6 +685,11 @@ impl Window {
         self.image_cache_sender.clone()
     }
 
+    /// @brief Handles notifications for pending layout images.
+    /// Functional Utility: Processes image responses that were triggered by layout operations,
+    /// marking the corresponding nodes as dirty for re-rendering.
+    ///
+    /// @param response The `PendingImageResponse` received.
     fn pending_layout_image_notification(&self, response: PendingImageResponse) {
         let mut images = self.pending_layout_images.borrow_mut();
         let nodes = images.entry(response.id);
@@ -596,6 +710,11 @@ impl Window {
         }
     }
 
+    /// @brief Handles notifications for any pending image.
+    /// Functional Utility: Processes image responses from the `ImageCache`,
+    /// invoking registered callbacks and cleaning up pending requests.
+    ///
+    /// @param response The `PendingImageResponse` received.
     pub(crate) fn pending_image_notification(&self, response: PendingImageResponse) {
         // We take the images here, in order to prevent maintaining a mutable borrow when
         // image callbacks are called. These, in turn, can trigger garbage collection.
@@ -623,19 +742,32 @@ impl Window {
         let _ = std::mem::replace(&mut *self.pending_image_callbacks.borrow_mut(), images);
     }
 
+    /// @brief Returns the compositor API for this window.
+    /// @return A reference to `CrossProcessCompositorApi`.
     pub(crate) fn compositor_api(&self) -> &CrossProcessCompositorApi {
         &self.compositor_api
     }
 
+    /// @brief Returns the list of user scripts.
+    /// @return A slice of `UserScript`.
     pub(crate) fn userscripts(&self) -> &[UserScript] {
         self.user_content_manager.scripts()
     }
 
+    /// @brief Returns the OpenGL context for this window.
+    /// @return A `WindowGLContext`.
     pub(crate) fn get_player_context(&self) -> WindowGLContext {
         self.player_context.clone()
     }
 
     // see note at https://dom.spec.whatwg.org/#concept-event-dispatch step 2
+    /// @brief Dispatches an event with a target override.
+    /// Functional Utility: Allows an event to be dispatched to a specific target
+    /// (e.g., the window itself) even if the event's internal target differs.
+    ///
+    /// @param event The `Event` to dispatch.
+    /// @param can_gc A `CanGc` token.
+    /// @return The `EventStatus`.
     pub(crate) fn dispatch_event_with_target_override(
         &self,
         event: &Event,
@@ -644,12 +776,20 @@ impl Window {
         event.dispatch(self.upcast(), true, can_gc)
     }
 
+    /// @brief Returns the font context for this window.
+    /// @return A reference to `Arc<FontContext>`.
     pub(crate) fn font_context(&self) -> &Arc<FontContext> {
         &self.font_context
     }
 }
 
 // https://html.spec.whatwg.org/multipage/#atob
+/// @brief Encodes a string to base64.
+/// Functional Utility: Implements the `btoa()` method, converting a binary string
+/// (composed of characters with code points <= 0xFF) to a base64-encoded ASCII string.
+///
+/// @param input The `DOMString` to encode.
+/// @return A `Fallible<DOMString>` containing the base64 string or an error.
 pub(crate) fn base64_btoa(input: DOMString) -> Fallible<DOMString> {
     // "The btoa() method must throw an InvalidCharacterError exception if
     //  the method's first argument contains any character whose code point
@@ -673,6 +813,12 @@ pub(crate) fn base64_btoa(input: DOMString) -> Fallible<DOMString> {
 }
 
 // https://html.spec.whatwg.org/multipage/#atob
+/// @brief Decodes a base64-encoded string.
+/// Functional Utility: Implements the `atob()` method, converting a base64-encoded
+/// ASCII string back to a binary string.
+///
+/// @param input The `DOMString` to decode.
+/// @return A `Fallible<DOMString>` containing the decoded string or an error.
 pub(crate) fn base64_atob(input: DOMString) -> Fallible<DOMString> {
     // "Remove all space characters from input."
     fn is_html_space(c: char) -> bool {
@@ -726,11 +872,18 @@ pub(crate) fn base64_atob(input: DOMString) -> Fallible<DOMString> {
 
 impl WindowMethods<crate::DomTypeHolder> for Window {
     // https://html.spec.whatwg.org/multipage/#dom-alert
+    /// @brief Displays an alert dialog with no message.
+    /// Functional Utility: Implements the `alert()` method with no arguments.
     fn Alert_(&self) {
         self.Alert(DOMString::new());
     }
 
     // https://html.spec.whatwg.org/multipage/#dom-alert
+    /// @brief Displays an alert dialog with a specified message.
+    /// Functional Utility: Implements the `alert()` method, displaying a modal dialog
+    /// box with a message to the user.
+    ///
+    /// @param s The `DOMString` message to display.
     fn Alert(&self, s: DOMString) {
         // Print to the console.
         // Ensure that stderr doesn't trample through the alert() we use to
@@ -756,6 +909,12 @@ impl WindowMethods<crate::DomTypeHolder> for Window {
     }
 
     // https://html.spec.whatwg.org/multipage/#dom-confirm
+    /// @brief Displays a confirmation dialog with a specified message.
+    /// Functional Utility: Implements the `confirm()` method, displaying a modal dialog
+    /// box with a message and "OK" / "Cancel" buttons.
+    ///
+    /// @param s The `DOMString` message to display.
+    /// @return `true` if "OK" was clicked, `false` if "Cancel" was clicked.
     fn Confirm(&self, s: DOMString) -> bool {
         let (sender, receiver) =
             ProfiledIpc::channel(self.global().time_profiler_chan().clone()).unwrap();
@@ -769,6 +928,13 @@ impl WindowMethods<crate::DomTypeHolder> for Window {
     }
 
     // https://html.spec.whatwg.org/multipage/#dom-prompt
+    /// @brief Displays a prompt dialog, allowing the user to input text.
+    /// Functional Utility: Implements the `prompt()` method, displaying a modal dialog
+    /// box with a message and a text input field.
+    ///
+    /// @param message The `DOMString` message to display.
+    /// @param default The default `DOMString` value for the input field.
+    /// @return An `Option<DOMString>` containing the user's input, or `None` if canceled.
     fn Prompt(&self, message: DOMString, default: DOMString) -> Option<DOMString> {
         let (sender, receiver) =
             ProfiledIpc::channel(self.global().time_profiler_chan().clone()).unwrap();
@@ -786,6 +952,11 @@ impl WindowMethods<crate::DomTypeHolder> for Window {
     }
 
     // https://html.spec.whatwg.org/multipage/#dom-window-stop
+    /// @brief Stops the current document's loading.
+    /// Functional Utility: Implements the `stop()` method, aborting any ongoing
+    /// navigation or resource loading for the document in this window.
+    ///
+    /// @param can_gc A `CanGc` token.
     fn Stop(&self, can_gc: CanGc) {
         // TODO: Cancel ongoing navigation.
         let doc = self.Document();
@@ -793,6 +964,15 @@ impl WindowMethods<crate::DomTypeHolder> for Window {
     }
 
     // https://html.spec.whatwg.org/multipage/#dom-open
+    /// @brief Opens a new browsing context (window or tab).
+    /// Functional Utility: Implements the `open()` method, creating a new window
+    /// and optionally navigating it to a specified URL with features.
+    ///
+    /// @param url The `USVString` URL to navigate to.
+    /// @param target The `DOMString` target name of the browsing context.
+    /// @param features The `DOMString` representing window features (size, position, etc.).
+    /// @param can_gc A `CanGc` token.
+    /// @return A `Fallible<Option<DomRoot<WindowProxy>>>` containing the new `WindowProxy` or an error.
     fn Open(
         &self,
         url: USVString,
@@ -804,6 +984,14 @@ impl WindowMethods<crate::DomTypeHolder> for Window {
     }
 
     // https://html.spec.whatwg.org/multipage/#dom-opener
+    /// @brief Returns the `WindowProxy` of the opening browsing context.
+    /// Functional Utility: Implements the `opener` getter, providing a reference
+    /// to the `WindowProxy` of the window that opened this one.
+    ///
+    /// @param cx The `JSContext`.
+    /// @param in_realm_proof Proof that we are in a JS realm.
+    /// @param mut retval The mutable handle to the return value.
+    /// @return A `Fallible<()> `.
     fn GetOpener(
         &self,
         cx: JSContext,
@@ -834,6 +1022,13 @@ impl WindowMethods<crate::DomTypeHolder> for Window {
 
     #[allow(unsafe_code)]
     // https://html.spec.whatwg.org/multipage/#dom-opener
+    /// @brief Sets the `opener` property of the window.
+    /// Functional Utility: Implements the `opener` setter, allowing the `opener`
+    /// property to be set to `null` to disown the relationship.
+    ///
+    /// @param cx The `JSContext`.
+    /// @param value The `HandleValue` to set as the opener.
+    /// @return An `ErrorResult`.
     fn SetOpener(&self, cx: JSContext, value: HandleValue) -> ErrorResult {
         // Step 1.
         if value.is_null() {
@@ -853,6 +1048,10 @@ impl WindowMethods<crate::DomTypeHolder> for Window {
     }
 
     // https://html.spec.whatwg.org/multipage/#dom-window-closed
+    /// @brief Returns `true` if the window has been closed.
+    /// Functional Utility: Implements the `closed` getter, indicating whether the
+    /// browsing context associated with this window is closed.
+    /// @return `true` if closed, `false` otherwise.
     fn Closed(&self) -> bool {
         self.window_proxy
             .get()
@@ -861,6 +1060,9 @@ impl WindowMethods<crate::DomTypeHolder> for Window {
     }
 
     // https://html.spec.whatwg.org/multipage/#dom-window-close
+    /// @brief Closes the window.
+    /// Functional Utility: Implements the `close()` method, initiating the process
+    /// of closing the browsing context, potentially with a prompt to unload.
     fn Close(&self) {
         // Step 1, Let current be this Window object's browsing context.
         // Step 2, If current is null or its is closing is true, then return.
@@ -918,6 +1120,12 @@ impl WindowMethods<crate::DomTypeHolder> for Window {
     }
 
     // https://html.spec.whatwg.org/multipage/#dom-document-2
+    /// @brief Returns the `Document` object for the window.
+    /// Functional Utility: Implements the `document` getter, providing access to the
+    /// DOM content currently loaded in this window.
+    ///
+    /// @pre This method will panic if the Document is accessed before initialization.
+    /// @return The `DomRoot<Document>`.
     fn Document(&self) -> DomRoot<Document> {
         self.document
             .get()
@@ -925,39 +1133,67 @@ impl WindowMethods<crate::DomTypeHolder> for Window {
     }
 
     // https://html.spec.whatwg.org/multipage/#dom-history
+    /// @brief Returns the `History` object for the window.
+    /// Functional Utility: Implements the `history` getter, providing access to
+    /// the browsing history for this window.
+    /// @return The `DomRoot<History>`.
     fn History(&self) -> DomRoot<History> {
         self.history.or_init(|| History::new(self, CanGc::note()))
     }
 
     // https://html.spec.whatwg.org/multipage/#dom-window-customelements
+    /// @brief Returns the `CustomElementRegistry` object for the window.
+    /// Functional Utility: Implements the `customElements` getter, providing
+    /// access to the registry for custom element definitions.
+    /// @return The `DomRoot<CustomElementRegistry>`.
     fn CustomElements(&self) -> DomRoot<CustomElementRegistry> {
         self.custom_element_registry
             .or_init(|| CustomElementRegistry::new(self, CanGc::note()))
     }
 
     // https://html.spec.whatwg.org/multipage/#dom-location
+    /// @brief Returns the `Location` object for the window.
+    /// Functional Utility: Implements the `location` getter, providing access to
+    /// the window's current URL and navigation methods.
+    /// @return The `DomRoot<Location>`.
     fn Location(&self) -> DomRoot<Location> {
         self.location.or_init(|| Location::new(self, CanGc::note()))
     }
 
     // https://html.spec.whatwg.org/multipage/#dom-sessionstorage
+    /// @brief Returns the `Storage` object for session-scoped data.
+    /// Functional Utility: Implements the `sessionStorage` getter, providing
+    /// access to web storage for the current session.
+    /// @return The `DomRoot<Storage>`.
     fn SessionStorage(&self) -> DomRoot<Storage> {
         self.session_storage
             .or_init(|| Storage::new(self, StorageType::Session, CanGc::note()))
     }
 
     // https://html.spec.whatwg.org/multipage/#dom-localstorage
+    /// @brief Returns the `Storage` object for local-scoped data.
+    /// Functional Utility: Implements the `localStorage` getter, providing
+    /// access to web storage that persists across browser sessions.
+    /// @return The `DomRoot<Storage>`.
     fn LocalStorage(&self) -> DomRoot<Storage> {
         self.local_storage
             .or_init(|| Storage::new(self, StorageType::Local, CanGc::note()))
     }
 
     // https://dvcs.w3.org/hg/webcrypto-api/raw-file/tip/spec/Overview.html#dfn-GlobalCrypto
+    /// @brief Returns the `Crypto` object for the window.
+    /// Functional Utility: Implements the `crypto` getter, providing access to
+    /// cryptographic functionality.
+    /// @return The `DomRoot<Crypto>`.
     fn Crypto(&self) -> DomRoot<Crypto> {
         self.as_global_scope().crypto(CanGc::note())
     }
 
     // https://html.spec.whatwg.org/multipage/#dom-frameelement
+    /// @brief Returns the `Element` that represents the current browsing context (e.g., `<iframe>`).
+    /// Functional Utility: Implements the `frameElement` getter, providing a reference
+    /// to the `<iframe>` element that contains this window, if it exists and is same-origin.
+    /// @return An `Option<DomRoot<Element>>`.
     fn GetFrameElement(&self) -> Option<DomRoot<Element>> {
         // Steps 1-3.
         let window_proxy = self.window_proxy.get()?;
@@ -982,12 +1218,25 @@ impl WindowMethods<crate::DomTypeHolder> for Window {
     }
 
     // https://html.spec.whatwg.org/multipage/#dom-navigator
+    /// @brief Returns the `Navigator` object for the window.
+    /// Functional Utility: Implements the `navigator` getter, providing information
+    /// about the user agent and the state of the browser.
+    /// @return The `DomRoot<Navigator>`.
     fn Navigator(&self) -> DomRoot<Navigator> {
         self.navigator
             .or_init(|| Navigator::new(self, CanGc::note()))
     }
 
     // https://html.spec.whatwg.org/multipage/#dom-windowtimers-settimeout
+    /// @brief Schedules a function or code string to be executed after a delay.
+    /// Functional Utility: Implements the `setTimeout()` method, providing a mechanism
+    /// for asynchronous execution of code after a specified time interval.
+    ///
+    /// @param _cx The `JSContext` (unused).
+    /// @param callback A `StringOrFunction` representing the code to execute.
+    /// @param timeout The delay in milliseconds.
+    /// @param args A `Vec<HandleValue>` of arguments to pass to the callback.
+    /// @return An integer representing the timer ID.
     fn SetTimeout(
         &self,
         _cx: JSContext,
@@ -1008,11 +1257,24 @@ impl WindowMethods<crate::DomTypeHolder> for Window {
     }
 
     // https://html.spec.whatwg.org/multipage/#dom-windowtimers-cleartimeout
+    /// @brief Clears a scheduled timeout.
+    /// Functional Utility: Implements the `clearTimeout()` method, stopping the
+    /// execution of a previously scheduled `setTimeout` callback.
+    /// @param handle The timer ID returned by `setTimeout`.
     fn ClearTimeout(&self, handle: i32) {
         self.as_global_scope().clear_timeout_or_interval(handle);
     }
 
     // https://html.spec.whatwg.org/multipage/#dom-windowtimers-setinterval
+    /// @brief Schedules a function or code string to be executed repeatedly.
+    /// Functional Utility: Implements the `setInterval()` method, providing a mechanism
+    /// for periodic asynchronous execution of code.
+    ///
+    /// @param _cx The `JSContext` (unused).
+    /// @param callback A `StringOrFunction` representing the code to execute.
+    /// @param timeout The delay in milliseconds between executions.
+    /// @param args A `Vec<HandleValue>` of arguments to pass to the callback.
+    /// @return An integer representing the timer ID.
     fn SetInterval(
         &self,
         _cx: JSContext,
@@ -1033,16 +1295,33 @@ impl WindowMethods<crate::DomTypeHolder> for Window {
     }
 
     // https://html.spec.whatwg.org/multipage/#dom-windowtimers-clearinterval
+    /// @brief Clears a scheduled interval.
+    /// Functional Utility: Implements the `clearInterval()` method, stopping the
+    /// repeated execution of a previously scheduled `setInterval` callback.
+    /// @param handle The timer ID returned by `setInterval`.
     fn ClearInterval(&self, handle: i32) {
         self.ClearTimeout(handle);
     }
 
     // https://html.spec.whatwg.org/multipage/#dom-queuemicrotask
+    /// @brief Queues a microtask to be executed at a stable state of the event loop.
+    /// Functional Utility: Implements the `queueMicrotask()` method, providing a way
+    /// to schedule a function to run after the current task but before rendering.
+    ///
+    /// @param callback An `Rc<VoidFunction>` representing the function to execute.
     fn QueueMicrotask(&self, callback: Rc<VoidFunction>) {
         self.as_global_scope().queue_function_as_microtask(callback);
     }
 
     // https://html.spec.whatwg.org/multipage/#dom-createimagebitmap
+    /// @brief Creates an `ImageBitmap` from a given source.
+    /// Functional Utility: Implements the `createImageBitmap()` method, asynchronously
+    /// decoding an image source into a bitmap for further processing.
+    ///
+    /// @param image The `ImageBitmapSource` (e.g., `<img>`, `<canvas>`).
+    /// @param options The `ImageBitmapOptions` for processing.
+    /// @param can_gc A `CanGc` token.
+    /// @return An `Rc<Promise>` that resolves with the `ImageBitmap`.
     fn CreateImageBitmap(
         &self,
         image: ImageBitmapSource,
@@ -1056,26 +1335,44 @@ impl WindowMethods<crate::DomTypeHolder> for Window {
     }
 
     // https://html.spec.whatwg.org/multipage/#dom-window
+    /// @brief Returns the `WindowProxy` object representing this window.
+    /// Functional Utility: Implements the `window` getter.
+    /// @return The `DomRoot<WindowProxy>`.
     fn Window(&self) -> DomRoot<WindowProxy> {
         self.window_proxy()
     }
 
     // https://html.spec.whatwg.org/multipage/#dom-self
+    /// @brief Returns the `WindowProxy` object representing this window.
+    /// Functional Utility: Implements the `self` getter.
+    /// @return The `DomRoot<WindowProxy>`.
     fn Self_(&self) -> DomRoot<WindowProxy> {
         self.window_proxy()
     }
 
     // https://html.spec.whatwg.org/multipage/#dom-frames
+    /// @brief Returns the `WindowProxy` object for this window.
+    /// Functional Utility: Implements the `frames` getter, which returns the
+    /// `WindowProxy` itself, allowing access to child frames.
+    /// @return The `DomRoot<WindowProxy>`.
     fn Frames(&self) -> DomRoot<WindowProxy> {
         self.window_proxy()
     }
 
     // https://html.spec.whatwg.org/multipage/#accessing-other-browsing-contexts
+    /// @brief Returns the number of child browsing contexts.
+    /// Functional Utility: Implements the `length` getter, providing the count
+    /// of `<iframe>` elements within the document.
+    /// @return The number of child browsing contexts (`u32`).
     fn Length(&self) -> u32 {
         self.Document().iframes().iter().count() as u32
     }
 
     // https://html.spec.whatwg.org/multipage/#dom-parent
+    /// @brief Returns the `WindowProxy` of the parent browsing context.
+    /// Functional Utility: Implements the `parent` getter, providing a reference
+    /// to the `WindowProxy` of the parent window in a nested browsing context.
+    /// @return An `Option<DomRoot<WindowProxy>>`.
     fn GetParent(&self) -> Option<DomRoot<WindowProxy>> {
         // Steps 1-3.
         let window_proxy = self.undiscarded_window_proxy()?;
@@ -1089,6 +1386,10 @@ impl WindowMethods<crate::DomTypeHolder> for Window {
     }
 
     // https://html.spec.whatwg.org/multipage/#dom-top
+    /// @brief Returns the `WindowProxy` of the top-level browsing context.
+    /// Functional Utility: Implements the `top` getter, providing a reference
+    /// to the `WindowProxy` of the outermost window in the browsing context hierarchy.
+    /// @return An `Option<DomRoot<WindowProxy>>`.
     fn GetTop(&self) -> Option<DomRoot<WindowProxy>> {
         // Steps 1-3.
         let window_proxy = self.undiscarded_window_proxy()?;
@@ -1099,6 +1400,10 @@ impl WindowMethods<crate::DomTypeHolder> for Window {
 
     // https://dvcs.w3.org/hg/webperf/raw-file/tip/specs/
     // NavigationTiming/Overview.html#sec-window.performance-attribute
+    /// @brief Returns the `Performance` object for the window.
+    /// Functional Utility: Implements the `performance` getter, providing access to
+    /// high-resolution time measurements for web performance monitoring.
+    /// @return The `DomRoot<Performance>`.
     fn Performance(&self) -> DomRoot<Performance> {
         self.performance.or_init(|| {
             Performance::new(
@@ -1110,39 +1415,80 @@ impl WindowMethods<crate::DomTypeHolder> for Window {
     }
 
     // https://html.spec.whatwg.org/multipage/#globaleventhandlers
+    /// @brief Implements global event handlers for the `Window` object.
+    /// Functional Utility: Provides common event handler properties (e.g., `onload`, `onclick`)
+    /// for the window.
     global_event_handlers!();
 
     // https://html.spec.whatwg.org/multipage/#windoweventhandlers
+    /// @brief Implements window event handlers for the `Window` object.
+    /// Functional Utility: Provides event handler properties specific to the window
+    /// (e.g., `onresize`, `onscroll`).
     window_event_handlers!();
 
     // https://developer.mozilla.org/en-US/docs/Web/API/Window/screen
+    /// @brief Returns the `Screen` object for the window.
+    /// Functional Utility: Implements the `screen` getter, providing information
+    /// about the user's screen dimensions and color depth.
+    /// @return The `DomRoot<Screen>`.
     fn Screen(&self) -> DomRoot<Screen> {
         self.screen.or_init(|| Screen::new(self, CanGc::note()))
     }
 
     // https://html.spec.whatwg.org/multipage/#dom-windowbase64-btoa
+    /// @brief Base64-encodes a string.
+    /// Functional Utility: Implements the `btoa()` method, delegating to the
+    /// `base64_btoa` helper function.
+    ///
+    /// @param btoa The `DOMString` to encode.
+    /// @return A `Fallible<DOMString>`.
     fn Btoa(&self, btoa: DOMString) -> Fallible<DOMString> {
         base64_btoa(btoa)
     }
 
     // https://html.spec.whatwg.org/multipage/#dom-windowbase64-atob
+    /// @brief Base64-decodes a string.
+    /// Functional Utility: Implements the `atob()` method, delegating to the
+    /// `base64_atob` helper function.
+    ///
+    /// @param atob The `DOMString` to decode.
+    /// @return A `Fallible<DOMString>`.
     fn Atob(&self, atob: DOMString) -> Fallible<DOMString> {
         base64_atob(atob)
     }
 
     /// <https://html.spec.whatwg.org/multipage/#dom-window-requestanimationframe>
+    /// @brief Schedules a function to be called before the browser's next repaint.
+    /// Functional Utility: Implements the `requestAnimationFrame()` method, optimizing
+    /// animations by synchronizing them with the browser's rendering cycle.
+    ///
+    /// @param callback An `Rc<FrameRequestCallback>` representing the function to call.
+    /// @return An integer representing the request ID.
     fn RequestAnimationFrame(&self, callback: Rc<FrameRequestCallback>) -> u32 {
         self.Document()
             .request_animation_frame(AnimationFrameCallback::FrameRequestCallback { callback })
     }
 
     /// <https://html.spec.whatwg.org/multipage/#dom-window-cancelanimationframe>
+    /// @brief Cancels a previously scheduled animation frame request.
+    /// Functional Utility: Implements the `cancelAnimationFrame()` method, allowing
+    /// to stop a `requestAnimationFrame` callback from being executed.
+    /// @param ident The request ID returned by `requestAnimationFrame`.
     fn CancelAnimationFrame(&self, ident: u32) {
         let doc = self.Document();
         doc.cancel_animation_frame(ident);
     }
 
     // https://html.spec.whatwg.org/multipage/#dom-window-postmessage
+    /// @brief Posts a message to another browsing context.
+    /// Functional Utility: Implements the `postMessage()` method, enabling secure
+    /// cross-origin communication between windows.
+    ///
+    /// @param cx The `JSContext`.
+    /// @param message The `HandleValue` message to send.
+    /// @param target_origin The `USVString` target origin for the message.
+    /// @param transfer A `CustomAutoRooterGuard<Vec<*mut JSObject>>` for transferable objects.
+    /// @return An `ErrorResult`.
     fn PostMessage(
         &self,
         cx: JSContext,
@@ -1158,6 +1504,14 @@ impl WindowMethods<crate::DomTypeHolder> for Window {
     }
 
     /// <https://html.spec.whatwg.org/multipage/#dom-messageport-postmessage>
+    /// @brief Posts a message with additional options (e.g., transfer list).
+    /// Functional Utility: Overload for `postMessage()` that accepts an options
+    /// dictionary, useful for specifying `transfer` list.
+    ///
+    /// @param cx The `JSContext`.
+    /// @param message The `HandleValue` message to send.
+    /// @param options A `RootedTraceableBox<WindowPostMessageOptions>` for message options.
+    /// @return An `ErrorResult`.
     fn PostMessage_(
         &self,
         cx: JSContext,
@@ -1190,21 +1544,31 @@ impl WindowMethods<crate::DomTypeHolder> for Window {
     }
 
     // https://html.spec.whatwg.org/multipage/#dom-window-captureevents
+    /// @brief Placeholder for `captureEvents()`.
+    /// Functional Utility: This method is a legacy API and intentionally does nothing.
     fn CaptureEvents(&self) {
         // This method intentionally does nothing
     }
 
     // https://html.spec.whatwg.org/multipage/#dom-window-releaseevents
+    /// @brief Placeholder for `releaseEvents()`.
+    /// Functional Utility: This method is a legacy API and intentionally does nothing.
     fn ReleaseEvents(&self) {
         // This method intentionally does nothing
     }
 
     // check-tidy: no specs after this line
+    /// @brief Prints a debug message to the console.
+    /// Functional Utility: Provides a simple way to log debug information.
+    /// @param message The `DOMString` message to debug.
     fn Debug(&self, message: DOMString) {
         debug!("{}", message);
     }
 
     #[allow(unsafe_code)]
+    /// @brief Triggers garbage collection.
+    /// Functional Utility: Explicitly requests the JavaScript engine to perform
+    /// a garbage collection cycle.
     fn Gc(&self) {
         unsafe {
             JS_GC(*self.get_cx(), GCReason::API);
@@ -1212,6 +1576,9 @@ impl WindowMethods<crate::DomTypeHolder> for Window {
     }
 
     #[allow(unsafe_code)]
+    /// @brief Prints JavaScript and Rust backtraces.
+    /// Functional Utility: Debugging aid to inspect the call stacks of both
+    /// JavaScript and Rust code.
     fn Js_backtrace(&self) {
         unsafe {
             println!("Current JS stack:");
@@ -1222,6 +1589,12 @@ impl WindowMethods<crate::DomTypeHolder> for Window {
     }
 
     #[allow(unsafe_code)]
+    /// @brief Sends a WebDriver script result.
+    /// Functional Utility: Communicates the result of a JavaScript evaluation
+    /// back to the WebDriver server.
+    ///
+    /// @param cx The `JSContext`.
+    /// @param val The `HandleValue` result to send.
     fn WebdriverCallback(&self, cx: JSContext, val: HandleValue) {
         let rv = unsafe { jsval_to_webdriver(*cx, &self.globalscope, val) };
         let opt_chan = self.webdriver_script_chan.borrow_mut().take();
@@ -1230,6 +1603,9 @@ impl WindowMethods<crate::DomTypeHolder> for Window {
         }
     }
 
+    /// @brief Signals a WebDriver timeout.
+    /// Functional Utility: Informs the WebDriver server that a JavaScript
+    /// execution has timed out.
     fn WebdriverTimeout(&self) {
         let opt_chan = self.webdriver_script_chan.borrow_mut().take();
         if let Some(chan) = opt_chan {
@@ -1238,6 +1614,13 @@ impl WindowMethods<crate::DomTypeHolder> for Window {
     }
 
     // https://drafts.csswg.org/cssom/#dom-window-getcomputedstyle
+    /// @brief Returns a `CSSStyleDeclaration` object for the computed style of an element.
+    /// Functional Utility: Implements the `getComputedStyle()` method, providing access
+    /// to the final, resolved values of all CSS properties for a given element.
+    ///
+    /// @param element The `Element` to get the computed style for.
+    /// @param pseudo An `Option<DOMString>` representing the pseudo-element.
+    /// @return A `DomRoot<CSSStyleDeclaration>`.
     fn GetComputedStyle(
         &self,
         element: &Element,
@@ -1284,7 +1667,7 @@ impl WindowMethods<crate::DomTypeHolder> for Window {
         //
         // Note: The specification says to generate the list of declarations beforehand, yet
         // also says the list should be alive. This is why we do not do step 4 and 5 here.
-        // See: https://github.com/w3c/csswg-drafts/issues/6144
+        // See: <https://github.com/w3c/csswg-drafts/issues/6144>
         //
         // Step 6:  Return a live CSSStyleProperties object with the following properties:
         CSSStyleDeclaration::new(
@@ -1302,6 +1685,10 @@ impl WindowMethods<crate::DomTypeHolder> for Window {
 
     // https://drafts.csswg.org/cssom-view/#dom-window-innerheight
     //TODO Include Scrollbar
+    /// @brief Returns the interior height of the window (viewport height).
+    /// Functional Utility: Implements the `innerHeight` getter, providing the height
+    /// of the viewport, excluding toolbars, scrollbars, etc.
+    /// @return The inner height in pixels (`i32`).
     fn InnerHeight(&self) -> i32 {
         self.viewport_details
             .get()
@@ -1313,31 +1700,55 @@ impl WindowMethods<crate::DomTypeHolder> for Window {
 
     // https://drafts.csswg.org/cssom-view/#dom-window-innerwidth
     //TODO Include Scrollbar
+    /// @brief Returns the interior width of the window (viewport width).
+    /// Functional Utility: Implements the `innerWidth` getter, providing the width
+    /// of the viewport, excluding toolbars, scrollbars, etc.
+    /// @return The inner width in pixels (`i32`).
     fn InnerWidth(&self) -> i32 {
         self.viewport_details.get().size.width.to_i32().unwrap_or(0)
     }
 
     // https://drafts.csswg.org/cssom-view/#dom-window-scrollx
+    /// @brief Returns the horizontal scroll offset of the window.
+    /// Functional Utility: Implements the `scrollX` getter, providing the number of
+    /// pixels the document has been scrolled horizontally.
+    /// @return The horizontal scroll offset (`i32`).
     fn ScrollX(&self) -> i32 {
         self.current_viewport.get().origin.x.to_px()
     }
 
     // https://drafts.csswg.org/cssom-view/#dom-window-pagexoffset
+    /// @brief Returns the horizontal scroll offset of the window (alias for `scrollX`).
+    /// Functional Utility: Implements the `pageXOffset` getter for compatibility.
+    /// @return The horizontal scroll offset (`i32`).
     fn PageXOffset(&self) -> i32 {
         self.ScrollX()
     }
 
     // https://drafts.csswg.org/cssom-view/#dom-window-scrolly
+    /// @brief Returns the vertical scroll offset of the window.
+    /// Functional Utility: Implements the `scrollY` getter, providing the number of
+    /// pixels the document has been scrolled vertically.
+    /// @return The vertical scroll offset (`i32`).
     fn ScrollY(&self) -> i32 {
         self.current_viewport.get().origin.y.to_px()
     }
 
     // https://drafts.csswg.org/cssom-view/#dom-window-pageyoffset
+    /// @brief Returns the vertical scroll offset of the window (alias for `scrollY`).
+    /// Functional Utility: Implements the `pageYOffset` getter for compatibility.
+    /// @return The vertical scroll offset (`i32`).
     fn PageYOffset(&self) -> i32 {
         self.ScrollY()
     }
 
     // https://drafts.csswg.org/cssom-view/#dom-window-scroll
+    /// @brief Scrolls the document to a specific position with options.
+    /// Functional Utility: Implements the `scroll()` method with `ScrollToOptions`,
+    /// allowing granular control over scrolling behavior (e.g., smooth scroll).
+    ///
+    /// @param options The `ScrollToOptions` for scrolling.
+    /// @param can_gc A `CanGc` token.
     fn Scroll(&self, options: &ScrollToOptions, can_gc: CanGc) {
         // Step 1
         let left = options.left.unwrap_or(0.0f64);
@@ -1346,21 +1757,40 @@ impl WindowMethods<crate::DomTypeHolder> for Window {
     }
 
     // https://drafts.csswg.org/cssom-view/#dom-window-scroll
+    /// @brief Scrolls the document to a specific position.
+    /// Functional Utility: Implements the `scroll()` method with explicit x/y coordinates.
+    ///
+    /// @param x The horizontal coordinate to scroll to.
+    /// @param y The vertical coordinate to scroll to.
+    /// @param can_gc A `CanGc` token.
     fn Scroll_(&self, x: f64, y: f64, can_gc: CanGc) {
         self.scroll(x, y, ScrollBehavior::Auto, can_gc);
     }
 
     // https://drafts.csswg.org/cssom-view/#dom-window-scrollto
+    /// @brief Scrolls the document to a specific position with options (alias for `scroll`).
+    /// Functional Utility: Implements the `scrollTo()` method, delegating to `scroll`.
+    /// @param options The `ScrollToOptions`.
     fn ScrollTo(&self, options: &ScrollToOptions) {
         self.Scroll(options, CanGc::note());
     }
 
     // https://drafts.csswg.org/cssom-view/#dom-window-scrollto
+    /// @brief Scrolls the document to a specific position (alias for `scroll`).
+    /// Functional Utility: Implements the `scrollTo()` method with explicit x/y coordinates.
+    /// @param x The horizontal coordinate.
+    /// @param y The vertical coordinate.
     fn ScrollTo_(&self, x: f64, y: f64) {
         self.scroll(x, y, ScrollBehavior::Auto, CanGc::note());
     }
 
     // https://drafts.csswg.org/cssom-view/#dom-window-scrollby
+    /// @brief Scrolls the document by a specified amount with options.
+    /// Functional Utility: Implements the `scrollBy()` method with `ScrollToOptions`,
+    /// allowing incremental scrolling.
+    ///
+    /// @param options The `ScrollToOptions` for scrolling.
+    /// @param can_gc A `CanGc` token.
     fn ScrollBy(&self, options: &ScrollToOptions, can_gc: CanGc) {
         // Step 1
         let x = options.left.unwrap_or(0.0f64);
@@ -1370,6 +1800,12 @@ impl WindowMethods<crate::DomTypeHolder> for Window {
     }
 
     // https://drafts.csswg.org/cssom-view/#dom-window-scrollby
+    /// @brief Scrolls the document by a specified amount.
+    /// Functional Utility: Implements the `scrollBy()` method with explicit dx/dy amounts.
+    ///
+    /// @param x The horizontal amount to scroll by.
+    /// @param y The vertical amount to scroll by.
+    /// @param can_gc A `CanGc` token.
     fn ScrollBy_(&self, x: f64, y: f64, can_gc: CanGc) {
         // Step 3
         let left = x + self.ScrollX() as f64;
@@ -1381,6 +1817,12 @@ impl WindowMethods<crate::DomTypeHolder> for Window {
     }
 
     // https://drafts.csswg.org/cssom-view/#dom-window-resizeto
+    /// @brief Resizes the window to the specified dimensions.
+    /// Functional Utility: Implements the `resizeTo()` method, allowing the window
+    /// to be programmatically resized.
+    ///
+    /// @param width The new width (`i32`).
+    /// @param height The new height (`i32`).
     fn ResizeTo(&self, width: i32, height: i32) {
         // Step 1
         //TODO determine if this operation is allowed
@@ -1390,6 +1832,12 @@ impl WindowMethods<crate::DomTypeHolder> for Window {
     }
 
     // https://drafts.csswg.org/cssom-view/#dom-window-resizeby
+    /// @brief Resizes the window by the specified amounts.
+    /// Functional Utility: Implements the `resizeBy()` method, allowing the window
+    /// to be programmatically resized relative to its current size.
+    ///
+    /// @param x The horizontal amount to resize by (`i32`).
+    /// @param y The vertical amount to resize by (`i32`).
     fn ResizeBy(&self, x: i32, y: i32) {
         let (size, _) = self.client_window();
         // Step 1
@@ -1400,6 +1848,12 @@ impl WindowMethods<crate::DomTypeHolder> for Window {
     }
 
     // https://drafts.csswg.org/cssom-view/#dom-window-moveto
+    /// @brief Moves the window to the specified coordinates.
+    /// Functional Utility: Implements the `moveTo()` method, allowing the window
+    /// to be programmatically repositioned on the screen.
+    ///
+    /// @param x The new x-coordinate (`i32`).
+    /// @param y The new y-coordinate (`i32`).
     fn MoveTo(&self, x: i32, y: i32) {
         // Step 1
         //TODO determine if this operation is allowed
@@ -1410,6 +1864,12 @@ impl WindowMethods<crate::DomTypeHolder> for Window {
     }
 
     // https://drafts.csswg.org/cssom-view/#dom-window-moveby
+    /// @brief Moves the window by the specified amounts.
+    /// Functional Utility: Implements the `moveBy()` method, allowing the window
+    /// to be programmatically repositioned relative to its current position.
+    ///
+    /// @param x The horizontal amount to move by (`i32`).
+    /// @param y The vertical amount to move by (`i32`).
     fn MoveBy(&self, x: i32, y: i32) {
         let (_, origin) = self.client_window();
         // Step 1
@@ -1417,45 +1877,77 @@ impl WindowMethods<crate::DomTypeHolder> for Window {
     }
 
     // https://drafts.csswg.org/cssom-view/#dom-window-screenx
+    /// @brief Returns the x-coordinate of the window relative to the screen.
+    /// Functional Utility: Implements the `screenX` getter, providing the horizontal
+    /// position of the left border of the window.
+    /// @return The screen x-coordinate (`i32`).
     fn ScreenX(&self) -> i32 {
         let (_, origin) = self.client_window();
         origin.x
     }
 
     // https://drafts.csswg.org/cssom-view/#dom-window-screeny
+    /// @brief Returns the y-coordinate of the window relative to the screen.
+    /// Functional Utility: Implements the `screenY` getter, providing the vertical
+    /// position of the top border of the window.
+    /// @return The screen y-coordinate (`i32`).
     fn ScreenY(&self) -> i32 {
         let (_, origin) = self.client_window();
         origin.y
     }
 
     // https://drafts.csswg.org/cssom-view/#dom-window-outerheight
+    /// @brief Returns the outer height of the window.
+    /// Functional Utility: Implements the `outerHeight` getter, providing the total
+    /// height of the window, including toolbars, scrollbars, etc.
+    /// @return The outer height (`i32`).
     fn OuterHeight(&self) -> i32 {
         let (size, _) = self.client_window();
         size.height.to_i32().unwrap_or(1)
     }
 
     // https://drafts.csswg.org/cssom-view/#dom-window-outerwidth
+    /// @brief Returns the outer width of the window.
+    /// Functional Utility: Implements the `outerWidth` getter, providing the total
+    /// width of the window, including toolbars, scrollbars, etc.
+    /// @return The outer width (`i32`).
     fn OuterWidth(&self) -> i32 {
         let (size, _) = self.client_window();
         size.width.to_i32().unwrap_or(1)
     }
 
     // https://drafts.csswg.org/cssom-view/#dom-window-devicepixelratio
+    /// @brief Returns the device pixel ratio.
+    /// Functional Utility: Implements the `devicePixelRatio` getter, providing the
+    /// ratio between physical pixels and CSS pixels.
+    /// @return A `Finite<f64>`.
     fn DevicePixelRatio(&self) -> Finite<f64> {
         Finite::wrap(self.device_pixel_ratio().get() as f64)
     }
 
     // https://html.spec.whatwg.org/multipage/#dom-window-status
+    /// @brief Returns the `status` bar message.
+    /// Functional Utility: Implements the `status` getter.
+    /// @return A `DOMString`.
     fn Status(&self) -> DOMString {
         self.status.borrow().clone()
     }
 
     // https://html.spec.whatwg.org/multipage/#dom-window-status
+    /// @brief Sets the `status` bar message.
+    /// Functional Utility: Implements the `status` setter.
+    /// @param status The `DOMString` message to set.
     fn SetStatus(&self, status: DOMString) {
         *self.status.borrow_mut() = status
     }
 
     // https://drafts.csswg.org/cssom-view/#dom-window-matchmedia
+    /// @brief Creates and returns a new `MediaQueryList` object.
+    /// Functional Utility: Implements the `matchMedia()` method, allowing JavaScript
+    /// to programmatically test media queries.
+    ///
+    /// @param query The `DOMString` media query to parse.
+    /// @return A `DomRoot<MediaQueryList>`.
     fn MatchMedia(&self, query: DOMString) -> DomRoot<MediaQueryList> {
         let mut input = ParserInput::new(&query);
         let mut parser = Parser::new(&mut input);
@@ -1479,6 +1971,15 @@ impl WindowMethods<crate::DomTypeHolder> for Window {
     }
 
     // https://fetch.spec.whatwg.org/#fetch-method
+    /// @brief Initiates a network request.
+    /// Functional Utility: Implements the `fetch()` method, providing a modern API
+    /// for making network requests.
+    ///
+    /// @param input A `RequestOrUSVString` for the request.
+    /// @param init A `RootedTraceableBox<RequestInit>` for request options.
+    /// @param comp Proof that we are in a JS realm.
+    /// @param can_gc A `CanGc` token.
+    /// @return An `Rc<Promise>` that resolves with the `Response`.
     fn Fetch(
         &self,
         input: RequestOrUSVString,
@@ -1490,11 +1991,19 @@ impl WindowMethods<crate::DomTypeHolder> for Window {
     }
 
     #[cfg(feature = "bluetooth")]
+    /// @brief Returns the `TestRunner` object.
+    /// Functional Utility: Implements the `TestRunner` getter, providing access to
+    /// testing utilities.
+    /// @return The `DomRoot<TestRunner>`.
     fn TestRunner(&self) -> DomRoot<TestRunner> {
         self.test_runner
             .or_init(|| TestRunner::new(self.upcast(), CanGc::note()))
     }
 
+    /// @brief Returns the count of currently running animations.
+    /// Functional Utility: Provides a metric for the number of active animations
+    /// in the document.
+    /// @return The running animation count (`u32`).
     fn RunningAnimationCount(&self) -> u32 {
         self.document
             .get()
@@ -1502,6 +2011,11 @@ impl WindowMethods<crate::DomTypeHolder> for Window {
     }
 
     // https://html.spec.whatwg.org/multipage/#dom-name
+    /// @brief Sets the name of the browsing context.
+    /// Functional Utility: Implements the `name` setter, allowing the browsing
+    /// context's name to be changed.
+    ///
+    /// @param name The `DOMString` name to set.
     fn SetName(&self, name: DOMString) {
         if let Some(proxy) = self.undiscarded_window_proxy() {
             proxy.set_name(name);
@@ -1509,6 +2023,10 @@ impl WindowMethods<crate::DomTypeHolder> for Window {
     }
 
     // https://html.spec.whatwg.org/multipage/#dom-name
+    /// @brief Returns the name of the browsing context.
+    /// Functional Utility: Implements the `name` getter, providing the name of
+    /// the browsing context.
+    /// @return A `DOMString`.
     fn Name(&self) -> DOMString {
         match self.undiscarded_window_proxy() {
             Some(proxy) => proxy.get_name(),
@@ -1517,11 +2035,20 @@ impl WindowMethods<crate::DomTypeHolder> for Window {
     }
 
     // https://html.spec.whatwg.org/multipage/#dom-origin
+    /// @brief Returns the origin of the document.
+    /// Functional Utility: Implements the `origin` getter, providing the origin
+    /// (scheme, host, port) of the document loaded in this window.
+    /// @return An `USVString`.
     fn Origin(&self) -> USVString {
         USVString(self.origin().immutable().ascii_serialization())
     }
 
     // https://w3c.github.io/selection-api/#dom-window-getselection
+    /// @brief Returns the `Selection` object representing the user's text selection.
+    /// Functional Utility: Implements the `getSelection()` method, providing access to
+    /// the currently selected text or range in the document.
+    ///
+    /// @return An `Option<DomRoot<Selection>>`.
     fn GetSelection(&self) -> Option<DomRoot<Selection>> {
         self.document
             .get()
@@ -1530,6 +2057,12 @@ impl WindowMethods<crate::DomTypeHolder> for Window {
 
     // https://dom.spec.whatwg.org/#dom-window-event
     #[allow(unsafe_code)]
+    /// @brief Returns the `Event` object that is currently being dispatched.
+    /// Functional Utility: Implements the `event` getter (deprecated), providing
+    /// access to the currently active event.
+    ///
+    /// @param cx The `JSContext`.
+    /// @param rval The mutable handle to the return value.
     fn Event(&self, cx: JSContext, rval: MutableHandleValue) {
         if let Some(ref event) = *self.current_event.borrow() {
             unsafe {
@@ -1538,11 +2071,22 @@ impl WindowMethods<crate::DomTypeHolder> for Window {
         }
     }
 
+    /// @brief Returns `true` if the browsing context is a secure context.
+    /// Functional Utility: Implements the `isSecureContext` getter, indicating
+    /// whether the browsing context (and thus the origin of its document) is considered
+    /// secure.
+    /// @return `true` if secure, `false` otherwise.
     fn IsSecureContext(&self) -> bool {
         self.as_global_scope().is_secure_context()
     }
 
     /// <https://html.spec.whatwg.org/multipage/#dom-window-nameditem>
+    /// @brief Returns the element(s) or `WindowProxy` for a given name or ID.
+    /// Functional Utility: Implements the named getter behavior for the `Window` object,
+    /// allowing access to elements (e.g., iframes, elements with `id` or `name`) by name.
+    ///
+    /// @param name The `DOMString` representing the name or ID.
+    /// @return An `Option<NamedPropertyValue>` containing the result.
     fn NamedGetter(&self, name: DOMString) -> Option<NamedPropertyValue> {
         if name.is_empty() {
             return None;
@@ -1632,6 +2176,11 @@ impl WindowMethods<crate::DomTypeHolder> for Window {
     }
 
     // https://html.spec.whatwg.org/multipage/#dom-tree-accessors:supported-property-names
+    /// @brief Returns a list of supported property names for the `Window` object's named access.
+    /// Functional Utility: Implements the `SupportedPropertyNames` method, providing
+    /// the names that can be used to access child frames or named elements directly on the window.
+    ///
+    /// @return A `Vec<DOMString>` containing all supported property names.
     fn SupportedPropertyNames(&self) -> Vec<DOMString> {
         let mut names_with_first_named_element_map: HashMap<&Atom, &Element> = HashMap::new();
 
@@ -1692,6 +2241,15 @@ impl WindowMethods<crate::DomTypeHolder> for Window {
     }
 
     /// <https://html.spec.whatwg.org/multipage/#dom-structuredclone>
+    /// @brief Creates a structured clone of a JavaScript value.
+    /// Functional Utility: Implements the `structuredClone()` method, allowing
+    /// for deep copying of JavaScript values, including complex objects.
+    ///
+    /// @param cx The `JSContext`.
+    /// @param value The `HandleValue` to clone.
+    /// @param options A `RootedTraceableBox<StructuredSerializeOptions>` for cloning options.
+    /// @param retval The mutable handle to the return value.
+    /// @return A `Fallible<()> `.
     fn StructuredClone(
         &self,
         cx: JSContext,
@@ -1703,6 +2261,11 @@ impl WindowMethods<crate::DomTypeHolder> for Window {
             .structured_clone(cx, value, options, retval)
     }
 
+    /// @brief Returns the `TrustedTypePolicyFactory` object.
+    /// Functional Utility: Implements the `TrustedTypes` getter, providing access to
+    /// mechanisms for enforcing trusted types in the document.
+    /// @param can_gc A `CanGc` token.
+    /// @return A `DomRoot<TrustedTypePolicyFactory>`.
     fn TrustedTypes(&self, can_gc: CanGc) -> DomRoot<TrustedTypePolicyFactory> {
         self.trusted_types
             .or_init(|| TrustedTypePolicyFactory::new(self.as_global_scope(), can_gc))
@@ -1712,7 +2275,13 @@ impl WindowMethods<crate::DomTypeHolder> for Window {
 impl Window {
     // https://heycam.github.io/webidl/#named-properties-object
     // https://html.spec.whatwg.org/multipage/#named-access-on-the-window-object
-    #[allow(unsafe_code)]
+    /// @brief Creates the named properties object for the `Window`.
+    /// Functional Utility: Initializes the JavaScript object that handles named
+    /// access to properties on the `Window` object (e.g., child frames, named elements).
+    ///
+    /// @param cx The `JSContext`.
+    /// @param proto The prototype object.
+    /// @param object The mutable handle to the object.
     pub(crate) fn create_named_properties_object(
         cx: JSContext,
         proto: HandleObject,
@@ -1721,6 +2290,10 @@ impl Window {
         window_named_properties::create(cx, proto, object)
     }
 
+    /// @brief Returns the current event being dispatched.
+    /// Functional Utility: Provides access to the `Event` object that is currently
+    /// being processed by the event loop.
+    /// @return An `Option<DomRoot<Event>>`.
     pub(crate) fn current_event(&self) -> Option<DomRoot<Event>> {
         self.current_event
             .borrow()
@@ -1728,6 +2301,10 @@ impl Window {
             .map(|e| DomRoot::from_ref(&**e))
     }
 
+    /// @brief Sets the current event being dispatched.
+    /// Functional Utility: Updates the `current_event` property of the window.
+    /// @param event An `Option<&Event>` to set as the current event.
+    /// @return The previous `Option<DomRoot<Event>>`.
     pub(crate) fn set_current_event(&self, event: Option<&Event>) -> Option<DomRoot<Event>> {
         let current = self.current_event();
         *self.current_event.borrow_mut() = event.map(Dom::from_ref);
@@ -1735,6 +2312,17 @@ impl Window {
     }
 
     /// <https://html.spec.whatwg.org/multipage/#window-post-message-steps>
+    /// @brief Implements the core logic for posting messages to other browsing contexts.
+    /// Functional Utility: Handles the serialization, origin checks, and dispatching
+    /// of structured messages for cross-origin communication.
+    ///
+    /// @param target_origin The `USVString` target origin for the message.
+    /// @param source_origin The `ImmutableOrigin` of the source document.
+    /// @param source The source `WindowProxy`.
+    /// @param cx The `JSContext`.
+    /// @param message The `HandleValue` message to send.
+    /// @param transfer A `CustomAutoRooterGuard<Vec<*mut JSObject>>` for transferable objects.
+    /// @return An `ErrorResult`.
     fn post_message_impl(
         &self,
         target_origin: &USVString,
@@ -1763,15 +2351,24 @@ impl Window {
     }
 
     // https://drafts.css-houdini.org/css-paint-api-1/#paint-worklet
+    /// @brief Returns the `Worklet` object for the CSS Paint API.
+    /// Functional Utility: Implements the `paintWorklet` getter, providing access
+    /// to the CSS Paint API worklet for custom painting operations.
+    /// @return A `DomRoot<Worklet>`.
     pub(crate) fn paint_worklet(&self) -> DomRoot<Worklet> {
         self.paint_worklet
             .or_init(|| self.new_paint_worklet(CanGc::note()))
     }
 
+    /// @brief Checks if a document is currently associated with this window.
+    /// @return `true` if a document exists, `false` otherwise.
     pub(crate) fn has_document(&self) -> bool {
         self.document.get().is_some()
     }
 
+    /// @brief Clears the JavaScript runtime and associated resources.
+    /// Functional Utility: Performs cleanup operations when the window is being
+    /// torn down, ensuring proper resource deallocation and state reset.
     pub(crate) fn clear_js_runtime(&self) {
         self.as_global_scope()
             .remove_web_messaging_and_dedicated_workers_infra();
@@ -1819,6 +2416,14 @@ impl Window {
     }
 
     /// <https://drafts.csswg.org/cssom-view/#dom-window-scroll>
+    /// @brief Scrolls the document to the specified coordinates.
+    /// Functional Utility: Implements the core scrolling logic, clamping coordinates
+    /// within valid ranges and triggering a reflow.
+    ///
+    /// @param x_ The target horizontal coordinate (`f64`).
+    /// @param y_ The target vertical coordinate (`f64`).
+    /// @param behavior The `ScrollBehavior` (e.g., `auto`, `smooth`, `instant`).
+    /// @param can_gc A `CanGc` token.
     pub(crate) fn scroll(&self, x_: f64, y_: f64, behavior: ScrollBehavior, can_gc: CanGc) {
         // Step 3
         let xfinite = if x_.is_finite() { x_ } else { 0.0f64 };
@@ -1863,6 +2468,15 @@ impl Window {
     }
 
     /// <https://drafts.csswg.org/cssom-view/#perform-a-scroll>
+    /// @brief Performs a scroll operation.
+    /// Functional Utility: Sends a scroll update to the layout engine.
+    ///
+    /// @param x The horizontal scroll offset (`f32`).
+    /// @param y The vertical scroll offset (`f32`).
+    /// @param scroll_id The `ExternalScrollId` of the scrollable element.
+    /// @param _behavior The `ScrollBehavior` (unused here).
+    /// @param _element An `Option<&Element>` (unused here).
+    /// @param can_gc A `CanGc` token.
     pub(crate) fn perform_a_scroll(
         &self,
         x: f32,
@@ -1884,16 +2498,26 @@ impl Window {
         );
     }
 
+    /// @brief Updates the current viewport rectangle for scrolling.
+    /// @param x The horizontal offset (`f32`).
+    /// @param y The vertical offset (`f32`).
     pub(crate) fn update_viewport_for_scroll(&self, x: f32, y: f32) {
         let size = self.current_viewport.get().size;
         let new_viewport = Rect::new(Point2D::new(Au::from_f32_px(x), Au::from_f32_px(y)), size);
         self.current_viewport.set(new_viewport)
     }
 
+    /// @brief Returns the device pixel ratio.
+    /// @return A `Scale<f32, CSSPixel, DevicePixel>`.
     pub(crate) fn device_pixel_ratio(&self) -> Scale<f32, CSSPixel, DevicePixel> {
         self.viewport_details.get().hidpi_scale_factor
     }
 
+    /// @brief Retrieves the client window's size and origin from the compositor.
+    /// Functional Utility: Communicates with the compositor to obtain the current
+    /// dimensions and position of the window.
+    ///
+    /// @return A tuple of `(Size2D<u32, CSSPixel>, Point2D<i32, CSSPixel>)`.
     fn client_window(&self) -> (Size2D<u32, CSSPixel>, Point2D<i32, CSSPixel>) {
         let timer_profile_chan = self.global().time_profiler_chan().clone();
         let (sender, receiver) =
@@ -1908,8 +2532,11 @@ impl Window {
         )
     }
 
-    /// Prepares to tick animations and then does a reflow which also advances the
-    /// layout animation clock.
+    /// @brief Advances the animation clock for testing.
+    /// Functional Utility: Used in testing to programmatically advance the document's
+    /// animation timeline.
+    ///
+    /// @param delta_ms The time difference in milliseconds (`i32`).
     #[allow(unsafe_code)]
     pub(crate) fn advance_animation_clock(&self, delta_ms: i32) {
         self.Document()
@@ -1917,14 +2544,15 @@ impl Window {
         ScriptThread::handle_tick_all_animations_for_testing(self.pipeline_id());
     }
 
-    /// Reflows the page unconditionally if possible and not suppressed. This method will wait for
-    /// the layout to complete. If there is no window size yet, the page is presumed invisible and
-    /// no reflow is performed. If reflow is suppressed, no reflow will be performed for ForDisplay
-    /// goals.
+    /// @brief Reflows the page unconditionally if possible and not suppressed.
+    /// Functional Utility: Forces a re-layout of the page, potentially waiting for
+    /// layout to complete, and updates the rendering.
     ///
-    /// Returns true if layout actually happened, false otherwise.
+    /// @param reflow_goal The `ReflowGoal` (e.g., `UpdateTheRendering`, `LayoutQuery`).
+    /// @param condition An `Option<ReflowTriggerCondition>`.
+    /// @return `true` if layout actually happened, `false` otherwise.
     ///
-    /// NOTE: This method should almost never be called directly! Layout and rendering updates should
+    /// @note This method should almost never be called directly! Layout and rendering updates should
     /// happen as part of the HTML event loop via *update the rendering*.
     #[allow(unsafe_code)]
     fn force_reflow(
@@ -1940,7 +2568,7 @@ impl Window {
         let layout_blocked = self.layout_blocker.get().layout_blocked();
         let pipeline_id = self.pipeline_id();
         if reflow_goal == ReflowGoal::UpdateTheRendering && layout_blocked {
-            debug!("Suppressing pre-load-event reflow pipeline {pipeline_id}");
+            debug!("Suppressing pre-load-event reflow pipeline {}", pipeline_id);
             return false;
         }
 
@@ -1957,7 +2585,7 @@ impl Window {
             debug!("Not invalidating cached layout values for paint-only reflow.");
         }
 
-        debug!("script: performing reflow for goal {reflow_goal:?}");
+        debug!("script: performing reflow for goal {:?}", reflow_goal);
         let marker = if self.need_emit_timeline_marker(TimelineMarkerType::Reflow) {
             Some(TimelineMarker::start("Reflow".to_owned()))
         } else {
@@ -2066,11 +2694,16 @@ impl Window {
         true
     }
 
-    /// Reflows the page if it's possible to do so and the page is dirty. Returns true if layout
-    /// actually happened, false otherwise.
+    /// @brief Reflows the page if it's possible to do so and the page is dirty.
+    /// Functional Utility: Initiates a reflow operation if the document is dirty
+    /// or needs rendering updates, ensuring the displayed content is current.
     ///
-    /// NOTE: This method should almost never be called directly! Layout and rendering updates
-    /// should happen as part of the HTML event loop via *update the rendering*. Currerntly, the
+    /// @param reflow_goal The `ReflowGoal` for the reflow.
+    /// @param can_gc A `CanGc` token.
+    /// @return `true` if layout actually happened, `false` otherwise.
+    ///
+    /// @note This method should almost never be called directly! Layout and rendering updates
+    /// should happen as part of the HTML event loop via *update the rendering*. Currently, the
     /// only exceptions are script queries and scroll requests.
     pub(crate) fn reflow(&self, reflow_goal: ReflowGoal, can_gc: CanGc) -> bool {
         // Count the pending web fonts before layout, in case a font loads during the layout.
@@ -2099,8 +2732,9 @@ impl Window {
             }
         } else {
             debug!(
-                "Document ({:?}) doesn't need reflow - skipping it (goal {reflow_goal:?})",
-                self.pipeline_id()
+                "Document ({:?}) doesn't need reflow - skipping it (goal {:?})",
+                self.pipeline_id(),
+                reflow_goal
             );
         }
 
@@ -2150,7 +2784,7 @@ impl Window {
                 !waiting_for_web_fonts_to_load
             {
                 debug!(
-                    "{:?}: Sending DocumentState::Idle to Constellation",
+                    "{::?}: Sending DocumentState::Idle to Constellation",
                     self.pipeline_id()
                 );
                 let event = ScriptToConstellationMessage::SetDocumentState(DocumentState::Idle);
@@ -2162,8 +2796,11 @@ impl Window {
         issued_reflow
     }
 
-    /// If parsing has taken a long time and reflows are still waiting for the `load` event,
-    /// start allowing them. See <https://github.com/servo/servo/pull/6028>.
+    /// @brief Triggers a reflow if the reflow timer has expired.
+    /// Functional Utility: Ensures that layout occurs after a certain delay during parsing,
+    /// even if the document hasn't fully loaded, to prevent prolonged blank screens.
+    ///
+    /// @param can_gc A `CanGc` token.
     pub(crate) fn reflow_if_reflow_timer_expired(&self, can_gc: CanGc) {
         // Only trigger a long parsing time reflow if we are in the first parse of `<body>`
         // and it started more than `INITIAL_REFLOW_DELAY` ago.
@@ -2176,9 +2813,9 @@ impl Window {
         self.allow_layout_if_necessary(can_gc);
     }
 
-    /// Block layout for this `Window` until parsing is done. If parsing takes a long time,
-    /// we want to layout anyway, so schedule a moment in the future for when layouts are
-    /// allowed even though parsing isn't finished and we havne't sent a load event.
+    /// @brief Prevents layout until the `load` event or a timeout.
+    /// Functional Utility: Blocks layout operations during the initial parsing phase
+    /// of the document's `<body>`, but schedules a timeout to allow layout if parsing takes too long.
     pub(crate) fn prevent_layout_until_load_event(&self) {
         // If we have already started parsing or have already fired a load event, then
         // don't delay the first layout any longer.
@@ -2190,8 +2827,11 @@ impl Window {
             .set(LayoutBlocker::Parsing(Instant::now()));
     }
 
-    /// Inform the [`Window`] that layout is allowed either because `load` has happened
-    /// or because parsing the `<body>` took so long that we cannot wait any longer.
+    /// @brief Allows layout operations if necessary.
+    /// Functional Utility: Unblocks layout, either because the `load` event has fired
+    /// or because the parsing time has exceeded a threshold, forcing a repaint.
+    ///
+    /// @param can_gc A `CanGc` token.
     pub(crate) fn allow_layout_if_necessary(&self, can_gc: CanGc) {
         if matches!(
             self.layout_blocker.get(),
@@ -2218,12 +2858,15 @@ impl Window {
         self.reflow(ReflowGoal::UpdateTheRendering, can_gc);
     }
 
+    /// @brief Checks if layout is currently blocked.
+    /// @return `true` if layout is blocked, `false` otherwise.
     pub(crate) fn layout_blocked(&self) -> bool {
         self.layout_blocker.get().layout_blocked()
     }
 
-    /// If writing a screenshot, synchronously update the layout epoch that it set
-    /// in the constellation.
+    /// @brief Updates the constellation epoch for stable image writing.
+    /// Functional Utility: Communicates with the constellation (browser shell) to update
+    /// the layout epoch, indicating a stable rendering state for screenshotting.
     pub(crate) fn update_constellation_epoch(&self) {
         if !opts::get().wait_for_stable_image {
             return;
@@ -2231,7 +2874,7 @@ impl Window {
 
         let epoch = self.layout.borrow().current_epoch();
         debug!(
-            "{:?}: Updating constellation epoch: {epoch:?}",
+            "{::?}: Updating constellation epoch: {epoch:?}",
             self.pipeline_id()
         );
         let (sender, receiver) = ipc::channel().expect("Failed to create IPC channel!");
@@ -2240,10 +2883,25 @@ impl Window {
         let _ = receiver.recv();
     }
 
+    /// @brief Forces a reflow for a layout query.
+    /// Functional Utility: Triggers a reflow specifically to answer a layout query, 
+    /// ensuring the layout engine has the most up-to-date information.
+    ///
+    /// @param query_msg The `QueryMsg` for the layout query.
+    /// @param can_gc A `CanGc` token.
+    /// @return `true` if layout happened, `false` otherwise.
     pub(crate) fn layout_reflow(&self, query_msg: QueryMsg, can_gc: CanGc) -> bool {
         self.reflow(ReflowGoal::LayoutQuery(query_msg), can_gc)
     }
 
+    /// @brief Queries the resolved font style for a node.
+    /// Functional Utility: Retrieves the computed font style properties for a specific node
+    /// after a reflow, used for accurate font rendering.
+    ///
+    /// @param node The `Node` to query.
+    /// @param value The font style value string.
+    /// @param can_gc A `CanGc` token.
+    /// @return An `Option<ServoArc<Font>>`.
     pub(crate) fn resolved_font_style_query(
         &self,
         node: &Node,
@@ -2264,11 +2922,23 @@ impl Window {
         )
     }
 
-    // Query content box without considering any reflow
+    /// @brief Queries the content box of a node without forcing a reflow.
+    /// Functional Utility: Provides an unchecked way to get the content box,
+    /// assuming layout is already up-to-date.
+    ///
+    /// @param node The `Node` to query.
+    /// @return An `Option<UntypedRect<Au>>`.
     pub(crate) fn content_box_query_unchecked(&self, node: &Node) -> Option<UntypedRect<Au>> {
         self.layout.borrow().query_content_box(node.to_opaque())
     }
 
+    /// @brief Queries the content box of a node, forcing a reflow if necessary.
+    /// Functional Utility: Retrieves the dimensions of a node's content area,
+    /// ensuring the layout is updated before the query.
+    ///
+    /// @param node The `Node` to query.
+    /// @param can_gc A `CanGc` token.
+    /// @return An `Option<UntypedRect<Au>>`.
     pub(crate) fn content_box_query(&self, node: &Node, can_gc: CanGc) -> Option<UntypedRect<Au>> {
         if !self.layout_reflow(QueryMsg::ContentBox, can_gc) {
             return None;
@@ -2276,6 +2946,13 @@ impl Window {
         self.content_box_query_unchecked(node)
     }
 
+    /// @brief Queries all content boxes of a node.
+    /// Functional Utility: Retrieves all content boxes for a given node, typically
+    /// for inline elements that might have multiple boxes.
+    ///
+    /// @param node The `Node` to query.
+    /// @param can_gc A `CanGc` token.
+    /// @return A `Vec<UntypedRect<Au>>`.
     pub(crate) fn content_boxes_query(&self, node: &Node, can_gc: CanGc) -> Vec<UntypedRect<Au>> {
         if !self.layout_reflow(QueryMsg::ContentBoxes, can_gc) {
             return vec![];
@@ -2283,6 +2960,13 @@ impl Window {
         self.layout.borrow().query_content_boxes(node.to_opaque())
     }
 
+    /// @brief Queries the client rectangle of a node.
+    /// Functional Utility: Retrieves the bounding rectangle of a node, relative to
+    /// the viewport, after a reflow.
+    ///
+    /// @param node The `Node` to query.
+    /// @param can_gc A `CanGc` token.
+    /// @return An `UntypedRect<i32>`.
     pub(crate) fn client_rect_query(&self, node: &Node, can_gc: CanGc) -> UntypedRect<i32> {
         if !self.layout_reflow(QueryMsg::ClientRectQuery, can_gc) {
             return Rect::zero();
@@ -2290,8 +2974,13 @@ impl Window {
         self.layout.borrow().query_client_rect(node.to_opaque())
     }
 
-    /// Find the scroll area of the given node, if it is not None. If the node
-    /// is None, find the scroll area of the viewport.
+    /// @brief Queries the scrolling area of a node or the viewport.
+    /// Functional Utility: Retrieves the dimensions of a scrollable area, either for a
+    /// specific node or the entire viewport, after a reflow.
+    ///
+    /// @param node An `Option<&Node>` for the specific node, or `None` for the viewport.
+    /// @param can_gc A `CanGc` token.
+    /// @return An `UntypedRect<i32>`.
     pub(crate) fn scrolling_area_query(
         &self,
         node: Option<&Node>,
@@ -2304,6 +2993,10 @@ impl Window {
         self.layout.borrow().query_scrolling_area(opaque)
     }
 
+    /// @brief Queries the scroll offset of a node.
+    /// Functional Utility: Retrieves the cached scroll offset for a given node.
+    /// @param node The `Node` to query.
+    /// @return A `Vector2D<f32, LayoutPixel>`.
     pub(crate) fn scroll_offset_query(&self, node: &Node) -> Vector2D<f32, LayoutPixel> {
         if let Some(scroll_offset) = self.scroll_offsets.borrow().get(&node.to_opaque()) {
             return *scroll_offset;
@@ -2312,6 +3005,15 @@ impl Window {
     }
 
     // https://drafts.csswg.org/cssom-view/#element-scrolling-members
+    /// @brief Scrolls a specific node to the specified coordinates.
+    /// Functional Utility: Updates the scroll position of a scrollable element
+    /// and triggers a reflow to reflect the change.
+    ///
+    /// @param node The `Node` to scroll.
+    /// @param x_ The horizontal target coordinate (`f64`).
+    /// @param y_ The vertical target coordinate (`f64`).
+    /// @param behavior The `ScrollBehavior`.
+    /// @param can_gc A `CanGc` token.
     pub(crate) fn scroll_node(
         &self,
         node: &Node,
@@ -2342,6 +3044,15 @@ impl Window {
         );
     }
 
+    /// @brief Queries the resolved style for a property of an element.
+    /// Functional Utility: Retrieves the computed value of a specific CSS property
+    /// for an element after a reflow.
+    ///
+    /// @param element The `TrustedNodeAddress` of the element.
+    /// @param pseudo An `Option<PseudoElement>`.
+    /// @param property The `PropertyId` of the CSS property.
+    /// @param can_gc A `CanGc` token.
+    /// @return A `DOMString` representing the resolved style value.
     pub(crate) fn resolved_style_query(
         &self,
         element: TrustedNodeAddress,
@@ -2364,9 +3075,13 @@ impl Window {
         ))
     }
 
-    /// If the given |browsing_context_id| refers to an `<iframe>` that is an element
-    /// in this [`Window`] and that `<iframe>` has been laid out, return its size.
-    /// Otherwise, return `None`.
+    /// @brief Retrieves viewport details for an `<iframe>` if known.
+    /// Functional Utility: Queries the layout engine for the dimensions of a nested
+    /// browsing context, if it has been laid out.
+    ///
+    /// @param browsing_context_id The `BrowsingContextId` of the iframe.
+    /// @param can_gc A `CanGc` token.
+    /// @return An `Option<ViewportDetails>`.
     pub(crate) fn get_iframe_viewport_details_if_known(
         &self,
         browsing_context_id: BrowsingContextId,
@@ -2381,6 +3096,13 @@ impl Window {
     }
 
     #[allow(unsafe_code)]
+    /// @brief Queries the offset parent of a node.
+    /// Functional Utility: Determines the closest positioned ancestor of a node and its
+    /// bounding rectangle.
+    ///
+    /// @param node The `Node` to query.
+    /// @param can_gc A `CanGc` token.
+    /// @return A tuple of `(Option<DomRoot<Element>>, UntypedRect<Au>)`.
     pub(crate) fn offset_parent_query(
         &self,
         node: &Node,
@@ -2398,6 +3120,14 @@ impl Window {
         (element, response.rect)
     }
 
+    /// @brief Queries the text index at a specific point within a node.
+    /// Functional Utility: Determines the character index in a text node corresponding
+    /// to a given point, used for hit testing and text selection.
+    ///
+    /// @param node The `Node` to query.
+    /// @param point_in_node The `UntypedPoint2D<f32>` within the node.
+    /// @param can_gc A `CanGc` token.
+    /// @return An `Option<usize>` representing the text index.
     pub(crate) fn text_index_query(
         &self,
         node: &Node,
@@ -2413,12 +3143,24 @@ impl Window {
     }
 
     #[allow(unsafe_code)]
+    /// @brief Initializes the `WindowProxy` for this window.
+    /// Functional Utility: Establishes the `WindowProxy` object, making this window
+    /// discoverable and accessible to other browsing contexts.
+    ///
+    /// @param window_proxy The `WindowProxy` to initialize.
+    #[allow(clippy::needless_pass_by_ref_mut)] // The clippy lint is wrong here
     pub(crate) fn init_window_proxy(&self, window_proxy: &WindowProxy) {
         assert!(self.window_proxy.get().is_none());
         self.window_proxy.set(Some(window_proxy));
     }
 
     #[allow(unsafe_code)]
+    /// @brief Initializes the `Document` for this window.
+    /// Functional Utility: Sets the `Document` object for this window, linking it
+    /// as the primary content.
+    ///
+    /// @param document The `Document` to initialize.
+    /// @pre `self.document` must not be set, and `document.window()` must be `self`.
     pub(crate) fn init_document(&self, document: &Document) {
         assert!(self.document.get().is_none());
         assert!(document.window() == self);
@@ -2429,9 +3171,16 @@ impl Window {
         }
     }
 
-    /// Commence a new URL load which will either replace this window or scroll to a fragment.
+    /// @brief Commences a new URL load for this window.
+    /// Functional Utility: Initiates a navigation operation, handling history,
+    /// referrer policies, and fragment navigation.
     ///
     /// <https://html.spec.whatwg.org/multipage/#navigating-across-documents>
+    ///
+    /// @param history_handling The `NavigationHistoryBehavior` for the navigation.
+    /// @param force_reload `true` to force a reload, `false` otherwise.
+    /// @param load_data The `LoadData` for the navigation.
+    /// @param can_gc A `CanGc` token.
     pub(crate) fn load_url(
         &self,
         history_handling: NavigationHistoryBehavior,
@@ -2679,8 +3428,7 @@ impl Window {
         self.parent_info.is_none()
     }
 
-    /// An implementation of:
-    /// <https://drafts.csswg.org/cssom-view/#document-run-the-resize-steps>
+    /// An implementation of: <https://drafts.csswg.org/cssom-view/#document-run-the-resize-steps>
     ///
     /// Returns true if there were any pending resize events.
     pub(crate) fn run_the_resize_steps(&self, can_gc: CanGc) -> bool {
@@ -3030,7 +3778,7 @@ fn debug_reflow_events(id: PipelineId, reflow_goal: &ReflowGoal) {
         },
     };
 
-    println!("**** pipeline={id}\t{goal_string}");
+    println!("**** pipeline={}\t{goal_string}", id);
 }
 
 impl Window {
@@ -3096,7 +3844,7 @@ pub(crate) struct CSSErrorReporter {
     // which is necessary to fulfill the bounds required by the
     // uses of the ParseErrorReporter trait.
     #[ignore_malloc_size_of = "Arc is defined in libstd"]
-    pub(crate) script_chan: Arc<Mutex<IpcSender<ScriptThreadMessage>>>,
+    pub(crate) script_chan: Arc<Mutex<IpcSender<ScriptThreadMessage>> >,
 }
 unsafe_no_jsmanaged_fields!(CSSErrorReporter);
 

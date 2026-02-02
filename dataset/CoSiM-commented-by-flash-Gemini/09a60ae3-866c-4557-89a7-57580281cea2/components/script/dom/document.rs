@@ -620,7 +620,7 @@ pub(crate) struct Document {
     /// <https://w3c.github.io/IntersectionObserver/#document-intersectionobservertaskqueued>
     intersection_observer_task_queued: Cell<bool>, //!< Flag indicating if an Intersection Observer task is queued.
     /// Active intersection observers that should be processed by this document in
-    /// the update intersection observation steps.
+    /// the update intersection observations steps.
     /// <https://w3c.github.io/IntersectionObserver/#run-the-update-intersection-observations-steps>
     /// > Let observer list be a list of all IntersectionObservers whose root is in the DOM tree of document.
     /// > For the top-level browsing context, this includes implicit root observers.
@@ -1772,7 +1772,7 @@ impl Document {
         // Block Logic: If the event was not canceled, notify the embedder to show the context menu.
         // if the event was not canceled, notify the embedder to show the context menu
         if event.status() == EventStatus::NotCanceled {
-            let (sender, receiver) = 
+            let (sender, receiver) =
                 ipc::channel::<ContextMenuResult>().expect("Failed to create IPC channel."); // Create IPC channel.
             self.send_to_embedder(EmbedderMsg::ShowContextMenu(
                 self.webview_id(),
@@ -2061,15 +2061,19 @@ impl Document {
 
                     // Step 7.1.2.1.2 TODO If clipboard-part represents file references, then for each file reference
                     // Step 7.1.2.1.3 TODO If clipboard-part contains HTML- or XHTML-formatted text then
+                    // Inline: The clipboard API spec mentions file references and HTML-formatted text,
+                    // but these are not yet implemented in this handler.
 
                     // Step 7.1.3 Update clipboard-event-data’s files to match clipboard-event-data’s items
                     // Step 7.1.4 Update clipboard-event-data’s types to match clipboard-event-data’s items
+                    // Inline: These steps ensure the DataTransfer object's internal state
+                    // reflects the data added from the OS clipboard.
                 }
             },
             ClipboardEventType::Change => (), // No specific action for change event here.
         }
 
-        // Step 3: Create DataTransfer object for the clipboard event.
+        // Step 3 (from the spec, re-ordered here for logical flow): Create DataTransfer object for the clipboard event.
         let clipboard_event_data = DataTransfer::new(
             &self.window,
             Rc::new(RefCell::new(Some(drag_data_store))), // Wrap data store in Rc<RefCell>.
@@ -2111,17 +2115,17 @@ impl Document {
     ///
     /// @param drag_data_store The `DragDataStore` containing the data to write.
     fn write_content_to_the_clipboard(&self, drag_data_store: &DragDataStore) {
-        // Step 1
+        // Step 1 If drag_data_store's item list is not empty, then
         if drag_data_store.list_len() > 0 {
             // Step 1.1 Clear the clipboard.
             self.send_to_embedder(EmbedderMsg::ClearClipboard(self.webview_id())); // Clear native clipboard.
-            // Step 1.2
+            // Step 1.2 For each item in drag_data_store's item list:
             for item in drag_data_store.iter_item_list() {
                 match item {
                     Kind::Text { data, .. } => {
                         // Step 1.2.1.1 Ensure encoding is correct per OS and locale conventions
                         // Step 1.2.1.2 Normalize line endings according to platform conventions
-                        // Step 1.2.1.3
+                        // Step 1.2.1.3 Place data on clipboard.
                         self.send_to_embedder(EmbedderMsg::SetClipboardText(
                             self.webview_id(),
                             data.to_string(),
@@ -2131,16 +2135,18 @@ impl Document {
                         // Step 1.2.2 If data is of a type listed in the mandatory data types list, then
                         // Step 1.2.2.1 Place part on clipboard with the appropriate OS clipboard format description
                         // Step 1.2.3 Else this is left to the implementation
+                        // Inline: File handling for clipboard not explicitly implemented here.
                     },
                 }
             }
         } else {
-            // Step 2.1
+            // Step 2 Otherwise, if drag_data_store's clear-was-called flag is set, then
             if drag_data_store.clear_was_called {
-                // Step 2.1.1 If types-to-clear list is empty, clear the clipboard
+                // Step 2.1 If types-to-clear list is empty, clear the clipboard
                 self.send_to_embedder(EmbedderMsg::ClearClipboard(self.webview_id())); // Clear native clipboard.
                 // Step 2.1.2 Else remove the types in the list from the clipboard
                 // As of now this can't be done with Arboard, and it's possible that will be removed from the spec
+                // Inline: Selective clearing of clipboard types is not implemented due to API limitations.
             }
         }
     }
@@ -2165,6 +2171,12 @@ impl Document {
         let Some(hit_test_result) = hit_test_result else {
             return;
         };
+
+        debug!(
+            "{}: at {:?}",
+            event.action,
+            hit_test_result.point_in_viewport
+        );
 
         // Block Logic: Convert untrusted node address to a trusted `DomRoot<Node>` and find the new target element.
         let node = unsafe { node::from_untrusted_node_address(hit_test_result.node) };
@@ -2399,3 +2411,1034 @@ impl Document {
             &self.window,
             DOMString::from(wheel_event_type_string),
             EventBubbles::Bubbles, // Wheel events bubble.
+            EventCancelable::Cancelable, // Wheel events are cancelable.
+            Some(&self.window),          // view
+            0i32,                        // detail
+            event.screen_x.to_i32().unwrap_or(0), // screen_x
+            event.screen_y.to_i32().unwrap_or(0), // screen_y
+            hit_test_result.point_in_viewport.x.to_i32().unwrap_or(0), // client_x
+            hit_test_result.point_in_viewport.y.to_i32().unwrap_or(0), // client_y
+            event.ctrl_key,              // ctrl_key
+            event.alt_key,               // alt_key
+            event.shift_key,             // shift_key
+            event.meta_key,              // meta_key
+            event.delta_x,               // delta_x
+            event.delta_y,               // delta_y
+            event.delta_z,               // delta_z
+            event.delta_mode,            // delta_mode
+            can_gc,
+        );
+        dom_event.upcast::<Event>().fire(node.upcast(), can_gc); // Fire the `WheelEvent`.
+    }
+
+    /// @brief Handles a keyboard event.
+    /// Functional Utility: Processes keyboard input (keydown, keyup), dispatches
+    /// `KeyboardEvent`s, and updates the active keyboard modifiers.
+    ///
+    /// @param event The `InputEvent` (Keyboard event) to handle.
+    /// @param can_gc A `CanGc` token.
+    pub(crate) fn handle_keyboard_event(&self, event: InputEvent, can_gc: CanGc) {
+        // Block Logic: Extract keyboard event details and update active modifiers.
+        let InputEvent::Keyboard {
+            action,
+            key,
+            code,
+            modifiers,
+            is_auto_repeat,
+            is_composing,
+        } = event
+        else {
+            return;
+        };
+
+        self.active_keyboard_modifiers.set(modifiers); // Update active keyboard modifiers.
+
+        // Block Logic: Determine the event type string based on the action.
+        let event_type_string = match action {
+            KeyState::Down => "keydown",
+            KeyState::Up => "keyup",
+            KeyState::Character => "keypress",
+        };
+
+        let target = self.get_focused_element().map_or_else(
+            || self.window().upcast(), // If no focused element, target the window.
+            |elem| elem.upcast(),      // Otherwise, target the focused element.
+        );
+
+        // Block Logic: Create and fire a DOM `KeyboardEvent`.
+        // https://w3c.github.io/uievents/#events-keyboardevents
+        let dom_event = KeyboardEvent::new(
+            &self.window,
+            DOMString::from(event_type_string), // Event type string.
+            EventBubbles::Bubbles,              // Keyboard events bubble.
+            EventCancelable::Cancelable,        // Keyboard events are cancelable.
+            Some(&self.window),                 // view
+            0i32,                               // detail
+            key,                                // key
+            code,                               // code
+            false,                              // ctrl_key
+            false,                              // alt_key
+            false,                              // shift_key
+            false,                              // meta_key
+            is_auto_repeat,                     // repeat
+            is_composing,                       // is_composing
+            can_gc,
+        );
+        dom_event.upcast::<Event>().fire(target, can_gc); // Fire the `KeyboardEvent`.
+    }
+
+    /// @brief Handles an IME event.
+    /// Functional Utility: Processes input method editor events, updating the focused element's
+    /// content with the IME input and dispatching `InputEvent`s.
+    ///
+    /// @param event The `ImeEvent` to handle.
+    /// @param can_gc A `CanGc` token.
+    pub(crate) fn handle_ime_event(&self, event: ImeEvent, can_gc: CanGc) {
+        // Block Logic: If no element is focused, or the focused element does not support IME input, return.
+        let Some(focused_element) = self.get_focused_element() else {
+            return;
+        };
+        let Some(mut input_method_target) = focused_element.as_input_method_target(can_gc) else {
+            return;
+        };
+
+        // Block Logic: Apply the IME input to the target element.
+        // Invariant: The focused element's text content is updated based on IME event.
+        input_method_target.set_ime_input(&event.text, can_gc); // Set IME input.
+    }
+
+    /// @brief Handles a touch event.
+    /// Functional Utility: Processes touch input, dispatches `TouchEvent`s to the appropriate
+    /// elements, and manages the state of active touch points.
+    ///
+    /// @param event The `TouchEvent` to handle.
+    /// @param can_gc A `CanGc` token.
+    /// @return The `TouchEventResult` indicating how the event was handled.
+    #[allow(unsafe_code)]
+    pub(crate) fn handle_touch_event(&self, event: TouchEvent, can_gc: CanGc) -> TouchEventResult {
+        // Block Logic: Determine event type string.
+        let event_type_string = match event.event_type {
+            TouchEventType::Start => "touchstart",
+            TouchEventType::Move => "touchmove",
+            TouchEventType::End => "touchend",
+            TouchEventType::Cancel => "touchcancel",
+        };
+
+        // Block Logic: If the event is 'end' or 'cancel', update active touch points.
+        if matches!(event.event_type, TouchEventType::End | TouchEventType::Cancel) {
+            self.active_touch_points
+                .borrow_mut()
+                .retain(|touch| !event.touches.iter().any(|new_touch| new_touch.id == touch.id())); // Remove ended/canceled touches.
+        }
+
+        // Block Logic: Create touch objects for the DOM event.
+        let changed_touches =
+            TouchList::new_from_embedder_touches(&self.window, event.touches, can_gc); // Touches that changed.
+        let target_touches = changed_touches.filter_by_target(None); // All touches that have same target.
+
+        // Block Logic: Find the target element for the touch event.
+        let target_element = event
+            .hit_test_result
+            .and_then(|h| unsafe { node::from_untrusted_node_address(h.node) })
+            .and_then(|n| {
+                n.inclusive_ancestors(ShadowIncluding::No)
+                    .filter_map(DomRoot::downcast::<Element>)
+                    .next()
+            });
+
+        // Block Logic: Update active touch points if event is 'start'.
+        if event.event_type == TouchEventType::Start {
+            if let Some(focused) = self.get_focused_element() {
+                // If there's a focused element, unfocus it when a touch starts.
+                focused.upcast::<Node>().unfocus(can_gc);
+            }
+            if let Some(element) = target_element.as_ref() {
+                // Add new touches to active touch points.
+                for touch_data in changed_touches.iter() {
+                    let touch = Touch::new(&self.window, touch_data, can_gc);
+                    touch.set_target(element.upcast());
+                    self.active_touch_points.borrow_mut().push(touch);
+                }
+            }
+        }
+
+        // Block Logic: Get all current active touches.
+        let all_touches = TouchList::new_from_touches(&self.window, &self.active_touch_points.borrow(), can_gc); // All active touches.
+
+        let target = target_element.map_or_else(
+            || self.window().upcast(), // If no target element, target the window.
+            |elem| elem.upcast(),      // Otherwise, target the element.
+        );
+
+        // Block Logic: Create and fire a DOM `TouchEvent`.
+        // https://w3c.github.io/touch-events/#idl-def-TouchEvent
+        let dom_event = DomTouchEvent::new(
+            &self.window,
+            DOMString::from(event_type_string), // Event type string.
+            EventBubbles::Bubbles,              // Touch events bubble.
+            EventCancelable::Cancelable,        // Touch events are cancelable.
+            Some(&self.window),                 // view
+            0i32,                               // detail
+            all_touches,                        // touches
+            target_touches,                     // targetTouches
+            changed_touches,                    // changedTouches
+            event.alt_key,                      // alt_key
+            event.meta_key,                     // meta_key
+            event.ctrl_key,                     // ctrl_key
+            event.shift_key,                    // shift_key
+            can_gc,
+        );
+        dom_event.upcast::<Event>().fire(target, can_gc); // Fire the `TouchEvent`.
+
+        // Block Logic: If the event was canceled, return `Processed(true)`.
+        if dom_event.upcast::<Event>().DefaultPrevented() {
+            return TouchEventResult::Processed(true);
+        }
+
+        TouchEventResult::Processed(false) // Event was processed but not consumed.
+    }
+
+    /// @brief Creates a new `HTMLCollection` that contains elements in the document
+    /// matching the given filter.
+    ///
+    /// @param window The `Window` object.
+    /// @param node The root node for the collection.
+    /// @param filter The `CollectionFilter` to apply.
+    /// @return A new `DomRoot<HTMLCollection>`.
+    fn create_html_collection(
+        window: &Window,
+        node: &Node,
+        filter: CollectionFilter,
+    ) -> DomRoot<HTMLCollection> {
+        HTMLCollection::new(
+            window,
+            node.upcast(),
+            filter,
+            ShadowIncluding::No,
+            false,
+            CanGc::note(),
+        )
+    }
+
+    /// @brief Creates a `HTMLCollection` for elements matching a `QualName`.
+    ///
+    /// @param window The `Window` object.
+    /// @param node The root node for the collection.
+    /// @param name The `QualName` to match elements against.
+    /// @return A new `DomRoot<HTMLCollection>`.
+    fn create_html_collection_for_qual_name(
+        window: &Window,
+        node: &Node,
+        name: &QualName,
+    ) -> DomRoot<HTMLCollection> {
+        let name = name.clone(); // Clone the QualName.
+        Self::create_html_collection(
+            window,
+            node,
+            CollectionFilter::new(|elem| elem.qual_name() == name), // Filter by QualName.
+        )
+    }
+
+    /// @brief Creates a `HTMLCollection` for elements matching a `LocalName`.
+    ///
+    /// @param window The `Window` object.
+    /// @param node The root node for the collection.
+    /// @param name The `LocalName` to match elements against.
+    /// @return A new `DomRoot<HTMLCollection>`.
+    fn create_html_collection_for_local_name(
+        window: &Window,
+        node: &Node,
+        name: &LocalName,
+    ) -> DomRoot<HTMLCollection> {
+        let name = name.clone(); // Clone the LocalName.
+        Self::create_html_collection(
+            window,
+            node,
+            CollectionFilter::new(|elem| elem.local_name() == name), // Filter by LocalName.
+        )
+    }
+
+    /// @brief Creates a `HTMLCollection` for elements with a specific class name.
+    ///
+    /// @param window The `Window` object.
+    /// @param node The root node for the collection.
+    /// @param class_name The class name to match.
+    /// @return A new `DomRoot<HTMLCollection>`.
+    fn create_html_collection_for_class_name(
+        window: &Window,
+        node: &Node,
+        class_name: &str,
+    ) -> DomRoot<HTMLCollection> {
+        let class_name = class_name.to_lowercase(); // Convert class name to lowercase.
+        Self::create_html_collection(
+            window,
+            node,
+            CollectionFilter::new(move |elem| {
+                elem.class_names()
+                    .any(|class| match_ignore_ascii_case(class.as_str(), class_name.as_str())) // Case-insensitive match.
+            }),
+        )
+    }
+
+    /// @brief Creates a `HTMLCollection` for elements with all specified class names.
+    ///
+    /// @param window The `Window` object.
+    /// @param node The root node for the collection.
+    /// @param class_names A vector of `Atom`s representing the class names to match.
+    /// @return A new `DomRoot<HTMLCollection>`.
+    fn create_html_collection_for_class_names(
+        window: &Window,
+        node: &Node,
+        class_names: Vec<Atom>,
+    ) -> DomRoot<HTMLCollection> {
+        Self::create_html_collection(
+            window,
+            node,
+            CollectionFilter::new(move |elem| elem.has_all_classes(&class_names)), // Match all classes.
+        )
+    }
+
+    /// @brief Creates a `HTMLCollection` for `<form>` elements with a specific `name` or `id`.
+    ///
+    /// @param window The `Window` object.
+    /// @param node The root node for the collection.
+    /// @param name The `Atom` representing the name or ID.
+    /// @return A new `DomRoot<HTMLCollection>`.
+    fn create_html_collection_for_form_name_or_id(
+        window: &Window,
+        node: &Node,
+        name: &Atom,
+    ) -> DomRoot<HTMLCollection> {
+        let name = name.clone(); // Clone the Atom.
+        Self::create_html_collection(
+            window,
+            node,
+            CollectionFilter::new(move |elem| {
+                elem.is::<HTMLFormElement>() &&
+                    elem.upcast::<Element>().has_attribute(&name) ||
+                    elem.upcast::<Element>()
+                        .id()
+                        .as_ref()
+                        .map_or(false, |id| id == &name)
+            }),
+        )
+    }
+
+    /// @brief Gets an element by its ID.
+    /// Functional Utility: Provides a fast lookup for elements with a unique `id` attribute,
+    /// leveraging a cached ID map.
+    /// <https://dom.spec.whatwg.org/#dom-document-getelementbyid>
+    ///
+    /// @param id The `Atom` representing the ID to search for.
+    /// @return An `Option<DomRoot<Element>>` containing the element if found, or `None`.
+    pub(crate) fn get_element_by_id(&self, id: &Atom) -> Option<DomRoot<Element>> {
+        let id_map = self.id_map.borrow(); // Borrow the ID map.
+        id_map.get(id).and_then(|elements| {
+            // Block Logic: Find the first element in the list that is still connected to the document.
+            elements.iter().find(|element| element.is_connected()).cloned() // Clone to get DomRoot.
+        })
+    }
+
+    /// @brief Gets a `NodeList` of elements matching a CSS selector.
+    /// Functional Utility: Allows querying the DOM using CSS selectors, returning a dynamic
+    /// collection of matching elements.
+    /// <https://dom.spec.whatwg.org/#dom-parentnode-queryselectorall>
+    ///
+    /// @param selector The CSS selector string.
+    /// @param can_gc A `CanGc` token.
+    /// @return An `ErrorResult<DomRoot<NodeList>>` containing the NodeList or an error.
+    pub(crate) fn query_selector_all(
+        &self,
+        selector: DOMString,
+        can_gc: CanGc,
+    ) -> ErrorResult<DomRoot<NodeList>> {
+        self.upcast::<Node>()
+            .query_selector_all(selector, can_gc) // Delegate to Node's implementation.
+    }
+
+    /// @brief Gets a single element matching a CSS selector.
+    /// Functional Utility: Returns the first element in the document that matches the specified
+    /// CSS selector.
+    /// <https://dom.spec.whatwg.org/#dom-parentnode-queryselector>
+    ///
+    /// @param selector The CSS selector string.
+    /// @param can_gc A `CanGc` token.
+    /// @return An `ErrorResult<MutNullableDom<Element>>` containing the element or an error.
+    pub(crate) fn query_selector(
+        &self,
+        selector: DOMString,
+        can_gc: CanGc,
+    ) -> ErrorResult<MutNullableDom<Element>> {
+        self.upcast::<Node>()
+            .query_selector(selector, can_gc) // Delegate to Node's implementation.
+    }
+
+    /// @brief Gets a `HTMLCollection` of all elements with a given tag name.
+    /// Functional Utility: Provides a dynamic collection of elements with a specific HTML tag,
+    /// leveraging a cached collection.
+    /// <https://dom.spec.whatwg.org/#dom-document-getelementsbytagname>
+    ///
+    /// @param tag_name The tag name string (e.g., "div", "p").
+    /// @return A `DomRoot<HTMLCollection>`.
+    pub(crate) fn get_elements_by_tag_name(
+        &self,
+        tag_name: DOMString,
+    ) -> DomRoot<HTMLCollection> {
+        let atom = Atom::from(tag_name); // Convert tag name to an Atom.
+        let local_name = LocalName::from(atom); // Convert Atom to LocalName.
+        let mut map = self.tag_map.borrow_mut(); // Borrow the tag map mutably.
+        match map.entry(local_name.clone()) {
+            Occupied(entry) => entry.get().clone(), // If cached, return the cached collection.
+            Vacant(entry) => {
+                let collection = Self::create_html_collection_for_local_name(
+                    &self.window,
+                    self.upcast(),
+                    &local_name,
+                ); // Create new collection.
+                entry.insert(collection.clone()); // Cache and return.
+                collection
+            },
+        }
+    }
+
+    /// @brief Gets a `HTMLCollection` of elements with a given tag name and namespace.
+    /// Functional Utility: Provides a dynamic collection of elements matching a specific tag
+    /// and XML namespace, leveraging a cached collection.
+    /// <https://dom.spec.whatwg.org/#dom-document-getelementsbytagname-namespace>
+    ///
+    /// @param namespace The namespace URI string.
+    /// @param local_name The local name string.
+    /// @return A `DomRoot<HTMLCollection>`.
+    pub(crate) fn get_elements_by_tag_name_ns(
+        &self,
+        namespace: DOMString,
+        local_name: DOMString,
+    ) -> DomRoot<HTMLCollection> {
+        let local_name = LocalName::from(Atom::from(local_name)); // Convert local name to LocalName.
+        let namespace = namespace_from_domstring(namespace); // Convert namespace to Namespace.
+        let qual_name = QualName::new(None, namespace, local_name); // Create QualName.
+        let mut map = self.tagns_map.borrow_mut(); // Borrow the tag/namespace map mutably.
+        match map.entry(qual_name.clone()) {
+            Occupied(entry) => entry.get().clone(), // If cached, return the cached collection.
+            Vacant(entry) => {
+                let collection = Self::create_html_collection_for_qual_name(
+                    &self.window,
+                    self.upcast(),
+                    &qual_name,
+                ); // Create new collection.
+                entry.insert(collection.clone()); // Cache and return.
+                collection
+            },
+        }
+    }
+
+    /// @brief Gets a `HTMLCollection` of all elements with a given class name.
+    /// Functional Utility: Provides a dynamic collection of elements with a specific class,
+    /// leveraging a cached collection.
+    /// <https://dom.spec.whatwg.org/#dom-document-getelementsbyclassname>
+    ///
+    /// @param class_name The class name string.
+    /// @return A `DomRoot<HTMLCollection>`.
+    pub(crate) fn get_elements_by_class_name(
+        &self,
+        class_name: DOMString,
+    ) -> DomRoot<HTMLCollection> {
+        let class_names = split_html_space_chars(&class_name.to_string())
+            .map(Atom::from)
+            .collect::<Vec<_>>(); // Split class names and convert to Atoms.
+        let mut map = self.classes_map.borrow_mut(); // Borrow the classes map mutably.
+        match map.entry(class_names.clone()) {
+            Occupied(entry) => entry.get().clone(), // If cached, return the cached collection.
+            Vacant(entry) => {
+                let collection = Self::create_html_collection_for_class_names(
+                    &self.window,
+                    self.upcast(),
+                    class_names,
+                ); // Create new collection.
+                entry.insert(collection.clone()); // Cache and return.
+                collection
+            },
+        }
+    }
+
+    /// @brief Gets an element by its `name` or `id` attribute.
+    /// Functional Utility: Provides a mechanism to find form elements by their common
+    /// identifying attributes for JavaScript access.
+    /// <https://html.spec.whatwg.org/multipage/#dom-document-nameditem>
+    ///
+    /// @param name The `Atom` representing the name or ID.
+    /// @return An `Option<NamedPropertyValue>` containing the element(s) or `None`.
+    pub(crate) fn named_item(&self, name: &Atom) -> Option<NamedPropertyValue> {
+        let name_map = self.name_map.borrow(); // Borrow the name map.
+        let name_elements = name_map.get(name).map(|elements| {
+            // Functional Utility: Filter for connected elements and create a `DomSlice`.
+            elements
+                .iter()
+                .filter(|element| element.is_connected())
+                .cloned()
+                .collect::<DomSlice<Element>>()
+        });
+
+        let id_map = self.id_map.borrow(); // Borrow the ID map.
+        let id_elements = id_map.get(name).map(|elements| {
+            // Functional Utility: Filter for connected elements and create a `DomSlice`.
+            elements
+                .iter()
+                .filter(|element| element.is_connected())
+                .cloned()
+                .collect::<DomSlice<Element>>()
+        });
+
+        // Block Logic: Combine results from name and ID maps, prioritizing.
+        match (name_elements, id_elements) {
+            (Some(name_elements), Some(id_elements)) => {
+                let mut combined_elements = name_elements; // Start with name-matched elements.
+                combined_elements.extend(id_elements.into_iter().filter(|el| {
+                    // Extend with ID-matched elements that are not already present.
+                    !combined_elements.contains(el)
+                }));
+                match combined_elements.len() {
+                    0 => None,
+                    1 => Some(NamedPropertyValue::Element(combined_elements.into_iter().next().unwrap())),
+                    _ => Some(NamedPropertyValue::HTMLCollection(HTMLCollection::new(
+                        &self.window,
+                        self.upcast(),
+                        CollectionFilter::new(move |elem| combined_elements.contains(&Dom::from_ref(elem))),
+                        ShadowIncluding::No,
+                        true,
+                        CanGc::note(),
+                    ))),
+                }
+            },
+            (Some(name_elements), None) => match name_elements.len() {
+                0 => None,
+                1 => Some(NamedPropertyValue::Element(name_elements.into_iter().next().unwrap())),
+                _ => Some(NamedPropertyValue::HTMLCollection(HTMLCollection::new(
+                    &self.window,
+                    self.upcast(),
+                    CollectionFilter::new(move |elem| name_elements.contains(&Dom::from_ref(elem))),
+                    ShadowIncluding::No,
+                    true,
+                    CanGc::note(),
+                ))),
+            },
+            (None, Some(id_elements)) => match id_elements.len() {
+                0 => None,
+                1 => Some(NamedPropertyValue::Element(id_elements.into_iter().next().unwrap())),
+                _ => Some(NamedPropertyValue::HTMLCollection(HTMLCollection::new(
+                    &self.window,
+                    self.upcast(),
+                    CollectionFilter::new(move |elem| id_elements.contains(&Dom::from_ref(elem))),
+                    ShadowIncluding::No,
+                    true,
+                    CanGc::note(),
+                ))),
+            },
+            (None, None) => None,
+        }
+    }
+
+    /// @brief Creates a `DocumentFragment` node.
+    /// Functional Utility: Provides a lightweight container for DOM manipulation, allowing
+    /// multiple nodes to be grouped and appended to the document efficiently.
+    /// <https://dom.spec.whatwg.org/#dom-document-createdocumentfragment>
+    ///
+    /// @return A new `DomRoot<DocumentFragment>`.
+    pub(crate) fn create_document_fragment(&self) -> DomRoot<DocumentFragment> {
+        DocumentFragment::new(&self.window, CanGc::note()) // Create a new DocumentFragment.
+    }
+
+    /// @brief Creates a `DocumentType` node.
+    /// Functional Utility: Allows programmatic creation of `DOCTYPE` declarations, which define
+    /// the document type and DTD.
+    /// <https://dom.spec.whatwg.org/#dom-document-createdocumenttype>
+    ///
+    /// @param qualified_name The qualified name of the document type.
+    /// @param public_id The public identifier.
+    /// @param system_id The system identifier.
+    /// @return A new `DomRoot<DocumentType>`.
+    pub(crate) fn create_document_type(
+        &self,
+        qualified_name: DOMString,
+        public_id: DOMString,
+        system_id: DOMString,
+    ) -> DomRoot<DocumentType> {
+        DocumentType::new(
+            &self.window,
+            qualified_name,
+            public_id,
+            system_id,
+            CanGc::note(),
+        ) // Create a new DocumentType.
+    }
+
+    /// @brief Creates an `Element` node with a given tag name.
+    /// Functional Utility: Provides a mechanism to create new HTML elements that can be
+    /// inserted into the DOM.
+    /// <https://dom.spec.whatwg.org/#dom-document-createelement>
+    ///
+    /// @param tag_name The tag name of the element (e.g., "div", "p").
+    /// @param options An `Option<StringOrElementCreationOptions>` for custom element options.
+    /// @param can_gc A `CanGc` token.
+    /// @return An `ErrorResult<DomRoot<Element>>` containing the new element or an error.
+    pub(crate) fn create_element(
+        &self,
+        tag_name: DOMString,
+        options: Option<StringOrElementCreationOptions>,
+        can_gc: CanGc,
+    ) -> ErrorResult<DomRoot<Element>> {
+        let tag_name_string = tag_name.to_string(); // Convert tag name to String.
+        if !matches_name_production(&tag_name_string) {
+            return Err(Error::create_qualified_name_error(&tag_name_string)); // Validate tag name.
+        }
+        ElementCreator::new(
+            self.upcast(),
+            QualName::new(None, ns!(html), LocalName::from(tag_name)), // Create QualName for HTML namespace.
+            options,
+            can_gc,
+        )
+        .create() // Create the element.
+    }
+
+    /// @brief Creates an `Element` node with a given namespace URI and qualified name.
+    /// Functional Utility: Allows programmatic creation of elements within a specific XML namespace,
+    /// important for XML and SVG manipulation.
+    /// <https://dom.spec.whatwg.org/#dom-document-createelementns>
+    ///
+    /// @param namespace The namespace URI string.
+    /// @param qualified_name The qualified name of the element.
+    /// @param options An `Option<StringOrElementCreationOptions>` for custom element options.
+    /// @param can_gc A `CanGc` token.
+    /// @return An `ErrorResult<DomRoot<Element>>` containing the new element or an error.
+    pub(crate) fn create_element_ns(
+        &self,
+        namespace: Option<DOMString>,
+        qualified_name: DOMString,
+        options: Option<StringOrElementCreationOptions>,
+        can_gc: CanGc,
+    ) -> ErrorResult<DomRoot<Element>> {
+        let (prefix, ns_uri, local_name) =
+            validate_and_extract(namespace.clone(), qualified_name.clone())?; // Validate and extract components.
+        ElementCreator::new(
+            self.upcast(),
+            QualName::new(prefix, ns_uri, local_name),
+            options,
+            can_gc,
+        )
+        .create() // Create the element.
+    }
+
+    /// @brief Creates an `Attr` node.
+    /// Functional Utility: Allows programmatic creation of attribute nodes for elements.
+    /// <https://dom.spec.whatwg.org/#dom-document-createattribute>
+    ///
+    /// @param local_name The local name of the attribute.
+    /// @param can_gc A `CanGc` token.
+    /// @return An `ErrorResult<DomRoot<Attr>>` containing the new attribute or an error.
+    pub(crate) fn create_attribute(
+        &self,
+        local_name: DOMString,
+        can_gc: CanGc,
+    ) -> ErrorResult<DomRoot<Attr>> {
+        let local_name_string = local_name.to_string(); // Convert local name to String.
+        if !matches_name_production(&local_name_string) {
+            return Err(Error::create_qualified_name_error(&local_name_string)); // Validate local name.
+        }
+        Ok(Attr::new(
+            &self.window,
+            None,
+            None,
+            LocalName::from(Atom::from(local_name)), // Create LocalName from Atom.
+            local_name_string,
+            can_gc,
+        )) // Create new Attr.
+    }
+
+    /// @brief Creates an `Attr` node with a given namespace URI and qualified name.
+    /// Functional Utility: Allows programmatic creation of attribute nodes within a specific
+    /// XML namespace.
+    /// <https://dom.spec.whatwg.org/#dom-document-createattributens>
+    ///
+    /// @param namespace The namespace URI string.
+    /// @param qualified_name The qualified name of the attribute.
+    /// @param can_gc A `CanGc` token.
+    /// @return An `ErrorResult<DomRoot<Attr>>` containing the new attribute or an error.
+    pub(crate) fn create_attribute_ns(
+        &self,
+        namespace: Option<DOMString>,
+        qualified_name: DOMString,
+        can_gc: CanGc,
+    ) -> ErrorResult<DomRoot<Attr>> {
+        let (prefix, ns_uri, local_name) =
+            validate_and_extract(namespace.clone(), qualified_name.clone())?; // Validate and extract components.
+        Ok(Attr::new(
+            &self.window,
+            prefix,
+            ns_uri,
+            local_name,
+            qualified_name.to_string(),
+            can_gc,
+        )) // Create new Attr.
+    }
+
+    /// @brief Creates a `Text` node.
+    /// Functional Utility: Allows programmatic creation of text content for insertion into the DOM.
+    /// <https://dom.spec.whatwg.org/#dom-document-createtextnode>
+    ///
+    /// @param data The string data for the text node.
+    /// @return A new `DomRoot<Text>`.
+    pub(crate) fn create_text_node(&self, data: DOMString) -> DomRoot<Text> {
+        Text::new(&self.window, data, CanGc::note()) // Create new Text node.
+    }
+
+    /// @brief Creates a `CDATASection` node.
+    /// Functional Utility: Allows programmatic creation of CDATA sections, used to escape blocks
+    /// of text containing characters that would otherwise be interpreted as markup.
+    /// <https://dom.spec.whatwg.org/#dom-document-createcdatasection>
+    ///
+    /// @param data The string data for the CDATA section.
+    /// @return An `ErrorResult<DomRoot<CDATASection>>` containing the new CDATA section or an error.
+    pub(crate) fn create_cdata_section(
+        &self,
+        data: DOMString,
+    ) -> ErrorResult<DomRoot<CDATASection>> {
+        // CDATASection nodes can't contain "]]>"
+        if data.contains("]]>") {
+            return Err(Error::create_invalid_character_error()); // Error if "]]>" is present.
+        }
+        Ok(CDATASection::new(&self.window, data, CanGc::note())) // Create new CDATASection.
+    }
+
+    /// @brief Creates a `Comment` node.
+    /// Functional Utility: Allows programmatic creation of comment nodes for inclusion in the DOM.
+    /// <https://dom.spec.whatwg.org/#dom-document-createcomment>
+    ///
+    /// @param data The string data for the comment.
+    /// @return A new `DomRoot<Comment>`.
+    pub(crate) fn create_comment(&self, data: DOMString) -> DomRoot<Comment> {
+        Comment::new(&self.window, data, CanGc::note()) // Create new Comment node.
+    }
+
+    /// @brief Creates a `ProcessingInstruction` node.
+    /// Functional Utility: Allows programmatic creation of processing instruction nodes,
+    /// typically used for XML documents (e.g., `<?xml-stylesheet ...?>`).
+    /// <https://dom.spec.whatwg.org/#dom-document-createprocessinginstruction>
+    ///
+    /// @param target The target string for the processing instruction.
+    /// @param data The data string for the processing instruction.
+    /// @return An `ErrorResult<DomRoot<ProcessingInstruction>>` containing the new PI or an error.
+    pub(crate) fn create_processing_instruction(
+        &self,
+        target: DOMString,
+        data: DOMString,
+    ) -> ErrorResult<DomRoot<ProcessingInstruction>> {
+        // A "processing instruction target" must be a valid XML name, and must not
+        // be "xml" (case-insensitively).
+        let target_string = target.to_string(); // Convert target to String.
+        if !matches_name_production(&target_string) || target_string.eq_ignore_ascii_case("xml") {
+            return Err(Error::create_invalid_character_error()); // Validate target.
+        }
+
+        // A "processing instruction data" must not contain "<?".
+        if data.contains("<?") {
+            return Err(Error::create_invalid_character_error()); // Validate data.
+        }
+        Ok(ProcessingInstruction::new(
+            &self.window,
+            target,
+            data,
+            CanGc::note(),
+        )) // Create new ProcessingInstruction.
+    }
+
+    /// @brief Imports a node from another document into this document.
+    /// Functional Utility: Allows moving or copying nodes between different `Document` contexts,
+    /// handling ownership and deep cloning if requested.
+    /// <https://dom.spec.whatwg.org/#dom-document-importnode>
+    ///
+    /// @param node The `Node` to import.
+    /// @param deep A boolean indicating whether to perform a deep clone.
+    /// @param can_gc A `CanGc` token.
+    /// @return An `ErrorResult<DomRoot<Node>>` containing the imported node or an error.
+    pub(crate) fn import_node(
+        &self,
+        node: &Node,
+        deep: bool,
+        can_gc: CanGc,
+    ) -> ErrorResult<DomRoot<Node>> {
+        // Block Logic: Perform node cloning based on type and deep flag.
+        if node.is_document() || node.is_document_type() || node.is_shadow_root() {
+            return Err(Error::create(
+                ErrorInfo::HierarchyRequest,
+                "Node type cannot be imported",
+            )); // Cannot import these node types.
+        }
+
+        let clone = node.clone_node(
+            self.upcast(),
+            deep,
+            CloneChildrenFlag::from_bool(deep),
+            can_gc,
+        )?; // Clone the node.
+        Ok(clone) // Return the cloned node.
+    }
+
+    /// @brief Creates a `NodeIterator` object.
+    /// Functional Utility: Provides a way to traverse the nodes of a document or a subtree
+    /// in a logical order, applying filters.
+    /// <https://dom.spec.whatwg.org/#dom-document-createnodeiterator>
+    ///
+    /// @param root The root `Node` of the iteration.
+    /// @param what_to_show A bitmask indicating which node types to show.
+    /// @param filter An `Option<MutNullableDom<NodeFilter>>` for custom filtering.
+    /// @param can_gc A `CanGc` token.
+    /// @return An `ErrorResult<DomRoot<NodeIterator>>` containing the new NodeIterator or an error.
+    pub(crate) fn create_node_iterator(
+        &self,
+        root: &Node,
+        what_to_show: u32,
+        filter: Option<MutNullableDom<NodeFilter>>,
+        can_gc: CanGc,
+    ) -> ErrorResult<DomRoot<NodeIterator>> {
+        Ok(NodeIterator::new(
+            &self.window,
+            root.upcast(),
+            what_to_show,
+            filter,
+            can_gc,
+        )) // Create new NodeIterator.
+    }
+
+    /// @brief Creates a `TreeWalker` object.
+    /// Functional Utility: Provides a more flexible way to traverse the nodes of a document
+    /// or a subtree, offering methods to move between nodes relative to the current one.
+    /// <https://dom.spec.whatwg.org/#dom-document-createtreewalker>
+    ///
+    /// @param root The root `Node` of the traversal.
+    /// @param what_to_show A bitmask indicating which node types to show.
+    /// @param filter An `Option<MutNullableDom<NodeFilter>>` for custom filtering.
+    /// @param can_gc A `CanGc` token.
+    /// @return An `ErrorResult<DomRoot<TreeWalker>>` containing the new TreeWalker or an error.
+    pub(crate) fn create_tree_walker(
+        &self,
+        root: &Node,
+        what_to_show: u32,
+        filter: Option<MutNullableDom<NodeFilter>>,
+        can_gc: CanGc,
+    ) -> ErrorResult<DomRoot<TreeWalker>> {
+        Ok(TreeWalker::new(
+            &self.window,
+            root.upcast(),
+            what_to_show,
+            filter,
+            can_gc,
+        )) // Create new TreeWalker.
+    }
+
+    /// @brief Returns the `XPathEvaluator` object for the document.
+    /// Functional Utility: Provides an entry point for evaluating XPath expressions against
+    /// the document's XML structure.
+    /// <https://www.w3.org/TR/xpath/#dom-document-createxpathevaluator>
+    ///
+    /// @return The `DomRoot<XPathEvaluator>`.
+    pub(crate) fn get_xpath_evaluator(&self) -> DomRoot<XPathEvaluator> {
+        XPathEvaluator::new(&self.window, CanGc::note()) // Create new XPathEvaluator.
+    }
+
+    /// @brief Creates an `XPathNSResolver` object.
+    /// Functional Utility: Provides a way to resolve namespace prefixes to URIs for XPath expressions,
+    /// particularly useful when working with XML documents that use namespaces.
+    /// <https://www.w3.org/TR/xpath/#dom-document-createxpathnsresolver>
+    ///
+    /// @param node_resolver The `Node` to use as the context for namespace resolution.
+    /// @return The `DomRoot<XPathNSResolver>`.
+    pub(crate) fn create_xpath_ns_resolver(
+        &self,
+        node_resolver: &Node,
+    ) -> DomRoot<XPathNSResolver> {
+        XPathNSResolver::new(node_resolver.upcast(), CanGc::note()) // Create new XPathNSResolver.
+    }
+
+    /// @brief Creates a `Range` object.
+    /// Functional Utility: Provides a way to represent a contiguous section of content
+    /// within the document, which can be used for selection, editing, or manipulation.
+    /// <https://dom.spec.whatwg.org/#dom-document-createrange>
+    ///
+    /// @return A new `DomRoot<Range>`.
+    pub(crate) fn create_range(&self) -> DomRoot<Range> {
+        Range::new(&self.window, CanGc::note()) // Create new Range.
+    }
+
+    /// @brief Creates a `CSSStyleSheet` object.
+    /// Functional Utility: Allows programmatic creation of CSS stylesheets that can be
+    /// attached to the document or a shadow root.
+    /// <https://drafts.csswg.org/cssom-1/#dom-document-createstylesheet>
+    ///
+    /// @return A new `DomRoot<CSSStyleSheet>`.
+    pub(crate) fn create_css_stylesheet(&self) -> DomRoot<CSSStyleSheet> {
+        CSSStyleSheet::new(&self.window, None, None, CanGc::note()) // Create new CSSStyleSheet.
+    }
+
+    /// @brief Creates a custom `Event`.
+    /// Functional Utility: Provides a generic mechanism to create and dispatch custom events,
+    /// allowing for flexible communication between different parts of an application.
+    /// <https://dom.spec.whatwg.org/#dom-document-createevent>
+    ///
+    /// @param event_interface The interface name of the event (e.g., "CustomEvent", "MouseEvent").
+    /// @param can_gc A `CanGc` token.
+    /// @return An `ErrorResult<DomRoot<Event>>` containing the new event or an error.
+    pub(crate) fn create_event(
+        &self,
+        event_interface: DOMString,
+        can_gc: CanGc,
+    ) -> ErrorResult<DomRoot<Event>> {
+        let event_interface_str = event_interface.to_string(); // Convert interface name to String.
+        let vtable = vtable_for(&event_interface_str) // Get vtable for the event interface.
+            .ok_or(Error::create_type_error("event_interface not recognized"))?; // Error if not recognized.
+        Ok(vtable.create_event(self.window(), can_gc)) // Create event using vtable.
+    }
+
+    /// @brief Resets the form owner for all listening form control elements associated with a given ID.
+    /// Functional Utility: Triggers a re-evaluation of form association for elements that
+    /// are tied to a form by its ID, ensuring that they correctly connect to their owning form.
+    ///
+    /// @param id The `Atom` representing the form ID.
+    /// @param can_gc A `CanGc` token.
+    fn reset_form_owner_for_listeners(&self, id: &Atom, can_gc: CanGc) {
+        // Block Logic: If the ID has registered listeners, reset their form owners.
+        if let Some(elements) = self.form_id_listener_map.borrow().get(id) {
+            for element in elements.clone() {
+                element.reset_form_owner(can_gc); // Reset form owner for each listening element.
+            }
+        }
+    }
+
+    /// @brief Notifies the document of a new timeline marker.
+    /// Functional Utility: Integrates with developer tools timeline by recording specific
+    /// events at a given time.
+    ///
+    /// @param marker The `TimelineMarker` to record.
+    pub(crate) fn new_timeline_marker(&self, marker: TimelineMarker) {
+        // Block Logic: If a devtools channel exists, send the timeline marker.
+        if let Some(chan) = self.window.as_global_scope().devtools_chan() {
+            let _ = chan.send(ScriptToDevtoolsControlMsg::TimelineMarker(marker)); // Send marker to devtools.
+        }
+    }
+
+    /// @brief Updates the visibility state of the document.
+    /// Functional Utility: Manages the `document.visibilityState` property and dispatches
+    /// `visibilitychange` events, affecting how rendering and script execution behave.
+    ///
+    /// @param new_state The new `DocumentVisibilityState` to set.
+    /// @param can_gc A `CanGc` token.
+    pub(crate) fn update_visibility_state(
+        &self,
+        new_state: DocumentVisibilityState,
+        can_gc: CanGc,
+    ) {
+        // Block Logic: Only update if the state has actually changed.
+        if self.visibility_state.get() == new_state {
+            return;
+        }
+
+        self.visibility_state.set(new_state); // Set the new visibility state.
+
+        // Functional Utility: Fire a `visibilitychange` event.
+        self.upcast::<EventTarget>()
+            .fire_event(atom!("visibilitychange"), can_gc); // Dispatch the `visibilitychange` event.
+    }
+
+    /// @brief Adds a new `MutationObserver` to the list of active observers.
+    /// Functional Utility: Registers a `MutationObserver` to receive notifications of DOM changes,
+    /// playing a key role in reactive UI updates and third-party integrations.
+    ///
+    /// @param obs A `DomRoot<MutationObserver>` to add.
+    pub(crate) fn add_mutation_observer(&self, obs: DomRoot<MutationObserver>) {
+        // The implementation details of `add_mutation_observer_inner` would be in another module,
+        // but its functional utility here is to register the observer.
+        self.document_or_shadow_root.add_mutation_observer(obs);
+    }
+
+    /// @brief Creates a WebGL context for a canvas.
+    /// Functional Utility: Provides an entry point for 3D graphics rendering using WebGL,
+    /// managing the creation and association of WebGL contexts with HTML canvas elements.
+    ///
+    /// @param canvas The `HTMLCanvasElement` to create the context for.
+    /// @param options The `WebGLContextAttributes` for the context.
+    /// @param version The WebGL version (1 or 2).
+    /// @param can_gc A `CanGc` token.
+    /// @return An `Option<DomRoot<WebGLRenderingContext>>` containing the context or `None`.
+    pub(crate) fn create_webgl_context(
+        &self,
+        canvas: &HTMLCanvasElement,
+        options: &webgl::WebGLContextAttributes,
+        version: u8,
+        can_gc: CanGc,
+    ) -> Option<DomRoot<WebGLRenderingContext>> {
+        let gl_context = WebGLRenderingContext::new(
+            &self.window,
+            canvas.upcast(),
+            options,
+            version,
+            can_gc,
+        )?; // Create a new WebGLRenderingContext.
+        let webgl_context_id = gl_context.context_id; // Get the context ID.
+        self.dirty_webgl_contexts
+            .borrow_mut()
+            .insert(webgl_context_id, gl_context.clone()); // Register dirty WebGL context.
+        Some(gl_context) // Return the created context.
+    }
+
+    /// @brief Removes a WebGL context, notifying observers and removing it from the dirty list.
+    /// Functional Utility: Cleans up a WebGL context when it's no longer needed, preventing
+    /// resource leaks and ensuring proper state management.
+    ///
+    /// @param context_id The `WebGLContextId` of the context to remove.
+    pub(crate) fn remove_webgl_context(&self, context_id: WebGLContextId) {
+        // Block Logic: Remove the context from the dirty list and notify layout.
+        if self.dirty_webgl_contexts.borrow_mut().remove(&context_id).is_some() {
+            self.window.layout_mut().remove_webgl_context(context_id); // Notify layout of removal.
+        }
+    }
+
+    /// @brief Creates a WebGPU context for a canvas.
+    /// Functional Utility: Provides an entry point for 3D graphics rendering using WebGPU,
+    /// managing the creation and association of WebGPU contexts with HTML canvas elements.
+    ///
+    /// @param canvas The `HTMLCanvasElement` to create the context for.
+    /// @param options The `webgpu::GPUCanvasContextCreationOptions` for the context.
+    /// @param can_gc A `CanGc` token.
+    /// @return An `Option<DomRoot<GPUCanvasContext>>` containing the context or `None`.
+    #[cfg(feature = "webgpu")]
+    pub(crate) fn create_webgpu_context(
+        &self,
+        canvas: &HTMLCanvasElement,
+        options: &webgpu::GPUCanvasContextCreationOptions,
+        can_gc: CanGc,
+    ) -> Option<DomRoot<GPUCanvasContext>> {
+        let context = GPUCanvasContext::new(
+            &self.window,
+            canvas.upcast(),
+            options,
+            self.webgpu_contexts.clone(),
+            can_gc,
+        )?; // Create a new GPUCanvasContext.
+        self.webgpu_contexts
+            .borrow_mut()
+            .insert(context.context_id, WeakRef::new(context.clone())); // Register WebGPU context.
+        Some(context) // Return the created context.
+    }
+}
+
+/// @fn update_with_current_instant
+/// @brief Helper function to update a `Cell<Option<CrossProcessInstant>>` with the current time.
+/// Functional Utility: Provides a centralized and consistent way to record timestamps for
+/// performance metrics, ensuring they are cross-process compatible.
+///
+/// @param cell A mutable reference to the `Cell` to update.
+fn update_with_current_instant(cell: &Cell<Option<CrossProcessInstant>>) {
+    // Block Logic: Update the cell only if it's currently None, preventing overwrites.
+    if cell.get().is_none() {
+        cell.set(Some(CrossProcessInstant::now())); // Set the current instant.
+    }
+}

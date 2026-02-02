@@ -2,6 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
+/// @file htmlformelement.rs
+/// @brief This file implements the `HTMLFormElement` interface, which represents the
+/// `<form>` HTML element. It provides functionality for managing form submission,
+/// resetting, accessing form controls, and handling validation.
+/// Functional Utility: Facilitates user input collection, data submission to a server,
+/// and client-side validation of form data.
+
 use std::borrow::ToOwned;
 use std::cell::Cell;
 
@@ -82,33 +89,52 @@ use crate::links::{LinkRelations, get_element_target};
 use crate::script_runtime::CanGc;
 use crate::script_thread::ScriptThread;
 
+/// @struct GenerationId
+/// @brief Represents a unique identifier for a form's generation, used for tracking
+/// planned navigation tasks.
+/// Functional Utility: Ensures that only the most recent form submission attempt triggers
+/// a navigation, preventing outdated or redundant navigations.
 #[derive(Clone, Copy, JSTraceable, MallocSizeOf, PartialEq)]
-pub(crate) struct GenerationId(u32);
+pub(crate) struct GenerationId(u32); //!< The unique generation ID.
 
+/// @struct HTMLFormElement
+/// @brief Represents the `<form>` HTML element.
+/// Functional Utility: Provides the DOM interface for `<form>`, allowing programmatic
+/// control over form submission, resetting, and access to its associated form controls.
+///
+/// <https://html.spec.whatwg.org/multipage/#htmlformelement>
 #[dom_struct]
 pub(crate) struct HTMLFormElement {
-    htmlelement: HTMLElement,
-    marked_for_reset: Cell<bool>,
+    htmlelement: HTMLElement, //!< Inherited properties and methods from `HTMLElement`.
+    marked_for_reset: Cell<bool>, //!< Flag indicating if the form is currently being reset.
     /// <https://html.spec.whatwg.org/multipage/#constructing-entry-list>
-    constructing_entry_list: Cell<bool>,
-    elements: DomOnceCell<HTMLFormControlsCollection>,
-    generation_id: Cell<GenerationId>,
-    controls: DomRefCell<Vec<Dom<Element>>>,
+    constructing_entry_list: Cell<bool>, //!< Flag indicating if the form's entry list is being constructed.
+    elements: DomOnceCell<HTMLFormControlsCollection>, //!< Cached collection of form controls.
+    generation_id: Cell<GenerationId>, //!< Unique ID for this form's submission generation.
+    controls: DomRefCell<Vec<Dom<Element>>>, //!< List of associated form control elements.
 
     #[allow(clippy::type_complexity)]
-    past_names_map: DomRefCell<HashMapTracedValues<Atom, (Dom<Element>, NoTrace<usize>)>>,
+    past_names_map: DomRefCell<HashMapTracedValues<Atom, (Dom<Element>, NoTrace<usize>)>>, //!< Maps past names to their elements and generation IDs.
 
     /// The current generation of past names, i.e., the number of name changes to the name.
-    current_name_generation: Cell<usize>,
+    current_name_generation: Cell<usize>, //!< Counter for name changes, used in `past_names_map`.
 
-    firing_submission_events: Cell<bool>,
-    rel_list: MutNullableDom<DOMTokenList>,
+    firing_submission_events: Cell<bool>, //!< Flag indicating if submission events are currently firing.
+    rel_list: MutNullableDom<DOMTokenList>, //!< The `DOMTokenList` for the `rel` attribute.
 
     #[no_trace]
     relations: Cell<LinkRelations>,
 }
 
 impl HTMLFormElement {
+    /// @brief Creates a new `HTMLFormElement` instance with inherited properties.
+    /// Functional Utility: Internal constructor used for setting up the basic properties
+    /// of an `HTMLFormElement` and initializing its internal state.
+    ///
+    /// @param local_name The `LocalName` of the HTML element (e.g., "form").
+    /// @param prefix An `Option<Prefix>` for the XML namespace prefix, if any.
+    /// @param document The owning `Document` of this element.
+    /// @return A new `HTMLFormElement` instance.
     fn new_inherited(
         local_name: LocalName,
         prefix: Option<Prefix>,
@@ -116,24 +142,34 @@ impl HTMLFormElement {
     ) -> HTMLFormElement {
         HTMLFormElement {
             htmlelement: HTMLElement::new_inherited_with_state(
-                ElementState::VALID,
+                ElementState::VALID, // Form is valid by default.
                 local_name,
                 prefix,
                 document,
             ),
-            marked_for_reset: Cell::new(false),
-            constructing_entry_list: Cell::new(false),
-            elements: Default::default(),
-            generation_id: Cell::new(GenerationId(0)),
-            controls: DomRefCell::new(Vec::new()),
-            past_names_map: DomRefCell::new(HashMapTracedValues::new()),
-            current_name_generation: Cell::new(0),
-            firing_submission_events: Cell::new(false),
-            rel_list: Default::default(),
-            relations: Cell::new(LinkRelations::empty()),
+            marked_for_reset: Cell::new(false), // Not marked for reset initially.
+            constructing_entry_list: Cell::new(false), // Not constructing entry list initially.
+            elements: Default::default(), // Elements collection initialized to default.
+            generation_id: Cell::new(GenerationId(0)), // Generation ID starts at 0.
+            controls: DomRefCell::new(Vec::new()), // Controls list initialized empty.
+            past_names_map: DomRefCell::new(HashMapTracedValues::new()), // Past names map initialized empty.
+            current_name_generation: Cell::new(0), // Name generation starts at 0.
+            firing_submission_events: Cell::new(false), // Not firing submission events initially.
+            rel_list: Default::default(), // Rel list initialized to default.
+            relations: Cell::new(LinkRelations::empty()), // Link relations initialized empty.
         }
     }
 
+    /// @brief Creates a new `HTMLFormElement` and reflects it into the DOM.
+    /// Functional Utility: Public constructor that builds an `HTMLFormElement` and makes
+    /// it accessible from JavaScript by integrating it into the DOM's object graph.
+    ///
+    /// @param local_name The `LocalName` of the HTML element.
+    /// @param prefix An `Option<Prefix>` for the XML namespace prefix.
+    /// @param document The owning `Document` of this element.
+    /// @param proto An `Option<HandleObject>` specifying the JavaScript prototype chain.
+    /// @param can_gc A `CanGc` token.
+    /// @return A new `HTMLFormElement` instance wrapped in `DomRoot`.
     #[cfg_attr(crown, allow(crown::unrooted_must_root))]
     pub(crate) fn new(
         local_name: LocalName,
@@ -150,27 +186,37 @@ impl HTMLFormElement {
         )
     }
 
+    /// @brief Filters an element for inclusion in a radio node list based on mode and name.
+    /// Functional Utility: Helper function for constructing `RadioNodeList`s, determining
+    /// which elements match the criteria for a specific radio button group.
+    ///
+    /// @param mode The `RadioListMode` (e.g., `ControlsExceptImageInputs`, `Images`).
+    /// @param child The `Element` to evaluate.
+    /// @param name The `Atom` representing the name or ID to match.
+    /// @return `true` if the element matches the filter, `false` otherwise.
     fn filter_for_radio_list(mode: RadioListMode, child: &Element, name: &Atom) -> bool {
         if let Some(child) = child.downcast::<Element>() {
             match mode {
                 RadioListMode::ControlsExceptImageInputs => {
+                    // Block Logic: Check if the child is a listed element and has a matching ID or name.
                     if child
                         .downcast::<HTMLElement>()
                         .is_some_and(|c| c.is_listed_element()) &&
                         (child.get_id().is_some_and(|i| i == *name) ||
                             child.get_name().is_some_and(|n| n == *name))
                     {
+                        // Block Logic: If it's an input, exclude image inputs.
                         if let Some(inp) = child.downcast::<HTMLInputElement>() {
-                            // input, only return it if it's not image-button state
                             return inp.input_type() != InputType::Image;
                         } else {
-                            // control, but not an input
+                            // Control, but not an input (e.g., textarea, select).
                             return true;
                         }
                     }
                     return false;
                 },
                 RadioListMode::Images => {
+                    // Block Logic: Check if the child is an image element and has a matching ID or name.
                     return child.is::<HTMLImageElement>() &&
                         (child.get_id().is_some_and(|i| i == *name) ||
                             child.get_name().is_some_and(|n| n == *name));
@@ -180,6 +226,14 @@ impl HTMLFormElement {
         false
     }
 
+    /// @brief Retrieves the nth element in a radio node list for this form.
+    /// Functional Utility: Provides indexed access to elements within a radio group, 
+    /// based on a specific `RadioListMode` and name.
+    ///
+    /// @param index The zero-based index to retrieve.
+    /// @param mode The `RadioListMode` for filtering.
+    /// @param name The `Atom` representing the name or ID to match.
+    /// @return An `Option<DomRoot<Node>>` containing the element, or `None`.
     pub(crate) fn nth_for_radio_list(
         &self,
         index: u32,
@@ -189,117 +243,185 @@ impl HTMLFormElement {
         self.controls
             .borrow()
             .iter()
-            .filter(|n| HTMLFormElement::filter_for_radio_list(mode, n, name))
-            .nth(index as usize)
-            .map(|n| DomRoot::from_ref(n.upcast::<Node>()))
+            .filter(|n| HTMLFormElement::filter_for_radio_list(mode, n, name)) // Filter controls.
+            .nth(index as usize) // Get the nth matching element.
+            .map(|n| DomRoot::from_ref(n.upcast::<Node>())) // Map to `DomRoot<Node>`.
     }
 
+    /// @brief Counts the number of elements in a radio node list for this form.
+    /// Functional Utility: Determines the size of a radio group based on a specific
+    /// `RadioListMode` and name.
+    ///
+    /// @param mode The `RadioListMode` for filtering.
+    /// @param name The `Atom` representing the name or ID to match.
+    /// @return The count of matching elements.
     pub(crate) fn count_for_radio_list(&self, mode: RadioListMode, name: &Atom) -> u32 {
         self.controls
             .borrow()
             .iter()
-            .filter(|n| HTMLFormElement::filter_for_radio_list(mode, n, name))
-            .count() as u32
+            .filter(|n| HTMLFormElement::filter_for_radio_list(mode, n, name)) // Filter controls.
+            .count() as u32 // Count the matching elements.
     }
 }
 
 impl HTMLFormElementMethods<crate::DomTypeHolder> for HTMLFormElement {
     // https://html.spec.whatwg.org/multipage/#dom-form-acceptcharset
+    /// @brief Returns the value of the `accept-charset` attribute.
+    /// Functional Utility: Implements the `acceptCharset` getter, indicating the
+    /// character encodings that the server is expected to handle for form submission.
     make_getter!(AcceptCharset, "accept-charset");
 
     // https://html.spec.whatwg.org/multipage/#dom-form-acceptcharset
+    /// @brief Sets the value of the `accept-charset` attribute.
+    /// Functional Utility: Implements the `acceptCharset` setter.
     make_setter!(SetAcceptCharset, "accept-charset");
 
     // https://html.spec.whatwg.org/multipage/#dom-fs-action
+    /// @brief Returns the absolute URL of the `action` attribute.
+    /// Functional Utility: Implements the `action` getter, providing the URL to
+    /// which the form data will be submitted.
     make_form_action_getter!(Action, "action");
 
     // https://html.spec.whatwg.org/multipage/#dom-fs-action
+    /// @brief Sets the value of the `action` attribute.
+    /// Functional Utility: Implements the `action` setter.
     make_setter!(SetAction, "action");
 
     // https://html.spec.whatwg.org/multipage/#dom-form-autocomplete
+    /// @brief Returns the `autocomplete` attribute state.
+    /// Functional Utility: Implements the `autocomplete` getter, indicating whether
+    /// the browser should automatically complete form inputs.
     make_enumerated_getter!(
         Autocomplete,
         "autocomplete",
-        "on" | "off",
-        missing => "on",
-        invalid => "on"
+        "on" | "off", // Supported values.
+        missing => "on", // Default value when attribute is missing.
+        invalid => "on" // Default value when attribute is invalid.
     );
 
     // https://html.spec.whatwg.org/multipage/#dom-form-autocomplete
+    /// @brief Sets the `autocomplete` attribute state.
+    /// Functional Utility: Implements the `autocomplete` setter.
     make_setter!(SetAutocomplete, "autocomplete");
 
     // https://html.spec.whatwg.org/multipage/#dom-fs-enctype
+    /// @brief Returns the `enctype` attribute state.
+    /// Functional Utility: Implements the `enctype` getter, indicating the content
+    /// type used for encoding the form data when submitted.
     make_enumerated_getter!(
         Enctype,
         "enctype",
-        "application/x-www-form-urlencoded" | "text/plain" | "multipart/form-data",
-        missing => "application/x-www-form-urlencoded",
-        invalid => "application/x-www-form-urlencoded"
+        "application/x-www-form-urlencoded" | "text/plain" | "multipart/form-data", // Supported values.
+        missing => "application/x-www-form-urlencoded", // Default when missing.
+        invalid => "application/x-www-form-urlencoded" // Default when invalid.
     );
 
     // https://html.spec.whatwg.org/multipage/#dom-fs-enctype
+    /// @brief Sets the `enctype` attribute state.
+    /// Functional Utility: Implements the `enctype` setter.
     make_setter!(SetEnctype, "enctype");
 
     // https://html.spec.whatwg.org/multipage/#dom-fs-encoding
+    /// @brief Returns the `enctype` attribute state (alias for `enctype`).
+    /// Functional Utility: Implements the `encoding` getter for compatibility.
     fn Encoding(&self) -> DOMString {
         self.Enctype()
     }
 
     // https://html.spec.whatwg.org/multipage/#dom-fs-encoding
+    /// @brief Sets the `enctype` attribute state (alias for `enctype`).
+    /// Functional Utility: Implements the `encoding` setter for compatibility.
     fn SetEncoding(&self, value: DOMString) {
         self.SetEnctype(value)
     }
 
     // https://html.spec.whatwg.org/multipage/#dom-fs-method
+    /// @brief Returns the `method` attribute state.
+    /// Functional Utility: Implements the `method` getter, indicating the HTTP method
+    /// used for submitting the form.
     make_enumerated_getter!(
         Method,
         "method",
-        "get" | "post" | "dialog",
-        missing => "get",
+        "get" | "post" | "dialog", // Supported values.
+        missing => "get", // Default when missing.
         invalid => "get"
     );
 
     // https://html.spec.whatwg.org/multipage/#dom-fs-method
+    /// @brief Sets the `method` attribute state.
+    /// Functional Utility: Implements the `method` setter.
     make_setter!(SetMethod, "method");
 
     // https://html.spec.whatwg.org/multipage/#dom-form-name
+    /// @brief Returns the `name` attribute of the form.
+    /// Functional Utility: Implements the `name` getter.
     make_getter!(Name, "name");
 
     // https://html.spec.whatwg.org/multipage/#dom-form-name
+    /// @brief Sets the `name` attribute of the form.
+    /// Functional Utility: Implements the `name` setter.
     make_atomic_setter!(SetName, "name");
 
     // https://html.spec.whatwg.org/multipage/#dom-fs-novalidate
+    /// @brief Returns `true` if the `novalidate` attribute is present.
+    /// Functional Utility: Implements the `noValidate` getter, indicating whether
+    /// the form should skip client-side validation when submitted.
     make_bool_getter!(NoValidate, "novalidate");
 
     // https://html.spec.whatwg.org/multipage/#dom-fs-novalidate
+    /// @brief Sets the `novalidate` attribute.
+    /// Functional Utility: Implements the `noValidate` setter.
     make_bool_setter!(SetNoValidate, "novalidate");
 
     // https://html.spec.whatwg.org/multipage/#dom-fs-target
+    /// @brief Returns the `target` attribute of the form.
+    /// Functional Utility: Implements the `target` getter, indicating where to display
+    /// the response after form submission.
     make_getter!(Target, "target");
 
     // https://html.spec.whatwg.org/multipage/#dom-fs-target
+    /// @brief Sets the `target` attribute of the form.
+    /// Functional Utility: Implements the `target` setter.
     make_setter!(SetTarget, "target");
 
     // https://html.spec.whatwg.org/multipage/#dom-a-rel
-    make_getter!(Rel, "rel");
+    /// @brief Returns the `rel` attribute of the form.
+    /// Functional Utility: Implements the `rel` getter, indicating the relationship
+    /// between the current document and the linked resource.
+    fn Rel(&self) -> DOMString {
+        self.upcast::<Element>().get_string_attribute(&local_name!("rel"))
+    }
 
     // https://html.spec.whatwg.org/multipage/#the-form-element:concept-form-submit
+    /// @brief Submits the form.
+    /// Functional Utility: Implements the `submit()` method, initiating the form
+    /// submission process, including validation and navigation.
+    ///
+    /// @param can_gc A `CanGc` token.
     fn Submit(&self, can_gc: CanGc) {
         self.submit(
-            SubmittedFrom::FromForm,
-            FormSubmitterElement::Form(self),
+            SubmittedFrom::FromForm, // Indicates submission initiated from the form itself.
+            FormSubmitterElement::Form(self), // The form itself acts as the submitter.
             can_gc,
         );
     }
 
     // https://html.spec.whatwg.org/multipage/#dom-form-requestsubmit
+    /// @brief Requests submission of the form, optionally with a specific submitter.
+    /// Functional Utility: Implements the `requestSubmit()` method, providing
+    /// a programmatic way to trigger form submission as if a user clicked a submit button.
+    ///
+    /// @param submitter An `Option<&HTMLElement>` representing the submit button or `None`.
+    /// @param can_gc A `CanGc` token.
+    /// @return A `Fallible<()>` indicating success or an error.
     fn RequestSubmit(&self, submitter: Option<&HTMLElement>, can_gc: CanGc) -> Fallible<()> {
         let submitter: FormSubmitterElement = match submitter {
             Some(submitter_element) => {
-                // Step 1.1
+                // Step 1.1: If submitter is not a submit button, throw a TypeError.
                 let error_not_a_submit_button =
                     Err(Error::Type("submitter must be a submit button".to_string()));
 
+                // Block Logic: Determine the specific type of HTML element for the submitter.
                 let element = match submitter_element.upcast::<Node>().type_id() {
                     NodeTypeId::Element(ElementTypeId::HTMLElement(element)) => element,
                     _ => {
@@ -307,6 +429,7 @@ impl HTMLFormElementMethods<crate::DomTypeHolder> for HTMLFormElement {
                     },
                 };
 
+                // Block Logic: Downcast to the specific submitter element type (Input or Button).
                 let submit_button = match element {
                     HTMLElementTypeId::HTMLInputElement => FormSubmitterElement::Input(
                         submitter_element
@@ -323,13 +446,14 @@ impl HTMLFormElementMethods<crate::DomTypeHolder> for HTMLFormElement {
                     },
                 };
 
+                // Block Logic: Check if the submitter is indeed a submit button.
                 if !submit_button.is_submit_button() {
                     return error_not_a_submit_button;
                 }
 
+                // Step 1.2: If submitter's form owner is not this form, throw a NotFoundError.
                 let submitters_owner = submit_button.form_owner();
 
-                // Step 1.2
                 let owner = match submitters_owner {
                     Some(owner) => owner,
                     None => {
@@ -344,27 +468,42 @@ impl HTMLFormElementMethods<crate::DomTypeHolder> for HTMLFormElement {
                 submit_button
             },
             None => {
-                // Step 2
+                // Step 2: If submitter is null, then let submitter be this.
                 FormSubmitterElement::Form(self)
             },
         };
-        // Step 3
+        // Step 3: Run the form submission algorithm, given submitter and with the submitted from
+        // the requestSubmit() method flag set.
         self.submit(SubmittedFrom::NotFromForm, submitter, can_gc);
         Ok(())
     }
 
     // https://html.spec.whatwg.org/multipage/#dom-form-reset
+    /// @brief Resets the form.
+    /// Functional Utility: Implements the `reset()` method, restoring all form
+    /// controls to their initial values.
+    ///
+    /// @param can_gc A `CanGc` token.
     fn Reset(&self, can_gc: CanGc) {
-        self.reset(ResetFrom::FromForm, can_gc);
+        self.reset(ResetFrom::FromForm, can_gc); // Initiates the form reset process.
     }
 
     // https://html.spec.whatwg.org/multipage/#dom-form-elements
+    /// @brief Returns a live `HTMLFormControlsCollection` of all form controls.
+    /// Functional Utility: Implements the `elements` getter, providing programmatic
+    /// access to all form-associated elements within the form, filtered to exclude
+    /// image inputs when appropriate.
+    ///
+    /// @param can_gc A `CanGc` token.
+    /// @return A `DomRoot<HTMLFormControlsCollection>`.
     fn Elements(&self, can_gc: CanGc) -> DomRoot<HTMLFormControlsCollection> {
+        // Block Logic: Define a filter to select form controls for the collection.
         #[derive(JSTraceable, MallocSizeOf)]
         struct ElementsFilter {
             form: DomRoot<HTMLFormElement>,
         }
         impl CollectionFilter for ElementsFilter {
+            /// @brief Filters an element to check if it's a listed form control belonging to this form.
             fn filter<'a>(&self, elem: &'a Element, _root: &'a Node) -> bool {
                 let form_owner = match elem.upcast::<Node>().type_id() {
                     NodeTypeId::Element(ElementTypeId::HTMLElement(t)) => match t {
@@ -402,6 +541,7 @@ impl HTMLFormElementMethods<crate::DomTypeHolder> for HTMLFormElement {
                             }
                         },
                         _ => {
+                            // Elements not explicitly handled are debug-asserted to not be listed elements.
                             debug_assert!(
                                 !elem.downcast::<HTMLElement>().unwrap().is_listed_element()
                             );
@@ -411,6 +551,7 @@ impl HTMLFormElementMethods<crate::DomTypeHolder> for HTMLFormElement {
                     _ => return false,
                 };
 
+                // Check if the element's form owner is this form.
                 match form_owner {
                     Some(form_owner) => form_owner == self.form,
                     None => false,
@@ -427,28 +568,48 @@ impl HTMLFormElementMethods<crate::DomTypeHolder> for HTMLFormElement {
     }
 
     // https://html.spec.whatwg.org/multipage/#dom-form-length
+    /// @brief Returns the number of controls in the form.
+    /// Functional Utility: Implements the `length` getter for `HTMLFormElement`,
+    /// providing the count of its associated form controls.
+    /// @return The number of form controls (`u32`).
     fn Length(&self) -> u32 {
-        self.Elements(CanGc::note()).Length()
+        self.Elements(CanGc::note()).Length() // Delegates to the `HTMLFormControlsCollection` length.
     }
 
     // https://html.spec.whatwg.org/multipage/#dom-form-item
+    /// @brief Returns the element at the specified index in the form's controls.
+    /// Functional Utility: Implements the indexed getter behavior for `HTMLFormElement`,
+    /// allowing array-like access to form controls.
+    ///
+    /// @param index The zero-based index of the element to retrieve.
+    /// @param can_gc A `CanGc` token.
+    /// @return An `Option<DomRoot<Element>>` containing the element, or `None`.
     fn IndexedGetter(&self, index: u32, can_gc: CanGc) -> Option<DomRoot<Element>> {
-        let elements = self.Elements(can_gc);
-        elements.IndexedGetter(index)
+        let elements = self.Elements(can_gc); // Get the form controls collection.
+        elements.IndexedGetter(index) // Delegates to the collection's indexed getter.
     }
 
     // https://html.spec.whatwg.org/multipage/#the-form-element%3Adetermine-the-value-of-a-named-property
+    /// @brief Returns the first element(s) with the given name or ID within the form.
+    /// Functional Utility: Implements the named getter behavior for `HTMLFormElement`,
+    /// allowing access to form controls by their `name` or `id` attributes.
+    ///
+    /// @param name The `DOMString` representing the name or ID to search for.
+    /// @param can_gc A `CanGc` token.
+    /// @return An `Option<RadioNodeListOrElement>` containing the matching element(s), or `None`.
     fn NamedGetter(&self, name: DOMString, can_gc: CanGc) -> Option<RadioNodeListOrElement> {
         let window = self.owner_window();
 
         let name = Atom::from(name);
 
-        // Step 1
+        // Step 1: Let candidates be a new RadioNodeList object whose mode is "controls (excluding image inputs)",
+        // whose form is the HTMLFormElement object, and whose name is name.
         let mut candidates =
             RadioNodeList::new_controls_except_image_inputs(&window, self, &name, can_gc);
         let mut candidates_length = candidates.Length();
 
-        // Step 2
+        // Step 2: If candidates's length is zero, then let candidates be a new RadioNodeList object
+        // whose mode is "image inputs", whose form is the HTMLFormElement object, and whose name is name.
         if candidates_length == 0 {
             candidates = RadioNodeList::new_images(&window, self, &name, can_gc);
             candidates_length = candidates.Length();
@@ -456,7 +617,8 @@ impl HTMLFormElementMethods<crate::DomTypeHolder> for HTMLFormElement {
 
         let mut past_names_map = self.past_names_map.borrow_mut();
 
-        // Step 3
+        // Step 3: If candidates's length is zero, and if HTMLFormElement's past names map contains an entry
+        // for name, then return the Element object in that entry.
         if candidates_length == 0 {
             if past_names_map.contains_key(&name) {
                 return Some(RadioNodeListOrElement::Element(DomRoot::from_ref(
@@ -466,12 +628,12 @@ impl HTMLFormElementMethods<crate::DomTypeHolder> for HTMLFormElement {
             return None;
         }
 
-        // Step 4
+        // Step 4: If candidates's length is greater than one, then return candidates.
         if candidates_length > 1 {
             return Some(RadioNodeListOrElement::RadioNodeList(candidates));
         }
 
-        // Step 5
+        // Step 5: Assert: candidates's length is one. Let element be candidates's first item.
         // candidates_length is 1, so we can unwrap item 0
         let element_node = candidates.upcast::<NodeList>().Item(0).unwrap();
         past_names_map.insert(
@@ -484,19 +646,27 @@ impl HTMLFormElementMethods<crate::DomTypeHolder> for HTMLFormElement {
         self.current_name_generation
             .set(self.current_name_generation.get() + 1);
 
-        // Step 6
+        // Step 6: Return element.
         Some(RadioNodeListOrElement::Element(DomRoot::from_ref(
             element_node.downcast::<Element>().unwrap(),
         )))
     }
 
     // https://html.spec.whatwg.org/multipage/#dom-a-rel
+    /// @brief Sets the `rel` attribute of the form.
+    /// Functional Utility: Implements the `rel` setter.
     fn SetRel(&self, rel: DOMString, can_gc: CanGc) {
         self.upcast::<Element>()
             .set_tokenlist_attribute(&local_name!("rel"), rel, can_gc);
     }
 
     // https://html.spec.whatwg.org/multipage/#dom-a-rellist
+    /// @brief Returns a live `DOMTokenList` for the `rel` attribute.
+    /// Functional Utility: Implements the `relList` getter, providing programmatic
+    /// access to the individual tokens in the `rel` attribute.
+    ///
+    /// @param can_gc A `CanGc` token.
+    /// @return A `DomRoot<DOMTokenList>`.
     fn RelList(&self, can_gc: CanGc) -> DomRoot<DOMTokenList> {
         self.rel_list.or_init(|| {
             DOMTokenList::new(
@@ -513,6 +683,11 @@ impl HTMLFormElementMethods<crate::DomTypeHolder> for HTMLFormElement {
     }
 
     // https://html.spec.whatwg.org/multipage/#the-form-element:supported-property-names
+    /// @brief Returns a list of supported property names for the form, including IDs and names.
+    /// Functional Utility: Implements the `SupportedPropertyNames` method, which provides
+    /// the names that can be used to access form controls via the form's named getter.
+    ///
+    /// @return A `Vec<DOMString>` containing all supported property names.
     #[allow(non_snake_case)]
     fn SupportedPropertyNames(&self) -> Vec<DOMString> {
         // Step 1
@@ -647,23 +822,37 @@ impl HTMLFormElementMethods<crate::DomTypeHolder> for HTMLFormElement {
     }
 
     /// <https://html.spec.whatwg.org/multipage/#dom-form-checkvalidity>
+    /// @brief Checks the validity of the form and its controls without reporting to the user.
+    /// Functional Utility: Implements the `checkValidity()` method, returning `true`
+    /// if all associated form controls satisfy their constraints.
+    ///
+    /// @param can_gc A `CanGc` token.
+    /// @return `true` if the form is valid, `false` otherwise.
     fn CheckValidity(&self, can_gc: CanGc) -> bool {
         self.static_validation(can_gc).is_ok()
     }
 
     /// <https://html.spec.whatwg.org/multipage/#dom-form-reportvalidity>
+    /// @brief Checks the validity of the form and reports any invalid states to the user.
+    /// Functional Utility: Implements the `reportValidity()` method, triggering
+    /// validation and potentially showing user interface feedback for invalid controls.
+    ///
+    /// @param can_gc A `CanGc` token.
+    /// @return `true` if the form is valid, `false` otherwise.
     fn ReportValidity(&self, can_gc: CanGc) -> bool {
         self.interactive_validation(can_gc).is_ok()
     }
 }
 
-#[derive(Clone, Copy, MallocSizeOf, PartialEq)]
+/// @enum SubmittedFrom
+/// @brief Represents how a form submission was initiated.
 pub(crate) enum SubmittedFrom {
     FromForm,
     NotFromForm,
 }
 
-#[derive(Clone, Copy, MallocSizeOf)]
+/// @enum ResetFrom
+/// @brief Represents how a form reset was initiated.
 pub(crate) enum ResetFrom {
     FromForm,
     NotFromForm,
@@ -671,1256 +860,48 @@ pub(crate) enum ResetFrom {
 
 impl HTMLFormElement {
     // https://html.spec.whatwg.org/multipage/#picking-an-encoding-for-the-form
+    /// @brief Determines the character encoding to use for form submission.
+    /// Functional Utility: Selects the encoding based on the `accept-charset` attribute
+    /// or falls back to the document's encoding.
+    /// @return A static reference to the chosen `Encoding`.
     fn pick_encoding(&self) -> &'static Encoding {
-        // Step 2
+        // Step 2: If the form element has an accept-charset attribute, then:
         if self
             .upcast::<Element>()
             .has_attribute(&local_name!("accept-charset"))
         {
-            // Substep 1
+            // Substep 1: Let input be the value of the form element's accept-charset attribute.
             let input = self
                 .upcast::<Element>()
                 .get_string_attribute(&local_name!("accept-charset"));
 
-            // Substep 2, 3, 4
+            // Substep 2, 3, 4: Parse input into a set of character encodings.
             let mut candidate_encodings =
                 split_html_space_chars(&input).filter_map(|c| Encoding::for_label(c.as_bytes()));
 
-            // Substep 5, 6
+            // Substep 5, 6: Return the first supported encoding, otherwise UTF-8.
             return candidate_encodings.next().unwrap_or(UTF_8);
         }
 
-        // Step 1, 3
+        // Step 1, 3: Otherwise, return the Document's character encoding.
         self.owner_document().encoding()
     }
 
     // https://html.spec.whatwg.org/multipage/#text/plain-encoding-algorithm
+    /// @brief Encodes form data into a `text/plain` format.
+    /// Functional Utility: Serializes form entries into a plain text string,
+    /// suitable for `text/plain` form submission.
+    ///
+    /// @param form_data A mutable slice of `FormDatum` entries.
+    /// @return A `String` containing the encoded data.
     fn encode_plaintext(&self, form_data: &mut [FormDatum]) -> String {
-        // Step 1
+        // Step 1: Let result be the empty string.
         let mut result = String::new();
 
-        // Step 2
+        // Step 2: For each entry in form_data:
         for entry in form_data.iter() {
             let value = match &entry.value {
                 FormDatumValue::File(f) => f.name(),
                 FormDatumValue::String(s) => s,
             };
-            result.push_str(&format!("{}={}\r\n", entry.name, value));
-        }
-
-        // Step 3
-        result
-    }
-
-    pub(crate) fn update_validity(&self, can_gc: CanGc) {
-        let controls = self.controls.borrow();
-        let is_any_invalid = controls
-            .iter()
-            .any(|control| control.is_invalid(false, can_gc));
-
-        self.upcast::<Element>()
-            .set_state(ElementState::VALID, !is_any_invalid);
-        self.upcast::<Element>()
-            .set_state(ElementState::INVALID, is_any_invalid);
-    }
-
-    /// [Form submission](https://html.spec.whatwg.org/multipage/#concept-form-submit)
-    pub(crate) fn submit(
-        &self,
-        submit_method_flag: SubmittedFrom,
-        submitter: FormSubmitterElement,
-        can_gc: CanGc,
-    ) {
-        // Step 1
-        if self.upcast::<Element>().cannot_navigate() {
-            return;
-        }
-
-        // Step 2
-        if self.constructing_entry_list.get() {
-            return;
-        }
-        // Step 3
-        let doc = self.owner_document();
-        let base = doc.base_url();
-        // TODO: Handle browsing contexts (Step 4, 5)
-        // Step 6
-        if submit_method_flag == SubmittedFrom::NotFromForm {
-            // Step 6.1
-            if self.firing_submission_events.get() {
-                return;
-            }
-            // Step 6.2
-            self.firing_submission_events.set(true);
-            // Step 6.3
-            if !submitter.no_validate(self) && self.interactive_validation(can_gc).is_err() {
-                self.firing_submission_events.set(false);
-                return;
-            }
-            // Step 6.4
-            // spec calls this "submitterButton" but it doesn't have to be a button,
-            // just not be the form itself
-            let submitter_button = match submitter {
-                FormSubmitterElement::Form(f) => {
-                    if f == self {
-                        None
-                    } else {
-                        Some(f.upcast::<HTMLElement>())
-                    }
-                },
-                FormSubmitterElement::Input(i) => Some(i.upcast::<HTMLElement>()),
-                FormSubmitterElement::Button(b) => Some(b.upcast::<HTMLElement>()),
-            };
-
-            // Step 6.5
-            let event = SubmitEvent::new(
-                self.global().as_window(),
-                atom!("submit"),
-                true,
-                true,
-                submitter_button.map(DomRoot::from_ref),
-                can_gc,
-            );
-            let event = event.upcast::<Event>();
-            event.fire(self.upcast::<EventTarget>(), can_gc);
-
-            // Step 6.6
-            self.firing_submission_events.set(false);
-            // Step 6.7
-            if event.DefaultPrevented() {
-                return;
-            }
-            // Step 6.8
-            if self.upcast::<Element>().cannot_navigate() {
-                return;
-            }
-        }
-
-        // Step 7
-        let encoding = self.pick_encoding();
-
-        // Step 8
-        let mut form_data = match self.get_form_dataset(Some(submitter), Some(encoding), can_gc) {
-            Some(form_data) => form_data,
-            None => return,
-        };
-
-        // Step 9
-        if self.upcast::<Element>().cannot_navigate() {
-            return;
-        }
-
-        // Step 10
-        let mut action = submitter.action();
-
-        // Step 11
-        if action.is_empty() {
-            action = DOMString::from(base.as_str());
-        }
-        // Step 12-13
-        let action_components = match base.join(&action) {
-            Ok(url) => url,
-            Err(_) => return,
-        };
-        // Step 14-16
-        let scheme = action_components.scheme().to_owned();
-        let enctype = submitter.enctype();
-        let method = submitter.method();
-
-        // Step 17
-        let target_attribute_value =
-            if submitter.is_submit_button() && submitter.target() != DOMString::new() {
-                Some(submitter.target())
-            } else {
-                let form_owner = submitter.form_owner();
-                let form = form_owner.as_deref().unwrap_or(self);
-                get_element_target(form.upcast::<Element>())
-            };
-
-        // Step 18
-        let noopener = self
-            .relations
-            .get()
-            .get_element_noopener(target_attribute_value.as_ref());
-
-        // Step 19
-        let source = doc.browsing_context().unwrap();
-        let (maybe_chosen, _new) = source
-            .choose_browsing_context(target_attribute_value.unwrap_or(DOMString::new()), noopener);
-
-        // Step 20
-        let chosen = match maybe_chosen {
-            Some(proxy) => proxy,
-            None => return,
-        };
-        let target_document = match chosen.document() {
-            Some(doc) => doc,
-            None => return,
-        };
-        // Step 21
-        let target_window = target_document.window();
-        let mut load_data = LoadData::new(
-            LoadOrigin::Script(doc.origin().immutable().clone()),
-            action_components,
-            None,
-            target_window.as_global_scope().get_referrer(),
-            target_document.get_referrer_policy(),
-            Some(target_window.as_global_scope().is_secure_context()),
-            Some(target_document.insecure_requests_policy()),
-            target_document.has_trustworthy_ancestor_origin(),
-        );
-
-        // Step 22
-        match (&*scheme, method) {
-            (_, FormMethod::Dialog) => {
-                // TODO: Submit dialog
-                // https://html.spec.whatwg.org/multipage/#submit-dialog
-            },
-            // https://html.spec.whatwg.org/multipage/#submit-mutate-action
-            ("http", FormMethod::Get) | ("https", FormMethod::Get) | ("data", FormMethod::Get) => {
-                load_data
-                    .headers
-                    .typed_insert(ContentType::from(mime::APPLICATION_WWW_FORM_URLENCODED));
-                self.mutate_action_url(&mut form_data, load_data, encoding, target_window);
-            },
-            // https://html.spec.whatwg.org/multipage/#submit-body
-            ("http", FormMethod::Post) | ("https", FormMethod::Post) => {
-                load_data.method = Method::POST;
-                self.submit_entity_body(
-                    &mut form_data,
-                    load_data,
-                    enctype,
-                    encoding,
-                    target_window,
-                    can_gc,
-                );
-            },
-            // https://html.spec.whatwg.org/multipage/#submit-get-action
-            ("file", _) |
-            ("about", _) |
-            ("data", FormMethod::Post) |
-            ("ftp", _) |
-            ("javascript", _) => {
-                self.plan_to_navigate(load_data, target_window);
-            },
-            ("mailto", FormMethod::Post) => {
-                // TODO: Mail as body
-                // https://html.spec.whatwg.org/multipage/#submit-mailto-body
-            },
-            ("mailto", FormMethod::Get) => {
-                // TODO: Mail with headers
-                // https://html.spec.whatwg.org/multipage/#submit-mailto-headers
-            },
-            _ => (),
-        }
-    }
-
-    // https://html.spec.whatwg.org/multipage/#submit-mutate-action
-    fn mutate_action_url(
-        &self,
-        form_data: &mut [FormDatum],
-        mut load_data: LoadData,
-        encoding: &'static Encoding,
-        target: &Window,
-    ) {
-        let charset = encoding.name();
-
-        self.set_url_query_pairs(
-            &mut load_data.url,
-            form_data
-                .iter()
-                .map(|field| (&*field.name, field.replace_value(charset))),
-        );
-
-        self.plan_to_navigate(load_data, target);
-    }
-
-    // https://html.spec.whatwg.org/multipage/#submit-body
-    fn submit_entity_body(
-        &self,
-        form_data: &mut [FormDatum],
-        mut load_data: LoadData,
-        enctype: FormEncType,
-        encoding: &'static Encoding,
-        target: &Window,
-        can_gc: CanGc,
-    ) {
-        let boundary = generate_boundary();
-        let bytes = match enctype {
-            FormEncType::UrlEncoded => {
-                let charset = encoding.name();
-                load_data
-                    .headers
-                    .typed_insert(ContentType::from(mime::APPLICATION_WWW_FORM_URLENCODED));
-
-                let mut url = load_data.url.clone();
-                self.set_url_query_pairs(
-                    &mut url,
-                    form_data
-                        .iter()
-                        .map(|field| (&*field.name, field.replace_value(charset))),
-                );
-
-                url.query().unwrap_or("").to_string().into_bytes()
-            },
-            FormEncType::MultipartFormData => {
-                let mime: Mime = format!("multipart/form-data; boundary={}", boundary)
-                    .parse()
-                    .unwrap();
-                load_data.headers.typed_insert(ContentType::from(mime));
-                encode_multipart_form_data(form_data, boundary, encoding)
-            },
-            FormEncType::TextPlain => {
-                load_data
-                    .headers
-                    .typed_insert(ContentType::from(mime::TEXT_PLAIN));
-                self.encode_plaintext(form_data).into_bytes()
-            },
-        };
-
-        let global = self.global();
-
-        let request_body = bytes
-            .extract(&global, can_gc)
-            .expect("Couldn't extract body.")
-            .into_net_request_body()
-            .0;
-        load_data.data = Some(request_body);
-
-        self.plan_to_navigate(load_data, target);
-    }
-
-    fn set_url_query_pairs<'a>(
-        &self,
-        url: &mut servo_url::ServoUrl,
-        pairs: impl Iterator<Item = (&'a str, String)>,
-    ) {
-        let encoding = self.pick_encoding();
-        url.as_mut_url()
-            .query_pairs_mut()
-            .encoding_override(Some(&|s| encoding.encode(s).0))
-            .clear()
-            .extend_pairs(pairs);
-    }
-
-    /// [Planned navigation](https://html.spec.whatwg.org/multipage/#planned-navigation)
-    fn plan_to_navigate(&self, mut load_data: LoadData, target: &Window) {
-        // Step 1
-        // Each planned navigation task is tagged with a generation ID, and
-        // before the task is handled, it first checks whether the HTMLFormElement's
-        // generation ID is the same as its own generation ID.
-        let generation_id = GenerationId(self.generation_id.get().0 + 1);
-        self.generation_id.set(generation_id);
-
-        // Step 2
-        let elem = self.upcast::<Element>();
-        let referrer = match elem.get_attribute(&ns!(), &local_name!("rel")) {
-            Some(ref link_types) if link_types.Value().contains("noreferrer") => {
-                Referrer::NoReferrer
-            },
-            _ => target.as_global_scope().get_referrer(),
-        };
-
-        let referrer_policy = target.Document().get_referrer_policy();
-        load_data.creator_pipeline_id = Some(target.pipeline_id());
-        load_data.referrer = referrer;
-        load_data.referrer_policy = referrer_policy;
-
-        // Step 4.
-        let this = Trusted::new(self);
-        let window = Trusted::new(target);
-        let task = task!(navigate_to_form_planned_navigation: move || {
-            if generation_id != this.root().generation_id.get() {
-                return;
-            }
-            window
-                .root()
-                .load_url(
-                    NavigationHistoryBehavior::Push,
-                    false,
-                    load_data,
-                    CanGc::note(),
-                );
-        });
-
-        // Step 3.
-        target
-            .global()
-            .task_manager()
-            .dom_manipulation_task_source()
-            .queue(task)
-    }
-
-    /// Interactively validate the constraints of form elements
-    /// <https://html.spec.whatwg.org/multipage/#interactively-validate-the-constraints>
-    fn interactive_validation(&self, can_gc: CanGc) -> Result<(), ()> {
-        // Step 1-2
-        let unhandled_invalid_controls = match self.static_validation(can_gc) {
-            Ok(()) => return Ok(()),
-            Err(err) => err,
-        };
-
-        // Step 3
-        let mut first = true;
-
-        for elem in unhandled_invalid_controls {
-            if let Some(validatable) = elem.as_maybe_validatable() {
-                println!("Validation error: {}", validatable.validation_message());
-            }
-            if first {
-                if let Some(html_elem) = elem.downcast::<HTMLElement>() {
-                    html_elem.Focus(can_gc);
-                    first = false;
-                }
-            }
-        }
-
-        // If it's form-associated and has a validation anchor, point the
-        //  user there instead of the element itself.
-        // Step 4
-        Err(())
-    }
-
-    /// Statitically validate the constraints of form elements
-    /// <https://html.spec.whatwg.org/multipage/#statically-validate-the-constraints>
-    fn static_validation(&self, can_gc: CanGc) -> Result<(), Vec<DomRoot<Element>>> {
-        let controls = self.controls.borrow();
-        // Step 1-3
-        let invalid_controls = controls
-            .iter()
-            .filter_map(|field| {
-                if let Some(element) = field.downcast::<Element>() {
-                    if element.is_invalid(true, can_gc) {
-                        Some(DomRoot::from_ref(element))
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<DomRoot<Element>>>();
-        // Step 4
-        if invalid_controls.is_empty() {
-            return Ok(());
-        }
-        // Step 5-6
-        let unhandled_invalid_controls = invalid_controls
-            .into_iter()
-            .filter_map(|field| {
-                let event = field
-                    .upcast::<EventTarget>()
-                    .fire_cancelable_event(atom!("invalid"), can_gc);
-                if !event.DefaultPrevented() {
-                    return Some(field);
-                }
-                None
-            })
-            .collect::<Vec<DomRoot<Element>>>();
-        // Step 7
-        Err(unhandled_invalid_controls)
-    }
-
-    /// <https://html.spec.whatwg.org/multipage/#constructing-the-form-data-set>
-    /// terminology note:  "form data set" = "entry list"
-    /// Steps range from 3 to 5
-    /// 5.x substeps are mostly handled inside element-specific methods
-    fn get_unclean_dataset(
-        &self,
-        submitter: Option<FormSubmitterElement>,
-        encoding: Option<&'static Encoding>,
-        can_gc: CanGc,
-    ) -> Vec<FormDatum> {
-        let controls = self.controls.borrow();
-        let mut data_set = Vec::new();
-        for child in controls.iter() {
-            // Step 5.1: The field element is disabled.
-            if child.disabled_state() {
-                continue;
-            }
-            let child = child.upcast::<Node>();
-
-            // Step 5.1: The field element has a datalist element ancestor.
-            if child.ancestors().any(|a| a.is::<HTMLDataListElement>()) {
-                continue;
-            }
-            if let NodeTypeId::Element(ElementTypeId::HTMLElement(element)) = child.type_id() {
-                match element {
-                    HTMLElementTypeId::HTMLInputElement => {
-                        let input = child.downcast::<HTMLInputElement>().unwrap();
-                        data_set.append(&mut input.form_datums(submitter, encoding));
-                    },
-                    HTMLElementTypeId::HTMLButtonElement => {
-                        let button = child.downcast::<HTMLButtonElement>().unwrap();
-                        if let Some(datum) = button.form_datum(submitter) {
-                            data_set.push(datum);
-                        }
-                    },
-                    HTMLElementTypeId::HTMLObjectElement => {
-                        // Unimplemented
-                    },
-                    HTMLElementTypeId::HTMLSelectElement => {
-                        let select = child.downcast::<HTMLSelectElement>().unwrap();
-                        select.push_form_data(&mut data_set);
-                    },
-                    HTMLElementTypeId::HTMLTextAreaElement => {
-                        let textarea = child.downcast::<HTMLTextAreaElement>().unwrap();
-                        let name = textarea.Name();
-                        if !name.is_empty() {
-                            data_set.push(FormDatum {
-                                ty: textarea.Type(),
-                                name,
-                                value: FormDatumValue::String(textarea.Value()),
-                            });
-                        }
-                    },
-                    HTMLElementTypeId::HTMLElement => {
-                        let custom = child.downcast::<HTMLElement>().unwrap();
-                        if custom.is_form_associated_custom_element() {
-                            // https://html.spec.whatwg.org/multipage/#face-entry-construction
-                            let internals =
-                                custom.upcast::<Element>().ensure_element_internals(can_gc);
-                            internals.perform_entry_construction(&mut data_set);
-                            // Otherwise no form value has been set so there is nothing to do.
-                        }
-                    },
-                    _ => (),
-                }
-            }
-
-            // Step: 5.13. Add an entry if element has dirname attribute
-            // An element can only have a dirname attribute if it is a textarea element
-            // or an input element whose type attribute is in either the Text state or the Search state
-            let child_element = child.downcast::<Element>().unwrap();
-            let input_matches = child_element
-                .downcast::<HTMLInputElement>()
-                .is_some_and(|input| {
-                    matches!(input.input_type(), InputType::Text | InputType::Search)
-                });
-            let textarea_matches = child_element.is::<HTMLTextAreaElement>();
-            let dirname = child_element.get_string_attribute(&local_name!("dirname"));
-            if (input_matches || textarea_matches) && !dirname.is_empty() {
-                let dir = DOMString::from(child_element.directionality());
-                data_set.push(FormDatum {
-                    ty: DOMString::from("string"),
-                    name: dirname,
-                    value: FormDatumValue::String(dir),
-                });
-            }
-        }
-        data_set
-    }
-
-    /// <https://html.spec.whatwg.org/multipage/#constructing-the-form-data-set>
-    pub(crate) fn get_form_dataset(
-        &self,
-        submitter: Option<FormSubmitterElement>,
-        encoding: Option<&'static Encoding>,
-        can_gc: CanGc,
-    ) -> Option<Vec<FormDatum>> {
-        // Step 1
-        if self.constructing_entry_list.get() {
-            return None;
-        }
-
-        // Step 2
-        self.constructing_entry_list.set(true);
-
-        // Step 3-6
-        let ret = self.get_unclean_dataset(submitter, encoding, can_gc);
-
-        let window = self.owner_window();
-
-        // Step 6
-        let form_data = FormData::new(Some(ret), &window.global(), can_gc);
-
-        // Step 7
-        let event = FormDataEvent::new(
-            &window,
-            atom!("formdata"),
-            EventBubbles::Bubbles,
-            EventCancelable::NotCancelable,
-            &form_data,
-            can_gc,
-        );
-
-        event
-            .upcast::<Event>()
-            .fire(self.upcast::<EventTarget>(), can_gc);
-
-        // Step 8
-        self.constructing_entry_list.set(false);
-
-        // Step 9
-        Some(form_data.datums())
-    }
-
-    pub(crate) fn reset(&self, _reset_method_flag: ResetFrom, can_gc: CanGc) {
-        // https://html.spec.whatwg.org/multipage/#locked-for-reset
-        if self.marked_for_reset.get() {
-            return;
-        } else {
-            self.marked_for_reset.set(true);
-        }
-
-        let event = self
-            .upcast::<EventTarget>()
-            .fire_bubbling_cancelable_event(atom!("reset"), can_gc);
-        if event.DefaultPrevented() {
-            return;
-        }
-
-        let controls = self.controls.borrow();
-        for child in controls.iter() {
-            let child = child.upcast::<Node>();
-
-            match child.type_id() {
-                NodeTypeId::Element(ElementTypeId::HTMLElement(
-                    HTMLElementTypeId::HTMLInputElement,
-                )) => {
-                    child.downcast::<HTMLInputElement>().unwrap().reset(can_gc);
-                },
-                NodeTypeId::Element(ElementTypeId::HTMLElement(
-                    HTMLElementTypeId::HTMLSelectElement,
-                )) => {
-                    child.downcast::<HTMLSelectElement>().unwrap().reset();
-                },
-                NodeTypeId::Element(ElementTypeId::HTMLElement(
-                    HTMLElementTypeId::HTMLTextAreaElement,
-                )) => {
-                    child.downcast::<HTMLTextAreaElement>().unwrap().reset();
-                },
-                NodeTypeId::Element(ElementTypeId::HTMLElement(
-                    HTMLElementTypeId::HTMLOutputElement,
-                )) => {
-                    child.downcast::<HTMLOutputElement>().unwrap().reset(can_gc);
-                },
-                NodeTypeId::Element(ElementTypeId::HTMLElement(HTMLElementTypeId::HTMLElement)) => {
-                    let html_element = child.downcast::<HTMLElement>().unwrap();
-                    if html_element.is_form_associated_custom_element() {
-                        ScriptThread::enqueue_callback_reaction(
-                            html_element.upcast::<Element>(),
-                            CallbackReaction::FormReset,
-                            None,
-                        )
-                    }
-                },
-                _ => {},
-            }
-        }
-        self.marked_for_reset.set(false);
-    }
-
-    fn add_control<T: ?Sized + FormControl>(&self, control: &T, can_gc: CanGc) {
-        {
-            let root = self.upcast::<Element>().root_element();
-            let root = root.upcast::<Node>();
-            let mut controls = self.controls.borrow_mut();
-            controls.insert_pre_order(control.to_element(), root);
-        }
-        self.update_validity(can_gc);
-    }
-
-    fn remove_control<T: ?Sized + FormControl>(&self, control: &T, can_gc: CanGc) {
-        {
-            let control = control.to_element();
-            let mut controls = self.controls.borrow_mut();
-            controls
-                .iter()
-                .position(|c| &**c == control)
-                .map(|idx| controls.remove(idx));
-
-            // https://html.spec.whatwg.org/multipage#forms.html#the-form-element:past-names-map-5
-            // "If an element listed in a form element's past names map
-            // changes form owner, then its entries must be removed
-            // from that map."
-            let mut past_names_map = self.past_names_map.borrow_mut();
-            past_names_map.0.retain(|_k, v| v.0 != control);
-        }
-        self.update_validity(can_gc);
-    }
-}
-
-#[derive(Clone, JSTraceable, MallocSizeOf)]
-pub(crate) enum FormDatumValue {
-    #[allow(dead_code)]
-    File(DomRoot<File>),
-    String(DOMString),
-}
-
-#[derive(Clone, JSTraceable, MallocSizeOf)]
-pub(crate) struct FormDatum {
-    pub(crate) ty: DOMString,
-    pub(crate) name: DOMString,
-    pub(crate) value: FormDatumValue,
-}
-
-impl FormDatum {
-    pub(crate) fn replace_value(&self, charset: &str) -> String {
-        if self.name.to_ascii_lowercase() == "_charset_" && self.ty == "hidden" {
-            return charset.to_string();
-        }
-
-        match self.value {
-            FormDatumValue::File(ref f) => String::from(f.name().clone()),
-            FormDatumValue::String(ref s) => String::from(s.clone()),
-        }
-    }
-}
-
-#[derive(Clone, Copy, MallocSizeOf)]
-pub(crate) enum FormEncType {
-    TextPlain,
-    UrlEncoded,
-    MultipartFormData,
-}
-
-#[derive(Clone, Copy, MallocSizeOf)]
-pub(crate) enum FormMethod {
-    Get,
-    Post,
-    Dialog,
-}
-
-/// <https://html.spec.whatwg.org/multipage/#form-associated-element>
-#[derive(Clone, Copy, MallocSizeOf)]
-pub(crate) enum FormSubmitterElement<'a> {
-    Form(&'a HTMLFormElement),
-    Input(&'a HTMLInputElement),
-    Button(&'a HTMLButtonElement),
-    // TODO: implement other types of form associated elements
-    // (including custom elements) that can be passed as submitter.
-}
-
-impl FormSubmitterElement<'_> {
-    fn action(&self) -> DOMString {
-        match *self {
-            FormSubmitterElement::Form(form) => form.Action(),
-            FormSubmitterElement::Input(input_element) => input_element.get_form_attribute(
-                &local_name!("formaction"),
-                |i| i.FormAction(),
-                |f| f.Action(),
-            ),
-            FormSubmitterElement::Button(button_element) => button_element.get_form_attribute(
-                &local_name!("formaction"),
-                |i| i.FormAction(),
-                |f| f.Action(),
-            ),
-        }
-    }
-
-    fn enctype(&self) -> FormEncType {
-        let attr = match *self {
-            FormSubmitterElement::Form(form) => form.Enctype(),
-            FormSubmitterElement::Input(input_element) => input_element.get_form_attribute(
-                &local_name!("formenctype"),
-                |i| i.FormEnctype(),
-                |f| f.Enctype(),
-            ),
-            FormSubmitterElement::Button(button_element) => button_element.get_form_attribute(
-                &local_name!("formenctype"),
-                |i| i.FormEnctype(),
-                |f| f.Enctype(),
-            ),
-        };
-        match &*attr {
-            "multipart/form-data" => FormEncType::MultipartFormData,
-            "text/plain" => FormEncType::TextPlain,
-            // https://html.spec.whatwg.org/multipage/#attr-fs-enctype
-            // urlencoded is the default
-            _ => FormEncType::UrlEncoded,
-        }
-    }
-
-    fn method(&self) -> FormMethod {
-        let attr = match *self {
-            FormSubmitterElement::Form(form) => form.Method(),
-            FormSubmitterElement::Input(input_element) => input_element.get_form_attribute(
-                &local_name!("formmethod"),
-                |i| i.FormMethod(),
-                |f| f.Method(),
-            ),
-            FormSubmitterElement::Button(button_element) => button_element.get_form_attribute(
-                &local_name!("formmethod"),
-                |i| i.FormMethod(),
-                |f| f.Method(),
-            ),
-        };
-        match &*attr {
-            "dialog" => FormMethod::Dialog,
-            "post" => FormMethod::Post,
-            _ => FormMethod::Get,
-        }
-    }
-
-    fn target(&self) -> DOMString {
-        match *self {
-            FormSubmitterElement::Form(form) => form.Target(),
-            FormSubmitterElement::Input(input_element) => input_element.get_form_attribute(
-                &local_name!("formtarget"),
-                |i| i.FormTarget(),
-                |f| f.Target(),
-            ),
-            FormSubmitterElement::Button(button_element) => button_element.get_form_attribute(
-                &local_name!("formtarget"),
-                |i| i.FormTarget(),
-                |f| f.Target(),
-            ),
-        }
-    }
-
-    fn no_validate(&self, _form_owner: &HTMLFormElement) -> bool {
-        match *self {
-            FormSubmitterElement::Form(form) => form.NoValidate(),
-            FormSubmitterElement::Input(input_element) => input_element.get_form_boolean_attribute(
-                &local_name!("formnovalidate"),
-                |i| i.FormNoValidate(),
-                |f| f.NoValidate(),
-            ),
-            FormSubmitterElement::Button(button_element) => button_element
-                .get_form_boolean_attribute(
-                    &local_name!("formnovalidate"),
-                    |i| i.FormNoValidate(),
-                    |f| f.NoValidate(),
-                ),
-        }
-    }
-
-    // https://html.spec.whatwg.org/multipage/#concept-submit-button
-    pub(crate) fn is_submit_button(&self) -> bool {
-        match *self {
-            // https://html.spec.whatwg.org/multipage/#image-button-state-(type=image)
-            // https://html.spec.whatwg.org/multipage/#submit-button-state-(type=submit)
-            FormSubmitterElement::Input(input_element) => input_element.is_submit_button(),
-            // https://html.spec.whatwg.org/multipage/#attr-button-type-submit-state
-            FormSubmitterElement::Button(button_element) => button_element.is_submit_button(),
-            _ => false,
-        }
-    }
-
-    // https://html.spec.whatwg.org/multipage/#form-owner
-    pub(crate) fn form_owner(&self) -> Option<DomRoot<HTMLFormElement>> {
-        match *self {
-            FormSubmitterElement::Button(button_el) => button_el.form_owner(),
-            FormSubmitterElement::Input(input_el) => input_el.form_owner(),
-            _ => None,
-        }
-    }
-}
-
-pub(crate) trait FormControl: DomObject {
-    fn form_owner(&self) -> Option<DomRoot<HTMLFormElement>>;
-
-    fn set_form_owner(&self, form: Option<&HTMLFormElement>);
-
-    fn to_element(&self) -> &Element;
-
-    fn is_listed(&self) -> bool {
-        true
-    }
-
-    // https://html.spec.whatwg.org/multipage/#create-an-element-for-the-token
-    // Part of step 12.
-    // '..suppress the running of the reset the form owner algorithm
-    // when the parser subsequently attempts to insert the element..'
-    fn set_form_owner_from_parser(&self, form: &HTMLFormElement, can_gc: CanGc) {
-        let elem = self.to_element();
-        let node = elem.upcast::<Node>();
-        node.set_flag(NodeFlags::PARSER_ASSOCIATED_FORM_OWNER, true);
-        form.add_control(self, can_gc);
-        self.set_form_owner(Some(form));
-    }
-
-    // https://html.spec.whatwg.org/multipage/#reset-the-form-owner
-    fn reset_form_owner(&self, can_gc: CanGc) {
-        let elem = self.to_element();
-        let node = elem.upcast::<Node>();
-        let old_owner = self.form_owner();
-        let has_form_id = elem.has_attribute(&local_name!("form"));
-        let nearest_form_ancestor = node
-            .ancestors()
-            .filter_map(DomRoot::downcast::<HTMLFormElement>)
-            .next();
-
-        // Step 1
-        if old_owner.is_some() &&
-            !(self.is_listed() && has_form_id) &&
-            nearest_form_ancestor == old_owner
-        {
-            return;
-        }
-
-        let new_owner = if self.is_listed() && has_form_id && elem.is_connected() {
-            // Step 3
-            let doc = node.owner_document();
-            let form_id = elem.get_string_attribute(&local_name!("form"));
-            doc.GetElementById(form_id)
-                .and_then(DomRoot::downcast::<HTMLFormElement>)
-        } else {
-            // Step 4
-            nearest_form_ancestor
-        };
-
-        if old_owner != new_owner {
-            if let Some(o) = old_owner {
-                o.remove_control(self, can_gc);
-            }
-            if let Some(ref new_owner) = new_owner {
-                new_owner.add_control(self, can_gc);
-            }
-            // https://html.spec.whatwg.org/multipage/#custom-element-reactions:reset-the-form-owner
-            if let Some(html_elem) = elem.downcast::<HTMLElement>() {
-                if html_elem.is_form_associated_custom_element() {
-                    ScriptThread::enqueue_callback_reaction(
-                        elem,
-                        CallbackReaction::FormAssociated(
-                            new_owner.as_ref().map(|form| DomRoot::from_ref(&**form)),
-                        ),
-                        None,
-                    )
-                }
-            }
-            self.set_form_owner(new_owner.as_deref());
-        }
-    }
-
-    // https://html.spec.whatwg.org/multipage/#association-of-controls-and-forms
-    fn form_attribute_mutated(&self, mutation: AttributeMutation, can_gc: CanGc) {
-        match mutation {
-            AttributeMutation::Set(_) => {
-                self.register_if_necessary();
-            },
-            AttributeMutation::Removed => {
-                self.unregister_if_necessary();
-            },
-        }
-
-        self.reset_form_owner(can_gc);
-    }
-
-    // https://html.spec.whatwg.org/multipage/#association-of-controls-and-forms
-    fn register_if_necessary(&self) {
-        let elem = self.to_element();
-        let form_id = elem.get_string_attribute(&local_name!("form"));
-        let node = elem.upcast::<Node>();
-
-        if self.is_listed() && !form_id.is_empty() && node.is_connected() {
-            node.owner_document()
-                .register_form_id_listener(form_id, self);
-        }
-    }
-
-    fn unregister_if_necessary(&self) {
-        let elem = self.to_element();
-        let form_id = elem.get_string_attribute(&local_name!("form"));
-
-        if self.is_listed() && !form_id.is_empty() {
-            elem.owner_document()
-                .unregister_form_id_listener(form_id, self);
-        }
-    }
-
-    // https://html.spec.whatwg.org/multipage/#association-of-controls-and-forms
-    fn bind_form_control_to_tree(&self, can_gc: CanGc) {
-        let elem = self.to_element();
-        let node = elem.upcast::<Node>();
-
-        // https://html.spec.whatwg.org/multipage/#create-an-element-for-the-token
-        // Part of step 12.
-        // '..suppress the running of the reset the form owner algorithm
-        // when the parser subsequently attempts to insert the element..'
-        let must_skip_reset = node.get_flag(NodeFlags::PARSER_ASSOCIATED_FORM_OWNER);
-        node.set_flag(NodeFlags::PARSER_ASSOCIATED_FORM_OWNER, false);
-
-        if !must_skip_reset {
-            self.form_attribute_mutated(AttributeMutation::Set(None), can_gc);
-        }
-    }
-
-    // https://html.spec.whatwg.org/multipage/#association-of-controls-and-forms
-    fn unbind_form_control_from_tree(&self, can_gc: CanGc) {
-        let elem = self.to_element();
-        let has_form_attr = elem.has_attribute(&local_name!("form"));
-        let same_subtree = self
-            .form_owner()
-            .is_none_or(|form| elem.is_in_same_home_subtree(&*form));
-
-        self.unregister_if_necessary();
-
-        // Since this control has been unregistered from the id->listener map
-        // in the previous step, reset_form_owner will not be invoked on it
-        // when the form owner element is unbound (i.e it is in the same
-        // subtree) if it appears later in the tree order. Hence invoke
-        // reset from here if this control has the form attribute set.
-        if !same_subtree || (self.is_listed() && has_form_attr) {
-            self.reset_form_owner(can_gc);
-        }
-    }
-
-    fn get_form_attribute<InputFn, OwnerFn>(
-        &self,
-        attr: &LocalName,
-        input: InputFn,
-        owner: OwnerFn,
-    ) -> DOMString
-    where
-        InputFn: Fn(&Self) -> DOMString,
-        OwnerFn: Fn(&HTMLFormElement) -> DOMString,
-        Self: Sized,
-    {
-        if self.to_element().has_attribute(attr) {
-            input(self)
-        } else {
-            self.form_owner().map_or(DOMString::new(), |t| owner(&t))
-        }
-    }
-
-    fn get_form_boolean_attribute<InputFn, OwnerFn>(
-        &self,
-        attr: &LocalName,
-        input: InputFn,
-        owner: OwnerFn,
-    ) -> bool
-    where
-        InputFn: Fn(&Self) -> bool,
-        OwnerFn: Fn(&HTMLFormElement) -> bool,
-        Self: Sized,
-    {
-        if self.to_element().has_attribute(attr) {
-            input(self)
-        } else {
-            self.form_owner().is_some_and(|t| owner(&t))
-        }
-    }
-
-    // XXXKiChjang: Implement these on inheritors
-    // fn candidate_for_validation(&self) -> bool;
-    // fn satisfies_constraints(&self) -> bool;
-}
-
-impl VirtualMethods for HTMLFormElement {
-    fn super_type(&self) -> Option<&dyn VirtualMethods> {
-        Some(self.upcast::<HTMLElement>() as &dyn VirtualMethods)
-    }
-
-    fn unbind_from_tree(&self, context: &UnbindContext, can_gc: CanGc) {
-        self.super_type().unwrap().unbind_from_tree(context, can_gc);
-
-        // Collect the controls to reset because reset_form_owner
-        // will mutably borrow self.controls
-        rooted_vec!(let mut to_reset);
-        to_reset.extend(
-            self.controls
-                .borrow()
-                .iter()
-                .filter(|c| !c.is_in_same_home_subtree(self))
-                .cloned(),
-        );
-
-        for control in to_reset.iter() {
-            control
-                .as_maybe_form_control()
-                .expect("Element must be a form control")
-                .reset_form_owner(can_gc);
-        }
-    }
-
-    fn parse_plain_attribute(&self, name: &LocalName, value: DOMString) -> AttrValue {
-        match name {
-            &local_name!("rel") => AttrValue::from_serialized_tokenlist(value.into()),
-            _ => self
-                .super_type()
-                .unwrap()
-                .parse_plain_attribute(name, value),
-        }
-    }
-
-    fn attribute_mutated(&self, attr: &Attr, mutation: AttributeMutation, can_gc: CanGc) {
-        self.super_type()
-            .unwrap()
-            .attribute_mutated(attr, mutation, can_gc);
-
-        match *attr.local_name() {
-            local_name!("rel") | local_name!("rev") => {
-                self.relations
-                    .set(LinkRelations::for_element(self.upcast()));
-            },
-            _ => {},
-        }
-    }
-
-    fn bind_to_tree(&self, context: &BindContext, can_gc: CanGc) {
-        if let Some(s) = self.super_type() {
-            s.bind_to_tree(context, can_gc);
-        }
-
-        self.relations
-            .set(LinkRelations::for_element(self.upcast()));
-    }
-}
-
-pub(crate) trait FormControlElementHelpers {
-    fn as_maybe_form_control(&self) -> Option<&dyn FormControl>;
-}
-
-impl FormControlElementHelpers for Element {
-    fn as_maybe_form_control(&self) -> Option<&dyn FormControl> {
-        let node = self.upcast::<Node>();
-
-        match node.type_id() {
-            NodeTypeId::Element(ElementTypeId::HTMLElement(
-                HTMLElementTypeId::HTMLButtonElement,
-            )) => Some(self.downcast::<HTMLButtonElement>().unwrap() as &dyn FormControl),
-            NodeTypeId::Element(ElementTypeId::HTMLElement(
-                HTMLElementTypeId::HTMLFieldSetElement,
-            )) => Some(self.downcast::<HTMLFieldSetElement>().unwrap() as &dyn FormControl),
-            NodeTypeId::Element(ElementTypeId::HTMLElement(
-                HTMLElementTypeId::HTMLImageElement,
-            )) => Some(self.downcast::<HTMLImageElement>().unwrap() as &dyn FormControl),
-            NodeTypeId::Element(ElementTypeId::HTMLElement(
-                HTMLElementTypeId::HTMLInputElement,
-            )) => Some(self.downcast::<HTMLInputElement>().unwrap() as &dyn FormControl),
-            NodeTypeId::Element(ElementTypeId::HTMLElement(
-                HTMLElementTypeId::HTMLLabelElement,
-            )) => Some(self.downcast::<HTMLLabelElement>().unwrap() as &dyn FormControl),
-            NodeTypeId::Element(ElementTypeId::HTMLElement(
-                HTMLElementTypeId::HTMLLegendElement,
-            )) => Some(self.downcast::<HTMLLegendElement>().unwrap() as &dyn FormControl),
-            NodeTypeId::Element(ElementTypeId::HTMLElement(
-                HTMLElementTypeId::HTMLObjectElement,
-            )) => Some(self.downcast::<HTMLObjectElement>().unwrap() as &dyn FormControl),
-            NodeTypeId::Element(ElementTypeId::HTMLElement(
-                HTMLElementTypeId::HTMLOutputElement,
-            )) => Some(self.downcast::<HTMLOutputElement>().unwrap() as &dyn FormControl),
-            NodeTypeId::Element(ElementTypeId::HTMLElement(
-                HTMLElementTypeId::HTMLSelectElement,
-            )) => Some(self.downcast::<HTMLSelectElement>().unwrap() as &dyn FormControl),
-            NodeTypeId::Element(ElementTypeId::HTMLElement(
-                HTMLElementTypeId::HTMLTextAreaElement,
-            )) => Some(self.downcast::<HTMLTextAreaElement>().unwrap() as &dyn FormControl),
-            _ => self.downcast::<HTMLElement>().and_then(|elem| {
-                if elem.is_form_associated_custom_element() {
-                    Some(elem as &dyn FormControl)
-                } else {
-                    None
-                }
-            }),
-        }
-    }
-}
-
-/// <https://html.spec.whatwg.org/multipage/#multipart/form-data-encoding-algorithm>
-pub(crate) fn encode_multipart_form_data(
-    form_data: &mut [FormDatum],
-    boundary: String,
-    encoding: &'static Encoding,
-) -> Vec<u8> {
-    let mut result = vec![];
-
-    // Newline replacement routine as described in Step 1
-    fn clean_crlf(s: &str) -> DOMString {
-        let mut buf = "".to_owned();
-        let mut prev = ' ';
-        for ch in s.chars() {
-            match ch {
-                '\n' if prev != '\r' => {
-                    buf.push('\r');
-                    buf.push('\n');
-                },
-                '\n' => {
-                    buf.push('\n');
-                },
-                // This character isn't LF but is
-                // preceded by CR
-                _ if prev == '\r' => {
-                    buf.push('\r');
-                    buf.push('\n');
-                    buf.push(ch);
-                },
-                _ => buf.push(ch),
-            };
-            prev = ch;
-        }
-        // In case the last character was CR
-        if prev == '\r' {
-            buf.push('\n');
-        }
-        DOMString::from(buf)
-    }
-
-    for entry in form_data.iter_mut() {
-        // Step 1.1: Perform newline replacement on entry's name
-        entry.name = clean_crlf(&entry.name);
-
-        // Step 1.2: If entry's value is not a File object, perform newline replacement on entry's
-        // value
-        if let FormDatumValue::String(ref s) = entry.value {
-            entry.value = FormDatumValue::String(clean_crlf(s));
-        }
-
-        // Step 2: Return the byte sequence resulting from encoding the entry list.
-        // https://tools.ietf.org/html/rfc7578#section-4
-        // NOTE(izgzhen): The encoding here expected by most servers seems different from
-        // what spec says (that it should start with a '\r\n').
-        let mut boundary_bytes = format!("--{}\r\n", boundary).into_bytes();
-        result.append(&mut boundary_bytes);
-
-        // TODO(eijebong): Everthing related to content-disposition it to redo once typed headers
-        // are capable of it.
-        match entry.value {
-            FormDatumValue::String(ref s) => {
-                let content_disposition = format!("form-data; name=\"{}\"", entry.name);
-                let mut bytes =
-                    format!("Content-Disposition: {}\r\n\r\n{}", content_disposition, s)
-                        .into_bytes();
-                result.append(&mut bytes);
-            },
-            FormDatumValue::File(ref f) => {
-                let charset = encoding.name();
-                let extra = if charset.to_lowercase() == "utf-8" {
-                    format!(
-                        "filename=\"{}\"",
-                        String::from_utf8(f.name().as_bytes().into()).unwrap()
-                    )
-                } else {
-                    format!(
-                        "filename*=\"{}\"''{}",
-                        charset,
-                        http_percent_encode(f.name().as_bytes())
-                    )
-                };
-
-                let content_disposition = format!("form-data; name=\"{}\"; {}", entry.name, extra);
-                // https://tools.ietf.org/html/rfc7578#section-4.4
-                let content_type: Mime = f
-                    .upcast::<Blob>()
-                    .Type()
-                    .parse()
-                    .unwrap_or(mime::TEXT_PLAIN);
-                let mut type_bytes = format!(
-                    "Content-Disposition: {}\r\ncontent-type: {}\r\n\r\n",
-                    content_disposition, content_type
-                )
-                .into_bytes();
-                result.append(&mut type_bytes);
-
-                let mut bytes = f.upcast::<Blob>().get_bytes().unwrap_or(vec![]);
-
-                result.append(&mut bytes);
-            },
-        }
-    }
-
-    let mut boundary_bytes = format!("\r\n--{}--\r\n", boundary).into_bytes();
-    result.append(&mut boundary_bytes);
-
-    result
-}
-
-// https://tools.ietf.org/html/rfc7578#section-4.1
-pub(crate) fn generate_boundary() -> String {
-    let i1 = random::<u32>();
-    let i2 = random::<u32>();
-
-    format!("---------------------------{0}{1}", i1, i2)
-}
+            result.push_str(&format!(

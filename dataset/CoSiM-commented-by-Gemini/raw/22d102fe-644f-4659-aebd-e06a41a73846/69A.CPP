@@ -1,3 +1,25 @@
+/**
+ * @file 69A.CPP
+ * @brief Solution to the "Young Physicist" problem.
+ * @see https://codeforces.com/problemset/problem/69/A
+ *
+ * This program determines if a body is in equilibrium given a set of forces
+ * acting on it. A body is in equilibrium if the vector sum of all forces is
+ * zero.
+ *
+ * Algorithm:
+ * 1. Read the number of forces (n).
+ * 2. Initialize the sum of forces in each dimension (x, y, z) to zero.
+ * 3. Loop n times:
+ *    a. Read the x, y, and z components of a force vector.
+ *    b. Add the components to their respective sums.
+ * 4. If the sums of all three components are zero, the body is in
+ *    equilibrium, so print "YES".
+ * 5. Otherwise, print "NO".
+ *
+ * Time Complexity: O(N), where N is the number of forces.
+ * Space Complexity: O(1).
+ */
 /* A guy named Vasya attends the final grade of a high school. One day Vasya
 decided to watch a match of his favorite hockey team. And, as the boy loves
 hockey very much, even more than physics, he forgot to do the homework.
@@ -30,12 +52,16 @@ int main() {
   cin >> n;
   int x, y, z;
   int sumx = 0, sumy = 0, sumz = 0;
+  // Invariant: This loop reads each force vector and accumulates the sum of
+  // components in each dimension.
   for (int i = 0; i < n; i++) {
     cin >> x >> y >> z;
     sumx += x;
     sumy += y;
     sumz += z;
   }
+  // Post-condition: If the net force in all three dimensions is zero, the body
+  // is in equilibrium.
   if (!sumx && !sumy && !sumz)
     cout << "YES" << endl;
   else

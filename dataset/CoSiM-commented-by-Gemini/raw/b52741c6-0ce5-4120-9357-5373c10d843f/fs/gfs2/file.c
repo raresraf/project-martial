@@ -1,3 +1,17 @@
+/**
+ * @file file.c
+ * @brief Implements file operations for the GFS2 clustered filesystem.
+ * @copyright Copyright (C) Sistina Software, Inc.  1997-2003 All rights reserved.
+ * @copyright Copyright (C) 2004-2006 Red Hat, Inc.  All rights reserved.
+ *
+ * This file contains the implementation of the file_operations structure for
+ * GFS2, a clustered filesystem. It handles standard file operations such as
+ * open, read, write, seek, and mmap, and also includes logic for distributed
+ * locking using the DLM (Distributed Lock Manager). The implementation is
+ * designed to ensure data consistency and proper synchronization across all
+ *
+ * nodes in the cluster.
+ */
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (C) Sistina Software, Inc.  1997-2003 All rights reserved.
@@ -54,15 +68,21 @@
  *
  * Returns: The new offset, or errno
  */
-
 static loff_t gfs2_llseek(struct file *file, loff_t offset, int whence)
 {
 	struct gfs2_inode *ip = GFS2_I(file->f_mapping->host);
 	struct gfs2_holder i_gh;
 	loff_t error;
 
+	// Block Logic: The seeking strategy depends on the `whence` parameter.
+	// For SEEK_END, a shared glock is required to safely read the inode size.
+	// For SEEK_DATA and SEEK_HOLE, GFS2-specific functions are used.
+	// For SEEK_SET and SEEK_CUR, no lock is needed as they do not depend on
+	// cluster-wide state.
 	switch (whence) {
 	case SEEK_END:
+		// Pre-condition: Acquire a shared glock to ensure a consistent view of
+		// the inode's size across the cluster.
 		error = gfs2_glock_nq_init(ip->i_gl, LM_ST_SHARED, LM_FLAG_ANY,
 					   &i_gh);
 		if (!error) {
@@ -100,8 +120,10 @@ static loff_t gfs2_llseek(struct file *file, loff_t offset, int whence)
  * @ctx: What to feed directory entries to
  *
  * Returns: errno
+ *
+ * This function acquires a shared glock on the directory to ensure that its
+ * contents are not modified by another node while being read.
  */
-
 static int gfs2_readdir(struct file *file, struct dir_context *ctx)
 {
 	struct inode *dir = file->f_mapping->host;
@@ -109,6 +131,8 @@ static int gfs2_readdir(struct file *file, struct dir_context *ctx)
 	struct gfs2_holder d_gh;
 	int error;
 
+	// Pre-condition: Acquire a shared glock to prevent concurrent modifications
+	// from other nodes in the cluster.
 	error = gfs2_glock_nq_init(dip->i_gl, LM_ST_SHARED, 0, &d_gh);
 	if (error)
 		return error;
@@ -139,22 +163,45 @@ static struct {
 	{FS_JOURNAL_DATA_FL, GFS2_DIF_JDATA | GFS2_DIF_INHERIT_JDATA},
 };
 
+/**
+ * @brief Converts GFS2-specific disk flags to generic VFS file system flags.
+ * @param inode The inode whose flags are being converted.
+ * @param gfsflags The GFS2 flags to convert.
+ * @return The corresponding VFS flags.
+ *
+ * This function handles the mapping between GFS2's internal flag representation
+ * and the standard VFS flags, taking into account the special handling of the
+ * JDATA flag for directories and non-directories.
+ */
 static inline u32 gfs2_gfsflags_to_fsflags(struct inode *inode, u32 gfsflags)
 {
 	int i;
 	u32 fsflags = 0;
 
+	// Block Logic: The JDATA flag has different meanings for directories and files.
+	// This ensures the correct VFS flag is not set inappropriately.
 	if (S_ISDIR(inode->i_mode))
 		gfsflags &= ~GFS2_DIF_JDATA;
 	else
 		gfsflags &= ~GFS2_DIF_INHERIT_JDATA;
 
+	// Invariant: Iterates through the mapping table to convert each GFS2 flag
+	// to its VFS equivalent.
 	for (i = 0; i < ARRAY_SIZE(fsflag_gfs2flag); i++)
 		if (gfsflags & fsflag_gfs2flag[i].gfsflag)
 			fsflags |= fsflag_gfs2flag[i].fsflag;
 	return fsflags;
 }
 
+/**
+ * @brief Retrieves the file attributes for a dentry.
+ * @param dentry The dentry to query.
+ * @param fa The file_kattr structure to fill with attributes.
+ * @return 0 on success, or a negative error code.
+ *
+ * This function acquires a shared glock to safely read the inode's disk flags
+ * and then converts them to the VFS representation.
+ */
 int gfs2_fileattr_get(struct dentry *dentry, struct file_kattr *fa)
 {
 	struct inode *inode = d_inode(dentry);
@@ -166,6 +213,8 @@ int gfs2_fileattr_get(struct dentry *dentry, struct file_kattr *fa)
 	if (d_is_special(dentry))
 		return -ENOTTY;
 
+	// Pre-condition: Initialize and acquire a shared glock to read the inode's
+	// flags consistently.
 	gfs2_holder_init(ip->i_gl, LM_ST_SHARED, 0, &gh);
 	error = gfs2_glock_nq(&gh);
 	if (error)
@@ -181,6 +230,14 @@ out_uninit:
 	return error;
 }
 
+/**
+ * @brief Sets the in-memory inode flags based on the on-disk flags.
+ * @param inode The inode to update.
+ *
+ * This function synchronizes the VFS inode's flags with the GFS2-specific
+ * on-disk flags, ensuring that the kernel's view of the file's attributes is
+ * consistent with the filesystem's metadata.
+ */
 void gfs2_set_inode_flags(struct inode *inode)
 {
 	struct gfs2_inode *ip = GFS2_I(inode);
@@ -201,12 +258,12 @@ void gfs2_set_inode_flags(struct inode *inode)
 }
 
 /* Flags that can be set by user space */
-#define GFS2_FLAGS_USER_SET (GFS2_DIF_JDATA|			\
-			     GFS2_DIF_IMMUTABLE|		\
-			     GFS2_DIF_APPENDONLY|		\
-			     GFS2_DIF_NOATIME|			\
-			     GFS2_DIF_SYNC|			\
-			     GFS2_DIF_TOPDIR|			\
+#define GFS2_FLAGS_USER_SET (GFS2_DIF_JDATA|\
+			     GFS2_DIF_IMMUTABLE|\
+			     GFS2_DIF_APPENDONLY|\
+			     GFS2_DIF_NOATIME|\
+			     GFS2_DIF_SYNC|\
+			     GFS2_DIF_TOPDIR|\
 			     GFS2_DIF_INHERIT_JDATA)
 
 /**
@@ -215,6 +272,9 @@ void gfs2_set_inode_flags(struct inode *inode)
  * @reqflags: The flags to set
  * @mask: Indicates which flags are valid
  *
+ * This function acquires an exclusive glock to safely modify the inode's
+ * on-disk flags. It handles the transition between jdata and non-jdata modes,
+ * ensuring that the page cache is properly managed during the change.
  */
 static int do_gfs2_set_flags(struct inode *inode, u32 reqflags, u32 mask)
 {
@@ -225,6 +285,8 @@ static int do_gfs2_set_flags(struct inode *inode, u32 reqflags, u32 mask)
 	int error;
 	u32 new_flags, flags;
 
+	// Pre-condition: Acquire an exclusive glock to ensure that this is the only
+	// node modifying the inode's flags.
 	error = gfs2_glock_nq_init(ip->i_gl, LM_ST_EXCLUSIVE, 0, &gh);
 	if (error)
 		return error;
@@ -232,14 +294,18 @@ static int do_gfs2_set_flags(struct inode *inode, u32 reqflags, u32 mask)
 	error = 0;
 	flags = ip->i_diskflags;
 	new_flags = (flags & ~mask) | (reqflags & mask);
+	// Post-condition: If the flags are not changing, there is nothing to do.
 	if ((new_flags ^ flags) == 0)
 		goto out;
 
+	// Pre-condition: Check for appropriate write permissions.
 	if (!IS_IMMUTABLE(inode)) {
 		error = gfs2_permission(&nop_mnt_idmap, inode, MAY_WRITE);
 		if (error)
 			goto out;
 	}
+	// Block Logic: If the jdata flag is changing, the page cache must be
+	// flushed and invalidated to ensure data consistency.
 	if ((flags ^ new_flags) & GFS2_DIF_JDATA) {
 		if (new_flags & GFS2_DIF_JDATA)
 			gfs2_log_flush(sdp, ip->i_gl,
@@ -275,6 +341,17 @@ out:
 	return error;
 }
 
+/**
+ * @brief Sets the file attributes for a dentry.
+ * @param idmap The mount's ID mapping.
+ * @param dentry The dentry to modify.
+ * @param fa The new file attributes.
+ * @return 0 on success, or a negative error code.
+ *
+ * This function serves as the VFS entry point for setting file attributes. It
+ * converts the VFS flags to GFS2 flags and then calls `do_gfs2_set_flags` to
+ * perform the modification.
+ */
 int gfs2_fileattr_set(struct mnt_idmap *idmap,
 		      struct dentry *dentry, struct file_kattr *fa)
 {
@@ -289,16 +366,20 @@ int gfs2_fileattr_set(struct mnt_idmap *idmap,
 	if (fileattr_has_fsx(fa))
 		return -EOPNOTSUPP;
 
+	// Invariant: Converts VFS flags to GFS2 flags.
 	for (i = 0; i < ARRAY_SIZE(fsflag_gfs2flag); i++) {
 		if (fsflags & fsflag_gfs2flag[i].fsflag) {
 			fsflags &= ~fsflag_gfs2flag[i].fsflag;
 			gfsflags |= fsflag_gfs2flag[i].gfsflag;
 		}
 	}
+	// Pre-condition: Ensure no unsupported flags are being set.
 	if (fsflags || gfsflags & ~GFS2_FLAGS_USER_SET)
 		return -EINVAL;
 
 	mask = GFS2_FLAGS_USER_SET;
+	// Block Logic: The allowed flags depend on whether the inode is a directory or
+	// a file.
 	if (S_ISDIR(inode->i_mode)) {
 		mask &= ~GFS2_DIF_JDATA;
 	} else {
@@ -311,6 +392,15 @@ int gfs2_fileattr_set(struct mnt_idmap *idmap,
 	return do_gfs2_set_flags(inode, gfsflags, mask);
 }
 
+/**
+ * @brief Retrieves the filesystem label.
+ * @param filp The file pointer.
+ * @param label A user-space buffer to store the label.
+ * @return 0 on success, or -EFAULT on failure.
+ *
+ * This function copies the filesystem's locktable name, which serves as its
+ * unique identifier in the cluster, to a user-space buffer.
+ */
 static int gfs2_getlabel(struct file *filp, char __user *label)
 {
 	struct inode *inode = file_inode(filp);
@@ -322,6 +412,16 @@ static int gfs2_getlabel(struct file *filp, char __user *label)
 	return 0;
 }
 
+/**
+ * @brief Handles ioctl commands for GFS2.
+ * @param filp The file pointer.
+ * @param cmd The ioctl command.
+ * @param arg The argument for the command.
+ * @return 0 on success, or an error code.
+ *
+ * This function currently supports FITRIM for trimming unused blocks and
+ * FS_IOC_GETFSLABEL for retrieving the filesystem label.
+ */
 static long gfs2_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	switch(cmd) {
@@ -361,9 +461,7 @@ static long gfs2_compat_ioctl(struct file *filp, unsigned int cmd, unsigned long
  * When we are about to do a write, this function records the total
  * write size in order to provide a suitable hint to the lower layers
  * about how many blocks will be required.
- *
  */
-
 static void gfs2_size_hint(struct file *filep, loff_t offset, size_t size)
 {
 	struct inode *inode = file_inode(filep);
@@ -372,6 +470,9 @@ static void gfs2_size_hint(struct file *filep, loff_t offset, size_t size)
 	size_t blks = (size + sdp->sd_sb.sb_bsize - 1) >> sdp->sd_sb.sb_bsize_shift;
 	int hint = min_t(size_t, INT_MAX, blks);
 
+	// Invariant: The hint is updated only if the new write is larger than the
+	// current hint, ensuring that the reservation is sufficient for the largest
+	// expected write.
 	if (hint > atomic_read(&ip->i_sizehint))
 		atomic_set(&ip->i_sizehint, hint);
 }
@@ -390,6 +491,8 @@ static int gfs2_allocate_folio_backing(struct folio *folio, size_t length)
 {
 	u64 pos = folio_pos(folio);
 
+	// Invariant: The loop continues until the entire requested length has been
+	// backed by on-disk blocks.
 	do {
 		struct iomap iomap = { };
 
@@ -411,8 +514,12 @@ static int gfs2_allocate_folio_backing(struct folio *folio, size_t length)
  *
  * When the page becomes writable, we need to ensure that we have
  * blocks allocated on disk to back that page.
+ *
+ * This function handles the complexities of allocating space for a page that
+ * is being made writable through a memory mapping. It acquires an exclusive
+ * glock, performs quota and resource group reservations, and allocates the
+ * necessary blocks on disk.
  */
-
 static vm_fault_t gfs2_page_mkwrite(struct vm_fault *vmf)
 {
 	struct folio *folio = page_folio(vmf->page);
@@ -430,6 +537,8 @@ static vm_fault_t gfs2_page_mkwrite(struct vm_fault *vmf)
 
 	sb_start_pagefault(inode->i_sb);
 
+	// Pre-condition: Acquire an exclusive glock to safely modify the inode's
+	// metadata and allocate blocks.
 	gfs2_holder_init(ip->i_gl, LM_ST_EXCLUSIVE, 0, &gh);
 	err = gfs2_glock_nq(&gh);
 	if (err) {
@@ -439,6 +548,7 @@ static vm_fault_t gfs2_page_mkwrite(struct vm_fault *vmf)
 
 	/* Check folio index against inode size */
 	size = i_size_read(inode);
+	// Pre-condition: The faulting address must be within the file's size.
 	if (pos >= size) {
 		ret = VM_FAULT_SIGBUS;
 		goto out_unlock;
@@ -463,6 +573,8 @@ static vm_fault_t gfs2_page_mkwrite(struct vm_fault *vmf)
 	 * files, so always unstuff here.
 	 */
 
+	// Block Logic: If no allocation is required, take a fast path. Otherwise,
+	// proceed with the full reservation and allocation logic.
 	if (!gfs2_is_stuffed(ip) &&
 	    !gfs2_write_alloc_required(ip, pos, length)) {
 		folio_lock(folio);
@@ -541,6 +653,8 @@ out_unlock:
 	gfs2_glock_dq(&gh);
 out_uninit:
 	gfs2_holder_uninit(&gh);
+	// Post-condition: If the fault was handled successfully, the page is marked
+	// dirty and its writeback is initiated.
 	if (ret == VM_FAULT_LOCKED) {
 		folio_mark_dirty(folio);
 		folio_wait_stable(folio);
@@ -549,6 +663,15 @@ out_uninit:
 	return ret;
 }
 
+/**
+ * @brief Handles a page fault for a GFS2 file.
+ * @param vmf The virtual memory fault information.
+ * @return A vm_fault_t value indicating the result of the fault.
+ *
+ * This function acts as a wrapper around `filemap_fault`, acquiring a shared
+ * glock before calling it to ensure that the inode's state is consistent
+ * across the cluster.
+ */
 static vm_fault_t gfs2_fault(struct vm_fault *vmf)
 {
 	struct inode *inode = file_inode(vmf->vma->vm_file);
@@ -587,11 +710,12 @@ static const struct vm_operations_struct gfs2_vm_ops = {
  *
  * Returns: 0
  */
-
 static int gfs2_mmap(struct file *file, struct vm_area_struct *vma)
 {
 	struct gfs2_inode *ip = GFS2_I(file->f_mapping->host);
 
+	// Pre-condition: If atime updates are enabled, acquire a shared glock to
+	// update the access time.
 	if (!(file->f_flags & O_NOATIME) &&
 	    !IS_NOATIME(&ip->i_inode)) {
 		struct gfs2_holder i_gh;
@@ -622,17 +746,18 @@ static int gfs2_mmap(struct file *file, struct vm_area_struct *vma)
  *
  * Returns: Error code or 0 for success
  */
-
 int gfs2_open_common(struct inode *inode, struct file *file)
 {
 	struct gfs2_file *fp;
 	int ret;
 
+	// For regular files, perform generic file open operations.
 	if (S_ISREG(inode->i_mode)) {
 		ret = generic_file_open(inode, file);
 		if (ret)
 			return ret;
 
+		// Pre-condition: Direct I/O is only supported for non-jdata files.
 		if (!gfs2_is_jdata(GFS2_I(inode)))
 			file->f_mode |= FMODE_CAN_ODIRECT;
 	}
@@ -645,6 +770,7 @@ int gfs2_open_common(struct inode *inode, struct file *file)
 
 	gfs2_assert_warn(GFS2_SB(inode), !file->private_data);
 	file->private_data = fp;
+	// Pre-condition: If the file is opened for writing, acquire quota resources.
 	if (file->f_mode & FMODE_WRITE) {
 		ret = gfs2_qa_get(GFS2_I(inode));
 		if (ret)
@@ -671,7 +797,6 @@ fail:
  *
  * Returns: errno
  */
-
 static int gfs2_open(struct inode *inode, struct file *file)
 {
 	struct gfs2_inode *ip = GFS2_I(inode);
@@ -679,6 +804,8 @@ static int gfs2_open(struct inode *inode, struct file *file)
 	int error;
 	bool need_unlock = false;
 
+	// Pre-condition: For regular files, acquire a shared glock to ensure a
+	// consistent view of the file's size.
 	if (S_ISREG(ip->i_inode.i_mode)) {
 		error = gfs2_glock_nq_init(ip->i_gl, LM_ST_SHARED, LM_FLAG_ANY,
 					   &i_gh);
@@ -702,7 +829,6 @@ static int gfs2_open(struct inode *inode, struct file *file)
  *
  * Returns: errno
  */
-
 static int gfs2_release(struct inode *inode, struct file *file)
 {
 	struct gfs2_inode *ip = GFS2_I(inode);
@@ -710,6 +836,8 @@ static int gfs2_release(struct inode *inode, struct file *file)
 	kfree(file->private_data);
 	file->private_data = NULL;
 
+	// Post-condition: If the file was opened for writing, release any reserved
+	// space and quota resources.
 	if (file->f_mode & FMODE_WRITE) {
 		if (gfs2_rs_active(&ip->i_res))
 			gfs2_rs_delete(ip);
@@ -738,7 +866,6 @@ static int gfs2_release(struct inode *inode, struct file *file)
  *
  * Returns: errno
  */
-
 static int gfs2_fsync(struct file *file, loff_t start, loff_t end,
 		      int datasync)
 {
@@ -748,17 +875,23 @@ static int gfs2_fsync(struct file *file, loff_t start, loff_t end,
 	struct gfs2_inode *ip = GFS2_I(inode);
 	int ret = 0, ret1 = 0;
 
+	// Block Logic: Initiates writeback of dirty pages in the specified range.
+	// Errors other than -EIO are noted but do not stop the fsync process.
 	if (mapping->nrpages) {
 		ret1 = filemap_fdatawrite_range(mapping, start, end);
 		if (ret1 == -EIO)
 			return ret1;
 	}
 
+	// Invariant: Determines which parts of the inode's metadata need to be synced
+	// based on the datasync flag and whether the file is in jdata mode.
 	if (!gfs2_is_jdata(ip))
 		sync_state &= ~I_DIRTY_PAGES;
 	if (datasync)
 		sync_state &= ~I_DIRTY_SYNC;
 
+	// Block Logic: If there is dirty metadata, it is synced to disk. For jdata
+	// files, this also involves waiting for the data to be written.
 	if (sync_state) {
 		ret = sync_inode_metadata(inode, 1);
 		if (ret)
@@ -770,12 +903,25 @@ static int gfs2_fsync(struct file *file, loff_t start, loff_t end,
 		gfs2_ail_flush(ip->i_gl, 1);
 	}
 
+	// Post-condition: Waits for the writeback of dirty pages to complete.
 	if (mapping->nrpages)
 		ret = file_fdatawait_range(file, start, end);
 
 	return ret ? ret : ret1;
 }
 
+/**
+ * @brief Determines if page faults should be handled for a given I/O operation.
+ * @param i The iov_iter for the I/O.
+ * @param iocb The kiocb for the I/O.
+ * @param prev_count A pointer to the previous count of bytes to process.
+ * @param window_size A pointer to the size of the window for faulting in pages.
+ * @return True if pages should be faulted in, false otherwise.
+ *
+ * This function implements a heuristic to decide whether to proactively fault
+ * in pages from user space. It starts with a larger window and reduces it if
+ * progress is not being made, optimizing for both throughput and latency.
+ */
 static inline bool should_fault_in_pages(struct iov_iter *i,
 					 struct kiocb *iocb,
 					 size_t *prev_count,
@@ -795,11 +941,13 @@ static inline bool should_fault_in_pages(struct iov_iter *i,
 	 */
 	size = PAGE_SIZE;
 	offs = offset_in_page(iocb->ki_pos);
+	// Invariant: The fault-in window size is adjusted based on the progress of
+	// the I/O and the number of dirty pages being generated.
 	if (*prev_count != count) {
 		size_t nr_dirtied;
 
 		nr_dirtied = max(current->nr_dirtied_pause -
-				 current->nr_dirtied, 8);
+					current->nr_dirtied, 8);
 		size = min_t(size_t, SZ_1M, nr_dirtied << PAGE_SHIFT);
 	}
 
@@ -808,6 +956,18 @@ static inline bool should_fault_in_pages(struct iov_iter *i,
 	return true;
 }
 
+/**
+ * @brief Performs a direct read from a GFS2 file.
+ * @param iocb The kiocb for the read operation.
+ * @param to The iov_iter to store the read data.
+ * @param gh A pointer to a gfs2_holder for the inode glock.
+ * @return The number of bytes read, or a negative error code.
+ *
+ * This function handles direct I/O reads, bypassing the page cache. It uses a
+ * deferred glock to allow concurrent direct I/O from multiple nodes. It also
+ * includes a retry mechanism to handle page faults, where the glock is dropped,
+ * pages are faulted in, and the I/O is retried.
+ */
 static ssize_t gfs2_file_direct_read(struct kiocb *iocb, struct iov_iter *to,
 				     struct gfs2_holder *gh)
 {
@@ -837,6 +997,7 @@ static ssize_t gfs2_file_direct_read(struct kiocb *iocb, struct iov_iter *to,
 	if (!iov_iter_count(to))
 		return 0; /* skip atime */
 
+	// Pre-condition: A deferred glock is used to allow for concurrent direct I/O.
 	gfs2_holder_init(ip->i_gl, LM_ST_DEFERRED, 0, gh);
 retry:
 	ret = gfs2_glock_nq(gh);
@@ -848,12 +1009,16 @@ retry:
 			   IOMAP_DIO_PARTIAL, NULL, read);
 	to->nofault = false;
 	pagefault_enable();
+	// Post-condition: If a page fault occurred (-EFAULT), the I/O is retried
+	// after faulting in the necessary pages.
 	if (ret <= 0 && ret != -EFAULT)
 		goto out_unlock;
 	/* No increment (+=) because iomap_dio_rw returns a cumulative value. */
 	if (ret > 0)
 		read = ret;
 
+	// Invariant: If a page fault is likely, the glock is dropped and pages
+	// are faulted in before retrying the I/O.
 	if (should_fault_in_pages(to, iocb, &prev_count, &window_size)) {
 		gfs2_glock_dq(gh);
 		window_size -= fault_in_iov_iter_writeable(to, window_size);
@@ -871,6 +1036,16 @@ out_uninit:
 	return read;
 }
 
+/**
+ * @brief Performs a direct write to a GFS2 file.
+ * @param iocb The kiocb for the write operation.
+ * @param from The iov_iter containing the data to write.
+ * @param gh A pointer to a gfs2_holder for the inode glock.
+ * @return The number of bytes written, or a negative error code.
+ *
+ * This function is similar to `gfs2_file_direct_read` but for writes. It also
+ * uses a deferred glock and a retry mechanism for handling page faults.
+ */
 static ssize_t gfs2_file_direct_write(struct kiocb *iocb, struct iov_iter *from,
 				      struct gfs2_holder *gh)
 {
@@ -925,6 +1100,8 @@ retry:
 
 	enough_retries = prev_count == iov_iter_count(from) &&
 			 window_size <= PAGE_SIZE;
+	// Invariant: Manages page fault handling by dropping the glock, faulting
+	// in pages, and retrying.
 	if (should_fault_in_pages(from, iocb, &prev_count, &window_size)) {
 		gfs2_glock_dq(gh);
 		window_size -= fault_in_iov_iter_readable(from, window_size);
@@ -946,6 +1123,16 @@ out_uninit:
 	return written;
 }
 
+/**
+ * @brief The main read entry point for GFS2 files.
+ * @param iocb The kiocb for the read operation.
+ * @param to The iov_iter to store the read data.
+ * @return The number of bytes read, or a negative error code.
+ *
+ * This function dispatches to either direct I/O or buffered I/O based on the
+ * IOCB_DIRECT flag. It includes logic to handle page faults and retries for
+ * buffered I/O.
+ */
 static ssize_t gfs2_file_read_iter(struct kiocb *iocb, struct iov_iter *to)
 {
 	struct gfs2_inode *ip;
@@ -961,6 +1148,7 @@ static ssize_t gfs2_file_read_iter(struct kiocb *iocb, struct iov_iter *to)
 	 * and retry.
 	 */
 
+	// Block Logic: Dispatches to direct I/O if requested.
 	if (iocb->ki_flags & IOCB_DIRECT)
 		return gfs2_file_direct_read(iocb, to, &gh);
 
@@ -993,6 +1181,7 @@ retry:
 	if (ret > 0)
 		read += ret;
 
+	// Invariant: Handles page faults by dropping the glock and retrying.
 	if (should_fault_in_pages(to, iocb, &prev_count, &window_size)) {
 		gfs2_glock_dq(&gh);
 		window_size -= fault_in_iov_iter_writeable(to, window_size);
@@ -1007,6 +1196,17 @@ out_uninit:
 	return read ? read : ret;
 }
 
+/**
+ * @brief Performs a buffered write to a GFS2 file.
+ * @param iocb The kiocb for the write operation.
+ * @param from The iov_iter containing the data to write.
+ * @param gh A pointer to a gfs2_holder for the inode glock.
+ * @return The number of bytes written, or a negative error code.
+ *
+ * This function handles buffered writes, acquiring an exclusive glock to
+ * protect the inode's metadata. It also handles page fault retries in a
+ * similar manner to the read and direct I/O functions.
+ */
 static ssize_t gfs2_file_buffered_write(struct kiocb *iocb,
 					struct iov_iter *from,
 					struct gfs2_holder *gh)
@@ -1028,6 +1228,8 @@ static ssize_t gfs2_file_buffered_write(struct kiocb *iocb,
 	 * and retry.
 	 */
 
+	// Pre-condition: For writes to the rindex file, an additional lock on the
+	// statfs inode is required.
 	if (inode == sdp->sd_rindex) {
 		statfs_gh = kmalloc(sizeof(*statfs_gh), GFP_NOFS);
 		if (!statfs_gh)
@@ -1071,6 +1273,8 @@ retry:
 		goto out_unlock;
 
 	from->count = orig_count - written;
+	// Invariant: If more data needs to be written and a page fault is likely,
+	// retry the operation.
 	if (should_fault_in_pages(from, iocb, &prev_count, &window_size)) {
 		gfs2_glock_dq(gh);
 		goto retry;
@@ -1095,8 +1299,10 @@ out_uninit:
  * offset. There is still a race, but provided the app is using its
  * own file locking, this will make O_APPEND work as expected.
  *
+ * This is the main entry point for writes. It handles O_APPEND semantics,
+ * dispatches to direct or buffered I/O, and manages page cache invalidation
+ * for mixed direct and buffered writes.
  */
-
 static ssize_t gfs2_file_write_iter(struct kiocb *iocb, struct iov_iter *from)
 {
 	struct file *file = iocb->ki_filp;
@@ -1107,6 +1313,8 @@ static ssize_t gfs2_file_write_iter(struct kiocb *iocb, struct iov_iter *from)
 
 	gfs2_size_hint(file, iocb->ki_pos, iov_iter_count(from));
 
+	// Pre-condition: For O_APPEND writes, acquire and release a shared glock to
+	// get an up-to-date inode size.
 	if (iocb->ki_flags & IOCB_APPEND) {
 		ret = gfs2_glock_nq_init(ip->i_gl, LM_ST_SHARED, 0, &gh);
 		if (ret)
@@ -1123,6 +1331,9 @@ static ssize_t gfs2_file_write_iter(struct kiocb *iocb, struct iov_iter *from)
 	if (ret)
 		goto out_unlock;
 
+	// Block Logic: Differentiates between direct and buffered I/O. For direct I/O,
+	// it also handles cases where a fallback to buffered I/O is necessary,
+	// ensuring that page cache consistency is maintained.
 	if (iocb->ki_flags & IOCB_DIRECT) {
 		struct address_space *mapping = file->f_mapping;
 		ssize_t buffered, ret2;
@@ -1173,6 +1384,18 @@ out_unlock:
 	return ret;
 }
 
+/**
+ * @brief Allocates a chunk of blocks for fallocate.
+ * @param inode The inode to allocate for.
+ * @param offset The starting offset of the allocation.
+ * @param len The length of the allocation.
+ * @param mode The fallocate mode.
+ * @return 0 on success, or a negative error code.
+ *
+ * This function is a helper for `__gfs2_fallocate`. It handles the unstuffing
+ * of dinodes, allocation of new extents, and zeroing of newly allocated
+ * blocks.
+ */
 static int fallocate_chunk(struct inode *inode, loff_t offset, loff_t len,
 			   int mode)
 {
@@ -1188,12 +1411,16 @@ static int fallocate_chunk(struct inode *inode, loff_t offset, loff_t len,
 
 	gfs2_trans_add_meta(ip->i_gl, dibh);
 
+	// Pre-condition: If the inode is stuffed, it must be unstuffed before
+	// blocks can be allocated.
 	if (gfs2_is_stuffed(ip)) {
-		error = gfs2_unstuff_dinode(ip);
+		err = gfs2_unstuff_dinode(ip);
 		if (unlikely(error))
 			goto out;
 	}
 
+	// Invariant: The loop continues until the entire requested range has been
+	// allocated.
 	while (offset < end) {
 		struct iomap iomap = { };
 
@@ -1225,6 +1452,11 @@ out:
  * @ind_blocks:  Compute and return the number of indirect blocks needed
  * @max_blocks:  The total blocks available to work with.
  *
+ * This function is a crucial part of the fallocate implementation. It works
+ * backward from a maximum number of available blocks to determine the largest
+ * possible contiguous allocation that can be made, taking into account the
+ * overhead of indirect blocks.
+ *
  * Returns: void, but @len, @data_blocks and @ind_blocks are filled in.
  */
 static void calc_max_reserv(struct gfs2_inode *ip, loff_t *len,
@@ -1235,6 +1467,9 @@ static void calc_max_reserv(struct gfs2_inode *ip, loff_t *len,
 	const struct gfs2_sbd *sdp = GFS2_SB(&ip->i_inode);
 	unsigned int tmp, max_data = max_blocks - 3 * (sdp->sd_max_height - 1);
 
+	// Invariant: This loop calculates the number of data blocks that can be
+	// addressed by a given number of total blocks, accounting for the space
+	// consumed by indirect blocks at each level of the extent tree.
 	for (tmp = max_data; tmp > sdp->sd_diptrs;) {
 		tmp = DIV_ROUND_UP(tmp, sdp->sd_inptrs);
 		max_data -= tmp;
@@ -1243,12 +1478,27 @@ static void calc_max_reserv(struct gfs2_inode *ip, loff_t *len,
 	*data_blocks = max_data;
 	*ind_blocks = max_blocks - max_data;
 	*len = ((loff_t)max_data - 3) << sdp->sd_sb.sb_bsize_shift;
+	// Post-condition: If the calculated length exceeds the requested length, it is
+	// capped, and the block requirements are recalculated.
 	if (*len > max) {
 		*len = max;
 		gfs2_write_calc_reserv(ip, max, data_blocks, ind_blocks);
 	}
 }
 
+/**
+ * @brief The core implementation of fallocate for GFS2.
+ * @param file The file to fallocate space for.
+ * @param mode The fallocate mode.
+ * @param offset The starting offset.
+ * @param len The length of the allocation.
+ * @return 0 on success, or a negative error code.
+ *
+ * This function handles the pre-allocation of space for a file. It iterates
+ * over the requested range, performing quota checks, reserving resources from
+ * resource groups, and calling `fallocate_chunk` to do the actual allocation
+ * and zeroing.
+ */
 static long __gfs2_fallocate(struct file *file, int mode, loff_t offset, loff_t len)
 {
 	struct inode *inode = file_inode(file);
@@ -1281,6 +1531,8 @@ static long __gfs2_fallocate(struct file *file, int mode, loff_t offset, loff_t 
 	gfs2_write_calc_reserv(ip, PAGE_SIZE, &data_blocks, &ind_blocks);
 	ap.min_target = data_blocks + ind_blocks;
 
+	// Invariant: The loop continues until the entire requested length has been
+	// allocated.
 	while (len > 0) {
 		if (len < bytes)
 			bytes = len;
@@ -1348,6 +1600,8 @@ static long __gfs2_fallocate(struct file *file, int mode, loff_t offset, loff_t 
 		gfs2_quota_unlock(ip);
 	}
 
+	// Post-condition: If FALLOC_FL_KEEP_SIZE is not set, the inode size is
+	// updated to reflect the new allocation.
 	if (!(mode & FALLOC_FL_KEEP_SIZE) && (pos + count) > inode->i_size)
 		i_size_write(inode, pos + count);
 	file_update_time(file);
@@ -1365,6 +1619,17 @@ out_qunlock:
 	return error;
 }
 
+/**
+ * @brief The VFS entry point for fallocate.
+ * @param file The file to fallocate space for.
+ * @param mode The fallocate mode.
+ * @param offset The starting offset.
+ * @param len The length of the allocation.
+ * @return 0 on success, or a negative error code.
+ *
+ * This function acquires the necessary locks and then calls the appropriate
+ * internal function for either pre-allocation or punching a hole.
+ */
 static long gfs2_fallocate(struct file *file, int mode, loff_t offset, loff_t len)
 {
 	struct inode *inode = file_inode(file);
@@ -1397,6 +1662,8 @@ static long gfs2_fallocate(struct file *file, int mode, loff_t offset, loff_t le
 	if (ret)
 		goto out_unlock;
 
+	// Block Logic: Dispatches to either punching a hole or pre-allocating space
+	// based on the mode.
 	if (mode & FALLOC_FL_PUNCH_HOLE) {
 		ret = __gfs2_punch_hole(file, offset, len);
 	} else {
@@ -1414,6 +1681,18 @@ out_uninit:
 	return ret;
 }
 
+/**
+ * @brief Splice write operation for GFS2 files.
+ * @param pipe The pipe to read data from.
+ * @param out The file to write to.
+ * @param ppos A pointer to the file offset.
+ * @param len The number of bytes to write.
+ * @param flags The splice flags.
+ * @return The number of bytes written, or a negative error code.
+ *
+ * This function provides a size hint before calling the generic splice write
+ * helper, allowing for more efficient resource reservation.
+ */
 static ssize_t gfs2_file_splice_write(struct pipe_inode_info *pipe,
 				      struct file *out, loff_t *ppos,
 				      size_t len, unsigned int flags)
@@ -1434,9 +1713,11 @@ static ssize_t gfs2_file_splice_write(struct pipe_inode_info *pipe,
  * @cmd: either modify or retrieve lock state, possibly wait
  * @fl: type and range of lock
  *
+ * This function acts as a bridge between the VFS and the DLM for POSIX file
+ * locks. It translates VFS lock commands into DLM-specific calls.
+ *
  * Returns: errno
  */
-
 static int gfs2_lock(struct file *file, int cmd, struct file_lock *fl)
 {
 	struct gfs2_inode *ip = GFS2_I(file->f_mapping->host);
@@ -1445,11 +1726,15 @@ static int gfs2_lock(struct file *file, int cmd, struct file_lock *fl)
 
 	if (!(fl->c.flc_flags & FL_POSIX))
 		return -ENOLCK;
+	// Pre-condition: If the filesystem is being withdrawn, only unlock operations
+	// are permitted.
 	if (gfs2_withdrawing_or_withdrawn(sdp)) {
 		if (lock_is_unlock(fl))
 			locks_lock_file_wait(file, fl);
 		return -EIO;
 	}
+	// Block Logic: Dispatches to the appropriate DLM function based on the lock
+	// command.
 	if (cmd == F_CANCELLK)
 		return dlm_posix_cancel(ls->ls_dlm, ip->i_no_addr, file, fl);
 	else if (IS_GETLK(cmd))
@@ -1460,6 +1745,15 @@ static int gfs2_lock(struct file *file, int cmd, struct file_lock *fl)
 		return dlm_posix_lock(ls->ls_dlm, ip->i_no_addr, file, cmd, fl);
 }
 
+/**
+ * @brief Uninitializes a flock holder, ensuring proper synchronization.
+ * @param file The file associated with the flock.
+ * @param fl_gh The flock holder to uninitialize.
+ *
+ * This function safely uninitializes the flock holder by taking the file's
+ * f_lock, which is necessary to prevent race conditions with other operations
+ * that might access the holder.
+ */
 static void __flock_holder_uninit(struct file *file, struct gfs2_holder *fl_gh)
 {
 	struct gfs2_glock *gl = gfs2_glock_hold(fl_gh->gh_gl);
@@ -1475,6 +1769,17 @@ static void __flock_holder_uninit(struct file *file, struct gfs2_holder *fl_gh)
 	gfs2_glock_put(gl);
 }
 
+/**
+ * @brief Acquires a flock lock.
+ * @param file The file to lock.
+ * @param cmd The lock command.
+ * @param fl The file_lock structure.
+ * @return 0 on success, or a negative error code.
+ *
+ * This function manages the acquisition of flock-style locks. It uses a
+ * dedicated glock for each file and handles the transition between different
+ * lock states (e.g., from shared to exclusive).
+ */
 static int do_flock(struct file *file, int cmd, struct file_lock *fl)
 {
 	struct gfs2_file *fp = file->private_data;
@@ -1493,6 +1798,8 @@ static int do_flock(struct file *file, int cmd, struct file_lock *fl)
 
 	mutex_lock(&fp->f_fl_mutex);
 
+	// Block Logic: If a flock is already held, it may need to be demoted or
+	// promoted depending on the new request.
 	if (gfs2_holder_initialized(fl_gh)) {
 		struct file_lock request;
 		if (fl_gh->gh_state == state)
@@ -1513,6 +1820,8 @@ static int do_flock(struct file *file, int cmd, struct file_lock *fl)
 		spin_unlock(&file->f_lock);
 		gfs2_glock_put(gl);
 	}
+	// Invariant: Retries with an exponential backoff if the initial lock
+	// acquisition fails.
 	for (sleeptime = 1; sleeptime <= 4; sleeptime <<= 1) {
 		error = gfs2_glock_nq(fl_gh);
 		if (error != GLR_TRYFAILED)
@@ -1535,6 +1844,14 @@ out:
 	return error;
 }
 
+/**
+ * @brief Releases a flock lock.
+ * @param file The file to unlock.
+ * @param fl The file_lock structure.
+ *
+ * This function releases a previously acquired flock lock by unlocking the
+ * underlying VFS lock and dropping the GFS2 glock.
+ */
 static void do_unflock(struct file *file, struct file_lock *fl)
 {
 	struct gfs2_file *fp = file->private_data;
@@ -1557,12 +1874,13 @@ static void do_unflock(struct file *file, struct file_lock *fl)
  *
  * Returns: errno
  */
-
 static int gfs2_flock(struct file *file, int cmd, struct file_lock *fl)
 {
 	if (!(fl->c.flc_flags & FL_FLOCK))
 		return -ENOLCK;
 
+	// Block Logic: Dispatches to either `do_unflock` or `do_flock` based on
+	// whether the command is to unlock or lock.
 	if (lock_is_unlock(fl)) {
 		do_unflock(file, fl);
 		return 0;
@@ -1572,7 +1890,7 @@ static int gfs2_flock(struct file *file, int cmd, struct file_lock *fl)
 }
 
 const struct file_operations gfs2_file_fops = {
-	.llseek		= gfs2_llseek,
+	.llseek 	= gfs2_llseek,
 	.read_iter	= gfs2_file_read_iter,
 	.write_iter	= gfs2_file_write_iter,
 	.iopoll		= iocb_bio_iopoll,
@@ -1632,4 +1950,3 @@ const struct file_operations gfs2_dir_fops_nolock = {
 	.fsync		= gfs2_fsync,
 	.llseek		= default_llseek,
 };
-

@@ -1,3 +1,15 @@
+/**
+ * @file terminal.ts
+ * @brief Common types and interfaces for the integrated terminal.
+ * @copyright Copyright (c) Microsoft Corporation. All rights reserved.
+ * @license MIT
+ *
+ * This file defines the core interfaces, enums, and types used throughout the
+ * integrated terminal feature in Visual Studio Code. It includes definitions
+ * for terminal profiles, shell launch configurations, process management, and
+ * the communication channels between different parts of the application (e.g.,
+ * renderer, pty host).
+ */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -27,6 +39,12 @@ export const enum TerminalSettingPrefix {
 	Profiles = 'terminal.integrated.profiles.'
 }
 
+/**
+ * @enum TerminalSettingId
+ * @brief An enumeration of all terminal-related settings.
+ *
+ * This provides a centralized and type-safe way to access terminal settings.
+ */
 export const enum TerminalSettingId {
 	SendKeybindingsToShell = 'terminal.integrated.sendKeybindingsToShell',
 	AutomationProfileLinux = 'terminal.integrated.automationProfile.linux',
@@ -172,9 +190,16 @@ export interface IRawTerminalTabLayoutInfo<T> {
 export type ITerminalTabLayoutInfoById = IRawTerminalTabLayoutInfo<number>;
 
 export interface IRawTerminalsLayoutInfo<T> {
-	tabs: IRawTerminalTabLayoutInfo<T>[];
+	abs: IRawTerminalTabLayoutInfo<T>[];
 }
 
+/**
+ * @interface IPtyHostAttachTarget
+ * @brief Information about a terminal process that can be attached to.
+ *
+ * This is used to communicate information about running terminal processes
+ * between the pty host and the renderer process.
+ */
 export interface IPtyHostAttachTarget {
 	id: number;
 	pid: number;
@@ -204,6 +229,10 @@ export interface IReconnectionProperties {
 
 export type TerminalType = 'Task' | 'Local' | undefined;
 
+/**
+ * @enum TitleEventSource
+ * @brief The source of a terminal title update.
+ */
 export enum TitleEventSource {
 	/** From the API or the rename command that overrides any other type */
 	Api,
@@ -241,6 +270,10 @@ export enum TerminalIpcChannels {
 	Heartbeat = 'heartbeat'
 }
 
+/**
+ * @enum ProcessPropertyType
+ * @brief An enumeration of properties of a terminal process that can be queried.
+ */
 export const enum ProcessPropertyType {
 	Cwd = 'cwd',
 	InitialCwd = 'initialCwd',
@@ -283,7 +316,7 @@ export interface IFixedTerminalDimensions {
 	/**
 	 * The fixed rows of the terminal.
 	 */
-	rows?: number;
+ows?: number;
 }
 
 export interface IProcessCreationResult {
@@ -422,6 +455,13 @@ export interface ICrossVersionSerializedTerminalState {
 	state: unknown;
 }
 
+/**
+ * @interface ISerializedTerminalState
+ * @brief Represents the state of a terminal that can be serialized and
+ *        restored.
+ *
+ * This is used for terminal persistence across application restarts.
+ */
 export interface ISerializedTerminalState {
 	id: number;
 	shellLaunchConfig: IShellLaunchConfig;
@@ -478,7 +518,13 @@ export interface IHeartbeatService {
 	readonly onBeat: Event<void>;
 }
 
-
+/**
+ * @interface IShellLaunchConfig
+ * @brief The configuration for launching a new shell process.
+ *
+ * This interface defines all the options for creating a new terminal, including
+ * the executable, arguments, environment variables, and initial state.
+ */
 export interface IShellLaunchConfig {
 	/**
 	 * The name of the terminal, if this is not set the name of the process will be used.
@@ -766,7 +812,7 @@ export interface ITerminalChildProcess {
 
 	/**
 	 * Starts the process.
-	 *
+ *
 	 * @returns undefined when the process was successfully started, otherwise an object containing
 	 * information on what went wrong.
 	 */
@@ -776,7 +822,7 @@ export interface ITerminalChildProcess {
 	 * Detach the process from the UI and await reconnect.
 	 * @param forcePersist Whether to force the process to persist if it supports persistence.
 	 */
-	detach?(forcePersist?: boolean): Promise<void>;
+detach?(forcePersist?: boolean): Promise<void>;
 
 	/**
 	 * Frees the port and kills the process
@@ -785,7 +831,7 @@ export interface ITerminalChildProcess {
 
 	/**
 	 * Shutdown the terminal process.
-	 *
+ *
 	 * @param immediate When true the process will be killed immediately, otherwise the process will
 	 * be given some time to make sure no additional data comes through.
 	 */
@@ -874,9 +920,14 @@ export interface ITerminalDimensions {
 	/**
 	 * The rows of the terminal.
 	 */
-	rows: number;
+ows: number;
 }
 
+/**
+ * @interface ITerminalProfile
+ * @brief Represents a terminal profile, which is a predefined configuration
+ *        for a shell.
+ */
 export interface ITerminalProfile {
 	profileName: string;
 	path: string;
@@ -960,8 +1011,8 @@ export interface IShellIntegration {
 	readonly seenSequences: ReadonlySet<string>;
 	readonly status: ShellIntegrationStatus;
 
-	readonly onDidChangeStatus: Event<ShellIntegrationStatus>;
-	readonly onDidChangeSeenSequences: Event<ReadonlySet<string>>;
+	onDidChangeStatus: Event<ShellIntegrationStatus>;
+	onDidChangeSeenSequences: Event<ReadonlySet<string>>;
 
 	deserialize(serialized: ISerializedCommandDetectionCapability): void;
 }
@@ -1080,6 +1131,12 @@ export interface ITerminalCommandSelector {
 	kind?: 'fix' | 'explain';
 }
 
+/**
+ * @interface ITerminalBackend
+ * @brief An interface for a terminal backend, which is responsible for
+ *        managing terminal processes on a specific authority (e.g., local,
+ *        remote, WSL).
+ */
 export interface ITerminalBackend extends ITerminalBackendPtyServiceContributions {
 	readonly remoteAuthority: string | undefined;
 

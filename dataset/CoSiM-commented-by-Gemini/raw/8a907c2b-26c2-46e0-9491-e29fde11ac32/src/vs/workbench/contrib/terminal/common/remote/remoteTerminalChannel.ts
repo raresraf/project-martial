@@ -1,3 +1,14 @@
+/**
+ * @file remoteTerminalChannel.ts
+ * @brief IPC channel for remote terminal communication.
+ * @copyright Copyright (c) Microsoft Corporation. All rights reserved.
+ * @license MIT
+ *
+ * This file defines the client-side implementation of the remote terminal IPC
+ * channel. It provides a way for the renderer process to communicate with the
+ * pty host in a remote environment, enabling the creation and management of
+ * remote terminals.
+ */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -59,6 +70,14 @@ export interface ICreateTerminalProcessResult {
 	resolvedShellLaunchConfig: IShellLaunchConfigDto;
 }
 
+/**
+ * @class RemoteTerminalChannelClient
+ * @brief The client for the remote terminal IPC channel.
+ *
+ * This class implements the `IPtyHostController` interface and provides a
+ * typed API for interacting with the remote pty host. It serializes arguments
+ * and deserializes return values for all remote calls.
+ */
 export class RemoteTerminalChannelClient implements IPtyHostController {
 	get onPtyHostExit(): Event<number> {
 		return this._channel.listen<number>(RemoteTerminalChannelEvent.OnPtyHostExitEvent);
@@ -117,6 +136,21 @@ export class RemoteTerminalChannelClient implements IPtyHostController {
 		return this._channel.call(RemoteTerminalChannelRequest.RestartPtyHost, []);
 	}
 
+	/**
+	 * @brief Creates a new remote terminal process.
+	 * @param shellLaunchConfig The shell launch configuration.
+	 * @param configuration The complete terminal configuration.
+	 * @param activeWorkspaceRootUri The URI of the active workspace root.
+	 * @param options The terminal process options.
+	 * @param shouldPersistTerminal Whether the terminal should be persisted.
+	 * @param cols The number of columns.
+	 * @param rows The number of rows.
+	 * @param unicodeVersion The unicode version.
+	 * @return A promise that resolves with the result of the creation.
+	 *
+	 * This method resolves local variables, gathers environment information,
+	 * and then sends a request to the remote pty host to create the process.
+	 */
 	async createProcess(
 		shellLaunchConfig: IShellLaunchConfigDto,
 		configuration: ICompleteTerminalConfiguration,

@@ -1,3 +1,13 @@
+/**
+ * @file sysctl.c
+ * @brief General linux system control interface
+ * @copyright Stephen Tweedie, and others
+ *
+ * This file implements the core infrastructure for the sysctl interface, which
+ * allows for runtime configuration of various kernel parameters. It includes
+ * the logic for parsing and handling sysctl values from /proc/sys, as well as
+ * the registration of sysctl tables.
+ */
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * sysctl.c: General linux system control interface
@@ -82,17 +92,17 @@ static const int cap_last_cap = CAP_LAST_CAP;
  * enum sysctl_writes_mode - supported sysctl write modes
  *
  * @SYSCTL_WRITES_LEGACY: each write syscall must fully contain the sysctl value
- *	to be written, and multiple writes on the same sysctl file descriptor
- *	will rewrite the sysctl value, regardless of file position. No warning
- *	is issued when the initial position is not 0.
+ * 	to be written, and multiple writes on the same sysctl file descriptor
+ * 	will rewrite the sysctl value, regardless of file position. No warning
+ * 	is issued when the initial position is not 0.
  * @SYSCTL_WRITES_WARN: same as above but warn when the initial file position is
- *	not 0.
+ * 	not 0.
  * @SYSCTL_WRITES_STRICT: writes to numeric sysctl entries must always be at
- *	file position 0 and the value must be fully contained in the buffer
- *	sent to the write syscall. If dealing with strings respect the file
- *	position, but restrict this to the max length of the buffer, anything
- *	passed the max length will be ignored. Multiple writes will append
- *	to the buffer.
+ * 	file position 0 and the value must be fully contained in the buffer
+ * 	sent to the write syscall. If dealing with strings respect the file
+ * 	position, but restrict this to the max length of the buffer, anything
+ * 	passed the max length will be ignored. Multiple writes will append
+ * 	to the buffer.
  *
  * These write modes control how current file position affects the behavior of
  * updating sysctl values through the proc interface on each write.
@@ -113,6 +123,20 @@ static enum sysctl_writes_mode sysctl_writes_strict = SYSCTL_WRITES_STRICT;
 
 #ifdef CONFIG_PROC_SYSCTL
 
+/**
+ * @_proc_do_string - Internal helper for reading and writing string sysctls.
+ * @param data The kernel buffer for the sysctl value.
+ * @param maxlen The maximum length of the kernel buffer.
+ * @param write A flag indicating a write operation.
+ * @param buffer The user-space buffer.
+ * @param lenp A pointer to the length of the user-space buffer.
+ * @param ppos A pointer to the file position.
+ * @return 0 on success.
+ *
+ * This function handles the low-level details of copying string data between
+ * user space and the kernel, respecting the different write modes and buffer
+ * limits.
+ */
 static int _proc_do_string(char *data, int maxlen, int write,
 		char *buffer, size_t *lenp, loff_t *ppos)
 {
@@ -125,6 +149,10 @@ static int _proc_do_string(char *data, int maxlen, int write,
 	}
 
 	if (write) {
+		// Block-level comment: This block implements the different write modes
+		// for string sysctls. In strict mode, the file position is
+		// respected, while in legacy mode, writes always start from the
+		// beginning of the buffer.
 		if (sysctl_writes_strict == SYSCTL_WRITES_STRICT) {
 			/* Only continue writes not past the end of buffer. */
 			len = strlen(data);
@@ -175,6 +203,13 @@ static int _proc_do_string(char *data, int maxlen, int write,
 	return 0;
 }
 
+/**
+ * @brief Issues a warning for non-zero position writes to sysctls.
+ * @param table The sysctl table entry being written to.
+ *
+ * This function is called in `SYSCTL_WRITES_WARN` mode to alert developers
+ * about deprecated usage of the sysctl interface.
+ */
 static void warn_sysctl_write(const struct ctl_table *table)
 {
 	pr_warn_once("%s wrote to %s when file position was not 0!\n"
@@ -236,6 +271,11 @@ int proc_dostring(const struct ctl_table *table, int write,
 			ppos);
 }
 
+/**
+ * @brief Skips leading whitespace in a buffer.
+ * @param buf A pointer to the buffer.
+ * @param size A pointer to the size of the buffer.
+ */
 static void proc_skip_spaces(char **buf, size_t *size)
 {
 	while (*size) {
@@ -246,6 +286,12 @@ static void proc_skip_spaces(char **buf, size_t *size)
 	}
 }
 
+/**
+ * @brief Skips a specific character in a buffer.
+ * @param buf A pointer to the buffer.
+ * @param size A pointer to the size of the buffer.
+ * @param v The character to skip.
+ */
 static void proc_skip_char(char **buf, size_t *size, const char v)
 {
 	while (*size) {
@@ -394,6 +440,18 @@ static void proc_put_char(void **buf, size_t *size, char c)
 	}
 }
 
+/**
+ * @brief Converts and validates an integer for sysctl operations.
+ * @param negp Pointer to a boolean indicating if the number is negative.
+ * @param lvalp Pointer to the parsed unsigned long value.
+ * @param valp Pointer to the destination integer.
+ * @param write Flag indicating a write operation.
+ * @param data Unused data pointer.
+ * @return 0 on success, -EINVAL on failure.
+ *
+ * This function handles the conversion from a parsed unsigned long to a signed
+ * integer, with range checking.
+ */
 static int do_proc_dointvec_conv(bool *negp, unsigned long *lvalp,
 				 int *valp,
 				 int write, void *data)
@@ -421,6 +479,14 @@ static int do_proc_dointvec_conv(bool *negp, unsigned long *lvalp,
 	return 0;
 }
 
+/**
+ * @brief Converts and validates an unsigned integer for sysctl operations.
+ * @param lvalp Pointer to the parsed unsigned long value.
+ * @param valp Pointer to the destination unsigned integer.
+ * @param write Flag indicating a write operation.
+ * @param data Unused data pointer.
+ * @return 0 on success, -EINVAL on failure.
+ */
 static int do_proc_douintvec_conv(unsigned long *lvalp,
 				  unsigned int *valp,
 				  int write, void *data)
@@ -438,6 +504,21 @@ static int do_proc_douintvec_conv(unsigned long *lvalp,
 
 static const char proc_wspace_sep[] = { ' ', '\t', '\n' };
 
+/**
+ * @brief Internal helper for processing integer vectors.
+ * @param tbl_data The kernel data buffer.
+ * @param table The sysctl table.
+ * @param write Flag indicating a write operation.
+ * @param buffer The user-space buffer.
+ * @param lenp Pointer to the buffer length.
+ * @param ppos Pointer to the file position.
+ * @param conv Conversion function.
+ * @param data Data for the conversion function.
+ * @return 0 on success, or an error code.
+ *
+ * This function iterates through a vector of integers, converting them between
+ * their ASCII and binary representations.
+ */
 static int __do_proc_dointvec(void *tbl_data, const struct ctl_table *table,
 		  int write, void *buffer,
 		  size_t *lenp, loff_t *ppos,
@@ -470,6 +551,8 @@ static int __do_proc_dointvec(void *tbl_data, const struct ctl_table *table,
 		p = buffer;
 	}
 
+	// Invariant: The loop processes each integer in the vector, converting and
+	// validating it.
 	for (; left && vleft--; i++, first=0) {
 		unsigned long lval;
 		bool neg;
@@ -521,6 +604,17 @@ static int do_proc_dointvec(const struct ctl_table *table, int write,
 			buffer, lenp, ppos, conv, data);
 }
 
+/**
+ * @brief Helper for writing unsigned integer vectors.
+ * @param tbl_data The kernel data buffer.
+ * @param table The sysctl table.
+ * @param buffer The user-space buffer.
+ * @param lenp Pointer to the buffer length.
+ * @param ppos Pointer to the file position.
+ * @param conv Conversion function.
+ * @param data Data for the conversion function.
+ * @return 0 on success, or an error code.
+ */
 static int do_proc_douintvec_w(unsigned int *tbl_data,
 			       const struct ctl_table *table,
 			       void *buffer,
@@ -578,6 +672,16 @@ bail_early:
 	return err;
 }
 
+/**
+ * @brief Helper for reading unsigned integer vectors.
+ * @param tbl_data The kernel data buffer.
+ * @param buffer The user-space buffer.
+ * @param lenp Pointer to the buffer length.
+ * @param ppos Pointer to the file position.
+ * @param conv Conversion function.
+ * @param data Data for the conversion function.
+ * @return 0 on success, or an error code.
+ */
 static int do_proc_douintvec_r(unsigned int *tbl_data, void *buffer,
 			       size_t *lenp, loff_t *ppos,
 			       int (*conv)(unsigned long *lvalp,
@@ -729,7 +833,7 @@ int proc_dointvec(const struct ctl_table *table, int write, void *buffer,
  * Returns 0 on success.
  */
 int proc_douintvec(const struct ctl_table *table, int write, void *buffer,
-		size_t *lenp, loff_t *ppos)
+			size_t *lenp, loff_t *ppos)
 {
 	return do_proc_douintvec(table, write, buffer, lenp, ppos,
 				 do_proc_douintvec_conv, NULL);
@@ -740,7 +844,7 @@ int proc_douintvec(const struct ctl_table *table, int write, void *buffer,
  * This means we can safely use a temporary.
  */
 static int proc_taint(const struct ctl_table *table, int write,
-			       void *buffer, size_t *lenp, loff_t *ppos)
+		       void *buffer, size_t *lenp, loff_t *ppos)
 {
 	struct ctl_table t;
 	unsigned long tmptaint = get_taint();
@@ -770,6 +874,7 @@ static int proc_taint(const struct ctl_table *table, int write,
 		 * Poor man's atomic or. Not worth adding a primitive
 		 * to everyone's atomic.h for this
 		 */
+		// Invariant: Atomically sets each taint bit specified by the user.
 		for (i = 0; i < TAINT_FLAGS_COUNT; i++)
 			if ((1UL << i) & tmptaint)
 				add_taint(i, LOCKDEP_STILL_OK);
@@ -809,6 +914,7 @@ static int do_proc_dointvec_minmax_conv(bool *negp, unsigned long *lvalp,
 		return ret;
 
 	if (write) {
+		// Pre-condition: The value must be within the specified min/max range.
 		if ((param->min && *param->min > tmp) ||
 		    (param->max && *param->max < tmp))
 			return -EINVAL;
@@ -958,7 +1064,7 @@ int proc_dou8vec_minmax(const struct ctl_table *table, int write,
 	tmp.data = &val;
 	val = READ_ONCE(*data);
 	res = do_proc_douintvec(&tmp, write, buffer, lenp, ppos,
-				do_proc_douintvec_minmax_conv, &param);
+					do_proc_douintvec_minmax_conv, &param);
 	if (res)
 		return res;
 	if (write)
@@ -987,6 +1093,21 @@ static int sysrq_sysctl_handler(const struct ctl_table *table, int write,
 }
 #endif
 
+/**
+ * @brief Internal helper for processing vectors of unsigned longs.
+ * @param data The kernel data buffer.
+ * @param table The sysctl table.
+ * @param write Flag indicating a write operation.
+ * @param buffer The user-space buffer.
+ * @param lenp Pointer to the buffer length.
+ * @param ppos Pointer to the file position.
+ * @param convmul Multiplier for conversion.
+ * @param convdiv Divisor for conversion.
+ * @return 0 on success, or an error code.
+ *
+ * This function is similar to `__do_proc_dointvec`, but for unsigned long
+ * values. It also supports scaling of values during conversion.
+ */
 static int __do_proc_doulongvec_minmax(void *data,
 		const struct ctl_table *table, int write,
 		void *buffer, size_t *lenp, loff_t *ppos,
@@ -1143,8 +1264,8 @@ static int do_proc_dointvec_jiffies_conv(bool *negp, unsigned long *lvalp,
 }
 
 static int do_proc_dointvec_userhz_jiffies_conv(bool *negp, unsigned long *lvalp,
-						int *valp,
-						int write, void *data)
+							int *valp,
+							int write, void *data)
 {
 	if (write) {
 		if (USER_HZ < HZ && *lvalp > (LONG_MAX / HZ) * USER_HZ)
@@ -1165,6 +1286,19 @@ static int do_proc_dointvec_userhz_jiffies_conv(bool *negp, unsigned long *lvalp
 	return 0;
 }
 
+/**
+ * @brief Converts between milliseconds and jiffies for sysctl operations.
+ * @param negp Pointer to a boolean indicating if the number is negative.
+ * @param lvalp Pointer to the parsed value.
+ * @param valp Pointer to the destination integer in jiffies.
+ * @param write Flag indicating a write operation.
+ * @param data Unused data pointer.
+ * @return 0 on success, 1 on failure.
+ *
+ * Functional utility: This is a conversion helper that translates between
+ * user-friendly millisecond values and the kernel's internal jiffy-based time
+ * representation.
+ */
 static int do_proc_dointvec_ms_jiffies_conv(bool *negp, unsigned long *lvalp,
 					    int *valp,
 					    int write, void *data)
@@ -1191,7 +1325,7 @@ static int do_proc_dointvec_ms_jiffies_conv(bool *negp, unsigned long *lvalp,
 }
 
 static int do_proc_dointvec_ms_jiffies_minmax_conv(bool *negp, unsigned long *lvalp,
-						int *valp, int write, void *data)
+								int *valp, int write, void *data)
 {
 	int tmp, ret;
 	struct do_proc_dointvec_minmax_conv_param *param = data;
@@ -1207,7 +1341,7 @@ static int do_proc_dointvec_ms_jiffies_minmax_conv(bool *negp, unsigned long *lv
 
 	if (write) {
 		if ((param->min && *param->min > tmp) ||
-				(param->max && *param->max < tmp))
+					(param->max && *param->max < tmp))
 			return -EINVAL;
 		*valp = tmp;
 	}
@@ -1237,7 +1371,7 @@ int proc_dointvec_jiffies(const struct ctl_table *table, int write,
 }
 
 int proc_dointvec_ms_jiffies_minmax(const struct ctl_table *table, int write,
-			  void *buffer, size_t *lenp, loff_t *ppos)
+					  void *buffer, size_t *lenp, loff_t *ppos)
 {
 	struct do_proc_dointvec_minmax_conv_param param = {
 		.min = (int *) table->extra1,
@@ -1279,18 +1413,30 @@ int proc_dointvec_userhz_jiffies(const struct ctl_table *table, int write,
  *
  * Reads/writes up to table->maxlen/sizeof(unsigned int) integer
  * values from/to the user buffer, treated as an ASCII string.
- * The values read are assumed to be in 1/1000 seconds, and
+ * The values read are assumed to be in 1/1000 seconds,
  * are converted into jiffies.
  *
  * Returns 0 on success.
  */
 int proc_dointvec_ms_jiffies(const struct ctl_table *table, int write, void *buffer,
-		size_t *lenp, loff_t *ppos)
+			size_t *lenp, loff_t *ppos)
 {
 	return do_proc_dointvec(table, write, buffer, lenp, ppos,
 				do_proc_dointvec_ms_jiffies_conv, NULL);
 }
 
+/**
+ * @brief Sysctl handler for the CAD PID (Ctrl-Alt-Del).
+ * @param table The sysctl table.
+ * @param write Flag indicating a write operation.
+ * @param buffer The user-space buffer.
+ * @param lenp Pointer to the buffer length.
+ * @param ppos Pointer to the file position.
+ * @return 0 on success, or an error code.
+ *
+ * This function reads or writes the PID to be signaled on a Ctrl-Alt-Del key
+ * combination. It ensures that the new PID is valid before making the change.
+ */
 static int proc_do_cad_pid(const struct ctl_table *table, int write, void *buffer,
 		size_t *lenp, loff_t *ppos)
 {
@@ -1359,6 +1505,8 @@ int proc_do_large_bitmap(const struct ctl_table *table, int write,
 		if (!tmp_bitmap)
 			return -ENOMEM;
 		proc_skip_char(&p, &left, '\n');
+		// Invariant: Parses the comma-separated list of ranges, setting the
+		// corresponding bits in a temporary bitmap.
 		while (!err && left) {
 			unsigned long val_a, val_b;
 			bool neg;
@@ -1392,7 +1540,8 @@ int proc_do_large_bitmap(const struct ctl_table *table, int write,
 			}
 
 			if (c == '-') {
-				err = proc_get_long(&p, &left, &val_b,
+				err = proc_get_long(&p, &left,
+						     &val_b,
 						     &neg, tr_b, sizeof(tr_b),
 						     &c);
 				/*
@@ -1425,12 +1574,14 @@ int proc_do_large_bitmap(const struct ctl_table *table, int write,
 		unsigned long bit_a, bit_b = 0;
 		bool first = 1;
 
+		// Invariant: Iterates through the set bits of the bitmap, formatting
+		// them into a comma-separated list of ranges.
 		while (left) {
 			bit_a = find_next_bit(bitmap, bitmap_len, bit_b);
 			if (bit_a >= bitmap_len)
 				break;
 			bit_b = find_next_zero_bit(bitmap, bitmap_len,
-						   bit_a + 1) - 1;
+							   bit_a + 1) - 1;
 
 			if (!first)
 				proc_put_char(&buffer, &left, ',');
@@ -1517,7 +1668,7 @@ int proc_dointvec_ms_jiffies_minmax(const struct ctl_table *table, int write,
 }
 
 int proc_dointvec_userhz_jiffies(const struct ctl_table *table, int write,
-		    void *buffer, size_t *lenp, loff_t *ppos)
+				    void *buffer, size_t *lenp, loff_t *ppos)
 {
 	return -ENOSYS;
 }
@@ -1529,7 +1680,7 @@ int proc_dointvec_ms_jiffies(const struct ctl_table *table, int write,
 }
 
 int proc_doulongvec_minmax(const struct ctl_table *table, int write,
-		    void *buffer, size_t *lenp, loff_t *ppos)
+			void *buffer, size_t *lenp, loff_t *ppos)
 {
 	return -ENOSYS;
 }

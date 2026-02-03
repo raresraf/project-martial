@@ -1,3 +1,16 @@
+/**
+ * @file xfs_aops.c
+ * @brief Implements the address_space_operations for the XFS filesystem.
+ * @copyright Copyright (c) 2000-2005 Silicon Graphics, Inc.
+ * @copyright Copyright (c) 2016-2025 Christoph Hellwig.
+ *
+ * This file provides the XFS implementation of the VFS address_space_operations,
+ * which is the primary interface between the page cache and the filesystem. It
+ * handles operations such as reading and writing pages, writeback, and page
+ * revalidation. The implementation is built on top of the iomap interface and
+ * includes logic for handling XFS-specific features like delayed allocation,
+ * unwritten extents, copy-on-write (COW), and zoned block devices.
+ */
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2000-2005 Silicon Graphics, Inc.
@@ -23,12 +36,25 @@
 #include "xfs_zone_alloc.h"
 #include "xfs_rtgroup.h"
 
+/**
+ * @struct xfs_writepage_ctx
+ * @brief XFS-specific context for writepage operations.
+ *
+ * This structure extends the generic iomap_writepage_ctx with sequence numbers
+ * for the data and COW forks, which are used for fast revalidation of cached
+ * block mappings.
+ */
 struct xfs_writepage_ctx {
 	struct iomap_writepage_ctx ctx;
 	unsigned int		data_seq;
 	unsigned int		cow_seq;
 };
 
+/**
+ * @brief Casts an iomap_writepage_ctx to an xfs_writepage_ctx.
+ * @param ctx The iomap_writepage_ctx to cast.
+ * @return A pointer to the containing xfs_writepage_ctx.
+ */
 static inline struct xfs_writepage_ctx *
 XFS_WPC(struct iomap_writepage_ctx *ctx)
 {
@@ -44,8 +70,16 @@ static inline bool xfs_ioend_is_append(struct iomap_ioend *ioend)
 		XFS_I(ioend->io_inode)->i_disk_size;
 }
 
-/*
- * Update on-disk file size now that data has been written to disk.
+/**
+ * @brief Updates the on-disk file size.
+ * @param ip The inode being updated.
+ * @param offset The starting offset of the write that may have extended the file.
+ * @param size The size of the write.
+ * @return 0 on success, or a negative error code.
+ *
+ * This function is called after a successful write to update the on-disk inode
+ * size if the write extended the file. It is a transactional update, ensuring
+ * that the size change is persistent.
  */
 int
 xfs_setfilesize(
@@ -64,6 +98,8 @@ xfs_setfilesize(
 
 	xfs_ilock(ip, XFS_ILOCK_EXCL);
 	isize = xfs_new_eof(ip, offset + size);
+	// Post-condition: If the new size is not larger than the current size,
+	// there is nothing to do.
 	if (!isize) {
 		xfs_iunlock(ip, XFS_ILOCK_EXCL);
 		xfs_trans_cancel(tp);
@@ -79,6 +115,14 @@ xfs_setfilesize(
 	return xfs_trans_commit(tp);
 }
 
+/**
+ * @brief Releases the open zone reference for an ioend and its merged ioends.
+ * @param ioend The ioend whose open zone is to be released.
+ *
+ * For zoned block devices, each write requires an open zone. This function
+ * releases the reference to the open zone for a completed I/O, allowing it to
+ * be used by other writers.
+ */
 static void
 xfs_ioend_put_open_zones(
 	struct iomap_ioend	*ioend)
@@ -99,8 +143,14 @@ xfs_ioend_put_open_zones(
 		xfs_open_zone_put(ioend->io_private);
 }
 
-/*
- * IO write completion.
+/**
+ * @brief The completion handler for an I/O write operation.
+ * @param ioend The ioend representing the completed I/O.
+ *
+ * This function is called when an I/O write completes. It handles error
+ * processing, commits COW or unwritten blocks, and updates the file size if
+ * necessary. It is the central point for finalizing the state of the filesystem
+ * after a write.
  */
 STATIC void
 xfs_end_ioend(
@@ -137,6 +187,8 @@ xfs_end_ioend(
 	 * stale and can corrupt free space accounting on unmount.
 	 */
 	error = blk_status_to_errno(ioend->io_bio.bi_status);
+	// Invariant: If an error occurred, COW reservations are canceled and
+	// delalloc blocks are punched to prevent inconsistencies.
 	if (unlikely(error)) {
 		if (ioend->io_flags & IOMAP_IOEND_SHARED) {
 			ASSERT(!is_zoned);
@@ -158,6 +210,7 @@ xfs_end_ioend(
 	else if (ioend->io_flags & IOMAP_IOEND_UNWRITTEN)
 		error = xfs_iomap_write_unwritten(ip, offset, size, false);
 
+	// Invariant: If the write extended the file, the on-disk size is updated.
 	if (!error &&
 	    !(ioend->io_flags & IOMAP_IOEND_DIRECT) &&
 	    xfs_ioend_is_append(ioend))
@@ -198,6 +251,8 @@ xfs_end_io(
 	spin_unlock_irqrestore(&ip->i_ioend_lock, flags);
 
 	iomap_sort_ioends(&tmp);
+	// Invariant: This loop processes all pending I/O completions, merging
+	// contiguous ioends to reduce overhead.
 	while ((ioend = list_first_entry_or_null(&tmp, struct iomap_ioend,
 			io_list))) {
 		list_del_init(&ioend->io_list);
@@ -207,6 +262,14 @@ xfs_end_io(
 	}
 }
 
+/**
+ * @brief The bio completion handler for XFS.
+ * @param bio The completed bio.
+ *
+ * This function is called when a bio completes. It retrieves the associated
+ * ioend and queues it for processing by the `xfs_end_io` workqueue, which
+ * handles the transactional parts of I/O completion.
+ */
 void
 xfs_end_bio(
 	struct bio		*bio)
@@ -274,9 +337,17 @@ xfs_discard_folio(
 				folio_pos(folio) + folio_size(folio), NULL);
 }
 
-/*
- * Fast revalidation of the cached writeback mapping. Return true if the current
- * mapping is valid, false otherwise.
+/**
+ * @brief Fast revalidation of a cached writeback mapping.
+ * @param wpc The writepage context containing the cached iomap.
+ * @param ip The inode.
+ * @param offset The offset being written to.
+ * @return True if the mapping is still valid, false otherwise.
+ *
+ * This function provides a fast path for revalidating a cached block mapping
+ * during writeback. It checks the sequence numbers of the data and COW forks
+ * to detect any concurrent modifications that might have invalidated the
+ * mapping.
  */
 static bool
 xfs_imap_valid(
@@ -284,6 +355,7 @@ xfs_imap_valid(
 	struct xfs_inode		*ip,
 	loff_t				offset)
 {
+	// Pre-condition: The offset must be within the bounds of the cached iomap.
 	if (offset < wpc->iomap.offset ||
 	    offset >= wpc->iomap.offset + wpc->iomap.length)
 		return false;
@@ -316,6 +388,17 @@ xfs_imap_valid(
 	return true;
 }
 
+/**
+ * @brief Maps a logical offset to a physical block for writeback.
+ * @param wpc The writepage context.
+ * @param offset The logical offset to map.
+ * @param len The length of the mapping.
+ * @return 0 on success, or a negative error code.
+ *
+ * This function is the core of the writeback process. It first attempts to
+ * revalidate a cached mapping. If that fails, it performs a new lookup,
+ * potentially converting delayed allocation extents to real extents.
+ */
 static int
 xfs_map_blocks(
 	struct iomap_writepage_ctx *wpc,
@@ -355,6 +438,7 @@ xfs_map_blocks(
 	 * against concurrent updates and provides a memory barrier on the way
 	 * out that ensures that we always see the current value.
 	 */
+	// Fast path: If the cached mapping is still valid, use it.
 	if (xfs_imap_valid(wpc, ip, offset))
 		return 0;
 
@@ -452,6 +536,9 @@ allocate_blocks:
 		 * the former case, but prevent additional retries to avoid
 		 * looping forever for the latter case.
 		 */
+		// Invariant: If a delalloc conversion in the COW fork fails, retry the
+		// lookup in the data fork, as another thread may have already
+		// completed the conversion.
 		if (error == -EAGAIN && whichfork == XFS_COW_FORK && !retries++)
 			goto retry;
 		ASSERT(error != -EAGAIN);
@@ -476,6 +563,19 @@ allocate_blocks:
 	return 0;
 }
 
+/**
+ * @brief The writeback_range implementation for XFS.
+ * @param wpc The writepage context.
+ * @param folio The folio being written back.
+ * @param offset The logical offset of the write.
+ * @param len The length of the write.
+ * @param end_pos The end position of the folio.
+ * @return 0 on success, or a negative error code.
+ *
+ * This function is called by the iomap core for each range within a folio
+ * that needs to be written back. It maps the blocks and adds the I/O to the
+ * current ioend.
+ */
 static ssize_t
 xfs_writeback_range(
 	struct iomap_writepage_ctx *wpc,
@@ -494,6 +594,16 @@ xfs_writeback_range(
 	return ret;
 }
 
+/**
+ * @brief Checks if an ioend requires completion through the workqueue.
+ * @param ioend The ioend to check.
+ * @return True if workqueue completion is needed, false otherwise.
+ *
+ * This function determines whether an ioend can be completed in the bio
+ * completion context or if it needs to be deferred to a workqueue. This is
+ * necessary for operations that require a transaction or cannot be performed
+ * in an IRQ context.
+ */
 static bool
 xfs_ioend_needs_wq_completion(
 	struct iomap_ioend	*ioend)
@@ -513,6 +623,17 @@ xfs_ioend_needs_wq_completion(
 	return false;
 }
 
+/**
+ * @brief The writeback_submit implementation for XFS.
+ * @param wpc The writepage context.
+ * @param error An error code from a previous stage, or 0.
+ * @return 0 on success, or a negative error code.
+ *
+ * This function is called after all ranges in an ioend have been processed. It
+ * handles COW to data fork conversion and then submits the I/O. It also
+ * decides whether completion should be handled synchronously or through the
+ * workqueue.
+ */
 static int
 xfs_writeback_submit(
 	struct iomap_writepage_ctx	*wpc,
@@ -527,6 +648,8 @@ xfs_writeback_submit(
 	 * reclaim.  To avoid memory allocation deadlocks, set the task-wide
 	 * nofs context.
 	 */
+	// Block Logic: If the I/O targets a shared extent, it must be converted
+	// to a regular extent before being written to.
 	if (!error && (ioend->io_flags & IOMAP_IOEND_SHARED)) {
 		unsigned int		nofs_flag;
 
@@ -550,6 +673,13 @@ static const struct iomap_writeback_ops xfs_writeback_ops = {
 	.writeback_submit	= xfs_writeback_submit,
 };
 
+/**
+ * @struct xfs_zoned_writepage_ctx
+ * @brief XFS-specific context for writepage operations on zoned devices.
+ *
+ * This structure extends the generic iomap_writepage_ctx with a reference to
+ * an open zone, which is required for writes to zoned block devices.
+ */
 struct xfs_zoned_writepage_ctx {
 	struct iomap_writepage_ctx	ctx;
 	struct xfs_open_zone		*open_zone;
@@ -561,6 +691,17 @@ XFS_ZWPC(struct iomap_writepage_ctx *ctx)
 	return container_of(ctx, struct xfs_zoned_writepage_ctx, ctx);
 }
 
+/**
+ * @brief Maps blocks for writeback on a zoned device.
+ * @param wpc The writepage context.
+ * @param offset The logical offset.
+ * @param len The length of the mapping.
+ * @return 0 on success, or a negative error code.
+ *
+ * This function handles block mapping for zoned devices. It consumes delayed
+ * allocation extents from the COW fork and creates an anonymous write mapping,
+ * as the actual block allocation is deferred until just before bio submission.
+ */
 static int
 xfs_zoned_map_blocks(
 	struct iomap_writepage_ctx *wpc,
@@ -644,6 +785,16 @@ xfs_zoned_writeback_range(
 	return ret;
 }
 
+/**
+ * @brief The writeback_submit implementation for zoned devices.
+ * @param wpc The writepage context.
+ * @param error An error code from a previous stage, or 0.
+ * @return 0 on success, or a negative error code.
+ *
+ * This function submits the write I/O for a zoned device. It calls
+ * `xfs_zone_alloc_and_submit` to handle the allocation of a zone and the
+ * submission of the bio.
+ */
 static int
 xfs_zoned_writeback_submit(
 	struct iomap_writepage_ctx	*wpc,
@@ -666,6 +817,16 @@ static const struct iomap_writeback_ops xfs_zoned_writeback_ops = {
 	.writeback_submit	= xfs_zoned_writeback_submit,
 };
 
+/**
+ * @brief The writepages implementation for XFS.
+ * @param mapping The address space being written back.
+ * @param wbc The writeback control structure.
+ * @return 0 on success, or a negative error code.
+ *
+ * This is the main entry point for writing back dirty pages. It dispatches to
+ * the appropriate iomap_writepages implementation based on whether the device
+ * is zoned or not.
+ */
 STATIC int
 xfs_vm_writepages(
 	struct address_space	*mapping,
@@ -675,6 +836,8 @@ xfs_vm_writepages(
 
 	xfs_iflags_clear(ip, XFS_ITRUNCATED);
 
+	// Block Logic: Dispatches to different writeback implementations for zoned
+	// and non-zoned devices.
 	if (xfs_is_zoned_inode(ip)) {
 		struct xfs_zoned_writepage_ctx	xc = {
 			.ctx = {
@@ -702,6 +865,15 @@ xfs_vm_writepages(
 	}
 }
 
+/**
+ * @brief The writepages implementation for DAX.
+ * @param mapping The address space.
+ * @param wbc The writeback control structure.
+ * @return 0 on success, or a negative error code.
+ *
+ * For DAX, writeback is handled by flushing the CPU caches for the relevant
+ * range of the device.
+ */
 STATIC int
 xfs_dax_writepages(
 	struct address_space	*mapping,
@@ -714,6 +886,15 @@ xfs_dax_writepages(
 			xfs_inode_buftarg(ip)->bt_daxdev, wbc);
 }
 
+/**
+ * @brief The bmap implementation for XFS.
+ * @param mapping The address space.
+ * @param block The logical block to map.
+ * @return The physical block number, or 0 on error or for a hole.
+ *
+ * This function is used by the swap code to map a logical block to a physical
+ * block. It is not supported for reflink or real-time files.
+ */
 STATIC sector_t
 xfs_vm_bmap(
 	struct address_space	*mapping,
@@ -752,6 +933,17 @@ xfs_vm_readahead(
 	iomap_readahead(rac, &xfs_read_iomap_ops);
 }
 
+/**
+ * @brief Activates a swap file on an XFS filesystem.
+ * @param sis The swap info structure.
+ * @param swap_file The swap file.
+ * @param span A pointer to store the number of pages in the swap file.
+ * @return 0 on success, or a negative error code.
+ *
+ * This function handles the activation of a swap file. It includes a workaround
+ * for a race condition with reflink extent removal and then uses the iomap
+ * interface to perform the activation.
+ */
 static int
 xfs_vm_swap_activate(
 	struct swap_info_struct		*sis,

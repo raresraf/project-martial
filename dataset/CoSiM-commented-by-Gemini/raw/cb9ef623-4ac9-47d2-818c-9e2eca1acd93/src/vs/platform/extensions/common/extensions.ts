@@ -1,3 +1,13 @@
+/**
+ * @file extensions.ts
+ * @brief Common types and interfaces for Visual Studio Code extensions.
+ * @copyright Copyright (c) Microsoft Corporation. All rights reserved.
+ * @license MIT
+ *
+ * This file defines the core data structures and interfaces that represent
+ * an extension and its manifest. It includes definitions for an extension's
+ * contributions, capabilities, and other metadata.
+ */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -101,6 +111,10 @@ export interface ICodeActionContribution {
 	readonly actions: readonly ICodeActionContributionAction[];
 }
 
+/**
+ * @interface IAuthenticationContribution
+ * @brief Defines an authentication provider contributed by an extension.
+ */
 export interface IAuthenticationContribution {
 	readonly id: string;
 	readonly label: string;
@@ -198,6 +212,11 @@ export interface IMcpCollectionContribution {
 	readonly label: string;
 }
 
+/**
+ * @interface IExtensionContributions
+ * @brief Defines the set of contributions that an extension can make to
+ *        Visual Studio Code.
+ */
 export interface IExtensionContributions {
 	commands?: ICommand[];
 	configuration?: any;
@@ -282,6 +301,10 @@ export const EXTENSION_CATEGORIES = [
 	'Other',
 ];
 
+/**
+ * @interface IRelaxedExtensionManifest
+ * @brief A relaxed version of the extension manifest, used for parsing.
+ */
 export interface IRelaxedExtensionManifest {
 	name: string;
 	displayName?: string;
@@ -320,6 +343,10 @@ export const enum ExtensionType {
 	User
 }
 
+/**
+ * @enum TargetPlatform
+ * @brief The target platform for an extension.
+ */
 export const enum TargetPlatform {
 	WIN32_X64 = 'win32-x64',
 	WIN32_ARM64 = 'win32-arm64',
@@ -341,6 +368,10 @@ export const enum TargetPlatform {
 	UNDEFINED = 'undefined',
 }
 
+/**
+ * @interface IExtension
+ * @brief Represents a single extension.
+ */
 export interface IExtension {
 	readonly type: ExtensionType;
 	readonly isBuiltin: boolean;
@@ -496,6 +527,10 @@ export class ExtensionError extends Error {
 	}
 }
 
+/**
+ * @interface IRelaxedExtensionDescription
+ * @brief A relaxed version of the extension description, used for parsing.
+ */
 export interface IRelaxedExtensionDescription extends IRelaxedExtensionManifest {
 	id?: string;
 	identifier: ExtensionIdentifier;

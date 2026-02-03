@@ -1,3 +1,14 @@
+/**
+ * @file extHost.api.impl.ts
+ * @brief Implements the VS Code extension API.
+ * @copyright Copyright (c) Microsoft Corporation. All rights reserved.
+ * @license MIT
+ *
+ * This file is the entry point for the creation of the VS Code extension API.
+ * It instantiates and registers all the necessary services and APIs that are
+ * exposed to extensions, such as the `vscode.workspace`, `vscode.window`, and
+ * `vscode.commands` namespaces.
+ */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -122,7 +133,13 @@ export interface IExtensionApiFactory {
 }
 
 /**
- * This method instantiates and returns the extension API surface
+ * @brief Creates the extension API factory and registers all actors.
+ * @param accessor A service accessor for dependency injection.
+ * @return An extension API factory function.
+ *
+ * This function is the central point for initializing the extension API. It
+ * instantiates all the necessary services and registers them with the RPC
+ * protocol, making them available to the main thread.
  */
 export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): IExtensionApiFactory {
 
@@ -292,6 +309,11 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 			};
 		})();
 
+		/**
+		 * @namespace authentication
+		 * @brief Provides an API for extensions to interact with authentication
+		 *        providers.
+		 */
 		const authentication: typeof vscode.authentication = {
 			getSession(providerId: string, scopes: readonly string[], options?: vscode.AuthenticationGetSessionOptions) {
 				if (
@@ -902,7 +924,7 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 				return extHostNotebook.activeNotebookEditor;
 			},
 			onDidChangeActiveNotebookEditor(listener, thisArgs?, disposables?) {
-				return _asExtensionEvent(extHostNotebook.onDidChangeActiveNotebookEditor)(listener, thisArgs, disposables);
+				return _asExtensionEvent(extHostNotebook.onDidChangeActiveNotebookEditor)(listener, thisArg, disposables);
 			},
 			get visibleNotebookEditors() {
 				return extHostNotebook.visibleNotebookEditors;

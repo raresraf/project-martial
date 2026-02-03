@@ -1,3 +1,14 @@
+/**
+ * @file rtmutex_api.c
+ * @brief Public API implementation for real-time mutexes.
+ *
+ * This file provides the user-facing API for real-time (RT) mutexes. It
+ * includes functions for locking, unlocking, and initializing RT-mutexes,
+ * along with their interruptible, killable, and trylock variants. The
+ * implementation is designed to be aware of debugging configurations and
+ * includes specialized logic for futexes and proxy locking, which are
+ * essential for user-space priority inheritance.
+ */
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * rtmutex API
@@ -18,6 +29,18 @@ int max_lock_depth = 1024;
  *
  * The atomic acquire/release ops are compiled away, when either the
  * architecture does not support cmpxchg or when debugging is enabled.
+ */
+/**
+ * @brief Common locking function for RT-mutexes.
+ * @param lock The RT-mutex to be locked.
+ * @param state The task state to use while waiting.
+ * @param nest_lock The nested lock map for lockdep.
+ * @param subclass The lockdep subclass.
+ * @return 0 on success, or a negative error code.
+ *
+ * This internal function centralizes the common logic for acquiring an
+ * RT-mutex, including lockdep annotations and invoking the core lock
+ * acquisition logic.
  */
 static __always_inline int __rt_mutex_lock_common(struct rt_mutex *lock,
 						  unsigned int state,
@@ -161,6 +184,10 @@ int __sched __rt_mutex_futex_trylock(struct rt_mutex_base *lock)
  *
  * @lock:	The rt_mutex to be unlocked
  * @wqh:	The wake queue head from which to get the next lock waiter
+ *
+ * This function is a specialized unlock path for futexes, which always use
+ * the slowpath. It marks the next waiter for wakeup without performing a
+ * fastpath check.
  */
 bool __sched __rt_mutex_futex_unlock(struct rt_mutex_base *lock,
 				     struct rt_wake_q_head *wqh)
@@ -169,6 +196,7 @@ bool __sched __rt_mutex_futex_unlock(struct rt_mutex_base *lock,
 
 	debug_rt_mutex_unlock(lock);
 
+	// Pre-condition: If there are no waiters, simply release the lock.
 	if (!rt_mutex_has_waiters(lock)) {
 		lock->owner = NULL;
 		return false; /* done */
@@ -299,6 +327,7 @@ int __sched __rt_mutex_start_proxy_lock(struct rt_mutex_base *lock,
 
 	lockdep_assert_held(&lock->wait_lock);
 
+	// Pre-condition: Attempt to acquire the lock without blocking.
 	if (try_to_take_rt_mutex(lock, task, NULL))
 		return 1;
 
@@ -306,6 +335,8 @@ int __sched __rt_mutex_start_proxy_lock(struct rt_mutex_base *lock,
 	ret = task_blocks_on_rt_mutex(lock, waiter, task, NULL,
 				      RT_MUTEX_FULL_CHAINWALK, wake_q);
 
+	// Post-condition: If a deadlock was detected but the lock has since
+	// been released, let the waiter retry.
 	if (ret && !rt_mutex_owner(lock)) {
 		/*
 		 * Reset the return value. We might have
@@ -465,6 +496,8 @@ void __sched rt_mutex_adjust_pi(struct task_struct *task)
 	raw_spin_lock_irqsave(&task->pi_lock, flags);
 
 	waiter = task->pi_blocked_on;
+	// Pre-condition: If the task is not blocked on an RT-mutex, or if its
+	// priority has not changed, there is nothing to do.
 	if (!waiter || rt_waiter_node_equal(&waiter->tree, task_to_waiter_node(task))) {
 		raw_spin_unlock_irqrestore(&task->pi_lock, flags);
 		return;

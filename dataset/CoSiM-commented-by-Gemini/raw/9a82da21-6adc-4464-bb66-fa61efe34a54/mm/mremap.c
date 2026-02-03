@@ -1,3 +1,16 @@
+/**
+ * @file mremap.c
+ * @brief Implementation of the mremap() system call.
+ * @copyright (C) Copyright 1996 Linus Torvalds
+ * @copyright (C) Copyright 2002 Red Hat Inc, All Rights Reserved
+ *
+ * This file contains the core logic for the `mremap()` system call, which is
+ * used to expand, shrink, or move a virtual memory area (VMA). The
+ * implementation handles various scenarios, including in-place expansion,
+ * moving a VMA to a new address, and handling special memory types like
+ * huge pages and shared memory. It also includes support for userfaultfd, which
+ * allows for userspace handling of page faults.
+ */
 // SPDX-License-Identifier: GPL-2.0
 /*
  *	mm/mremap.c
@@ -71,6 +84,12 @@ struct vma_remap_struct {
 	unsigned long charged;		/* If VM_ACCOUNT, # pages to account. */
 };
 
+/**
+ * @brief Retrieves the PUD entry for a given address.
+ * @param mm The memory descriptor.
+ * @param addr The address.
+ * @return A pointer to the PUD entry, or NULL if not found.
+ */
 static pud_t *get_old_pud(struct mm_struct *mm, unsigned long addr)
 {
 	pgd_t *pgd;
@@ -92,6 +111,12 @@ static pud_t *get_old_pud(struct mm_struct *mm, unsigned long addr)
 	return pud;
 }
 
+/**
+ * @brief Retrieves the PMD entry for a given address.
+ * @param mm The memory descriptor.
+ * @param addr The address.
+ * @return A pointer to the PMD entry, or NULL if not found.
+ */
 static pmd_t *get_old_pmd(struct mm_struct *mm, unsigned long addr)
 {
 	pud_t *pud;
@@ -155,6 +180,15 @@ static void drop_rmap_locks(struct vm_area_struct *vma)
 		i_mmap_unlock_write(vma->vm_file->f_mapping);
 }
 
+/**
+ * @brief Sets the soft-dirty bit on a PTE.
+ * @param pte The PTE to modify.
+ * @return The modified PTE.
+ *
+ * This is used to track which pages have been modified since the last time
+ * the soft-dirty bit was cleared, which is useful for checkpoint/restore in
+ * userspace (CRIU).
+ */
 static pte_t move_soft_dirty_pte(pte_t pte)
 {
 	/*
@@ -185,6 +219,18 @@ static int mremap_folio_pte_batch(struct vm_area_struct *vma, unsigned long addr
 	return folio_pte_batch(folio, ptep, pte, max_nr);
 }
 
+/**
+ * @brief Moves PTEs from an old to a new address range.
+ * @param pmc The pagetable move control structure.
+ * @param extent The size of the range to move.
+ * @param old_pmd The PMD for the old address range.
+ * @param new_pmd The PMD for the new address range.
+ * @return 0 on success, or an error code.
+ *
+ * This is the core function for moving page table entries. It iterates over the
+ * specified range, moving each PTE from the old to the new page table, and
+ * handles TLB flushing and soft-dirty bit setting.
+ */
 static int move_ptes(struct pagetable_move_control *pmc,
 		unsigned long extent, pmd_t *old_pmd, pmd_t *new_pmd)
 {
@@ -253,6 +299,8 @@ static int move_ptes(struct pagetable_move_control *pmc,
 	flush_tlb_batched_pending(vma->vm_mm);
 	arch_enter_lazy_mmu_mode();
 
+	// Invariant: This loop iterates over the range, moving PTEs in batches
+	// for efficiency, especially for large pages.
 	for (; old_addr < old_end; old_ptep += nr_ptes, old_addr += nr_ptes * PAGE_SIZE,
 		new_ptep += nr_ptes, new_addr += nr_ptes * PAGE_SIZE) {
 		VM_WARN_ON_ONCE(!pte_none(*new_ptep));
@@ -283,6 +331,10 @@ static int move_ptes(struct pagetable_move_control *pmc,
 		pte = move_pte(pte, old_addr, new_addr);
 		pte = move_soft_dirty_pte(pte);
 
+		// Block-level comment: This handles userfaultfd write-protection. If
+		// a page is write-protected for userfaultfd, the protection is
+		// either moved to the new location or cleared, depending on the
+		// VMA's configuration.
 		if (need_clear_uffd_wp && pte_marker_uffd_wp(pte))
 			pte_clear(mm, new_addr, new_ptep);
 		else {
@@ -778,6 +830,16 @@ static unsigned long pmc_progress(struct pagetable_move_control *pmc)
 	return old_addr < orig_old_addr ? 0 : old_addr - orig_old_addr;
 }
 
+/**
+ * @brief Moves page tables from an old VMA to a new one.
+ * @param pmc The pagetable move control structure.
+ * @return The number of bytes moved.
+ *
+ * This function is the heart of the `mremap` implementation. It walks the page
+ * tables of the old VMA and moves the entries to the new VMA. It includes
+ * optimizations for moving entire PUDs or PMDs at a time if the addresses are
+ * aligned, and it handles huge pages.
+ */
 unsigned long move_page_tables(struct pagetable_move_control *pmc)
 {
 	unsigned long extent;
@@ -804,6 +866,9 @@ unsigned long move_page_tables(struct pagetable_move_control *pmc)
 				pmc->old_addr, pmc->old_end);
 	mmu_notifier_invalidate_range_start(&range);
 
+	// Invariant: This loop iterates through the address range, moving page
+	// tables in chunks. It attempts to move larger chunks (PUDs, PMDs) first
+	// for efficiency.
 	for (; !pmc_done(pmc); pmc_next(pmc, extent)) {
 		cond_resched();
 		/*
@@ -1059,13 +1124,13 @@ static unsigned long prep_move_vma(struct vma_remap_struct *vrm)
 	return 0;
 }
 
-/*
- * Unmap source VMA for VMA move, turning it from a copy to a move, being
- * careful to ensure we do not underflow memory account while doing so if an
- * accountable move.
+/**
+ * @brief Unmaps the source VMA during a move operation.
+ * @param vrm The VMA remap structure.
  *
- * This is best effort, if we fail to unmap then we simply try to correct
- * accounting and exit.
+ * This function handles the unmapping of the original VMA after its page
+ * tables have been moved. It carefully manages memory accounting to avoid
+ * double-counting or under-counting.
  */
 static void unmap_source_vma(struct vma_remap_struct *vrm)
 {
@@ -1161,13 +1226,16 @@ static void unmap_source_vma(struct vma_remap_struct *vrm)
 	}
 }
 
-/*
- * Copy vrm->vma over to vrm->new_addr possibly adjusting size as part of the
- * process. Additionally handle an error occurring on moving of page tables,
- * where we reset vrm state to cause unmapping of the new VMA.
+/**
+ * @brief Copies a VMA and its data to a new address.
+ * @param vrm The VMA remap structure.
+ * @param new_vma_ptr A pointer to store the new VMA.
+ * @return 0 on success, or an error code.
  *
- * Outputs the newly installed VMA to new_vma_ptr. Returns 0 on success or an
- * error code.
+ * This function first copies the VMA structure and then calls
+ * `move_page_tables` to move the actual page table entries. It also handles
+ * error recovery by moving the page tables back to the original location if
+ * an error occurs.
  */
 static int copy_vma_and_data(struct vma_remap_struct *vrm,
 			     struct vm_area_struct **new_vma_ptr)
@@ -1198,6 +1266,10 @@ static int copy_vma_and_data(struct vma_remap_struct *vrm,
 	else if (vma->vm_ops && vma->vm_ops->mremap)
 		err = vma->vm_ops->mremap(new_vma);
 
+	// Block-level comment: This error recovery block is crucial for
+	// maintaining a consistent state. If `move_page_tables` fails, it
+	// attempts to move the page tables back to their original location to
+	// undo the partial move.
 	if (unlikely(err)) {
 		PAGETABLE_MOVE(pmc_revert, new_vma, vma, vrm->new_addr,
 			       vrm->addr, moved_len);
@@ -1253,6 +1325,15 @@ static void dontunmap_complete(struct vma_remap_struct *vrm,
 	/* Because we won't unmap we don't need to touch locked_vm. */
 }
 
+/**
+ * @brief Moves a VMA to a new address.
+ * @param vrm The VMA remap structure.
+ * @return The new address on success, or an error code.
+ *
+ * This function orchestrates the moving of a VMA. It prepares the VMA for the
+ * move, handles memory accounting, copies the VMA and its data, and then
+ * unmaps the source VMA.
+ */
 static unsigned long move_vma(struct vma_remap_struct *vrm)
 {
 	struct mm_struct *mm = current->mm;
@@ -1411,9 +1492,14 @@ static unsigned long shrink_vma(struct vma_remap_struct *vrm,
 	return 0;
 }
 
-/*
- * mremap_to() - remap a vma to a new location.
- * Returns: The new address of the vma or an error.
+/**
+ * @brief Remaps a VMA to a new, fixed address.
+ * @param vrm The VMA remap structure.
+ * @return The new address on success, or an error code.
+ *
+ * This function handles `mremap` calls with the `MREMAP_FIXED` flag. It first
+ * unmaps any existing mappings at the target address and then moves the source
+ * VMA.
  */
 static unsigned long mremap_to(struct vma_remap_struct *vrm)
 {
@@ -1604,35 +1690,14 @@ static unsigned long expand_vma_in_place(struct vma_remap_struct *vrm)
 	return 0;
 }
 
-static bool align_hugetlb(struct vma_remap_struct *vrm)
-{
-	struct hstate *h __maybe_unused = hstate_vma(vrm->vma);
-
-	vrm->old_len = ALIGN(vrm->old_len, huge_page_size(h));
-	vrm->new_len = ALIGN(vrm->new_len, huge_page_size(h));
-
-	/* addrs must be huge page aligned */
-	if (vrm->addr & ~huge_page_mask(h))
-		return false;
-	if (vrm->new_addr & ~huge_page_mask(h))
-		return false;
-
-	/*
-	 * Don't allow remap expansion, because the underlying hugetlb
-	 * reservation is not yet capable to handle split reservation.
-	 */
-	if (vrm->new_len > vrm->old_len)
-		return false;
-
-	return true;
-}
-
-/*
- * We are mremap()'ing without specifying a fixed address to move to, but are
- * requesting that the VMA's size be increased.
+/**
+ * @brief Attempts to expand a VMA.
+ * @param vrm The VMA remap structure.
+ * @return The new address on success, or an error code.
  *
- * Try to do so in-place, if this fails, then move the VMA to a new location to
- * action the change.
+ * This function first tries to expand the VMA in-place. If that is not
+ * possible and `MREMAP_MAYMOVE` is specified, it will attempt to move the VMA
+ * to a new location where it can be expanded.
  */
 static unsigned long expand_vma(struct vma_remap_struct *vrm)
 {
@@ -1668,9 +1733,13 @@ static unsigned long expand_vma(struct vma_remap_struct *vrm)
 	return move_vma(vrm);
 }
 
-/*
- * Attempt to resize the VMA in-place, if we cannot, then move the VMA to the
- * first available address to perform the operation.
+/**
+ * @brief Performs an mremap without a fixed destination address.
+ * @param vrm The VMA remap structure.
+ * @return The new address on success, or an error code.
+ *
+ * This function handles `mremap` calls where `MREMAP_FIXED` is not specified.
+ * It will either shrink or expand the VMA, moving it if necessary.
  */
 static unsigned long mremap_at(struct vma_remap_struct *vrm)
 {
@@ -1760,6 +1829,15 @@ static void notify_uffd(struct vma_remap_struct *vrm, bool failed)
 	userfaultfd_unmap_complete(mm, vrm->uf_unmap);
 }
 
+/**
+ * @brief The core logic for the mremap system call.
+ * @param vrm The VMA remap structure.
+ * @return The new address on success, or an error code.
+ *
+ * This function orchestrates the entire mremap operation. It performs
+ * validation of the arguments, acquires the necessary locks, and dispatches to
+ * the appropriate helper function based on the type of remap.
+ */
 static unsigned long do_mremap(struct vma_remap_struct *vrm)
 {
 	struct mm_struct *mm = current->mm;

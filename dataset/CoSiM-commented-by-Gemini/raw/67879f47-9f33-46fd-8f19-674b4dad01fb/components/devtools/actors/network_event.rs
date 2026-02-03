@@ -1,3 +1,14 @@
+/**
+ * @file network_event.rs
+ * @brief Handles network event actor logic for browser devtools.
+ * @license MPL-2.0
+ * @see [Firefox JS implementation](http://mxr.mozilla.org/mozilla-central/source/toolkit/devtools/server/actors/webconsole.js)
+ *
+ * This module is responsible for managing the state and communication related
+ * to a single network event (e.g., an HTTP request) for remote debugging
+ * purposes. It defines the `NetworkEventActor` and associated data structures
+ * that are serialized and sent to a devtools client.
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -20,6 +31,34 @@ use crate::actor::{Actor, ActorMessageStatus, ActorRegistry};
 use crate::network_handler::Cause;
 use crate::protocol::JsonPacketStream;
 
+/**
+ * @struct NetworkEventActor
+ * @brief Represents the state of a single network event.
+ *
+ * This actor accumulates information about an HTTP request and its corresponding
+ * response, including headers, body, timing, and other metadata. It handles
+ * messages from the devtools client to provide this information on demand.
+ *
+ * @field name The unique name of this actor.
+ * @field is_xhr A boolean indicating if the request is an XMLHttpRequest.
+ * @field request_url The URL of the request.
+ * @field request_method The HTTP method of the request.
+ * @field request_started The system time when the request was initiated.
+ * @field request_time_stamp The timestamp of the request start.
+ * @field request_headers_raw Raw request headers.
+ * @field request_body The body of the request.
+ * @field request_cookies Parsed request cookies.
+ * @field request_headers Parsed request headers.
+ * @field response_headers_raw Raw response headers.
+ * @field response_body The body of the response.
+ * @field response_content Parsed response content information.
+ * @field response_start Parsed response start-line information.
+ * @field response_cookies Parsed response cookies.
+ * @field response_headers Parsed response headers.
+ * @field total_time The total duration of the request.
+ * @field security_state The security state of the connection (e.g., "insecure").
+ * @field event_timing Detailed timing information for the event.
+ */
 pub struct NetworkEventActor {
     pub name: String,
     pub is_xhr: bool,
@@ -42,6 +81,13 @@ pub struct NetworkEventActor {
     pub event_timing: Option<Timings>,
 }
 
+/**
+ * @struct NetworkEventResource
+ * @brief A message indicating an update to a network event resource.
+ *
+ * This structure is sent to the devtools client to notify it of changes to a
+ * network event, such as the availability of response headers.
+ */
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NetworkEventResource {
@@ -51,6 +97,12 @@ pub struct NetworkEventResource {
     pub inner_window_id: u64,
 }
 
+/**
+ * @struct EventActor
+ * @brief Represents the initial information about a network event.
+ *
+ * This is sent to the devtools client when a new network event is created.
+ */
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EventActor {
@@ -65,11 +117,19 @@ pub struct EventActor {
     pub cause: Cause,
 }
 
+/**
+ * @struct ResponseCookiesMsg
+ * @brief A message containing the number of response cookies.
+ */
 #[derive(Serialize)]
 pub struct ResponseCookiesMsg {
     pub cookies: usize,
 }
 
+/**
+ * @struct ResponseStartMsg
+ * @brief A message containing the initial information about an HTTP response.
+ */
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResponseStartMsg {
@@ -82,6 +142,10 @@ pub struct ResponseStartMsg {
     pub discard_response_body: bool,
 }
 
+/**
+ * @struct ResponseContentMsg
+ * @brief A message containing information about the response body.
+ */
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResponseContentMsg {
@@ -91,6 +155,10 @@ pub struct ResponseContentMsg {
     pub discard_response_body: bool,
 }
 
+/**
+ * @struct ResponseHeadersMsg
+ * @brief A message containing the number and size of response headers.
+ */
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResponseHeadersMsg {
@@ -98,11 +166,19 @@ pub struct ResponseHeadersMsg {
     pub headers_size: usize,
 }
 
+/**
+ * @struct RequestCookiesMsg
+ * @brief A message containing the number of request cookies.
+ */
 #[derive(Serialize)]
 pub struct RequestCookiesMsg {
     pub cookies: usize,
 }
 
+/**
+ * @struct RequestHeadersMsg
+ * @brief A message containing the number and size of request headers.
+ */
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RequestHeadersMsg {
@@ -162,6 +238,12 @@ struct GetResponseCookiesReply {
     cookies: Vec<u8>,
 }
 
+/**
+ * @struct Timings
+ * @brief Detailed timing information for a network request.
+ *
+ * All durations are in milliseconds.
+ */
 #[derive(Clone, Serialize)]
 pub struct Timings {
     blocked: u32,
@@ -197,6 +279,19 @@ impl Actor for NetworkEventActor {
         self.name.clone()
     }
 
+    /**
+     * @brief Handles incoming messages for the network event actor.
+     * @param _registry The actor registry.
+     * @param msg_type The type of the message.
+     * @param _msg The message payload.
+     * @param stream The TCP stream to the devtools client.
+     * @param _id The stream ID.
+     * @return The status of the message processing.
+     *
+     * This function dispatches messages to the appropriate handler based on the
+     * message type. It is responsible for sending back the requested
+     * information, such as headers, cookies, or content.
+     */
     fn handle_message(
         &self,
         _registry: &ActorRegistry,
@@ -206,6 +301,8 @@ impl Actor for NetworkEventActor {
         _id: StreamId,
     ) -> Result<ActorMessageStatus, ()> {
         Ok(match msg_type {
+            // Block-level comment: Handles the "getRequestHeaders" message by
+            // serializing and sending the request headers.
             "getRequestHeaders" => {
                 let mut headers: Vec<Header> = Vec::new();
                 let mut raw_headers_string = "".to_owned();
@@ -213,7 +310,7 @@ impl Actor for NetworkEventActor {
                 if let Some(ref headers_map) = self.request_headers_raw {
                     for (name, value) in headers_map.iter() {
                         let value = &value.to_str().unwrap().to_string();
-                        raw_headers_string =
+                        raw_headers_string = 
                             raw_headers_string + name.as_str() + ":" + value + "\r\n";
                         headers_size += name.as_str().len() + value.len();
                         headers.push(Header {
@@ -232,6 +329,7 @@ impl Actor for NetworkEventActor {
                 let _ = stream.write_json_packet(&msg);
                 ActorMessageStatus::Processed
             },
+            // Block-level comment: Handles the "getRequestCookies" message.
             "getRequestCookies" => {
                 let mut cookies = Vec::new();
                 if let Some(ref headers) = self.request_headers_raw {
@@ -248,6 +346,7 @@ impl Actor for NetworkEventActor {
                 let _ = stream.write_json_packet(&msg);
                 ActorMessageStatus::Processed
             },
+            // Block-level comment: Handles the "getRequestPostData" message.
             "getRequestPostData" => {
                 let msg = GetRequestPostDataReply {
                     from: self.name(),
@@ -257,6 +356,7 @@ impl Actor for NetworkEventActor {
                 let _ = stream.write_json_packet(&msg);
                 ActorMessageStatus::Processed
             },
+            // Block-level comment: Handles the "getResponseHeaders" message.
             "getResponseHeaders" => {
                 if let Some(ref response_headers) = self.response_headers_raw {
                     let mut headers = vec![];
@@ -283,6 +383,7 @@ impl Actor for NetworkEventActor {
                 }
                 ActorMessageStatus::Processed
             },
+            // Block-level comment: Handles the "getResponseCookies" message.
             "getResponseCookies" => {
                 let mut cookies = Vec::new();
                 // TODO: This seems quite broken
@@ -300,6 +401,7 @@ impl Actor for NetworkEventActor {
                 let _ = stream.write_json_packet(&msg);
                 ActorMessageStatus::Processed
             },
+            // Block-level comment: Handles the "getResponseContent" message.
             "getResponseContent" => {
                 let msg = GetResponseContentReply {
                     from: self.name(),
@@ -309,6 +411,7 @@ impl Actor for NetworkEventActor {
                 let _ = stream.write_json_packet(&msg);
                 ActorMessageStatus::Processed
             },
+            // Block-level comment: Handles the "getEventTimings" message.
             "getEventTimings" => {
                 // TODO: This is a fake timings msg
                 let timings_obj = self.event_timing.clone().unwrap_or(Timings {
@@ -330,6 +433,7 @@ impl Actor for NetworkEventActor {
                 let _ = stream.write_json_packet(&msg);
                 ActorMessageStatus::Processed
             },
+            // Block-level comment: Handles the "getSecurityInfo" message.
             "getSecurityInfo" => {
                 // TODO: Send the correct values for securityInfo.
                 let msg = GetSecurityInfoReply {
@@ -347,6 +451,14 @@ impl Actor for NetworkEventActor {
 }
 
 impl NetworkEventActor {
+    /**
+     * @brief Creates a new `NetworkEventActor`.
+     * @param name The name of the actor.
+     * @return A new `NetworkEventActor` instance.
+     *
+     * Functional utility: Initializes a new actor for a network event with
+     * default values.
+     */
     pub fn new(name: String) -> NetworkEventActor {
         NetworkEventActor {
             name,
@@ -374,18 +486,18 @@ impl NetworkEventActor {
         }
     }
 
+    /**
+     * @brief Adds request information to the actor.
+     * @param request The `DevtoolsHttpRequest` containing request data.
+     *
+     * This function populates the actor's state with data from an incoming
+     * HTTP request.
+     */
     pub fn add_request(&mut self, request: DevtoolsHttpRequest) {
         self.is_xhr = request.is_xhr;
 
-        // let cookies_size = match request.headers.typed_get::<Cookie>() {
-        //     Some(cookie) => cookie.len(),
-        //     _ => 0,
-        // };
         // self.request_cookies = Some(RequestCookiesMsg { cookies: cookies_size });
 
-        // let headers_size = request.headers.iter().fold(0, |acc, (name, value)| {
-        //     acc + name.as_str().len() + value.len()
-        // });
         // self.request_headers = Some(RequestHeadersMsg {
         //     headers: request.headers.len(),
         //     headers_size,
@@ -402,6 +514,13 @@ impl NetworkEventActor {
         self.request_headers_raw = Some(request.headers.clone());
     }
 
+    /**
+     * @brief Adds response information to the actor.
+     * @param response The `DevtoolsHttpResponse` containing response data.
+     *
+     * This function populates the actor's state with data from an HTTP
+     * response.
+     */
     pub fn add_response(&mut self, response: DevtoolsHttpResponse) {
         self.response_headers = Some(Self::response_headers(&response));
         self.response_cookies = Some(Self::response_cookies(&response));
@@ -411,6 +530,13 @@ impl NetworkEventActor {
         self.response_headers_raw = response.headers.clone();
     }
 
+    /**
+     * @brief Creates an `EventActor` message for this network event.
+     * @return An `EventActor` instance.
+     *
+     * This function generates the initial message sent to the devtools client
+     * to announce the creation of this network event actor.
+     */
     pub fn event_actor(&self) -> EventActor {
         // TODO: Send the correct values for startedDateTime, isXHR, private
 
@@ -448,6 +574,14 @@ impl NetworkEventActor {
         }
     }
 
+    /**
+     * @brief Creates a `ResponseStartMsg` from an HTTP response.
+     * @param response The `DevtoolsHttpResponse`.
+     * @return A `ResponseStartMsg`.
+     *
+     * This function extracts the initial response information (status line,
+     * etc.) to be sent to the devtools client.
+     */
     pub fn response_start(response: &DevtoolsHttpResponse) -> ResponseStartMsg {
         // TODO: Send the correct values for all these fields.
         let h_size = response.headers.as_ref().map(|h| h.len()).unwrap_or(0);
@@ -465,6 +599,11 @@ impl NetworkEventActor {
         }
     }
 
+    /**
+     * @brief Creates a `ResponseContentMsg` from an HTTP response.
+     * @param response The `DevtoolsHttpResponse`.
+     * @return A `ResponseContentMsg`.
+     */
     pub fn response_content(response: &DevtoolsHttpResponse) -> ResponseContentMsg {
         let mime_type = response
             .headers
@@ -520,10 +659,6 @@ impl NetworkEventActor {
     }
 
     pub fn request_cookies(request: &DevtoolsHttpRequest) -> RequestCookiesMsg {
-        // let cookies_size = match request.headers.typed_get::<Cookie>() {
-        //     Some(cookie) => cookie.len(),
-        //     _ => 0,
-        // };
         let cookies_size = request
             .headers
             .typed_get::<Cookie>()
@@ -538,6 +673,14 @@ impl NetworkEventActor {
         request.connect_time + request.send_time
     }
 
+    /**
+     * @brief Inserts a serialized object into a JSON map.
+     * @param map The map to insert into.
+     * @param obj The object to serialize and insert.
+     *
+     * This helper function serializes an optional object and merges its fields
+     * into a `serde_json::Map`.
+     */
     fn insert_serialized_map<T: Serialize>(map: &mut Map<String, Value>, obj: &Option<T>) {
         if let Some(value) = obj {
             if let Ok(Value::Object(serialized)) = serde_json::to_value(value) {
@@ -548,6 +691,13 @@ impl NetworkEventActor {
         }
     }
 
+    /**
+     * @brief Creates a `NetworkEventResource` message with all available updates.
+     * @return A `NetworkEventResource` instance.
+     *
+     * This function aggregates all available information about the network
+     * event into a single resource update message.
+     */
     pub fn resource_updates(&self) -> NetworkEventResource {
         let mut resource_updates = Map::new();
 

@@ -1,3 +1,14 @@
+/**
+ * @file github.ts
+ * @brief Implements the GitHub authentication provider for Visual Studio Code.
+ * @copyright Copyright (c) Microsoft Corporation. All rights reserved.
+ * @license MIT
+ *
+ * This file contains the core logic for the GitHub authentication provider
+ * extension. It handles the OAuth 2.0 flow for both GitHub.com and GitHub
+ * Enterprise, manages authentication sessions, and interacts with the VS Code
+ * Authentication API.
+ */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -31,6 +42,14 @@ export enum AuthProviderType {
 	githubEnterprise = 'github-enterprise'
 }
 
+/**
+ * @class UriEventHandler
+ * @brief Handles the URI callback from the authentication flow.
+ *
+ * This class is responsible for listening for the URI that GitHub redirects to
+ * after a user has authorized the application. It extracts the authorization
+ * code from the URI and resolves a promise that the login flow is waiting on.
+ */
 export class UriEventHandler extends vscode.EventEmitter<vscode.Uri> implements vscode.UriHandler {
 	private readonly _pendingNonces = new Map<string, string[]>();
 	private readonly _codeExchangePromises = new Map<string, { promise: Promise<string>; cancel: vscode.EventEmitter<void> }>();
@@ -91,6 +110,14 @@ export class UriEventHandler extends vscode.EventEmitter<vscode.Uri> implements 
 		};
 }
 
+/**
+ * @class GitHubAuthenticationProvider
+ * @brief The main implementation of the GitHub authentication provider.
+ *
+ * This class manages the lifecycle of authentication sessions, including
+ * reading from and writing to the keychain, and handling session creation and
+ * removal.
+ */
 export class GitHubAuthenticationProvider implements vscode.AuthenticationProvider, vscode.Disposable {
 	private readonly _sessionChangeEmitter = new vscode.EventEmitter<vscode.AuthenticationProviderAuthenticationSessionsChangeEvent>();
 	private readonly _logger: Log;
@@ -160,6 +187,13 @@ export class GitHubAuthenticationProvider implements vscode.AuthenticationProvid
 		return this._sessionChangeEmitter.event;
 	}
 
+	/**
+	 * @brief Retrieves the available authentication sessions.
+	 * @param scopes An optional array of scopes. If provided, only sessions
+	 *               with these scopes will be returned.
+	 * @param options Additional options, such as filtering by account.
+	 * @return A promise that resolves to an array of authentication sessions.
+	 */
 	async getSessions(scopes: string[] | undefined, options?: vscode.AuthenticationProviderSessionOptions): Promise<vscode.AuthenticationSession[]> {
 		// For GitHub scope list, order doesn't matter so we immediately sort the scopes
 		const sortedScopes = scopes?.sort() || [];
@@ -168,6 +202,7 @@ export class GitHubAuthenticationProvider implements vscode.AuthenticationProvid
 		const accountFilteredSessions = options?.account
 			? sessions.filter(session => session.account.label === options.account?.label)
 			: sessions;
+		// Invariant: The returned sessions must match the requested scopes if provided.
 		const finalSessions = sortedScopes.length
 			? accountFilteredSessions.filter(session => arrayEquals([...session.scopes].sort(), sortedScopes))
 			: accountFilteredSessions;
@@ -215,6 +250,10 @@ export class GitHubAuthenticationProvider implements vscode.AuthenticationProvid
 		}
 	}
 
+	/**
+	 * @brief Reads all stored sessions from the keychain.
+	 * @return A promise that resolves to an array of authentication sessions.
+	 */
 	private async readSessions(): Promise<vscode.AuthenticationSession[]> {
 		let sessionData: SessionData[];
 		try {
@@ -243,6 +282,8 @@ export class GitHubAuthenticationProvider implements vscode.AuthenticationProvid
 		let seenNumberAccountId: boolean = false;
 		// TODO: eventually remove this Set because we should only have one session per set of scopes.
 		const scopesSeen = new Set<string>();
+		// Invariant: This loop verifies each stored session by making a request to
+		// the GitHub API. Invalid sessions are discarded.
 		const sessionPromises = sessionData.map(async (session: SessionData): Promise<vscode.AuthenticationSession | undefined> => {
 			// For GitHub scope list, order doesn't matter so we immediately sort the scopes
 			const scopesStr = [...session.scopes].sort().join(' ');
@@ -306,6 +347,15 @@ export class GitHubAuthenticationProvider implements vscode.AuthenticationProvid
 		this._logger.info(`Stored ${sessions.length} sessions!`);
 	}
 
+	/**
+	 * @brief Creates a new authentication session.
+	 * @param scopes An array of scopes to request.
+	 * @param options Additional options, such as the account to use for login.
+	 * @return A promise that resolves to the new authentication session.
+	 *
+	 * This method initiates the OAuth 2.0 login flow, which involves opening a
+	 * browser window for the user to grant permissions.
+	 */
 	public async createSession(scopes: string[], options?: vscode.AuthenticationProviderSessionOptions): Promise<vscode.AuthenticationSession> {
 		try {
 			// For GitHub scope list, order doesn't matter so we use a sorted scope to determine
@@ -333,6 +383,8 @@ export class GitHubAuthenticationProvider implements vscode.AuthenticationProvid
 
 			const sessionIndex = sessions.findIndex(s => s.account.id === session.account.id && arrayEquals([...s.scopes].sort(), sortedScopes));
 			const removed = new Array<vscode.AuthenticationSession>();
+			// Pre-condition: If a session with the same account and scopes already
+			// exists, it is replaced with the new one.
 			if (sessionIndex > -1) {
 				removed.push(...sessions.splice(sessionIndex, 1, session));
 			} else {

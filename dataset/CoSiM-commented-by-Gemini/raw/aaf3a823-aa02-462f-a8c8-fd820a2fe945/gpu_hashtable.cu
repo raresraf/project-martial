@@ -1,3 +1,13 @@
+/**
+ * @file gpu_hashtable.cu
+ * @brief CUDA implementation of a hash table with linear probing.
+ *
+ * This file provides a GPU-accelerated hash table that uses linear probing for
+ * collision resolution. It is designed for batch insertion and retrieval of
+ * key-value pairs. The implementation includes CUDA kernels for insertion,
+ * retrieval, and rehashing, along with a host-side class to manage the hash
+ * table's lifecycle and operations.
+ */
 
 #include 
 #include 
@@ -9,13 +19,30 @@
 #include "gpu_hashtable.hpp"
 
 
+/**
+ * @brief Computes the hash for a given key.
+ * @param key The key to hash.
+ * @param size The size of the hash table.
+ * @return The computed hash value.
+ */
 __device__ unsigned int hash_func(int key, int size) {
 
 	return (((long)key * PRIME_A) % PRIME_B % size);
 }
 
 
-
+/**
+ * @brief CUDA kernel to insert a batch of key-value pairs.
+ * @param keys A device pointer to the array of keys.
+ * @param values A device pointer to the array of values.
+ * @param numKeys The number of pairs to insert.
+ * @param hashtable A device pointer to the hash table.
+ * @param size The size of the hash table.
+ * @param updates_count A device pointer to a counter for the number of updates.
+ *
+ * This kernel uses linear probing and atomic compare-and-swap (atomicCAS) to
+ * handle collisions and ensure thread-safe insertion.
+ */
 __global__ void insert_pair(int *keys, int *values, int numKeys, struct my_pair *hashtable,
 				int size, int* updates_count) {
 
@@ -34,6 +61,7 @@ __global__ void insert_pair(int *keys, int *values, int numKeys, struct my_pair 
 	unsigned int pos = hash_func(keys[index], size);
 	unsigned int i = 0;
 
+	// Invariant: The loop continues until the key is inserted or updated.
 	while(true) {
 
 		
@@ -65,7 +93,13 @@ __global__ void insert_pair(int *keys, int *values, int numKeys, struct my_pair 
 }
 
 
-
+/**
+ * @brief CUDA kernel to copy entries from an old to a new hash table during reshape.
+ * @param old_pairs The old hash table.
+ * @param new_pairs The new hash table.
+ * @param size The size of the old table.
+ * @param new_size The size of the new table.
+ */
 __global__ void copy_values(struct my_pair *old_pairs, struct my_pair *new_pairs, 
 															int size, int new_size) {
 	
@@ -84,6 +118,8 @@ __global__ void copy_values(struct my_pair *old_pairs, struct my_pair *new_pairs
 	int old_value = old_pairs[index].value;
 	int value;
 
+	// Invariant: This loop re-inserts an entry into the new, larger hash table,
+	// using linear probing to resolve collisions.
 	while(true) {
 
 		pos = (pos + i) % new_size;
@@ -100,6 +136,16 @@ __global__ void copy_values(struct my_pair *old_pairs, struct my_pair *new_pairs
 
 }
 
+/**
+ * @brief CUDA kernel to retrieve values for a batch of keys.
+ * @param keys A device pointer to the array of keys.
+ * @param numKeys The number of keys to look up.
+ * @param hashtable A device pointer to the hash table.
+ * @param size The size of the hash table.
+ * @param values A device pointer to the array where values will be stored.
+ *
+ * This kernel performs a parallel lookup using linear probing.
+ */
 __global__ void get_pair(int *keys, int numKeys, struct my_pair *hashtable, int size, 
 						int *values) {
 
@@ -112,6 +158,8 @@ __global__ void get_pair(int *keys, int numKeys, struct my_pair *hashtable, int 
 	unsigned int i = 0;
 	int key;
 
+	// Invariant: The loop continues until the key is found or an empty slot is
+	// encountered.
 	while(true) {
 
 		pos = (pos + i) % size;
@@ -127,7 +175,10 @@ __global__ void get_pair(int *keys, int numKeys, struct my_pair *hashtable, int 
 }
 
 
-
+/**
+ * @brief Constructor for the GpuHashTable class.
+ * @param size The initial size of the hash table.
+ */
 GpuHashTable::GpuHashTable(int size) {
 
 
@@ -245,6 +296,7 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	int prev_size = host_size;
 	new_size = getNewSize(numKeys);
 
+	// Pre-condition: If a resize is needed, reshape the hash table.
 	if (new_size != -1)
 		reshape(new_size);
 
@@ -365,6 +417,11 @@ float GpuHashTable::loadFactor() {
 }
 
 
+/**
+ * @brief Determines if a resize is needed and calculates the new size.
+ * @param numKeys The number of new keys being inserted.
+ * @return The new size of the hash table, or -1 if no resize is needed.
+ */
 int GpuHashTable::getNewSize(int numKeys) {
 
 	int new_size = -1;
@@ -425,7 +482,11 @@ using namespace std;
 		exit(errno);	\
 	}	\
 } while (0)
-
+/**
+ * @brief A list of prime numbers used for hashing.
+ *
+ * This list is used to provide good distribution in the hash functions.
+ */
 const size_t primeList[] =
 {
 	2llu, 3llu, 5llu, 7llu, 11llu, 13llu, 17llu, 23llu, 29llu, 37llu, 47llu,
@@ -520,4 +581,3 @@ class GpuHashTable
 };
 
 #endif
-

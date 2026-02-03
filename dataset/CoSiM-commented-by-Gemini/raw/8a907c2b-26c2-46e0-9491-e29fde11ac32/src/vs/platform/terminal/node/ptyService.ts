@@ -1,3 +1,15 @@
+/**
+ * @file ptyService.ts
+ * @brief Service for managing pseudo-terminal (pty) processes.
+ * @copyright Copyright (c) Microsoft Corporation. All rights reserved.
+ * @license MIT
+ *
+ * This file implements the `IPtyService` interface, which is responsible for
+ * creating, managing, and communicating with pty processes. It handles the
+ * lifecycle of terminals, including creation, shutdown, and persistence across
+ * application restarts. The service also provides functionality for terminal
+ * layout management and remote pty access.
+ */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -36,6 +48,15 @@ import { AutoRepliesPtyServiceContribution } from './terminalContrib/autoReplies
 type XtermTerminal = pkg.Terminal;
 const { Terminal: XtermTerminal } = pkg;
 
+/**
+ * @brief A decorator for tracing RPC calls to the PtyService.
+ * @param _target The target object.
+ * @param key The name of the method.
+ * @param descriptor The property descriptor.
+ *
+ * This decorator wraps a method to log its arguments and return value, and to
+ * simulate latency for debugging purposes.
+ */
 export function traceRpc(_target: any, key: string, descriptor: any) {
 	if (typeof descriptor.value !== 'function') {
 		throw new Error('not supported');
@@ -68,6 +89,13 @@ type WorkspaceId = string;
 let SerializeAddon: typeof XtermSerializeAddon;
 let Unicode11Addon: typeof XtermUnicode11Addon;
 
+/**
+ * @class PtyService
+ * @brief The implementation of the IPtyService interface.
+ *
+ * This class manages the entire lifecycle of terminal processes, from creation
+ * and persistence to communication and layout management.
+ */
 export class PtyService extends Disposable implements IPtyService {
 	declare readonly _serviceBrand: undefined;
 
@@ -200,6 +228,15 @@ export class PtyService extends Disposable implements IPtyService {
 		throw new Error(`Could not kill process with port ${port}`);
 	}
 
+	/**
+	 * @brief Serializes the state of specified terminals.
+	 * @param ids An array of persistent process IDs to serialize.
+	 * @return A string containing the serialized terminal state.
+	 *
+	 * This function is a key part of terminal persistence. It captures the
+	 * state of running terminals, including their shell launch configuration,
+	 * process details, and buffer content, so that they can be restored later.
+	 */
 	@traceRpc
 	async serializeTerminalState(ids: number[]): Promise<string> {
 		const promises: Promise<ISerializedTerminalState>[] = [];
@@ -226,6 +263,15 @@ export class PtyService extends Disposable implements IPtyService {
 		return JSON.stringify(serialized);
 	}
 
+	/**
+	 * @brief Revives terminal processes from a serialized state.
+	 * @param workspaceId The ID of the workspace.
+	 * @param state An array of serialized terminal states.
+	 * @param dateTimeFormatLocale The locale for date and time formatting.
+	 *
+	 * This function restores terminal processes after an application restart,
+	 * creating new processes based on the saved state.
+	 */
 	@traceRpc
 	async reviveTerminalProcesses(workspaceId: string, state: ISerializedTerminalState[], dateTimeFormatLocale: string) {
 		const promises: Promise<void>[] = [];
@@ -288,6 +334,27 @@ export class PtyService extends Disposable implements IPtyService {
 		this.dispose();
 	}
 
+	/**
+	 * @brief Creates a new pty process.
+	 * @param shellLaunchConfig The configuration for the shell.
+	 * @param cwd The current working directory.
+	 * @param cols The number of columns.
+	 * @param rows The number of rows.
+	 * @param unicodeVersion The unicode version.
+	 * @param env The environment variables.
+	 * @param executableEnv The executable environment variables.
+	 * @param options The terminal process options.
+	 * @param shouldPersist Whether the terminal should be persisted.
+	 * @param workspaceId The workspace ID.
+	 * @param workspaceName The workspace name.
+	 * @param isReviving Whether the terminal is being revived.
+	 * @param rawReviveBuffer The raw buffer for revival.
+	 * @return The ID of the newly created process.
+	 *
+	 * This is the primary function for creating new terminal processes. It
+	 * instantiates a `TerminalProcess` and a `PersistentTerminalProcess` to
+	 * manage its lifecycle and state.
+	 */
 	@traceRpc
 	async createProcess(
 		shellLaunchConfig: IShellLaunchConfig,
@@ -385,6 +452,10 @@ export class PtyService extends Disposable implements IPtyService {
 		}
 	}
 
+	/**
+	 * @brief Lists all running terminal processes.
+	 * @return An array of `IProcessDetails` for each running process.
+	 */
 	@traceRpc
 	async listProcesses(): Promise<IProcessDetails[]> {
 		const persistentProcesses = Array.from(this._ptys.entries()).filter(([_, pty]) => pty.shouldPersistTerminal);
@@ -474,6 +545,12 @@ export class PtyService extends Disposable implements IPtyService {
 		return { ...process.env };
 	}
 
+	/**
+	 * @brief Converts a path between Windows and WSL formats.
+	 * @param original The original path.
+	 * @param direction The direction of conversion.
+	 * @return The converted path.
+	 */
 	@traceRpc
 	async getWslPath(original: string, direction: 'unix-to-win' | 'win-to-unix' | unknown): Promise<string> {
 		if (direction === 'win-to-unix') {
@@ -542,6 +619,11 @@ export class PtyService extends Disposable implements IPtyService {
 		this._workspaceLayoutInfos.set(args.workspaceId, args);
 	}
 
+	/**
+	 * @brief Gets the layout information for all terminals in a workspace.
+	 * @param args The arguments for the request.
+	 * @return The layout information, or undefined if not found.
+	 */
 	@traceRpc
 	async getTerminalLayoutInfo(args: IGetTerminalLayoutInfoArgs): Promise<ITerminalsLayoutInfo | undefined> {
 		performance.mark('code/willGetTerminalLayoutInfo');
@@ -601,6 +683,13 @@ export class PtyService extends Disposable implements IPtyService {
 		return `${workspaceId}-${ptyId}`;
 	}
 
+	/**
+	 * @brief Builds the process details for a persistent terminal process.
+	 * @param id The persistent process ID.
+	 * @param persistentProcess The persistent process object.
+	 * @param wasRevived Whether the process was revived.
+	 * @return The process details.
+	 */
 	private async _buildProcessDetails(id: number, persistentProcess: PersistentTerminalProcess, wasRevived: boolean = false): Promise<IProcessDetails> {
 		performance.mark(`code/willBuildProcessDetails/${id}`);
 		// If the process was just revived, don't do the orphan check as it will
@@ -650,6 +739,14 @@ const enum InteractionState {
 	Session = 'Session'
 }
 
+/**
+ * @class PersistentTerminalProcess
+ * @brief Manages a single persistent terminal process.
+ *
+ * This class wraps a `TerminalProcess` and adds functionality for persistence,
+ * including serialization of the terminal's buffer and state, and handling of
+ * reconnection and orphan status.
+ */
 class PersistentTerminalProcess extends Disposable {
 
 	private readonly _bufferer: TerminalDataBufferer;
@@ -821,7 +918,14 @@ class PersistentTerminalProcess extends Disposable {
 		}
 	}
 
+	/**
+	 * @brief Starts the terminal process.
+	 * @return A terminal launch error if the process fails to start,
+	 *         otherwise undefined.
+	 */
 	async start(): Promise<ITerminalLaunchError | IProcessCreationResult | undefined> {
+		// Pre-condition: If the process is already started, fire the ready
+		// events and trigger a replay.
 		if (!this._isStarted) {
 			const result = await this._terminalProcess.start();
 			if (result && 'message' in result) {
@@ -902,6 +1006,12 @@ class PersistentTerminalProcess extends Disposable {
 		return this._terminalProcess.getCwd();
 	}
 
+	/**
+	 * @brief Triggers a replay of the terminal's buffer.
+	 *
+	 * This is used to restore the state of a terminal when a new client
+	 * attaches.
+	 */
 	async triggerReplay(): Promise<void> {
 		if (this._interactionState.value === InteractionState.None) {
 			this._interactionState.setValue(InteractionState.ReplayOnly, 'triggerReplay');
@@ -949,6 +1059,14 @@ class PersistentTerminalProcess extends Disposable {
 		return await this._orphanRequestQueue.queue(async () => this._isOrphaned());
 	}
 
+	/**
+	 * @brief Checks if the terminal process is orphaned.
+	 * @return A promise that resolves to true if the process is orphaned.
+	 *
+	 * This function sends a question to the renderer process to determine if
+	 * there is a UI component attached to this terminal. If no reply is
+	 * received within a certain time, the process is considered orphaned.
+	 */
 	private async _isOrphaned(): Promise<boolean> {
 		// The process is already known to be orphaned
 		if (this._disconnectRunner1.isScheduled() || this._disconnectRunner2.isScheduled()) {
@@ -968,6 +1086,10 @@ class PersistentTerminalProcess extends Disposable {
 	}
 }
 
+/**
+ * @class MutationLogger
+ * @brief A simple logger for tracking changes to a value.
+ */
 class MutationLogger<T> {
 	get value(): T { return this._value; }
 	setValue(value: T, reason: string) {
@@ -990,6 +1112,13 @@ class MutationLogger<T> {
 	}
 }
 
+/**
+ * @class XtermSerializer
+ * @brief A class for serializing the state of an xterm.js terminal.
+ *
+ * This is used to capture the buffer content and other state for terminal
+ * persistence and replay.
+ */
 class XtermSerializer implements ITerminalSerializer {
 	private readonly _xterm: XtermTerminal;
 	private readonly _shellIntegrationAddon: ShellIntegrationAddon;

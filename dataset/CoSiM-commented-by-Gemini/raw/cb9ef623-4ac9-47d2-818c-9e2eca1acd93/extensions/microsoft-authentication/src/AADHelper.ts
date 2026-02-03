@@ -1,3 +1,14 @@
+/**
+ * @file AADHelper.ts
+ * @brief Helper class for Azure Active Directory authentication.
+ * @copyright Copyright (c) Microsoft Corporation. All rights reserved.
+ * @license MIT
+ *
+ * This file contains the `AzureActiveDirectoryService` class, which manages
+ * the entire authentication flow for Microsoft accounts (both AAD and MSA).
+ * It handles token acquisition, storage, and refresh, as well as the OAuth 2.0
+ * authorization code flow.
+ */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -29,6 +40,10 @@ const enum MicrosoftAccountType {
 	Unknown = 'unknown'
 }
 
+/**
+ * @interface IToken
+ * @brief Represents an authentication token.
+ */
 interface IToken {
 	accessToken?: string; // When unable to refresh due to network problems, the access token becomes undefined
 	idToken?: string; // depending on the scopes can be either supplied or empty
@@ -83,6 +98,13 @@ interface IScopeData {
 
 export const REFRESH_NETWORK_FAILURE = 'Network failure';
 
+/**
+ * @class AzureActiveDirectoryService
+ * @brief Manages Microsoft authentication sessions.
+ *
+ * This class is the core of the Microsoft authentication provider. It handles
+ * the acquisition, storage, and refresh of authentication tokens.
+ */
 export class AzureActiveDirectoryService {
 	// For details on why this is set to 2/3... see https://github.com/microsoft/vscode/issues/133201#issuecomment-966668197
 	private static REFRESH_TIMEOUT_MODIFIER = 1000 * 2 / 3;
@@ -123,11 +145,16 @@ export class AzureActiveDirectoryService {
 		_context.subscriptions.push(timer);
 	}
 
+	/**
+	 * @brief Initializes the service by reading and refreshing stored sessions.
+	 */
 	public async initialize(): Promise<void> {
 		this._logger.trace('Reading sessions from secret storage...');
 		const sessions = await this._tokenStorage.getAll(item => this.sessionMatchesEndpoint(item));
 		this._logger.trace(`Got ${sessions.length} stored sessions`);
 
+		// Invariant: The loop attempts to refresh each stored session to ensure
+		// that the authentication state is up-to-date on startup.
 		const refreshes = sessions.map(async session => {
 			this._logger.trace(`[${session.scope}] '${session.id}' Read stored session`);
 			const scopes = session.scope.split(' ');
@@ -214,6 +241,8 @@ export class AzureActiveDirectoryService {
 		}
 
 		let modifiedScopes = [...scopes];
+		// Invariant: Ensures that the necessary OIDC scopes are always included
+		// in the request.
 		if (!modifiedScopes.includes('openid')) {
 			modifiedScopes.push('openid');
 		}
@@ -260,6 +289,9 @@ export class AzureActiveDirectoryService {
 		// the refreshToken. This is documented here:
 		// https://docs.microsoft.com/en-us/azure/active-directory/develop/v2-oauth2-auth-code-flow#refresh-the-access-token
 		// "Refresh tokens are valid for all permissions that your client has already received consent for."
+		// Block-level comment: This block attempts to acquire a new access token
+		// for the requested scopes using a refresh token from an existing session,
+		// avoiding a full re-authentication flow if possible.
 		if (!matchingTokens.length) {
 			// Get a token with the correct client id and account.
 			let token: IToken | undefined;
@@ -305,6 +337,8 @@ export class AzureActiveDirectoryService {
 
 	public createSession(scopes: string[], { account, authorizationServer }: vscode.AuthenticationProviderSessionOptions = {}): Promise<vscode.AuthenticationSession> {
 		let modifiedScopes = [...scopes];
+		// Invariant: Ensures that the necessary OIDC scopes are always included
+		// in the request.
 		if (!modifiedScopes.includes('openid')) {
 			modifiedScopes.push('openid');
 		}
@@ -348,6 +382,8 @@ export class AzureActiveDirectoryService {
 			throw new Error('Sign in to non-public clouds is not supported on the web.');
 		}
 
+		// Block-level comment: The authentication flow is different depending on
+		// whether a local server can be used to handle the OAuth redirect.
 		return await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: vscode.l10n.t('Signing in to your account...'), cancellable: true }, async (_progress, token) => {
 			if (runsRemote || runsServerless) {
 				return await this.createSessionWithoutLocalServer(scopeData, account?.label, token);
@@ -553,6 +589,8 @@ export class AzureActiveDirectoryService {
 		this._logger.trace(`[${scopeData.scopeStr}] '${existingId ?? 'new'}' Attempting to parse token response.`);
 
 		try {
+			// Invariant: The claims can be in either the id_token or the
+			// access_token, so we check both.
 			if (json.id_token) {
 				claims = JSON.parse(base64Decode(json.id_token.split('.')[1]));
 			} else {
@@ -597,6 +635,7 @@ export class AzureActiveDirectoryService {
 	}
 
 	private async convertToSession(token: IToken, scopeData: IScopeData): Promise<vscode.AuthenticationSession> {
+		// Pre-condition: If the access token is still valid, return it directly.
 		if (token.accessToken && (!token.expiresAt || token.expiresAt > Date.now())) {
 			this._logger.trace(`[${scopeData.scopeStr}] '${token.sessionId}' Token available from cache${token.expiresAt ? `, expires in ${token.expiresAt - Date.now()} milliseconds` : ''}.`);
 			return {
@@ -632,6 +671,13 @@ export class AzureActiveDirectoryService {
 
 	//#region refresh logic
 
+	/**
+	 * @brief Refreshes an access token using a refresh token.
+	 * @param refreshToken The refresh token.
+	 * @param scopeData The scope data.
+	 * @param sessionId The session ID.
+	 * @return A promise that resolves with the new token.
+	 */
 	private refreshToken(refreshToken: string, scopeData: IScopeData, sessionId?: string): Promise<IToken> {
 		this._logger.trace(`[${scopeData.scopeStr}] '${sessionId ?? 'new'}' Queued refreshing token`);
 		return this._sequencer.queue(scopeData.scopeStr, () => this.doRefreshToken(refreshToken, scopeData, sessionId));
@@ -656,6 +702,8 @@ export class AzureActiveDirectoryService {
 			this._logger.trace(`[${scopeData.scopeStr}] '${token.sessionId}' Token refresh success`);
 			return token;
 		} catch (e) {
+			// Invariant: If the refresh fails due to a network error, schedule a
+			// retry. Otherwise, the session is considered invalid and removed.
 			if (e.message === REFRESH_NETWORK_FAILURE) {
 				// We were unable to refresh because of a network failure (i.e. the user lost internet access).
 				// so set up a timeout to try again later. We only do this if we have a session id to reference later.
@@ -772,6 +820,13 @@ export class AzureActiveDirectoryService {
 		});
 	}
 
+	/**
+	 * @brief Exchanges an authorization code for an authentication session.
+	 * @param code The authorization code.
+	 * @param codeVerifier The code verifier for PKCE.
+	 * @param scopeData The scope data.
+	 * @return A promise that resolves with the new authentication session.
+	 */
 	private async exchangeCodeForSession(code: string, codeVerifier: string, scopeData: IScopeData): Promise<vscode.AuthenticationSession> {
 		this._logger.trace(`[${scopeData.scopeStr}] Exchanging login code for session`);
 		let token: IToken | undefined;
@@ -813,6 +868,8 @@ export class AzureActiveDirectoryService {
 		const endpoint = new URL(`${scopeData.tenant}/oauth2/v2.0/token`, endpointUrl);
 
 		let attempts = 0;
+		// Invariant: This loop retries the token request up to 3 times with
+		// exponential backoff in case of network failures.
 		while (attempts <= 3) {
 			attempts++;
 			let result;
@@ -869,6 +926,8 @@ export class AzureActiveDirectoryService {
 	}
 
 	private async storeToken(token: IToken, scopeData: IScopeData): Promise<void> {
+		// Pre-condition: If the window is not focused, pend the token storage to
+		// avoid race conditions with other windows.
 		if (!vscode.window.state.focused) {
 			if (this._pendingTokensToStore.has(token.sessionId)) {
 				this._logger.trace(`[${scopeData.scopeStr}] '${token.sessionId}' Window is not focused, replacing token to be stored`);
@@ -913,6 +972,11 @@ export class AzureActiveDirectoryService {
 		this._logger.trace('Done storing pending tokens');
 	}
 
+	/**
+	 * @brief Checks for session changes made in other windows and updates the
+	 *        current window's state accordingly.
+	 * @param e The event describing the changes.
+	 */
 	private async checkForUpdates(e: IDidChangeInOtherWindowEvent<IStoredSession>): Promise<void> {
 		for (const key of e.added) {
 			const session = await this._tokenStorage.get(key);

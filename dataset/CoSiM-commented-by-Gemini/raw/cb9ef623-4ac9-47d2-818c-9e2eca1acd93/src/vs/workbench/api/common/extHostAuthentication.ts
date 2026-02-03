@@ -1,3 +1,14 @@
+/**
+ * @file extHostAuthentication.ts
+ * @brief Implements the extension host side of the authentication API.
+ * @copyright Copyright (c) Microsoft Corporation. All rights reserved.
+ * @license MIT
+ *
+ * This file contains the `ExtHostAuthentication` class, which is the extension
+ * host counterpart to the `MainThreadAuthentication` class. It manages
+ * authentication providers that are registered by extensions and provides the
+ * `vscode.authentication` API to extensions.
+ */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -38,6 +49,10 @@ interface ProviderWithMetadata {
 	options: vscode.AuthenticationProviderOptions;
 }
 
+/**
+ * @class ExtHostAuthentication
+ * @brief The extension host implementation of the authentication API.
+ */
 export class ExtHostAuthentication implements ExtHostAuthenticationShape {
 
 	declare _serviceBrand: undefined;
@@ -71,12 +86,27 @@ export class ExtHostAuthentication implements ExtHostAuthenticationShape {
 	 */
 	getExtensionScopedSessionsEvent(extensionId: string): Event<vscode.AuthenticationSessionsChangeEvent> {
 		const normalizedExtensionId = extensionId.toLowerCase();
+		// Invariant: The event is filtered to only include changes relevant to
+		// the specified extension.
 		return Event.chain(this._onDidChangeSessions.event, ($) => $
 			.filter(e => !e.extensionIdFilter || e.extensionIdFilter.includes(normalizedExtensionId))
 			.map(e => ({ provider: e.provider }))
 		);
 	}
 
+	/**
+	 * @brief Retrieves an authentication session.
+	 * @param requestingExtension The extension requesting the session.
+	 * @param providerId The ID of the authentication provider.
+	 * @param scopes The requested scopes.
+	 * @param options Additional options for the session request.
+	 * @return A promise that resolves to the authentication session, or
+	 *         undefined.
+	 *
+	 * This method is the entry point for extensions to get an authentication
+	 * session. It uses a task singler to prevent concurrent requests for the
+	 * same session.
+	 */
 	async getSession(requestingExtension: IExtensionDescription, providerId: string, scopes: readonly string[], options: vscode.AuthenticationGetSessionOptions & ({ createIfNone: true } | { forceNewSession: true } | { forceNewSession: vscode.AuthenticationForceNewSessionOptions })): Promise<vscode.AuthenticationSession>;
 	async getSession(requestingExtension: IExtensionDescription, providerId: string, scopes: readonly string[], options: vscode.AuthenticationGetSessionOptions & { forceNewSession: true }): Promise<vscode.AuthenticationSession>;
 	async getSession(requestingExtension: IExtensionDescription, providerId: string, scopes: readonly string[], options: vscode.AuthenticationGetSessionOptions & { forceNewSession: vscode.AuthenticationForceNewSessionOptions }): Promise<vscode.AuthenticationSession>;
@@ -107,6 +137,14 @@ export class ExtHostAuthentication implements ExtHostAuthenticationShape {
 		return providerData.provider.removeSession(sessionId);
 	}
 
+	/**
+	 * @brief Registers a new authentication provider.
+	 * @param id The ID of the provider.
+	 * @param label The user-facing label of the provider.
+	 * @param provider The authentication provider implementation.
+	 * @param options Options for the provider.
+	 * @return A disposable to unregister the provider.
+	 */
 	registerAuthenticationProvider(id: string, label: string, provider: vscode.AuthenticationProvider, options?: vscode.AuthenticationProviderOptions): vscode.Disposable {
 		if (this._authenticationProviders.get(id)) {
 			throw new Error(`An authentication provider with id '${id}' is already registered.`);
@@ -169,6 +207,19 @@ export class ExtHostAuthentication implements ExtHostAuthenticationShape {
 		return Promise.resolve();
 	}
 
+	/**
+	 * @brief Registers a dynamic authentication provider.
+	 * @param authorizationServerComponents The URI components of the authorization server.
+	 * @param serverMetadata The server metadata.
+	 * @param resourceMetadata The resource metadata.
+	 * @param clientId The client ID.
+	 * @param initialTokens The initial tokens.
+	 * @return A promise that resolves to the ID of the registered provider.
+	 *
+	 * This method handles the registration of authentication providers that
+	 * are not statically declared in an extension's manifest. This is used
+	 * for scenarios where the set of providers is determined at runtime.
+	 */
 	async $registerDynamicAuthProvider(
 		authorizationServerComponents: UriComponents,
 		serverMetadata: IAuthorizationServerMetadata,
@@ -176,6 +227,8 @@ export class ExtHostAuthentication implements ExtHostAuthenticationShape {
 		clientId: string | undefined,
 		initialTokens: IAuthorizationToken[] | undefined
 	): Promise<string> {
+		// Block-level comment: If a client ID is not provided, it attempts
+		// dynamic client registration.
 		if (!clientId) {
 			if (!serverMetadata.registration_endpoint) {
 				throw new Error('Server does not support dynamic registration');
@@ -220,6 +273,11 @@ export class ExtHostAuthentication implements ExtHostAuthenticationShape {
 	}
 }
 
+/**
+ * @class TaskSingler
+ * @brief A utility class to ensure that only one instance of a task with a
+ *        given key is running at a time.
+ */
 class TaskSingler<T> {
 	private _inFlightPromises = new Map<string, Promise<T>>();
 	getOrCreate(key: string, promiseFactory: () => Promise<T>) {
@@ -235,6 +293,10 @@ class TaskSingler<T> {
 	}
 }
 
+/**
+ * @class DynamicAuthProvider
+ * @brief An authentication provider that is registered dynamically at runtime.
+ */
 export class DynamicAuthProvider implements vscode.AuthenticationProvider {
 	readonly id: string;
 	readonly label: string;
@@ -302,6 +364,8 @@ export class DynamicAuthProvider implements vscode.AuthenticationProvider {
 		}
 		let sessions = this._tokenStore.sessions.filter(session => session.scopes.join(' ') === scopes.join(' '));
 		this._logger.info(`Found ${sessions.length} sessions for scopes: ${scopes.join(' ')}`);
+		// Invariant: This block handles token refresh. If a token is expired or
+		// about to expire, it attempts to refresh it using the refresh token.
 		if (sessions.length) {
 			const newTokens: IAuthorizationToken[] = [];
 			const removedTokens: IAuthorizationToken[] = [];
@@ -584,6 +648,10 @@ type IAuthorizationToken = IAuthorizationTokenResponse & {
 	created_at: number;
 };
 
+/**
+ * @class TokenStore
+ * @brief Manages the storage and lifecycle of authentication tokens.
+ */
 class TokenStore implements Disposable {
 	private readonly _tokensObservable: ISettableObservable<IAuthorizationToken[]>;
 	private readonly _sessionsObservable: IObservable<vscode.AuthenticationSession[]>;
@@ -620,6 +688,10 @@ class TokenStore implements Disposable {
 		this._disposable.dispose();
 	}
 
+	/**
+	 * @brief Updates the stored tokens.
+	 * @param param0 The tokens to be added and removed.
+	 */
 	update({ added, removed }: { added: IAuthorizationToken[]; removed: IAuthorizationToken[] }): void {
 		this._logger.trace(`Updating tokens: added ${added.length}, removed ${removed.length}`);
 		const currentTokens = [...this._tokensObservable.get()];
@@ -644,8 +716,14 @@ class TokenStore implements Disposable {
 		this._logger.trace(`Tokens updated: ${currentTokens.length} tokens stored.`);
 	}
 
+	/**
+	 * @brief Registers an autorun function to detect and fire session change events.
+	 */
 	private _registerChangeEventAutorun(): IDisposable {
 		let previousSessions: vscode.AuthenticationSession[] = [];
+		// Invariant: This autorun function is triggered whenever the set of
+		// sessions changes, and it fires the `onDidChangeSessions` event with
+		// the appropriate added and removed sessions.
 		return autorun((reader) => {
 			this._logger.trace('Checking for session changes...');
 			const currentSessions = this._sessionsObservable.read(reader);
@@ -700,6 +778,8 @@ class TokenStore implements Disposable {
 
 	private _getSessionFromToken(token: IAuthorizationTokenResponse): vscode.AuthenticationSession {
 		let claims: IAuthorizationJWTClaims | undefined;
+		// Invariant: Attempts to parse claims from both the id_token and the
+		// access_token, as they can be in either.
 		if (token.id_token) {
 			try {
 				claims = getClaimsFromJWT(token.id_token);

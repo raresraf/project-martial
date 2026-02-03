@@ -1,3 +1,17 @@
+/**
+ * @file xfs_iomap.c
+ * @brief Implements the iomap interface for the XFS filesystem.
+ * @copyright Copyright (c) 2000-2006 Silicon Graphics, Inc.
+ * @copyright Copyright (c) 2016-2018 Christoph Hellwig.
+ *
+ * This file provides the XFS implementation of the iomap interface, which is
+ * used for mapping logical file offsets to physical block addresses. It is a
+ * critical component for both buffered and direct I/O. The implementation
+ * handles complexities such as delayed allocation, unwritten extents, copy-on-
+ * write (COW) for reflink, and real-time files. It interacts closely with the
+ * XFS block mapping (bmap) and transaction subsystems to ensure data
+ * consistency and efficient space allocation.
+ */
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Copyright (c) 2000-2006 Silicon Graphics, Inc.
@@ -36,6 +50,16 @@
 #define XFS_ALLOC_ALIGN(mp, off) \
 	(((off) >> mp->m_allocsize_log) << mp->m_allocsize_log)
 
+/**
+ * @brief Alerts about and handles an attempt to access block zero.
+ * @param ip The inode being accessed.
+ * @param imap The block mapping record that points to block zero.
+ * @return -EFSCORRUPTED.
+ *
+ * Accessing block zero is a sign of filesystem corruption. This function logs
+ * a detailed alert, marks the data fork as sick to prevent further damage, and
+ * returns a corruption error.
+ */
 static int
 xfs_alert_fsblock_zero(
 	xfs_inode_t	*ip,
@@ -54,6 +78,17 @@ xfs_alert_fsblock_zero(
 	return -EFSCORRUPTED;
 }
 
+/**
+ * @brief Gets a sequence number for an inode's iomap.
+ * @param ip The inode.
+ * @param iomap_flags Flags indicating which fork's sequence number is needed.
+ * @return A sequence number used for iomap validity checking.
+ *
+ * This function constructs a sequence number that represents the current state
+ * of the inode's mappings. For COW forks, it combines the sequence numbers of
+ * both the data and COW forks to ensure that any changes in either are
+ * detected.
+ */
 u64
 xfs_iomap_inode_sequence(
 	struct xfs_inode	*ip,
@@ -61,6 +96,9 @@ xfs_iomap_inode_sequence(
 {
 	u64			cookie = 0;
 
+	// Block Logic: The sequence number depends on the fork being accessed.
+	// For xattr forks, it's a simple read. For shared (COW) mappings, it's a
+	// combination of the COW and data fork sequences.
 	if (iomap_flags & IOMAP_F_XATTR)
 		return READ_ONCE(ip->i_af.if_seq);
 	if ((iomap_flags & IOMAP_F_SHARED) && ip->i_cowfp)
@@ -79,9 +117,13 @@ xfs_iomap_valid(
 {
 	struct xfs_inode	*ip = XFS_I(inode);
 
+	// Pre-condition: Hole mappings are always considered valid.
 	if (iomap->type == IOMAP_HOLE)
 		return true;
 
+	// Invariant: The iomap's validity cookie must match the inode's current
+	// sequence number. A mismatch indicates that the mapping has changed since
+	// it was last looked up.
 	if (iomap->validity_cookie !=
 			xfs_iomap_inode_sequence(ip, iomap->flags)) {
 		trace_xfs_iomap_invalid(ip, iomap);
@@ -96,6 +138,21 @@ const struct iomap_write_ops xfs_iomap_write_ops = {
 	.iomap_valid		= xfs_iomap_valid,
 };
 
+/**
+ * @brief Converts an XFS block mapping record to a generic iomap structure.
+ * @param ip The inode.
+ * @param iomap The destination iomap structure.
+ * @param imap The source XFS block mapping record.
+ * @param mapping_flags Flags from the iomap core.
+ * @param iomap_flags Flags to be set in the resulting iomap.
+ * @param sequence_cookie The validity cookie for this mapping.
+ * @return 0 on success, or a negative error code on corruption.
+ *
+ * This function translates the XFS-specific extent information into the generic
+ * iomap format, which is understood by the VFS and block layers. It handles
+ * different extent types, such as holes, delayed allocations, and unwritten
+ * extents.
+ */
 int
 xfs_bmbt_to_iomap(
 	struct xfs_inode	*ip,
@@ -108,11 +165,14 @@ xfs_bmbt_to_iomap(
 	struct xfs_mount	*mp = ip->i_mount;
 	struct xfs_buftarg	*target = xfs_inode_buftarg(ip);
 
+	// Pre-condition: The start block must be a valid block number.
 	if (unlikely(!xfs_valid_startblock(ip, imap->br_startblock))) {
 		xfs_bmap_mark_sick(ip, XFS_DATA_FORK);
 		return xfs_alert_fsblock_zero(ip, imap);
 	}
 
+	// Block Logic: The mapping type is determined by the start block value.
+	// Special values indicate holes or delayed allocations.
 	if (imap->br_startblock == HOLESTARTBLOCK) {
 		iomap->addr = IOMAP_NULL_ADDR;
 		iomap->type = IOMAP_HOLE;
@@ -157,6 +217,16 @@ xfs_bmbt_to_iomap(
 	return 0;
 }
 
+/**
+ * @brief Creates an iomap for a hole extent.
+ * @param ip The inode.
+ * @param iomap The destination iomap structure.
+ * @param offset_fsb The starting offset of the hole in filesystem blocks.
+ * @param end_fsb The ending offset of the hole in filesystem blocks.
+ *
+ * This is a helper function to quickly generate a hole mapping without needing
+ * a full block mapping record.
+ */
 static void
 xfs_hole_to_iomap(
 	struct xfs_inode	*ip,
@@ -174,6 +244,17 @@ xfs_hole_to_iomap(
 	iomap->dax_dev = target->bt_daxdev;
 }
 
+/**
+ * @brief Calculates the ending filesystem block for an iomap operation.
+ * @param mp The mount point.
+ * @param offset The starting byte offset.
+ * @param count The length in bytes.
+ * @return The ending filesystem block number.
+ *
+ * This function calculates the end of an I/O operation in filesystem blocks,
+ * ensuring that it does not exceed the maximum file size supported by the
+ * filesystem.
+ */
 static inline xfs_fileoff_t
 xfs_iomap_end_fsb(
 	struct xfs_mount	*mp,
@@ -185,6 +266,16 @@ xfs_iomap_end_fsb(
 		   XFS_B_TO_FSB(mp, mp->m_super->s_maxbytes));
 }
 
+/**
+ * @brief Determines the allocation alignment for end-of-file allocations.
+ * @param ip The inode.
+ * @return The alignment in filesystem blocks.
+ *
+ * This function calculates the appropriate alignment for allocations that extend
+ * the file size. For data files, this is typically based on the RAID stripe
+ * unit or width to improve performance. For real-time files, no special
+ * alignment is needed.
+ */
 static xfs_extlen_t
 xfs_eof_alignment(
 	struct xfs_inode	*ip)
@@ -206,6 +297,8 @@ xfs_eof_alignment(
 		else if (mp->m_dalign)
 			align = mp->m_dalign;
 
+		// Pre-condition: Alignment is only applied if the file is larger than the
+		// alignment size itself.
 		if (align && XFS_ISIZE(ip) < XFS_FSB_TO_B(mp, align))
 			align = 0;
 	}
@@ -240,6 +333,9 @@ xfs_iomap_eof_align_last_fsb(
 			align = extsz;
 	}
 
+	// Block Logic: If alignment is required, check if the allocation extends
+	// beyond the current last extent. If so, align the end of the allocation
+	// to the calculated boundary.
 	if (align) {
 		xfs_fileoff_t	aligned_end_fsb = roundup_64(end_fsb, align);
 
@@ -252,6 +348,21 @@ xfs_iomap_eof_align_last_fsb(
 	return end_fsb;
 }
 
+/**
+ * @brief Allocates blocks for a direct write.
+ * @param ip The inode.
+ * @param offset_fsb The starting offset in filesystem blocks.
+ * @param count_fsb The number of blocks to allocate.
+ * @param flags Flags from the iomap core.
+ * @param imap A pointer to store the resulting block mapping.
+ * @param seq A pointer to store the new sequence number.
+ * @return 0 on success, or a negative error code.
+ *
+ * This function handles the allocation of blocks for direct I/O writes. It
+ * starts a transaction, calls the block mapping code to perform the
+ * allocation, and commits the transaction. It also handles special cases for
+ * DAX, where unwritten extents are converted to written extents.
+ */
 int
 xfs_iomap_write_direct(
 	struct xfs_inode	*ip,
@@ -300,6 +411,9 @@ xfs_iomap_write_direct(
 	 * the reserve block pool for bmbt block allocation if there is no space
 	 * left but we need to do unwritten extent conversion.
 	 */
+	// Block Logic: For DAX I/O, unwritten extents are converted to written
+	// extents immediately, which may require a larger transaction and the use
+	// of reserved blocks.
 	if (flags & IOMAP_DAX) {
 		bmapi_flags = XFS_BMAPI_CONVERT | XFS_BMAPI_ZERO;
 		if (imap->br_state == XFS_EXT_UNWRITTEN) {
@@ -335,6 +449,7 @@ xfs_iomap_write_direct(
 	if (error)
 		goto out_unlock;
 
+	// Post-condition: After a successful allocation, check for corruption.
 	if (unlikely(!xfs_valid_startblock(ip, imap->br_startblock))) {
 		xfs_bmap_mark_sick(ip, XFS_DATA_FORK);
 		error = xfs_alert_fsblock_zero(ip, imap);
@@ -350,6 +465,16 @@ out_trans_cancel:
 	goto out_unlock;
 }
 
+/**
+ * @brief Checks if quota throttling is needed for an allocation.
+ * @param ip The inode.
+ * @param type The quota type (user, group, or project).
+ * @param alloc_blocks The number of blocks being allocated.
+ * @return True if throttling is needed, false otherwise.
+ *
+ * This function determines whether an allocation should be throttled based on
+ * the current quota usage and the high watermark for pre-allocations.
+ */
 STATIC bool
 xfs_quota_need_throttle(
 	struct xfs_inode	*ip,
@@ -382,6 +507,18 @@ xfs_quota_need_throttle(
 	return true;
 }
 
+/**
+ * @brief Calculates the throttling factor for a quota-constrained allocation.
+ * @param ip The inode.
+ * @param type The quota type.
+ * @param qblocks A pointer to the number of blocks to be throttled.
+ * @param qshift A pointer to the shift factor for throttling.
+ * @param qfreesp A pointer to the free space under the quota.
+ *
+ * This function adjusts the number of blocks to be pre-allocated based on how
+ * close the quota is to its limit. The closer to the limit, the more
+ * aggressive the throttling.
+ */
 STATIC void
 xfs_quota_calc_throttle(
 	struct xfs_inode	*ip,
@@ -415,6 +552,8 @@ xfs_quota_calc_throttle(
 	}
 
 	freesp = pre->q_prealloc_hi_wmark - res->reserved;
+	// Block Logic: The throttling shift factor is increased as the free space
+	// under the quota decreases, implementing a progressive throttling mechanism.
 	if (freesp < pre->q_low_space[XFS_QLOWSP_5_PCNT]) {
 		shift = 2;
 		if (freesp < pre->q_low_space[XFS_QLOWSP_3_PCNT])
@@ -433,6 +572,17 @@ xfs_quota_calc_throttle(
 	}
 }
 
+/**
+ * @brief Estimates the free space and calculates a throttling factor.
+ * @param mp The mount point.
+ * @param idx The free space counter index.
+ * @param low_space An array of low space watermarks.
+ * @param shift A pointer to store the calculated shift factor.
+ * @return The estimated free space.
+ *
+ * This function is used to throttle pre-allocations based on the overall free
+ * space in the filesystem.
+ */
 static int64_t
 xfs_iomap_freesp(
 	struct xfs_mount	*mp,
@@ -443,6 +593,7 @@ xfs_iomap_freesp(
 	int64_t			freesp;
 
 	freesp = xfs_estimate_freecounter(mp, idx);
+	// Invariant: The shift factor is increased as free space decreases.
 	if (freesp < low_space[XFS_LOWSP_5_PCNT]) {
 		*shift = 2;
 		if (freesp < low_space[XFS_LOWSP_4_PCNT])
@@ -462,6 +613,12 @@ xfs_iomap_freesp(
  * the preallocation size as the size of the file grows.  Cap the maximum size
  * at a single extent or less if the filesystem is near full. The closer the
  * filesystem is to being full, the smaller the maximum preallocation.
+ *
+ * This function implements XFS's dynamic pre-allocation strategy. It aims to
+ * balance performance, by allocating larger chunks for large files, with space
+ * efficiency, by throttling allocations when the filesystem or quotas are
+-
+ * near full.
  */
 STATIC xfs_fsblock_t
 xfs_iomap_prealloc_size(
@@ -507,6 +664,8 @@ xfs_iomap_prealloc_size(
 	 * are written or not.
 	 */
 	plen = prev.br_blockcount;
+	// Invariant: This loop aggregates the size of contiguous preceding extents
+	// to determine a base for the pre-allocation size.
 	while (xfs_iext_prev_extent(ifp, &ncur, &got)) {
 		if (plen > XFS_MAX_BMBT_EXTLEN / 2 ||
 		    isnullstartblock(got.br_startblock) ||
@@ -597,6 +756,19 @@ xfs_iomap_prealloc_size(
 	return alloc_blocks;
 }
 
+/**
+ * @brief Converts a range of unwritten extents to written extents.
+ * @param ip The inode.
+ * @param offset The starting byte offset.
+ * @param count The length in bytes.
+ * @param update_isize True if the inode size should be updated.
+ * @return 0 on success, or a negative error code.
+ *
+ * This function is used to convert unwritten extents to written extents, which
+ * is necessary before data can be written to them in certain scenarios (e.g.,
+ * DAX). It iterates over the range, allocating transactions and calling
+ * `xfs_bmapi_write` to perform the conversion.
+ */
 int
 xfs_iomap_write_unwritten(
 	xfs_inode_t	*ip,
@@ -639,6 +811,8 @@ xfs_iomap_write_unwritten(
 	if (error)
 		return error;
 
+	// Invariant: The loop continues until the entire requested range has been
+	// converted.
 	do {
 		/*
 		 * Set up a transaction to convert the range of extents
@@ -715,6 +889,18 @@ error_on_bmapi_transaction:
 	return error;
 }
 
+/**
+ * @brief Checks if an allocation is needed for a given mapping.
+ * @param inode The inode.
+ * @param flags Flags from the iomap core.
+ * @param imap The block mapping record.
+ * @param nimaps The number of mappings returned.
+ * @return True if an allocation is needed, false otherwise.
+ *
+ * This function determines whether new blocks need to be allocated for a write
+ * operation. This is true for holes, delayed allocations, and, in the case of
+ * DAX, unwritten extents.
+ */
 static inline bool
 imap_needs_alloc(
 	struct inode		*inode,
@@ -735,6 +921,17 @@ imap_needs_alloc(
 	return false;
 }
 
+/**
+ * @brief Checks if a copy-on-write operation is needed.
+ * @param ip The inode.
+ * @param flags Flags from the iomap core.
+ * @param imap The block mapping record.
+ * @param nimaps The number of mappings returned.
+ * @return True if COW is needed, false otherwise.
+ *
+ * This function determines whether a write to a shared extent requires a
+ * copy-on-write operation.
+ */
 static inline bool
 imap_needs_cow(
 	struct xfs_inode	*ip,
@@ -769,6 +966,9 @@ xfs_ilock_for_iomap(
 	unsigned		flags,
 	unsigned		*lockmode)
 {
+	// Block Logic: If IOMAP_NOWAIT is set, attempt a non-blocking lock
+	// acquisition. Otherwise, acquire the lock, potentially upgrading to an
+	// exclusive lock if extents need to be read from disk.
 	if (flags & IOMAP_NOWAIT) {
 		if (xfs_need_iread_extents(&ip->i_df))
 			return -EAGAIN;
@@ -800,6 +1000,18 @@ imap_spans_range(
 	return true;
 }
 
+/**
+ * @brief Checks if a hardware atomic write is possible for a given mapping.
+ * @param ip The inode.
+ * @param imap The block mapping record.
+ * @param offset_fsb The starting offset of the write in filesystem blocks.
+ * @param end_fsb The ending offset of the write in filesystem blocks.
+ * @return True if a hardware atomic write is possible, false otherwise.
+ *
+ * This function checks the conditions required for a hardware-offloaded atomic
+ * write, such as natural alignment and a single extent spanning the entire
+ * write range.
+ */
 static bool
 xfs_bmap_hw_atomic_write_possible(
 	struct xfs_inode	*ip,
@@ -832,6 +1044,21 @@ xfs_bmap_hw_atomic_write_possible(
 	return len <= xfs_inode_buftarg(ip)->bt_awu_max;
 }
 
+/**
+ * @brief The iomap_begin implementation for direct writes.
+ * @param inode The inode.
+ * @param offset The starting byte offset.
+ * @param length The length in bytes.
+ * @param flags Flags from the iomap core.
+ * @param iomap The destination iomap structure.
+ * @param srcmap The destination srcmap structure for COW.
+ * @return 0 on success, or a negative error code.
+ *
+ * This is the main entry point for mapping direct writes. It handles locking,
+ * COW allocation, and dispatches to `xfs_iomap_write_direct` if new blocks
+ * need to be allocated. It also includes logic for atomic writes and overwrite-
+ * only I/O.
+ */
 static int
 xfs_direct_write_iomap_begin(
 	struct inode		*inode,
@@ -900,6 +1127,8 @@ relock:
 	if (error)
 		goto out_unlock;
 
+	// Block Logic: If the write targets a shared extent, a COW operation is
+	// required. This may involve allocating a new extent in the COW fork.
 	if (imap_needs_cow(ip, flags, &imap, nimaps)) {
 		error = -EAGAIN;
 		if (flags & IOMAP_NOWAIT)
@@ -926,6 +1155,7 @@ relock:
 
 	needs_alloc = imap_needs_alloc(inode, flags, &imap, nimaps);
 
+	// Pre-condition: Checks if the conditions for a hardware atomic write are met.
 	if (flags & IOMAP_ATOMIC) {
 		error = -ENOPROTOOPT;
 		/*
@@ -1082,6 +1312,20 @@ const struct iomap_ops xfs_zoned_direct_write_iomap_ops = {
 };
 #endif /* CONFIG_XFS_RT */
 
+/**
+ * @brief The iomap_begin implementation for atomic writes with COW.
+ * @param inode The inode.
+ * @param offset The starting byte offset.
+ * @param length The length in bytes.
+ * @param flags Flags from the iomap core.
+ * @param iomap The destination iomap structure.
+ * @param srcmap The destination srcmap structure.
+ * @return 0 on success, or a negative error code.
+ *
+ * This function handles atomic writes that require copy-on-write. It allocates
+ * space in the COW fork and ensures that the allocated extents are converted
+ * to written extents before returning.
+ */
 static int
 xfs_atomic_write_cow_iomap_begin(
 	struct inode		*inode,
@@ -1129,6 +1373,8 @@ xfs_atomic_write_cow_iomap_begin(
 		xfs_ifork_init_cow(ip);
 	}
 
+	// Invariant: Looks up the extent in the COW fork. If an existing extent
+	// is found, it is used.
 	if (!xfs_iext_lookup_extent(ip, ip->i_cowfp, offset_fsb, &icur, &cmap))
 		cmap.br_startoff = end_fsb;
 	if (cmap.br_startoff <= offset_fsb) {
@@ -1187,6 +1433,7 @@ xfs_atomic_write_cow_iomap_begin(
 		goto out_unlock;
 
 found:
+	// Post-condition: Converts the COW extent to a written extent.
 	if (cmap.br_state != XFS_EXT_NORM) {
 		error = xfs_reflink_convert_cow_locked(ip, offset_fsb,
 				count_fsb);
@@ -1210,6 +1457,20 @@ const struct iomap_ops xfs_atomic_write_cow_iomap_ops = {
 	.iomap_begin		= xfs_atomic_write_cow_iomap_begin,
 };
 
+/**
+ * @brief The iomap_end implementation for DAX writes.
+ * @param inode The inode.
+ * @param pos The starting byte offset.
+ * @param length The length in bytes.
+ * @param written The number of bytes written.
+ * @param flags Flags from the iomap core.
+ * @param iomap The iomap structure.
+ * @return 0 on success, or a negative error code.
+ *
+ * This function is called at the end of a DAX write. For COW files, it is
+ * responsible for either finalizing the COW operation or canceling it if the
+ * write failed.
+ */
 static int
 xfs_dax_write_iomap_end(
 	struct inode		*inode,
@@ -1224,6 +1485,8 @@ xfs_dax_write_iomap_end(
 	if (!xfs_is_cow_inode(ip))
 		return 0;
 
+	// Block Logic: If the write was successful, finalize the COW. Otherwise,
+	// cancel it to release the reserved space.
 	if (!written)
 		return xfs_reflink_cancel_cow_range(ip, pos, length, true);
 
@@ -1237,6 +1500,10 @@ const struct iomap_ops xfs_dax_write_iomap_ops = {
 
 /*
  * Convert a hole to a delayed allocation.
+ *
+ * This function is a key part of XFS's delayed allocation mechanism. It merges
+ * a new delayed allocation extent with adjacent delayed allocation extents if
+ * possible, reducing fragmentation and metadata overhead.
  */
 static void
 xfs_bmap_add_extent_hole_delay(
@@ -1295,6 +1562,10 @@ xfs_bmap_add_extent_hole_delay(
 	/*
 	 * Switch out based on the contiguity flags.
 	 */
+	// Block Logic: This switch statement implements the merging logic for
+	// delayed allocation extents. It handles four cases: merging with both left
+	// and right neighbors, merging with only the left, merging with only the
+	// right, and inserting a new extent.
 	switch (state & (BMAP_LEFT_CONTIG | BMAP_RIGHT_CONTIG)) {
 	case BMAP_LEFT_CONTIG | BMAP_RIGHT_CONTIG:
 		/*
@@ -1501,6 +1772,8 @@ out_unreserve_quota:
 	if (XFS_IS_QUOTA_ON(mp))
 		xfs_quota_unreserve_blkres(ip, alen);
 out:
+	// Post-condition: If the allocation fails due to lack of space, retry
+	// without pre-allocation.
 	if (error == -ENOSPC || error == -EDQUOT) {
 		trace_xfs_delalloc_enospc(ip, off, len);
 
@@ -1514,6 +1787,20 @@ out:
 	return error;
 }
 
+/**
+ * @brief The iomap_begin implementation for buffered writes on zoned devices.
+ * @param inode The inode.
+ * @param offset The starting byte offset.
+ * @param count The length in bytes.
+ * @param flags Flags from the iomap core.
+ * @param iomap The destination iomap structure.
+ * @param srcmap The destination srcmap structure.
+ * @return 0 on success, or a negative error code.
+ *
+ * This function handles buffered writes for zoned block devices. It creates
+ * delayed allocation extents in the COW fork, which are later converted to
+ * real extents when the data is written back.
+ */
 static int
 xfs_zoned_buffered_write_iomap_begin(
 	struct inode		*inode,
@@ -1571,6 +1858,7 @@ xfs_zoned_buffered_write_iomap_begin(
 	 *
 	 * For regular writes we always need to allocate new blocks, but need to
 	 * provide the source mapping when the range is unaligned to support
+	-
 	 * read-modify-write of the whole block in the page cache.
 	 *
 	 * In either case we need to limit the reported range to the boundaries
@@ -1635,6 +1923,7 @@ xfs_zoned_buffered_write_iomap_begin(
 	 *     ->page_mkwrite in range this thread writes to, using up the
 	 *     delalloc reservation created by a previous call to this function.
 	 *  3) another thread does direct I/O on the range that the write fault
+	-
 	 *     happened on, which causes writeback of the dirty data.
 	 *  4) this then set the stale flag, which cuts the current iomap
 	 *     iteration short, causing the new call to ->iomap_begin that gets
@@ -1684,6 +1973,19 @@ out_unlock:
 	return error;
 }
 
+/**
+ * @brief The iomap_begin implementation for buffered writes.
+ * @param inode The inode.
+ * @param offset The starting byte offset.
+ * @param count The length in bytes.
+ * @param flags Flags from the iomap core.
+ * @param iomap The destination iomap structure.
+ * @param srcmap The destination srcmap structure.
+ * @return 0 on success, or a negative error code.
+ *
+ * This function is the main entry point for mapping buffered writes. It handles
+ * delayed allocation, COW for reflink files, and pre-allocation at EOF.
+ */
 static int
 xfs_buffered_write_iomap_begin(
 	struct inode		*inode,
@@ -1846,6 +2148,8 @@ xfs_buffered_write_iomap_begin(
 			allocfork = XFS_COW_FORK;
 	}
 
+	// Block Logic: If writing past EOF, calculate a pre-allocation size to
+	// reduce fragmentation.
 	if (eof && offset + count > XFS_ISIZE(ip)) {
 		/*
 		 * Determine the initial size of the preallocation.
@@ -1939,6 +2243,17 @@ out_unlock:
 	return error;
 }
 
+/**
+ * @brief Punches a hole in a delayed allocation range.
+ * @param inode The inode.
+ * @param offset The starting byte offset.
+ * @param length The length in bytes.
+ * @param iomap The iomap structure.
+ *
+ * This function is a helper for `xfs_buffered_write_iomap_end`. It calls
+ * `xfs_bmap_punch_delalloc_range` to release the reservation for a range of
+ * delayed allocation blocks that were not written to.
+ */
 static void
 xfs_buffered_write_delalloc_punch(
 	struct inode		*inode,
@@ -1955,6 +2270,20 @@ xfs_buffered_write_delalloc_punch(
 			offset, offset + length, iter->private);
 }
 
+/**
+ * @brief The iomap_end implementation for buffered writes.
+ * @param inode The inode.
+ * @param offset The starting byte offset.
+ * @param length The length in bytes.
+ * @param written The number of bytes written.
+ * @param flags Flags from the iomap core.
+ * @param iomap The iomap structure.
+ * @return 0 on success.
+ *
+ * This function is called at the end of a buffered write. It is responsible
+ * for punching holes in delayed allocation extents for any parts that were not
+ * written to, thus releasing the reserved space.
+ */
 static int
 xfs_buffered_write_iomap_end(
 	struct inode		*inode,
@@ -1985,6 +2314,9 @@ xfs_buffered_write_iomap_end(
 		return 0;
 
 	/* For zeroing operations the callers already hold invalidate_lock. */
+	// Block Logic: If there are unwritten parts of a delayed allocation extent,
+	// punch a hole to release the reservation. This requires taking the
+	// invalidate_lock to protect against races with page cache invalidation.
 	if (flags & (IOMAP_UNSHARE | IOMAP_ZERO)) {
 		rwsem_assert_held_write(&inode->i_mapping->invalidate_lock);
 		iomap_write_delalloc_release(inode, start_byte, end_byte, flags,
@@ -1997,226 +2329,4 @@ xfs_buffered_write_iomap_end(
 	}
 
 	return 0;
-}
-
-const struct iomap_ops xfs_buffered_write_iomap_ops = {
-	.iomap_begin		= xfs_buffered_write_iomap_begin,
-	.iomap_end		= xfs_buffered_write_iomap_end,
-};
-
-static int
-xfs_read_iomap_begin(
-	struct inode		*inode,
-	loff_t			offset,
-	loff_t			length,
-	unsigned		flags,
-	struct iomap		*iomap,
-	struct iomap		*srcmap)
-{
-	struct xfs_inode	*ip = XFS_I(inode);
-	struct xfs_mount	*mp = ip->i_mount;
-	struct xfs_bmbt_irec	imap;
-	xfs_fileoff_t		offset_fsb = XFS_B_TO_FSBT(mp, offset);
-	xfs_fileoff_t		end_fsb = xfs_iomap_end_fsb(mp, offset, length);
-	int			nimaps = 1, error = 0;
-	bool			shared = false;
-	unsigned int		lockmode = XFS_ILOCK_SHARED;
-	u64			seq;
-
-	ASSERT(!(flags & (IOMAP_WRITE | IOMAP_ZERO)));
-
-	if (xfs_is_shutdown(mp))
-		return -EIO;
-
-	error = xfs_ilock_for_iomap(ip, flags, &lockmode);
-	if (error)
-		return error;
-	error = xfs_bmapi_read(ip, offset_fsb, end_fsb - offset_fsb, &imap,
-			       &nimaps, 0);
-	if (!error && ((flags & IOMAP_REPORT) || IS_DAX(inode)))
-		error = xfs_reflink_trim_around_shared(ip, &imap, &shared);
-	seq = xfs_iomap_inode_sequence(ip, shared ? IOMAP_F_SHARED : 0);
-	xfs_iunlock(ip, lockmode);
-
-	if (error)
-		return error;
-	trace_xfs_iomap_found(ip, offset, length, XFS_DATA_FORK, &imap);
-	return xfs_bmbt_to_iomap(ip, iomap, &imap, flags,
-				 shared ? IOMAP_F_SHARED : 0, seq);
-}
-
-const struct iomap_ops xfs_read_iomap_ops = {
-	.iomap_begin		= xfs_read_iomap_begin,
-};
-
-static int
-xfs_seek_iomap_begin(
-	struct inode		*inode,
-	loff_t			offset,
-	loff_t			length,
-	unsigned		flags,
-	struct iomap		*iomap,
-	struct iomap		*srcmap)
-{
-	struct xfs_inode	*ip = XFS_I(inode);
-	struct xfs_mount	*mp = ip->i_mount;
-	xfs_fileoff_t		offset_fsb = XFS_B_TO_FSBT(mp, offset);
-	xfs_fileoff_t		end_fsb = XFS_B_TO_FSB(mp, offset + length);
-	xfs_fileoff_t		cow_fsb = NULLFILEOFF, data_fsb = NULLFILEOFF;
-	struct xfs_iext_cursor	icur;
-	struct xfs_bmbt_irec	imap, cmap;
-	int			error = 0;
-	unsigned		lockmode;
-	u64			seq;
-
-	if (xfs_is_shutdown(mp))
-		return -EIO;
-
-	lockmode = xfs_ilock_data_map_shared(ip);
-	error = xfs_iread_extents(NULL, ip, XFS_DATA_FORK);
-	if (error)
-		goto out_unlock;
-
-	if (xfs_iext_lookup_extent(ip, &ip->i_df, offset_fsb, &icur, &imap)) {
-		/*
-		 * If we found a data extent we are done.
-		 */
-		if (imap.br_startoff <= offset_fsb)
-			goto done;
-		data_fsb = imap.br_startoff;
-	} else {
-		/*
-		 * Fake a hole until the end of the file.
-		 */
-		data_fsb = xfs_iomap_end_fsb(mp, offset, length);
-	}
-
-	/*
-	 * If a COW fork extent covers the hole, report it - capped to the next
-	 * data fork extent:
-	 */
-	if (xfs_inode_has_cow_data(ip) &&
-	    xfs_iext_lookup_extent(ip, ip->i_cowfp, offset_fsb, &icur, &cmap))
-		cow_fsb = cmap.br_startoff;
-	if (cow_fsb != NULLFILEOFF && cow_fsb <= offset_fsb) {
-		if (data_fsb < cow_fsb + cmap.br_blockcount)
-			end_fsb = min(end_fsb, data_fsb);
-		xfs_trim_extent(&cmap, offset_fsb, end_fsb - offset_fsb);
-		seq = xfs_iomap_inode_sequence(ip, IOMAP_F_SHARED);
-		error = xfs_bmbt_to_iomap(ip, iomap, &cmap, flags,
-				IOMAP_F_SHARED, seq);
-		/*
-		 * This is a COW extent, so we must probe the page cache
-		 * because there could be dirty page cache being backed
-		 * by this extent.
-		 */
-		iomap->type = IOMAP_UNWRITTEN;
-		goto out_unlock;
-	}
-
-	/*
-	 * Else report a hole, capped to the next found data or COW extent.
-	 */
-	if (cow_fsb != NULLFILEOFF && cow_fsb < data_fsb)
-		imap.br_blockcount = cow_fsb - offset_fsb;
-	else
-		imap.br_blockcount = data_fsb - offset_fsb;
-	imap.br_startoff = offset_fsb;
-	imap.br_startblock = HOLESTARTBLOCK;
-	imap.br_state = XFS_EXT_NORM;
-done:
-	seq = xfs_iomap_inode_sequence(ip, 0);
-	xfs_trim_extent(&imap, offset_fsb, end_fsb - offset_fsb);
-	error = xfs_bmbt_to_iomap(ip, iomap, &imap, flags, 0, seq);
-out_unlock:
-	xfs_iunlock(ip, lockmode);
-	return error;
-}
-
-const struct iomap_ops xfs_seek_iomap_ops = {
-	.iomap_begin		= xfs_seek_iomap_begin,
-};
-
-static int
-xfs_xattr_iomap_begin(
-	struct inode		*inode,
-	loff_t			offset,
-	loff_t			length,
-	unsigned		flags,
-	struct iomap		*iomap,
-	struct iomap		*srcmap)
-{
-	struct xfs_inode	*ip = XFS_I(inode);
-	struct xfs_mount	*mp = ip->i_mount;
-	xfs_fileoff_t		offset_fsb = XFS_B_TO_FSBT(mp, offset);
-	xfs_fileoff_t		end_fsb = XFS_B_TO_FSB(mp, offset + length);
-	struct xfs_bmbt_irec	imap;
-	int			nimaps = 1, error = 0;
-	unsigned		lockmode;
-	int			seq;
-
-	if (xfs_is_shutdown(mp))
-		return -EIO;
-
-	lockmode = xfs_ilock_attr_map_shared(ip);
-
-	/* if there are no attribute fork or extents, return ENOENT */
-	if (!xfs_inode_has_attr_fork(ip) || !ip->i_af.if_nextents) {
-		error = -ENOENT;
-		goto out_unlock;
-	}
-
-	ASSERT(ip->i_af.if_format != XFS_DINODE_FMT_LOCAL);
-	error = xfs_bmapi_read(ip, offset_fsb, end_fsb - offset_fsb, &imap,
-			       &nimaps, XFS_BMAPI_ATTRFORK);
-out_unlock:
-
-	seq = xfs_iomap_inode_sequence(ip, IOMAP_F_XATTR);
-	xfs_iunlock(ip, lockmode);
-
-	if (error)
-		return error;
-	ASSERT(nimaps);
-	return xfs_bmbt_to_iomap(ip, iomap, &imap, flags, IOMAP_F_XATTR, seq);
-}
-
-const struct iomap_ops xfs_xattr_iomap_ops = {
-	.iomap_begin		= xfs_xattr_iomap_begin,
-};
-
-int
-xfs_zero_range(
-	struct xfs_inode	*ip,
-	loff_t			pos,
-	loff_t			len,
-	struct xfs_zone_alloc_ctx *ac,
-	bool			*did_zero)
-{
-	struct inode		*inode = VFS_I(ip);
-
-	xfs_assert_ilocked(ip, XFS_IOLOCK_EXCL | XFS_MMAPLOCK_EXCL);
-
-	if (IS_DAX(inode))
-		return dax_zero_range(inode, pos, len, did_zero,
-				      &xfs_dax_write_iomap_ops);
-	return iomap_zero_range(inode, pos, len, did_zero,
-			&xfs_buffered_write_iomap_ops, &xfs_iomap_write_ops,
-			ac);
-}
-
-int
-xfs_truncate_page(
-	struct xfs_inode	*ip,
-	loff_t			pos,
-	struct xfs_zone_alloc_ctx *ac,
-	bool			*did_zero)
-{
-	struct inode		*inode = VFS_I(ip);
-
-	if (IS_DAX(inode))
-		return dax_truncate_page(inode, pos, did_zero,
-					&xfs_dax_write_iomap_ops);
-	return iomap_truncate_page(inode, pos, did_zero,
-			&xfs_buffered_write_iomap_ops, &xfs_iomap_write_ops,
-			ac);
 }

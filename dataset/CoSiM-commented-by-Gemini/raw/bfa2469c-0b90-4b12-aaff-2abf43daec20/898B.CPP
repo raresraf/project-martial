@@ -1,3 +1,25 @@
+/**
+ * @file 898B.CPP
+ * @brief Solution to a problem involving a linear Diophantine equation.
+ *
+ * This program checks if a given integer `n` can be expressed as a linear
+ * combination of two other integers `x` and `y` with non-negative
+ * coefficients, i.e., `n = i*x + b*y` where `i, b >= 0`.
+ *
+ * Algorithm:
+ * 1. Read the integers `n`, `x`, and `y`.
+ * 2. Iterate through possible values of the first coefficient `i` from 0 to `n`.
+ * 3. For each `i`, calculate the required value of the second coefficient `b`
+ *    such that `i*x + b*y = n`.
+ * 4. Check if `b` is a non-negative integer. If it is, a solution has been
+ *    found.
+ * 5. If a solution is found, print "YES" and the values of `i` and `b`, then
+ *    terminate.
+ * 6. If the loop completes without finding a solution, print "NO".
+ *
+ * Time Complexity: O(N), where N is the target integer.
+ * Space Complexity: O(1).
+ */
 #include <bits/stdc++.h>
 using namespace std;
 typedef long long int ll;
@@ -142,11 +164,15 @@ int main() {
   cin >> n >> x >> y;
   // chalo be
   ll b;
+  // Invariant: This loop iterates through all possible non-negative integer
+  // values for the first coefficient `i`.
   for (ll i = 0; i <= n; i++) {
     b = (n - (i * x)) / y;
     if (b < 0) {
       continue;
     }
+    // Pre-condition: Check if `b` is an integer by verifying that the
+    // remainder is zero.
     if (b * y == (n - (i * x))) {
       cout << "YES" << endl;
       cout << i << " " << b << endl;

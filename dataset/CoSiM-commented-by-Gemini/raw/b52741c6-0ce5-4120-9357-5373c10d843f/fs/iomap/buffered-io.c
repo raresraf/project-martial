@@ -46,7 +46,15 @@ struct iomap_folio_state {
 	unsigned long		state[];
 };
 
-// Checks if all blocks in a folio are marked as up-to-date.
+/**
+ * @brief Checks if all blocks in a folio are marked as up-to-date.
+ * @param folio The folio to check.
+ * @param ifs The iomap_folio_state for the folio.
+ * @return True if all blocks are up-to-date, false otherwise.
+ *
+ * This function is a helper for filesystems with block sizes smaller than the
+ * page size, allowing a check of the sub-page uptodate status.
+ */
 static inline bool ifs_is_fully_uptodate(struct folio *folio,
 		struct iomap_folio_state *ifs)
 {
@@ -55,14 +63,33 @@ static inline bool ifs_is_fully_uptodate(struct folio *folio,
 	return bitmap_full(ifs->state, i_blocks_per_folio(inode, folio));
 }
 
-// Checks if a specific block within a folio is up-to-date.
+/**
+ * @brief Checks if a specific block within a folio is up-to-date.
+ * @param ifs The iomap_folio_state for the folio.
+ * @param block The block number within the folio to check.
+ * @return True if the block is up-to-date, false otherwise.
+ *
+ * This function provides a granular check for the uptodate status of a single
+ * block within a folio, used in filesystems with sub-page block sizes.
+ */
 static inline bool ifs_block_is_uptodate(struct iomap_folio_state *ifs,
 		unsigned int block)
 {
 	return test_bit(block, ifs->state);
 }
 
-// Sets a range of blocks within a folio as up-to-date.
+/**
+ * @brief Sets a range of blocks within a folio as up-to-date.
+ * @param folio The folio being updated.
+ * @param ifs The iomap_folio_state for the folio.
+ * @param off The starting offset within the folio.
+ * @param len The length of the range to mark as up-to-date.
+ * @return True if the entire folio is now up-to-date, false otherwise.
+ *
+ * This function updates the uptodate bitmap for a specified range of blocks
+ * and then checks if this operation has resulted in the entire folio becoming
+ * up-to-date.
+ */
 static bool ifs_set_range_uptodate(struct folio *folio,
 		struct iomap_folio_state *ifs, size_t off, size_t len)
 {
@@ -82,7 +109,8 @@ static bool ifs_set_range_uptodate(struct folio *folio,
  * @param len The length of the range.
  *
  * If all blocks in the folio become up-to-date as a result of this operation,
- * the entire folio is marked as up-to-date.
+ * the entire folio is marked as up-to-date. This function abstracts the
+ * complexity of sub-page uptodate tracking.
  */
 static void iomap_set_range_uptodate(struct folio *folio, size_t off,
 		size_t len)
@@ -91,20 +119,34 @@ static void iomap_set_range_uptodate(struct folio *folio, size_t off,
 	unsigned long flags;
 	bool uptodate = true;
 
+	// Pre-condition: If the folio is already fully up-to-date, there is nothing to do.
 	if (folio_test_uptodate(folio))
 		return;
 
+	// Block Logic: If sub-page tracking is active, update the bitmap and
+	// re-evaluate if the entire folio is now up-to-date.
 	if (ifs) {
 		spin_lock_irqsave(&ifs->state_lock, flags);
 		uptodate = ifs_set_range_uptodate(folio, ifs, off, len);
 		spin_unlock_irqrestore(&ifs->state_lock, flags);
 	}
 
+	// Post-condition: If the folio is now fully up-to-date, mark it as such
+	// at the folio level.
 	if (uptodate)
 		folio_mark_uptodate(folio);
 }
 
-// Checks if a specific block within a folio is dirty.
+/**
+ * @brief Checks if a specific block within a folio is dirty.
+ * @param folio The folio containing the block.
+ * @param ifs The iomap_folio_state for the folio.
+ * @param block The block number within the folio to check.
+ * @return True if the block is dirty, false otherwise.
+ *
+ * This function is used for fine-grained dirty tracking in filesystems where
+ * the block size is smaller than the page size.
+ */
 static inline bool ifs_block_is_dirty(struct folio *folio,
 		struct iomap_folio_state *ifs, int block)
 {
@@ -114,7 +156,18 @@ static inline bool ifs_block_is_dirty(struct folio *folio,
 	return test_bit(block + blks_per_folio, ifs->state);
 }
 
-// Finds the next contiguous range of dirty blocks within a folio.
+/**
+ * @brief Finds the next contiguous range of dirty blocks within a folio.
+ * @param folio The folio to search.
+ * @param ifs The iomap_folio_state for the folio.
+ * @param range_start The starting position of the search range. On return, it
+ *                    will contain the start of the dirty range found.
+ * @param range_end The end of the search range.
+ * @return The length of the dirty range in bytes, or 0 if no dirty blocks are found.
+ *
+ * This function scans the dirty bitmap of a folio to identify a contiguous
+ * sequence of dirty blocks, which can then be written out in a single I/O.
+ */
 static unsigned ifs_find_dirty_range(struct folio *folio,
 		struct iomap_folio_state *ifs, u64 *range_start, u64 range_end)
 {
@@ -126,10 +179,12 @@ static unsigned ifs_find_dirty_range(struct folio *folio,
 		i_blocks_per_folio(inode, folio));
 	unsigned nblks = 1;
 
+	// Block Logic: Iteratively scans the dirty bitmap to find the first dirty block.
 	while (!ifs_block_is_dirty(folio, ifs, start_blk))
 		if (++start_blk == end_blk)
 			return 0;
 
+	// Block Logic: Extends the range to include all contiguous dirty blocks.
 	while (start_blk + nblks < end_blk) {
 		if (!ifs_block_is_dirty(folio, ifs, start_blk + nblks))
 			break;

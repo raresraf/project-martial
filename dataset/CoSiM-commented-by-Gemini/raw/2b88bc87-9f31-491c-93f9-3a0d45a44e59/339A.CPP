@@ -1,15 +1,33 @@
+/**
+ * @file 339A.CPP
+ * @brief Solution to the "Helpful Maths" problem.
+ * @see https://codeforces.com/problemset/problem/339/A
+ *
+ * This program rearranges a sum of numbers (1, 2, and 3) into non-decreasing
+ * order.
+ *
+ * Algorithm:
+ * 1. Read the input string, which is a sum of numbers separated by '+'.
+ * 2. Extract the numbers from the string.
+ * 3. Sort the numbers in non-decreasing order.
+ * 4. Print the sorted numbers, separated by '+'.
+ *
+ * Time Complexity: O(N log N), where N is the number of terms in the sum, due
+ * to sorting.
+ * Space Complexity: O(N) to store the extracted numbers.
+ */
 // please refer from line no. 207
 /////*31022618*/////
 //_MONU KUMAR
 #include <bits/stdc++.h>
 using namespace std;
 #define fast                                                                   \
-  ios_base::sync_with_stdio(false);                                            \
-  cin.tie(0);                                                                  \
+  ios_base::sync_with_stdio(false);
+  cin.tie(0);
   cout.tie(0);
 #define tc                                                                     \
-  ll t = 1;                                                                    \
-  cin >> t;                                                                    \
+  ll t = 1;
+  cin >> t;
   while (t--)
 #define ll long long int
 #define ld long double
@@ -19,7 +37,7 @@ using namespace std;
 #define vp vector<pll>
 #define mll std::map<ll, ll>
 #define mpl                                                                    \
-  std:                                                                         \
+  std:
   map<pll, ll>
 #define p1(x) cout << x << "\n";
 #define p2(x, y) cout << x << " " << y << "\n";
@@ -28,12 +46,12 @@ using namespace std;
 #define trace(x)                                                               \
   cout << #x << ": " << x << " "                                               \
        << "\n";
-#define trace2(x, y)                                                           \
+#define trace2(x, y)
   cout << #x << ": " << x << " | " << #y << ": " << y << "\n";
-#define trace3(x, y, z)                                                        \
+#define trace3(x, y, z)
   cout << #x << ":" << x << " | " << #y << ": " << y << " | " << #z << ": "    \
        << z << "\n";
-#define trace4(a, b, c, d)                                                     \
+#define trace4(a, b, c, d)
   cout << #a << ": " << a << " | " << #b << ": " << b << " | " << #c << ": "   \
        << c << " | " << #d << ": " << d << "\n";
 #define nL cout << "\n";
@@ -55,8 +73,8 @@ using namespace std;
 #define all(v) v.begin(), v.end()
 #define lps(v, x) (lower_bound(all(v), x) - v.begin())
 #define ups(v, x) (upper_bound(all(v), x) - v.begin())
-#define ina(a, n)                                                              \
-  ll a[n];                                                                     \
+#define ina(a, n)
+  ll a[n];
   lp(i, 0, n) cin >> a[i];
 #define ona(a, n) lp(i, 0, n) cout << a[i] << " ";
 //#########################################################################################
@@ -212,6 +230,8 @@ int main() {
          xx = 0, minn1 = big, minn2 = big, maxx1 = small, maxx2 = small;
   string s, ss = "";
   cin >> s;
+  // Invariant: This loop extracts the numbers from the input string by taking
+  // every other character.
   lp(i, 0, s.size()) {
     if (i % 2 == 0) {
       /* code */
@@ -219,6 +239,7 @@ int main() {
     }
   }
   sort(all(ss));
+  // Invariant: This loop prints the sorted numbers, separated by '+'.
   lp(i, 0, ss.size() - 1) { cout << ss[i] << "+"; }
   cout << ss[ss.size() - 1];
 

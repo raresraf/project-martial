@@ -1,3 +1,13 @@
+/**
+ * @file actions.rs
+ * @brief Implementation of the WebDriver Actions API.
+ * @license MPL-2.0
+ *
+ * This module provides the implementation for the WebDriver Actions API, which
+ * allows for the simulation of complex user interactions such as key presses,
+ * mouse movements, and wheel scrolls. The implementation follows the W3C
+ * WebDriver specification.
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -24,6 +34,13 @@ use crate::{Handler, wait_for_script_response};
 static POINTERMOVE_INTERVAL: u64 = 17;
 static WHEELSCROLL_INTERVAL: u64 = 17;
 
+/**
+ * @enum InputSourceState
+ * @brief Represents the state of an input source.
+ *
+ * This enum tracks the current state of an input source, which can be a null
+ * input, a key input, a pointer input, or a wheel input.
+ */
 // https://w3c.github.io/webdriver/#dfn-input-source-state
 pub(crate) enum InputSourceState {
     Null,
@@ -32,6 +49,13 @@ pub(crate) enum InputSourceState {
     Wheel,
 }
 
+/**
+ * @struct PointerInputState
+ * @brief Represents the state of a pointer input source.
+ *
+ * This structure tracks the subtype of the pointer (mouse, pen, or touch), the
+ * set of currently pressed buttons, and the current coordinates of the pointer.
+ */
 // https://w3c.github.io/webdriver/#dfn-pointer-input-source
 pub(crate) struct PointerInputState {
     subtype: PointerType,
@@ -55,6 +79,14 @@ impl PointerInputState {
     }
 }
 
+/**
+ * @brief Computes the duration of a tick.
+ * @param tick_actions The action sequence for the tick.
+ * @return The duration of the tick in milliseconds.
+ *
+ * This function calculates the duration of a tick by finding the maximum
+ * duration of any pause or move action within the tick's action sequence.
+ */
 // https://w3c.github.io/webdriver/#dfn-computing-the-tick-duration
 fn compute_tick_duration(tick_actions: &ActionSequence) -> u64 {
     let mut duration = 0;
@@ -93,6 +125,14 @@ fn compute_tick_duration(tick_actions: &ActionSequence) -> u64 {
 }
 
 impl Handler {
+    /**
+     * @brief Dispatches a sequence of actions.
+     * @param actions_by_tick A slice of action sequences, grouped by tick.
+     * @return A `Result` indicating success or an error.
+     *
+     * This is the main entry point for the Actions API. It iterates through
+     * each tick's action sequence and dispatches the actions to be performed.
+     */
     // https://w3c.github.io/webdriver/#dfn-dispatch-actions
     pub(crate) fn dispatch_actions(
         &mut self,
@@ -115,6 +155,15 @@ impl Handler {
         // Nothing to be done
     }
 
+    /**
+     * @brief Dispatches the actions for a single tick.
+     * @param tick_actions The action sequence for the tick.
+     * @param tick_duration The duration of the tick.
+     * @return A `Result` indicating success or an error.
+     *
+     * This function iterates through the actions in a tick and dispatches them
+     * to the appropriate handler based on the action type.
+     */
     // https://w3c.github.io/webdriver/#dfn-dispatch-tick-actions
     fn dispatch_tick_actions(
         &mut self,
@@ -129,6 +178,9 @@ impl Handler {
                 }
             },
             ActionsType::Key { actions } => {
+                // Block-level comment: This block handles key actions, creating a
+                // new key input state if one does not already exist for the
+                // source, and then dispatching keydown or keyup actions.
                 for action in actions.iter() {
                     match action {
                         KeyActionItem::General(_action) => {
@@ -156,6 +208,8 @@ impl Handler {
                 parameters,
                 actions,
             } => {
+                // Block-level comment: This block handles pointer actions, such
+                // as mouse moves, clicks, and touches.
                 for action in actions.iter() {
                     match action {
                         PointerActionItem::General(_action) => {
@@ -188,6 +242,8 @@ impl Handler {
                 }
             },
             ActionsType::Wheel { actions } => {
+                // Block-level comment: This block handles wheel actions, such as
+                // scrolling.
                 for action in actions.iter() {
                     match action {
                         WheelActionItem::General(_action) => {
@@ -268,6 +324,15 @@ impl Handler {
         }
     }
 
+    /**
+     * @brief Dispatches a pointer down action.
+     * @param source_id The ID of the input source.
+     * @param action The pointer down action.
+     *
+     * This function handles the simulation of a mouse button press or a touch
+     * start event. It updates the input state and sends the corresponding
+     * command to the browser engine.
+     */
     // https://w3c.github.io/webdriver/#dfn-dispatch-a-pointerdown-action
     pub(crate) fn dispatch_pointerdown_action(
         &mut self,
@@ -281,6 +346,7 @@ impl Handler {
             _ => unreachable!(),
         };
 
+        // Pre-condition: If the button is already pressed, do nothing.
         if pointer_input_state.pressed.contains(&action.button) {
             return;
         }
@@ -317,6 +383,13 @@ impl Handler {
             .unwrap();
     }
 
+    /**
+     * @brief Dispatches a pointer up action.
+     * @param source_id The ID of the input source.
+     * @param action The pointer up action.
+     *
+     * This function simulates a mouse button release or a touch end event.
+     */
     // https://w3c.github.io/webdriver/#dfn-dispatch-a-pointerup-action
     pub(crate) fn dispatch_pointerup_action(&mut self, source_id: &str, action: &PointerUpAction) {
         let session = self.session.as_mut().unwrap();
@@ -362,6 +435,18 @@ impl Handler {
             .unwrap();
     }
 
+    /**
+     * @brief Dispatches a pointer move action.
+     * @param source_id The ID of the input source.
+     * @param action The pointer move action.
+     * @param tick_duration The duration of the tick.
+     * @return A `Result` indicating success or an error.
+     *
+     * This function simulates a pointer movement, which can be relative to the
+     * viewport, the current pointer position, or an element. It calls
+     * `perform_pointer_move` to handle the interpolation of the movement over
+     * the specified duration.
+     */
     // https://w3c.github.io/webdriver/#dfn-dispatch-a-pointermove-action
     pub(crate) fn dispatch_pointermove_action(
         &mut self,
@@ -390,6 +475,7 @@ impl Handler {
             _ => unreachable!(),
         };
 
+        // Invariant: Calculates the target coordinates based on the specified origin.
         let (x, y) = match action.origin {
             PointerOrigin::Viewport => (x_offset, y_offset),
             PointerOrigin::Pointer => (start_x + x_offset, start_y + y_offset),
@@ -431,6 +517,20 @@ impl Handler {
         Ok(())
     }
 
+    /**
+     * @brief Performs the interpolated pointer movement.
+     * @param source_id The ID of the input source.
+     * @param duration The duration of the movement.
+     * @param start_x The starting x-coordinate.
+     * @param start_y The starting y-coordinate.
+     * @param target_x The target x-coordinate.
+     * @param target_y The target y-coordinate.
+     * @param tick_start The start time of the tick.
+     *
+     * This function simulates a smooth pointer movement by interpolating the
+     * position over the specified duration and sending mouse move events at
+     * regular intervals.
+     */
     /// <https://w3c.github.io/webdriver/#dfn-perform-a-pointer-move>
     #[allow(clippy::too_many_arguments)]
     fn perform_pointer_move(
@@ -449,6 +549,8 @@ impl Handler {
             _ => unreachable!(),
         };
 
+        // Invariant: This loop continues until the pointer has reached its
+        // target, sending intermediate move events along the way.
         loop {
             // Step 1
             let time_delta = tick_start.elapsed().as_millis();
@@ -501,6 +603,15 @@ impl Handler {
         }
     }
 
+    /**
+     * @brief Dispatches a scroll action.
+     * @param action The wheel scroll action.
+     * @param tick_duration The duration of the tick.
+     * @return A `Result` indicating success or an error.
+     *
+     * This function simulates a wheel scroll action, calling `perform_scroll`
+     * to handle the interpolated scrolling over the specified duration.
+     */
     /// <https://w3c.github.io/webdriver/#dfn-dispatch-a-scroll-action>
     fn dispatch_scroll_action(
         &mut self,
@@ -562,6 +673,21 @@ impl Handler {
         Ok(())
     }
 
+    /**
+     * @brief Performs the interpolated scroll.
+     * @param duration The duration of the scroll.
+     * @param x The x-coordinate of the scroll origin.
+     * @param y The y-coordinate of the scroll origin.
+     * @param target_delta_x The total change in x.
+     * @param target_delta_y The total change in y.
+     * @param curr_delta_x The current accumulated change in x.
+     * @param curr_delta_y The current accumulated change in y.
+     * @param tick_start The start time of the tick.
+     *
+     * This function simulates a smooth scroll by interpolating the scroll
+     * delta over the specified duration and sending wheel events at regular
+     * intervals.
+     */
     /// <https://w3c.github.io/webdriver/#dfn-perform-a-scroll>
     #[allow(clippy::too_many_arguments)]
     fn perform_scroll(
@@ -641,6 +767,13 @@ impl Handler {
         );
     }
 
+    /**
+     * @brief Checks if a given point is within the viewport bounds.
+     * @param x The x-coordinate.
+     * @param y The y-coordinate.
+     * @return A `Result` indicating success or an error if the point is out of
+     *         bounds.
+     */
     fn check_viewport_bound(&self, x: i64, y: i64) -> Result<(), ErrorStatus> {
         let (sender, receiver) = ipc::channel().unwrap();
         let cmd_msg =

@@ -1,7 +1,19 @@
-/*---------------------------------------------------------------------------------------------
+/**
+ * @file mainThreadAuthentication.ts
+ * @brief Implements the main thread side of the authentication API.
+ * @copyright Copyright (c) Microsoft Corporation. All rights reserved.
+ * @license MIT
+ *
+ * This file contains the `MainThreadAuthentication` class, which is the main
+ * thread counterpart to the `ExtHostAuthentication` class. It is responsible
+ * for proxying authentication requests from the extension host to the
+ * `IAuthenticationService` and for managing the lifecycle of authentication
+ * providers.
+ */
+/*---------------------------------------------------------------------------------------------*
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
+ *---------------------------------------------------------------------------------------------*/
 
 import { Disposable, DisposableMap } from '../../../base/common/lifecycle.js';
 import * as nls from '../../../nls.js';
@@ -43,6 +55,10 @@ export interface AuthenticationGetSessionOptions {
 	authorizationServer?: UriComponents;
 }
 
+/**
+ * @class MainThreadAuthenticationProvider
+ * @brief A proxy for an authentication provider that lives on the extension host.
+ */
 export class MainThreadAuthenticationProvider extends Disposable implements IAuthenticationProvider {
 
 	readonly onDidChangeSessions: Event<AuthenticationSessionsChangeEvent>;
@@ -74,6 +90,10 @@ export class MainThreadAuthenticationProvider extends Disposable implements IAut
 	}
 }
 
+/**
+ * @class MainThreadAuthentication
+ * @brief The main thread implementation of the authentication API.
+ */
 @extHostNamedCustomer(MainContext.MainThreadAuthentication)
 export class MainThreadAuthentication extends Disposable implements MainThreadAuthenticationShape {
 	private readonly _proxy: ExtHostAuthenticationShape;
@@ -112,6 +132,8 @@ export class MainThreadAuthentication extends Disposable implements MainThreadAu
 			this._proxy.$onDidChangeDynamicAuthProviderTokens(e.authProviderId, e.clientId, e.tokens);
 		}));
 
+		// Invariant: This registers a delegate for creating dynamic
+		// authentication providers, giving preference to Node.js extension hosts.
 		this._register(authenticationService.registerAuthenticationProviderHostDelegate({
 			// Prefer Node.js extension hosts when they're available. No CORS issues etc.
 			priority: extHostContext.extensionHostKind === ExtensionHostKind.LocalWebWorker ? 0 : 1,
@@ -133,7 +155,7 @@ export class MainThreadAuthentication extends Disposable implements MainThreadAu
 		}));
 	}
 
-	async $registerAuthenticationProvider(id: string, label: string, supportsMultipleAccounts: boolean, supportedAuthorizationServer: UriComponents[] = []): Promise<void> {
+	$registerAuthenticationProvider(id: string, label: string, supportsMultipleAccounts: boolean, supportedAuthorizationServer: UriComponents[] = []): Promise<void> {
 		if (!this.authenticationService.declaredProviders.find(p => p.id === id)) {
 			// If telemetry shows that this is not happening much, we can instead throw an error here.
 			this.logService.warn(`Authentication provider ${id} was not declared in the Extension Manifest.`);
@@ -151,12 +173,14 @@ export class MainThreadAuthentication extends Disposable implements MainThreadAu
 		this.authenticationService.registerAuthenticationProvider(id, provider);
 	}
 
-	async $unregisterAuthenticationProvider(id: string): Promise<void> {
+	$unregisterAuthenticationProvider(id: string): Promise<void> {
 		this._registrations.deleteAndDispose(id);
 		this.authenticationService.unregisterAuthenticationProvider(id);
 	}
 
-	async $ensureProvider(id: string): Promise<void> {
+	$ensureProvider(id: string): Promise<void> {
+		// Pre-condition: If the provider is not yet registered, activate the
+		// extension that provides it.
 		if (!this.authenticationService.isAuthenticationProviderRegistered(id)) {
 			return await this.extensionService.activateByEvent(getAuthenticationProviderActivationEvent(id), ActivationKind.Immediate);
 		}
@@ -203,7 +227,7 @@ export class MainThreadAuthentication extends Disposable implements MainThreadAu
 			[{
 				label: yes,
 				run: () => result = true
-			}, {
+			}, { 
 				label: no,
 				run: () => result = false
 			}]);
@@ -223,6 +247,14 @@ export class MainThreadAuthentication extends Disposable implements MainThreadAu
 		await this.dynamicAuthProviderStorageService.setSessionsForDynamicAuthProvider(authProviderId, clientId, sessions);
 	}
 
+	/**
+	 * @brief Prompts the user for consent to an extension's login request.
+	 * @param provider The authentication provider.
+	 * @param extensionName The name of the extension.
+	 * @param recreatingSession Whether an existing session is being recreated.
+	 * @param options Additional options for the prompt.
+	 * @return A promise that resolves to true if the user consents.
+	 */
 	private async loginPrompt(provider: IAuthenticationProvider, extensionName: string, recreatingSession: boolean, options?: AuthenticationInteractiveOptions): Promise<boolean> {
 		let message: string;
 
@@ -289,6 +321,20 @@ export class MainThreadAuthentication extends Disposable implements MainThreadAu
 		return result.result === chosenAccountLabel;
 	}
 
+	/**
+	 * @brief The core logic for getting an authentication session.
+	 * @param providerId The ID of the authentication provider.
+	 * @param scopes The requested scopes.
+	 * @param extensionId The ID of the extension requesting the session.
+	 * @param extensionName The name of the extension.
+	 * @param options Additional options for the session request.
+	 * @return A promise that resolves to the authentication session, or
+	 *         undefined.
+ *
+	 * This function implements the complex logic for retrieving a session,
+	 * including handling session preferences, silent and interactive flows,
+	 * and user consent.
+	 */
 	private async doGetSession(providerId: string, scopes: string[], extensionId: string, extensionName: string, options: AuthenticationGetSessionOptions): Promise<AuthenticationSession | undefined> {
 		const authorizationServer = URI.revive(options.authorizationServer);
 		const sessions = await this.authenticationService.getSessions(providerId, scopes, { account: options.account, authorizationServer }, true);
@@ -332,6 +378,9 @@ export class MainThreadAuthentication extends Disposable implements MainThreadAu
 
 		// We may need to prompt because we don't have a valid session
 		// modal flows
+		// Block-level comment: This block handles interactive session requests,
+		// either creating a new session or forcing a new one. It includes a
+		// user consent prompt.
 		if (options.createIfNone || options.forceNewSession) {
 			let uiOptions: AuthenticationInteractiveOptions | undefined;
 			if (typeof options.forceNewSession === 'object') {

@@ -1,7 +1,12 @@
+"""
+This module provides a thread-safe queue implementation and a simulated device
+for a distributed sensor network.
 
-
-
-
+The `Queue`, `PriorityQueue`, and `LifoQueue` classes are standard data
+structures for managing work in a multi-threaded environment. The `Device`
+class simulates a node in a sensor network that processes data using scripts
+coordinated by a supervisor.
+"""
 
 from time import time as _time
 try:
@@ -22,28 +27,34 @@ class Full(Exception):
     pass
 
 class Queue:
+    """
+    A thread-safe, first-in, first-out (FIFO) queue.
+
+    This class provides a classic queue implementation with support for
+    blocking operations, timeouts, and tracking of unfinished tasks.
+    """
     
     def __init__(self, maxsize=0):
         self.maxsize = maxsize
         self._init(maxsize)
         
-        
-        
-        
         self.mutex = _threading.Lock()
-        
         
         self.not_empty = _threading.Condition(self.mutex)
         
-        
         self.not_full = _threading.Condition(self.mutex)
-        
         
         self.all_tasks_done = _threading.Condition(self.mutex)
         self.unfinished_tasks = 0
 
     def task_done(self):
-        
+        """
+        Indicates that a formerly enqueued task is complete.
+
+        Used by queue consumer threads. For each get() used to fetch a task,
+        a subsequent call to task_done() tells the queue that the processing
+        on the task is complete.
+        """
         self.all_tasks_done.acquire()
         try:
             unfinished = self.unfinished_tasks - 1
@@ -56,9 +67,12 @@ class Queue:
             self.all_tasks_done.release()
 
     def join(self):
-        
+        """
+        Blocks until all items in the queue have been gotten and processed.
+        """
         self.all_tasks_done.acquire()
         try:
+            # Invariant: The loop continues as long as there are unfinished tasks.
             while self.unfinished_tasks:
                 self.all_tasks_done.wait()
         finally:
@@ -86,10 +100,21 @@ class Queue:
         return n
 
     def put(self, item, block=True, timeout=None):
-        
+        """
+        Put an item into the queue.
+
+        If optional args `block` is true and `timeout` is None (the default),
+        block if necessary until a free slot is available. If `timeout` is
+        a non-negative number, it blocks at most `timeout` seconds and raises
+        the Full exception if no free slot was available within that time.
+        Otherwise (`block` is false), put an item on the queue if a free slot
+        is immediately available, else raise the Full exception.
+        """
         self.not_full.acquire()
         try:
             if self.maxsize > 0:
+                # Pre-condition: If the queue is full, wait for a slot to become
+                # available.
                 if not block:
                     if self._qsize() == self.maxsize:
                         raise Full
@@ -116,9 +141,19 @@ class Queue:
         return self.put(item, False)
 
     def get(self, block=True, timeout=None):
-        
+        """
+        Remove and return an item from the queue.
+
+        If optional args `block` is true and `timeout` is None (the default),
+        block if necessary until an item is available. If `timeout` is a
+        non-negative number, it blocks at most `timeout` seconds and raises
+        the Empty exception if no item was available within that time.
+        Otherwise (`block` is false), return an item if one is immediately
+        available, else raise the Empty exception.
+        """
         self.not_empty.acquire()
         try:
+            # Pre-condition: If the queue is empty, wait for an item to be put.
             if not block:
                 if not self._qsize():
                     raise Empty
@@ -165,7 +200,9 @@ class Queue:
 
 
 class PriorityQueue(Queue):
-    
+    """
+    A variant of `Queue` that retrieves entries in priority order (lowest first).
+    """
 
     def _init(self, maxsize):
         self.queue = []
@@ -181,7 +218,9 @@ class PriorityQueue(Queue):
 
 
 class LifoQueue(Queue):
-    
+    """
+    A variant of `Queue` that retrieves most recently added entries first.
+    """
 
     def _init(self, maxsize):
         self.queue = []
@@ -200,7 +239,13 @@ from threading import Event, Thread, Lock
 from barrier import ReusableBarrierCond
 
 class Device(object):
-    
+    """
+    Represents a single device in the simulated network.
+
+    This class manages the device's state, including its sensor data and
+    assigned scripts. It uses a pool of worker threads to execute scripts
+    concurrently.
+    """
     barry = None
     barry_is_set = Event()
     modify_value = {}
@@ -226,6 +271,7 @@ class Device(object):
         self.signal_end = False
         self.index = 0
         
+        # Creates a pool of 8 worker threads.
         for i in range(8):
             self.threads.append(DeviceThread(self))
             self.threads[i].start()
@@ -238,6 +284,7 @@ class Device(object):
         
         
         self.devices = devices
+        # Pre-condition: Device 0 initializes the shared barrier.
         if self.device_id == 0:
             Device.barry = ReusableBarrierCond(len(devices) * 8)
             Device.barry_is_set.set()
@@ -272,7 +319,12 @@ class Device(object):
 
 
 class DeviceThread(Thread):
-    
+    """
+    A worker thread for a device.
+
+    Each device has a pool of these threads, which continuously wait for
+    scripts to be assigned and then execute them.
+    """
 
     def __init__(self, device):
         
@@ -296,6 +348,9 @@ class DeviceThread(Thread):
                     self.device.neighbours_lock.release()
                     break
             self.device.neighbours_lock.release()
+            # Invariant: The loop processes scripts from the device's queue until
+            # a `None` script is encountered, which signals the end of the
+            # timepoint.
             while True:
                 self.device.queue_lock.acquire()
                 

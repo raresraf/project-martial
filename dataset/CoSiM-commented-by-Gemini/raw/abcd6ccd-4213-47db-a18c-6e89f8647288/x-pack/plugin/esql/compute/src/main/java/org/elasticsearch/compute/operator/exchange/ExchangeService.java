@@ -1,3 +1,15 @@
+/**
+ * @file ExchangeService.java
+ * @brief Manages the exchange of data pages between nodes in an Elasticsearch cluster.
+ * @copyright Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
+ * or more contributor license agreements. Licensed under the Elastic License 2.0;
+ * you may not use this file except in compliance with the Elastic License 2.0.
+ *
+ * This service is a core component of the ESQL execution engine, facilitating
+ * the transfer of intermediate results (pages) between different stages of a
+ * distributed query plan. It uses a push-based model where a source sends pages
+ * to a sink.
+ */
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
  * or more contributor license agreements. Licensed under the Elastic License
@@ -201,6 +213,10 @@ public final class ExchangeService extends AbstractLifecycleComponent {
         }
     }
 
+    /**
+     * @class OpenExchangeRequest
+     * @brief A transport request to open a new exchange sink on a remote node.
+     */
     private static class OpenExchangeRequest extends AbstractTransportRequest {
         private final String sessionId;
         private final int exchangeBuffer;
@@ -224,6 +240,10 @@ public final class ExchangeService extends AbstractLifecycleComponent {
         }
     }
 
+    /**
+     * @class OpenExchangeRequestHandler
+     * @brief Handles incoming `OpenExchangeRequest`s.
+     */
     private class OpenExchangeRequestHandler implements TransportRequestHandler<OpenExchangeRequest> {
         @Override
         public void messageReceived(OpenExchangeRequest request, TransportChannel channel, Task task) throws Exception {
@@ -232,12 +252,18 @@ public final class ExchangeService extends AbstractLifecycleComponent {
         }
     }
 
+    /**
+     * @class ExchangeTransportAction
+     * @brief Handles incoming `ExchangeRequest`s to fetch a page from a sink.
+     */
     private class ExchangeTransportAction implements TransportRequestHandler<ExchangeRequest> {
         @Override
         public void messageReceived(ExchangeRequest request, TransportChannel channel, Task exchangeTask) {
             final String exchangeId = request.exchangeId();
             ActionListener<ExchangeResponse> listener = new ChannelActionListener<>(channel);
             final ExchangeSinkHandler sinkHandler = sinks.get(exchangeId);
+            // Pre-condition: If the sink handler does not exist, respond with an
+            // empty, finished response.
             if (sinkHandler == null) {
                 listener.onResponse(new ExchangeResponse(blockFactory, null, true));
             } else {
@@ -248,6 +274,10 @@ public final class ExchangeService extends AbstractLifecycleComponent {
         }
     }
 
+    /**
+     * @class InactiveSinksReaper
+     * @brief A runnable task that periodically cleans up inactive exchange sinks.
+     */
     private final class InactiveSinksReaper extends AbstractRunnable {
         private final Logger logger;
         private final TimeValue keepAlive;
@@ -286,12 +316,15 @@ public final class ExchangeService extends AbstractLifecycleComponent {
             assert ThreadPool.assertNotScheduleThread("reaping inactive exchanges can be expensive");
             logger.debug("start removing inactive sinks");
             final long nowInMillis = threadPool.relativeTimeInMillis();
+            // Invariant: Iterates through all active sinks to check for inactivity.
             for (Map.Entry<String, ExchangeSinkHandler> e : sinks.entrySet()) {
                 ExchangeSinkHandler sink = e.getValue();
                 if (sink.hasData() && sink.hasListeners()) {
                     continue;
                 }
                 long elapsedInMillis = nowInMillis - sink.lastUpdatedTimeInMillis();
+                // Pre-condition: If a sink has been inactive for longer than the
+                // keep-alive interval, it is finished and removed.
                 if (elapsedInMillis > keepAlive.millis()) {
                     TimeValue elapsedTime = TimeValue.timeValueMillis(elapsedInMillis);
                     logger.debug("removed sink {} inactive for {}", e.getKey(), elapsedTime);
@@ -316,6 +349,10 @@ public final class ExchangeService extends AbstractLifecycleComponent {
         return new TransportRemoteSink(transportService, blockFactory, conn, parentTask, exchangeId, executor);
     }
 
+    /**
+     * @class TransportRemoteSink
+     * @brief A remote sink implementation that uses the transport service to fetch pages.
+     */
     static final class TransportRemoteSink implements RemoteSink {
         final TransportService transportService;
         final BlockFactory blockFactory;
@@ -400,6 +437,7 @@ public final class ExchangeService extends AbstractLifecycleComponent {
                 curr -> Objects.requireNonNullElse(curr, candidate)
             );
             actual.addListener(listener);
+            // Pre-condition: This ensures that the final fetch request is sent only once.
             if (candidate == actual) {
                 doFetchPageAsync(true, ActionListener.wrap(r -> {
                     final Page page = r.takePage();

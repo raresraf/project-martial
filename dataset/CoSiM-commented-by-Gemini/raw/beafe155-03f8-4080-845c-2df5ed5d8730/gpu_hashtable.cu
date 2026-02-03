@@ -1,4 +1,13 @@
-
+/**
+ * @file gpu_hashtable.cu
+ * @brief CUDA implementation of a cuckoo hash table.
+ *
+ * This file provides a GPU-based implementation of a hash table using the
+ * cuckoo hashing algorithm. It is designed for high-throughput insertions and
+ * lookups on the GPU. The implementation includes kernels for `get`, `insert`,
+ * and `rehash` operations, as well as a host-side class to manage the hash
+ * table.
+ */
 #include 
 #include 
 #include 
@@ -12,7 +21,17 @@
 #define MIN_LOAD_FACTOR 0.6
 #define MAX_LOAD_FACTOR 0.8
 
-
+/**
+ * @brief CUDA kernel to retrieve values for a batch of keys.
+ * @param keys A device pointer to the array of keys to look up.
+ * @param values A device pointer to the array where retrieved values will be stored.
+ * @param NumIntrari The number of keys to look up.
+ * @param hashmap The hash table to search in.
+ *
+ * This kernel implements a parallel lookup in the cuckoo hash table. Each thread
+ * is responsible for one key. It computes the hash for the key and searches
+ * for it in the two possible locations in the hash table.
+ */
 __global__ void get (int * keys, int * values, int NumIntrari, hash_table hashmap) {
 	int i, j, idx, key, hash;
 	idx = blockDim.x * blockIdx.x + threadIdx.x;
@@ -22,8 +41,11 @@ __global__ void get (int * keys, int * values, int NumIntrari, hash_table hashma
 	int inceput [2] = {hash, 0};
 	int sfarsit [2] = {hashmap.size, hash};
 	key = keys [idx];
+	// Pre-condition: Ensure the thread index is within the bounds of the input arrays.
 	if (idx >= NumIntrari)
 		return;
+	// Invariant: The loop iterates through the two possible locations for the key
+	// in the cuckoo hash table.
 	for (i = 0; i < 2; i++) {
 		for (j = inceput [i]; j < sfarsit [i]; j++) {
 			
@@ -41,12 +63,21 @@ __global__ void get (int * keys, int * values, int NumIntrari, hash_table hashma
  	}
 }
 
-
+/**
+ * @brief CUDA kernel to rehash the table.
+ * @param Veche The old hash table.
+ * @param Noua The new, larger hash table.
+ *
+ * This kernel is responsible for re-inserting all elements from an old hash
+ * table into a new one when the load factor exceeds a certain threshold. Each
+ * thread handles one element from the old table.
+ */
 __global__ void rehash (hash_table Veche, hash_table Noua) {
 	int i, j, poz, idx, key, hash, OldKey, NewKey;
 	
 	bool reusit = false;
 	idx = blockDim.x * blockIdx.x + threadIdx.x;
+	// Invariant: Iterates through both hash functions' tables to find a valid key.
 	for (poz = 0; poz < 2; poz++) {
 		if (Veche.map [poz][idx].key == KEY_INVALID) {
 			continue;
@@ -58,6 +89,8 @@ __global__ void rehash (hash_table Veche, hash_table Noua) {
 	
 	int inceput [2] = {hash, 0};
 	int sfarsit [2] = {hashmap.size, hash};
+	// Invariant: Tries to insert the key into the new hash table, handling
+	// potential collisions using atomic operations.
 	for (i = 0; i < 2; i++) {
 		if (reusit) {
 			for (j = inceput [i]; j < sfarsit [i]; j++) {
@@ -80,7 +113,17 @@ __global__ void rehash (hash_table Veche, hash_table Noua) {
 	}
 }
 
-
+/**
+ * @brief CUDA kernel to insert a batch of key-value pairs.
+ * @param keys A device pointer to the array of keys to insert.
+ * @param values A device pointer to the array of values to insert.
+ * @param NumIntrari The number of pairs to insert.
+ * @param hashmap The hash table.
+ *
+ * This kernel implements a parallel insertion into the cuckoo hash table.
+ * Each thread handles one key-value pair and uses atomic compare-and-swap
+ * (atomicCAS) to handle potential race conditions during insertion.
+ */
 __global__ void insert (int * keys, int * values, int NumIntrari, hash_table hashmap) {
 
 	int i, j, hash, OldKey, NewKey, idx;
@@ -95,6 +138,8 @@ __global__ void insert (int * keys, int * values, int NumIntrari, hash_table has
 	if (idx >= NumIntrari)
 		return;
 	
+	// Invariant: The loop attempts to insert the key-value pair into one of the
+	// two possible locations, using atomicCAS to ensure thread safety.
 	for (i = 0; i < 2; i++) {
 		for (j = inceput [i]; j < sfarsit [i]; j++) {
 			
@@ -117,10 +162,15 @@ __global__ void insert (int * keys, int * values, int NumIntrari, hash_table has
 }
 
 
+/**
+ * @brief Constructor for the GpuHashTable class.
+ * @param size The initial size of the hash table.
+ */
 GpuHashTable::GpuHashTable(int size) {
 	hashmap.size = size;
 	int poz;
 	NumarPerechiAdaugate = 0;
+	// Invariant: Initializes both tables of the cuckoo hash map.
 	for (poz = 0; poz < 2; poz++) {
 		hashmap.map[poz] = nullptr;
 		if (cudaMalloc (&hashmap.map [poz], size * sizeof (entre)) != cudaSuccess) {
@@ -132,6 +182,9 @@ GpuHashTable::GpuHashTable(int size) {
 }
 
 
+/**
+ * @brief Destructor for the GpuHashTable class.
+ */
 GpuHashTable::~GpuHashTable() {
 	int poz;
 	for (poz = 0; poz < 2; poz++) {
@@ -140,6 +193,10 @@ GpuHashTable::~GpuHashTable() {
 }
 
 
+/**
+ * @brief Resizes and rehashes the hash table.
+ * @param numBucketsReshape The new size of the hash table.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) {
 	int poz;
 	hash_table NewHash;
@@ -166,6 +223,13 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 }
 
 
+/**
+ * @brief Inserts a batch of key-value pairs into the hash table.
+ * @param keys A host pointer to the array of keys.
+ * @param values A host pointer to the array of values.
+ * @param numKeys The number of pairs to insert.
+ * @return True on success, false on failure.
+ */
 bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	int *nrChei, *nrValori; 
 	int nrElemente = numKeys / THREADS_PER_BLOCK;
@@ -176,6 +240,7 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 		std::cerr << "Memory allocation error\n";
 		return false;
 	}
+	// Pre-condition: If the load factor will exceed the maximum, resize the table.
 	if (float (NumarPerechiAdaugate + numKeys) / hashmap.size >= MAX_LOAD_FACTOR)
 		reshape (int (( NumarPerechiAdaugate + numKeys) / MIN_LOAD_FACTOR));
 	
@@ -193,6 +258,12 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 }
 
 
+/**
+ * @brief Retrieves values for a batch of keys.
+ * @param keys A host pointer to the array of keys.
+ * @param numKeys The number of keys to look up.
+ * @return A host pointer to the array of retrieved values.
+ */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	int valori, *nrChei;
 	int nrElemente = numKeys / THREADS_PER_BLOCK;
@@ -246,15 +317,20 @@ using namespace std;
 #define	KEY_INVALID		0
 
 #define DIE(assertion, call_description) \
-	do {	\
-		if (assertion) {	\
-		fprintf(stderr, "(%s, %d): ",	\
-		__FILE__, __LINE__);	\
-		perror(call_description);	\
-		exit(errno);	\
-	}	\
+	do { \
+		if (assertion) { \
+		fprintf(stderr, "(%s, %d): ", \
+		__FILE__, __LINE__); \
+		perror(call_description); \
+		exit(errno); \
+	} \
 } while (0)
 	
+/**
+ * @brief A list of prime numbers used for hashing.
+ *
+ * This list is used to provide good distribution in the hash functions.
+ */
 const size_t primeList[] =
 {
 	2llu, 3llu, 5llu, 7llu, 11llu, 13llu, 17llu, 23llu, 29llu, 37llu, 47llu,
@@ -296,7 +372,6 @@ const size_t primeList[] =
 	359163406191658253llu, 452517535812813007llu, 570136368817120201llu,
 	718326812383316683llu, 905035071625626043llu, 1140272737634240411llu,
 	1436653624766633509llu, 1810070143251252131llu, 2280545475268481167llu,
-
 
 	2873307249533267101llu, 3620140286502504283llu, 4561090950536962147llu,
 	5746614499066534157llu, 7240280573005008577llu, 9122181901073924329llu,
@@ -350,4 +425,3 @@ class GpuHashTable
 };
 
 #endif
-

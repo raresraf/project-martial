@@ -1,3 +1,14 @@
+/**
+ * @file rtmutex.h
+ * @brief Public definitions for real-time mutexes with priority inheritance.
+ * @copyright Copyright (C) 2004-2006 Red Hat, Inc., Ingo Molnar <mingo@redhat.com>
+ * @copyright Copyright (C) 2006, Timesys Corp., Thomas Gleixner <tglx@timesys.com>
+ *
+ * This header provides the public data structures and API for real-time (RT)
+ * mutexes. RT-mutexes are blocking mutual exclusion locks that support
+ * priority inheritance (PI) to prevent priority inversion problems in
+ * real-time systems.
+ */
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
  * RT Mutexes: blocking mutual exclusion locks with PI support
@@ -20,6 +31,22 @@
 
 extern int max_lock_depth; /* for sysctl */
 
+/**
+ * @struct rt_mutex_base
+ * @brief The core data structure for an RT-mutex.
+ *
+ * This structure contains the essential components of an RT-mutex, including
+ * the spinlock for protecting the data structure, a red-black tree to manage
+ * waiters in priority order, and a pointer to the current owner.
+ *
+ * @wait_lock: A raw spinlock to protect the integrity of the rt_mutex_base
+ *             structure during concurrent access.
+ * @waiters:   A red-black tree root that stores waiting tasks, ordered by
+ *             priority. This allows for efficient retrieval of the highest
+ *             priority waiter.
+ * @owner:     A pointer to the task_struct of the current mutex owner. It is
+ *             NULL if the mutex is not locked.
+ */
 struct rt_mutex_base {
 	raw_spinlock_t		wait_lock;
 	struct rb_root_cached   waiters;
@@ -70,6 +97,13 @@ extern void rt_mutex_debug_task_free(struct task_struct *tsk);
 static inline void rt_mutex_debug_task_free(struct task_struct *tsk) { }
 #endif
 
+/**
+ * @brief Initializes an RT-mutex.
+ * @param mutex The RT-mutex to be initialized.
+ *
+ * This macro provides a convenient way to initialize an RT-mutex, including
+ * setting up its lock dependency information for debugging purposes.
+ */
 #define rt_mutex_init(mutex) \
 do { \
 	static struct lock_class_key __key; \
@@ -86,12 +120,23 @@ do { \
 #define __DEP_MAP_RT_MUTEX_INITIALIZER(mutexname)
 #endif
 
+/**
+ * @brief Statically initializes an RT-mutex.
+ * @param mutexname The name of the rt_mutex variable.
+ *
+ * This macro allows for the static initialization of an RT-mutex at compile
+ * time.
+ */
 #define __RT_MUTEX_INITIALIZER(mutexname)				\
 {									\
 	.rtmutex = __RT_MUTEX_BASE_INITIALIZER(mutexname.rtmutex),	\
 	__DEP_MAP_RT_MUTEX_INITIALIZER(mutexname)			\
 }
 
+/**
+ * @brief Defines and initializes an RT-mutex.
+ * @param mutexname The name of the rt_mutex variable to be defined.
+ */
 #define DEFINE_RT_MUTEX(mutexname) \
 	struct rt_mutex mutexname = __RT_MUTEX_INITIALIZER(mutexname)
 
@@ -100,6 +145,13 @@ extern void __rt_mutex_init(struct rt_mutex *lock, const char *name, struct lock
 #ifdef CONFIG_DEBUG_LOCK_ALLOC
 extern void rt_mutex_lock_nested(struct rt_mutex *lock, unsigned int subclass);
 extern void _rt_mutex_lock_nest_lock(struct rt_mutex *lock, struct lockdep_map *nest_lock);
+/**
+ * @brief Acquires the RT-mutex.
+ * @param lock The RT-mutex to be acquired.
+ *
+ * This macro is the primary entry point for acquiring an RT-mutex. It is
+ * implemented as a wrapper to provide nested lock debugging capabilities.
+ */
 #define rt_mutex_lock(lock) rt_mutex_lock_nested(lock, 0)
 #define rt_mutex_lock_nest_lock(lock, nest_lock)			\
 	do {								\

@@ -7,13 +7,35 @@
 #include <linux/linkage.h>
 #include <asm/assembler.h>
 
+@
+@ This file provides sha1_transform_neon, a high-performance implementation of
+@ the SHA1 compression function for ARMv7 and later architectures, accelerated
+@ using NEON SIMD instructions.
+@
+@ SIMD Strategy:
+@ The core optimization is the use of NEON's 128-bit vector registers to
+@ perform operations on multiple 32-bit words simultaneously. While the overall
+@ structure processes one 64-byte block at a time, the computations within
+@ each of the 80 rounds are heavily vectorized.
+@
+@ Optimization Techniques:
+@ - Vectorization: The SHA1 state (A,B,C,D,E) is processed using scalar ARM
+@   instructions, but the message schedule (W words) and the round logic
+@   leverage NEON registers (q0-q15) for parallel computations.
+@ - Instruction Scheduling & Pipelining: The round computations (_R_F* macros)
+@   are deeply pipelined. The calculation of the message schedule for future
+@   rounds (WPRECALC_* macros) is interleaved with the execution of current
+@   rounds to hide memory and computational latencies, maximizing the use of
+@   the ARM/NEON execution units.
+@
+
 .syntax unified
 .fpu neon
 
 .text
 
 
-/* Context structure */
+/* Context structure offsets */
 
 #define state_h0 0
 #define state_h1 4
@@ -22,7 +44,7 @@
 #define state_h4 16
 
 
-/* Constants */
+/* SHA-1 round constants */
 
 #define K1  0x5A827999
 #define K2  0x6ED9EBA1
@@ -36,25 +58,28 @@
 .LK4:	.long K4, K4, K4, K4
 
 
-/* Register macros */
-
+/* Register Aliases for clarity */
+@ Core registers for state and pointers
 #define RSTATE r0
 #define RDATA r1
 #define RNBLKS r2
 #define ROLDSTACK r3
 #define RWK lr
 
+@ SHA-1 state variables (A, B, C, D, E)
 #define _a r4
 #define _b r5
 #define _c r6
 #define _d r7
 #define _e r8
 
+@ Temporary scalar registers
 #define RT0 r9
 #define RT1 r10
 #define RT2 r11
 #define RT3 r12
 
+@ NEON registers for message schedule words (W)
 #define W0 q0
 #define W1 q7
 #define W2 q2
@@ -64,11 +89,13 @@
 #define W6 q5
 #define W7 q1
 
+@ Temporary NEON registers
 #define tmp0 q8
 #define tmp1 q9
 #define tmp2 q10
 #define tmp3 q11
 
+@ NEON registers for round constants (K)
 #define qK1 q12
 #define qK2 q13
 #define qK3 q14
@@ -77,13 +104,27 @@
 #ifdef CONFIG_CPU_BIG_ENDIAN
 #define ARM_LE(code...)
 #else
+@ Macro to handle byte-swapping on Little Endian systems
 #define ARM_LE(code...)		code
 #endif
 
-/* Round function macros. */
+/*
+ * SHA-1 Round Function Macros (_R_F1, _R_F2, _R_F3, _R_F4)
+ *
+ * These macros implement the four distinct logical functions used in the
+ * 80 rounds of SHA-1.
+ *
+ * Pipelining Strategy:
+ * The 'pre1', 'pre2', and 'pre3' parameters are placeholders where
+ * instructions for the message schedule calculation (from WPRECALC_* macros)
+ * are inserted. This interleaving hides the latency of preparing the next
+ * message word (W[i]) by executing it in parallel with the arithmetic
+ * operations of the current round.
+ */
 
 #define WK_offs(i) (((i) & 15) * 4)
 
+@ Round function for rounds 0-19: (b&c) | (~b&d)
 #define _R_F1(a,b,c,d,e,i,pre1,pre2,pre3,i16,\
 	      W,W_m04,W_m08,W_m12,W_m16,W_m20,W_m24,W_m28) \
 	ldr RT3, [sp, WK_offs(i)]; \
@@ -98,6 +139,7 @@
 		pre3(i16,W,W_m04,W_m08,W_m12,W_m16,W_m20,W_m24,W_m28); \
 	add e, e, RT0;
 
+@ Round function for rounds 20-39 and 60-79: b ^ c ^ d
 #define _R_F2(a,b,c,d,e,i,pre1,pre2,pre3,i16,\
 	      W,W_m04,W_m08,W_m12,W_m16,W_m20,W_m24,W_m28) \
 	ldr RT3, [sp, WK_offs(i)]; \
@@ -111,6 +153,7 @@
 		pre3(i16,W,W_m04,W_m08,W_m12,W_m16,W_m20,W_m24,W_m28); \
 	add e, e, RT0; \
 
+@ Round function for rounds 40-59: (b&c) | (b&d) | (c&d)
 #define _R_F3(a,b,c,d,e,i,pre1,pre2,pre3,i16,\
 	      W,W_m04,W_m08,W_m12,W_m16,W_m20,W_m24,W_m28) \
 	ldr RT3, [sp, WK_offs(i)]; \
@@ -143,10 +186,19 @@
 #define dummy(...)
 
 
-/* Input expansion macros. */
+/*
+ * Message Schedule Expansion Macros (WPRECALC_*)
+ *
+ * These macros implement the SHA-1 message schedule W[i], where for i >= 16,
+ * W[i] = ROL((W[i-16] ^ W[i-14] ^ W[i-8] ^ W[i-3]), 1).
+ * The logic is broken into fine-grained sub-macros to be interleaved with
+ * the round computations for maximum instruction-level parallelism.
+ */
 
 /********* Precalc macros for rounds 0-15 *************************************/
-
+@ This macro loads the first 16 words (W[0]-W[15]) from the input data,
+@ performs necessary byte-swapping on little-endian machines, adds the
+@ round constant K1, and stores the result on the stack.
 #define W_PRECALC_00_15() \
 	add       RWK, sp, #(WK_offs(0));			\
 	\
@@ -204,7 +256,8 @@
 
 
 /********* Precalc macros for rounds 16-31 ************************************/
-
+@ These macros calculate W[16]-W[31] using NEON vector operations (veor, vshl, etc.)
+@ to implement the formula W[i] = ROL(W[i-16]^W[i-14]^W[i-8]^W[i-3], 1).
 #define WPRECALC_16_31_0(i,W,W_m04,W_m08,W_m12,W_m16,W_m20,W_m24,W_m28) \
 	veor      tmp0, tmp0;			\
 	vext.8    W, W_m16, W_m12, #8;		\
@@ -249,7 +302,8 @@
 
 
 /********* Precalc macros for rounds 32-79 ************************************/
-
+@ These macros calculate W[32]-W[79] using the same formula as above,
+@ continuing the pipelined message schedule expansion.
 #define WPRECALC_32_79_0(i,W,W_m04,W_m08,W_m12,W_m16,W_m20,W_m24,W_m28) \
 	veor W, W_m28; \
 
@@ -281,50 +335,42 @@
 	vst1.32 {tmp0}, [RWK];
 
 
-/*
- * Transform nblks*64 bytes (nblks*16 32-bit words) at DATA.
- *
- * unsigned int
- * sha1_transform_neon (void *ctx, const unsigned char *data,
- *                      unsigned int nblks)
- */
+@
+@ sha1_transform_neon(void *ctx, const u8 *data, unsigned int nblks)
+@
+@ Entry point for the NEON SHA-1 block transform.
+@ r0 (RSTATE): Pointer to sha1_state context.
+@ r1 (RDATA):  Pointer to input data.
+@ r2 (RNBLKS): Number of 64-byte blocks to process.
+@
 .align 3
 ENTRY(sha1_transform_neon)
-  /* input:
-   *	r0: ctx, CTX
-   *	r1: data (64*nblks bytes)
-   *	r2: nblks
-   */
-
   cmp RNBLKS, #0;
   beq .Ldo_nothing;
 
+  @ Prologue: save registers, align stack, load initial state and constants.
   push {r4-r12, lr};
-  /*vpush {q4-q7};*/
-
   adr RT3, .LK_VEC;
-
   mov ROLDSTACK, sp;
-
-  /* Align stack. */
   sub RT0, sp, #(16*4);
   and RT0, #(~(16-1));
   mov sp, RT0;
-
-  vld1.32 {qK1-qK2}, [RT3]!; /* Load K1,K2 */
-
-  /* Get the values of the chaining variables. */
-  ldm RSTATE, {_a-_e};
-
+  vld1.32 {qK1-qK2}, [RT3]!; /* Load K1,K2 into NEON registers */
+  ldm RSTATE, {_a-_e}; /* Load A,B,C,D,E from context */
   vld1.32 {qK3-qK4}, [RT3]; /* Load K3,K4 */
 
 #undef curK
 #define curK qK1
-  /* Precalc 0-15. */
+  @ Pre-calculate W[0]-W[15] for the first block.
   W_PRECALC_00_15();
 
 .Loop:
-  /* Transform 0-15 + Precalc 16-31. */
+@
+@ Main processing loop for a single 64-byte block.
+@ The structure is a deep pipeline where message schedule calculation for
+@ future rounds is performed concurrently with the current round's computation.
+@
+  /* Rounds 0-15 (F1) / Pre-calculate W[16-31] */
   _R( _a, _b, _c, _d, _e, F1,  0,
       WPRECALC_16_31_0, WPRECALC_16_31_1, WPRECALC_16_31_2, 16,
       W4, W5, W6, W7, W0, _, _, _ );
@@ -379,7 +425,7 @@ ENTRY(sha1_transform_neon)
       WPRECALC_16_31_9, WPRECALC_16_31_10,WPRECALC_16_31_11,28,
       W1, W2, W3, W4, W5, _, _, _ );
 
-  /* Transform 16-63 + Precalc 32-79. */
+  /* Rounds 16-63 / Pre-calculate W[32-79] */
   _R( _e, _a, _b, _c, _d, F1, 16,
       WPRECALC_32_79_0, WPRECALC_32_79_1, WPRECALC_32_79_2, 32,
       W0, W1, W2, W3, W4, W5, W6, W7);
@@ -544,7 +590,8 @@ ENTRY(sha1_transform_neon)
 
   beq .Lend;
 
-  /* Transform 64-79 + Precalc 0-15 of next block. */
+  /* Pipelined Epilogue: Process rounds 64-79 of the current block while
+   * pre-calculating W[0]-W[15] for the *next* block. */
 #undef curK
 #define curK qK1
   _R( _b, _c, _d, _e, _a, F4, 64,
@@ -583,7 +630,7 @@ ENTRY(sha1_transform_neon)
   _R( _b, _c, _d, _e, _a, F4, 79,
       WPRECALC_00_15_11, dummy, WPRECALC_00_15_12, _, _, _, _, _, _, _, _, _ );
 
-  /* Update the chaining variables. */
+  /* Update the chaining variables with the results of the completed block. */
   ldm RSTATE, {RT0-RT3};
   add _a, RT0;
   ldr RT0, [RSTATE, #state_h4];
@@ -596,7 +643,7 @@ ENTRY(sha1_transform_neon)
   b .Loop;
 
 .Lend:
-  /* Transform 64-79 */
+  /* Final rounds for the last block (not pipelined). */
   R( _b, _c, _d, _e, _a, F4, 64 );
   R( _a, _b, _c, _d, _e, F4, 65 );
   R( _e, _a, _b, _c, _d, F4, 66 );
@@ -616,17 +663,17 @@ ENTRY(sha1_transform_neon)
 
   mov sp, ROLDSTACK;
 
-  /* Update the chaining variables. */
+  /* Final state update for the last block. */
   ldm RSTATE, {RT0-RT3};
   add _a, RT0;
   ldr RT0, [RSTATE, #state_h4];
   add _b, RT1;
   add _c, RT2;
   add _d, RT3;
-  /*vpop {q4-q7};*/
   add _e, RT0;
   stm RSTATE, {_a-_e};
 
+  @ Epilogue: Restore saved registers and return.
   pop {r4-r12, pc};
 
 .Ldo_nothing:

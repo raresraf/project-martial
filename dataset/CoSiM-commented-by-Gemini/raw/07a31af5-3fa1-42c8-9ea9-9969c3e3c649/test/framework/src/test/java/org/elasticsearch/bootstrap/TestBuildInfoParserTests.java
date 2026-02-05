@@ -20,7 +20,18 @@ import static org.elasticsearch.test.LambdaMatchers.transformedItemsMatch;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.is;
 
+/**
+ * Unit tests for the {@link TestBuildInfoParser} class, ensuring that component
+ * build information is correctly parsed from its JSON representation.
+ */
 public class TestBuildInfoParserTests extends ESTestCase {
+    /**
+     * Tests the parsing of a standard JSON input representing build information for a component.
+     * This test verifies that the component name and its associated module locations (including
+     * representative classes and module names) are deserialized correctly.
+     *
+     * @throws IOException if an error occurs during JSON parsing.
+     */
     public void testSimpleParsing() throws IOException {
 
         var input = """
@@ -47,9 +58,13 @@ public class TestBuildInfoParserTests extends ESTestCase {
             }
             """;
 
+        // Pre-condition: The input is a valid JSON object.
         try (var parser = XContentFactory.xContent(XContentType.JSON).createParser(XContentParserConfiguration.EMPTY, input)) {
             var testInfo = TestBuildInfoParser.fromXContent(parser);
+            // Post-condition: Assert that the component name is parsed correctly.
             assertThat(testInfo.component(), is("lang-painless"));
+            
+            // Post-condition: Assert that all module names are extracted in the correct order.
             assertThat(
                 testInfo.locations(),
                 transformedItemsMatch(
@@ -58,6 +73,7 @@ public class TestBuildInfoParserTests extends ESTestCase {
                 )
             );
 
+            // Post-condition: Assert that all representative class names are extracted in the correct order.
             assertThat(
                 testInfo.locations(),
                 transformedItemsMatch(

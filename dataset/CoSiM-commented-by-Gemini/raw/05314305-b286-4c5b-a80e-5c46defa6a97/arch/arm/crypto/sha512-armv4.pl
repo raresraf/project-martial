@@ -9,6 +9,20 @@
 # The original headers, including the original license headers, are
 # included below for completeness.
 
+#
+# This Perl script is a meta-program that generates highly optimized ARM
+# assembly code for the SHA-512 compression function (sha512_block_data_order).
+#
+# Dual-Target Generation:
+# The script produces a single assembly file containing two distinct
+# implementations:
+# 1. A baseline, optimized version for the ARMv4 instruction set.
+# 2. A significantly faster version accelerated with the NEON SIMD instruction
+#    set for ARMv7 and later architectures.
+# The final assembly includes a runtime CPU feature check to select the
+# appropriate code path.
+#
+
 # ====================================================================
 # Written by Andy Polyakov <appro@openssl.org> for the OpenSSL
 # project. The module is, however, dual licensed under OpenSSL and
@@ -53,6 +67,9 @@
 # h[0-7], namely with most significant dword at *lower* address, which
 # was reflected in below two parameters as 0 and 4. Now caller is
 # expected to maintain native byte order for whole 64-bit values.
+
+# These variables control the high and low word offsets for 64-bit values,
+# adapting the generated code to the target's endianness.
 $hi="HI";
 $lo="LO";
 # ====================================================================
@@ -60,6 +77,7 @@ $lo="LO";
 while (($output=shift) && ($output!~/^\w[\w\-]*\.\w+$/)) {}
 open STDOUT,">$output";
 
+# Register aliases for function arguments and temporary storage.
 $ctx="r0";	# parameter block
 $inp="r1";
 $len="r2";
@@ -78,6 +96,7 @@ $t3="r12";
 $Ktbl="r14";
 ############	r15 is program counter
 
+# Stack offsets for storing the eight 64-bit SHA-512 working variables (a-h).
 $Aoff=8*0;
 $Boff=8*1;
 $Coff=8*2;
@@ -88,6 +107,19 @@ $Goff=8*6;
 $Hoff=8*7;
 $Xoff=8*8;
 
+#
+# BODY_00_15 - Generates the assembly for a single SHA-512 round.
+#
+# This subroutine is the core building block for the scalar (non-NEON)
+# implementation. It produces the assembly instructions that perform the
+# complex calculations for one round of the SHA-512 algorithm.
+#
+# Algorithmic Steps Generated:
+# - Calculates `T1 = h + Sigma1(e) + Ch(e,f,g) + K[i] + W[i]`
+# - Calculates `T2 = Sigma0(a) + Maj(a,b,c)`
+# - Updates state variables: `h=g`, `g=f`, `f=e`, `e=d+T1`, `d=c`, `c=b`, `b=a`, `a=T1+T2`
+#   (These updates are done by rotating the register assignments in the calling loop)
+#
 sub BODY_00_15() {
 my $magic = shift;
 $code.=<<___;
@@ -280,11 +312,16 @@ sha512_block_data_order:
 	adr	r3,.Lsha512_block_data_order
 #endif
 #if __ARM_MAX_ARCH__>=7 && !defined(__KERNEL__)
+	@ Runtime check for NEON support. If available, branch to the
+	@ NEON-accelerated implementation.
 	ldr	r12,.LOPENSSL_armcap
 	ldr	r12,[r3,r12]		@ OPENSSL_armcap_P
 	tst	r12,#1
 	bne	.LNEON
 #endif
+@
+@ This section generates the standard ARMv4 implementation.
+@
 	add	$len,$inp,$len,lsl#7	@ len to point at the end of inp
 	stmdb	sp!,{r4-r12,lr}
 	sub	$Ktbl,r3,#672		@ K512
@@ -297,6 +334,7 @@ sha512_block_data_order:
 	ldr	$t2, [$ctx,#$Hoff+$lo]
 	ldr	$t3, [$ctx,#$Hoff+$hi]
 .Loop:
+@ Main loop for the scalar ARMv4 implementation. Processes one block per iteration.
 	str	$t0, [sp,#$Goff+0]
 	str	$t1, [sp,#$Goff+4]
 	str	$t2, [sp,#$Hoff+0]
@@ -321,6 +359,8 @@ sha512_block_data_order:
 	str	$Thi,[sp,#$Foff+4]
 
 .L00_15:
+@ Code generation for rounds 0-15.
+@ Message words W[0]-W[15] are loaded directly from the input buffer.
 #if __ARM_ARCH__<7
 	ldrb	$Tlo,[$inp,#7]
 	ldrb	$t0, [$inp,#6]
@@ -353,6 +393,9 @@ $code.=<<___;
 	ldr	$t1,[sp,#`$Xoff+8*(16-1)`+4]
 	bic	$Ktbl,$Ktbl,#1
 .L16_79:
+@ Code generation for rounds 16-79.
+@ This section implements the message schedule expansion:
+@ W[i] = sigma1(W[i-2]) + W[i-7] + sigma0(W[i-15]) + W[i-16]
 	@ sigma0(x)	(ROTR((x),1)  ^ ROTR((x),8)  ^ ((x)>>7))
 	@ LO		lo>>1^hi<<31  ^ lo>>8^hi<<24 ^ lo>>7^hi<<25
 	@ HI		hi>>1^lo<<31  ^ hi>>8^lo<<24 ^ hi>>7
@@ -501,6 +544,13 @@ my $cnt="r12";	# volatile register known as ip, intra-procedure-call scratch
 my @X=map("d$_",(0..15));
 my @V=($A,$B,$C,$D,$E,$F,$G,$H)=map("d$_",(16..23));
 
+#
+# NEON_00_15 - Generates NEON assembly for the first 16 rounds.
+#
+# This subroutine generates vector instructions to process data using 128-bit
+# registers, effectively operating on two 64-bit words in parallel. It handles
+# loading data and constants into NEON registers.
+#
 sub NEON_00_15() {
 my $i=shift;
 my ($a,$b,$c,$d,$e,$f,$g,$h)=@_;
@@ -549,6 +599,13 @@ $code.=<<___;
 ___
 }
 
+#
+# NEON_16_79 - Generates NEON assembly for rounds 16-79.
+#
+# This subroutine produces vectorized assembly for the later rounds, including
+# the critical message schedule calculation, which is interleaved with the
+# round updates for optimal performance.
+#
 sub NEON_16_79() {
 my $i=shift;
 
@@ -593,6 +650,9 @@ $code.=<<___;
 .arch	armv7-a
 .fpu	neon
 
+#
+# This section generates the NEON-accelerated implementation.
+#
 .global	sha512_block_data_order_neon
 .type	sha512_block_data_order_neon,%function
 .align	4
@@ -605,6 +665,8 @@ sha512_block_data_order_neon:
 	sub	$Ktbl,$Ktbl,.Lsha512_block_data_order-K512
 	vldmia	$ctx,{$A-$H}		@ load context
 .Loop_neon:
+@ Main loop for the NEON implementation. It uses the NEON_* subroutines
+@ to generate highly pipelined and vectorized code for all 80 rounds.
 ___
 for($i=0;$i<16;$i++)	{ &NEON_00_15($i,@V); unshift(@V,pop(@V)); }
 $code.=<<___;
@@ -641,6 +703,12 @@ $code.=<<___;
 #endif
 ___
 
+#
+# Post-processing section.
+# These substitutions resolve dynamic expressions and ensure the generated
+# assembly is compatible with older toolchains by replacing modern mnemonics
+# (like `ret`) with their equivalent machine code or older syntax (`bx lr`).
+#
 $code =~ s/\`([^\`]*)\`/eval $1/gem;
 $code =~ s/\bbx\s+lr\b/.word\t0xe12fff1e/gm;	# make it possible to compile with -march=armv4
 $code =~ s/\bret\b/bx	lr/gm;

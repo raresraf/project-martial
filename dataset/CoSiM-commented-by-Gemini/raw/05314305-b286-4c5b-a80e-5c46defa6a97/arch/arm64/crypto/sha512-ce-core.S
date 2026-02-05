@@ -7,11 +7,26 @@
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
+ *
+ * This file provides __sha512_ce_transform, a high-performance implementation
+ * of the SHA-512/384 compression function for ARMv8-A architectures,
+ * accelerated using the dedicated Cryptography Extension (CE) instructions.
+ *
+ * Hardware Acceleration Strategy:
+ * The core SHA-512 logic is offloaded to hardware. The instructions `sha512h`,
+ * `sha512h2`, `sha512su0`, and `sha512su1` perform the complex 64-bit round
+ * updates and message schedule calculations, providing a massive performance
+ * boost over software-only implementations.
  */
 
 #include <linux/linkage.h>
 #include <asm/assembler.h>
 
+	/*
+	 * Custom macros to emit the raw instruction encoding for the SHA-512
+	 * Crypto Extension instructions. This provides a readable syntax and
+	 * avoids reliance on bleeding-edge assembler support.
+	 */
 	.irp		b,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19
 	.set		.Lq\b, \b
 	.set		.Lv\b\().2d, \b
@@ -34,7 +49,7 @@
 	.endm
 
 	/*
-	 * The SHA-512 round constants
+	 * The SHA-512 round constants (K0-K79)
 	 */
 	.section	".rodata", "a"
 	.align		4
@@ -80,6 +95,21 @@
 	.quad		0x4cc5d4becb3e42b6, 0x597f299cfc657e2a
 	.quad		0x5fcb6fab3ad6faec, 0x6c44198c4a475817
 
+	/*
+	 * dround - Macro to generate instructions for two SHA-512 rounds.
+	 *
+	 * This macro embodies the deeply pipelined and interleaved optimization
+	 * strategy of the SHA-512 CE implementation. Within a single invocation,
+	 * it performs three tasks in parallel:
+	 * 1. Message Schedule (Future): Calculates the next message words using
+	 *    `sha512su0` and `sha512su1`.
+	 * 2. Round Computation (Current): Executes the core hash logic for the
+	 *    current two rounds using `sha512h` and `sha512h2`.
+	 * 3. Constant Loading (Far Future): Loads round constants from memory for
+	 *    upcoming rounds.
+	 * This parallel execution model maximizes hardware utilization and hides
+	 * computational and memory latencies.
+	 */
 	.macro		dround, i0, i1, i2, i3, i4, rc0, rc1, in0, in1, in2, in3, in4
 	.ifnb		\rc1
 	ld1		{v\rc1\().2d}, [x4], #16
@@ -104,21 +134,25 @@
 	/*
 	 * int __sha512_ce_transform(struct sha512_state *sst, u8 const *src,
 	 *			     int blocks)
+	 * x0: Pointer to sha512_state struct (a..h state).
+	 * x1: Pointer to source data.
+	 * w2: Number of 128-byte blocks to process.
 	 */
 	.text
 SYM_FUNC_START(__sha512_ce_transform)
-	/* load state */
+	/* Prologue: load initial state and round constants into NEON registers. */
 	ld1		{v8.2d-v11.2d}, [x0]
 
-	/* load first 4 round constants */
 	adr_l		x3, .Lsha512_rcon
 	ld1		{v20.2d-v23.2d}, [x3], #64
 
-	/* load input */
-0:	ld1		{v12.2d-v15.2d}, [x1], #64
+0:	/* Main loop: processes one 128-byte SHA-512 block per iteration. */
+	/* 1. Load 16x64-bit message words into v12-v19. */
+	ld1		{v12.2d-v15.2d}, [x1], #64
 	ld1		{v16.2d-v19.2d}, [x1], #64
 	sub		w2, w2, #1
 
+	/* 2. Byte-swap if on a little-endian system. */
 CPU_LE(	rev64		v12.16b, v12.16b	)
 CPU_LE(	rev64		v13.16b, v13.16b	)
 CPU_LE(	rev64		v14.16b, v14.16b	)
@@ -130,11 +164,17 @@ CPU_LE(	rev64		v19.16b, v19.16b	)
 
 	mov		x4, x3				// rc pointer
 
+	/* 3. Copy initial state into working registers. */
 	mov		v0.16b, v8.16b
 	mov		v1.16b, v9.16b
 	mov		v2.16b, v10.16b
 	mov		v3.16b, v11.16b
 
+	/*
+	 * 4. Execute all 80 rounds of compression by invoking the 'dround'
+	 *    macro 40 times. The register arguments are rotated to sequence
+	 *    the state updates (a,b,c,d,e,f,g,h) correctly.
+	 */
 	// v0  ab  cd  --  ef  gh  ab
 	// v1  cd  --  ef  gh  ab  cd
 	// v2  ef  gh  ab  cd  --  ef
@@ -189,7 +229,7 @@ CPU_LE(	rev64		v19.16b, v19.16b	)
 	dround		4, 2, 0, 1, 3, 26,   , 18
 	dround		1, 4, 3, 0, 2, 27,   , 19
 
-	/* update state */
+	@ Epilogue: Update the initial state with the results of the compression.
 	add		v8.2d, v8.2d, v0.2d
 	add		v9.2d, v9.2d, v1.2d
 	add		v10.2d, v10.2d, v2.2d
@@ -199,7 +239,7 @@ CPU_LE(	rev64		v19.16b, v19.16b	)
 	/* handled all input blocks? */
 	cbnz		w2, 0b
 
-	/* store new state */
+	/* Store the final updated state back to memory and return. */
 3:	st1		{v8.2d-v11.2d}, [x0]
 	mov		w0, w2
 	ret

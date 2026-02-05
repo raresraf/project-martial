@@ -1,3 +1,26 @@
+/**
+ * @file testmgr.c
+ * @brief Core framework for testing cryptographic algorithms in the kernel.
+ *
+ * This file implements the kernel's cryptographic self-testing manager. It is
+ * responsible for running a comprehensive suite of tests against cryptographic
+ * algorithm implementations to verify their correctness and robustness.
+ *
+ * The framework operates by executing known-answer tests (KATs) defined in
+ * `testmgr.h` against various algorithm implementations (e.g., generic C code,
+ * architecture-specific optimizations, or hardware drivers). It supports a
+ * wide range of test configurations, including:
+ * - Different API entry points (e.g., `update`/`final` vs. `digest`).
+ * - In-place and out-of-place encryption/decryption.
+ * - Complex data layouts using scatter-gather lists to test handling of
+ *   fragmented and misaligned data.
+ * - Fuzzing with randomly generated test vectors to uncover edge cases.
+ * - Comparative testing of a specific driver against the known-good generic
+ *   implementation of the same algorithm.
+ *
+ * This framework is crucial for ensuring the reliability of the kernel's
+ * cryptographic subsystem and for meeting compliance requirements like FIPS 140.
+ */
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Algorithm testing framework and tests.
@@ -81,6 +104,17 @@ int alg_test(const char *driver, const char *alg, u32 type, u32 mask)
 #define ENCRYPT 1
 #define DECRYPT 0
 
+/**
+ * @struct aead_test_suite
+ * @brief Defines a collection of test vectors for an AEAD algorithm.
+ * @vecs: Pointer to an array of AEAD test vectors.
+ * @count: The number of test vectors in the array.
+ * @einval_allowed: If set, indicates that decrypting an inauthentic ciphertext
+ *                  may legitimately result in -EINVAL instead of -EBADMSG, due
+ *                  to other input validation checks (e.g., on data length).
+ * @aad_iv: If set, indicates the algorithm requires the IV to be duplicated at
+ *          the end of the AAD buffer.
+ */
 struct aead_test_suite {
 	const struct aead_testvec *vecs;
 	unsigned int count;
@@ -100,11 +134,23 @@ struct aead_test_suite {
 	unsigned int aad_iv : 1;
 };
 
+/**
+ * @struct cipher_test_suite
+ * @brief Defines a collection of test vectors for a symmetric cipher.
+ * @vecs: Pointer to an array of cipher test vectors.
+ * @count: The number of test vectors in the array.
+ */
 struct cipher_test_suite {
 	const struct cipher_testvec *vecs;
 	unsigned int count;
 };
 
+/**
+ * @struct comp_test_suite
+ * @brief Defines test vectors for a compression algorithm.
+ * @comp: Test suite for compression operations.
+ * @decomp: Test suite for decompression operations.
+ */
 struct comp_test_suite {
 	struct {
 		const struct comp_testvec *vecs;
@@ -112,36 +158,90 @@ struct comp_test_suite {
 	} comp, decomp;
 };
 
+/**
+ * @struct hash_test_suite
+ * @brief Defines a collection of test vectors for a hash algorithm.
+ * @vecs: Pointer to an array of hash test vectors.
+ * @count: The number of test vectors in the array.
+ */
 struct hash_test_suite {
 	const struct hash_testvec *vecs;
 	unsigned int count;
 };
 
+/**
+ * @struct cprng_test_suite
+ * @brief Defines a collection of test vectors for a CPRNG.
+ * @vecs: Pointer to an array of CPRNG test vectors.
+ * @count: The number of test vectors in the array.
+ */
 struct cprng_test_suite {
 	const struct cprng_testvec *vecs;
 	unsigned int count;
 };
 
+/**
+ * @struct drbg_test_suite
+ * @brief Defines a collection of test vectors for a DRBG.
+ * @vecs: Pointer to an array of DRBG test vectors.
+ * @count: The number of test vectors in the array.
+ */
 struct drbg_test_suite {
 	const struct drbg_testvec *vecs;
 	unsigned int count;
 };
 
+/**
+ * @struct akcipher_test_suite
+ * @brief Defines test vectors for an asymmetric cipher (public key).
+ * @vecs: Pointer to an array of asymmetric cipher test vectors.
+ * @count: The number of test vectors in the array.
+ */
 struct akcipher_test_suite {
 	const struct akcipher_testvec *vecs;
 	unsigned int count;
 };
 
+/**
+ * @struct sig_test_suite
+ * @brief Defines test vectors for a digital signature algorithm.
+ * @vecs: Pointer to an array of signature test vectors.
+ * @count: The number of test vectors in the array.
+ */
 struct sig_test_suite {
 	const struct sig_testvec *vecs;
 	unsigned int count;
 };
 
+/**
+ * @struct kpp_test_suite
+ * @brief Defines test vectors for a Key-agreement Protocol Primitive.
+ * @vecs: Pointer to an array of KPP test vectors.
+ * @count: The number of test vectors in the array.
+ */
 struct kpp_test_suite {
 	const struct kpp_testvec *vecs;
 	unsigned int count;
 };
 
+/**
+ * @struct alg_test_desc
+ * @brief Describes a complete test for a cryptographic algorithm.
+ *
+ * This structure ties together an algorithm's name, its corresponding test
+ * function, its test vectors, and other metadata. It is the central descriptor
+ * used by the test manager to run tests.
+ *
+ * @alg: The name of the algorithm to be tested (e.g., "cbc(aes)").
+ * @generic_driver: The name of the known-good generic implementation to test
+ *                  against (e.g., "aes-generic").
+ * @test: A function pointer to the specific test runner for this algorithm
+ *        type (e.g., `alg_test_hash`, `alg_test_aead`).
+ * @fips_allowed: A flag indicating whether this algorithm is permitted to run
+ *                when the kernel is in FIPS compliance mode.
+ * @suite: A union containing the specific test suite (e.g., `hash`, `aead`)
+ *         for the algorithm, which holds the actual test vectors.
+ */
 struct alg_test_desc {
 	const char *alg;
 	const char *generic_driver;
@@ -169,6 +269,17 @@ static void hexdump(unsigned char *buf, unsigned int len)
 			buf, len, false);
 }
 
+/**
+ * __testmgr_alloc_buf - Allocates a set of pages for test buffers.
+ * @buf: An array of character pointers to be filled with buffer addresses.
+ * @order: The power-of-two order of pages to allocate for each buffer.
+ *
+ * This helper function allocates `XBUFSIZE` separate memory buffers, each
+ * of size `2^order` pages. It's a utility for setting up the memory regions
+ * needed for scatter-gather list tests.
+ *
+ * @return 0 on success, -ENOMEM on allocation failure.
+ */
 static int __testmgr_alloc_buf(char *buf[XBUFSIZE], int order)
 {
 	int i;
@@ -188,11 +299,27 @@ err_free_buf:
 	return -ENOMEM;
 }
 
+/**
+ * testmgr_alloc_buf - Allocates a set of single-page buffers.
+ * @buf: An array of character pointers to be filled with buffer addresses.
+ *
+ * This is a convenience wrapper around `__testmgr_alloc_buf` that allocates
+ * single-page buffers (`order` = 0).
+ *
+ * @return 0 on success, -ENOMEM on failure.
+ */
 static int testmgr_alloc_buf(char *buf[XBUFSIZE])
 {
 	return __testmgr_alloc_buf(buf, 0);
 }
 
+/**
+ * __testmgr_free_buf - Frees a set of test buffers.
+ * @buf: The array of buffer pointers to free.
+ * @order: The page order used for the original allocation.
+ *
+ * This function releases the memory allocated by `__testmgr_alloc_buf`.
+ */
 static void __testmgr_free_buf(char *buf[XBUFSIZE], int order)
 {
 	int i;
@@ -201,6 +328,12 @@ static void __testmgr_free_buf(char *buf[XBUFSIZE], int order)
 		free_pages((unsigned long)buf[i], order);
 }
 
+/**
+ * testmgr_free_buf - Frees a set of single-page test buffers.
+ * @buf: The array of buffer pointers to free.
+ *
+ * This is a convenience wrapper for `__testmgr_free_buf` with `order` = 0.
+ */
 static void testmgr_free_buf(char *buf[XBUFSIZE])
 {
 	__testmgr_free_buf(buf, 0);
@@ -209,12 +342,32 @@ static void testmgr_free_buf(char *buf[XBUFSIZE])
 #define TESTMGR_POISON_BYTE	0xfe
 #define TESTMGR_POISON_LEN	16
 
+/**
+ * testmgr_poison - Fills a memory area with a specific byte pattern.
+ * @addr: The starting address of the memory area.
+ * @len: The number of bytes to poison.
+ *
+ * Functional Utility: This function is used to "poison" memory buffers before
+ * a cryptographic operation. By checking this pattern after the operation, the
+ * test framework can detect buffer overflows or verify that output buffers
+ * were not unexpectedly written to.
+ */
 static inline void testmgr_poison(void *addr, size_t len)
 {
 	memset(addr, TESTMGR_POISON_BYTE, len);
 }
 
-/* Is the memory region still fully poisoned? */
+/**
+ * testmgr_is_poison - Checks if a memory area is still filled with the poison
+ *                     pattern.
+ * @addr: The starting address of the memory area.
+ * @len: The number of bytes to check.
+ *
+ * This function verifies that a memory region has not been modified by checking
+ * if it still contains the original poison byte pattern.
+ *
+ * @return true if the area is still poisoned, false otherwise.
+ */
 static inline bool testmgr_is_poison(const void *addr, size_t len)
 {
 	return memchr_inv(addr, TESTMGR_POISON_BYTE, len) == NULL;

@@ -1,3 +1,14 @@
+/**
+ * @file hash_info.c
+ * @brief Provides static metadata for hash algorithms in the Linux kernel.
+ *
+ * This file contains constant arrays that serve as a central registry for
+ * properties of various cryptographic hash algorithms. It allows other parts of
+ * the kernel to retrieve information like the standard algorithm name and
+ * digest size based on a fixed enumeration, decoupling the rest of the crypto
+ * subsystem from the hardcoded details of each hash function.
+ */
+
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Hash Info: Hash algorithms information
@@ -8,6 +19,15 @@
 #include <linux/export.h>
 #include <crypto/hash_info.h>
 
+/**
+ * @var hash_algo_name
+ * @brief Maps a hash algorithm enumeration to its standard string identifier.
+ *
+ * Functional Utility: This array provides a canonical, human-readable name
+ * for each hash algorithm identified by the `hash_algo` enum. It is used
+ * throughout the kernel for logging, user-space interfaces (e.g., via procfs
+ * or sysfs), and when dynamically loading cryptographic modules by name.
+ */
 const char *const hash_algo_name[HASH_ALGO__LAST] = {
 	[HASH_ALGO_MD4]		= "md4",
 	[HASH_ALGO_MD5]		= "md5",
@@ -35,6 +55,15 @@ const char *const hash_algo_name[HASH_ALGO__LAST] = {
 };
 EXPORT_SYMBOL_GPL(hash_algo_name);
 
+/**
+ * @var hash_digest_size
+ * @brief Maps a hash algorithm enumeration to its output digest size in bytes.
+ *
+ * Functional Utility: This array provides the precise size of the message
+ * digest (hash output) for each algorithm in the `hash_algo` enum. This is
+ * critical for consumers of the cryptographic API to correctly allocate memory
+ * for hash results and to perform validation checks.
+ */
 const int hash_digest_size[HASH_ALGO__LAST] = {
 	[HASH_ALGO_MD4]		= MD5_DIGEST_SIZE,
 	[HASH_ALGO_MD5]		= MD5_DIGEST_SIZE,

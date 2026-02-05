@@ -1,3 +1,13 @@
+/**
+ * @file sha1_glue.c
+ * @brief Glue code for ARM-optimized SHA1 Secure Hash Algorithm.
+ * @details This file serves as an interface layer between the Linux kernel's
+ * generic cryptographic API (shash) and a high-performance, ARM-specific
+ * assembly implementation of the SHA1 algorithm. Its primary purpose is to
+ * register the assembly version and map the standard shash operations (init,
+ * update, final) to the corresponding optimized functions, allowing the rest
+ * of the kernel to leverage this implementation transparently.
+ */
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Cryptographic API.
@@ -17,26 +27,70 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 
+/**
+ * @brief Processes SHA1 blocks using an ARM assembly implementation.
+ * @param digest Pointer to the SHA1 state structure.
+ * @param data Pointer to the input data blocks.
+ * @param rounds The number of SHA1 blocks to process.
+ *
+ * This is the low-level entry point into the assembly-language portion of the
+ * SHA1 implementation. It processes a given number of 64-byte blocks.
+ */
 asmlinkage void sha1_block_data_order(struct sha1_state *digest,
 		const u8 *data, int rounds);
 
+/**
+ * @brief Implements the 'update' operation using the ARM-optimized function.
+ * @param desc The shash descriptor containing the hash state.
+ * @param data The data to be hashed.
+ * @param len The length of the data.
+ * @return 0 on success.
+ *
+ * This function is the shash API's entry point for updating the hash state
+ * with new data. It wraps the core block processing function.
+ */
 static int sha1_update_arm(struct shash_desc *desc, const u8 *data,
 			   unsigned int len)
 {
 	/* make sure signature matches sha1_block_fn() */
 	BUILD_BUG_ON(offsetof(struct sha1_state, state) != 0);
 
+	// Functional Utility: Delegates the block-wise update to a common helper function,
+	// providing the ARM-specific block processing function as a callback.
 	return sha1_base_do_update_blocks(desc, data, len,
 					  sha1_block_data_order);
 }
 
+/**
+ * @brief Implements the 'finup' (finalize and update) operation.
+ * @param desc The shash descriptor.
+ * @param data The final data chunk to be hashed.
+ * @param len The length of the final data.
+ * @param out The buffer to store the resulting 20-byte hash.
+ * @return 0 on success.
+ *
+ * This function processes the last segment of data and then computes the
+ * final hash digest.
+ */
 static int sha1_finup_arm(struct shash_desc *desc, const u8 *data,
 			  unsigned int len, u8 *out)
 {
+	// Functional Utility: Uses a common helper for the final update and padding,
+	// passing the ARM-specific block processing function.
 	sha1_base_do_finup(desc, data, len, sha1_block_data_order);
+	// Functional Utility: Finalizes the hash calculation and writes the digest to the output buffer.
 	return sha1_base_finish(desc, out);
 }
 
+/**
+ * @brief Defines the SHA1 shash algorithm implementation for the crypto API.
+ *
+ * This structure registers the ARM assembly implementation of SHA1 with the
+ * kernel's cryptographic subsystem. It specifies the algorithm's properties
+ * and points to the glue functions that connect the API to the optimized
+ * assembly code. The priority is set to give it precedence over generic C
+ * implementations.
+ */
 static struct shash_alg alg = {
 	.digestsize	=	SHA1_DIGEST_SIZE,
 	.init		=	sha1_base_init,
@@ -54,12 +108,25 @@ static struct shash_alg alg = {
 };
 
 
+/**
+ * @brief Module initialization function.
+ * @return 0 on success, or an error code on failure.
+ *
+ * Registers the SHA1 algorithm implementation with the kernel crypto API when
+ * the module is loaded.
+ */
 static int __init sha1_mod_init(void)
 {
 	return crypto_register_shash(&alg);
 }
 
 
+/**
+ * @brief Module cleanup function.
+ *
+ * Unregisters the SHA1 algorithm implementation from the kernel crypto API
+ * when the module is unloaded.
+ */
 static void __exit sha1_mod_fini(void)
 {
 	crypto_unregister_shash(&alg);

@@ -3,19 +3,25 @@
 # Cryptographic API
 #
 
+# Core API and framework components
 obj-$(CONFIG_CRYPTO) += crypto.o
 crypto-y := api.o cipher.o
 
+# Crypto engine for hardware acceleration offload
 obj-$(CONFIG_CRYPTO_ENGINE) += crypto_engine.o
+# FIPS 140-2 compliance support
 obj-$(CONFIG_CRYPTO_FIPS) += fips.o
 
+# Algorithm API and procfs interface
 crypto_algapi-$(CONFIG_PROC_FS) += proc.o
 crypto_algapi-y := algapi.o scatterwalk.o $(crypto_algapi-y)
 obj-$(CONFIG_CRYPTO_ALGAPI2) += crypto_algapi.o
 
+# Authenticated Encryption with Associated Data (AEAD) ciphers
 obj-$(CONFIG_CRYPTO_AEAD2) += aead.o
 obj-$(CONFIG_CRYPTO_GENIV) += geniv.o
 
+# Symmetric Key Ciphers (Block and Stream)
 crypto_skcipher-y += lskcipher.o
 crypto_skcipher-y += skcipher.o
 
@@ -24,26 +30,32 @@ ifeq ($(CONFIG_BPF_SYSCALL),y)
 obj-$(CONFIG_CRYPTO_SKCIPHER2) += bpf_crypto_skcipher.o
 endif
 
+# Initialization Vector (IV) generators
 obj-$(CONFIG_CRYPTO_SEQIV) += seqiv.o
 obj-$(CONFIG_CRYPTO_ECHAINIV) += echainiv.o
 
+# Hash Algorithms (asynchronous and synchronous)
 crypto_hash-y += ahash.o
 crypto_hash-y += shash.o
 obj-$(CONFIG_CRYPTO_HASH2) += crypto_hash.o
 
+# Asymmetric Key Ciphers (Public Key Cryptography)
 obj-$(CONFIG_CRYPTO_AKCIPHER2) += akcipher.o
 obj-$(CONFIG_CRYPTO_SIG2) += sig.o
 obj-$(CONFIG_CRYPTO_KPP2) += kpp.o
 obj-$(CONFIG_CRYPTO_HKDF) += hkdf.o
 
+# Diffie-Hellman Key Exchange
 dh_generic-y := dh.o
 dh_generic-y += dh_helper.o
 obj-$(CONFIG_CRYPTO_DH) += dh_generic.o
 
+# ASN.1 and helper files for RSA
 $(obj)/rsapubkey.asn1.o: $(obj)/rsapubkey.asn1.c $(obj)/rsapubkey.asn1.h
 $(obj)/rsaprivkey.asn1.o: $(obj)/rsaprivkey.asn1.c $(obj)/rsaprivkey.asn1.h
 $(obj)/rsa_helper.o: $(obj)/rsapubkey.asn1.h $(obj)/rsaprivkey.asn1.h
 
+# RSA Algorithm Implementation
 rsa_generic-y := rsapubkey.asn1.o
 rsa_generic-y += rsaprivkey.asn1.o
 rsa_generic-y += rsa.o
@@ -52,22 +64,30 @@ rsa_generic-y += rsa-pkcs1pad.o
 rsa_generic-y += rsassa-pkcs1.o
 obj-$(CONFIG_CRYPTO_RSA) += rsa_generic.o
 
+# ASN.1 and helper files for ECDSA
 $(obj)/ecdsasignature.asn1.o: $(obj)/ecdsasignature.asn1.c $(obj)/ecdsasignature.asn1.h
 $(obj)/ecdsa-x962.o: $(obj)/ecdsasignature.asn1.h
+
+# ECDSA Algorithm Implementation
 ecdsa_generic-y += ecdsa.o
 ecdsa_generic-y += ecdsa-x962.o
 ecdsa_generic-y += ecdsa-p1363.o
 ecdsa_generic-y += ecdsasignature.asn1.o
 obj-$(CONFIG_CRYPTO_ECDSA) += ecdsa_generic.o
 
+# Compression Algorithms
 crypto_acompress-y := acompress.o
 crypto_acompress-y += scompress.o
 obj-$(CONFIG_CRYPTO_ACOMP2) += crypto_acompress.o
 
+# Cryptographic Algorithm Manager and Test Manager
 cryptomgr-y := algboss.o testmgr.o
-
 obj-$(CONFIG_CRYPTO_MANAGER2) += cryptomgr.o
+
+# User-space configuration interface
 obj-$(CONFIG_CRYPTO_USER) += crypto_user.o
+
+# Specific Algorithm Implementations (MACs, Hashes, Ciphers)
 obj-$(CONFIG_CRYPTO_CMAC) += cmac.o
 obj-$(CONFIG_CRYPTO_HMAC) += hmac.o
 obj-$(CONFIG_CRYPTO_XCBC) += xcbc.o
@@ -103,6 +123,7 @@ obj-$(CONFIG_CRYPTO_CHACHA20POLY1305) += chacha20poly1305.o
 obj-$(CONFIG_CRYPTO_AEGIS128) += aegis128.o
 aegis128-y := aegis128-core.o
 
+# ARM/ARM64 architecture-specific SIMD optimizations for AEGIS-128
 ifeq ($(ARCH),arm)
 CFLAGS_aegis128-neon-inner.o += -ffreestanding -march=armv8-a -mfloat-abi=softfp
 CFLAGS_aegis128-neon-inner.o += -mfpu=crypto-neon-fp-armv8
@@ -120,11 +141,14 @@ CFLAGS_aegis128-neon-inner.o += $(aegis128-cflags-y)
 CFLAGS_REMOVE_aegis128-neon-inner.o += -mgeneral-regs-only
 aegis128-$(CONFIG_CRYPTO_AEGIS128_SIMD) += aegis128-neon.o aegis128-neon-inner.o
 endif
-# Enable <arm_neon.h>
+# Enable <arm_neon.h> for SIMD intrinsics
 CFLAGS_aegis128-neon-inner.o += -isystem $(shell $(CC) -print-file-name=include)
 
+# Parallel Cryptography and Cryptd (asynchronous software fallback)
 obj-$(CONFIG_CRYPTO_PCRYPT) += pcrypt.o
 obj-$(CONFIG_CRYPTO_CRYPTD) += cryptd.o
+
+# Generic implementations of various symmetric ciphers
 obj-$(CONFIG_CRYPTO_DES) += des_generic.o
 obj-$(CONFIG_CRYPTO_FCRYPT) += fcrypt.o
 obj-$(CONFIG_CRYPTO_BLOWFISH) += blowfish_generic.o
@@ -163,6 +187,8 @@ obj-$(CONFIG_CRYPTO_LZ4) += lz4.o
 obj-$(CONFIG_CRYPTO_LZ4HC) += lz4hc.o
 obj-$(CONFIG_CRYPTO_XXHASH) += xxhash_generic.o
 obj-$(CONFIG_CRYPTO_842) += 842.o
+
+# Random Number Generators (RNG)
 obj-$(CONFIG_CRYPTO_RNG2) += rng.o
 obj-$(CONFIG_CRYPTO_ANSI_CPRNG) += ansi_cprng.o
 obj-$(CONFIG_CRYPTO_DRBG) += drbg.o
@@ -172,23 +198,35 @@ KASAN_SANITIZE_jitterentropy.o = n
 UBSAN_SANITIZE_jitterentropy.o = n
 jitterentropy_rng-y := jitterentropy.o jitterentropy-kcapi.o
 obj-$(CONFIG_CRYPTO_JITTERENTROPY_TESTINTERFACE) += jitterentropy-testing.o
+
+# Benchmark and testing module
 obj-$(CONFIG_CRYPTO_BENCHMARK) += tcrypt.o
+
+# GHASH and POLYVAL for Galois/Counter Mode (GCM)
 obj-$(CONFIG_CRYPTO_GHASH) += ghash-generic.o
 obj-$(CONFIG_CRYPTO_POLYVAL) += polyval-generic.o
+
+# User-space API via sockets (AF_ALG)
 obj-$(CONFIG_CRYPTO_USER_API) += af_alg.o
 obj-$(CONFIG_CRYPTO_USER_API_HASH) += algif_hash.o
 obj-$(CONFIG_CRYPTO_USER_API_SKCIPHER) += algif_skcipher.o
 obj-$(CONFIG_CRYPTO_USER_API_RNG) += algif_rng.o
 obj-$(CONFIG_CRYPTO_USER_API_AEAD) += algif_aead.o
+
+# Zstandard compression
 obj-$(CONFIG_CRYPTO_ZSTD) += zstd.o
+
+# Elliptic Curve Cryptography (ECC)
 obj-$(CONFIG_CRYPTO_ECC) += ecc.o
 obj-$(CONFIG_CRYPTO_ESSIV) += essiv.o
 obj-$(CONFIG_CRYPTO_CURVE25519) += curve25519-generic.o
 
+# Elliptic Curve Diffie-Hellman (ECDH)
 ecdh_generic-y += ecdh.o
 ecdh_generic-y += ecdh_helper.o
 obj-$(CONFIG_CRYPTO_ECDH) += ecdh_generic.o
 
+# ASN.1 and helper files for EC-RDSA (Russian GOST R 34.10-2012)
 $(obj)/ecrdsa_params.asn1.o: $(obj)/ecrdsa_params.asn1.c $(obj)/ecrdsa_params.asn1.h
 $(obj)/ecrdsa_pub_key.asn1.o: $(obj)/ecrdsa_pub_key.asn1.c $(obj)/ecrdsa_pub_key.asn1.h
 $(obj)/ecrdsa.o: $(obj)/ecrdsa_params.asn1.h $(obj)/ecrdsa_pub_key.asn1.h
@@ -198,7 +236,7 @@ ecrdsa_generic-y += ecrdsa_pub_key.asn1.o
 obj-$(CONFIG_CRYPTO_ECRDSA) += ecrdsa_generic.o
 
 #
-# generic algorithms and the async_tx api
+# Support for generic algorithms and the async_tx API
 #
 obj-$(CONFIG_XOR_BLOCKS) += xor.o
 obj-$(CONFIG_ASYNC_CORE) += async_tx/
@@ -208,8 +246,9 @@ crypto_simd-y := simd.o
 obj-$(CONFIG_CRYPTO_SIMD) += crypto_simd.o
 
 #
-# Key derivation function
+# Key Derivation Functions (KDF)
 #
 obj-$(CONFIG_CRYPTO_KDF800108_CTR) += kdf_sp800108.o
 
+# Kerberos 5 crypto support
 obj-$(CONFIG_CRYPTO_KRB5) += krb5/

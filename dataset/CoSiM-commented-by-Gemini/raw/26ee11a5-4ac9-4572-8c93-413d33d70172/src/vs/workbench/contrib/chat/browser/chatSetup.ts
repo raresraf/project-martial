@@ -1,3 +1,11 @@
+/**
+ * @file chatSetup.ts
+ * @brief Manages the setup process for the "Copilot" chat feature within VS Code.
+ * This file defines the core logic for chat agent registration, entitlement handling,
+ * user authentication flows, extension installation, and the display of setup-related
+ * UI elements like welcome content and dialogs. It integrates various VS Code services
+ * to provide a seamless user experience for enabling and configuring the chat functionality.
+ */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -71,6 +79,11 @@ import { IKeybindingService } from '../../../../platform/keybinding/common/keybi
 import { createWorkbenchDialogOptions } from '../../../../platform/dialogs/browser/dialog.js';
 import { IChatRequestModel } from '../common/chatModel.js';
 
+/**
+ * @brief Provides default configuration values for the chat feature, primarily Copilot.
+ * These values are sourced from the product's default chat agent definition and are
+ * used across the setup process for consistent behavior and UI.
+ */
 const defaultChat = {
 	extensionId: product.defaultChatAgent?.extensionId ?? '',
 	chatExtensionId: product.defaultChatAgent?.chatExtensionId ?? '',
@@ -94,8 +107,27 @@ const defaultChat = {
 
 //#region Contribution
 
+/**
+ * @brief Implements the `IChatAgentImplementation` interface for the chat setup agent.
+ * This class handles the logic for invoking the chat agent, orchestrating the setup
+ * process (signing in, installing extensions), and forwarding requests to the actual
+ * Copilot agent once setup is complete. It also manages readiness checks for language
+ * models and chat agents.
+ */
 class SetupChatAgentImplementation extends Disposable implements IChatAgentImplementation {
 
+	/**
+	 * @brief Registers the `SetupChatAgentImplementation` with the `IChatAgentService`.
+	 * This static method configures and registers chat agents for various locations
+	 * (e.g., Panel, EditingSession, Terminal, Editor, Notebook) and associates them
+	 * with the setup controller.
+	 * @param instantiationService The `IInstantiationService` for creating instances.
+	 * @param location The `ChatAgentLocation` where this agent will operate.
+	 * @param isToolsAgent A boolean indicating if this agent is a tools agent.
+	 * @param context The `ChatEntitlementContext` for checking entitlement status.
+	 * @param controller A `Lazy` instance of `ChatSetupController` for managing the setup flow.
+	 * @returns An object containing the registered agent instance and a disposable to unregister it.
+	 */
 	static register(instantiationService: IInstantiationService, location: ChatAgentLocation, isToolsAgent: boolean, context: ChatEntitlementContext, controller: Lazy<ChatSetupController>): { disposable: IDisposable; agent: SetupChatAgentImplementation } {
 		return instantiationService.invokeFunction(accessor => {
 			const chatAgentService = accessor.get(IChatAgentService);
@@ -103,6 +135,7 @@ class SetupChatAgentImplementation extends Disposable implements IChatAgentImple
 			let id: string;
 			let description = localize('chatDescription', "Ask Copilot");
 			let welcomeMessageContent: IChatWelcomeMessageContent | undefined;
+			// Block Logic: Configures agent ID, description, and welcome message based on the agent's location.
 			switch (location) {
 				case ChatAgentLocation.Panel:
 					id = 'setup.chat';
@@ -140,6 +173,7 @@ class SetupChatAgentImplementation extends Disposable implements IChatAgentImple
 
 			const disposable = new DisposableStore();
 
+			// Block Logic: Registers the chat agent with the configured properties.
 			disposable.add(chatAgentService.registerAgent(id, {
 				id,
 				name: 'Copilot', // intentionally not using exact same name as extension to avoid conflict with IChatAgentService.getAgentsByName()
@@ -160,17 +194,32 @@ class SetupChatAgentImplementation extends Disposable implements IChatAgentImple
 			}));
 
 			const agent = disposable.add(instantiationService.createInstance(SetupChatAgentImplementation, context, controller, location));
+			// Functional Utility: Registers this class as the implementation for the chat agent.
 			disposable.add(chatAgentService.registerAgentImplementation(id, agent));
 
 			return { agent, disposable };
 		});
 	}
 
+	/**
+	 * @brief Static constant message indicating that Copilot setup is required.
+	 * This message is used as a help text prefix for the chat agent when setup is incomplete.
+	 */
 	private static readonly SETUP_NEEDED_MESSAGE = new MarkdownString(localize('settingUpCopilotNeeded', "You need to set up Copilot to use Chat."));
 
 	private readonly _onUnresolvableError = this._register(new Emitter<void>());
 	readonly onUnresolvableError = this._onUnresolvableError.event;
 
+	/**
+	 * @brief Constructs a new `SetupChatAgentImplementation` instance.
+	 * @param context The `ChatEntitlementContext` for checking entitlement status.
+	 * @param controller A `Lazy` instance of `ChatSetupController` for managing the setup flow.
+	 * @param location The `ChatAgentLocation` where this agent will operate.
+	 * @param instantiationService The `IInstantiationService` for creating instances.
+	 * @param logService The `ILogService` for logging.
+	 * @param configurationService The `IConfigurationService` for accessing configuration.
+	 * @param telemetryService The `ITelemetryService` for telemetry reporting.
+	 */
 	constructor(
 		private readonly context: ChatEntitlementContext,
 		private readonly controller: Lazy<ChatSetupController>,
@@ -183,6 +232,14 @@ class SetupChatAgentImplementation extends Disposable implements IChatAgentImple
 		super();
 	}
 
+	/**
+	 * @brief Invokes the chat agent to handle a request.
+	 * This method lazily loads necessary chat services and then delegates
+	 * the request processing to `doInvoke`.
+	 * @param request The `IChatAgentRequest` to be handled.
+	 * @param progress A callback function to report progress updates.
+	 * @returns A `Promise` that resolves to an `IChatAgentResult`.
+	 */
 	async invoke(request: IChatAgentRequest, progress: (part: IChatProgress) => void): Promise<IChatAgentResult> {
 		return this.instantiationService.invokeFunction(async accessor => {
 			const chatService = accessor.get(IChatService);						// use accessor for lazy loading
@@ -194,14 +251,43 @@ class SetupChatAgentImplementation extends Disposable implements IChatAgentImple
 		});
 	}
 
+	/**
+	 * @brief Dispatches the chat agent invocation based on the current setup status.
+	 * If Copilot is not yet installed or the entitlement is unknown/available, it triggers the setup flow.
+	 * Otherwise, it proceeds directly to handling the request without needing initial setup.
+	 * @param request The `IChatAgentRequest` to be handled.
+	 * @param progress A callback function to report progress updates.
+	 * @param chatService The `IChatService` instance.
+	 * @param languageModelsService The `ILanguageModelsService` instance.
+	 * @param chatWidgetService The `IChatWidgetService` instance.
+	 * @param chatAgentService The `IChatAgentService` instance.
+	 * @returns A `Promise` that resolves to an `IChatAgentResult`.
+	 */
 	private async doInvoke(request: IChatAgentRequest, progress: (part: IChatProgress) => void, chatService: IChatService, languageModelsService: ILanguageModelsService, chatWidgetService: IChatWidgetService, chatAgentService: IChatAgentService): Promise<IChatAgentResult> {
+		// Block Logic: If the chat agent is not installed, or the entitlement state requires setup (Available or Unknown),
+		// delegate to `doInvokeWithSetup` to guide the user through the installation/sign-in process.
 		if (!this.context.state.installed || this.context.state.entitlement === ChatEntitlement.Available || this.context.state.entitlement === ChatEntitlement.Unknown) {
 			return this.doInvokeWithSetup(request, progress, chatService, languageModelsService, chatWidgetService, chatAgentService);
 		}
 
+		// Block Logic: If the chat agent is installed and entitlement is not `Available` or `Unknown`,
+		// delegate to `doInvokeWithoutSetup` to proceed with the request directly.
 		return this.doInvokeWithoutSetup(request, progress, chatService, languageModelsService, chatWidgetService, chatAgentService);
 	}
 
+	/**
+	 * @brief Handles a chat agent request when the Copilot setup is already complete.
+	 * This method dispatches the request to the underlying Copilot agent, ensuring
+	 * that language models and the agent itself are ready.
+	 * @param request The `IChatAgentRequest` to be handled.
+	 * @param progress A callback function to report progress updates.
+	 * @param chatService The `IChatService` instance.
+	 * @param languageModelsService The `ILanguageModelsService` instance.
+	 * @param chatWidgetService The `IChatWidgetService` instance.
+	 * @param chatAgentService The `IChatAgentService` instance.
+	 * @returns A `Promise` that resolves to an `IChatAgentResult` (empty in this case,
+	 *          as forwarding happens internally).
+	 */
 	private async doInvokeWithoutSetup(request: IChatAgentRequest, progress: (part: IChatProgress) => void, chatService: IChatService, languageModelsService: ILanguageModelsService, chatWidgetService: IChatWidgetService, chatAgentService: IChatAgentService): Promise<IChatAgentResult> {
 		const requestModel = chatWidgetService.getWidgetBySessionId(request.sessionId)?.viewModel?.model.getRequests().at(-1);
 		if (!requestModel) {
@@ -214,11 +300,25 @@ class SetupChatAgentImplementation extends Disposable implements IChatAgentImple
 			content: new MarkdownString(localize('waitingCopilot', "Getting Copilot ready.")),
 		});
 
+		// Block Logic: Forwards the request to the actual Copilot agent, waiting for its readiness.
 		await this.forwardRequestToCopilot(requestModel, progress, chatService, languageModelsService, chatAgentService, chatWidgetService);
 
 		return {};
 	}
 
+	/**
+	 * @brief Forwards a chat request to the active Copilot agent after ensuring its readiness.
+	 * This method waits for both the Copilot chat agent and an associated language model
+	 * to become available before resending the request. Includes a timeout mechanism
+	 * to handle unresponsiveness.
+	 * @param requestModel The `IChatRequestModel` representing the user's chat request.
+	 * @param progress A callback function to report progress updates.
+	 * @param chatService The `IChatService` instance.
+	 * @param languageModelsService The `ILanguageModelsService` instance.
+	 * @param chatAgentService The `IChatAgentService` instance.
+	 * @param chatWidgetService The `IChatWidgetService` instance.
+	 * @returns A `Promise` that resolves when the request has been forwarded or timed out.
+	 */
 	private async forwardRequestToCopilot(requestModel: IChatRequestModel, progress: (part: IChatProgress) => void, chatService: IChatService, languageModelsService: ILanguageModelsService, chatAgentService: IChatAgentService, chatWidgetService: IChatWidgetService): Promise<void> {
 
 		// We need a signal to know when we can resend the request to
@@ -228,6 +328,8 @@ class SetupChatAgentImplementation extends Disposable implements IChatAgentImple
 		const whenLanguageModelReady = this.whenLanguageModelReady(languageModelsService);
 		const whenAgentReady = this.whenAgentReady(chatAgentService);
 
+		// Block Logic: If either the language model or the chat agent is not immediately ready (returns a Promise),
+		// initiate a waiting period with a timeout and progress messages.
 		if (whenLanguageModelReady instanceof Promise || whenAgentReady instanceof Promise) {
 			const timeoutHandle = setTimeout(() => {
 				progress({
@@ -238,10 +340,11 @@ class SetupChatAgentImplementation extends Disposable implements IChatAgentImple
 
 			try {
 				const ready = await Promise.race([
-					timeout(20000).then(() => 'timedout'),
-					Promise.allSettled([whenLanguageModelReady, whenAgentReady])
+					timeout(20000).then(() => 'timedout'), // Timeout after 20 seconds
+					Promise.allSettled([whenLanguageModelReady, whenAgentReady]) // Wait for both to settle
 				]);
 
+				// Block Logic: If the readiness check times out, report a warning and fire an unresolvable error event.
 				if (ready === 'timedout') {
 					progress({
 						kind: 'warning',
@@ -254,10 +357,11 @@ class SetupChatAgentImplementation extends Disposable implements IChatAgentImple
 					return;
 				}
 			} finally {
-				clearTimeout(timeoutHandle);
+				clearTimeout(timeoutHandle); // Clear the progress message timeout
 			}
 		}
 
+		// Functional Utility: Resends the original chat request to the Copilot agent with current widget settings.
 		const widget = chatWidgetService.getWidgetBySessionId(requestModel.session.sessionId);
 		chatService.resendRequest(requestModel, {
 			mode: widget?.input.currentMode,
@@ -265,7 +369,15 @@ class SetupChatAgentImplementation extends Disposable implements IChatAgentImple
 		});
 	}
 
+	/**
+	 * @brief Checks if a default language model is currently available.
+	 * If a default language model is found, it returns immediately. Otherwise,
+	 * it returns a `Promise` that resolves when a default language model becomes available.
+	 * @param languageModelsService The `ILanguageModelsService` instance.
+	 * @returns A `Promise<unknown>` that resolves when a default language model is ready, or `void` if already ready.
+	 */
 	private whenLanguageModelReady(languageModelsService: ILanguageModelsService): Promise<unknown> | void {
+		// Block Logic: Iterates through registered language models to find an existing default model.
 		for (const id of languageModelsService.getLanguageModelIds()) {
 			const model = languageModelsService.lookupLanguageModel(id);
 			if (model && model.isDefault) {
@@ -273,26 +385,51 @@ class SetupChatAgentImplementation extends Disposable implements IChatAgentImple
 			}
 		}
 
+		// Block Logic: If no default language model is immediately available, return a Promise that resolves
+		// when a new default language model is added.
 		return Event.toPromise(Event.filter(languageModelsService.onDidChangeLanguageModels, e => e.added?.some(added => added.metadata.isDefault) ?? false));
 	}
 
+	/**
+	 * @brief Checks if a default chat agent is currently available from an extension.
+	 * If a non-core default agent is found, it returns immediately. Otherwise,
+	 * it returns a `Promise` that resolves when such an agent becomes available.
+	 * @param chatAgentService The `IChatAgentService` instance.
+	 * @returns A `Promise<unknown>` that resolves when a default non-core chat agent is ready, or `void` if already ready.
+	 */
 	private whenAgentReady(chatAgentService: IChatAgentService): Promise<unknown> | void {
 		const defaultAgent = chatAgentService.getDefaultAgent(this.location);
 		if (defaultAgent && !defaultAgent.isCore) {
 			return; // we have a default agent from an extension!
 		}
 
+		// Block Logic: If no non-core default agent is immediately available, return a Promise that resolves
+		// when a new non-core default agent is registered.
 		return Event.toPromise(Event.filter(chatAgentService.onDidChangeAgents, () => {
 			const defaultAgent = chatAgentService.getDefaultAgent(this.location);
 			return Boolean(defaultAgent && !defaultAgent.isCore);
 		}));
 	}
 
+	/**
+	 * @brief Handles a chat agent request by initiating the Copilot setup process.
+	 * This method logs a telemetry event, displays progress messages during sign-in
+	 * and installation, and then attempts to run the Copilot setup flow.
+	 * If successful, it forwards the original request to the now-ready Copilot agent.
+	 * @param request The `IChatAgentRequest` to be handled.
+	 * @param progress A callback function to report progress updates.
+	 * @param chatService The `IChatService` instance.
+	 * @param languageModelsService The `ILanguageModelsService` instance.
+	 * @param chatWidgetService The `IChatWidgetService` instance.
+	 * @param chatAgentService The `IChatAgentService` instance.
+	 * @returns A `Promise` that resolves to an `IChatAgentResult`.
+	 */
 	private async doInvokeWithSetup(request: IChatAgentRequest, progress: (part: IChatProgress) => void, chatService: IChatService, languageModelsService: ILanguageModelsService, chatWidgetService: IChatWidgetService, chatAgentService: IChatAgentService): Promise<IChatAgentResult> {
 		this.telemetryService.publicLog2<WorkbenchActionExecutedEvent, WorkbenchActionExecutedClassification>('workbenchActionExecuted', { id: CHAT_SETUP_ACTION_ID, from: 'chat' });
 
 		const requestModel = chatWidgetService.getWidgetBySessionId(request.sessionId)?.viewModel?.model.getRequests().at(-1);
 
+		// Block Logic: Subscribes to changes in the setup controller's step to display corresponding progress messages.
 		const setupListener = Event.runAndSubscribe(this.controller.value.onDidChange, (() => {
 			switch (this.controller.value.step) {
 				case ChatSetupStep.SigningIn:
@@ -312,20 +449,23 @@ class SetupChatAgentImplementation extends Disposable implements IChatAgentImple
 
 		let success = undefined;
 		try {
+			// Block Logic: Initiates the Copilot setup process via the `ChatSetup` singleton.
 			success = await ChatSetup.getInstance(this.instantiationService, this.context, this.controller).run();
 		} catch (error) {
 			this.logService.error(`[chat setup] Error during setup: ${toErrorMessage(error)}`);
 		} finally {
-			setupListener.dispose();
+			setupListener.dispose(); // Always dispose the progress listener
 		}
 
-		// User has agreed to run the setup
+		// Block Logic: Handles the outcome of the setup process.
 		if (typeof success === 'boolean') {
+			// If setup was successful and a request model exists, forward the request.
 			if (success) {
 				if (requestModel) {
 					await this.forwardRequestToCopilot(requestModel, progress, chatService, languageModelsService, chatAgentService, chatWidgetService);
 				}
 			} else {
+				// If setup failed, display a warning.
 				progress({
 					kind: 'warning',
 					content: new MarkdownString(localize('copilotSetupError', "Copilot setup failed."))
@@ -333,7 +473,7 @@ class SetupChatAgentImplementation extends Disposable implements IChatAgentImple
 			}
 		}
 
-		// User has cancelled the setup
+		// Block Logic: If the user cancelled the setup, display the "setup needed" message.
 		else {
 			progress({
 				kind: 'markdownContent',
@@ -345,16 +485,44 @@ class SetupChatAgentImplementation extends Disposable implements IChatAgentImple
 	}
 }
 
+/**
+ * @brief Defines the different strategies or outcomes for the chat setup process.
+ */
 enum ChatSetupStrategy {
+	/**
+	 * @brief Indicates that the setup process was canceled by the user.
+	 */
 	Canceled = 0,
+	/**
+	 * @brief Represents the default setup strategy, typically involving a direct setup flow.
+	 */
 	DefaultSetup = 1,
+	/**
+	 * @brief Specifies setup for a standard provider without enterprise-specific configurations.
+	 */
 	SetupWithoutEnterpriseProvider = 2,
+	/**
+	 * @brief Specifies setup for an enterprise provider with enterprise-specific configurations.
+	 */
 	SetupWithEnterpriseProvider = 3
 }
 
+/**
+ * @brief Manages the overall chat setup process, including dialog presentation and strategy selection.
+ * This singleton class coordinates between the setup UI (dialogs) and the `ChatSetupController`
+ * to guide the user through authentication, entitlement checks, and extension installation.
+ */
 class ChatSetup {
 
 	private static instance: ChatSetup | undefined = undefined;
+	/**
+	 * @brief Retrieves the singleton instance of `ChatSetup`.
+	 * If no instance exists, a new one is created using the provided services.
+	 * @param instantiationService The `IInstantiationService` for creating instances.
+	 * @param context The `ChatEntitlementContext` for checking entitlement status.
+	 * @param controller A `Lazy` instance of `ChatSetupController` for managing the setup flow.
+	 * @returns The singleton instance of `ChatSetup`.
+	 */
 	static getInstance(instantiationService: IInstantiationService, context: ChatEntitlementContext, controller: Lazy<ChatSetupController>): ChatSetup {
 		let instance = ChatSetup.instance;
 		if (!instance) {
@@ -368,6 +536,19 @@ class ChatSetup {
 
 	private pendingRun: Promise<boolean | undefined> | undefined = undefined;
 
+	/**
+	 * @brief Constructs a new `ChatSetup` instance.
+	 * This is a private constructor to enforce the singleton pattern.
+	 * @param context The `ChatEntitlementContext` for checking entitlement status.
+	 * @param controller A `Lazy` instance of `ChatSetupController` for managing the setup flow.
+	 * @param instantiationService The `IInstantiationService` for creating instances.
+	 * @param telemetryService The `ITelemetryService` for telemetry reporting.
+	 * @param contextMenuService The `IContextMenuService` for displaying context menus.
+	 * @param layoutService The `ILayoutService` for layout management.
+	 * @param keybindingService The `IKeybindingService` for keybinding management.
+	 * @param chatEntitlementService The `IChatEntitlementService` for chat entitlement management.
+	 * @param logService The `ILogService` for logging.
+	 */
 	private constructor(
 		private readonly context: ChatEntitlementContext,
 		private readonly controller: Lazy<ChatSetupController>,
@@ -380,30 +561,50 @@ class ChatSetup {
 		@ILogService private readonly logService: ILogService,
 	) { }
 
+	/**
+	 * @brief Initiates the chat setup process.
+	 * This method ensures that only one setup process runs concurrently.
+	 * If a setup process is already ongoing, it returns the existing promise.
+	 * @returns A `Promise` that resolves to `true` if setup was successful,
+	 *          `false` if it failed, or `undefined` if cancelled by the user.
+	 */
 	async run(): Promise<boolean | undefined> {
+		// Block Logic: If a setup process is already pending, return the existing promise to prevent concurrent runs.
 		if (this.pendingRun) {
 			return this.pendingRun;
 		}
 
-		this.pendingRun = this.doRun();
+		this.pendingRun = this.doRun(); // Start the setup process
 
 		try {
 			return await this.pendingRun;
 		} finally {
-			this.pendingRun = undefined;
+			this.pendingRun = undefined; // Clear the pending promise once it settles.
 		}
 	}
 
+	/**
+	 * @brief Executes the main logic for the chat setup process.
+	 * It determines the appropriate setup strategy (default, with/without enterprise provider, or cancelled)
+	 * either by direct entitlement status or by presenting a dialog to the user.
+	 * It then delegates to the `ChatSetupController` to perform the actual setup.
+	 * @returns A `Promise` that resolves to `true` if setup was successful,
+	 *          `false` if it failed, or `undefined` if cancelled.
+	 */
 	private async doRun(): Promise<boolean | undefined> {
 		let setupStrategy: ChatSetupStrategy;
+		// Block Logic: Determines the setup strategy based on current entitlement or user interaction with a dialog.
 		if (this.chatEntitlementService.entitlement === ChatEntitlement.Pro || this.chatEntitlementService.entitlement === ChatEntitlement.Limited) {
-			setupStrategy = ChatSetupStrategy.DefaultSetup; // existing pro/free users setup without a dialog
+			// Invariant: Existing Pro or Limited users proceed with default setup without a dialog.
+			setupStrategy = ChatSetupStrategy.DefaultSetup;
 		} else {
+			// Functional Utility: Presents a dialog to the user to choose a setup strategy.
 			setupStrategy = await this.showDialog();
 		}
 
 		let success = undefined;
 		try {
+			// Block Logic: Executes the setup based on the chosen strategy.
 			switch (setupStrategy) {
 				case ChatSetupStrategy.SetupWithEnterpriseProvider:
 					success = await this.controller.value.setupWithProvider({ setupFromDialog: true, useEnterpriseProvider: true });
@@ -423,6 +624,12 @@ class ChatSetup {
 		return success;
 	}
 
+	/**
+	 * @brief Displays a setup dialog to the user, allowing them to choose a setup strategy.
+	 * The dialog presents options for signing in with different provider types (standard or enterprise)
+	 * or canceling the setup.
+	 * @returns A `Promise` that resolves to the chosen `ChatSetupStrategy`.
+	 */
 	private async showDialog(): Promise<ChatSetupStrategy> {
 		const disposables = new DisposableStore();
 
@@ -430,6 +637,7 @@ class ChatSetup {
 
 		const buttons = [this.getPrimaryButton(), localize('maybeLater', "Maybe Later")];
 
+		// Block Logic: Creates and configures a custom dialog for chat setup.
 		const dialog = disposables.add(new Dialog(
 			this.layoutService.activeContainer,
 			this.getDialogTitle(),
@@ -443,6 +651,7 @@ class ChatSetup {
 					contextMenuProvider: this.contextMenuService,
 					addPrimaryActionToDropdown: false,
 					actions: [
+						// Functional Utility: Actions to set the `result` based on user's choice (standard or enterprise provider).
 						toAction({ id: 'setupWithProvider', label: localize('setupWithProvider', "Sign in with a {0} Account", defaultChat.providerName), run: () => result = ChatSetupStrategy.SetupWithoutEnterpriseProvider }),
 						toAction({ id: 'setupWithEnterpriseProvider', label: localize('setupWithEnterpriseProvider', "Sign in with a {0} Account", defaultChat.enterpriseProviderName), run: () => result = ChatSetupStrategy.SetupWithEnterpriseProvider }),
 					]
@@ -450,13 +659,19 @@ class ChatSetup {
 			}, this.keybindingService, this.layoutService)
 		));
 
-		const { button } = await dialog.show();
-		disposables.dispose();
+		const { button } = await dialog.show(); // Displays the dialog and waits for user interaction.
+		disposables.dispose(); // Cleans up resources associated with the dialog.
 
+		// Block Logic: Determines the final setup strategy based on the button clicked and any selected dropdown option.
 		return button === 0 ? result ?? ChatSetupStrategy.DefaultSetup : ChatSetupStrategy.Canceled;
 	}
 
+	/**
+	 * @brief Determines the text for the primary button in the setup dialog based on the current entitlement state.
+	 * @returns A `string` representing the label for the primary button.
+	 */
 	private getPrimaryButton(): string {
+		// Block Logic: If entitlement is unknown, prompt for sign-in; otherwise, prompt to use Copilot.
 		if (this.context.state.entitlement === ChatEntitlement.Unknown) {
 			return localize('signInButton', "Sign in");
 		}
@@ -464,7 +679,13 @@ class ChatSetup {
 		return localize('useCopilotButton', "Use Copilot");
 	}
 
+	/**
+	 * @brief Determines the title for the setup dialog based on the current entitlement and registration state.
+	 * @returns A `string` representing the title of the setup dialog.
+	 */
 	private getDialogTitle(): string {
+		// Block Logic: Generates a dialog title based on the entitlement and registration status.
+		// Titles vary if the user is unknown, Pro, or registered/unregistered for standard Copilot.
 		if (this.context.state.entitlement === ChatEntitlement.Unknown) {
 			return this.context.state.registered ? localize('signUp', "Sign in to use Copilot") : localize('signUpFree', "Sign in to use Copilot for free");
 		}
@@ -476,6 +697,13 @@ class ChatSetup {
 		return this.context.state.registered ? localize('copilotTitle', "Start using Copilot") : localize('copilotFreeTitle', "Start using Copilot for free");
 	}
 
+	/**
+	 * @brief Creates and populates the content of the chat setup dialog.
+	 * This method renders various markdown-based elements including a header,
+	 * legal terms, and SKU settings based on telemetry level.
+	 * @param disposables A `DisposableStore` to manage disposable resources created during dialog construction.
+	 * @returns The `HTMLElement` containing the rendered dialog body.
+	 */
 	private createDialog(disposables: DisposableStore): HTMLElement {
 		const element = $('.chat-setup-view');
 
@@ -490,6 +718,7 @@ class ChatSetup {
 		element.appendChild($('p.setup-legal', undefined, disposables.add(markdown.render(new MarkdownString(terms, { isTrusted: true }))).element));
 
 		// SKU Settings
+		// Block Logic: Only displays SKU settings if telemetry is not set to NONE.
 		if (this.telemetryService.telemetryLevel !== TelemetryLevel.NONE) {
 			const settings = localize({ key: 'settings', comment: ['{Locked="["}', '{Locked="]({0})"}', '{Locked="]({1})"}'] }, "Copilot Free and Pro may show [public code]({0}) suggestions and we may use your data for product improvement. You can change these [settings]({1}) at any time.", defaultChat.publicCodeMatchesUrl, defaultChat.manageSettingsUrl);
 			element.appendChild($('p.setup-settings', undefined, disposables.add(markdown.render(new MarkdownString(settings, { isTrusted: true }))).element));
@@ -499,10 +728,30 @@ class ChatSetup {
 	}
 }
 
+/**
+ * @brief Workbench contribution for setting up the chat feature.
+ * This class is responsible for initializing and registering all components
+ * related to the chat setup process, including agents, welcome content,
+ * actions, and URL link handlers. It acts as the entry point for integrating
+ * chat setup into the VS Code workbench.
+ */
 export class ChatSetupContribution extends Disposable implements IWorkbenchContribution {
 
 	static readonly ID = 'workbench.contrib.chatSetup';
 
+	/**
+	 * @brief Constructs a new `ChatSetupContribution` instance.
+	 * Initializes the contribution by setting up listeners and registering
+	 * various components for chat setup, such as agents, welcome content, actions,
+	 * and URL link handlers.
+	 * @param productService The `IProductService` for accessing product-specific information.
+	 * @param instantiationService The `IInstantiationService` for creating instances.
+	 * @param commandService The `ICommandService` for executing commands.
+	 * @param telemetryService The `ITelemetryService` for telemetry reporting.
+	 * @param chatEntitlementService The `IChatEntitlementService` for chat entitlement management.
+	 * @param configurationService The `IConfigurationService` for accessing configuration.
+	 * @param logService The `ILogService` for logging.
+	 */
 	constructor(
 		@IProductService private readonly productService: IProductService,
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
@@ -516,23 +765,35 @@ export class ChatSetupContribution extends Disposable implements IWorkbenchContr
 
 		const context = chatEntitlementService.context?.value;
 		const requests = chatEntitlementService.requests?.value;
+		// Block Logic: If context or requests are not available, the chat setup is disabled.
 		if (!context || !requests) {
 			return; // disabled
 		}
 
+		// Functional Utility: Lazily initializes the ChatSetupController when first accessed.
 		const controller = new Lazy(() => this._register(this.instantiationService.createInstance(ChatSetupController, context, requests)));
 
+		// Block Logic: Registers various components for chat setup.
 		this.registerSetupAgents(context, controller);
 		this.registerChatWelcome(context, controller);
 		this.registerActions(context, requests, controller);
 		this.registerUrlLinkHandler();
 	}
 
+	/**
+	 * @brief Registers chat setup agents for various locations within the workbench.
+	 * This method dynamically registers or unregisters agents based on the chat entitlement
+	 * context and user configuration settings. It also includes error handling for
+	 * unresolvable agent registration issues.
+	 * @param context The `ChatEntitlementContext` for checking entitlement status.
+	 * @param controller A `Lazy` instance of `ChatSetupController` for managing the setup flow.
+	 */
 	private registerSetupAgents(context: ChatEntitlementContext, controller: Lazy<ChatSetupController>): void {
 		const registration = this._register(new MutableDisposable());
 
 		const updateRegistration = () => {
 			const disabled = context.state.hidden || !this.configurationService.getValue('chat.experimental.setupFromDialog');
+			// Block Logic: Registers agents if not disabled and no active registration exists.
 			if (!disabled && !registration.value) {
 				const { agent: panelAgent, disposable: panelDisposable } = SetupChatAgentImplementation.register(this.instantiationService, ChatAgentLocation.Panel, false, context, controller);
 				registration.value = combinedDisposable(
@@ -542,6 +803,7 @@ export class ChatSetupContribution extends Disposable implements IWorkbenchContr
 					SetupChatAgentImplementation.register(this.instantiationService, ChatAgentLocation.Editor, false, context, controller).disposable,
 					SetupChatAgentImplementation.register(this.instantiationService, ChatAgentLocation.EditingSession, false, context, controller).disposable,
 					SetupChatAgentImplementation.register(this.instantiationService, ChatAgentLocation.EditingSession, true, context, controller).disposable,
+					// Block Logic: If an unresolvable error occurs with the panel agent, its registration is cleared.
 					panelAgent.onUnresolvableError(() => {
 						// An unresolvable error from our agent registrations means that
 						// Copilot is unhealthy for some reason. We clear our panel
@@ -552,22 +814,32 @@ export class ChatSetupContribution extends Disposable implements IWorkbenchContr
 						panelDisposable.dispose();
 					})
 				);
+			// Block Logic: Clears existing registration if disabled.
 			} else if (disabled && registration.value) {
 				registration.clear();
 			}
 		};
 
+		// Functional Utility: Runs `updateRegistration` immediately and subscribes to changes
+		// in context or setup dialog configuration to update agent registrations.
 		this._register(Event.runAndSubscribe(Event.any(
 			context.onDidChange,
 			Event.filter(this.configurationService.onDidChangeConfiguration, e => e.affectsConfiguration('chat.experimental.setupFromDialog'))
 		), () => updateRegistration()));
 	}
 
+	/**
+	 * @brief Registers the chat welcome content for the setup view.
+	 * This content is displayed when the chat view is first opened and the setup is pending.
+	 * @param context The `ChatEntitlementContext` for checking entitlement status.
+	 * @param controller A `Lazy` instance of `ChatSetupController` for managing the setup flow.
+	 */
 	private registerChatWelcome(context: ChatEntitlementContext, controller: Lazy<ChatSetupController>): void {
 		Registry.as<IChatViewsWelcomeContributionRegistry>(ChatViewsWelcomeExtensions.ChatViewsWelcomeRegistry).register({
 			title: localize('welcomeChat', "Welcome to Copilot"),
-			when: ChatContextKeys.SetupViewCondition,
+			when: ChatContextKeys.SetupViewCondition, // Condition under which this welcome content is displayed.
 			icon: Codicon.copilotLarge,
+			// Functional Utility: Dynamically creates and adds the welcome content using `ChatSetupWelcomeContent`.
 			content: disposables => disposables.add(this.instantiationService.createInstance(ChatSetupWelcomeContent, controller.value, context)).element,
 		});
 	}

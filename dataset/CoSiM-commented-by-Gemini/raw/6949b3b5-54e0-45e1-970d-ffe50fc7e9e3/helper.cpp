@@ -11,8 +11,10 @@
 using namespace std;
 
 /**
- *  * User/host function, check OpenCL function return code
- *   */
+ * @brief Checks the return code of an OpenCL function and prints an error message if it indicates failure.
+ * @param cl_ret The integer return code from an OpenCL API call.
+ * @return `1` if the OpenCL function failed, `0` otherwise.
+ */
 int CL_ERR(int cl_ret)
 {
 	if(cl_ret != CL_SUCCESS){
@@ -23,8 +25,12 @@ int CL_ERR(int cl_ret)
 }
 
 /**
- *  * User/host function, check OpenCL compilation return code
- *   */
+ * @brief Checks the return code of an OpenCL program compilation and prints an error log if it indicates failure.
+ * @param cl_ret The integer return code from `clBuildProgram`.
+ * @param program The `cl_program` object that was being built.
+ * @param device The `cl_device_id` on which the program was compiled.
+ * @return `1` if the OpenCL program compilation failed, `0` otherwise.
+ */
 int CL_COMPILE_ERR(int cl_ret, cl_program program, cl_device_id device)
 {
 	if(cl_ret != CL_SUCCESS){
@@ -36,8 +42,12 @@ int CL_COMPILE_ERR(int cl_ret, cl_program program, cl_device_id device)
 }
 
 /**
- * * Read kernel from file
- * */
+ * @brief Reads the content of an OpenCL kernel file into a string.
+ * @param file_name The name of the kernel file to read.
+ * @param str_kernel A reference to a string where the kernel source will be stored.
+ * Pre-condition: The file specified by `file_name` must exist and be accessible in the same directory as the binary.
+ * Post-condition: `str_kernel` contains the entire content of the kernel file.
+ */
 void read_kernel(string file_name, string &str_kernel)
 {
 	ifstream in_file(file_name.c_str());
@@ -51,8 +61,11 @@ void read_kernel(string file_name, string &str_kernel)
 }
 
 /**
- *  * OpenCL return error message, used by CL_ERR and CL_COMPILE_ERR
- *   */
+ * @brief Converts an OpenCL error code into a human-readable string.
+ * This function is a lookup table for various `cl_int` error codes.
+ * @param err The `cl_int` OpenCL error code.
+ * @return A C-style string describing the error.
+ */
 const char* cl_get_string_err(cl_int err) {
 switch (err) {
   case CL_SUCCESS:                     	return  "Success!";
@@ -106,8 +119,11 @@ switch (err) {
 }
 
 /**
- *  * Check compiler return code, used by CL_COMPILE_ERR
- *   */
+ * @brief Retrieves and prints the OpenCL program build log, typically used for debugging compilation errors.
+ * @param program The `cl_program` object for which to retrieve the build log.
+ * @param device The `cl_device_id` on which the program was compiled.
+ * Post-condition: The compiler build log is printed to standard output.
+ */
 void cl_get_compiler_err_log(cl_program program, cl_device_id device)
 {
 	char* build_log;

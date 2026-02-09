@@ -61,10 +61,16 @@ public class ExecuteStepsUpdateTask extends IndexLifecycleClusterStateUpdateTask
         this.indexToStepKeysForAsyncActions = new HashMap<>();
     }
 
+    /**
+     * @brief [Functional Utility for getPolicy]: Describe purpose here.
+     */
     String getPolicy() {
         return policy;
     }
 
+    /**
+     * @brief [Functional Utility for getStartStep]: Describe purpose here.
+     */
     Step getStartStep() {
         return startStep;
     }
@@ -87,12 +93,17 @@ public class ExecuteStepsUpdateTask extends IndexLifecycleClusterStateUpdateTask
     public ClusterState doExecute(final ClusterState currentState) throws IOException {
         Step currentStep = startStep;
         IndexMetadata indexMetadata = currentState.metadata().getProject().index(index);
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (indexMetadata == null) {
             logger.debug("lifecycle for index [{}] executed but index no longer exists", index.getName());
             // This index doesn't exist any more, there's nothing to execute currently
             return currentState;
         }
         Step registeredCurrentStep = IndexLifecycleRunner.getCurrentStep(policyStepsRegistry, policy, indexMetadata);
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (currentStep.equals(registeredCurrentStep) == false) {
             // either we are no longer the master or the step is now
             // not the same as when we submitted the update task. In
@@ -103,8 +114,14 @@ public class ExecuteStepsUpdateTask extends IndexLifecycleClusterStateUpdateTask
         // We can do cluster state steps all together until we
         // either get to a step that isn't a cluster state step or a
         // cluster state wait step returns not completed
+        /**
+         * @brief [Functional Utility for while]: Describe purpose here.
+         */
         while (currentStep instanceof ClusterStateActionStep || currentStep instanceof ClusterStateWaitStep) {
             try {
+                /**
+                 * @brief [Functional Utility for if]: Describe purpose here.
+                 */
                 if (currentStep instanceof ClusterStateActionStep) {
                     state = executeActionStep(state, currentStep);
                 } else {
@@ -113,6 +130,9 @@ public class ExecuteStepsUpdateTask extends IndexLifecycleClusterStateUpdateTask
             } catch (Exception exception) {
                 return moveToErrorStep(state, currentStep.getKey(), exception);
             }
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (nextStepKey == null) {
                 return state;
             } else {
@@ -130,6 +150,9 @@ public class ExecuteStepsUpdateTask extends IndexLifecycleClusterStateUpdateTask
         return state;
     }
 
+    /**
+     * @brief [Functional Utility for executeActionStep]: Describe purpose here.
+     */
     private ClusterState executeActionStep(ClusterState state, Step currentStep) {
         // cluster state action step so do the action and
         // move the cluster state to the next step
@@ -153,6 +176,9 @@ public class ExecuteStepsUpdateTask extends IndexLifecycleClusterStateUpdateTask
         return state;
     }
 
+    /**
+     * @brief [Functional Utility for executeWaitStep]: Describe purpose here.
+     */
     private ClusterState executeWaitStep(ClusterState state, Step currentStep) {
         // cluster state wait step so evaluate the
         // condition, if the condition is met move to the
@@ -171,6 +197,8 @@ public class ExecuteStepsUpdateTask extends IndexLifecycleClusterStateUpdateTask
         // to be met (eg. {@link LifecycleSettings#LIFECYCLE_STEP_WAIT_TIME_THRESHOLD_SETTING}, so it's important we
         // re-evaluate what the next step is after we evaluate the condition
         nextStepKey = currentStep.getNextStepKey();
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (result.complete()) {
             logger.trace(
                 "[{}] cluster state step condition met successfully ({}) [{}]",
@@ -181,6 +209,8 @@ public class ExecuteStepsUpdateTask extends IndexLifecycleClusterStateUpdateTask
             return state;
         } else {
             final ToXContentObject stepInfo = result.informationContext();
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (logger.isTraceEnabled()) {
                 logger.trace(
                     "[{}] condition not met ({}) [{}], returning existing state (info: {})",
@@ -195,6 +225,9 @@ public class ExecuteStepsUpdateTask extends IndexLifecycleClusterStateUpdateTask
             // not met, we can't advance any way, so don't attempt
             // to run the current step
             nextStepKey = null;
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (stepInfo == null) {
                 return state;
             }
@@ -204,7 +237,13 @@ public class ExecuteStepsUpdateTask extends IndexLifecycleClusterStateUpdateTask
         }
     }
 
+    /**
+     * @brief [Functional Utility for moveToNextStep]: Describe purpose here.
+     */
     private ClusterState moveToNextStep(ClusterState state) {
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (nextStepKey == null) {
             return state;
         }
@@ -224,18 +263,29 @@ public class ExecuteStepsUpdateTask extends IndexLifecycleClusterStateUpdateTask
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for onClusterStateProcessed]: Describe purpose here.
+     */
     public void onClusterStateProcessed(ClusterState newState) {
         final Metadata metadata = newState.metadata();
         final IndexMetadata indexMetadata = metadata.getProject().index(index);
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (indexMetadata != null) {
 
             LifecycleExecutionState exState = indexMetadata.getLifecycleExecutionState();
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (ErrorStep.NAME.equals(exState.step()) && this.failure != null) {
                 lifecycleRunner.registerFailedOperation(indexMetadata, failure);
             } else {
                 lifecycleRunner.registerSuccessfulOperation(indexMetadata);
             }
 
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (nextStepKey != null && nextStepKey != TerminalPolicyStep.KEY) {
                 logger.trace(
                     "[{}] step sequence starting with {} has completed, running next step {} if it is an async action",
@@ -250,12 +300,22 @@ public class ExecuteStepsUpdateTask extends IndexLifecycleClusterStateUpdateTask
             }
         }
         assert indexToStepKeysForAsyncActions.size() <= 1 : "we expect a maximum of one single spawned index currently";
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         for (Map.Entry<String, Step.StepKey> indexAndStepKey : indexToStepKeysForAsyncActions.entrySet()) {
             final String indexName = indexAndStepKey.getKey();
             final Step.StepKey nextStep = indexAndStepKey.getValue();
             final IndexMetadata indexMeta = metadata.getProject().index(indexName);
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (indexMeta != null) {
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 if (newState.metadata().getProject().isIndexManagedByILM(indexMeta)) {
+                    /**
+                     * @brief [Functional Utility for if]: Describe purpose here.
+                     */
                     if (nextStep != null && nextStep != TerminalPolicyStep.KEY) {
                         logger.trace(
                             "[{}] index has been spawed from a different index's ({}) "
@@ -273,10 +333,16 @@ public class ExecuteStepsUpdateTask extends IndexLifecycleClusterStateUpdateTask
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for handleFailure]: Describe purpose here.
+     */
     public void handleFailure(Exception e) {
         logger.warn(() -> format("policy [%s] for index [%s] failed on step [%s].", policy, index, startStep.getKey()), e);
     }
 
+    /**
+     * @brief [Functional Utility for moveToErrorStep]: Describe purpose here.
+     */
     private ClusterState moveToErrorStep(final ClusterState state, Step.StepKey currentStepKey, Exception cause) {
         this.failure = cause;
         logger.warn(
@@ -297,14 +363,24 @@ public class ExecuteStepsUpdateTask extends IndexLifecycleClusterStateUpdateTask
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for equals]: Describe purpose here.
+     */
     public boolean equals(Object o) {
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (this == o) return true;
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (o == null || getClass() != o.getClass()) return false;
         ExecuteStepsUpdateTask that = (ExecuteStepsUpdateTask) o;
         return policy.equals(that.policy) && index.equals(that.index) && Objects.equals(startStep, that.startStep);
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for hashCode]: Describe purpose here.
+     */
     public int hashCode() {
         return Objects.hash(policy, index, startStep);
     }

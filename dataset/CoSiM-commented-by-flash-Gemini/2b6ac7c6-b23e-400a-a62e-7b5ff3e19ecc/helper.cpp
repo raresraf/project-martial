@@ -1,3 +1,8 @@
+/**
+ * @file helper.cpp
+ * @brief Semantic documentation for helper.cpp. 
+ *        This is a placeholder. Detailed semantic analysis will be applied later.
+ */
 
 >>>> file: helper.cpp
 #include 

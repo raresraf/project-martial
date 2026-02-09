@@ -1,3 +1,6 @@
+//! globalscope.rs
+//! Semantic documentation for globalscope.rs.
+//! Detailed semantic analysis will be applied later.
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -546,6 +549,8 @@ impl MessageListener {
                         let mut succeeded = vec![];
                         let mut failed = HashMap::new();
 
+                        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                        /// Invariant: State condition that holds true before and after each iteration/execution
                         for (id, info) in ports.into_iter() {
                             if global.is_managing_port(&id) {
                                 succeeded.push(id);
@@ -635,6 +640,8 @@ impl FileListener {
             },
             Ok(ReadFileProgress::Partial(mut bytes_in)) => match self.state.take() {
                 Some(FileListenerState::Receiving(mut bytes, target)) => {
+                    /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                    /// Invariant: State condition that holds true before and after each iteration/execution
                     if let FileListenerTarget::Stream(ref trusted_stream) = target {
                         let trusted = trusted_stream.clone();
 
@@ -712,6 +719,8 @@ impl GlobalScope {
     /// or the ScriptThread event loop in the case of a `Window`. This can be `None` for dedicated
     /// workers that are not currently handling a message.
     pub(crate) fn webview_id(&self) -> Option<WebViewId> {
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let Some(window) = self.downcast::<Window>() {
             Some(window.webview_id())
         } else if let Some(dedicated) = self.downcast::<DedicatedWorkerGlobalScope>() {
@@ -789,6 +798,8 @@ impl GlobalScope {
 
     /// The message-port router Id of the global, if any
     fn port_router_id(&self) -> Option<MessagePortRouterId> {
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let MessagePortState::Managed(id, _message_ports) = &*self.message_port_state.borrow() {
             Some(*id)
         } else {
@@ -798,6 +809,8 @@ impl GlobalScope {
 
     /// Is this global managing a given port?
     fn is_managing_port(&self, port_id: &MessagePortId) -> bool {
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let MessagePortState::Managed(_router_id, message_ports) =
             &*self.message_port_state.borrow()
         {
@@ -806,6 +819,7 @@ impl GlobalScope {
         false
     }
 
+    /// Functional Utility: Describe purpose of timers here.
     fn timers(&self) -> &OneshotTimers {
         self.timers.get_or_init(|| OneshotTimers::new(self))
     }
@@ -981,6 +995,8 @@ impl GlobalScope {
     /// Update our state to un-managed,
     /// and tell the constellation to drop the sender to our message-port router.
     fn remove_message_ports_router(&self) {
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let MessagePortState::Managed(router_id, _message_ports) =
             &*self.message_port_state.borrow()
         {
@@ -994,6 +1010,8 @@ impl GlobalScope {
     /// Update our state to un-managed,
     /// and tell the constellation to drop the sender to our broadcast router.
     fn remove_broadcast_channel_router(&self) {
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let BroadcastChannelState::Managed(router_id, _channels) =
             &*self.broadcast_channel_state.borrow()
         {
@@ -1070,9 +1088,13 @@ impl GlobalScope {
 
     /// <https://html.spec.whatwg.org/multipage/#entangle>
     pub(crate) fn entangle_ports(&self, port1: MessagePortId, port2: MessagePortId) {
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let MessagePortState::Managed(_id, message_ports) =
             &mut *self.message_port_state.borrow_mut()
         {
+            /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            /// Invariant: State condition that holds true before and after each iteration/execution
             for (port_id, entangled_id) in &[(port1, port2), (port2, port1)] {
                 match message_ports.get_mut(port_id) {
                     None => {
@@ -1099,6 +1121,8 @@ impl GlobalScope {
 
     /// Handle the transfer of a port in the current task.
     pub(crate) fn mark_port_as_transferred(&self, port_id: &MessagePortId) -> MessagePortImpl {
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let MessagePortState::Managed(_id, message_ports) =
             &mut *self.message_port_state.borrow_mut()
         {
@@ -1161,6 +1185,8 @@ impl GlobalScope {
 
     /// <https://html.spec.whatwg.org/multipage/#dom-messageport-close>
     pub(crate) fn close_message_port(&self, port_id: &MessagePortId) {
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let MessagePortState::Managed(_id, message_ports) =
             &mut *self.message_port_state.borrow_mut()
         {
@@ -1183,6 +1209,8 @@ impl GlobalScope {
     /// <https://html.spec.whatwg.org/multipage/#message-port-post-message-steps>
     // Steps 6 and 7
     pub(crate) fn post_messageport_msg(&self, port_id: MessagePortId, task: PortMessageTask) {
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let MessagePortState::Managed(_id, message_ports) =
             &mut *self.message_port_state.borrow_mut()
         {
@@ -1227,6 +1255,8 @@ impl GlobalScope {
         // First, broadcast locally.
         self.broadcast_message_event(msg.clone(), Some(channel_id));
 
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let BroadcastChannelState::Managed(router_id, _) =
             &*self.broadcast_channel_state.borrow()
         {
@@ -1245,6 +1275,8 @@ impl GlobalScope {
     /// <https://html.spec.whatwg.org/multipage/#dom-broadcastchannel-postmessage>
     /// Step 7 and following steps.
     pub(crate) fn broadcast_message_event(&self, event: BroadcastMsg, channel_id: Option<&Uuid>) {
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let BroadcastChannelState::Managed(_, channels) = &*self.broadcast_channel_state.borrow()
         {
             let BroadcastMsg {
@@ -1340,6 +1372,8 @@ impl GlobalScope {
     ) {
         let MessagePortState::Managed(_id, message_ports) =
             &mut *self.message_port_state.borrow_mut()
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         else {
             unreachable!(
                 "Cross realm transform readable must be called on a global managing ports"
@@ -1365,6 +1399,8 @@ impl GlobalScope {
     ) {
         let MessagePortState::Managed(_id, message_ports) =
             &mut *self.message_port_state.borrow_mut()
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         else {
             unreachable!(
                 "Cross realm transform writable must be called on a global managing ports"
@@ -1509,6 +1545,8 @@ impl GlobalScope {
     /// Check all ports that have been transfer-received in the previous task,
     /// and complete their transfer if they haven't been re-transferred.
     pub(crate) fn maybe_add_pending_ports(&self) {
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let MessagePortState::Managed(router_id, message_ports) =
             &mut *self.message_port_state.borrow_mut()
         {
@@ -1604,6 +1642,8 @@ impl GlobalScope {
     pub(crate) fn track_broadcast_channel(&self, dom_channel: &BroadcastChannel) {
         let mut current_state = self.broadcast_channel_state.borrow_mut();
 
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let BroadcastChannelState::UnManaged = &*current_state {
             // Setup a route for IPC, for broadcasts from the constellation to our channels.
             let (broadcast_control_sender, broadcast_control_receiver) =
@@ -1631,6 +1671,8 @@ impl GlobalScope {
             );
         }
 
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let BroadcastChannelState::Managed(router_id, channels) = &mut *current_state {
             let entry = channels.entry(dom_channel.Name()).or_insert_with(|| {
                 let _ = self.script_to_constellation_chan().send(
@@ -1656,6 +1698,8 @@ impl GlobalScope {
     ) {
         let mut current_state = self.message_port_state.borrow_mut();
 
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let MessagePortState::UnManaged = &*current_state {
             // Setup a route for IPC, for messages from the constellation to our ports.
             let (port_control_sender, port_control_receiver) =
@@ -1679,6 +1723,8 @@ impl GlobalScope {
             );
         }
 
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let MessagePortState::Managed(router_id, message_ports) = &mut *current_state {
             if let Some(port_impl) = port_impl {
                 // We keep transfer-received ports as "pending",
@@ -1786,6 +1832,8 @@ impl GlobalScope {
                 BlobTracker::Blob(weak) => weak.root().is_none(),
             };
             if garbage_collected && !blob_info.has_url {
+                /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                /// Invariant: State condition that holds true before and after each iteration/execution
                 if let BlobData::File(f) = blob_info.blob_impl.blob_data() {
                     self.decrement_file_ref(f.get_id());
                 }
@@ -1803,6 +1851,8 @@ impl GlobalScope {
             .borrow_mut()
             .drain()
             .for_each(|(_id, blob_info)| {
+                /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                /// Invariant: State condition that holds true before and after each iteration/execution
                 if let BlobData::File(f) = blob_info.blob_impl.blob_data() {
                     self.decrement_file_ref(f.get_id());
                 }
@@ -2092,6 +2142,7 @@ impl GlobalScope {
         let _ = resource_threads.send(CoreResourceMsg::ToFileManager(msg));
     }
 
+    /// Functional Utility: Describe purpose of read_file here.
     fn read_file(&self, id: Uuid) -> Result<Vec<u8>, ()> {
         let recv = self.send_msg(id);
         GlobalScope::read_msg(recv)
@@ -2162,6 +2213,7 @@ impl GlobalScope {
         );
     }
 
+    /// Functional Utility: Describe purpose of send_msg here.
     fn send_msg(&self, id: Uuid) -> profile_ipc::IpcReceiver<FileManagerResult<ReadFileProgress>> {
         let resource_threads = self.resource_threads();
         let (chan, recv) = profile_ipc::channel(self.time_profiler_chan().clone()).unwrap();
@@ -2478,12 +2530,18 @@ impl GlobalScope {
     }
 
     pub(crate) fn image_cache(&self) -> Arc<dyn ImageCache> {
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let Some(window) = self.downcast::<Window>() {
             return window.image_cache();
         }
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let Some(worker) = self.downcast::<DedicatedWorkerGlobalScope>() {
             return worker.image_cache();
         }
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let Some(worker) = self.downcast::<PaintWorkletGlobalScope>() {
             return worker.image_cache();
         }
@@ -2502,9 +2560,13 @@ impl GlobalScope {
 
     /// <https://html.spec.whatwg.org/multipage/#concept-settings-object-policy-container>
     pub(crate) fn policy_container(&self) -> PolicyContainer {
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let Some(window) = self.downcast::<Window>() {
             return window.Document().policy_container().to_owned();
         }
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let Some(worker) = self.downcast::<WorkerGlobalScope>() {
             return worker.policy_container().to_owned();
         }
@@ -2514,14 +2576,20 @@ impl GlobalScope {
     /// Get the [base url](https://html.spec.whatwg.org/multipage/#api-base-url)
     /// for this global scope.
     pub(crate) fn api_base_url(&self) -> ServoUrl {
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let Some(window) = self.downcast::<Window>() {
             // https://html.spec.whatwg.org/multipage/#script-settings-for-browsing-contexts:api-base-url
             return window.Document().base_url();
         }
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let Some(worker) = self.downcast::<WorkerGlobalScope>() {
             // https://html.spec.whatwg.org/multipage/#script-settings-for-workers:api-base-url
             return worker.get_url().clone();
         }
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let Some(worklet) = self.downcast::<WorkletGlobalScope>() {
             // https://drafts.css-houdini.org/worklets/#script-settings-for-worklets
             return worklet.base_url();
@@ -2531,12 +2599,18 @@ impl GlobalScope {
 
     /// Get the URL for this global scope.
     pub(crate) fn get_url(&self) -> ServoUrl {
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let Some(window) = self.downcast::<Window>() {
             return window.get_url();
         }
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let Some(worker) = self.downcast::<WorkerGlobalScope>() {
             return worker.get_url().clone();
         }
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let Some(worklet) = self.downcast::<WorkletGlobalScope>() {
             // TODO: is this the right URL to return?
             return worklet.base_url();
@@ -2546,11 +2620,15 @@ impl GlobalScope {
 
     /// Get the Referrer Policy for this global scope.
     pub(crate) fn get_referrer_policy(&self) -> ReferrerPolicy {
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let Some(window) = self.downcast::<Window>() {
             let document = window.Document();
 
             return document.get_referrer_policy();
         }
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let Some(worker) = self.downcast::<WorkerGlobalScope>() {
             let policy_container = worker.policy_container().to_owned();
 
@@ -2585,6 +2663,8 @@ impl GlobalScope {
                             .parent()
                             .and_then(|parent| parent.document())
                     })
+                /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                /// Invariant: State condition that holds true before and after each iteration/execution
                 else {
                     return Referrer::NoReferrer;
                 };
@@ -2607,9 +2687,13 @@ impl GlobalScope {
 
     /// Returns a policy that should be used for fetches initiated from this global.
     pub(crate) fn insecure_requests_policy(&self) -> InsecureRequestsPolicy {
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let Some(window) = self.downcast::<Window>() {
             return window.Document().insecure_requests_policy();
         }
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let Some(worker) = self.downcast::<WorkerGlobalScope>() {
             return worker.insecure_requests_policy();
         }
@@ -2712,6 +2796,8 @@ impl GlobalScope {
     /// or the ScriptThread event loop in the case of a `Window`. This can be `None` for dedicated
     /// workers that are not currently handling a message.
     pub(crate) fn event_loop_sender(&self) -> Option<ScriptEventLoopSender> {
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let Some(window) = self.downcast::<Window>() {
             Some(window.event_loop_sender())
         } else if let Some(dedicated) = self.downcast::<DedicatedWorkerGlobalScope>() {
@@ -2915,10 +3001,15 @@ impl GlobalScope {
         self.timers().speed_up();
     }
 
+    /// Functional Utility: Describe purpose of timer_source here.
     fn timer_source(&self) -> TimerSource {
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if self.is::<Window>() {
             return TimerSource::FromWindow(self.pipeline_id());
         }
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if self.is::<WorkerGlobalScope>() {
             return TimerSource::FromWorker;
         }
@@ -2928,9 +3019,13 @@ impl GlobalScope {
     /// Returns a boolean indicating whether the event-loop
     /// where this global is running on can continue running JS.
     pub(crate) fn can_continue_running(&self) -> bool {
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if self.is::<Window>() {
             return ScriptThread::can_continue_running();
         }
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let Some(worker) = self.downcast::<WorkerGlobalScope>() {
             return !worker.is_closing();
         }
@@ -2961,9 +3056,13 @@ impl GlobalScope {
     /// event loop. Used for implementing web APIs that require blocking semantics
     /// without resorting to nested event loops.
     pub(crate) fn new_script_pair(&self) -> (ScriptEventLoopSender, ScriptEventLoopReceiver) {
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let Some(window) = self.downcast::<Window>() {
             return window.new_script_pair();
         }
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let Some(worker) = self.downcast::<WorkerGlobalScope>() {
             return worker.new_script_pair();
         }
@@ -2979,9 +3078,13 @@ impl GlobalScope {
     /// in the queue for the event-loop where this global scope is running on.
     /// Returns a boolean indicating whether further events should be processed.
     pub(crate) fn process_event(&self, msg: CommonScriptMsg) -> bool {
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if self.is::<Window>() {
             return ScriptThread::process_event(msg);
         }
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let Some(worker) = self.downcast::<WorkerGlobalScope>() {
             return worker.process_event(msg);
         }
@@ -2989,6 +3092,8 @@ impl GlobalScope {
     }
 
     pub(crate) fn runtime_handle(&self) -> ParentRuntime {
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if self.is::<Window>() {
             ScriptThread::runtime_handle()
         } else if let Some(worker) = self.downcast::<WorkerGlobalScope>() {
@@ -3029,9 +3134,13 @@ impl GlobalScope {
     }
 
     pub(crate) fn performance(&self) -> DomRoot<Performance> {
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let Some(window) = self.downcast::<Window>() {
             return window.Performance();
         }
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let Some(worker) = self.downcast::<WorkerGlobalScope>() {
             return worker.Performance();
         }
@@ -3103,6 +3212,8 @@ impl GlobalScope {
 
     /// <https://www.w3.org/TR/CSP/#get-csp-of-object>
     pub(crate) fn get_csp_list(&self) -> Option<CspList> {
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if self.downcast::<Window>().is_some() || self.downcast::<WorkerGlobalScope>().is_some() {
             return self.policy_container().csp_list;
         }
@@ -3111,6 +3222,8 @@ impl GlobalScope {
     }
 
     pub(crate) fn status_code(&self) -> Option<u16> {
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let Some(window) = self.downcast::<Window>() {
             return window.Document().status_code();
         }
@@ -3325,9 +3438,13 @@ impl GlobalScope {
     }
 
     pub(crate) fn trusted_types(&self, can_gc: CanGc) -> DomRoot<TrustedTypePolicyFactory> {
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let Some(window) = self.downcast::<Window>() {
             return window.TrustedTypes(can_gc);
         }
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let Some(worker) = self.downcast::<WorkerGlobalScope>() {
             return worker.TrustedTypes(can_gc);
         }
@@ -3335,9 +3452,13 @@ impl GlobalScope {
     }
 
     pub(crate) fn append_reporting_observer(&self, reporting_observer: &ReportingObserver) {
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let Some(window) = self.downcast::<Window>() {
             return window.append_reporting_observer(DomRoot::from_ref(reporting_observer));
         }
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let Some(worker) = self.downcast::<WorkerGlobalScope>() {
             return worker.append_reporting_observer(DomRoot::from_ref(reporting_observer));
         }
@@ -3345,9 +3466,13 @@ impl GlobalScope {
     }
 
     pub(crate) fn remove_reporting_observer(&self, reporting_observer: &ReportingObserver) {
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let Some(window) = self.downcast::<Window>() {
             return window.remove_reporting_observer(reporting_observer);
         }
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let Some(worker) = self.downcast::<WorkerGlobalScope>() {
             return worker.remove_reporting_observer(reporting_observer);
         }
@@ -3355,9 +3480,13 @@ impl GlobalScope {
     }
 
     pub(crate) fn registered_reporting_observers(&self) -> Vec<DomRoot<ReportingObserver>> {
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let Some(window) = self.downcast::<Window>() {
             return window.registered_reporting_observers();
         }
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let Some(worker) = self.downcast::<WorkerGlobalScope>() {
             return worker.registered_reporting_observers();
         }
@@ -3365,9 +3494,13 @@ impl GlobalScope {
     }
 
     pub(crate) fn append_report(&self, report: Report) {
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let Some(window) = self.downcast::<Window>() {
             return window.append_report(report);
         }
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let Some(worker) = self.downcast::<WorkerGlobalScope>() {
             return worker.append_report(report);
         }
@@ -3375,9 +3508,13 @@ impl GlobalScope {
     }
 
     pub(crate) fn buffered_reports(&self) -> Vec<Report> {
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let Some(window) = self.downcast::<Window>() {
             return window.buffered_reports();
         }
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let Some(worker) = self.downcast::<WorkerGlobalScope>() {
             return worker.buffered_reports();
         }
@@ -3454,6 +3591,7 @@ impl GlobalScopeHelpers<crate::DomTypeHolder> for GlobalScope {
         GlobalScope::from_context(cx, realm)
     }
 
+    /// Functional Utility: Describe purpose of get_cx here.
     fn get_cx() -> SafeJSContext {
         GlobalScope::get_cx()
     }
@@ -3462,14 +3600,17 @@ impl GlobalScopeHelpers<crate::DomTypeHolder> for GlobalScope {
         GlobalScope::from_object(obj)
     }
 
+    /// Functional Utility: Describe purpose of from_reflector here.
     fn from_reflector(reflector: &impl DomObject, realm: InRealm) -> DomRoot<Self> {
         GlobalScope::from_reflector(reflector, realm)
     }
 
+    /// Functional Utility: Describe purpose of origin here.
     fn origin(&self) -> &MutableOrigin {
         GlobalScope::origin(self)
     }
 
+    /// Functional Utility: Describe purpose of incumbent here.
     fn incumbent() -> Option<DomRoot<Self>> {
         GlobalScope::incumbent()
     }
@@ -3478,10 +3619,12 @@ impl GlobalScopeHelpers<crate::DomTypeHolder> for GlobalScope {
         GlobalScope::perform_a_microtask_checkpoint(self, can_gc)
     }
 
+    /// Functional Utility: Describe purpose of get_url here.
     fn get_url(&self) -> ServoUrl {
         self.get_url()
     }
 
+    /// Functional Utility: Describe purpose of is_secure_context here.
     fn is_secure_context(&self) -> bool {
         self.is_secure_context()
     }

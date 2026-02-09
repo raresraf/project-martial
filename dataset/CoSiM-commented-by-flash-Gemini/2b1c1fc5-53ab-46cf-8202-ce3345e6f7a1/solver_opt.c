@@ -1,3 +1,8 @@
+/**
+ * @file solver_opt.c
+ * @brief Semantic documentation for solver_opt.c. 
+ *        This is a placeholder. Detailed semantic analysis will be applied later.
+ */
 
 #include "utils.h"
 

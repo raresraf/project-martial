@@ -51,6 +51,8 @@
 					 offsetof(typeof(field), item),	\
 					 sizeof(field.item), is_signed, \
 					 FILTER_OTHER);			\
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (ret)						\
 			return ret;					\
 	} while (0)
@@ -447,6 +449,8 @@ static inline void traceprobe_free_parse_ctx(struct traceprobe_parse_context *ct
 }
 
 DEFINE_FREE(traceprobe_parse_context, struct traceprobe_parse_context *,
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (_T) traceprobe_free_parse_ctx(_T))
 
 extern int traceprobe_split_symbol_offset(char *symbol, long *offset);

@@ -28,6 +28,11 @@ import java.util.List;
 
 import static org.hamcrest.Matchers.containsString;
 
+/**
+ * @brief Functional description of the CompositeRuntimeFieldTests class.
+ *        This is a placeholder for detailed semantic documentation.
+ *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+ */
 public class CompositeRuntimeFieldTests extends MapperServiceTestCase {
 
     @Override
@@ -42,6 +47,11 @@ public class CompositeRuntimeFieldTests extends MapperServiceTestCase {
                 ctx
             ) {
                 @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
                 public void execute() {
                     if (script.getIdOrCode().equals("split-str-long")) {
                         List<Object> values = extractFromSource("field");
@@ -62,6 +72,11 @@ public class CompositeRuntimeFieldTests extends MapperServiceTestCase {
                 ctx
             ) {
                 @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
                 public void execute() {
 
                 }
@@ -70,6 +85,11 @@ public class CompositeRuntimeFieldTests extends MapperServiceTestCase {
         throw new UnsupportedOperationException("Unknown context " + context.name);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testObjectDefinition() throws IOException {
         MapperService mapperService = createMapperService(topMapping(b -> {
             b.startObject("runtime");
@@ -137,6 +157,11 @@ public class CompositeRuntimeFieldTests extends MapperServiceTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testUnsupportedLeafType() {
         Exception e = expectThrows(MapperParsingException.class, () -> createMapperService(topMapping(b -> {
             b.startObject("runtime");
@@ -152,6 +177,11 @@ public class CompositeRuntimeFieldTests extends MapperServiceTestCase {
         assertThat(e.getMessage(), containsString(""));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testToXContent() throws IOException {
         MapperService mapperService = createMapperService(topMapping(b -> {
             b.startObject("runtime");
@@ -171,6 +201,11 @@ public class CompositeRuntimeFieldTests extends MapperServiceTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testScriptOnSubFieldThrowsError() {
         Exception e = expectThrows(MapperParsingException.class, () -> createMapperService(runtimeMapping(b -> {
             b.startObject("obj");
@@ -185,6 +220,11 @@ public class CompositeRuntimeFieldTests extends MapperServiceTestCase {
         assertThat(e.getMessage(), containsString("Cannot use [script] parameter on sub-field [long] of composite field [obj]"));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testObjectWithoutScript() {
         Exception e = expectThrows(MapperParsingException.class, () -> createMapperService(runtimeMapping(b -> {
             b.startObject("obj");
@@ -197,6 +237,11 @@ public class CompositeRuntimeFieldTests extends MapperServiceTestCase {
         assertThat(e.getMessage(), containsString("composite runtime field [obj] must declare a [script]"));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testObjectNullScript() {
         Exception e = expectThrows(MapperParsingException.class, () -> createMapperService(runtimeMapping(b -> {
             b.startObject("obj");
@@ -211,6 +256,11 @@ public class CompositeRuntimeFieldTests extends MapperServiceTestCase {
 
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testObjectWithoutFields() {
         {
             Exception e = expectThrows(MapperParsingException.class, () -> createMapperService(runtimeMapping(b -> {
@@ -233,6 +283,11 @@ public class CompositeRuntimeFieldTests extends MapperServiceTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testMappingUpdate() throws IOException {
         MapperService mapperService = createMapperService(topMapping(b -> {
             b.startObject("runtime");
@@ -282,6 +337,11 @@ public class CompositeRuntimeFieldTests extends MapperServiceTestCase {
             "fields":{"double-subfield":{"type":"double"}}}}""", Strings.toString(rf));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testFieldDefinedTwiceWithSameName() throws IOException {
         IllegalArgumentException e = expectThrows(IllegalArgumentException.class, () -> createMapperService(topMapping(b -> {
             b.startObject("runtime");
@@ -322,6 +382,11 @@ public class CompositeRuntimeFieldTests extends MapperServiceTestCase {
         assertThat(iae.getMessage(), containsString("Found two runtime fields with same name [obj.long-subfield]"));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testParseDocumentSubFieldAccess() throws IOException {
         MapperService mapperService = createMapperService(topMapping(b -> {
             b.field("dynamic", false);
@@ -361,6 +426,11 @@ public class CompositeRuntimeFieldTests extends MapperServiceTestCase {
         });
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testParseDocumentDynamicMapping() throws IOException {
         MapperService mapperService = createMapperService(topMapping(b -> {
             b.startObject("runtime");
@@ -408,6 +478,11 @@ public class CompositeRuntimeFieldTests extends MapperServiceTestCase {
         assertNotNull(mapperService.mappingLookup().getFieldType("obj.str"));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testParseDocumentSubfieldsOutsideRuntimeObject() throws IOException {
         MapperService mapperService = createMapperService(topMapping(b -> {
             b.startObject("runtime");

@@ -22,6 +22,11 @@ import java.util.Map;
 public interface IngestPluginBridge {
     Map<String, ProcessorBridge.Factory> getProcessors(ProcessorBridge.Parameters parameters);
 
+    /**
+     * @brief [Functional Utility for fromInternal]: Describe purpose here.
+     * @param delegate: [Description]
+     * @return [ReturnType]: [Description]
+     */
     static ProxyInternal fromInternal(final IngestPlugin delegate) {
         return new ProxyInternal(delegate);
     }
@@ -31,6 +36,11 @@ public interface IngestPluginBridge {
      */
     class ProxyInternal extends StableBridgeAPI.ProxyInternal<IngestPlugin> implements IngestPluginBridge, Closeable {
 
+    /**
+     * @brief [Functional Utility for ProxyInternal]: Describe purpose here.
+     * @param delegate: [Description]
+     * @return [ReturnType]: [Description]
+     */
         private ProxyInternal(final IngestPlugin delegate) {
             super(delegate);
         }
@@ -41,12 +51,23 @@ public interface IngestPluginBridge {
         }
 
         @Override
+    /**
+     * @brief [Functional Utility for toInternal]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
         public IngestPlugin toInternal() {
             return this.internalDelegate;
         }
 
         @Override
+    /**
+     * @brief [Functional Utility for close]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
         public void close() throws IOException {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (this.internalDelegate instanceof Closeable closeableDelegate) {
                 closeableDelegate.close();
             }

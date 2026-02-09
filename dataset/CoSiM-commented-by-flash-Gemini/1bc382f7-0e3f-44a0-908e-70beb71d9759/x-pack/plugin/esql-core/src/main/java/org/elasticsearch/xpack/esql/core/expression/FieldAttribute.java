@@ -67,6 +67,9 @@ public class FieldAttribute extends TypedAttribute {
         this(source, parentName, name, field, Nullability.TRUE, null, synthetic);
     }
 
+    /**
+     * @brief [Functional Utility for FieldAttribute]: Describe purpose here.
+     */
     public FieldAttribute(
         Source source,
         @Nullable String parentName,
@@ -93,11 +96,11 @@ public class FieldAttribute extends TypedAttribute {
         Source source = Source.readFrom((StreamInput & PlanStreamInput) in);
         String parentName = ((PlanStreamInput) in).readOptionalCachedString();
         String name = readCachedStringWithVersionCheck(in);
-        if (in.getTransportVersion().before(ESQL_FIELD_ATTRIBUTE_DROP_TYPE)) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (in.getTransportVersion().before(ESQL_FIELD_ATTRIBUTE_DROP_TYPE)) {
             DataType.readFrom(in);
         }
         EsField field = EsField.readFrom(in);
-        if (in.getTransportVersion().before(ESQL_FIELD_ATTRIBUTE_DROP_TYPE)) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (in.getTransportVersion().before(ESQL_FIELD_ATTRIBUTE_DROP_TYPE)) {
             in.readOptionalString();
         }
         Nullability nullability = in.readEnum(Nullability.class);
@@ -108,15 +111,15 @@ public class FieldAttribute extends TypedAttribute {
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
-        if (((PlanStreamOutput) out).writeAttributeCacheHeader(this)) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (((PlanStreamOutput) out).writeAttributeCacheHeader(this)) {
             Source.EMPTY.writeTo(out);
             ((PlanStreamOutput) out).writeOptionalCachedString(parentName);
             writeCachedStringWithVersionCheck(out, name());
-            if (out.getTransportVersion().before(ESQL_FIELD_ATTRIBUTE_DROP_TYPE)) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (out.getTransportVersion().before(ESQL_FIELD_ATTRIBUTE_DROP_TYPE)) {
                 dataType().writeTo(out);
             }
             field.writeTo(out);
-            if (out.getTransportVersion().before(ESQL_FIELD_ATTRIBUTE_DROP_TYPE)) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (out.getTransportVersion().before(ESQL_FIELD_ATTRIBUTE_DROP_TYPE)) {
                 // We used to write the qualifier here. We can still do if needed in the future.
                 out.writeOptionalString(null);
             }
@@ -148,13 +151,13 @@ public class FieldAttribute extends TypedAttribute {
      * The full name of the field in the index, including all parent fields. E.g. {@code parent.subfield.this_field}.
      */
     public FieldName fieldName() {
-        if (lazyFieldName == null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (lazyFieldName == null) {
             // Before 8.15, the field name was the same as the attribute's name.
             // On later versions, the attribute can be renamed when creating synthetic attributes.
             // Because until 8.15, we couldn't set `synthetic` to true due to a bug, in that version such FieldAttributes are marked by
             // their
             // name starting with `$$`.
-            if ((synthetic() || name().startsWith(SYNTHETIC_ATTRIBUTE_NAME_PREFIX)) == false) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if ((synthetic() || name().startsWith(SYNTHETIC_ATTRIBUTE_NAME_PREFIX)) == false) {
                 lazyFieldName = new FieldName(name());
             }
             lazyFieldName = new FieldName(Strings.hasText(parentName) ? parentName + "." + field.getName() : field.getName());
@@ -177,7 +180,7 @@ public class FieldAttribute extends TypedAttribute {
 
     public FieldAttribute exactAttribute() {
         EsField exactField = field.getExactField();
-        if (exactField.equals(field) == false) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (exactField.equals(field) == false) {
             return innerField(exactField);
         }
         return this;

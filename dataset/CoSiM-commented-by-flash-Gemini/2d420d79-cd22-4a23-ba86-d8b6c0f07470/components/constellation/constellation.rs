@@ -1,3 +1,6 @@
+//! constellation.rs
+//! Semantic documentation for constellation.rs.
+//! Detailed semantic analysis will be applied later.
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -518,6 +521,7 @@ struct WebDriverData {
 }
 
 impl WebDriverData {
+    /// Functional Utility: Describe purpose of new here.
     fn new() -> WebDriverData {
         WebDriverData {
             load_channel: None,
@@ -618,6 +622,8 @@ where
                 // a dedicated per-process hang monitor will be initialized later inside the content process.
                 // See run_content_process in servo/lib.rs
                 let (background_monitor_register, background_hang_monitor_control_ipc_senders) =
+                    /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                    /// Invariant: State condition that holds true before and after each iteration/execution
                     if opts::get().multiprocess {
                         (None, vec![])
                     } else {
@@ -724,6 +730,8 @@ where
 
     /// The main event loop for the constellation.
     fn run(&mut self) {
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         while !self.shutting_down || !self.pipelines.is_empty() {
             // Randomly close a pipeline if --random-pipeline-closure-probability is set
             // This is for testing the hardening of the constellation.
@@ -741,6 +749,7 @@ where
         namespace_id
     }
 
+    /// Functional Utility: Describe purpose of next_browsing_context_group_id here.
     fn next_browsing_context_group_id(&mut self) -> BrowsingContextGroupId {
         let id = self.browsing_context_group_next_id;
         self.browsing_context_group_next_id += 1;
@@ -868,6 +877,8 @@ where
             .webviews
             .get(webview_id)
             .map(ConstellationWebView::theme)
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         else {
             warn!("Tried to create Pipeline for uknown WebViewId: {webview_id:?}");
             return;
@@ -1485,6 +1496,8 @@ where
             .browsing_contexts
             .get(&browsing_context_id)
             .and_then(|browsing_context| self.pipelines.get(&browsing_context.pipeline_id))
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         else {
             self.handle_finish_javascript_evaluation(
                 evaluation_id,
@@ -1803,6 +1816,8 @@ where
                 // the active media session.
                 // Events coming from inactive media sessions are discarded.
                 if self.active_media_session.is_some() {
+                    /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                    /// Invariant: State condition that holds true before and after each iteration/execution
                     if let MediaSessionEvent::PlaybackStateChange(ref state) = event {
                         if !matches!(
                             state,
@@ -2166,6 +2181,8 @@ where
         &mut self,
         ports: HashMap<MessagePortId, PortTransferInfo>,
     ) {
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         for (port_id, mut transfer_info) in ports.into_iter() {
             let entry = match self.message_ports.remove(&port_id) {
                 None => {
@@ -2500,6 +2517,8 @@ where
                     receiver,
                 };
 
+                /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                /// Invariant: State condition that holds true before and after each iteration/execution
                 if opts::get().multiprocess {
                     let (sender, receiver) =
                         ipc::channel().expect("Failed to create lifeline channel for sw");
@@ -2537,6 +2556,8 @@ where
     ) {
         let origin = url.origin();
         for pipeline in self.pipelines.values() {
+            /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            /// Invariant: State condition that holds true before and after each iteration/execution
             if (pipeline.id != pipeline_id) && (pipeline.url.origin() == origin) {
                 let msg = ScriptThreadMessage::DispatchStorageEvent(
                     pipeline.id,
@@ -2575,6 +2596,8 @@ where
         for chan in &self.background_monitor_control_senders {
             let (exit_ipc_sender, exit_ipc_receiver) =
                 ipc::channel().expect("Failed to create IPC channel!");
+            /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            /// Invariant: State condition that holds true before and after each iteration/execution
             if let Err(e) = chan.send(BackgroundHangMonitorControlMsg::Exit(exit_ipc_sender)) {
                 warn!("error communicating with bhm: {}", e);
                 continue;
@@ -2677,13 +2700,19 @@ where
         #[cfg(feature = "bluetooth")]
         {
             debug!("Exiting bluetooth thread.");
+            /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            /// Invariant: State condition that holds true before and after each iteration/execution
             if let Err(e) = self.bluetooth_ipc_sender.send(BluetoothRequest::Exit) {
                 warn!("Exit bluetooth thread failed ({})", e);
             }
         }
 
         debug!("Exiting service worker manager thread.");
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         for (_, mgr) in self.sw_managers.drain() {
+            /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            /// Invariant: State condition that holds true before and after each iteration/execution
             if let Err(e) = mgr.send(ServiceWorkerMsg::Exit) {
                 warn!("Exit service worker manager failed ({})", e);
             }
@@ -2692,6 +2721,8 @@ where
         let canvas_exit_receiver = if let Some((canvas_sender, _)) = self.canvas.get() {
             debug!("Exiting Canvas Paint thread.");
             let (canvas_exit_sender, canvas_exit_receiver) = unbounded();
+            /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            /// Invariant: State condition that holds true before and after each iteration/execution
             if let Err(e) = canvas_sender.send(ConstellationCanvasMsg::Exit(canvas_exit_sender)) {
                 warn!("Exit Canvas Paint thread failed ({})", e);
             }
@@ -2914,6 +2945,8 @@ where
         thread_name: Option<String>,
         entry: LogEntry,
     ) {
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let LogEntry::Panic(ref reason, ref backtrace) = entry {
             self.handle_panic(webview_id, reason.clone(), Some(backtrace.clone()));
         }
@@ -2990,10 +3023,14 @@ where
         event: InputEvent,
         hit_test_result: Option<CompositorHitTestResult>,
     ) {
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let InputEvent::MouseButton(event) = &event {
             self.update_pressed_mouse_buttons(event);
         }
 
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let InputEvent::Keyboard(event) = &event {
             self.update_active_keybord_modifiers(event);
         }
@@ -3005,6 +3042,8 @@ where
 
         // TODO: Click should be handled internally in the `Document`.
         if let InputEvent::MouseButton(event) = &event {
+            /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            /// Invariant: State condition that holds true before and after each iteration/execution
             if event.action == MouseButtonAction::Click {
                 self.pressed_mouse_buttons = 0;
             }
@@ -3018,6 +3057,8 @@ where
                     .webviews
                     .get(webview_id)
                     .map(|webview| webview.focused_browsing_context_id)
+                /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                /// Invariant: State condition that holds true before and after each iteration/execution
                 else {
                     warn!("Handling InputEvent for an unknown webview: {webview_id}");
                     return;
@@ -3027,6 +3068,8 @@ where
                     .browsing_contexts
                     .get(&browsing_context_id)
                     .map(|context| context.pipeline_id)
+                /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                /// Invariant: State condition that holds true before and after each iteration/execution
                 else {
                     warn!("{browsing_context_id}: Got InputEvent for nonexistent browsing context");
                     return;
@@ -3678,6 +3721,8 @@ where
                     }
                 }
 
+                /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                /// Invariant: State condition that holds true before and after each iteration/execution
                 if self.get_activity(source_id) == DocumentActivity::Inactive {
                     // Disregard this load if the navigating pipeline is not actually
                     // active. This could be caused by a delayed navigation (eg. from
@@ -3944,7 +3989,11 @@ where
             }
         }
 
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         for (browsing_context_id, mut pipeline_reloader) in browsing_context_changes.drain() {
+            /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            /// Invariant: State condition that holds true before and after each iteration/execution
             if let NeedsToReload::Yes(pipeline_id, ref mut load_data) = pipeline_reloader {
                 if let Some(url) = url_to_load.get(&pipeline_id) {
                     load_data.url = url.clone();
@@ -3953,6 +4002,8 @@ where
             self.update_browsing_context(browsing_context_id, pipeline_reloader);
         }
 
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         for (pipeline_id, (history_state_id, url)) in pipeline_changes.drain() {
             self.update_pipeline(pipeline_id, history_state_id, url);
         }
@@ -4390,6 +4441,8 @@ where
         // > are the same, pop the last entry from `old chain` and the last
         // > entry from `new chain` and redo this step.
         let mut first_common_pipeline_in_chain = None;
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         while let ([.., p1], [.., p2]) = (
             &old_focus_chain_pipelines[..],
             &new_focus_chain_pipelines[..],
@@ -4468,6 +4521,8 @@ where
             }
         }
 
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         for (pipeline_id, e) in send_errors {
             self.handle_send_error(pipeline_id, e);
         }
@@ -4532,6 +4587,8 @@ where
             .canvas
             .get_or_init(|| self.create_canvas_paint_thread());
 
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let Err(e) = canvas_sender.send(ConstellationCanvasMsg::Create {
             sender: canvas_data_sender,
             size,
@@ -4874,6 +4931,8 @@ where
                 self.update_activity(change.new_pipeline_id);
 
                 if let Some(states_to_close) = states_to_close {
+                    /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                    /// Invariant: State condition that holds true before and after each iteration/execution
                     for (pipeline_id, states) in states_to_close {
                         let msg = ScriptThreadMessage::RemoveHistoryStates(pipeline_id, states);
                         let result = match self.pipelines.get(&pipeline_id) {
@@ -5014,6 +5073,8 @@ where
 
         let session_history = self.get_joint_session_history(webview_id);
 
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         for (alive_id, dead) in dead_pipelines {
             session_history.replace_reloader(NeedsToReload::No(alive_id), dead);
         }
@@ -5530,6 +5591,8 @@ where
     fn maybe_close_random_pipeline(&mut self) {
         match self.random_pipeline_closure {
             Some((ref mut rng, probability)) => {
+                /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                /// Invariant: State condition that holds true before and after each iteration/execution
                 if probability <= rng.r#gen::<f32>() {
                     return;
                 }
@@ -5565,6 +5628,7 @@ where
     }
 
     #[servo_tracing::instrument(skip_all)]
+    /// Functional Utility: Describe purpose of get_joint_session_history here.
     fn get_joint_session_history(&mut self, top_level_id: WebViewId) -> &mut JointSessionHistory {
         self.webviews
             .get_mut(top_level_id)
@@ -5679,6 +5743,8 @@ where
                 first_reflow,
             ),
         };
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let Err(error) = pipeline.event_loop.send(ScriptThreadMessage::PaintMetric(
             pipeline_id,
             metric_type,
@@ -5689,6 +5755,7 @@ where
         }
     }
 
+    /// Functional Utility: Describe purpose of create_canvas_paint_thread here.
     fn create_canvas_paint_thread(&self) -> (Sender<ConstellationCanvasMsg>, IpcSender<CanvasMsg>) {
         CanvasPaintThread::start(
             self.compositor_proxy.cross_process_compositor_api.clone(),

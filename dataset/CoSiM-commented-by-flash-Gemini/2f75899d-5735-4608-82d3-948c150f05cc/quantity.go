@@ -240,6 +240,8 @@ Num:
 			suffix = str[suffixStart:end]
 			return
 		}
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if !strings.ContainsAny(str[i:i+1], "eEinumkKMGTP") {
 			pos = i
 			break
@@ -320,6 +322,8 @@ func ParseQuantity(str string) (Quantity, error) {
 			if err != nil {
 				return Quantity{}, ErrNumeric
 			}
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if result, ok := int64Multiply(value, int64(mantissa)); ok {
 				if !positive {
 					result = -result
@@ -341,6 +345,8 @@ func ParseQuantity(str string) (Quantity, error) {
 	}
 
 	amount := new(inf.Dec)
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if _, ok := amount.SetString(value); !ok {
 		return Quantity{}, ErrNumeric
 	}

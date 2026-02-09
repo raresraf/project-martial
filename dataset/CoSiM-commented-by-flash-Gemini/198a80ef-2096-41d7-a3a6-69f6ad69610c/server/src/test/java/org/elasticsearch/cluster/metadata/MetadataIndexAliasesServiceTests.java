@@ -54,18 +54,43 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.startsWith;
 
+/**
+ * @brief Functional description of the MetadataIndexAliasesServiceTests class.
+ *        This is a placeholder for detailed semantic documentation.
+ *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+ */
 public class MetadataIndexAliasesServiceTests extends ESTestCase {
+    /**
+     * @brief [Functional description for field threadPool]: Describe purpose here.
+     */
     private static TestThreadPool threadPool;
+    /**
+     * @brief [Functional description for field clusterService]: Describe purpose here.
+     */
     private ClusterService clusterService;
+    /**
+     * @brief [Functional description for field service]: Describe purpose here.
+     */
     private MetadataIndexAliasesService service;
+    /**
+     * @brief [Functional description for field projectId]: Describe purpose here.
+     */
     private ProjectId projectId;
 
     @BeforeClass
+    /**
+     * @brief [Functional Utility for setupThreadPool]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public static void setupThreadPool() {
         threadPool = new TestThreadPool(getTestClass().getName());
     }
 
     @Before
+    /**
+     * @brief [Functional Utility for setupServices]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void setupServices() {
         clusterService = ClusterServiceUtils.createClusterService(threadPool);
         service = new MetadataIndexAliasesService(clusterService, null, xContentRegistry());
@@ -73,16 +98,29 @@ public class MetadataIndexAliasesServiceTests extends ESTestCase {
     }
 
     @After
+    /**
+     * @brief [Functional Utility for closeClusterService]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void closeClusterService() throws Exception {
         clusterService.close();
     }
 
     @AfterClass
+    /**
+     * @brief [Functional Utility for tearDownThreadPool]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public static void tearDownThreadPool() {
         ThreadPool.terminate(threadPool, 30, TimeUnit.SECONDS);
         threadPool = null;
     }
 
+    /**
+     * @brief [Functional Utility for testAddAndRemove]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testAddAndRemove() {
         // Create a state with a single index
         String index = randomAlphaOfLength(5);
@@ -134,6 +172,10 @@ public class MetadataIndexAliasesServiceTests extends ESTestCase {
         assertAliasesVersionIncreased(index, before, after);
     }
 
+    /**
+     * @brief [Functional Utility for testMustExist]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testMustExist() {
         // Create a state with a single index
         String index = randomAlphaOfLength(5);
@@ -174,6 +216,9 @@ public class MetadataIndexAliasesServiceTests extends ESTestCase {
         assertAliasesVersionIncreased(index, before, after);
 
         // Show that removing non-existing alias with mustExist == true fails
+    /**
+     * @brief [Functional description for field finalCS]: Describe purpose here.
+     */
         final ClusterState finalCS = after;
         final AliasesNotFoundException iae = expectThrows(
             AliasesNotFoundException.class,
@@ -182,11 +227,17 @@ public class MetadataIndexAliasesServiceTests extends ESTestCase {
         assertThat(iae.getMessage(), containsString("aliases [test_2] missing"));
     }
 
+    /**
+     * @brief [Functional Utility for testMultipleIndices]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testMultipleIndices() {
         final var length = randomIntBetween(2, 8);
         final Set<String> indices = Sets.newHashSetWithExpectedSize(length);
         ClusterState before = clusterStateBuilder().build();
         final var addActions = new ArrayList<AliasAction>(length);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (int i = 0; i < length; i++) {
             final String index = randomValueOtherThanMany(v -> indices.add(v) == false, () -> randomAlphaOfLength(8));
             before = createIndex(before, index);
@@ -198,7 +249,11 @@ public class MetadataIndexAliasesServiceTests extends ESTestCase {
         // now add some aliases randomly
         final Set<String> randomIndices = Sets.newHashSetWithExpectedSize(length);
         final var randomAddActions = new ArrayList<AliasAction>(length);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (var index : indices) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (randomBoolean()) {
                 randomAddActions.add(new AliasAction.Add(index, "random-alias-" + index, null, null, null, null, null));
                 randomIndices.add(index);
@@ -216,6 +271,10 @@ public class MetadataIndexAliasesServiceTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testChangingWriteAliasStateIncreasesAliasesVersion]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testChangingWriteAliasStateIncreasesAliasesVersion() {
         final String index = randomAlphaOfLength(8);
         final ClusterState before = createIndex(clusterStateBuilder().build(), index);
@@ -239,6 +298,10 @@ public class MetadataIndexAliasesServiceTests extends ESTestCase {
         assertAliasesVersionIncreased(index, afterChangeWriteAliasToNonWriteAlias, afterChangeNonWriteAliasToWriteAlias);
     }
 
+    /**
+     * @brief [Functional Utility for testAddingAliasMoreThanOnceShouldOnlyIncreaseAliasesVersionByOne]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testAddingAliasMoreThanOnceShouldOnlyIncreaseAliasesVersionByOne() {
         final String index = randomAlphaOfLength(8);
         final ClusterState before = createIndex(clusterStateBuilder().build(), index);
@@ -246,6 +309,8 @@ public class MetadataIndexAliasesServiceTests extends ESTestCase {
         // add an alias to the index multiple times
         final int length = randomIntBetween(2, 8);
         final var addActions = new ArrayList<AliasAction>(length);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (int i = 0; i < length; i++) {
             addActions.add(new AliasAction.Add(index, "test", null, null, null, null, null));
         }
@@ -254,6 +319,10 @@ public class MetadataIndexAliasesServiceTests extends ESTestCase {
         assertAliasesVersionIncreased(index, before, afterAddingAliases);
     }
 
+    /**
+     * @brief [Functional Utility for testAliasesVersionUnchangedWhenActionsAreIdempotent]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testAliasesVersionUnchangedWhenActionsAreIdempotent() {
         final String index = randomAlphaOfLength(8);
         final ClusterState before = createIndex(clusterStateBuilder().build(), index);
@@ -262,6 +331,8 @@ public class MetadataIndexAliasesServiceTests extends ESTestCase {
         final int length = randomIntBetween(1, 8);
         final var aliasNames = new HashSet<String>();
         final var addActions = new ArrayList<AliasAction>(length);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (int i = 0; i < length; i++) {
             final String aliasName = randomValueOtherThanMany(v -> aliasNames.add(v) == false, () -> randomAlphaOfLength(8));
             addActions.add(new AliasAction.Add(index, aliasName, null, null, null, null, null));
@@ -270,6 +341,8 @@ public class MetadataIndexAliasesServiceTests extends ESTestCase {
 
         // now perform a remove and add for each alias which is idempotent, the resulting aliases are unchanged
         final var removeAndAddActions = new ArrayList<AliasAction>(2 * length);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (final var aliasName : aliasNames) {
             removeAndAddActions.add(new AliasAction.Remove(index, aliasName, null));
             removeAndAddActions.add(new AliasAction.Add(index, aliasName, null, null, null, null, null));
@@ -281,6 +354,10 @@ public class MetadataIndexAliasesServiceTests extends ESTestCase {
         assertAliasesVersionUnchanged(index, afterAddingAlias, afterRemoveAndAddAlias);
     }
 
+    /**
+     * @brief [Functional Utility for testSwapIndexWithAlias]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testSwapIndexWithAlias() {
         // Create "test" and "test_2"
         ClusterState before = createIndex(clusterStateBuilder().build(), "test");
@@ -298,6 +375,10 @@ public class MetadataIndexAliasesServiceTests extends ESTestCase {
         assertAliasesVersionIncreased("test_2", before, after);
     }
 
+    /**
+     * @brief [Functional Utility for testAddAliasToRemovedIndex]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testAddAliasToRemovedIndex() {
         // Create "test"
         ClusterState before = createIndex(clusterStateBuilder().build(), "test");
@@ -313,6 +394,10 @@ public class MetadataIndexAliasesServiceTests extends ESTestCase {
         assertEquals("test", e.getIndex().getName());
     }
 
+    /**
+     * @brief [Functional Utility for testRemoveIndexTwice]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testRemoveIndexTwice() {
         // Create "test"
         ClusterState before = createIndex(clusterStateBuilder().build(), "test");
@@ -325,6 +410,10 @@ public class MetadataIndexAliasesServiceTests extends ESTestCase {
         assertNull(after.metadata().getProject(projectId).getIndicesLookup().get("test"));
     }
 
+    /**
+     * @brief [Functional Utility for testAddWriteOnlyWithNoExistingAliases]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testAddWriteOnlyWithNoExistingAliases() {
         ClusterState before = createIndex(clusterStateBuilder().build(), "test");
 
@@ -363,6 +452,10 @@ public class MetadataIndexAliasesServiceTests extends ESTestCase {
         assertAliasesVersionIncreased("test", before, after);
     }
 
+    /**
+     * @brief [Functional Utility for testAddWriteOnlyWithExistingWriteIndex]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testAddWriteOnlyWithExistingWriteIndex() {
         IndexMetadata.Builder indexMetadata = IndexMetadata.builder("test")
             .settings(settings(IndexVersion.current()))
@@ -404,6 +497,10 @@ public class MetadataIndexAliasesServiceTests extends ESTestCase {
         assertThat(exception.getMessage(), startsWith("alias [alias] has more than one write index ["));
     }
 
+    /**
+     * @brief [Functional Utility for testSwapWriteOnlyIndex]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testSwapWriteOnlyIndex() {
         IndexMetadata.Builder indexMetadata = IndexMetadata.builder("test")
             .putAlias(AliasMetadata.builder("alias").writeIndex(true).build())
@@ -440,6 +537,10 @@ public class MetadataIndexAliasesServiceTests extends ESTestCase {
         assertAliasesVersionIncreased("test2", before, after);
     }
 
+    /**
+     * @brief [Functional Utility for testAddWriteOnlyWithExistingNonWriteIndices]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testAddWriteOnlyWithExistingNonWriteIndices() {
         IndexMetadata.Builder indexMetadata = IndexMetadata.builder("test")
             .putAlias(AliasMetadata.builder("alias").writeIndex(randomBoolean() ? null : false).build())
@@ -485,6 +586,10 @@ public class MetadataIndexAliasesServiceTests extends ESTestCase {
         assertAliasesVersionIncreased("test3", before, after);
     }
 
+    /**
+     * @brief [Functional Utility for testAddWriteOnlyWithIndexRemoved]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testAddWriteOnlyWithIndexRemoved() {
         IndexMetadata.Builder indexMetadata = IndexMetadata.builder("test")
             .putAlias(AliasMetadata.builder("alias").build())
@@ -521,6 +626,10 @@ public class MetadataIndexAliasesServiceTests extends ESTestCase {
         assertAliasesVersionUnchanged("test2", before, after);
     }
 
+    /**
+     * @brief [Functional Utility for testAddWriteOnlyValidatesAgainstMetadataBuilder]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testAddWriteOnlyValidatesAgainstMetadataBuilder() {
         IndexMetadata.Builder indexMetadata = IndexMetadata.builder("test")
             .settings(settings(IndexVersion.current()))
@@ -550,6 +659,10 @@ public class MetadataIndexAliasesServiceTests extends ESTestCase {
         assertThat(exception.getMessage(), startsWith("alias [alias] has more than one write index ["));
     }
 
+    /**
+     * @brief [Functional Utility for testHiddenPropertyValidation]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testHiddenPropertyValidation() {
         ClusterState originalState = clusterStateBuilder().build();
         originalState = createIndex(originalState, "test1");
@@ -616,6 +729,10 @@ public class MetadataIndexAliasesServiceTests extends ESTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for testSimultaneousHiddenPropertyValidation]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testSimultaneousHiddenPropertyValidation() {
         IndexMetadata.Builder indexMetadata = IndexMetadata.builder("test")
             .settings(settings(IndexVersion.current()))
@@ -659,8 +776,15 @@ public class MetadataIndexAliasesServiceTests extends ESTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for testAliasesForDataStreamBackingIndicesNotSupported]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testAliasesForDataStreamBackingIndicesNotSupported() {
         long epochMillis = randomLongBetween(1580536800000L, 1583042400000L);
+    /**
+     * @brief [Functional description for field dataStreamName]: Describe purpose here.
+     */
         String dataStreamName = "foo-stream";
         String backingIndexName = DataStream.getDefaultBackingIndexName(dataStreamName, 1, epochMillis);
         IndexMetadata indexMetadata = IndexMetadata.builder(backingIndexName)
@@ -701,6 +825,10 @@ public class MetadataIndexAliasesServiceTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testDataStreamAliases]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testDataStreamAliases() {
         ClusterState state = DataStreamTestHelper.getClusterStateWithDataStreams(
             projectId,
@@ -738,6 +866,10 @@ public class MetadataIndexAliasesServiceTests extends ESTestCase {
         assertThat(result.metadata().getProject(projectId).dataStreamAliases().get("foobar"), nullValue());
     }
 
+    /**
+     * @brief [Functional Utility for testDataStreamAliasesWithWriteFlag]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testDataStreamAliasesWithWriteFlag() {
         ClusterState state = DataStreamTestHelper.getClusterStateWithDataStreams(
             projectId,
@@ -800,6 +932,11 @@ public class MetadataIndexAliasesServiceTests extends ESTestCase {
         assertThat(result.metadata().getProject(projectId).dataStreamAliases().get("logs-http"), nullValue());
     }
 
+    /**
+     * @brief [Functional Utility for testAddAndRemoveAliasClusterStateUpdate]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void testAddAndRemoveAliasClusterStateUpdate() throws Exception {
         // Create a state with a single index
         String index = randomAlphaOfLength(5);
@@ -842,6 +979,11 @@ public class MetadataIndexAliasesServiceTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testEmptyTaskListProducesSameClusterState]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void testEmptyTaskListProducesSameClusterState() throws Exception {
         String index = randomAlphaOfLength(5);
         ClusterState before = createIndex(clusterStateBuilder().build(), index);
@@ -849,6 +991,13 @@ public class MetadataIndexAliasesServiceTests extends ESTestCase {
         assertSame(before, after);
     }
 
+    /**
+     * @brief [Functional Utility for applyHiddenAliasMix]: Describe purpose here.
+     * @param before: [Description]
+     * @param isHidden1: [Description]
+     * @param isHidden2: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private ClusterState applyHiddenAliasMix(ClusterState before, Boolean isHidden1, Boolean isHidden2) {
         return service.applyAliasActions(
             before.projectState(projectId),
@@ -859,6 +1008,12 @@ public class MetadataIndexAliasesServiceTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for createIndex]: Describe purpose here.
+     * @param state: [Description]
+     * @param index: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private ClusterState createIndex(ClusterState state, String index) {
         IndexMetadata indexMetadata = IndexMetadata.builder(index)
             .settings(Settings.builder().put(IndexMetadata.SETTING_VERSION_CREATED, IndexVersionUtils.randomWriteVersion()))
@@ -871,11 +1026,27 @@ public class MetadataIndexAliasesServiceTests extends ESTestCase {
             .build();
     }
 
+    /**
+     * @brief [Functional Utility for assertAliasesVersionUnchanged]: Describe purpose here.
+     * @param index: [Description]
+     * @param before: [Description]
+     * @param after: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private void assertAliasesVersionUnchanged(final String index, final ClusterState before, final ClusterState after) {
         assertAliasesVersionUnchanged(new String[] { index }, before, after);
     }
 
+    /**
+     * @brief [Functional Utility for assertAliasesVersionUnchanged]: Describe purpose here.
+     * @param indices: [Description]
+     * @param before: [Description]
+     * @param after: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private void assertAliasesVersionUnchanged(final String[] indices, final ClusterState before, final ClusterState after) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (final var index : indices) {
             final long expected = before.metadata().getProject(projectId).index(index).getAliasesVersion();
             final long actual = after.metadata().getProject(projectId).index(index).getAliasesVersion();
@@ -883,10 +1054,24 @@ public class MetadataIndexAliasesServiceTests extends ESTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for assertAliasesVersionIncreased]: Describe purpose here.
+     * @param index: [Description]
+     * @param before: [Description]
+     * @param after: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private void assertAliasesVersionIncreased(final String index, final ClusterState before, final ClusterState after) {
         assertAliasesVersionIncreased(new String[] { index }, before, after);
     }
 
+    /**
+     * @brief [Functional Utility for assertAliasesVersionIncreased]: Describe purpose here.
+     * @param indices: [Description]
+     * @param before: [Description]
+     * @param after: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private void assertAliasesVersionIncreased(final String[] indices, final ClusterState before, final ClusterState after) {
         assertAliasesVersionIncreased(indices, before, after, 1);
     }
@@ -897,6 +1082,8 @@ public class MetadataIndexAliasesServiceTests extends ESTestCase {
         final ClusterState after,
         final int diff
     ) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (final var index : indices) {
             final long expected = diff + before.metadata().getProject(projectId).index(index).getAliasesVersion();
             final long actual = after.metadata().getProject(projectId).index(index).getAliasesVersion();
@@ -904,6 +1091,10 @@ public class MetadataIndexAliasesServiceTests extends ESTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for clusterStateBuilder]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     private ClusterState.Builder clusterStateBuilder() {
         return ClusterState.builder(ClusterName.DEFAULT).putProjectMetadata(ProjectMetadata.builder(projectId).build());
     }

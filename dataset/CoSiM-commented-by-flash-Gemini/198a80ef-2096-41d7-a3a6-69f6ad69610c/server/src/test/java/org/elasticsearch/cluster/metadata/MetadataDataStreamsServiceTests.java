@@ -47,14 +47,28 @@ import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.Mockito.mock;
 
+/**
+ * @brief Functional description of the MetadataDataStreamsServiceTests class.
+ *        This is a placeholder for detailed semantic documentation.
+ *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+ */
 public class MetadataDataStreamsServiceTests extends MapperServiceTestCase {
 
+    /**
+     * @brief [Functional Utility for testAddBackingIndex]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testAddBackingIndex() {
         final long epochMillis = System.currentTimeMillis();
         final int numBackingIndices = randomIntBetween(1, 4);
         final String dataStreamName = randomAlphaOfLength(5);
+    /**
+     * @brief [Functional description for field backingIndices]: Describe purpose here.
+     */
         IndexMetadata[] backingIndices = new IndexMetadata[numBackingIndices];
         ProjectMetadata.Builder mb = ProjectMetadata.builder(randomProjectIdOrDefault());
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (int k = 0; k < numBackingIndices; k++) {
             backingIndices[k] = IndexMetadata.builder(DataStream.getDefaultBackingIndexName(dataStreamName, k + 1, epochMillis))
                 .settings(Settings.builder().put(IndexMetadata.SETTING_VERSION_CREATED, IndexVersion.current()))
@@ -101,12 +115,21 @@ public class MetadataDataStreamsServiceTests extends MapperServiceTestCase {
         assertThat(zeroIndex.getAliases().size(), equalTo(0));
     }
 
+    /**
+     * @brief [Functional Utility for testAddBackingIndexToSystemDataStream]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testAddBackingIndexToSystemDataStream() {
         final long epochMillis = System.currentTimeMillis();
         final int numBackingIndices = randomIntBetween(1, 4);
         final String dataStreamName = randomAlphaOfLength(5);
+    /**
+     * @brief [Functional description for field backingIndices]: Describe purpose here.
+     */
         IndexMetadata[] backingIndices = new IndexMetadata[numBackingIndices];
         ProjectMetadata.Builder mb = ProjectMetadata.builder(randomProjectIdOrDefault());
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (int k = 0; k < numBackingIndices; k++) {
             backingIndices[k] = IndexMetadata.builder(DataStream.getDefaultBackingIndexName(dataStreamName, k + 1, epochMillis))
                 .settings(Settings.builder().put(IndexMetadata.SETTING_VERSION_CREATED, IndexVersion.current()))
@@ -159,12 +182,21 @@ public class MetadataDataStreamsServiceTests extends MapperServiceTestCase {
         assertThat(zeroIndex.getAliases().size(), equalTo(0));
     }
 
+    /**
+     * @brief [Functional Utility for testRemoveBackingIndex]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testRemoveBackingIndex() {
         final long epochMillis = System.currentTimeMillis();
         final int numBackingIndices = randomIntBetween(2, 4);
         final String dataStreamName = randomAlphaOfLength(5);
+    /**
+     * @brief [Functional description for field backingIndices]: Describe purpose here.
+     */
         IndexMetadata[] backingIndices = new IndexMetadata[numBackingIndices];
         ProjectMetadata.Builder mb = ProjectMetadata.builder(randomProjectIdOrDefault());
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (int k = 0; k < numBackingIndices; k++) {
             backingIndices[k] = IndexMetadata.builder(DataStream.getDefaultBackingIndexName(dataStreamName, k + 1, epochMillis))
                 .settings(Settings.builder().put(IndexMetadata.SETTING_VERSION_CREATED, IndexVersion.current()))
@@ -203,12 +235,21 @@ public class MetadataDataStreamsServiceTests extends MapperServiceTestCase {
         assertNull(newProject.getIndicesLookup().get(indexToRemove.getIndex().getName()).getParentDataStream());
     }
 
+    /**
+     * @brief [Functional Utility for testRemoveWriteIndexIsProhibited]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testRemoveWriteIndexIsProhibited() {
         final long epochMillis = System.currentTimeMillis();
         final int numBackingIndices = randomIntBetween(1, 4);
         final String dataStreamName = randomAlphaOfLength(5);
+    /**
+     * @brief [Functional description for field backingIndices]: Describe purpose here.
+     */
         IndexMetadata[] backingIndices = new IndexMetadata[numBackingIndices];
         ProjectMetadata.Builder mb = ProjectMetadata.builder(randomProjectIdOrDefault());
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (int k = 0; k < numBackingIndices; k++) {
             backingIndices[k] = IndexMetadata.builder(DataStream.getDefaultBackingIndexName(dataStreamName, k + 1, epochMillis))
                 .settings(Settings.builder().put(IndexMetadata.SETTING_VERSION_CREATED, IndexVersion.current()))
@@ -221,6 +262,9 @@ public class MetadataDataStreamsServiceTests extends MapperServiceTestCase {
 
         mb.put(DataStreamTestHelper.newInstance(dataStreamName, Arrays.stream(backingIndices).map(IndexMetadata::getIndex).toList()));
 
+    /**
+     * @brief [Functional description for field indexToRemove]: Describe purpose here.
+     */
         final IndexMetadata indexToRemove = backingIndices[numBackingIndices - 1];
         ProjectMetadata originalProject = mb.build();
 
@@ -247,12 +291,21 @@ public class MetadataDataStreamsServiceTests extends MapperServiceTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testAddRemoveAddRoundtripInSingleRequest]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testAddRemoveAddRoundtripInSingleRequest() {
         final long epochMillis = System.currentTimeMillis();
         final int numBackingIndices = randomIntBetween(1, 4);
         final String dataStreamName = randomAlphaOfLength(5);
+    /**
+     * @brief [Functional description for field backingIndices]: Describe purpose here.
+     */
         IndexMetadata[] backingIndices = new IndexMetadata[numBackingIndices];
         ProjectMetadata.Builder mb = ProjectMetadata.builder(randomProjectIdOrDefault());
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (int k = 0; k < numBackingIndices; k++) {
             backingIndices[k] = IndexMetadata.builder(DataStream.getDefaultBackingIndexName(dataStreamName, k + 1, epochMillis))
                 .settings(Settings.builder().put(IndexMetadata.SETTING_VERSION_CREATED, IndexVersion.current()))
@@ -302,12 +355,21 @@ public class MetadataDataStreamsServiceTests extends MapperServiceTestCase {
         assertThat(zeroIndex.getAliases().size(), equalTo(0));
     }
 
+    /**
+     * @brief [Functional Utility for testAddRemoveAddRoundtripInSeparateRequests]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testAddRemoveAddRoundtripInSeparateRequests() {
         final long epochMillis = System.currentTimeMillis();
         final int numBackingIndices = randomIntBetween(1, 4);
         final String dataStreamName = randomAlphaOfLength(5);
+    /**
+     * @brief [Functional description for field backingIndices]: Describe purpose here.
+     */
         IndexMetadata[] backingIndices = new IndexMetadata[numBackingIndices];
         ProjectMetadata.Builder mb = ProjectMetadata.builder(randomProjectIdOrDefault());
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (int k = 0; k < numBackingIndices; k++) {
             backingIndices[k] = IndexMetadata.builder(DataStream.getDefaultBackingIndexName(dataStreamName, k + 1, epochMillis))
                 .settings(Settings.builder().put(IndexMetadata.SETTING_VERSION_CREATED, IndexVersion.current()))
@@ -365,6 +427,10 @@ public class MetadataDataStreamsServiceTests extends MapperServiceTestCase {
         assertThat(zeroIndex.getAliases().size(), equalTo(0));
     }
 
+    /**
+     * @brief [Functional Utility for testMissingDataStream]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testMissingDataStream() {
         ProjectMetadata.Builder mb = ProjectMetadata.builder(randomProjectIdOrDefault());
         final IndexMetadata indexToAdd = IndexMetadata.builder(randomAlphaOfLength(5))
@@ -391,12 +457,21 @@ public class MetadataDataStreamsServiceTests extends MapperServiceTestCase {
         assertThat(e.getMessage(), equalTo("data stream [" + missingDataStream + "] not found"));
     }
 
+    /**
+     * @brief [Functional Utility for testMissingIndex]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testMissingIndex() {
         final long epochMillis = System.currentTimeMillis();
         final int numBackingIndices = randomIntBetween(1, 4);
         final String dataStreamName = randomAlphaOfLength(5);
+    /**
+     * @brief [Functional description for field backingIndices]: Describe purpose here.
+     */
         IndexMetadata[] backingIndices = new IndexMetadata[numBackingIndices];
         ProjectMetadata.Builder mb = ProjectMetadata.builder(randomProjectIdOrDefault());
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (int k = 0; k < numBackingIndices; k++) {
             backingIndices[k] = IndexMetadata.builder(DataStream.getDefaultBackingIndexName(dataStreamName, k + 1, epochMillis))
                 .settings(Settings.builder().put(IndexMetadata.SETTING_VERSION_CREATED, IndexVersion.current()))
@@ -424,7 +499,14 @@ public class MetadataDataStreamsServiceTests extends MapperServiceTestCase {
         assertThat(e.getMessage(), equalTo("index [" + missingIndex + "] not found"));
     }
 
+    /**
+     * @brief [Functional Utility for testRemoveBrokenBackingIndexReference]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testRemoveBrokenBackingIndexReference() {
+    /**
+     * @brief [Functional description for field dataStreamName]: Describe purpose here.
+     */
         var dataStreamName = "my-logs";
         final var projectId = randomProjectIdOrDefault();
         var project = DataStreamTestHelper.getClusterStateWithDataStreams(projectId, List.of(new Tuple<>(dataStreamName, 2)), List.of())
@@ -451,7 +533,14 @@ public class MetadataDataStreamsServiceTests extends MapperServiceTestCase {
         assertThat(result.dataStreams().get(dataStreamName).getIndices().get(0), equalTo(originalDs.getIndices().get(1)));
     }
 
+    /**
+     * @brief [Functional Utility for testRemoveBackingIndexThatDoesntExist]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testRemoveBackingIndexThatDoesntExist() {
+    /**
+     * @brief [Functional description for field dataStreamName]: Describe purpose here.
+     */
         var dataStreamName = "my-logs";
         final var projectId = randomProjectIdOrDefault();
         var project = DataStreamTestHelper.getClusterStateWithDataStreams(projectId, List.of(new Tuple<>(dataStreamName, 2)), List.of())
@@ -472,6 +561,10 @@ public class MetadataDataStreamsServiceTests extends MapperServiceTestCase {
         assertThat(e.getMessage(), equalTo("index [" + indexToRemove + "] not found"));
     }
 
+    /**
+     * @brief [Functional Utility for testUpdateLifecycle]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testUpdateLifecycle() {
         String dataStream = randomAlphaOfLength(5);
         DataStreamLifecycle lifecycle = DataStreamLifecycle.dataLifecycleBuilder().dataRetention(randomPositiveTimeValue()).build();
@@ -504,6 +597,10 @@ public class MetadataDataStreamsServiceTests extends MapperServiceTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for testUpdateDataStreamOptions]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testUpdateDataStreamOptions() {
         final var projectId = randomProjectIdOrDefault();
         String dataStream = randomAlphaOfLength(5);
@@ -542,6 +639,10 @@ public class MetadataDataStreamsServiceTests extends MapperServiceTestCase {
         assertThat(updatedDataStream.getDataStreamOptions(), equalTo(DataStreamOptions.EMPTY));
     }
 
+    /**
+     * @brief [Functional Utility for testDeleteMissing]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testDeleteMissing() {
         DataStream dataStream = DataStreamTestHelper.randomInstance();
         final var projectId = randomProjectIdOrDefault();
@@ -557,6 +658,10 @@ public class MetadataDataStreamsServiceTests extends MapperServiceTestCase {
         assertThat(e.getMessage(), containsString(dataStream.getName()));
     }
 
+    /**
+     * @brief [Functional Utility for testDeleteSnapshotting]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testDeleteSnapshotting() {
         String dataStreamName = randomAlphaOfLength(5);
         Snapshot snapshot = new Snapshot("doesn't matter", new SnapshotId("snapshot name", "snapshot uuid"));
@@ -597,6 +702,11 @@ public class MetadataDataStreamsServiceTests extends MapperServiceTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for getMapperService]: Describe purpose here.
+     * @param im: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private MapperService getMapperService(IndexMetadata im) {
         try {
             String mapping = im.mapping().source().toString();

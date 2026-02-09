@@ -24,18 +24,44 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.LongSupplier;
 
+ /**
+  * @brief Functional description of the MoveToErrorStepUpdateTask class.
+  *        This is a placeholder for detailed semantic documentation.
+  *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+  */
 public class MoveToErrorStepUpdateTask extends IndexLifecycleClusterStateUpdateTask {
 
     private static final Logger logger = LogManager.getLogger(MoveToErrorStepUpdateTask.class);
 
+     /**
+      * @brief [Functional description for field index]: Describe purpose here.
+      */
     private final Index index;
+     /**
+      * @brief [Functional description for field policy]: Describe purpose here.
+      */
     private final String policy;
+     /**
+      * @brief [Functional description for field currentStepKey]: Describe purpose here.
+      */
     private final Step.StepKey currentStepKey;
     private final BiFunction<IndexMetadata, Step.StepKey, Step> stepLookupFunction;
+     /**
+      * @brief [Functional description for field stateChangeConsumer]: Describe purpose here.
+      */
     private final Consumer<ClusterState> stateChangeConsumer;
+     /**
+      * @brief [Functional description for field nowSupplier]: Describe purpose here.
+      */
     private final LongSupplier nowSupplier;
+     /**
+      * @brief [Functional description for field cause]: Describe purpose here.
+      */
     private final Exception cause;
 
+    /**
+     * @brief [Functional Utility for MoveToErrorStepUpdateTask]: Describe purpose here.
+     */
     public MoveToErrorStepUpdateTask(
         Index index,
         String policy,
@@ -57,21 +83,36 @@ public class MoveToErrorStepUpdateTask extends IndexLifecycleClusterStateUpdateT
 
     @Override
     protected ClusterState doExecute(ClusterState currentState) throws Exception {
+         /**
+          * @brief [Functional description for field project]: Describe purpose here.
+          */
         final var project = currentState.getMetadata().getProject();
+         /**
+          * @brief [Functional description for field idxMeta]: Describe purpose here.
+          */
         IndexMetadata idxMeta = project.index(index);
-        if (idxMeta == null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (idxMeta == null) {
             // Index must have been since deleted, ignore it
+             /**
+              * @brief [Functional description for field currentState]: Describe purpose here.
+              */
             return currentState;
         }
+         /**
+          * @brief [Functional description for field lifecycleState]: Describe purpose here.
+          */
         LifecycleExecutionState lifecycleState = idxMeta.getLifecycleExecutionState();
-        if (policy.equals(idxMeta.getLifecyclePolicyName()) && currentStepKey.equals(Step.getCurrentStepKey(lifecycleState))) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (policy.equals(idxMeta.getLifecyclePolicyName()) && currentStepKey.equals(Step.getCurrentStepKey(lifecycleState))) {
             return ClusterState.builder(currentState)
                 .putProjectMetadata(IndexLifecycleTransition.moveIndexToErrorStep(index, project, cause, nowSupplier, stepLookupFunction))
                 .build();
-        } else {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else {
             // either the policy has changed or the step is now
             // not the same as when we submitted the update task. In
             // either case we don't want to do anything now
+             /**
+              * @brief [Functional description for field currentState]: Describe purpose here.
+              */
             return currentState;
         }
     }
@@ -99,9 +140,9 @@ public class MoveToErrorStepUpdateTask extends IndexLifecycleClusterStateUpdateT
     @Override
     protected void handleFailure(Exception e) {
         Level level;
-        if (ExceptionsHelper.unwrap(e, NotMasterException.class, FailedToCommitClusterStateException.class) != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (ExceptionsHelper.unwrap(e, NotMasterException.class, FailedToCommitClusterStateException.class) != null) {
             level = Level.DEBUG;
-        } else {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else {
             level = Level.ERROR;
             assert false : new AssertionError("unexpected exception", e);
         }

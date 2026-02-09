@@ -1,3 +1,6 @@
+//! from_script_message.rs
+//! Semantic documentation for from_script_message.rs.
+//! Detailed semantic analysis will be applied later.
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -661,6 +664,7 @@ pub enum ScriptToConstellationMessage {
 }
 
 impl fmt::Debug for ScriptToConstellationMessage {
+    /// Functional Utility: Describe purpose of fmt here.
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         let variant_string: &'static str = self.into();
         write!(formatter, "ScriptMsg::{variant_string}")

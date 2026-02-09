@@ -146,6 +146,8 @@ export class ChatPromptAttachmentsCollection extends Disposable {
 	public get references(): readonly URI[] {
 		const result = [];
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		for (const child of this.attachments.values()) {
 			result.push(...child.references);
 		}
@@ -159,9 +161,13 @@ export class ChatPromptAttachmentsCollection extends Disposable {
 	public get toolsMetadata(): readonly string[] | null {
 		const result = [];
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		for (const child of this.attachments.values()) {
 			const { toolsMetadata } = child;
 
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (toolsMetadata === null) {
 				continue;
 			}
@@ -181,6 +187,8 @@ export class ChatPromptAttachmentsCollection extends Disposable {
 		const result = [];
 		const attachments = [...this.attachments.values()];
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		for (const attachment of attachments) {
 			const { reference } = attachment;
 
@@ -244,6 +252,8 @@ export class ChatPromptAttachmentsCollection extends Disposable {
 			return;
 		}
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		for (const uri of uriList) {
 			// if already exists, nothing to do
 			if (this.attachments.has(uri.path)) {
@@ -294,6 +304,8 @@ export class ChatPromptAttachmentsCollection extends Disposable {
 	 * Clear all prompt instruction attachments.
 	 */
 	public clear(): this {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		for (const attachment of this.attachments.values()) {
 			this.remove(attachment.uri);
 		}

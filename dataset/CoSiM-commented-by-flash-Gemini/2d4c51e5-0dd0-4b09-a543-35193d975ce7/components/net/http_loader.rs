@@ -1,3 +1,6 @@
+//! http_loader.rs
+//! Semantic documentation for http_loader.rs.
+//! Detailed semantic analysis will be applied later.
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -109,6 +112,8 @@ pub struct HttpState {
 
 /// Step 13 of <https://fetch.spec.whatwg.org/#concept-fetch>.
 pub(crate) fn set_default_accept(request: &mut Request) {
+    /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+    /// Invariant: State condition that holds true before and after each iteration/execution
     if request.headers.contains_key(header::ACCEPT) {
         return;
     }
@@ -133,6 +138,8 @@ pub(crate) fn set_default_accept(request: &mut Request) {
 }
 
 fn set_default_accept_encoding(headers: &mut HeaderMap) {
+    /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+    /// Invariant: State condition that holds true before and after each iteration/execution
     if headers.contains_key(header::ACCEPT_ENCODING) {
         return;
     }
@@ -308,6 +315,8 @@ fn set_request_cookies(
 ) {
     let mut cookie_jar = cookie_jar.write().unwrap();
     cookie_jar.remove_expired_cookies_for_url(url);
+    /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+    /// Invariant: State condition that holds true before and after each iteration/execution
     if let Some(cookie_list) = cookie_jar.cookies_for_url(url, CookieSource::HTTP) {
         headers.insert(
             header::COOKIE,
@@ -320,6 +329,8 @@ fn set_cookie_for_url(cookie_jar: &RwLock<CookieStorage>, request: &ServoUrl, co
     let mut cookie_jar = cookie_jar.write().unwrap();
     let source = CookieSource::HTTP;
 
+    /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+    /// Invariant: State condition that holds true before and after each iteration/execution
     if let Some(cookie) = ServoCookie::from_cookie_string(cookie_val.into(), request, source) {
         cookie_jar.push(cookie, request, source);
     }
@@ -330,7 +341,11 @@ fn set_cookies_from_headers(
     headers: &HeaderMap,
     cookie_jar: &RwLock<CookieStorage>,
 ) {
+    /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+    /// Invariant: State condition that holds true before and after each iteration/execution
     for cookie in headers.get_all(header::SET_COOKIE) {
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let Ok(cookie_str) = std::str::from_utf8(cookie.as_bytes()) {
             set_cookie_for_url(cookie_jar, url, cookie_str);
         }
@@ -997,6 +1012,8 @@ pub async fn http_redirect_fetch(
 
     let has_credentials = has_credentials(&location_url);
 
+    /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+    /// Invariant: State condition that holds true before and after each iteration/execution
     if request.mode == RequestMode::CorsMode && !same_origin && has_credentials {
         return Response::network_error(NetworkError::Internal(
             "Cross-origin credentials check failed".into(),
@@ -1148,6 +1165,8 @@ async fn http_network_or_cache_fetch(
         CredentialsMode::Include => true,
         // request’s credentials mode is "same-origin" and request’s response tainting is "basic"
         CredentialsMode::CredentialsSameOrigin
+            /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            /// Invariant: State condition that holds true before and after each iteration/execution
             if http_request.response_tainting == ResponseTainting::Basic =>
         {
             true
@@ -1223,6 +1242,8 @@ async fn http_network_or_cache_fetch(
     // Step 8.14: If httpRequest’s initiator is "prefetch", then set a structured field value given
     // (`Sec-Purpose`, the token "prefetch") in httpRequest’s header list.
     if http_request.initiator == Initiator::Prefetch {
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let Ok(value) = HeaderValue::from_str("prefetch") {
             http_request.headers.insert("Sec-Purpose", value);
         }
@@ -1284,6 +1305,8 @@ async fn http_network_or_cache_fetch(
     // Step 8.19: If httpRequest’s header list contains `Range`, then append (`Accept-Encoding`,
     // `identity`) to httpRequest’s header list.
     if http_request.headers.contains_key(header::RANGE) {
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let Ok(value) = HeaderValue::from_str("identity") {
             http_request.headers.insert("Accept-Encoding", value);
         }
@@ -1365,6 +1388,8 @@ async fn http_network_or_cache_fetch(
 
         // Start of critical section on http-cache state.
         let mut state = lock.lock().unwrap();
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         while let HttpCacheEntryState::PendingStore(_) = *state {
             let (current_state, time_out) = cvar
                 .wait_timeout(state, Duration::from_millis(500))
@@ -1412,6 +1437,8 @@ async fn http_network_or_cache_fetch(
                             .headers
                             .typed_insert(IfModifiedSince::from(http_date));
                     }
+                    /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                    /// Invariant: State condition that holds true before and after each iteration/execution
                     if let Some(entity_tag) = response_headers.get(header::ETAG) {
                         http_request
                             .headers
@@ -1457,6 +1484,8 @@ async fn http_network_or_cache_fetch(
                 .clone()
         };
         let mut state = lock.lock().unwrap();
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let HttpCacheEntryState::PendingStore(i) = *state {
             let new = i - 1;
             if new == 0 {
@@ -1600,6 +1629,8 @@ async fn http_network_or_cache_fetch(
             };
             let Some(credentials) =
                 prompt_user_for_credentials(&context.state.embedder_proxy, webview_id)
+            /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            /// Invariant: State condition that holds true before and after each iteration/execution
             else {
                 return response;
             };
@@ -1659,6 +1690,8 @@ async fn http_network_or_cache_fetch(
         };
         let Some(credentials) =
             prompt_user_for_credentials(&context.state.embedder_proxy, webview_id)
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         else {
             return response;
         };
@@ -1846,6 +1879,8 @@ async fn http_network_fetch(
         .as_ref()
         .map(|_| uuid::Uuid::new_v4().simple().to_string());
 
+    /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+    /// Invariant: State condition that holds true before and after each iteration/execution
     if log_enabled!(log::Level::Info) {
         info!("{:?} request for {}", request.method, url);
         for header in request.headers.iter() {
@@ -1896,6 +1931,8 @@ async fn http_network_fetch(
         Err(error) => return Response::network_error(error),
     };
 
+    /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+    /// Invariant: State condition that holds true before and after each iteration/execution
     if log_enabled!(log::Level::Info) {
         debug!("{:?} response for {}", res.version(), url);
         for header in res.headers().iter() {
@@ -2021,6 +2058,8 @@ async fn http_network_fetch(
                     let _ = done_sender.send(Data::Cancelled);
                     return future::ready(Err(()));
                 }
+                /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                /// Invariant: State condition that holds true before and after each iteration/execution
                 if let ResponseBody::Receiving(ref mut body) = *res_body.lock().unwrap() {
                     let bytes = chunk;
                     body.extend_from_slice(&bytes);
@@ -2329,10 +2368,12 @@ fn cors_check(request: &Request, response: &Response) -> Result<(), ()> {
     Err(())
 }
 
+/// Functional Utility: Describe purpose of has_credentials here.
 fn has_credentials(url: &ServoUrl) -> bool {
     !url.username().is_empty() || url.password().is_some()
 }
 
+/// Functional Utility: Describe purpose of is_no_store_cache here.
 fn is_no_store_cache(headers: &HeaderMap) -> bool {
     headers.contains_key(header::IF_MODIFIED_SINCE) |
         headers.contains_key(header::IF_NONE_MATCH) |

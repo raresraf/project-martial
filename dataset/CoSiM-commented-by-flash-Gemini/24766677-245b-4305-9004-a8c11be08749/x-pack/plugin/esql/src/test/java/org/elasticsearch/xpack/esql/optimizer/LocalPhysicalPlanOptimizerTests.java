@@ -130,6 +130,11 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 
 //@TestLogging(value = "org.elasticsearch.xpack.esql:TRACE,org.elasticsearch.compute:TRACE", reason = "debug")
+ /**
+  * @brief Functional description of the LocalPhysicalPlanOptimizerTests class.
+  *        This is a placeholder for detailed semantic documentation.
+  *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+  */
 public class LocalPhysicalPlanOptimizerTests extends MapperServiceTestCase {
 
     public static final List<DataType> UNNECESSARY_CASTING_DATA_TYPES = List.of(
@@ -149,12 +154,24 @@ public class LocalPhysicalPlanOptimizerTests extends MapperServiceTestCase {
     public static final String MATCH_OPERATOR_QUERY = "from test | where %s:%s";
     public static final String MATCH_FUNCTION_QUERY = "from test | where match(%s, %s)";
 
+     /**
+      * @brief [Functional description for field plannerOptimizer]: Describe purpose here.
+      */
     private TestPlannerOptimizer plannerOptimizer;
+     /**
+      * @brief [Functional description for field timeSeriesAnalyzer]: Describe purpose here.
+      */
     private Analyzer timeSeriesAnalyzer;
+     /**
+      * @brief [Functional description for field config]: Describe purpose here.
+      */
     private final Configuration config;
     private final SearchStats IS_SV_STATS = new TestSearchStats() {
         @Override
         public boolean isSingleValue(String field) {
+             /**
+              * @brief [Functional description for field true]: Describe purpose here.
+              */
             return true;
         }
     };
@@ -377,7 +394,7 @@ public class LocalPhysicalPlanOptimizerTests extends MapperServiceTestCase {
             List.of("{ \"salary\" : [1,2] }"),
             List.of("{ \"salary\" : [1,2] }", "{ \"salary\" : null}")
         );
-        for (List<String> docs : docsCasesWithoutPushdown) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (List<String> docs : docsCasesWithoutPushdown) {
             plan = planWithMappingAndDocs(query, mapping, docs);
             // No EsSatsQueryExec as leaf of the plan.
             assertThat(plan.anyMatch(EsQueryExec.class::isInstance), is(true));
@@ -385,7 +402,7 @@ public class LocalPhysicalPlanOptimizerTests extends MapperServiceTestCase {
 
         // Cases where we can push this down as a COUNT(*) since there are only SVs
         List<List<String>> docsCasesWithPushdown = List.of(List.of(), List.of("{ \"salary\" : 1 }"), List.of("{ \"salary\": null }"));
-        for (List<String> docs : docsCasesWithPushdown) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (List<String> docs : docsCasesWithPushdown) {
             plan = planWithMappingAndDocs(query, mapping, docs);
 
             Holder<EsStatsQueryExec> leaf = new Holder<>();
@@ -412,6 +429,9 @@ public class LocalPhysicalPlanOptimizerTests extends MapperServiceTestCase {
         List<ParsedDocument> parsedDocs = docs.stream().map(d -> mapperService.documentMapper().parse(source(d))).toList();
 
         Holder<PhysicalPlan> plan = new Holder<>(null);
+        /**
+         * @brief [Functional Utility for withLuceneIndex]: Describe purpose here.
+         * @return [ReturnType]: [Description]\n         */
         withLuceneIndex(mapperService, indexWriter -> {
             for (ParsedDocument parsedDoc : parsedDocs) {
                 indexWriter.addDocument(parsedDoc.rootDoc());
@@ -474,7 +494,7 @@ public class LocalPhysicalPlanOptimizerTests extends MapperServiceTestCase {
             protected List<Batch<LogicalPlan>> batches() {
                 var oldBatches = super.batches();
                 List<Batch<LogicalPlan>> newBatches = new ArrayList<>(oldBatches.size());
-                for (var batch : oldBatches) {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                for (var batch : oldBatches) {
                     List<Rule<?, LogicalPlan>> rules = new ArrayList<>(List.of(batch.rules()));
                     rules.removeIf(r -> r instanceof ExtractAggregateCommonFilter);
                     newBatches.add(batch.with(rules.toArray(Rule[]::new)));
@@ -1235,7 +1255,7 @@ public class LocalPhysicalPlanOptimizerTests extends MapperServiceTestCase {
             // TODO: add unsigned_long https://github.com/elastic/elasticsearch/issues/102935
         );
 
-        for (OutOfRangeTestCase testCase : cases) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (OutOfRangeTestCase testCase : cases) {
             List<String> trueForSingleValuesPredicates = List.of(
                 LT + testCase.tooHigh,
                 LTE + testCase.tooHigh,
@@ -1253,7 +1273,7 @@ public class LocalPhysicalPlanOptimizerTests extends MapperServiceTestCase {
                 EQ + testCase.tooLow
             );
 
-            for (String truePredicate : trueForSingleValuesPredicates) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            for (String truePredicate : trueForSingleValuesPredicates) {
                 String comparison = testCase.fieldName + truePredicate;
                 var query = "from test | where " + comparison;
                 Source expectedSource = new Source(1, 18, comparison);
@@ -1269,7 +1289,7 @@ public class LocalPhysicalPlanOptimizerTests extends MapperServiceTestCase {
                 assertThat(actualLuceneQuery.next(), equalTo(unscore(matchAllQuery())));
             }
 
-            for (String falsePredicate : alwaysFalsePredicates) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            for (String falsePredicate : alwaysFalsePredicates) {
                 String comparison = testCase.fieldName + falsePredicate;
                 var query = "from test | where " + comparison;
                 Source expectedSource = new Source(1, 18, comparison);
@@ -1298,9 +1318,9 @@ public class LocalPhysicalPlanOptimizerTests extends MapperServiceTestCase {
             new OutOfRangeTestCase("half_float", smallerThanFloat, largerThanFloat)
         );
 
-        for (OutOfRangeTestCase testCase : cases) {
-            for (var value : List.of(testCase.tooHigh, testCase.tooLow)) {
-                for (String predicate : List.of(LT, LTE, GT, GTE, EQ, NEQ)) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (OutOfRangeTestCase testCase : cases) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            for (var value : List.of(testCase.tooHigh, testCase.tooLow)) {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                for (String predicate : List.of(LT, LTE, GT, GTE, EQ, NEQ)) {
                     String comparison = testCase.fieldName + predicate + value;
                     var query = "from test | where " + comparison;
 
@@ -1316,10 +1336,10 @@ public class LocalPhysicalPlanOptimizerTests extends MapperServiceTestCase {
 
                     QueryBuilder actualInnerLuceneQuery = actualLuceneQuery.next();
 
-                    if (predicate.equals(EQ)) {
+                     // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                     // Invariant: [State condition that holds true before and after each iteration/execution]\n                    if (predicate.equals(EQ)) {
                         QueryBuilder expectedInnerQuery = unscore(termQuery(testCase.fieldName, Double.parseDouble(value)));
                         assertThat(actualInnerLuceneQuery, equalTo(expectedInnerQuery));
-                    } else if (predicate.equals(NEQ)) {
+                     // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                     // Invariant: [State condition that holds true before and after each iteration/execution]\n                    } else if (predicate.equals(NEQ)) {
                         QueryBuilder expectedInnerQuery = unscore(
                             boolQuery().mustNot(unscore(termQuery(testCase.fieldName, Double.parseDouble(value))))
                         );
@@ -1666,8 +1686,8 @@ public class LocalPhysicalPlanOptimizerTests extends MapperServiceTestCase {
     ) {
         var analyzer = makeAnalyzer("mapping-all-types.json");
         // Check for every possible query data type
-        for (DataType fieldDataType : fieldDataTypes) {
-            if (DataType.UNDER_CONSTRUCTION.containsKey(fieldDataType)) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (DataType fieldDataType : fieldDataTypes) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (DataType.UNDER_CONSTRUCTION.containsKey(fieldDataType)) {
                 continue;
             }
 
@@ -1710,7 +1730,7 @@ public class LocalPhysicalPlanOptimizerTests extends MapperServiceTestCase {
     }
 
     private static String queryValueAsCasting(Object value, DataType dataType) {
-        if (value instanceof String) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (value instanceof String) {
             value = "\"" + value + "\"";
         }
         return switch (dataType) {
@@ -2206,7 +2226,7 @@ public class LocalPhysicalPlanOptimizerTests extends MapperServiceTestCase {
         var agg = as(limit.child(), AggregateExec.class);
         var aggregates = agg.aggregates();
         assertThat(aggregates.size(), is(2));
-        for (NamedExpression aggregate : aggregates) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (NamedExpression aggregate : aggregates) {
             var alias = as(aggregate, Alias.class);
             var count = as(alias.child(), Count.class);
             var match = as(count.filter(), Match.class);

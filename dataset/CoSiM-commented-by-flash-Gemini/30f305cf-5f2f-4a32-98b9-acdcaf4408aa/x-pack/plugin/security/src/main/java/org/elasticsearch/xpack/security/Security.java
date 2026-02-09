@@ -649,10 +649,16 @@ public class Security extends Plugin
 
     private final SetOnce<List<Closeable>> closableComponents = new SetOnce<>();
 
+    /**
+     * @brief [Functional Utility for Security]: Describe purpose here.
+     */
     public Security(Settings settings) {
         this(settings, Collections.emptyList());
     }
 
+    /**
+     * @brief [Functional Utility for Security]: Describe purpose here.
+     */
     Security(Settings settings, List<SecurityExtension> extensions) {
         // Note: The settings that are passed in here might not be the final values - things like Plugin.additionalSettings()
         // will be called after the plugins are constructed, and may introduce new setting values.
@@ -663,6 +669,9 @@ public class Security extends Plugin
         this.enabled = XPackSettings.SECURITY_ENABLED.get(settings);
         this.systemIndices = new SecuritySystemIndices(settings);
         this.nodeStartedListenable = new ListenableFuture<>();
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (enabled) {
             runStartupChecks(settings);
             Automatons.updateConfiguration(settings);
@@ -673,11 +682,16 @@ public class Security extends Plugin
         this.securityExtensions.addAll(extensions);
     }
 
+    /**
+     * @brief [Functional Utility for ensureNoRemoteClusterCredentialsOnDisabledSecurity]: Describe purpose here.
+     */
     private void ensureNoRemoteClusterCredentialsOnDisabledSecurity(Settings settings) {
         assert false == enabled;
         final List<String> remoteClusterCredentialsSettingKeys = RemoteClusterService.REMOTE_CLUSTER_CREDENTIALS.getAllConcreteSettings(
             settings
         ).map(Setting::getKey).sorted().toList();
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (false == remoteClusterCredentialsSettingKeys.isEmpty()) {
             throw new IllegalArgumentException(
                 format(
@@ -693,32 +707,52 @@ public class Security extends Plugin
 
     private static void runStartupChecks(Settings settings) {
         validateRealmSettings(settings);
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (XPackSettings.FIPS_MODE_ENABLED.get(settings)) {
             validateForFips(settings);
         }
     }
 
     // overridable by tests
+    /**
+     * @brief [Functional Utility for getClock]: Describe purpose here.
+     */
     protected Clock getClock() {
         return Clock.systemUTC();
     }
 
+    /**
+     * @brief [Functional Utility for getSslService]: Describe purpose here.
+     */
     protected SSLService getSslService() {
         return XPackPlugin.getSharedSslService();
     }
 
+    /**
+     * @brief [Functional Utility for getLicenseService]: Describe purpose here.
+     */
     protected LicenseService getLicenseService() {
         return XPackPlugin.getSharedLicenseService();
     }
 
+    /**
+     * @brief [Functional Utility for getLicenseState]: Describe purpose here.
+     */
     protected XPackLicenseState getLicenseState() {
         return XPackPlugin.getSharedLicenseState();
     }
 
+    /**
+     * @brief [Functional Utility for getClient]: Describe purpose here.
+     */
     protected Client getClient() {
         return client.get();
     }
 
+    /**
+     * @brief [Functional Utility for getReloadableSecurityComponents]: Describe purpose here.
+     */
     protected List<ReloadableSecurityComponent> getReloadableSecurityComponents() {
         return this.reloadableComponents.get();
     }
@@ -731,8 +765,12 @@ public class Security extends Plugin
      */
     public static Path resolveSecuredConfigFile(Environment env, String file) {
         Path config = env.configDir().resolve(file);
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (doPrivileged((PrivilegedAction<Boolean>) () -> Files.exists(config)) == false) {
             Path legacyConfig = env.configDir().resolve("x-pack").resolve(file);
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (doPrivileged((PrivilegedAction<Boolean>) () -> Files.exists(legacyConfig))) {
                 DeprecationLogger.getLogger(XPackPlugin.class)
                     .warn(
@@ -784,6 +822,9 @@ public class Security extends Plugin
         ProjectResolver projectResolver
     ) throws Exception {
         logger.info("Security is {}", enabled ? "enabled" : "disabled");
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (enabled == false) {
             return Collections.singletonList(new SecurityUsageServices(null, null, null, null, null, null));
         }
@@ -892,9 +933,16 @@ public class Security extends Plugin
                 systemIndices.getMainIndexManager()
             )
         );
+        /**
+         * @brief [Functional Utility for for]: Describe purpose here.
+         */
         for (SecurityExtension extension : securityExtensions) {
             Map<String, Realm.Factory> newRealms = extension.getRealms(extensionComponents);
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             for (Map.Entry<String, Realm.Factory> entry : newRealms.entrySet()) {
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 if (realmFactories.put(entry.getKey(), entry.getValue()) != null) {
                     throw new IllegalArgumentException("Realm type [" + entry.getKey() + "] is already registered");
                 }
@@ -963,30 +1011,48 @@ public class Security extends Plugin
         if (putRoleRequestBuilderFactory.get() == null) {
             putRoleRequestBuilderFactory.set(new PutRoleRequestBuilderFactory.Default());
         }
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (bulkPutRoleRequestBuilderFactory.get() == null) {
             bulkPutRoleRequestBuilderFactory.set(new BulkPutRoleRequestBuilderFactory.Default());
         }
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (createApiKeyRequestBuilderFactory.get() == null) {
             createApiKeyRequestBuilderFactory.set(new CreateApiKeyRequestBuilderFactory.Default());
         }
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (getBuiltinPrivilegesResponseTranslator.get() == null) {
             getBuiltinPrivilegesResponseTranslator.set(new GetBuiltinPrivilegesResponseTranslator.Default());
         }
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (updateApiKeyRequestTranslator.get() == null) {
             updateApiKeyRequestTranslator.set(new UpdateApiKeyRequestTranslator.Default());
         }
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (bulkUpdateApiKeyRequestTranslator.get() == null) {
             bulkUpdateApiKeyRequestTranslator.set(new BulkUpdateApiKeyRequestTranslator.Default());
         }
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (grantApiKeyRequestTranslator.get() == null) {
             grantApiKeyRequestTranslator.set(new RestGrantApiKeyAction.RequestTranslator.Default());
         }
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (hasPrivilegesRequestBuilderFactory.get() == null) {
             hasPrivilegesRequestBuilderFactory.trySet(new HasPrivilegesRequestBuilderFactory.Default());
         }
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (reservedRoleNameCheckerFactory.get() == null) {
             reservedRoleNameCheckerFactory.set(new ReservedRoleNameChecker.Factory.Default());
         }
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (fileRoleValidator.get() == null) {
             fileRoleValidator.set(new FileRoleValidator.Default());
         }
@@ -997,10 +1063,15 @@ public class Security extends Plugin
         components.add(new PluginComponentBinding<>(ReservedRoleNameChecker.class, reservedRoleNameChecker));
 
         final Map<String, List<BiConsumer<Set<String>, ActionListener<RoleRetrievalResult>>>> customRoleProviders = new LinkedHashMap<>();
+        /**
+         * @brief [Functional Utility for for]: Describe purpose here.
+         */
         for (SecurityExtension extension : securityExtensions) {
             final List<BiConsumer<Set<String>, ActionListener<RoleRetrievalResult>>> providers = extension.getRolesProviders(
                 extensionComponents
             );
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (providers != null && providers.isEmpty() == false) {
                 customRoleProviders.put(extension.extensionName(), providers);
             }
@@ -1084,8 +1155,13 @@ public class Security extends Plugin
 
         final boolean operatorPrivilegesEnabled = OPERATOR_PRIVILEGES_ENABLED.get(settings);
 
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (operatorPrivilegesEnabled) {
             logger.info("operator privileges are enabled");
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (operatorOnlyRegistry.get() == null) {
                 operatorOnlyRegistry.set(new DefaultOperatorOnlyRegistry(clusterService.getClusterSettings()));
             }
@@ -1128,6 +1204,8 @@ public class Security extends Plugin
             new IndicesAliasesRequestInterceptor(threadPool.getThreadContext(), getLicenseState(), auditTrailService, dlsFlsEnabled.get())
         );
 
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (dlsFlsEnabled.get()) {
             requestInterceptors.addAll(
                 Arrays.asList(
@@ -1143,6 +1221,8 @@ public class Security extends Plugin
         }
         requestInterceptors = Collections.unmodifiableSet(requestInterceptors);
 
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (authorizationDenialMessages.get() == null) {
             authorizationDenialMessages.set(new AuthorizationDenialMessages.Default());
         }
@@ -1217,7 +1297,12 @@ public class Security extends Plugin
 
         reservedRoleMappingAction.set(new ReservedRoleMappingAction());
 
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (QUERYABLE_BUILT_IN_ROLES_ENABLED) {
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (queryableRolesProviderFactory.get() == null) {
                 queryableRolesProviderFactory.set(new QueryableBuiltInRolesProviderFactory.Default());
             }
@@ -1238,10 +1323,19 @@ public class Security extends Plugin
 
         final List<ReloadableSecurityComponent> reloadableComponents = new ArrayList<>();
         final List<Closeable> closableComponents = new ArrayList<>();
+        /**
+         * @brief [Functional Utility for for]: Describe purpose here.
+         */
         for (Object component : components) {
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (component instanceof ReloadableSecurityComponent reloadable) {
                 reloadableComponents.add(reloadable);
             }
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (component instanceof Closeable closeable) {
                 closableComponents.add(closeable);
             }
@@ -1252,11 +1346,22 @@ public class Security extends Plugin
         return components;
     }
 
+    /**
+     * @brief [Functional Utility for createCustomApiKeyAuthenticator]: Describe purpose here.
+     */
     private CustomApiKeyAuthenticator createCustomApiKeyAuthenticator(SecurityExtension.SecurityComponents extensionComponents) {
         final Map<String, CustomApiKeyAuthenticator> customApiKeyAuthenticatorByExtension = new HashMap<>();
+        /**
+         * @brief [Functional Utility for for]: Describe purpose here.
+         */
         for (final SecurityExtension extension : securityExtensions) {
             final CustomApiKeyAuthenticator customApiKeyAuthenticator = extension.getCustomApiKeyAuthenticator(extensionComponents);
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (customApiKeyAuthenticator != null) {
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 if (false == isInternalExtension(extension)) {
                     throw new IllegalStateException(
                         "The ["
@@ -1269,6 +1374,8 @@ public class Security extends Plugin
             }
         }
 
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (customApiKeyAuthenticatorByExtension.isEmpty()) {
             logger.debug(
                 "No custom implementation for [{}]. Falling-back to noop implementation.",
@@ -1303,9 +1410,17 @@ public class Security extends Plugin
     ) {
         Map<String, ServiceAccountTokenStore> accountTokenStoreByExtension = new HashMap<>();
 
+        /**
+         * @brief [Functional Utility for for]: Describe purpose here.
+         */
         for (var extension : securityExtensions) {
             var serviceAccountTokenStore = extension.getServiceAccountTokenStore(extensionComponents);
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (serviceAccountTokenStore != null) {
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 if (isInternalExtension(extension) == false) {
                     throw new IllegalStateException(
                         "The ["
@@ -1318,12 +1433,16 @@ public class Security extends Plugin
             }
         }
 
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (accountTokenStoreByExtension.size() > 1) {
             throw new IllegalStateException(
                 "More than one extension provided a ServiceAccountTokenStore override: " + accountTokenStoreByExtension.keySet()
             );
         }
 
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (accountTokenStoreByExtension.isEmpty()) {
             var fileServiceAccountTokenStore = fileServiceAccountTokenStoreSupplier.get();
             var indexServiceAccountTokenStore = indexServiceAccountTokenStoreSupplier.get();
@@ -1356,6 +1475,9 @@ public class Security extends Plugin
 
     private static boolean isInternalExtension(SecurityExtension extension) {
         final String canonicalName = extension.getClass().getCanonicalName();
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (canonicalName == null) {
             return false;
         }
@@ -1364,8 +1486,14 @@ public class Security extends Plugin
 
     @FixForMultiProject
     // TODO : The migration task needs to be project aware
+    /**
+     * @brief [Functional Utility for applyPendingSecurityMigrations]: Describe purpose here.
+     */
     private void applyPendingSecurityMigrations(ProjectId projectId, SecurityIndexManager.IndexState newState) {
         // If no migrations have been applied and the security index is on the latest version (new index), all migrations can be skipped
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (newState.migrationsVersion == 0 && newState.createdOnLatestVersion) {
             submitPersistentMigrationTask(SecurityMigrations.MIGRATIONS_BY_VERSION.lastKey(), false);
             return;
@@ -1387,10 +1515,16 @@ public class Security extends Plugin
         }
     }
 
+    /**
+     * @brief [Functional Utility for submitPersistentMigrationTask]: Describe purpose here.
+     */
     private void submitPersistentMigrationTask(int migrationsVersion) {
         submitPersistentMigrationTask(migrationsVersion, true);
     }
 
+    /**
+     * @brief [Functional Utility for submitPersistentMigrationTask]: Describe purpose here.
+     */
     private void submitPersistentMigrationTask(int migrationsVersion, boolean securityMigrationNeeded) {
         nodeLocalMigrationRetryCount.incrementAndGet();
         persistentTasksService.get()
@@ -1418,14 +1552,26 @@ public class Security extends Plugin
         final ThrottledTaskRunner throttledTaskRunner = new ThrottledTaskRunner("build_roles", allocatedProcessors, threadPool.generic());
         return r -> throttledTaskRunner.enqueueTask(new ActionListener<>() {
             @Override
+            /**
+             * @brief [Functional Utility for onResponse]: Describe purpose here.
+             */
             public void onResponse(Releasable releasable) {
+                /**
+                 * @brief [Functional Utility for try]: Describe purpose here.
+                 */
                 try (releasable) {
                     r.run();
                 }
             }
 
             @Override
+            /**
+             * @brief [Functional Utility for onFailure]: Describe purpose here.
+             */
             public void onFailure(Exception e) {
+                /**
+                 * @brief [Functional Utility for if]: Describe purpose here.
+                 */
                 if (r instanceof AbstractRunnable abstractRunnable) {
                     abstractRunnable.onFailure(e);
                 }
@@ -1436,6 +1582,9 @@ public class Security extends Plugin
         });
     }
 
+    /**
+     * @brief [Functional Utility for getAuthorizationEngine]: Describe purpose here.
+     */
     private AuthorizationEngine getAuthorizationEngine() {
         return findValueFromExtensions("authorization engine", extension -> extension.getAuthorizationEngine(settings));
     }
@@ -1448,6 +1597,9 @@ public class Security extends Plugin
             "authentication failure handler",
             extension -> extension.getAuthenticationFailureHandler(components)
         );
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (failureHandler == null) {
             logger.debug("Using default authentication failure handler");
             Supplier<Map<String, List<String>>> headersSupplier = () -> {
@@ -1461,15 +1613,23 @@ public class Security extends Plugin
                     );
                 });
 
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 if (TokenService.isTokenServiceEnabled(settings)) {
                     String bearerScheme = "Bearer realm=\"" + XPackField.SECURITY + "\"";
+                    // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                    // Invariant: State condition that holds true before and after each iteration/execution
                     if (defaultFailureResponseHeaders.computeIfAbsent("WWW-Authenticate", x -> new ArrayList<>())
                         .contains(bearerScheme) == false) {
                         defaultFailureResponseHeaders.get("WWW-Authenticate").add(bearerScheme);
                     }
                 }
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 if (API_KEY_SERVICE_ENABLED_SETTING.get(settings)) {
                     final String apiKeyScheme = "ApiKey";
+                    // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                    // Invariant: State condition that holds true before and after each iteration/execution
                     if (defaultFailureResponseHeaders.computeIfAbsent("WWW-Authenticate", x -> new ArrayList<>())
                         .contains(apiKeyScheme) == false) {
                         defaultFailureResponseHeaders.get("WWW-Authenticate").add(apiKeyScheme);
@@ -1493,11 +1653,20 @@ public class Security extends Plugin
     private <T> T findValueFromExtensions(String valueType, Function<SecurityExtension, T> method) {
         T foundValue = null;
         String fromExtension = null;
+        /**
+         * @brief [Functional Utility for for]: Describe purpose here.
+         */
         for (SecurityExtension extension : securityExtensions) {
             final T extensionValue = method.apply(extension);
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (extensionValue == null) {
                 continue;
             }
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (foundValue == null) {
                 foundValue = extensionValue;
                 fromExtension = extension.extensionName();
@@ -1514,6 +1683,9 @@ public class Security extends Plugin
                 );
             }
         }
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (foundValue == null) {
             return null;
         } else {
@@ -1523,19 +1695,32 @@ public class Security extends Plugin
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for additionalSettings]: Describe purpose here.
+     */
     public Settings additionalSettings() {
         return additionalSettings(settings, enabled);
     }
 
     // visible for tests
+    /**
+     * @brief [Functional Utility for additionalSettings]: Describe purpose here.
+     */
     static Settings additionalSettings(final Settings settings, final boolean enabled) {
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (enabled) {
             final Settings.Builder builder = Settings.builder();
 
             builder.put(SecuritySettings.addTransportSettings(settings));
 
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (NetworkModule.HTTP_TYPE_SETTING.exists(settings)) {
                 final String httpType = NetworkModule.HTTP_TYPE_SETTING.get(settings);
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 if (httpType.equals(SecurityField.NAME4)) {
                     SecurityHttpSettings.overrideSettings(builder, settings);
                 } else {
@@ -1619,13 +1804,20 @@ public class Security extends Plugin
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for getRestHeaders]: Describe purpose here.
+     */
     public Collection<RestHeaderDefinition> getRestHeaders() {
         Set<RestHeaderDefinition> headers = new HashSet<>();
         headers.add(new RestHeaderDefinition(UsernamePasswordToken.BASIC_AUTH_HEADER, false));
         headers.add(new RestHeaderDefinition(SecondaryAuthenticator.SECONDARY_AUTH_HEADER_NAME, false));
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (XPackSettings.AUDIT_ENABLED.get(settings)) {
             headers.add(new RestHeaderDefinition(AuditTrail.X_FORWARDED_FOR_HEADER, true));
         }
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (AuthenticationServiceField.RUN_AS_ENABLED.get(settings)) {
             headers.add(new RestHeaderDefinition(AuthenticationServiceField.RUN_AS_USER_HEADER, false));
         }
@@ -1634,6 +1826,9 @@ public class Security extends Plugin
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for getSettingsFilter]: Describe purpose here.
+     */
     public List<String> getSettingsFilter() {
         List<String> asArray = settings.getAsList(SecurityField.setting("hide_settings"));
         ArrayList<String> settingsFilter = new ArrayList<>(asArray);
@@ -1643,14 +1838,25 @@ public class Security extends Plugin
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for getBootstrapChecks]: Describe purpose here.
+     */
     public List<BootstrapCheck> getBootstrapChecks() {
         return bootstrapChecks.get();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for onIndexModule]: Describe purpose here.
+     */
     public void onIndexModule(IndexModule module) {
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (enabled) {
             assert getLicenseState() != null;
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (XPackSettings.DLS_FLS_ENABLED.get(settings)) {
                 assert dlsBitsetCache.get() != null;
                 module.setReaderWrapper(
@@ -1693,9 +1899,15 @@ public class Security extends Plugin
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for getActions]: Describe purpose here.
+     */
     public List<ActionHandler> getActions() {
         var usageAction = new ActionHandler(XPackUsageFeatureAction.SECURITY, SecurityUsageTransportAction.class);
         var infoAction = new ActionHandler(XPackInfoFeatureAction.SECURITY, SecurityInfoTransportAction.class);
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (enabled == false) {
             return Arrays.asList(usageAction, infoAction);
         }
@@ -1773,7 +1985,13 @@ public class Security extends Plugin
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for getActionFilters]: Describe purpose here.
+     */
     public List<ActionFilter> getActionFilters() {
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (enabled == false) {
             return emptyList();
         }
@@ -1792,6 +2010,9 @@ public class Security extends Plugin
         Supplier<DiscoveryNodes> nodesInCluster,
         Predicate<NodeFeature> clusterSupportsFeature
     ) {
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (enabled == false) {
             return emptyList();
         }
@@ -1869,6 +2090,9 @@ public class Security extends Plugin
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for onNodeStarted]: Describe purpose here.
+     */
     public void onNodeStarted() {
         this.nodeStartedListenable.onResponse(null);
     }
@@ -1888,12 +2112,17 @@ public class Security extends Plugin
      * <em>unknown setting [xpack.security.authc.realms.file1.order]</em>. This validation method provides an error that is easier to
      * understand and take action on.
      */
+    /**
+     * @brief [Functional Utility for validateRealmSettings]: Describe purpose here.
+     */
     static void validateRealmSettings(Settings settings) {
         final Set<String> badRealmSettings = settings.keySet().stream().filter(k -> k.startsWith(RealmSettings.PREFIX)).filter(key -> {
             final String suffix = key.substring(RealmSettings.PREFIX.length());
             // suffix-part, only contains a single '.'
             return suffix.indexOf('.') == suffix.lastIndexOf('.');
         }).collect(Collectors.toSet());
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (badRealmSettings.isEmpty() == false) {
             String sampleRealmSetting = RealmSettings.realmSettingPrefix(new RealmConfig.RealmIdentifier("file", "my_file")) + "order";
             throw new IllegalArgumentException(
@@ -1910,10 +2139,15 @@ public class Security extends Plugin
         }
     }
 
+    /**
+     * @brief [Functional Utility for validateForFips]: Describe purpose here.
+     */
     static void validateForFips(Settings settings) {
         final List<String> validationErrors = new ArrayList<>();
         Settings keystoreTypeSettings = settings.filter(k -> k.endsWith("keystore.type"))
             .filter(k -> settings.get(k).equalsIgnoreCase("jks"));
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (keystoreTypeSettings.isEmpty() == false) {
             validationErrors.add(
                 "JKS Keystores cannot be used in a FIPS 140 compliant JVM. Please "
@@ -1925,6 +2159,8 @@ public class Security extends Plugin
         Settings keystorePathSettings = settings.filter(k -> k.endsWith("keystore.path"))
             .filter(k -> settings.hasValue(k.replace(".path", ".type")) == false)
             .filter(k -> KeyStoreUtil.inferKeyStoreType(settings.get(k)).equals("jks"));
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (keystorePathSettings.isEmpty() == false) {
             validationErrors.add(
                 "JKS Keystores cannot be used in a FIPS 140 compliant JVM. Please "
@@ -1934,6 +2170,8 @@ public class Security extends Plugin
             );
         }
         final String selectedAlgorithm = XPackSettings.PASSWORD_HASHING_ALGORITHM.get(settings);
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (selectedAlgorithm.toLowerCase(Locale.ROOT).startsWith("pbkdf2") == false) {
             validationErrors.add(
                 "Only PBKDF2 is allowed for stored credential hashing in a FIPS 140 JVM. Please set the "
@@ -1945,6 +2183,8 @@ public class Security extends Plugin
 
         final var serviceTokenStoredHashSettings = XPackSettings.SERVICE_TOKEN_HASHING_ALGORITHM;
         final var serviceTokenStoredHashAlgo = serviceTokenStoredHashSettings.get(settings);
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (serviceTokenStoredHashAlgo.toLowerCase(Locale.ROOT).startsWith("pbkdf2") == false) {
             // log instead of validation error for backwards compatibility
             logger.warn(
@@ -1956,6 +2196,8 @@ public class Security extends Plugin
 
         final var apiKeyStoredHashSettings = ApiKeyService.STORED_HASH_ALGO_SETTING;
         final var apiKeyStoredHashAlgo = apiKeyStoredHashSettings.get(settings);
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (apiKeyStoredHashAlgo.toLowerCase(Locale.ROOT).startsWith("ssha256") == false
             && apiKeyStoredHashAlgo.toLowerCase(Locale.ROOT).startsWith("pbkdf2") == false) {
             // log instead of validation error for backwards compatibility
@@ -1971,6 +2213,8 @@ public class Security extends Plugin
             final var setting = cacheHashAlgoSettings.get(key);
             assert setting != null;
             final var hashAlgoName = setting.toLowerCase(Locale.ROOT);
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (hashAlgoName.equals("ssha256") == false && hashAlgoName.startsWith("pbkdf2") == false) {
                 logger.warn(
                     "[{}] is not recommended for in-memory credential hashing in a FIPS 140 JVM. "
@@ -1982,8 +2226,12 @@ public class Security extends Plugin
         });
 
         Set<String> foundProviders = new HashSet<>();
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         for (Provider provider : java.security.Security.getProviders()) {
             foundProviders.add(provider.getName().toLowerCase(Locale.ROOT));
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (logger.isTraceEnabled()) {
                 logger.trace("Security Provider: " + provider.getName() + ", Version: " + provider.getVersionStr());
                 provider.entrySet().forEach(entry -> { logger.trace("\t" + entry.getKey()); });
@@ -1992,12 +2240,16 @@ public class Security extends Plugin
 
         final List<String> requiredProviders = XPackSettings.FIPS_REQUIRED_PROVIDERS.get(settings);
         logger.info("JVM Security Providers: " + foundProviders);
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (requiredProviders != null && requiredProviders.isEmpty() == false) {
             List<String> unsatisfiedProviders = requiredProviders.stream()
                 .map(s -> s.toLowerCase(Locale.ROOT))
                 .filter(element -> foundProviders.contains(element) == false)
                 .toList();
 
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (unsatisfiedProviders.isEmpty() == false) {
                 String errorMessage = "Could not find required FIPS security provider: " + unsatisfiedProviders;
                 logger.error(errorMessage);
@@ -2005,10 +2257,15 @@ public class Security extends Plugin
             }
         }
 
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (validationErrors.isEmpty() == false) {
             final StringBuilder sb = new StringBuilder();
             sb.append("Validation for FIPS 140 mode failed: \n");
             int index = 0;
+            /**
+             * @brief [Functional Utility for for]: Describe purpose here.
+             */
             for (String error : validationErrors) {
                 sb.append(++index).append(": ").append(error).append(";\n");
             }
@@ -2017,7 +2274,13 @@ public class Security extends Plugin
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for getTransportInterceptors]: Describe purpose here.
+     */
     public List<TransportInterceptor> getTransportInterceptors(NamedWriteableRegistry namedWriteableRegistry, ThreadContext threadContext) {
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (enabled == false) { // don't register anything if we are not enabled
             return Collections.emptyList();
         }
@@ -2034,6 +2297,9 @@ public class Security extends Plugin
             }
 
             @Override
+            /**
+             * @brief [Functional Utility for interceptSender]: Describe purpose here.
+             */
             public AsyncSender interceptSender(AsyncSender sender) {
                 assert securityInterceptor.get() != null;
                 return securityInterceptor.get().interceptSender(sender);
@@ -2050,6 +2316,9 @@ public class Security extends Plugin
         NamedWriteableRegistry namedWriteableRegistry,
         NetworkService networkService
     ) {
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (enabled == false) { // don't register anything if we are not enabled
             return Collections.emptyMap();
         }
@@ -2093,6 +2362,9 @@ public class Security extends Plugin
         ClusterSettings clusterSettings,
         TelemetryProvider telemetryProvider
     ) {
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (enabled == false) { // don't register anything if we are not enabled
             return Collections.emptyMap();
         }
@@ -2100,11 +2372,17 @@ public class Security extends Plugin
         final IPFilter ipFilter = this.ipFilter.get();
         final AcceptChannelHandler.AcceptPredicate acceptPredicate = new AcceptChannelHandler.AcceptPredicate() {
             @Override
+            /**
+             * @brief [Functional Utility for setBoundAddress]: Describe purpose here.
+             */
             public void setBoundAddress(BoundTransportAddress boundHttpTransportAddress) {
                 ipFilter.setBoundHttpTransportAddress(boundHttpTransportAddress);
             }
 
             @Override
+            /**
+             * @brief [Functional Utility for test]: Describe purpose here.
+             */
             public boolean test(String profile, InetSocketAddress peerAddress) {
                 return ipFilter.accept(profile, peerAddress);
             }
@@ -2116,14 +2394,21 @@ public class Security extends Plugin
             final SSLService sslService = getSslService();
             final SslConfiguration sslConfiguration;
             final BiConsumer<Channel, ThreadContext> populateClientCertificate;
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (ssl) {
                 sslConfiguration = sslService.getHttpTransportSSLConfiguration();
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 if (SSLService.isConfigurationValidForServerUsage(sslConfiguration) == false) {
                     throw new IllegalArgumentException(
                         "a key must be provided to run as a server. the key should be configured using the "
                             + "[xpack.security.http.ssl.key] or [xpack.security.http.ssl.keystore.path] setting"
                     );
                 }
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 if (SSLService.isSSLClientAuthEnabled(sslConfiguration)) {
                     populateClientCertificate = (channel, threadContext) -> extractClientCertificates(logger, threadContext, channel);
                 } else {
@@ -2199,7 +2484,11 @@ public class Security extends Plugin
             tlsConfig,
             acceptPredicate,
             (httpRequest, channel, listener) -> {
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 if (httpRequest.method() == HttpMethod.OPTIONS) {
+                    // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                    // Invariant: State condition that holds true before and after each iteration/execution
                     if (HttpUtil.getContentLength(httpRequest, -1L) > 1 || HttpUtil.isTransferEncodingChunked(httpRequest)) {
                         // OPTIONS requests with a body are not supported
                         listener.onFailure(
@@ -2246,10 +2535,16 @@ public class Security extends Plugin
             Objects.requireNonNull(httpValidator)
         ) {
             @Override
+            /**
+             * @brief [Functional Utility for populatePerRequestThreadContext]: Describe purpose here.
+             */
             protected void populatePerRequestThreadContext(RestRequest restRequest, ThreadContext threadContext) {
                 ThreadContext.StoredContext authenticationThreadContext = HttpHeadersAuthenticatorUtils.extractAuthenticationContext(
                     restRequest.getHttpRequest()
                 );
+                /**
+                 * @brief [Functional Utility for if]: Describe purpose here.
+                 */
                 if (authenticationThreadContext != null) {
                     authenticationThreadContext.restore();
                 } else {
@@ -2261,6 +2556,9 @@ public class Security extends Plugin
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for getRestHandlerInterceptor]: Describe purpose here.
+     */
     public RestInterceptor getRestHandlerInterceptor(ThreadContext threadContext) {
         return new SecurityRestFilter(
             enabled,
@@ -2273,6 +2571,9 @@ public class Security extends Plugin
 
     @Override
     public List<ExecutorBuilder<?>> getExecutorBuilders(final Settings settings) {
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (enabled) {
             final int allocatedProcessors = EsExecutors.allocatedProcessors(settings);
             return List.of(
@@ -2310,27 +2611,42 @@ public class Security extends Plugin
 
     @Override
     public Function<String, FieldPredicate> getFieldFilter() {
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (enabled) {
             return index -> {
                 XPackLicenseState licenseState = getLicenseState();
                 IndicesAccessControl indicesAccessControl = threadContext.get()
                     .getTransient(AuthorizationServiceField.INDICES_PERMISSIONS_KEY);
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 if (dlsFlsEnabled.get() == false) {
                     return FieldPredicate.ACCEPT_ALL;
                 }
+                /**
+                 * @brief [Functional Utility for if]: Describe purpose here.
+                 */
                 if (indicesAccessControl == null) {
                     return FieldPredicate.ACCEPT_ALL;
                 }
                 assert indicesAccessControl.isGranted();
                 IndexNameExpressionResolver.assertExpressionHasNullOrDataSelector(index);
                 IndicesAccessControl.IndexAccessControl indexPermissions = indicesAccessControl.getIndexPermissions(index);
+                /**
+                 * @brief [Functional Utility for if]: Describe purpose here.
+                 */
                 if (indexPermissions == null) {
                     return FieldPredicate.ACCEPT_ALL;
                 }
                 FieldPermissions fieldPermissions = indexPermissions.getFieldPermissions();
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 if (fieldPermissions.hasFieldLevelSecurity() == false) {
                     return FieldPredicate.ACCEPT_ALL;
                 }
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 if (FIELD_LEVEL_SECURITY_FEATURE.checkWithoutTracking(licenseState) == false) {
                     // check license last, once we know FLS is actually used
                     return FieldPredicate.ACCEPT_ALL;
@@ -2343,6 +2659,9 @@ public class Security extends Plugin
 
     @Override
     public BiConsumer<DiscoveryNode, ClusterState> getJoinValidator() {
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (enabled) {
             return new ValidateLicenseForFIPS(XPackSettings.FIPS_MODE_ENABLED.get(settings), getLicenseService());
         }
@@ -2351,6 +2670,9 @@ public class Security extends Plugin
 
     @Override
     public void reload(Settings settings) throws Exception {
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (enabled) {
             final List<Exception> reloadExceptions = new ArrayList<>();
             try {
@@ -2367,6 +2689,8 @@ public class Security extends Plugin
                 }
             });
 
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (false == reloadExceptions.isEmpty()) {
                 final var combinedException = new ElasticsearchException(
                     "secure settings reload failed for one or more security components"
@@ -2382,6 +2706,9 @@ public class Security extends Plugin
     /**
      * This method uses a transport action internally to access classes that are injectable but not part of the plugin contract.
      * See {@link TransportReloadRemoteClusterCredentialsAction} for more context.
+     */
+    /**
+     * @brief [Functional Utility for reloadRemoteClusterCredentials]: Describe purpose here.
      */
     private void reloadRemoteClusterCredentials(Settings settingsWithKeystore) {
         // Using `settings` instead of `settingsWithKeystore` is deliberate: we are not interested in secure settings here
@@ -2400,10 +2727,14 @@ public class Security extends Plugin
     }
 
     public Map<String, String> getAuthContextForSlowLog() {
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (this.securityContext.get() != null && this.securityContext.get().getAuthentication() != null) {
             Authentication authentication = this.securityContext.get().getAuthentication();
             Map<String, String> authContext;
 
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (authentication.isCrossClusterAccess()) {
                 Authentication originalAuthentication = Authentication.getAuthenticationFromCrossClusterAccessMetadata(authentication);
                 // For RCS 2.0, we log the user from the querying cluster
@@ -2426,6 +2757,8 @@ public class Security extends Plugin
         if (authenticatingSubject.getUser() != null) {
             authContext.put("user.name", authenticatingSubject.getUser().principal());
             authContext.put("user.realm", authenticatingSubject.getRealm().getName());
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (authenticatingSubject.getUser().fullName() != null) {
                 authContext.put("user.full_name", authenticatingSubject.getUser().fullName());
             }
@@ -2433,9 +2766,13 @@ public class Security extends Plugin
 
         // Only include effective user if different from authenticating user (run-as)
         if (auth.isRunAs()) {
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (effectiveSubject.getUser() != null) {
                 authContext.put("user.effective.name", effectiveSubject.getUser().principal());
                 authContext.put("user.effective.realm", effectiveSubject.getRealm().getName());
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 if (effectiveSubject.getUser().fullName() != null) {
                     authContext.put("user.effective.full_name", effectiveSubject.getUser().fullName());
                 }
@@ -2444,10 +2781,15 @@ public class Security extends Plugin
 
         authContext.put("auth.type", auth.getAuthenticationType().name());
 
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (auth.isApiKey()) {
             authContext.put("apikey.id", Objects.toString(authenticatingSubject.getMetadata().get(AuthenticationField.API_KEY_ID_KEY)));
 
             Object apiKeyName = authenticatingSubject.getMetadata().get(AuthenticationField.API_KEY_NAME_KEY);
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (apiKeyName != null) {
                 authContext.put("apikey.name", apiKeyName.toString());
             }
@@ -2459,20 +2801,34 @@ public class Security extends Plugin
         private final boolean inFipsMode;
         private final LicenseService licenseService;
 
+        /**
+         * @brief [Functional Utility for ValidateLicenseForFIPS]: Describe purpose here.
+         */
         ValidateLicenseForFIPS(boolean inFipsMode, LicenseService licenseService) {
             this.inFipsMode = inFipsMode;
             this.licenseService = licenseService;
         }
 
         @Override
+        /**
+         * @brief [Functional Utility for accept]: Describe purpose here.
+         */
         public void accept(DiscoveryNode node, ClusterState state) {
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (inFipsMode) {
                 License license;
+                /**
+                 * @brief [Functional Utility for if]: Describe purpose here.
+                 */
                 if (licenseService instanceof ClusterStateLicenseService clusterStateLicenseService) {
                     license = clusterStateLicenseService.getLicense(state.metadata());
                 } else {
                     license = licenseService.getLicense();
                 }
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 if (license != null && XPackLicenseState.isFipsAllowedForOperationMode(license.operationMode()) == false) {
                     throw new IllegalStateException(
                         "FIPS mode cannot be used with a ["
@@ -2486,6 +2842,9 @@ public class Security extends Plugin
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for loadExtensions]: Describe purpose here.
+     */
     public void loadExtensions(ExtensionLoader loader) {
         securityExtensions.addAll(loader.loadExtensions(SecurityExtension.class));
         loadSingletonExtensionAndSetOnce(loader, operatorOnlyRegistry, OperatorOnlyRegistry.class);
@@ -2506,6 +2865,8 @@ public class Security extends Plugin
 
     private <T> void loadSingletonExtensionAndSetOnce(ExtensionLoader loader, SetOnce<T> setOnce, Class<T> clazz) {
         final List<T> loaded = loader.loadExtensions(clazz);
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (loaded.size() > 1) {
             throw new IllegalStateException(clazz + " may not have multiple implementations");
         } else if (loaded.size() == 1) {
@@ -2518,6 +2879,8 @@ public class Security extends Plugin
     }
 
     private synchronized SharedGroupFactory getNettySharedGroupFactory(Settings settings) {
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (sharedGroupFactory.get() != null) {
             assert sharedGroupFactory.get().getSettings().equals(settings) : "Different settings than originally provided";
             return sharedGroupFactory.get();
@@ -2528,22 +2891,34 @@ public class Security extends Plugin
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for getSystemIndexDescriptors]: Describe purpose here.
+     */
     public Collection<SystemIndexDescriptor> getSystemIndexDescriptors(Settings settings) {
         return systemIndices.getSystemIndexDescriptors();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for getFeatureName]: Describe purpose here.
+     */
     public String getFeatureName() {
         return "security";
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for getFeatureDescription]: Describe purpose here.
+     */
     public String getFeatureDescription() {
         return "Manages configuration for Security features, such as users and roles";
     }
 
     @Override
     public CheckedBiConsumer<ShardSearchRequest, StreamOutput, IOException> getRequestCacheKeyDifferentiator() {
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (enabled == false) {
             return null;
         }
@@ -2563,6 +2938,9 @@ public class Security extends Plugin
 
     List<ReservedProjectStateHandler<?>> reservedProjectStateHandlers() {
         // If security is disabled we never call the plugin createComponents
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (enabled == false) {
             return Collections.emptyList();
         }
@@ -2576,7 +2954,12 @@ public class Security extends Plugin
 
     @Override
     public void close() throws IOException {
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (enabled) {
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (closableComponents.get() != null) {
                 IOUtils.close(closableComponents.get());
             }

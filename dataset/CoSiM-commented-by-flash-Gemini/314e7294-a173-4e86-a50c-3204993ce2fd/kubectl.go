@@ -23,6 +23,7 @@ import (
 	cmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
 )
 
+// Functional Utility: Describe purpose of NewKubectlServer here.
 func NewKubectlServer() *Server {
 	cmd := cmd.NewKubectlCommand(cmdutil.NewFactory(nil), os.Stdin, os.Stdout, os.Stderr)
 	localFlags := cmd.LocalFlags()

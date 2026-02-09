@@ -48,6 +48,11 @@ import static org.elasticsearch.xcontent.ConstructingObjectParser.optionalConstr
 import static org.elasticsearch.xpack.core.ClientHelper.ML_ORIGIN;
 import static org.elasticsearch.xpack.core.ClientHelper.executeAsyncWithOrigin;
 
+ /**
+  * @brief Functional description of the SparseVectorQueryBuilder class.
+  *        This is a placeholder for detailed semantic documentation.
+  *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+  */
 public class SparseVectorQueryBuilder extends AbstractQueryBuilder<SparseVectorQueryBuilder> {
     public static final String NAME = "sparse_vector";
     public static final String ALLOWED_FIELD_TYPE = "sparse_vector";
@@ -63,21 +68,45 @@ public class SparseVectorQueryBuilder extends AbstractQueryBuilder<SparseVectorQ
     static final TransportVersion SPARSE_VECTOR_FIELD_PRUNING_OPTIONS_8_19 = TransportVersions.SPARSE_VECTOR_FIELD_PRUNING_OPTIONS_8_19;
     static final TransportVersion SPARSE_VECTOR_FIELD_PRUNING_OPTIONS = TransportVersions.SPARSE_VECTOR_FIELD_PRUNING_OPTIONS;
 
+     /**
+      * @brief [Functional description for field fieldName]: Describe purpose here.
+      */
     private final String fieldName;
+     /**
+      * @brief [Functional description for field queryVectors]: Describe purpose here.
+      */
     private final List<WeightedToken> queryVectors;
+     /**
+      * @brief [Functional description for field inferenceId]: Describe purpose here.
+      */
     private final String inferenceId;
+     /**
+      * @brief [Functional description for field query]: Describe purpose here.
+      */
     private final String query;
+     /**
+      * @brief [Functional description for field shouldPruneTokens]: Describe purpose here.
+      */
     private final Boolean shouldPruneTokens;
 
+     /**
+      * @brief [Functional description for field weightedTokensSupplier]: Describe purpose here.
+      */
     private final SetOnce<TextExpansionResults> weightedTokensSupplier;
 
     @Nullable
+     /**
+      * @brief [Functional description for field tokenPruningConfig]: Describe purpose here.
+      */
     private final TokenPruningConfig tokenPruningConfig;
 
     public SparseVectorQueryBuilder(String fieldName, String inferenceId, String query) {
         this(fieldName, null, inferenceId, query, DEFAULT_PRUNE, null);
     }
 
+    /**
+     * @brief [Functional Utility for SparseVectorQueryBuilder]: Describe purpose here.
+     */
     public SparseVectorQueryBuilder(
         String fieldName,
         @Nullable List<WeightedToken> queryVectors,
@@ -95,7 +124,7 @@ public class SparseVectorQueryBuilder extends AbstractQueryBuilder<SparseVectorQ
         this.weightedTokensSupplier = null;
 
         // Preserve BWC error messaging
-        if (queryVectors != null && inferenceId != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (queryVectors != null && inferenceId != null) {
             throw new IllegalArgumentException(
                 "["
                     + NAME
@@ -110,7 +139,7 @@ public class SparseVectorQueryBuilder extends AbstractQueryBuilder<SparseVectorQ
         }
 
         // Preserve BWC error messaging
-        if ((queryVectors == null) == (query == null)) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if ((queryVectors == null) == (query == null)) {
             throw new IllegalArgumentException(
                 "["
                     + NAME
@@ -129,10 +158,10 @@ public class SparseVectorQueryBuilder extends AbstractQueryBuilder<SparseVectorQ
         super(in);
         this.fieldName = in.readString();
 
-        if (in.getTransportVersion().isPatchFrom(SPARSE_VECTOR_FIELD_PRUNING_OPTIONS_8_19)
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (in.getTransportVersion().isPatchFrom(SPARSE_VECTOR_FIELD_PRUNING_OPTIONS_8_19)
             || in.getTransportVersion().onOrAfter(SPARSE_VECTOR_FIELD_PRUNING_OPTIONS)) {
             this.shouldPruneTokens = in.readOptionalBoolean();
-        } else {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else {
             this.shouldPruneTokens = in.readBoolean();
         }
 
@@ -179,16 +208,16 @@ public class SparseVectorQueryBuilder extends AbstractQueryBuilder<SparseVectorQ
 
     @Override
     protected void doWriteTo(StreamOutput out) throws IOException {
-        if (weightedTokensSupplier != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (weightedTokensSupplier != null) {
             throw new IllegalStateException("weighted tokens supplier must be null, can't serialize suppliers, missing a rewriteAndFetch?");
         }
 
         out.writeString(fieldName);
 
-        if (out.getTransportVersion().isPatchFrom(SPARSE_VECTOR_FIELD_PRUNING_OPTIONS_8_19)
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (out.getTransportVersion().isPatchFrom(SPARSE_VECTOR_FIELD_PRUNING_OPTIONS_8_19)
             || out.getTransportVersion().onOrAfter(SPARSE_VECTOR_FIELD_PRUNING_OPTIONS)) {
             out.writeOptionalBoolean(shouldPruneTokens);
-        } else {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else {
             out.writeBoolean(shouldPruneTokens);
         }
 
@@ -202,22 +231,22 @@ public class SparseVectorQueryBuilder extends AbstractQueryBuilder<SparseVectorQ
     protected void doXContent(XContentBuilder builder, Params params) throws IOException {
         builder.startObject(NAME);
         builder.field(FIELD_FIELD.getPreferredName(), fieldName);
-        if (queryVectors != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (queryVectors != null) {
             builder.startObject(QUERY_VECTOR_FIELD.getPreferredName());
-            for (var token : queryVectors) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            for (var token : queryVectors) {
                 token.toXContent(builder, params);
             }
             builder.endObject();
-        } else {
-            if (inferenceId != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (inferenceId != null) {
                 builder.field(INFERENCE_ID_FIELD.getPreferredName(), inferenceId);
             }
             builder.field(QUERY_FIELD.getPreferredName(), query);
         }
-        if (shouldPruneTokens != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (shouldPruneTokens != null) {
             builder.field(PRUNE_FIELD.getPreferredName(), shouldPruneTokens);
         }
-        if (tokenPruningConfig != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (tokenPruningConfig != null) {
             builder.field(PRUNING_CONFIG_FIELD.getPreferredName(), tokenPruningConfig);
         }
         boostAndQueryNameToXContent(builder);
@@ -226,16 +255,16 @@ public class SparseVectorQueryBuilder extends AbstractQueryBuilder<SparseVectorQ
 
     @Override
     protected Query doToQuery(SearchExecutionContext context) throws IOException {
-        if (queryVectors == null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (queryVectors == null) {
             return new MatchNoDocsQuery("Empty query vectors");
         }
 
         final MappedFieldType ft = context.getFieldType(fieldName);
-        if (ft == null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (ft == null) {
             return new MatchNoDocsQuery("The \"" + getName() + "\" query is against a field that does not exist");
         }
 
-        if (ft instanceof SparseVectorFieldMapper.SparseVectorFieldType svft) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (ft instanceof SparseVectorFieldMapper.SparseVectorFieldType svft) {
             return svft.finalizeSparseVectorQuery(context, fieldName, queryVectors, shouldPruneTokens, tokenPruningConfig);
         }
 
@@ -246,13 +275,13 @@ public class SparseVectorQueryBuilder extends AbstractQueryBuilder<SparseVectorQ
 
     @Override
     protected QueryBuilder doRewrite(QueryRewriteContext queryRewriteContext) {
-        if (queryVectors != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (queryVectors != null) {
             return this;
         }
 
-        if (weightedTokensSupplier != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (weightedTokensSupplier != null) {
             TextExpansionResults textExpansionResults = weightedTokensSupplier.get();
-            if (textExpansionResults == null) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (textExpansionResults == null) {
                 return this; // No results yet
             }
 
@@ -266,7 +295,7 @@ public class SparseVectorQueryBuilder extends AbstractQueryBuilder<SparseVectorQ
             );
         }
 
-        if (inferenceId == null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (inferenceId == null) {
             // Edge case, where inference_id was not specified in the request,
             // but we did not intercept this and rewrite to a query o field with
             // pre-configured inference. So we trap here and output a nicer error message.
@@ -294,21 +323,21 @@ public class SparseVectorQueryBuilder extends AbstractQueryBuilder<SparseVectorQ
                 ActionListener.wrap(inferenceResponse -> {
 
                     List<InferenceResults> inferenceResults = inferenceResponse.getInferenceResults();
-                    if (inferenceResults.isEmpty()) {
+                     // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                     // Invariant: [State condition that holds true before and after each iteration/execution]\n                    if (inferenceResults.isEmpty()) {
                         listener.onFailure(new IllegalStateException("inference response contain no results"));
                         return;
                     }
-                    if (inferenceResults.size() > 1) {
+                     // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                     // Invariant: [State condition that holds true before and after each iteration/execution]\n                    if (inferenceResults.size() > 1) {
                         listener.onFailure(new IllegalStateException("inference response should contain only one result"));
                         return;
                     }
 
-                    if (inferenceResults.get(0) instanceof TextExpansionResults textExpansionResults) {
+                     // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                     // Invariant: [State condition that holds true before and after each iteration/execution]\n                    if (inferenceResults.get(0) instanceof TextExpansionResults textExpansionResults) {
                         textExpansionResultsSupplier.set(textExpansionResults);
                         listener.onResponse(null);
-                    } else if (inferenceResults.get(0) instanceof WarningInferenceResults warning) {
+                     // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                     // Invariant: [State condition that holds true before and after each iteration/execution]\n                    } else if (inferenceResults.get(0) instanceof WarningInferenceResults warning) {
                         listener.onFailure(new IllegalStateException(warning.getWarning()));
-                    } else {
+                     // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                     // Invariant: [State condition that holds true before and after each iteration/execution]\n                    } else {
                         listener.onFailure(
                             new IllegalArgumentException(
                                 "expected a result of type ["
@@ -366,15 +395,15 @@ public class SparseVectorQueryBuilder extends AbstractQueryBuilder<SparseVectorQ
 
     private static List<WeightedToken> parseWeightedTokens(Map<String, Object> weightedTokenMap) {
         List<WeightedToken> weightedTokens = null;
-        if (weightedTokenMap != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (weightedTokenMap != null) {
             weightedTokens = new ArrayList<>();
-            for (Map.Entry<String, Object> entry : weightedTokenMap.entrySet()) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            for (Map.Entry<String, Object> entry : weightedTokenMap.entrySet()) {
                 String token = entry.getKey();
                 Object weight = entry.getValue();
-                if (weight instanceof Number number) {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                if (weight instanceof Number number) {
                     WeightedToken weightedToken = new WeightedToken(token, number.floatValue());
                     weightedTokens.add(weightedToken);
-                } else {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                } else {
                     throw new IllegalArgumentException("weight must be a number, was [" + weight + "]");
                 }
             }

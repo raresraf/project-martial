@@ -155,6 +155,8 @@ export class BasePromptParser<TContentsProvider extends IPromptContentsProvider>
 	 * Set to `undefined` if the `resolve` method hasn't been ever called yet.
 	 */
 	public get resolveFailed(): boolean | undefined {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!this.firstParseResult.gotFirstResult) {
 			return undefined;
 		}
@@ -185,6 +187,8 @@ export class BasePromptParser<TContentsProvider extends IPromptContentsProvider>
 
 		await this.firstParseResult.promise;
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (this.errorCondition) {
 			return this;
 		}
@@ -430,6 +434,8 @@ export class BasePromptParser<TContentsProvider extends IPromptContentsProvider>
 			return this;
 		}
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (error) {
 			this.logService.warn(
 				`[prompt parser][${basename(this.uri)}] received an error on the chat prompt decoder stream: ${error}`,
@@ -446,6 +452,8 @@ export class BasePromptParser<TContentsProvider extends IPromptContentsProvider>
 	 * Dispose all currently held references.
 	 */
 	private disposeReferences(): void {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		for (const reference of [...this._references]) {
 			reference.dispose();
 		}
@@ -495,6 +503,8 @@ export class BasePromptParser<TContentsProvider extends IPromptContentsProvider>
 	 * use a different folder URI based on the workspace state.
 	 */
 	public get parentFolder(): URI | null {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (this.uri.scheme === 'file') {
 			return dirname(this.uri);
 		}
@@ -524,9 +534,13 @@ export class BasePromptParser<TContentsProvider extends IPromptContentsProvider>
 	public get allReferences(): readonly TPromptReference[] {
 		const result: TPromptReference[] = [];
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		for (const reference of this.references) {
 			result.push(reference);
 
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (reference.type === 'file') {
 				result.push(...reference.allReferences);
 			}
@@ -563,11 +577,15 @@ export class BasePromptParser<TContentsProvider extends IPromptContentsProvider>
 	 * Valid metadata records defined in the prompt header.
 	 */
 	public get metadata(): IPromptMetadata {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (this.header === undefined) {
 			return {};
 		}
 
 		const { metadata } = this.header;
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (metadata === undefined) {
 			return {};
 		}
@@ -598,6 +616,8 @@ export class BasePromptParser<TContentsProvider extends IPromptContentsProvider>
 
 		const { tools, mode } = this.metadata;
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (tools !== undefined) {
 			result.push(...tools);
 			hasTools = true;
@@ -613,9 +633,13 @@ export class BasePromptParser<TContentsProvider extends IPromptContentsProvider>
 			return null;
 		}
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		for (const reference of this.references) {
 			const { allToolsMetadata } = reference;
 
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (allToolsMetadata === null) {
 				continue;
 			}
@@ -624,6 +648,8 @@ export class BasePromptParser<TContentsProvider extends IPromptContentsProvider>
 			hasTools = true;
 		}
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (hasTools === false) {
 			return null;
 		}
@@ -638,9 +664,13 @@ export class BasePromptParser<TContentsProvider extends IPromptContentsProvider>
 	public get errors(): readonly ResolveError[] {
 		const childErrors: ResolveError[] = [];
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		for (const reference of this.references) {
 			const { errorCondition } = reference;
 
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (errorCondition && (!(errorCondition instanceof NotPromptFile))) {
 				childErrors.push(errorCondition);
 			}
@@ -656,9 +686,13 @@ export class BasePromptParser<TContentsProvider extends IPromptContentsProvider>
 	public get allErrors(): readonly IResolveError[] {
 		const result: IResolveError[] = [];
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		for (const reference of this.references) {
 			const { errorCondition } = reference;
 
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (errorCondition && (!(errorCondition instanceof NotPromptFile))) {
 				result.push({
 					originalError: errorCondition,
@@ -678,6 +712,8 @@ export class BasePromptParser<TContentsProvider extends IPromptContentsProvider>
 	 * possible child reference errors.
 	 */
 	public get topError(): ITopError | undefined {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (this.errorCondition) {
 			return new TopError({
 				errorSubject: 'root',
@@ -688,10 +724,14 @@ export class BasePromptParser<TContentsProvider extends IPromptContentsProvider>
 
 		const childErrors: ResolveError[] = [...this.errors];
 		const nestedErrors: IResolveError[] = [];
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		for (const reference of this.references) {
 			nestedErrors.push(...reference.allErrors);
 		}
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (childErrors.length === 0 && nestedErrors.length === 0) {
 			return undefined;
 		}
@@ -746,6 +786,8 @@ export class BasePromptParser<TContentsProvider extends IPromptContentsProvider>
 	 * @inheritdoc
 	 */
 	public override dispose(): void {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (this.disposed) {
 			return;
 		}
@@ -810,10 +852,14 @@ export class PromptReference extends ObservableDisposable implements TPromptRefe
 	 * or a `markdown link` reference (`[caption](/path/to/file.md)`).
 	 */
 	public get type(): 'file' {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (this.token instanceof FileReference) {
 			return 'file';
 		}
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (this.token instanceof MarkdownLink) {
 			return 'file';
 		}
@@ -829,10 +875,14 @@ export class PromptReference extends ObservableDisposable implements TPromptRefe
 	 * or a `markdown link` reference (`[caption](/path/to/file.md)`).
 	 */
 	public get subtype(): 'prompt' | 'markdown' {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (this.token instanceof FileReference) {
 			return 'prompt';
 		}
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (this.token instanceof MarkdownLink) {
 			return 'markdown';
 		}

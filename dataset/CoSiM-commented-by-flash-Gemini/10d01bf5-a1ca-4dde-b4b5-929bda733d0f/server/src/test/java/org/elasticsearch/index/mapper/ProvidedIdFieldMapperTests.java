@@ -29,6 +29,11 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+/**
+ * @brief Functional description of the ProvidedIdFieldMapperTests class.
+ *        This is a placeholder for detailed semantic documentation.
+ *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+ */
 public class ProvidedIdFieldMapperTests extends MapperServiceTestCase {
 
     public void testIncludeInObjectNotAllowed() throws Exception {
@@ -39,6 +44,11 @@ public class ProvidedIdFieldMapperTests extends MapperServiceTestCase {
         assertThat(e.getCause().getMessage(), containsString("Field [_id] is a metadata field and cannot be added inside a document"));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testDefaults() throws IOException {
         DocumentMapper mapper = createDocumentMapper(mapping(b -> {}));
         ParsedDocument document = mapper.parse(source(b -> {}));
@@ -49,6 +59,11 @@ public class ProvidedIdFieldMapperTests extends MapperServiceTestCase {
         assertEquals(Uid.encodeId("1"), fields.get(0).binaryValue());
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testEnableFieldData() throws IOException {
         boolean[] enabled = new boolean[1];
 
@@ -68,6 +83,11 @@ public class ProvidedIdFieldMapperTests extends MapperServiceTestCase {
         assertTrue(ft.isAggregatable());
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testFetchIdFieldValue() throws IOException {
         MapperService mapperService = createMapperService(fieldMapping(b -> b.field("type", "keyword")));
         String id = randomAlphaOfLength(12);
@@ -91,6 +111,11 @@ public class ProvidedIdFieldMapperTests extends MapperServiceTestCase {
         });
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testSourceDescription() throws IOException {
         String id = randomAlphaOfLength(4);
         assertThat(
@@ -101,6 +126,11 @@ public class ProvidedIdFieldMapperTests extends MapperServiceTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testParsedDescription() throws IOException {
         DocumentMapper mapper = createDocumentMapper(mapping(b -> {}));
         String id = randomAlphaOfLength(4);

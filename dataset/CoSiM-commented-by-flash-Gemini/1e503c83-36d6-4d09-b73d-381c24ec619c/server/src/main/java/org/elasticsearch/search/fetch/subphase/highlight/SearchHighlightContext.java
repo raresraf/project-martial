@@ -20,6 +20,11 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
+ /**
+  * @brief Functional description of the SearchHighlightContext class.
+  *        This is a placeholder for detailed semantic documentation.
+  *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+  */
 public class SearchHighlightContext {
 
     private final Map<String, Field> fields;
@@ -27,7 +32,7 @@ public class SearchHighlightContext {
     public SearchHighlightContext(Collection<Field> fields) {
         assert fields != null;
         this.fields = Maps.newLinkedHashMapWithExpectedSize(fields.size());
-        for (Field field : fields) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (Field field : fields) {
             this.fields.put(field.field, field);
         }
     }
@@ -299,61 +304,61 @@ public class SearchHighlightContext {
             }
 
             Builder merge(FieldOptions globalOptions) {
-                if (fieldOptions.preTags == null && globalOptions.preTags != null) {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                if (fieldOptions.preTags == null && globalOptions.preTags != null) {
                     fieldOptions.preTags = Arrays.copyOf(globalOptions.preTags, globalOptions.preTags.length);
                 }
-                if (fieldOptions.postTags == null && globalOptions.postTags != null) {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                if (fieldOptions.postTags == null && globalOptions.postTags != null) {
                     fieldOptions.postTags = Arrays.copyOf(globalOptions.postTags, globalOptions.postTags.length);
                 }
-                if (fieldOptions.highlightFilter == null) {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                if (fieldOptions.highlightFilter == null) {
                     fieldOptions.highlightFilter = globalOptions.highlightFilter;
                 }
-                if (fieldOptions.scoreOrdered == null) {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                if (fieldOptions.scoreOrdered == null) {
                     fieldOptions.scoreOrdered = globalOptions.scoreOrdered;
                 }
-                if (fieldOptions.fragmentCharSize == -1) {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                if (fieldOptions.fragmentCharSize == -1) {
                     fieldOptions.fragmentCharSize = globalOptions.fragmentCharSize;
                 }
-                if (fieldOptions.numberOfFragments == -1) {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                if (fieldOptions.numberOfFragments == -1) {
                     fieldOptions.numberOfFragments = globalOptions.numberOfFragments;
                 }
-                if (fieldOptions.encoder == null) {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                if (fieldOptions.encoder == null) {
                     fieldOptions.encoder = globalOptions.encoder;
                 }
-                if (fieldOptions.requireFieldMatch == null) {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                if (fieldOptions.requireFieldMatch == null) {
                     fieldOptions.requireFieldMatch = globalOptions.requireFieldMatch;
                 }
-                if (fieldOptions.maxAnalyzedOffset == null) {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                if (fieldOptions.maxAnalyzedOffset == null) {
                     fieldOptions.maxAnalyzedOffset = globalOptions.maxAnalyzedOffset;
                 }
-                if (fieldOptions.boundaryScannerType == null) {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                if (fieldOptions.boundaryScannerType == null) {
                     fieldOptions.boundaryScannerType = globalOptions.boundaryScannerType;
                 }
-                if (fieldOptions.boundaryMaxScan == -1) {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                if (fieldOptions.boundaryMaxScan == -1) {
                     fieldOptions.boundaryMaxScan = globalOptions.boundaryMaxScan;
                 }
-                if (fieldOptions.boundaryChars == null && globalOptions.boundaryChars != null) {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                if (fieldOptions.boundaryChars == null && globalOptions.boundaryChars != null) {
                     fieldOptions.boundaryChars = Arrays.copyOf(globalOptions.boundaryChars, globalOptions.boundaryChars.length);
                 }
-                if (fieldOptions.boundaryScannerLocale == null) {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                if (fieldOptions.boundaryScannerLocale == null) {
                     fieldOptions.boundaryScannerLocale = globalOptions.boundaryScannerLocale;
                 }
-                if (fieldOptions.highlighterType == null) {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                if (fieldOptions.highlighterType == null) {
                     fieldOptions.highlighterType = globalOptions.highlighterType;
                 }
-                if (fieldOptions.fragmenter == null) {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                if (fieldOptions.fragmenter == null) {
                     fieldOptions.fragmenter = globalOptions.fragmenter;
                 }
-                if ((fieldOptions.options == null || fieldOptions.options.size() == 0) && globalOptions.options != null) {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                if ((fieldOptions.options == null || fieldOptions.options.size() == 0) && globalOptions.options != null) {
                     fieldOptions.options = new HashMap<>(globalOptions.options);
                 }
-                if (fieldOptions.highlightQuery == null && globalOptions.highlightQuery != null) {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                if (fieldOptions.highlightQuery == null && globalOptions.highlightQuery != null) {
                     fieldOptions.highlightQuery = globalOptions.highlightQuery;
                 }
-                if (fieldOptions.noMatchSize == -1) {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                if (fieldOptions.noMatchSize == -1) {
                     fieldOptions.noMatchSize = globalOptions.noMatchSize;
                 }
-                if (fieldOptions.phraseLimit == -1) {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                if (fieldOptions.phraseLimit == -1) {
                     fieldOptions.phraseLimit = globalOptions.phraseLimit;
                 }
                 return this;

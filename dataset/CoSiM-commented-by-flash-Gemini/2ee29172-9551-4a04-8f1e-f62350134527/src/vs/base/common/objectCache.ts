@@ -142,6 +142,8 @@ export class ObjectCache<
 	 * @param dispose Whether the removed object must be disposed.
 	 */
 	public remove(key: TKey, dispose: boolean): this {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (dispose) {
 			this.cache.deleteAndDispose(key);
 			return this;

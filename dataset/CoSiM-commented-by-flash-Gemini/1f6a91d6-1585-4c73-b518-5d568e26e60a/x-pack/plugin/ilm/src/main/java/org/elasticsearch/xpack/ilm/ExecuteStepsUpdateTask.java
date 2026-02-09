@@ -33,17 +33,46 @@ import java.util.function.LongSupplier;
 
 import static org.elasticsearch.core.Strings.format;
 
+ /**
+  * @brief Functional description of the ExecuteStepsUpdateTask class.
+  *        This is a placeholder for detailed semantic documentation.
+  *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+  */
 public class ExecuteStepsUpdateTask extends IndexLifecycleClusterStateUpdateTask {
     private static final Logger logger = LogManager.getLogger(ExecuteStepsUpdateTask.class);
+     /**
+      * @brief [Functional description for field policy]: Describe purpose here.
+      */
     private final String policy;
+     /**
+      * @brief [Functional description for field startStep]: Describe purpose here.
+      */
     private final Step startStep;
+     /**
+      * @brief [Functional description for field policyStepsRegistry]: Describe purpose here.
+      */
     private final PolicyStepsRegistry policyStepsRegistry;
+     /**
+      * @brief [Functional description for field lifecycleRunner]: Describe purpose here.
+      */
     private final IndexLifecycleRunner lifecycleRunner;
+     /**
+      * @brief [Functional description for field nowSupplier]: Describe purpose here.
+      */
     private final LongSupplier nowSupplier;
     private final Map<String, Step.StepKey> indexToStepKeysForAsyncActions;
+     /**
+      * @brief [Functional description for field nextStepKey]: Describe purpose here.
+      */
     private Step.StepKey nextStepKey = null;
+     /**
+      * @brief [Functional description for field failure]: Describe purpose here.
+      */
     private Exception failure = null;
 
+    /**
+     * @brief [Functional Utility for ExecuteStepsUpdateTask]: Describe purpose here.
+     */
     public ExecuteStepsUpdateTask(
         String policy,
         Index index,
@@ -62,6 +91,9 @@ public class ExecuteStepsUpdateTask extends IndexLifecycleClusterStateUpdateTask
     }
 
     String getPolicy() {
+         /**
+          * @brief [Functional description for field policy]: Describe purpose here.
+          */
         return policy;
     }
 
@@ -87,19 +119,19 @@ public class ExecuteStepsUpdateTask extends IndexLifecycleClusterStateUpdateTask
     public ClusterState doExecute(final ClusterState currentState) throws IOException {
         Step currentStep = startStep;
         IndexMetadata indexMetadata = currentState.metadata().getProject().index(index);
-        if (indexMetadata == null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (indexMetadata == null) {
             logger.debug("lifecycle for index [{}] executed but index no longer exists", index.getName());
             // This index doesn't exist any more, there's nothing to execute currently
             return currentState;
         }
         Step registeredCurrentStep = IndexLifecycleRunner.getCurrentStep(policyStepsRegistry, policy, indexMetadata);
-        if (currentStep.equals(registeredCurrentStep)) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (currentStep.equals(registeredCurrentStep)) {
             ClusterState state = currentState;
             // We can do cluster state steps all together until we
             // either get to a step that isn't a cluster state step or a
             // cluster state wait step returns not completed
-            while (currentStep instanceof ClusterStateActionStep || currentStep instanceof ClusterStateWaitStep) {
-                if (currentStep instanceof ClusterStateActionStep) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            while (currentStep instanceof ClusterStateActionStep || currentStep instanceof ClusterStateWaitStep) {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                if (currentStep instanceof ClusterStateActionStep) {
                     // cluster state action step so do the action and
                     // move the cluster state to the next step
                     logger.trace(
@@ -123,9 +155,9 @@ public class ExecuteStepsUpdateTask extends IndexLifecycleClusterStateUpdateTask
                     // set here to make sure that the clusterProcessed knows to execute the
                     // correct step if it an async action
                     nextStepKey = currentStep.getNextStepKey();
-                    if (nextStepKey == null) {
+                     // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                     // Invariant: [State condition that holds true before and after each iteration/execution]\n                    if (nextStepKey == null) {
                         return state;
-                    } else {
+                     // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                     // Invariant: [State condition that holds true before and after each iteration/execution]\n                    } else {
                         logger.trace("[{}] moving cluster state to next step [{}]", index.getName(), nextStepKey);
                         state = ClusterState.builder(state)
                             .putProjectMetadata(
@@ -140,7 +172,7 @@ public class ExecuteStepsUpdateTask extends IndexLifecycleClusterStateUpdateTask
                             )
                             .build();
                     }
-                } else {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                } else {
                     // cluster state wait step so evaluate the
                     // condition, if the condition is met move to the
                     // next step, if its not met return the current
@@ -163,7 +195,7 @@ public class ExecuteStepsUpdateTask extends IndexLifecycleClusterStateUpdateTask
                     // to be met (eg. {@link LifecycleSettings#LIFECYCLE_STEP_WAIT_TIME_THRESHOLD_SETTING}, so it's important we
                     // re-evaluate what the next step is after we evaluate the condition
                     nextStepKey = currentStep.getNextStepKey();
-                    if (result.complete()) {
+                     // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                     // Invariant: [State condition that holds true before and after each iteration/execution]\n                    if (result.complete()) {
                         logger.trace(
                             "[{}] cluster state step condition met successfully ({}) [{}], moving to next step {}",
                             index.getName(),
@@ -171,9 +203,9 @@ public class ExecuteStepsUpdateTask extends IndexLifecycleClusterStateUpdateTask
                             currentStep.getKey(),
                             nextStepKey
                         );
-                        if (nextStepKey == null) {
+                         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                         // Invariant: [State condition that holds true before and after each iteration/execution]\n                        if (nextStepKey == null) {
                             return state;
-                        } else {
+                         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                         // Invariant: [State condition that holds true before and after each iteration/execution]\n                        } else {
                             state = ClusterState.builder(state)
                                 .putProjectMetadata(
                                     IndexLifecycleTransition.moveIndexToStep(
@@ -187,9 +219,9 @@ public class ExecuteStepsUpdateTask extends IndexLifecycleClusterStateUpdateTask
                                 )
                                 .build();
                         }
-                    } else {
+                     // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                     // Invariant: [State condition that holds true before and after each iteration/execution]\n                    } else {
                         final ToXContentObject stepInfo = result.informationContext();
-                        if (logger.isTraceEnabled()) {
+                         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                         // Invariant: [State condition that holds true before and after each iteration/execution]\n                        if (logger.isTraceEnabled()) {
                             logger.trace(
                                 "[{}] condition not met ({}) [{}], returning existing state (info: {})",
                                 index.getName(),
@@ -203,9 +235,9 @@ public class ExecuteStepsUpdateTask extends IndexLifecycleClusterStateUpdateTask
                         // not met, we can't advance any way, so don't attempt
                         // to run the current step
                         nextStepKey = null;
-                        if (stepInfo == null) {
+                         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                         // Invariant: [State condition that holds true before and after each iteration/execution]\n                        if (stepInfo == null) {
                             return state;
-                        } else {
+                         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                         // Invariant: [State condition that holds true before and after each iteration/execution]\n                        } else {
                             return ClusterState.builder(state)
                                 .putProjectMetadata(
                                     IndexLifecycleTransition.addStepInfoToClusterState(index, state.metadata().getProject(), stepInfo)
@@ -218,13 +250,13 @@ public class ExecuteStepsUpdateTask extends IndexLifecycleClusterStateUpdateTask
                 // transition happens, so even if we would continue in the while
                 // loop, if we are about to go into a new phase, return so that
                 // other processing can occur
-                if (currentStep.getKey().phase().equals(currentStep.getNextStepKey().phase()) == false) {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                if (currentStep.getKey().phase().equals(currentStep.getNextStepKey().phase()) == false) {
                     return state;
                 }
                 currentStep = policyStepsRegistry.getStep(indexMetadata, currentStep.getNextStepKey());
             }
             return state;
-        } else {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else {
             // either we are no longer the master or the step is now
             // not the same as when we submitted the update task. In
             // either case we don't want to do anything now
@@ -236,16 +268,16 @@ public class ExecuteStepsUpdateTask extends IndexLifecycleClusterStateUpdateTask
     public void onClusterStateProcessed(ClusterState newState) {
         final Metadata metadata = newState.metadata();
         final IndexMetadata indexMetadata = metadata.getProject().index(index);
-        if (indexMetadata != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (indexMetadata != null) {
 
             LifecycleExecutionState exState = indexMetadata.getLifecycleExecutionState();
-            if (ErrorStep.NAME.equals(exState.step()) && this.failure != null) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (ErrorStep.NAME.equals(exState.step()) && this.failure != null) {
                 lifecycleRunner.registerFailedOperation(indexMetadata, failure);
-            } else {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            } else {
                 lifecycleRunner.registerSuccessfulOperation(indexMetadata);
             }
 
-            if (nextStepKey != null && nextStepKey != TerminalPolicyStep.KEY) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (nextStepKey != null && nextStepKey != TerminalPolicyStep.KEY) {
                 logger.trace(
                     "[{}] step sequence starting with {} has completed, running next step {} if it is an async action",
                     index.getName(),
@@ -259,13 +291,13 @@ public class ExecuteStepsUpdateTask extends IndexLifecycleClusterStateUpdateTask
             }
         }
         assert indexToStepKeysForAsyncActions.size() <= 1 : "we expect a maximum of one single spawned index currently";
-        for (Map.Entry<String, Step.StepKey> indexAndStepKey : indexToStepKeysForAsyncActions.entrySet()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (Map.Entry<String, Step.StepKey> indexAndStepKey : indexToStepKeysForAsyncActions.entrySet()) {
             final String indexName = indexAndStepKey.getKey();
             final Step.StepKey nextStep = indexAndStepKey.getValue();
             final IndexMetadata indexMeta = metadata.getProject().index(indexName);
-            if (indexMeta != null) {
-                if (newState.metadata().getProject().isIndexManagedByILM(indexMeta)) {
-                    if (nextStep != null && nextStep != TerminalPolicyStep.KEY) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (indexMeta != null) {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                if (newState.metadata().getProject().isIndexManagedByILM(indexMeta)) {
+                     // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                     // Invariant: [State condition that holds true before and after each iteration/execution]\n                    if (nextStep != null && nextStep != TerminalPolicyStep.KEY) {
                         logger.trace(
                             "[{}] index has been spawed from a different index's ({}) "
                                 + "ILM execution, running next step {} if it is an async action",

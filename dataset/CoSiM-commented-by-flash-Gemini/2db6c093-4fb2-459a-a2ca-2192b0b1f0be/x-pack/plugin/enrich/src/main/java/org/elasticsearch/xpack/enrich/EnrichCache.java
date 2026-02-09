@@ -51,20 +51,32 @@ public final class EnrichCache {
     private final AtomicLong missesTimeInNanos = new AtomicLong(0);
     private final AtomicLong sizeInBytes = new AtomicLong(0);
 
+    /**
+     * @brief [Functional Utility for EnrichCache]: Describe purpose here.
+     */
     EnrichCache(long maxSize) {
         this(maxSize, System::nanoTime);
     }
 
+    /**
+     * @brief [Functional Utility for EnrichCache]: Describe purpose here.
+     */
     EnrichCache(ByteSizeValue maxByteSize) {
         this(maxByteSize, System::nanoTime);
     }
 
     // non-private for unit testing only
+    /**
+     * @brief [Functional Utility for EnrichCache]: Describe purpose here.
+     */
     EnrichCache(long maxSize, LongSupplier relativeNanoTimeProvider) {
         this.relativeNanoTimeProvider = relativeNanoTimeProvider;
         this.cache = createCache(maxSize, null);
     }
 
+    /**
+     * @brief [Functional Utility for EnrichCache]: Describe purpose here.
+     */
     EnrichCache(ByteSizeValue maxByteSize, LongSupplier relativeNanoTimeProvider) {
         this.relativeNanoTimeProvider = relativeNanoTimeProvider;
         this.cache = createCache(maxByteSize.getBytes(), (key, value) -> value.sizeInBytes);
@@ -74,6 +86,9 @@ public final class EnrichCache {
         var builder = CacheBuilder.<CacheKey, CacheValue>builder().setMaximumWeight(maxWeight).removalListener(notification -> {
             sizeInBytes.getAndAdd(-1 * notification.getValue().sizeInBytes);
         });
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (weigher != null) {
             builder.weigher(weigher);
         }
@@ -104,6 +119,9 @@ public final class EnrichCache {
         var cacheKey = new CacheKey(projectId, enrichIndex, lookupValue, maxMatches);
         List<Map<?, ?>> response = get(cacheKey);
         long cacheRequestTime = relativeNanoTimeProvider.getAsLong() - cacheStart;
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (response != null) {
             hitsTimeInNanos.addAndGet(cacheRequestTime);
             listener.onResponse(response);
@@ -123,6 +141,9 @@ public final class EnrichCache {
     // non-private for unit testing only
     List<Map<?, ?>> get(CacheKey cacheKey) {
         CacheValue response = cache.get(cacheKey);
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (response != null) {
             return deepCopy(response.hits, false);
         } else {
@@ -131,6 +152,9 @@ public final class EnrichCache {
     }
 
     // non-private for unit testing only
+    /**
+     * @brief [Functional Utility for put]: Describe purpose here.
+     */
     void put(CacheKey cacheKey, CacheValue cacheValue) {
         cache.put(cacheKey, cacheValue);
         sizeInBytes.addAndGet(cacheValue.sizeInBytes);
@@ -150,13 +174,20 @@ public final class EnrichCache {
         );
     }
 
+    /**
+     * @brief [Functional Utility for toCacheValue]: Describe purpose here.
+     */
     static CacheValue toCacheValue(SearchResponse response) {
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (response.getHits().getHits().length == 0) {
             return EMPTY_CACHE_VALUE;
         }
         List<Map<?, ?>> result = new ArrayList<>(response.getHits().getHits().length);
         // Include the size of the cache key.
         long size = CacheKey.CACHE_KEY_SIZE;
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         for (SearchHit hit : response.getHits()) {
             // There is a cost of decompressing source here plus caching it.
             // We do it first so we don't decompress it twice.
@@ -173,14 +204,22 @@ public final class EnrichCache {
     }
 
     private static Object innerDeepCopy(Object value, boolean unmodifiable) {
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (value instanceof Map<?, ?> mapValue) {
             Map<Object, Object> copy = Maps.newMapWithExpectedSize(mapValue.size());
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             for (Map.Entry<?, ?> entry : mapValue.entrySet()) {
                 copy.put(entry.getKey(), innerDeepCopy(entry.getValue(), unmodifiable));
             }
             return unmodifiable ? Collections.unmodifiableMap(copy) : copy;
         } else if (value instanceof List<?> listValue) {
             List<Object> copy = new ArrayList<>(listValue.size());
+            /**
+             * @brief [Functional Utility for for]: Describe purpose here.
+             */
             for (Object itemValue : listValue) {
                 copy.add(innerDeepCopy(itemValue, unmodifiable));
             }
@@ -205,6 +244,9 @@ public final class EnrichCache {
      *                    should thus be included in the cache key
      */
     // Visibility for testing
+    /**
+     * @brief [Functional Utility for CacheKey]: Describe purpose here.
+     */
     record CacheKey(ProjectId projectId, String enrichIndex, Object lookupValue, int maxMatches) {
         /**
          * In reality, the size in bytes of the cache key is a function of the {@link CacheKey#lookupValue} field plus some constant for
@@ -217,5 +259,8 @@ public final class EnrichCache {
     }
 
     // Visibility for testing
+    /**
+     * @brief [Functional Utility for CacheValue]: Describe purpose here.
+     */
     record CacheValue(List<Map<?, ?>> hits, Long sizeInBytes) {}
 }

@@ -215,6 +215,11 @@ public abstract class AggregatorTestCase extends ESTestCase {
     ThreadPoolExecutor threadPoolExecutor;
 
     @Before
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void initPlugins() {
         threadPool = new TestThreadPool(AggregatorTestCase.class.getName());
         threadPoolExecutor = (ThreadPoolExecutor) threadPool.executor(ThreadPool.Names.SEARCH);
@@ -231,6 +236,11 @@ public abstract class AggregatorTestCase extends ESTestCase {
     }
 
     @Before
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void initAnalysisRegistry() throws Exception {
         analysisModule = createAnalysisModule();
     }
@@ -255,6 +265,13 @@ public abstract class AggregatorTestCase extends ESTestCase {
         return createAggregator(new AggregatorFactories.Builder().addAggregator(aggregationBuilder), context);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param builder: [Description]
+     * @param context: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private <A extends Aggregator> A createAggregator(AggregatorFactories.Builder builder, AggregationContext context) throws IOException {
         Aggregator[] aggregators = builder.build(context, null).createTopLevelAggregators();
         assertThat(aggregators.length, equalTo(1));
@@ -420,6 +437,11 @@ public abstract class AggregatorTestCase extends ESTestCase {
             MapperMetrics.NOOP
         ) {
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public Iterable<MappedFieldType> dimensionFields() {
                 return Arrays.stream(fieldTypes).filter(MappedFieldType::isDimension).toList();
             }
@@ -520,6 +542,11 @@ public abstract class AggregatorTestCase extends ESTestCase {
         return res;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected IndexSettings createIndexSettings() {
         return new IndexSettings(
             IndexMetadata.builder("_index")
@@ -545,6 +572,12 @@ public abstract class AggregatorTestCase extends ESTestCase {
      * The latest lucene upgrade adds a new merge policy that reverses the order of the documents and it is not compatible with some
      * aggregation types. This writer avoids randomization by hardcoding the merge policy to LogDocMergePolicy.
      */
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param directory: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected static RandomIndexWriter newRandomIndexWriterWithLogDocMergePolicy(Directory directory) throws IOException {
         final IndexWriterConfig conf = newIndexWriterConfig(new MockAnalyzer(random())).setMergePolicy(new LogDocMergePolicy());
         return new RandomIndexWriter(random(), directory, conf);
@@ -556,6 +589,13 @@ public abstract class AggregatorTestCase extends ESTestCase {
      * <p>
      * It runs the aggregation as well using a circuit breaker that randomly throws {@link CircuitBreakingException}
      * in order to mak sure the implementation does not leak.
+     */
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param reader: [Description]
+     * @param aggTestConfig: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
      */
     protected <A extends InternalAggregation> A searchAndReduce(IndexReader reader, AggTestConfig aggTestConfig) throws IOException {
         IndexSearcher searcher = newIndexSearcher(
@@ -812,6 +852,13 @@ public abstract class AggregatorTestCase extends ESTestCase {
         return internalAgg;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param aggregators: [Description]
+     * @param reduceContext: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private InternalAggregation doReduce(List<InternalAggregation> aggregators, AggregationReduceContext reduceContext) {
         final List<InternalAggregations> internalAggregations = new ArrayList<>(aggregators.size());
         for (InternalAggregation aggregator : aggregators) {
@@ -830,6 +877,13 @@ public abstract class AggregatorTestCase extends ESTestCase {
         return reduced.get(0);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param agg: [Description]
+     * @param bucketConsumer: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected void doAssertReducedMultiBucketConsumer(Aggregation agg, MultiBucketConsumerService.MultiBucketConsumer bucketConsumer) {
         InternalAggregationTestCase.assertMultiBucketConsumer(agg, bucketConsumer);
     }
@@ -982,6 +1036,16 @@ public abstract class AggregatorTestCase extends ESTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param prefix: [Description]
+     * @param aggregator: [Description]
+     * @param Map<String: [Description]
+     * @param Map<String: [Description]
+     * @param allDebug: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private static void collectDebugInfo(String prefix, Aggregator aggregator, Map<String, Map<String, Object>> allDebug) {
         Map<String, Object> debug = new HashMap<>();
         aggregator.collectDebugInfo((key, value) -> {
@@ -1070,16 +1134,34 @@ public abstract class AggregatorTestCase extends ESTestCase {
             this.ctx = Collections.singletonList(ctx);
         }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param weight: [Description]
+     * @param collector: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public void search(Weight weight, Collector collector) throws IOException {
             search(ctx, weight, collector);
         }
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public String toString() {
             return "ShardSearcher(" + ctx.get(0) + ")";
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param directoryReader: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected static DirectoryReader wrapInMockESDirectoryReader(DirectoryReader directoryReader) throws IOException {
         return ElasticsearchDirectoryReader.wrap(directoryReader, new ShardId(new Index("_index", "_na_"), 0));
     }
@@ -1123,6 +1205,11 @@ public abstract class AggregatorTestCase extends ESTestCase {
      *
      * @return list of supported ValuesSourceTypes
      */
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected List<ValuesSourceType> getSupportedValuesSourceTypes() {
         // If aggs don't override this method, an empty list allows the test to be skipped.
         // Once all aggs implement this method we should make it abstract and not allow skipping.
@@ -1142,6 +1229,13 @@ public abstract class AggregatorTestCase extends ESTestCase {
      * @param fieldName the name of the field that will be test
      * @return an aggregation builder to test against the field
      */
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param fieldType: [Description]
+     * @param fieldName: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected AggregationBuilder createAggBuilderForTypeTest(MappedFieldType fieldType, String fieldName) {
         throw new UnsupportedOperationException(
             "If getSupportedValuesSourceTypes() is implemented, " + "createAggBuilderForTypeTest() must be implemented as well."
@@ -1156,6 +1250,11 @@ public abstract class AggregatorTestCase extends ESTestCase {
      * This is a blacklist instead of a whitelist because there are vastly more field types than ValuesSourceTypes,
      * and it's expected that these unsupported cases are exceptional rather than common
      */
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected List<String> unsupportedMappedFieldTypes() {
         return Collections.emptyList();
     }
@@ -1168,6 +1267,11 @@ public abstract class AggregatorTestCase extends ESTestCase {
      * an exception _is not_ thrown when a field is unsupported, that will also fail the test.
      *
      * Exception types/messages are not currently checked, just presence/absence of an exception.
+     */
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
      */
     public void testSupportedFieldTypes() throws IOException {
         String fieldName = "typeTestFieldName";
@@ -1263,6 +1367,12 @@ public abstract class AggregatorTestCase extends ESTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param fieldType: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private static ValuesSourceType fieldToVST(MappedFieldType fieldType) {
         return fieldType.fielddataBuilder(FieldDataContext.noRuntimeFields("test")).build(null, null).getValuesSourceType();
     }
@@ -1272,6 +1382,14 @@ public abstract class AggregatorTestCase extends ESTestCase {
      *
      * Throws an exception if it encounters an unknown field type, to prevent new ones from sneaking in without
      * being tested.
+     */
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param fieldType: [Description]
+     * @param fieldName: [Description]
+     * @param iw: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
      */
     private static void writeTestDoc(MappedFieldType fieldType, String fieldName, RandomIndexWriter iw) throws IOException {
 
@@ -1398,11 +1516,21 @@ public abstract class AggregatorTestCase extends ESTestCase {
         }
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public Settings getSettings() {
             return Settings.EMPTY;
         }
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public IndexAnalyzers getIndexAnalyzers() {
             return (type, name) -> Lucene.STANDARD_ANALYZER;
         }
@@ -1410,6 +1538,11 @@ public abstract class AggregatorTestCase extends ESTestCase {
     }
 
     @After
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void cleanupReleasables() {
         Releasables.close(releasables);
         releasables.clear();
@@ -1467,12 +1600,24 @@ public abstract class AggregatorTestCase extends ESTestCase {
         return new RangeFieldMapper.RangeFieldType(name, rangeType);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param result: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private void assertRoundTrip(List<InternalAggregation> result) throws IOException {
         for (InternalAggregation i : result) {
             assertRoundTrip(i);
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param result: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private void assertRoundTrip(InternalAggregation result) throws IOException {
         InternalAggregation roundTripped = copyNamedWriteable(result, writableRegistry(), InternalAggregation.class);
         assertThat(roundTripped, not(sameInstance(result)));
@@ -1481,6 +1626,11 @@ public abstract class AggregatorTestCase extends ESTestCase {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected final NamedWriteableRegistry writableRegistry() {
         return namedWriteableRegistry;
     }
@@ -1555,16 +1705,34 @@ public abstract class AggregatorTestCase extends ESTestCase {
                     throws IOException {
                     return new MetricsAggregator(name, context, parent, metadata) {
                         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param aggCtx: [Description]
+     * @param sub: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
                         protected LeafBucketCollector getLeafCollector(AggregationExecutionContext aggCtx, LeafBucketCollector sub) {
                             return LeafBucketCollector.NO_OP_COLLECTOR;
                         }
 
                         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param owningBucketOrd: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
                         public InternalAggregation buildAggregation(long owningBucketOrd) throws IOException {
                             return new InternalAggCardinalityUpperBound(name, cardinality, metadata);
                         }
 
                         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
                         public InternalAggregation buildEmptyAggregation() {
                             throw new UnsupportedOperationException();
                         }
@@ -1574,32 +1742,68 @@ public abstract class AggregatorTestCase extends ESTestCase {
         }
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param builder: [Description]
+     * @param params: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         protected XContentBuilder internalXContent(XContentBuilder builder, Params params) throws IOException {
             return builder;
         }
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public BucketCardinality bucketCardinality() {
             return BucketCardinality.ONE;
         }
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public String getType() {
             return InternalAggCardinalityUpperBound.NAME;
         }
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param factoriesBuilder: [Description]
+     * @param Map<String: [Description]
+     * @param metadata: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         protected AggregationBuilder shallowCopy(Builder factoriesBuilder, Map<String, Object> metadata) {
             throw new UnsupportedOperationException();
         }
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param out: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         protected void doWriteTo(StreamOutput out) throws IOException {
             throw new UnsupportedOperationException();
 
         }
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public TransportVersion getMinimalSupportedVersion() {
             return TransportVersions.ZERO;
         }
@@ -1610,34 +1814,78 @@ public abstract class AggregatorTestCase extends ESTestCase {
 
         private final CardinalityUpperBound cardinality;
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param name: [Description]
+     * @param cardinality: [Description]
+     * @param Map<String: [Description]
+     * @param metadata: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         protected InternalAggCardinalityUpperBound(String name, CardinalityUpperBound cardinality, Map<String, Object> metadata) {
             super(name, metadata);
             this.cardinality = cardinality;
         }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param in: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public InternalAggCardinalityUpperBound(StreamInput in) throws IOException {
             super(in);
             this.cardinality = CardinalityUpperBound.ONE.multiply(in.readVInt());
         }
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param out: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         protected void doWriteTo(StreamOutput out) throws IOException {
             out.writeVInt(cardinality.map(i -> i));
         }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public CardinalityUpperBound cardinality() {
             return cardinality;
         }
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param reduceContext: [Description]
+     * @param size: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         protected AggregatorReducer getLeaderReducer(AggregationReduceContext reduceContext, int size) {
             return new AggregatorReducer() {
                 @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param aggregation: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
                 public void accept(InternalAggregation aggregation) {
                     assertThat(((InternalAggCardinalityUpperBound) aggregation).cardinality, equalTo(cardinality));
                 }
 
                 @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
                 public InternalAggregation get() {
                     return new InternalAggCardinalityUpperBound(name, cardinality, metadata);
                 }
@@ -1645,21 +1893,44 @@ public abstract class AggregatorTestCase extends ESTestCase {
         }
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         protected boolean mustReduceOnSingleInternalAgg() {
             return true;
         }
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param builder: [Description]
+     * @param params: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public XContentBuilder doXContentBody(XContentBuilder builder, Params params) throws IOException {
             return builder.array("cardinality", cardinality);
         }
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param path: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public Object getProperty(List<String> path) {
             throw new UnsupportedOperationException();
         }
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public String getWriteableName() {
             return NAME;
         }
@@ -1667,6 +1938,11 @@ public abstract class AggregatorTestCase extends ESTestCase {
 
     private static class AggCardinalityUpperBoundPlugin implements SearchPlugin {
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public List<AggregationSpec> getAggregations() {
             return singletonList(
                 new AggregationSpec(
@@ -1692,6 +1968,13 @@ public abstract class AggregatorTestCase extends ESTestCase {
         MappedFieldType... fieldTypes
     ) {
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param builder: [Description]
+     * @param fieldTypes: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public AggTestConfig(AggregationBuilder builder, MappedFieldType... fieldTypes) {
             this(
                 new MatchAllDocsQuery(),
@@ -1707,6 +1990,12 @@ public abstract class AggregatorTestCase extends ESTestCase {
             );
         }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param query: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public AggTestConfig withQuery(Query query) {
             return new AggTestConfig(
                 query,
@@ -1722,6 +2011,12 @@ public abstract class AggregatorTestCase extends ESTestCase {
             );
         }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param splitLeavesIntoSeparateAggregators: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public AggTestConfig withSplitLeavesIntoSeperateAggregators(boolean splitLeavesIntoSeparateAggregators) {
             return new AggTestConfig(
                 query,
@@ -1737,6 +2032,12 @@ public abstract class AggregatorTestCase extends ESTestCase {
             );
         }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param shouldBeCached: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public AggTestConfig withShouldBeCached(boolean shouldBeCached) {
             return new AggTestConfig(
                 query,
@@ -1752,6 +2053,12 @@ public abstract class AggregatorTestCase extends ESTestCase {
             );
         }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param maxBuckets: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public AggTestConfig withMaxBuckets(int maxBuckets) {
             return new AggTestConfig(
                 query,
@@ -1767,6 +2074,12 @@ public abstract class AggregatorTestCase extends ESTestCase {
             );
         }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param incrementalReduce: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public AggTestConfig withIncrementalReduce(boolean incrementalReduce) {
             return new AggTestConfig(
                 query,
@@ -1782,6 +2095,11 @@ public abstract class AggregatorTestCase extends ESTestCase {
             );
         }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public AggTestConfig withLogDocMergePolicy() {
             return new AggTestConfig(
                 query,
@@ -1797,6 +2115,11 @@ public abstract class AggregatorTestCase extends ESTestCase {
             );
         }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public AggTestConfig noReductionCancellation() {
             return new AggTestConfig(
                 query,
@@ -1812,6 +2135,12 @@ public abstract class AggregatorTestCase extends ESTestCase {
             );
         }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param checkAggregator: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public AggTestConfig withCheckAggregator(Consumer<Aggregator> checkAggregator) {
             return new AggTestConfig(
                 query,

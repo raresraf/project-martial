@@ -19,8 +19,15 @@ import java.util.Map;
  */
 public class IngestUserAgentPluginBridge implements IngestPluginBridge {
 
+    /**
+     * @brief [Functional description for field delegate]: Describe purpose here.
+     */
     private final IngestUserAgentPlugin delegate;
 
+    /**
+     * @brief [Functional Utility for IngestUserAgentPluginBridge]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public IngestUserAgentPluginBridge() {
         delegate = new IngestUserAgentPlugin();
     }

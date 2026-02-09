@@ -20,6 +20,11 @@ import org.elasticsearch.xpack.inference.external.http.retry.ErrorResponse;
 import java.util.Objects;
 import java.util.Optional;
 
+/**
+ * @brief Functional description of the StreamingErrorResponse class.
+ *        This is a placeholder for detailed semantic documentation.
+ *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+ */
 public class StreamingErrorResponse extends ErrorResponse {
     private static final ConstructingObjectParser<Optional<ErrorResponse>, Void> ERROR_PARSER = new ConstructingObjectParser<>(
         "streaming_error",
@@ -42,6 +47,11 @@ public class StreamingErrorResponse extends ErrorResponse {
             ConstructingObjectParser.optionalConstructorArg(),
             ERROR_BODY_PARSER,
             null,
+    /**
+     * @brief [Functional Utility for ParseField]: Describe purpose here.
+     * @param "error": [Description]
+     * @return [ReturnType]: [Description]
+     */
             new ParseField("error")
         );
     }
@@ -82,9 +92,18 @@ public class StreamingErrorResponse extends ErrorResponse {
     }
 
     @Nullable
+    /**
+     * @brief [Functional description for field code]: Describe purpose here.
+     */
     private final String code;
     @Nullable
+    /**
+     * @brief [Functional description for field param]: Describe purpose here.
+     */
     private final String param;
+    /**
+     * @brief [Functional description for field type]: Describe purpose here.
+     */
     private final String type;
 
     StreamingErrorResponse(String errorMessage, @Nullable String code, @Nullable String param, String type) {
@@ -95,16 +114,37 @@ public class StreamingErrorResponse extends ErrorResponse {
     }
 
     @Nullable
+    /**
+     * @brief [Functional Utility for code]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public String code() {
+    /**
+     * @brief [Functional description for field code]: Describe purpose here.
+     */
         return code;
     }
 
     @Nullable
+    /**
+     * @brief [Functional Utility for param]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public String param() {
+    /**
+     * @brief [Functional description for field param]: Describe purpose here.
+     */
         return param;
     }
 
+    /**
+     * @brief [Functional Utility for type]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public String type() {
+    /**
+     * @brief [Functional description for field type]: Describe purpose here.
+     */
         return type;
     }
 }

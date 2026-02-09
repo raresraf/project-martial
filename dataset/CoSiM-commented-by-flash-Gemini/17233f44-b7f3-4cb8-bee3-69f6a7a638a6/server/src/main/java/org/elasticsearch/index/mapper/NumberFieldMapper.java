@@ -82,23 +82,45 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 
 /** A {@link FieldMapper} for numeric types: byte, short, int, long, float and double. */
+/**
+ * @brief Functional description of the NumberFieldMapper class.
+ *        This is a placeholder for detailed semantic documentation.
+ *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+ */
 public class NumberFieldMapper extends FieldMapper {
 
     public static final Setting<Boolean> COERCE_SETTING = Setting.boolSetting("index.mapping.coerce", true, Property.IndexScope);
 
+    /**
+     * @brief [Functional Utility for toType]: Describe purpose here.
+     * @param in: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private static NumberFieldMapper toType(FieldMapper in) {
         return (NumberFieldMapper) in;
     }
 
     public static final class Builder extends FieldMapper.DimensionBuilder {
 
+    /**
+     * @brief [Functional description for field indexed]: Describe purpose here.
+     */
         private final Parameter<Boolean> indexed;
         private final Parameter<Boolean> hasDocValues = Parameter.docValuesParam(m -> toType(m).hasDocValues, true);
         private final Parameter<Boolean> stored = Parameter.storeParam(m -> toType(m).stored, false);
 
+    /**
+     * @brief [Functional description for field ignoreMalformed]: Describe purpose here.
+     */
         private final Parameter<Explicit<Boolean>> ignoreMalformed;
+    /**
+     * @brief [Functional description for field coerce]: Describe purpose here.
+     */
         private final Parameter<Explicit<Boolean>> coerce;
 
+    /**
+     * @brief [Functional description for field nullValue]: Describe purpose here.
+     */
         private final Parameter<Number> nullValue;
 
         private final Parameter<Script> script = Parameter.scriptParam(m -> toType(m).script);
@@ -121,12 +143,27 @@ public class NumberFieldMapper extends FieldMapper {
 
         private final Parameter<Map<String, String>> meta = Parameter.metaParam();
 
+    /**
+     * @brief [Functional description for field scriptCompiler]: Describe purpose here.
+     */
         private final ScriptCompiler scriptCompiler;
+    /**
+     * @brief [Functional description for field type]: Describe purpose here.
+     */
         private final NumberType type;
 
+    /**
+     * @brief [Functional description for field allowMultipleValues]: Describe purpose here.
+     */
         private boolean allowMultipleValues = true;
+    /**
+     * @brief [Functional description for field indexCreatedVersion]: Describe purpose here.
+     */
         private final IndexVersion indexCreatedVersion;
 
+    /**
+     * @brief [Functional description for field indexMode]: Describe purpose here.
+     */
         private final IndexMode indexMode;
 
         public Builder(
@@ -140,10 +177,20 @@ public class NumberFieldMapper extends FieldMapper {
             this(name, type, compiler, IGNORE_MALFORMED_SETTING.get(settings), COERCE_SETTING.get(settings), indexCreatedVersion, mode);
         }
 
+    /**
+     * @brief [Functional Utility for docValuesOnly]: Describe purpose here.
+     * @param name: [Description]
+     * @param type: [Description]
+     * @param indexCreatedVersion: [Description]
+     * @return [ReturnType]: [Description]
+     */
         public static Builder docValuesOnly(String name, NumberType type, IndexVersion indexCreatedVersion) {
             Builder builder = new Builder(name, type, ScriptCompiler.NONE, false, false, indexCreatedVersion, null);
             builder.indexed.setValue(false);
             builder.dimension.setValue(false);
+    /**
+     * @brief [Functional description for field builder]: Describe purpose here.
+     */
             return builder;
         }
 
@@ -179,14 +226,22 @@ public class NumberFieldMapper extends FieldMapper {
             ).acceptsNull();
             this.indexMode = mode;
             this.indexed = Parameter.indexParam(m -> toType(m).indexed, () -> {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (indexMode == IndexMode.TIME_SERIES) {
                     var metricType = getMetric().getValue();
                     return metricType != MetricType.COUNTER && metricType != MetricType.GAUGE;
+        // Block Logic: [Describe purpose of this else/else if block]
                 } else {
+    /**
+     * @brief [Functional description for field true]: Describe purpose here.
+     */
                     return true;
                 }
             });
             this.dimension = TimeSeriesParams.dimensionParam(m -> toType(m).dimension).addValidator(v -> {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (v && (indexed.getValue() == false || hasDocValues.getValue() == false)) {
                     throw new IllegalArgumentException(
                         "Field ["
@@ -201,6 +256,8 @@ public class NumberFieldMapper extends FieldMapper {
             });
 
             this.metric = TimeSeriesParams.metricParam(m -> toType(m).metricType, MetricType.GAUGE, MetricType.COUNTER).addValidator(v -> {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (v != null && hasDocValues.getValue() == false) {
                     throw new IllegalArgumentException(
                         "Field [" + TimeSeriesParams.TIME_SERIES_METRIC_PARAM + "] requires that [" + hasDocValues.name + "] is true"
@@ -212,39 +269,95 @@ public class NumberFieldMapper extends FieldMapper {
             addScriptValidation(script, indexed, hasDocValues);
         }
 
+    /**
+     * @brief [Functional Utility for nullValue]: Describe purpose here.
+     * @param number: [Description]
+     * @return [ReturnType]: [Description]
+     */
         Builder nullValue(Number number) {
             this.nullValue.setValue(number);
+    /**
+     * @brief [Functional description for field this]: Describe purpose here.
+     */
             return this;
         }
 
+    /**
+     * @brief [Functional Utility for docValues]: Describe purpose here.
+     * @param hasDocValues: [Description]
+     * @return [ReturnType]: [Description]
+     */
         public Builder docValues(boolean hasDocValues) {
             this.hasDocValues.setValue(hasDocValues);
+    /**
+     * @brief [Functional description for field this]: Describe purpose here.
+     */
             return this;
         }
 
+    /**
+     * @brief [Functional Utility for scriptValues]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
         private FieldValues<Number> scriptValues() {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (this.script.get() == null) {
+    /**
+     * @brief [Functional description for field null]: Describe purpose here.
+     */
                 return null;
             }
             return type.compile(leafName(), script.get(), scriptCompiler);
         }
 
+    /**
+     * @brief [Functional Utility for dimension]: Describe purpose here.
+     * @param dimension: [Description]
+     * @return [ReturnType]: [Description]
+     */
         public Builder dimension(boolean dimension) {
             this.dimension.setValue(dimension);
+    /**
+     * @brief [Functional description for field this]: Describe purpose here.
+     */
             return this;
         }
 
+    /**
+     * @brief [Functional Utility for metric]: Describe purpose here.
+     * @param metric: [Description]
+     * @return [ReturnType]: [Description]
+     */
         public Builder metric(MetricType metric) {
             this.metric.setValue(metric);
+    /**
+     * @brief [Functional description for field this]: Describe purpose here.
+     */
             return this;
         }
 
+    /**
+     * @brief [Functional Utility for getMetric]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
         private Parameter<MetricType> getMetric() {
+    /**
+     * @brief [Functional description for field metric]: Describe purpose here.
+     */
             return metric;
         }
 
+    /**
+     * @brief [Functional Utility for allowMultipleValues]: Describe purpose here.
+     * @param allowMultipleValues: [Description]
+     * @return [ReturnType]: [Description]
+     */
         public Builder allowMultipleValues(boolean allowMultipleValues) {
             this.allowMultipleValues = allowMultipleValues;
+    /**
+     * @brief [Functional description for field this]: Describe purpose here.
+     */
             return this;
         }
 
@@ -265,7 +378,14 @@ public class NumberFieldMapper extends FieldMapper {
         }
 
         @Override
+    /**
+     * @brief [Functional Utility for build]: Describe purpose here.
+     * @param context: [Description]
+     * @return [ReturnType]: [Description]
+     */
         public NumberFieldMapper build(MapperBuilderContext context) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (inheritDimensionParameterFromParentObject(context)) {
                 dimension.setValue(true);
             }
@@ -280,6 +400,12 @@ public class NumberFieldMapper extends FieldMapper {
     public enum NumberType {
         HALF_FLOAT("half_float", NumericType.HALF_FLOAT) {
             @Override
+    /**
+     * @brief [Functional Utility for parse]: Describe purpose here.
+     * @param value: [Description]
+     * @param coerce: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public Float parse(Object value, boolean coerce) {
                 final float result = parseToFloat(value);
                 validateFiniteValue(result);
@@ -288,6 +414,11 @@ public class NumberFieldMapper extends FieldMapper {
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for reduceToStoredPrecision]: Describe purpose here.
+     * @param value: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public double reduceToStoredPrecision(double value) {
                 return parse(value, false).doubleValue();
             }
@@ -299,49 +430,98 @@ public class NumberFieldMapper extends FieldMapper {
              * rounding behavior that {@link #parse(Object, boolean)} provides.
              */
             private static float parseToFloat(Object value) {
+    /**
+     * @brief [Functional description for field result]: Describe purpose here.
+     */
                 final float result;
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (value instanceof Number) {
                     result = ((Number) value).floatValue();
+        // Block Logic: [Describe purpose of this else/else if block]
                 } else {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                     if (value instanceof BytesRef) {
                         value = ((BytesRef) value).utf8ToString();
                     }
                     result = Float.parseFloat(value.toString());
                 }
+    /**
+     * @brief [Functional description for field result]: Describe purpose here.
+     */
                 return result;
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for parsePoint]: Describe purpose here.
+     * @param value: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public Number parsePoint(byte[] value) {
                 return HalfFloatPoint.decodeDimension(value, 0);
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for parse]: Describe purpose here.
+     * @param parser: [Description]
+     * @param coerce: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
             public Float parse(XContentParser parser, boolean coerce) throws IOException {
                 float parsed = parser.floatValue(coerce);
                 validateFiniteValue(parsed);
+    /**
+     * @brief [Functional description for field parsed]: Describe purpose here.
+     */
                 return parsed;
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for termQuery]: Describe purpose here.
+     * @param field: [Description]
+     * @param value: [Description]
+     * @param isIndexed: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public Query termQuery(String field, Object value, boolean isIndexed) {
                 float v = parseToFloat(value);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (Float.isFinite(HalfFloatPoint.sortableShortToHalfFloat(HalfFloatPoint.halfFloatToSortableShort(v))) == false) {
                     return Queries.newMatchNoDocsQuery("Value [" + value + "] is out of range");
                 }
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (isIndexed) {
                     return HalfFloatPoint.newExactQuery(field, v);
+        // Block Logic: [Describe purpose of this else/else if block]
                 } else {
                     return SortedNumericDocValuesField.newSlowExactQuery(field, HalfFloatPoint.halfFloatToSortableShort(v));
                 }
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for termsQuery]: Describe purpose here.
+     * @param field: [Description]
+     * @param values: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public Query termsQuery(String field, Collection<?> values) {
                 float[] v = new float[values.size()];
+    /**
+     * @brief [Functional description for field pos]: Describe purpose here.
+     */
                 int pos = 0;
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 for (Object value : values) {
                     float float_value = parseToFloat(value);
                     validateFiniteValue(float_value);
@@ -361,25 +541,46 @@ public class NumberFieldMapper extends FieldMapper {
                 SearchExecutionContext context,
                 boolean isIndexed
             ) {
+    /**
+     * @brief [Functional description for field l]: Describe purpose here.
+     */
                 float l = Float.NEGATIVE_INFINITY;
+    /**
+     * @brief [Functional description for field u]: Describe purpose here.
+     */
                 float u = Float.POSITIVE_INFINITY;
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (lowerTerm != null) {
                     l = parseToFloat(lowerTerm);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                     if (includeLower) {
                         l = HalfFloatPoint.nextDown(l);
                     }
                     l = HalfFloatPoint.nextUp(l);
                 }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (upperTerm != null) {
                     u = parseToFloat(upperTerm);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                     if (includeUpper) {
                         u = HalfFloatPoint.nextUp(u);
                     }
                     u = HalfFloatPoint.nextDown(u);
                 }
+    /**
+     * @brief [Functional description for field query]: Describe purpose here.
+     */
                 Query query;
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (isIndexed) {
                     query = HalfFloatPoint.newRangeQuery(field, l, u);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                     if (hasDocValues) {
                         Query dvQuery = SortedNumericDocValuesField.newSlowRangeQuery(
                             field,
@@ -388,6 +589,7 @@ public class NumberFieldMapper extends FieldMapper {
                         );
                         query = new IndexOrDocValuesQuery(query, dvQuery);
                     }
+        // Block Logic: [Describe purpose of this else/else if block]
                 } else {
                     query = SortedNumericDocValuesField.newSlowRangeQuery(
                         field,
@@ -395,24 +597,49 @@ public class NumberFieldMapper extends FieldMapper {
                         HalfFloatPoint.halfFloatToSortableShort(u)
                     );
                 }
+    /**
+     * @brief [Functional description for field query]: Describe purpose here.
+     */
                 return query;
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for addFields]: Describe purpose here.
+     * @param document: [Description]
+     * @param name: [Description]
+     * @param value: [Description]
+     * @param indexed: [Description]
+     * @param docValued: [Description]
+     * @param stored: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public void addFields(LuceneDocument document, String name, Number value, boolean indexed, boolean docValued, boolean stored) {
                 final float f = value.floatValue();
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (indexed) {
                     document.add(new HalfFloatPoint(name, f));
                 }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (docValued) {
                     document.add(new SortedNumericDocValuesField(name, HalfFloatPoint.halfFloatToSortableShort(f)));
                 }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (stored) {
                     document.add(new StoredField(name, f));
                 }
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for getFieldDataBuilder]: Describe purpose here.
+     * @param ft: [Description]
+     * @param valuesSourceType: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public IndexFieldData.Builder getFieldDataBuilder(MappedFieldType ft, ValuesSourceType valuesSourceType) {
                 return new SortedDoublesIndexFieldData.Builder(
                     ft.name(),
@@ -439,16 +666,37 @@ public class NumberFieldMapper extends FieldMapper {
                 );
             }
 
+    /**
+     * @brief [Functional Utility for validateFiniteValue]: Describe purpose here.
+     * @param value: [Description]
+     * @return [ReturnType]: [Description]
+     */
             private static void validateFiniteValue(float value) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (Float.isFinite(HalfFloatPoint.sortableShortToHalfFloat(HalfFloatPoint.halfFloatToSortableShort(value))) == false) {
                     throw new IllegalArgumentException("[half_float] supports only finite values, but got [" + value + "]");
                 }
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for syntheticFieldLoader]: Describe purpose here.
+     * @param fieldName: [Description]
+     * @param fieldSimpleName: [Description]
+     * @param ignoreMalformed: [Description]
+     * @return [ReturnType]: [Description]
+     */
             SourceLoader.SyntheticFieldLoader syntheticFieldLoader(String fieldName, String fieldSimpleName, boolean ignoreMalformed) {
                 return new SortedNumericDocValuesSyntheticFieldLoader(fieldName, fieldSimpleName, ignoreMalformed) {
                     @Override
+    /**
+     * @brief [Functional Utility for writeValue]: Describe purpose here.
+     * @param b: [Description]
+     * @param value: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
                     protected void writeValue(XContentBuilder b, long value) throws IOException {
                         b.value(HalfFloatPoint.sortableShortToHalfFloat((short) value));
                     }
@@ -456,20 +704,40 @@ public class NumberFieldMapper extends FieldMapper {
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for blockLoaderFromDocValues]: Describe purpose here.
+     * @param fieldName: [Description]
+     * @return [ReturnType]: [Description]
+     */
             BlockLoader blockLoaderFromDocValues(String fieldName) {
                 return new BlockDocValuesReader.DoublesBlockLoader(fieldName, l -> HalfFloatPoint.sortableShortToHalfFloat((short) l));
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for blockLoaderFromSource]: Describe purpose here.
+     * @param sourceValueFetcher: [Description]
+     * @param lookup: [Description]
+     * @return [ReturnType]: [Description]
+     */
             BlockLoader blockLoaderFromSource(SourceValueFetcher sourceValueFetcher, BlockSourceReader.LeafIteratorLookup lookup) {
                 return new BlockSourceReader.DoublesBlockLoader(sourceValueFetcher, lookup);
             }
         },
         FLOAT("float", NumericType.FLOAT) {
             @Override
+    /**
+     * @brief [Functional Utility for parse]: Describe purpose here.
+     * @param value: [Description]
+     * @param coerce: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public Float parse(Object value, boolean coerce) {
                 final float result = parseToFloat(value);
                 validateFiniteValue(result);
+    /**
+     * @brief [Functional description for field result]: Describe purpose here.
+     */
                 return result;
             }
 
@@ -479,54 +747,108 @@ public class NumberFieldMapper extends FieldMapper {
              * against infinite values like {@link #parse(Object, boolean)} does.
              */
             private static float parseToFloat(Object value) {
+    /**
+     * @brief [Functional description for field result]: Describe purpose here.
+     */
                 final float result;
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (value instanceof Number) {
                     result = ((Number) value).floatValue();
+        // Block Logic: [Describe purpose of this else/else if block]
                 } else {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                     if (value instanceof BytesRef) {
                         value = ((BytesRef) value).utf8ToString();
                     }
                     result = Float.parseFloat(value.toString());
                 }
+    /**
+     * @brief [Functional description for field result]: Describe purpose here.
+     */
                 return result;
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for reduceToStoredPrecision]: Describe purpose here.
+     * @param value: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public double reduceToStoredPrecision(double value) {
                 return parse(value, false).doubleValue();
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for parsePoint]: Describe purpose here.
+     * @param value: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public Number parsePoint(byte[] value) {
                 return FloatPoint.decodeDimension(value, 0);
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for parse]: Describe purpose here.
+     * @param parser: [Description]
+     * @param coerce: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
             public Float parse(XContentParser parser, boolean coerce) throws IOException {
                 float parsed = parser.floatValue(coerce);
                 validateFiniteValue(parsed);
+    /**
+     * @brief [Functional description for field parsed]: Describe purpose here.
+     */
                 return parsed;
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for termQuery]: Describe purpose here.
+     * @param field: [Description]
+     * @param value: [Description]
+     * @param isIndexed: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public Query termQuery(String field, Object value, boolean isIndexed) {
                 float v = parseToFloat(value);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (Float.isFinite(v) == false) {
                     return new MatchNoDocsQuery("Value [" + value + "] is out of range");
                 }
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (isIndexed) {
                     return FloatPoint.newExactQuery(field, v);
+        // Block Logic: [Describe purpose of this else/else if block]
                 } else {
                     return SortedNumericDocValuesField.newSlowExactQuery(field, NumericUtils.floatToSortableInt(v));
                 }
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for termsQuery]: Describe purpose here.
+     * @param field: [Description]
+     * @param values: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public Query termsQuery(String field, Collection<?> values) {
                 float[] v = new float[values.size()];
+    /**
+     * @brief [Functional description for field pos]: Describe purpose here.
+     */
                 int pos = 0;
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 for (Object value : values) {
                     v[pos++] = parse(value, false);
                 }
@@ -544,25 +866,46 @@ public class NumberFieldMapper extends FieldMapper {
                 SearchExecutionContext context,
                 boolean isIndexed
             ) {
+    /**
+     * @brief [Functional description for field l]: Describe purpose here.
+     */
                 float l = Float.NEGATIVE_INFINITY;
+    /**
+     * @brief [Functional description for field u]: Describe purpose here.
+     */
                 float u = Float.POSITIVE_INFINITY;
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (lowerTerm != null) {
                     l = parseToFloat(lowerTerm);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                     if (includeLower) {
                         l = FloatPoint.nextDown(l);
                     }
                     l = FloatPoint.nextUp(l);
                 }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (upperTerm != null) {
                     u = parseToFloat(upperTerm);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                     if (includeUpper) {
                         u = FloatPoint.nextUp(u);
                     }
                     u = FloatPoint.nextDown(u);
                 }
+    /**
+     * @brief [Functional description for field query]: Describe purpose here.
+     */
                 Query query;
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (isIndexed) {
                     query = FloatPoint.newRangeQuery(field, l, u);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                     if (hasDocValues) {
                         Query dvQuery = SortedNumericDocValuesField.newSlowRangeQuery(
                             field,
@@ -571,6 +914,7 @@ public class NumberFieldMapper extends FieldMapper {
                         );
                         query = new IndexOrDocValuesQuery(query, dvQuery);
                     }
+        // Block Logic: [Describe purpose of this else/else if block]
                 } else {
                     query = SortedNumericDocValuesField.newSlowRangeQuery(
                         field,
@@ -578,25 +922,50 @@ public class NumberFieldMapper extends FieldMapper {
                         NumericUtils.floatToSortableInt(u)
                     );
                 }
+    /**
+     * @brief [Functional description for field query]: Describe purpose here.
+     */
                 return query;
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for addFields]: Describe purpose here.
+     * @param document: [Description]
+     * @param name: [Description]
+     * @param value: [Description]
+     * @param indexed: [Description]
+     * @param docValued: [Description]
+     * @param stored: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public void addFields(LuceneDocument document, String name, Number value, boolean indexed, boolean docValued, boolean stored) {
                 final float f = value.floatValue();
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (indexed && docValued) {
                     document.add(new FloatField(name, f, Field.Store.NO));
+        // Block Logic: [Describe purpose of this else/else if block]
                 } else if (docValued) {
                     document.add(new SortedNumericDocValuesField(name, NumericUtils.floatToSortableInt(f)));
+        // Block Logic: [Describe purpose of this else/else if block]
                 } else if (indexed) {
                     document.add(new FloatPoint(name, f));
                 }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (stored) {
                     document.add(new StoredField(name, f));
                 }
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for getFieldDataBuilder]: Describe purpose here.
+     * @param ft: [Description]
+     * @param valuesSourceType: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public IndexFieldData.Builder getFieldDataBuilder(MappedFieldType ft, ValuesSourceType valuesSourceType) {
                 return new SortedDoublesIndexFieldData.Builder(
                     ft.name(),
@@ -623,16 +992,37 @@ public class NumberFieldMapper extends FieldMapper {
                 );
             }
 
+    /**
+     * @brief [Functional Utility for validateFiniteValue]: Describe purpose here.
+     * @param value: [Description]
+     * @return [ReturnType]: [Description]
+     */
             private static void validateFiniteValue(float value) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (Float.isFinite(value) == false) {
                     throw new IllegalArgumentException("[float] supports only finite values, but got [" + value + "]");
                 }
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for syntheticFieldLoader]: Describe purpose here.
+     * @param fieldName: [Description]
+     * @param fieldSimpleName: [Description]
+     * @param ignoreMalformed: [Description]
+     * @return [ReturnType]: [Description]
+     */
             SourceLoader.SyntheticFieldLoader syntheticFieldLoader(String fieldName, String fieldSimpleName, boolean ignoreMalformed) {
                 return new SortedNumericDocValuesSyntheticFieldLoader(fieldName, fieldSimpleName, ignoreMalformed) {
                     @Override
+    /**
+     * @brief [Functional Utility for writeValue]: Describe purpose here.
+     * @param b: [Description]
+     * @param value: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
                     protected void writeValue(XContentBuilder b, long value) throws IOException {
                         b.value(NumericUtils.sortableIntToFloat((int) value));
                     }
@@ -640,36 +1030,78 @@ public class NumberFieldMapper extends FieldMapper {
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for blockLoaderFromDocValues]: Describe purpose here.
+     * @param fieldName: [Description]
+     * @return [ReturnType]: [Description]
+     */
             BlockLoader blockLoaderFromDocValues(String fieldName) {
                 return new BlockDocValuesReader.DoublesBlockLoader(fieldName, l -> NumericUtils.sortableIntToFloat((int) l));
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for blockLoaderFromSource]: Describe purpose here.
+     * @param sourceValueFetcher: [Description]
+     * @param lookup: [Description]
+     * @return [ReturnType]: [Description]
+     */
             BlockLoader blockLoaderFromSource(SourceValueFetcher sourceValueFetcher, BlockSourceReader.LeafIteratorLookup lookup) {
                 return new BlockSourceReader.DoublesBlockLoader(sourceValueFetcher, lookup);
             }
         },
         DOUBLE("double", NumericType.DOUBLE) {
             @Override
+    /**
+     * @brief [Functional Utility for parse]: Describe purpose here.
+     * @param value: [Description]
+     * @param coerce: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public Double parse(Object value, boolean coerce) {
                 double parsed = objectToDouble(value);
                 validateParsed(parsed);
+    /**
+     * @brief [Functional description for field parsed]: Describe purpose here.
+     */
                 return parsed;
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for parsePoint]: Describe purpose here.
+     * @param value: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public Number parsePoint(byte[] value) {
                 return DoublePoint.decodeDimension(value, 0);
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for parse]: Describe purpose here.
+     * @param parser: [Description]
+     * @param coerce: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
             public Double parse(XContentParser parser, boolean coerce) throws IOException {
                 double parsed = parser.doubleValue(coerce);
                 validateParsed(parsed);
+    /**
+     * @brief [Functional description for field parsed]: Describe purpose here.
+     */
                 return parsed;
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for compile]: Describe purpose here.
+     * @param fieldName: [Description]
+     * @param script: [Description]
+     * @param compiler: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public FieldValues<Number> compile(String fieldName, Script script, ScriptCompiler compiler) {
                 DoubleFieldScript.Factory scriptFactory = compiler.compile(script, DoubleFieldScript.CONTEXT);
                 return (lookup, ctx, doc, consumer) -> scriptFactory.newFactory(fieldName, script.getParams(), lookup, OnScriptError.FAIL)
@@ -678,20 +1110,38 @@ public class NumberFieldMapper extends FieldMapper {
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for termQuery]: Describe purpose here.
+     * @param field: [Description]
+     * @param value: [Description]
+     * @param isIndexed: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public Query termQuery(String field, Object value, boolean isIndexed) {
                 double v = objectToDouble(value);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (Double.isFinite(v) == false) {
                     return Queries.newMatchNoDocsQuery("Value [" + value + "] has a decimal part");
                 }
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (isIndexed) {
                     return DoublePoint.newExactQuery(field, v);
+        // Block Logic: [Describe purpose of this else/else if block]
                 } else {
                     return SortedNumericDocValuesField.newSlowExactQuery(field, NumericUtils.doubleToSortableLong(v));
                 }
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for termsQuery]: Describe purpose here.
+     * @param field: [Description]
+     * @param values: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public Query termsQuery(String field, Collection<?> values) {
                 double[] v = values.stream().mapToDouble(value -> parse(value, false)).toArray();
                 return DoublePoint.newSetQuery(field, v);
@@ -709,9 +1159,16 @@ public class NumberFieldMapper extends FieldMapper {
                 boolean isIndexed
             ) {
                 return doubleRangeQuery(lowerTerm, upperTerm, includeLower, includeUpper, (l, u) -> {
+    /**
+     * @brief [Functional description for field query]: Describe purpose here.
+     */
                     Query query;
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                     if (isIndexed) {
                         query = DoublePoint.newRangeQuery(field, l, u);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                         if (hasDocValues) {
                             Query dvQuery = SortedNumericDocValuesField.newSlowRangeQuery(
                                 field,
@@ -720,6 +1177,7 @@ public class NumberFieldMapper extends FieldMapper {
                             );
                             query = new IndexOrDocValuesQuery(query, dvQuery);
                         }
+        // Block Logic: [Describe purpose of this else/else if block]
                     } else {
                         query = SortedNumericDocValuesField.newSlowRangeQuery(
                             field,
@@ -727,26 +1185,51 @@ public class NumberFieldMapper extends FieldMapper {
                             NumericUtils.doubleToSortableLong(u)
                         );
                     }
+    /**
+     * @brief [Functional description for field query]: Describe purpose here.
+     */
                     return query;
                 });
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for addFields]: Describe purpose here.
+     * @param document: [Description]
+     * @param name: [Description]
+     * @param value: [Description]
+     * @param indexed: [Description]
+     * @param docValued: [Description]
+     * @param stored: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public void addFields(LuceneDocument document, String name, Number value, boolean indexed, boolean docValued, boolean stored) {
                 final double d = value.doubleValue();
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (indexed && docValued) {
                     document.add(new DoubleField(name, d, Field.Store.NO));
+        // Block Logic: [Describe purpose of this else/else if block]
                 } else if (docValued) {
                     document.add(new SortedNumericDocValuesField(name, NumericUtils.doubleToSortableLong(d)));
+        // Block Logic: [Describe purpose of this else/else if block]
                 } else if (indexed) {
                     document.add(new DoublePoint(name, d));
                 }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (stored) {
                     document.add(new StoredField(name, d));
                 }
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for getFieldDataBuilder]: Describe purpose here.
+     * @param ft: [Description]
+     * @param valuesSourceType: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public IndexFieldData.Builder getFieldDataBuilder(MappedFieldType ft, ValuesSourceType valuesSourceType) {
                 return new SortedDoublesIndexFieldData.Builder(
                     ft.name(),
@@ -773,16 +1256,37 @@ public class NumberFieldMapper extends FieldMapper {
                 );
             }
 
+    /**
+     * @brief [Functional Utility for validateParsed]: Describe purpose here.
+     * @param value: [Description]
+     * @return [ReturnType]: [Description]
+     */
             private static void validateParsed(double value) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (Double.isFinite(value) == false) {
                     throw new IllegalArgumentException("[double] supports only finite values, but got [" + value + "]");
                 }
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for syntheticFieldLoader]: Describe purpose here.
+     * @param fieldName: [Description]
+     * @param fieldSimpleName: [Description]
+     * @param ignoreMalformed: [Description]
+     * @return [ReturnType]: [Description]
+     */
             SourceLoader.SyntheticFieldLoader syntheticFieldLoader(String fieldName, String fieldSimpleName, boolean ignoreMalformed) {
                 return new SortedNumericDocValuesSyntheticFieldLoader(fieldName, fieldSimpleName, ignoreMalformed) {
                     @Override
+    /**
+     * @brief [Functional Utility for writeValue]: Describe purpose here.
+     * @param b: [Description]
+     * @param value: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
                     protected void writeValue(XContentBuilder b, long value) throws IOException {
                         b.value(NumericUtils.sortableLongToDouble(value));
                     }
@@ -790,27 +1294,50 @@ public class NumberFieldMapper extends FieldMapper {
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for blockLoaderFromDocValues]: Describe purpose here.
+     * @param fieldName: [Description]
+     * @return [ReturnType]: [Description]
+     */
             BlockLoader blockLoaderFromDocValues(String fieldName) {
                 return new BlockDocValuesReader.DoublesBlockLoader(fieldName, NumericUtils::sortableLongToDouble);
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for blockLoaderFromSource]: Describe purpose here.
+     * @param sourceValueFetcher: [Description]
+     * @param lookup: [Description]
+     * @return [ReturnType]: [Description]
+     */
             BlockLoader blockLoaderFromSource(SourceValueFetcher sourceValueFetcher, BlockSourceReader.LeafIteratorLookup lookup) {
                 return new BlockSourceReader.DoublesBlockLoader(sourceValueFetcher, lookup);
             }
         },
         BYTE("byte", NumericType.BYTE) {
             @Override
+    /**
+     * @brief [Functional Utility for parse]: Describe purpose here.
+     * @param value: [Description]
+     * @param coerce: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public Byte parse(Object value, boolean coerce) {
                 double doubleValue = objectToDouble(value);
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (doubleValue < Byte.MIN_VALUE || doubleValue > Byte.MAX_VALUE) {
                     throw new IllegalArgumentException("Value [" + value + "] is out of range for a byte");
                 }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (coerce == false && doubleValue % 1 != 0) {
                     throw new IllegalArgumentException("Value [" + value + "] has a decimal part");
                 }
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (value instanceof Number) {
                     return ((Number) value).byteValue();
                 }
@@ -819,13 +1346,27 @@ public class NumberFieldMapper extends FieldMapper {
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for parsePoint]: Describe purpose here.
+     * @param value: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public Number parsePoint(byte[] value) {
                 return INTEGER.parsePoint(value).byteValue();
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for parse]: Describe purpose here.
+     * @param parser: [Description]
+     * @param coerce: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
             public Short parse(XContentParser parser, boolean coerce) throws IOException {
                 int value = parser.intValue(coerce);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (value < Byte.MIN_VALUE || value > Byte.MAX_VALUE) {
                     throw new IllegalArgumentException("Value [" + value + "] is out of range for a byte");
                 }
@@ -833,7 +1374,16 @@ public class NumberFieldMapper extends FieldMapper {
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for termQuery]: Describe purpose here.
+     * @param field: [Description]
+     * @param value: [Description]
+     * @param isIndexed: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public Query termQuery(String field, Object value, boolean isIndexed) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (isOutOfRange(value)) {
                     return new MatchNoDocsQuery("Value [" + value + "] is out of range");
                 }
@@ -842,6 +1392,12 @@ public class NumberFieldMapper extends FieldMapper {
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for termsQuery]: Describe purpose here.
+     * @param field: [Description]
+     * @param values: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public Query termsQuery(String field, Collection<?> values) {
                 return INTEGER.termsQuery(field, values);
             }
@@ -861,16 +1417,37 @@ public class NumberFieldMapper extends FieldMapper {
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for addFields]: Describe purpose here.
+     * @param document: [Description]
+     * @param name: [Description]
+     * @param value: [Description]
+     * @param indexed: [Description]
+     * @param docValued: [Description]
+     * @param stored: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public void addFields(LuceneDocument document, String name, Number value, boolean indexed, boolean docValued, boolean stored) {
                 INTEGER.addFields(document, name, value, indexed, docValued, stored);
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for valueForSearch]: Describe purpose here.
+     * @param value: [Description]
+     * @return [ReturnType]: [Description]
+     */
             Number valueForSearch(Number value) {
                 return value.byteValue();
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for getFieldDataBuilder]: Describe purpose here.
+     * @param ft: [Description]
+     * @param valuesSourceType: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public IndexFieldData.Builder getFieldDataBuilder(MappedFieldType ft, ValuesSourceType valuesSourceType) {
                 return new SortedNumericIndexFieldData.Builder(
                     ft.name(),
@@ -898,20 +1475,43 @@ public class NumberFieldMapper extends FieldMapper {
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for syntheticFieldLoader]: Describe purpose here.
+     * @param fieldName: [Description]
+     * @param fieldSimpleName: [Description]
+     * @param ignoreMalformed: [Description]
+     * @return [ReturnType]: [Description]
+     */
             SourceLoader.SyntheticFieldLoader syntheticFieldLoader(String fieldName, String fieldSimpleName, boolean ignoreMalformed) {
                 return NumberType.syntheticLongFieldLoader(fieldName, fieldSimpleName, ignoreMalformed);
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for blockLoaderFromDocValues]: Describe purpose here.
+     * @param fieldName: [Description]
+     * @return [ReturnType]: [Description]
+     */
             BlockLoader blockLoaderFromDocValues(String fieldName) {
                 return new BlockDocValuesReader.IntsBlockLoader(fieldName);
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for blockLoaderFromSource]: Describe purpose here.
+     * @param sourceValueFetcher: [Description]
+     * @param lookup: [Description]
+     * @return [ReturnType]: [Description]
+     */
             BlockLoader blockLoaderFromSource(SourceValueFetcher sourceValueFetcher, BlockSourceReader.LeafIteratorLookup lookup) {
                 return new BlockSourceReader.IntsBlockLoader(sourceValueFetcher, lookup);
             }
 
+    /**
+     * @brief [Functional Utility for isOutOfRange]: Describe purpose here.
+     * @param value: [Description]
+     * @return [ReturnType]: [Description]
+     */
             private boolean isOutOfRange(Object value) {
                 double doubleValue = objectToDouble(value);
                 return doubleValue < Byte.MIN_VALUE || doubleValue > Byte.MAX_VALUE;
@@ -919,16 +1519,28 @@ public class NumberFieldMapper extends FieldMapper {
         },
         SHORT("short", NumericType.SHORT) {
             @Override
+    /**
+     * @brief [Functional Utility for parse]: Describe purpose here.
+     * @param value: [Description]
+     * @param coerce: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public Short parse(Object value, boolean coerce) {
                 double doubleValue = objectToDouble(value);
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (doubleValue < Short.MIN_VALUE || doubleValue > Short.MAX_VALUE) {
                     throw new IllegalArgumentException("Value [" + value + "] is out of range for a short");
                 }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (coerce == false && doubleValue % 1 != 0) {
                     throw new IllegalArgumentException("Value [" + value + "] has a decimal part");
                 }
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (value instanceof Number) {
                     return ((Number) value).shortValue();
                 }
@@ -937,17 +1549,38 @@ public class NumberFieldMapper extends FieldMapper {
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for parsePoint]: Describe purpose here.
+     * @param value: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public Number parsePoint(byte[] value) {
                 return INTEGER.parsePoint(value).shortValue();
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for parse]: Describe purpose here.
+     * @param parser: [Description]
+     * @param coerce: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
             public Short parse(XContentParser parser, boolean coerce) throws IOException {
                 return parser.shortValue(coerce);
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for termQuery]: Describe purpose here.
+     * @param field: [Description]
+     * @param value: [Description]
+     * @param isIndexed: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public Query termQuery(String field, Object value, boolean isIndexed) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (isOutOfRange(value)) {
                     return Queries.newMatchNoDocsQuery("Value [" + value + "] is out of range");
                 }
@@ -955,6 +1588,12 @@ public class NumberFieldMapper extends FieldMapper {
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for termsQuery]: Describe purpose here.
+     * @param field: [Description]
+     * @param values: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public Query termsQuery(String field, Collection<?> values) {
                 return INTEGER.termsQuery(field, values);
             }
@@ -974,16 +1613,37 @@ public class NumberFieldMapper extends FieldMapper {
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for addFields]: Describe purpose here.
+     * @param document: [Description]
+     * @param name: [Description]
+     * @param value: [Description]
+     * @param indexed: [Description]
+     * @param docValued: [Description]
+     * @param stored: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public void addFields(LuceneDocument document, String name, Number value, boolean indexed, boolean docValued, boolean stored) {
                 INTEGER.addFields(document, name, value, indexed, docValued, stored);
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for valueForSearch]: Describe purpose here.
+     * @param value: [Description]
+     * @return [ReturnType]: [Description]
+     */
             Number valueForSearch(Number value) {
                 return value.shortValue();
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for getFieldDataBuilder]: Describe purpose here.
+     * @param ft: [Description]
+     * @param valuesSourceType: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public IndexFieldData.Builder getFieldDataBuilder(MappedFieldType ft, ValuesSourceType valuesSourceType) {
                 return new SortedNumericIndexFieldData.Builder(
                     ft.name(),
@@ -1011,20 +1671,43 @@ public class NumberFieldMapper extends FieldMapper {
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for syntheticFieldLoader]: Describe purpose here.
+     * @param fieldName: [Description]
+     * @param fieldSimpleName: [Description]
+     * @param ignoreMalformed: [Description]
+     * @return [ReturnType]: [Description]
+     */
             SourceLoader.SyntheticFieldLoader syntheticFieldLoader(String fieldName, String fieldSimpleName, boolean ignoreMalformed) {
                 return NumberType.syntheticLongFieldLoader(fieldName, fieldSimpleName, ignoreMalformed);
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for blockLoaderFromDocValues]: Describe purpose here.
+     * @param fieldName: [Description]
+     * @return [ReturnType]: [Description]
+     */
             BlockLoader blockLoaderFromDocValues(String fieldName) {
                 return new BlockDocValuesReader.IntsBlockLoader(fieldName);
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for blockLoaderFromSource]: Describe purpose here.
+     * @param sourceValueFetcher: [Description]
+     * @param lookup: [Description]
+     * @return [ReturnType]: [Description]
+     */
             BlockLoader blockLoaderFromSource(SourceValueFetcher sourceValueFetcher, BlockSourceReader.LeafIteratorLookup lookup) {
                 return new BlockSourceReader.IntsBlockLoader(sourceValueFetcher, lookup);
             }
 
+    /**
+     * @brief [Functional Utility for isOutOfRange]: Describe purpose here.
+     * @param value: [Description]
+     * @return [ReturnType]: [Description]
+     */
             private boolean isOutOfRange(Object value) {
                 double doubleValue = objectToDouble(value);
                 return doubleValue < Short.MIN_VALUE || doubleValue > Short.MAX_VALUE;
@@ -1032,69 +1715,129 @@ public class NumberFieldMapper extends FieldMapper {
         },
         INTEGER("integer", NumericType.INT) {
             @Override
+    /**
+     * @brief [Functional Utility for parse]: Describe purpose here.
+     * @param value: [Description]
+     * @param coerce: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public Integer parse(Object value, boolean coerce) {
                 double doubleValue = objectToDouble(value);
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (isOutOfRange(doubleValue)) {
                     throw new IllegalArgumentException("Value [" + value + "] is out of range for an integer");
                 }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (coerce == false && doubleValue % 1 != 0) {
                     throw new IllegalArgumentException("Value [" + value + "] has a decimal part");
                 }
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (value instanceof Number) {
                     return ((Number) value).intValue();
                 }
                 return (int) doubleValue;
             }
 
+    /**
+     * @brief [Functional Utility for isOutOfRange]: Describe purpose here.
+     * @param value: [Description]
+     * @return [ReturnType]: [Description]
+     */
             private boolean isOutOfRange(double value) {
                 return value < Integer.MIN_VALUE || value > Integer.MAX_VALUE;
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for parsePoint]: Describe purpose here.
+     * @param value: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public Number parsePoint(byte[] value) {
                 return IntPoint.decodeDimension(value, 0);
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for parse]: Describe purpose here.
+     * @param parser: [Description]
+     * @param coerce: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
             public Integer parse(XContentParser parser, boolean coerce) throws IOException {
                 return parser.intValue(coerce);
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for termQuery]: Describe purpose here.
+     * @param field: [Description]
+     * @param value: [Description]
+     * @param isIndexed: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public Query termQuery(String field, Object value, boolean isIndexed) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (hasDecimalPart(value)) {
                     return Queries.newMatchNoDocsQuery("Value [" + value + "] has a decimal part");
                 }
                 double doubleValue = objectToDouble(value);
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (isOutOfRange(doubleValue)) {
                     return Queries.newMatchNoDocsQuery("Value [" + value + "] is out of range");
                 }
                 int v = parse(value, true);
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (isIndexed) {
                     return IntPoint.newExactQuery(field, v);
+        // Block Logic: [Describe purpose of this else/else if block]
                 } else {
                     return SortedNumericDocValuesField.newSlowExactQuery(field, v);
                 }
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for termsQuery]: Describe purpose here.
+     * @param field: [Description]
+     * @param values: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public Query termsQuery(String field, Collection<?> values) {
                 int[] v = new int[values.size()];
+    /**
+     * @brief [Functional description for field upTo]: Describe purpose here.
+     */
                 int upTo = 0;
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 for (Object value : values) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                     if (hasDecimalPart(value) == false) {
                         v[upTo++] = parse(value, true);
                     }
                 }
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (upTo == 0) {
                     return Queries.newMatchNoDocsQuery("All values have a decimal part");
                 }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (upTo != v.length) {
                     v = Arrays.copyOf(v, upTo);
                 }
@@ -1112,8 +1855,16 @@ public class NumberFieldMapper extends FieldMapper {
                 SearchExecutionContext context,
                 boolean isIndexed
             ) {
+    /**
+     * @brief [Functional description for field l]: Describe purpose here.
+     */
                 int l = Integer.MIN_VALUE;
+    /**
+     * @brief [Functional description for field u]: Describe purpose here.
+     */
                 int u = Integer.MAX_VALUE;
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (lowerTerm != null) {
                     l = parse(lowerTerm, true);
                     // if the lower bound is decimal:
@@ -1122,55 +1873,100 @@ public class NumberFieldMapper extends FieldMapper {
                     // - if the bound is negative then we leave it as is:
                     // if lowerTerm=-1.5 then the (inclusive) bound becomes -1 due to the call to longValue
                     boolean lowerTermHasDecimalPart = hasDecimalPart(lowerTerm);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                     if ((lowerTermHasDecimalPart == false && includeLower == false) || (lowerTermHasDecimalPart && signum(lowerTerm) > 0)) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                         if (l == Integer.MAX_VALUE) {
                             return new MatchNoDocsQuery();
                         }
                         ++l;
                     }
                 }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (upperTerm != null) {
                     u = parse(upperTerm, true);
                     boolean upperTermHasDecimalPart = hasDecimalPart(upperTerm);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                     if ((upperTermHasDecimalPart == false && includeUpper == false) || (upperTermHasDecimalPart && signum(upperTerm) < 0)) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                         if (u == Integer.MIN_VALUE) {
                             return new MatchNoDocsQuery();
                         }
                         --u;
                     }
                 }
+    /**
+     * @brief [Functional description for field query]: Describe purpose here.
+     */
                 Query query;
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (isIndexed) {
                     query = IntPoint.newRangeQuery(field, l, u);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                     if (hasDocValues) {
                         Query dvQuery = SortedNumericDocValuesField.newSlowRangeQuery(field, l, u);
                         query = new IndexOrDocValuesQuery(query, dvQuery);
                     }
+        // Block Logic: [Describe purpose of this else/else if block]
                 } else {
                     query = SortedNumericDocValuesField.newSlowRangeQuery(field, l, u);
                 }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (hasDocValues && context.indexSortedOnField(field)) {
                     query = new XIndexSortSortedNumericDocValuesRangeQuery(field, l, u, query);
                 }
+    /**
+     * @brief [Functional description for field query]: Describe purpose here.
+     */
                 return query;
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for addFields]: Describe purpose here.
+     * @param document: [Description]
+     * @param name: [Description]
+     * @param value: [Description]
+     * @param indexed: [Description]
+     * @param docValued: [Description]
+     * @param stored: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public void addFields(LuceneDocument document, String name, Number value, boolean indexed, boolean docValued, boolean stored) {
                 final int i = value.intValue();
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (indexed && docValued) {
                     document.add(new IntField(name, i, Field.Store.NO));
+        // Block Logic: [Describe purpose of this else/else if block]
                 } else if (docValued) {
                     document.add(new SortedNumericDocValuesField(name, i));
+        // Block Logic: [Describe purpose of this else/else if block]
                 } else if (indexed) {
                     document.add(new IntPoint(name, i));
                 }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (stored) {
                     document.add(new StoredField(name, i));
                 }
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for getFieldDataBuilder]: Describe purpose here.
+     * @param ft: [Description]
+     * @param valuesSourceType: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public IndexFieldData.Builder getFieldDataBuilder(MappedFieldType ft, ValuesSourceType valuesSourceType) {
                 return new SortedNumericIndexFieldData.Builder(
                     ft.name(),
@@ -1198,37 +1994,80 @@ public class NumberFieldMapper extends FieldMapper {
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for syntheticFieldLoader]: Describe purpose here.
+     * @param fieldName: [Description]
+     * @param fieldSimpleName: [Description]
+     * @param ignoreMalformed: [Description]
+     * @return [ReturnType]: [Description]
+     */
             SourceLoader.SyntheticFieldLoader syntheticFieldLoader(String fieldName, String fieldSimpleName, boolean ignoreMalformed) {
                 return NumberType.syntheticLongFieldLoader(fieldName, fieldSimpleName, ignoreMalformed);
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for blockLoaderFromDocValues]: Describe purpose here.
+     * @param fieldName: [Description]
+     * @return [ReturnType]: [Description]
+     */
             BlockLoader blockLoaderFromDocValues(String fieldName) {
                 return new BlockDocValuesReader.IntsBlockLoader(fieldName);
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for blockLoaderFromSource]: Describe purpose here.
+     * @param sourceValueFetcher: [Description]
+     * @param lookup: [Description]
+     * @return [ReturnType]: [Description]
+     */
             BlockLoader blockLoaderFromSource(SourceValueFetcher sourceValueFetcher, BlockSourceReader.LeafIteratorLookup lookup) {
                 return new BlockSourceReader.IntsBlockLoader(sourceValueFetcher, lookup);
             }
         },
         LONG("long", NumericType.LONG) {
             @Override
+    /**
+     * @brief [Functional Utility for parse]: Describe purpose here.
+     * @param value: [Description]
+     * @param coerce: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public Long parse(Object value, boolean coerce) {
                 return objectToLong(value, coerce);
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for parsePoint]: Describe purpose here.
+     * @param value: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public Number parsePoint(byte[] value) {
                 return LongPoint.decodeDimension(value, 0);
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for parse]: Describe purpose here.
+     * @param parser: [Description]
+     * @param coerce: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
             public Long parse(XContentParser parser, boolean coerce) throws IOException {
                 return parser.longValue(coerce);
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for compile]: Describe purpose here.
+     * @param fieldName: [Description]
+     * @param script: [Description]
+     * @param compiler: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public FieldValues<Number> compile(String fieldName, Script script, ScriptCompiler compiler) {
                 final LongFieldScript.Factory scriptFactory = compiler.compile(script, LongFieldScript.CONTEXT);
                 return (lookup, ctx, doc, consumer) -> scriptFactory.newFactory(fieldName, script.getParams(), lookup, OnScriptError.FAIL)
@@ -1237,36 +2076,67 @@ public class NumberFieldMapper extends FieldMapper {
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for termQuery]: Describe purpose here.
+     * @param field: [Description]
+     * @param value: [Description]
+     * @param isIndexed: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public Query termQuery(String field, Object value, boolean isIndexed) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (hasDecimalPart(value)) {
                     return Queries.newMatchNoDocsQuery("Value [" + value + "] has a decimal part");
                 }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (isOutOfRange(value)) {
                     return Queries.newMatchNoDocsQuery("Value [" + value + "] is out of range");
                 }
 
                 long v = parse(value, true);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (isIndexed) {
                     return LongPoint.newExactQuery(field, v);
+        // Block Logic: [Describe purpose of this else/else if block]
                 } else {
                     return SortedNumericDocValuesField.newSlowExactQuery(field, v);
                 }
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for termsQuery]: Describe purpose here.
+     * @param field: [Description]
+     * @param values: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public Query termsQuery(String field, Collection<?> values) {
                 long[] v = new long[values.size()];
+    /**
+     * @brief [Functional description for field upTo]: Describe purpose here.
+     */
                 int upTo = 0;
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 for (Object value : values) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                     if (hasDecimalPart(value) == false) {
                         v[upTo++] = parse(value, true);
                     }
                 }
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (upTo == 0) {
                     return Queries.newMatchNoDocsQuery("All values have a decimal part");
                 }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (upTo != v.length) {
                     v = Arrays.copyOf(v, upTo);
                 }
@@ -1285,39 +2155,74 @@ public class NumberFieldMapper extends FieldMapper {
                 boolean isIndexed
             ) {
                 return longRangeQuery(lowerTerm, upperTerm, includeLower, includeUpper, (l, u) -> {
+    /**
+     * @brief [Functional description for field query]: Describe purpose here.
+     */
                     Query query;
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                     if (isIndexed) {
                         query = LongPoint.newRangeQuery(field, l, u);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                         if (hasDocValues) {
                             Query dvQuery = SortedNumericDocValuesField.newSlowRangeQuery(field, l, u);
                             query = new IndexOrDocValuesQuery(query, dvQuery);
                         }
+        // Block Logic: [Describe purpose of this else/else if block]
                     } else {
                         query = SortedNumericDocValuesField.newSlowRangeQuery(field, l, u);
                     }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                     if (hasDocValues && context.indexSortedOnField(field)) {
                         query = new XIndexSortSortedNumericDocValuesRangeQuery(field, l, u, query);
                     }
+    /**
+     * @brief [Functional description for field query]: Describe purpose here.
+     */
                     return query;
                 });
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for addFields]: Describe purpose here.
+     * @param document: [Description]
+     * @param name: [Description]
+     * @param value: [Description]
+     * @param indexed: [Description]
+     * @param docValued: [Description]
+     * @param stored: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public void addFields(LuceneDocument document, String name, Number value, boolean indexed, boolean docValued, boolean stored) {
                 final long l = value.longValue();
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (indexed && docValued) {
                     document.add(new LongField(name, l, Field.Store.NO));
+        // Block Logic: [Describe purpose of this else/else if block]
                 } else if (docValued) {
                     document.add(new SortedNumericDocValuesField(name, l));
+        // Block Logic: [Describe purpose of this else/else if block]
                 } else if (indexed) {
                     document.add(new LongPoint(name, l));
                 }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (stored) {
                     document.add(new StoredField(name, l));
                 }
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for getFieldDataBuilder]: Describe purpose here.
+     * @param ft: [Description]
+     * @param valuesSourceType: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public IndexFieldData.Builder getFieldDataBuilder(MappedFieldType ft, ValuesSourceType valuesSourceType) {
                 return new SortedNumericIndexFieldData.Builder(
                     ft.name(),
@@ -1345,22 +2250,50 @@ public class NumberFieldMapper extends FieldMapper {
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for syntheticFieldLoader]: Describe purpose here.
+     * @param fieldName: [Description]
+     * @param fieldSimpleName: [Description]
+     * @param ignoreMalformed: [Description]
+     * @return [ReturnType]: [Description]
+     */
             SourceLoader.SyntheticFieldLoader syntheticFieldLoader(String fieldName, String fieldSimpleName, boolean ignoreMalformed) {
                 return syntheticLongFieldLoader(fieldName, fieldSimpleName, ignoreMalformed);
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for blockLoaderFromDocValues]: Describe purpose here.
+     * @param fieldName: [Description]
+     * @return [ReturnType]: [Description]
+     */
             BlockLoader blockLoaderFromDocValues(String fieldName) {
                 return new BlockDocValuesReader.LongsBlockLoader(fieldName);
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for blockLoaderFromSource]: Describe purpose here.
+     * @param sourceValueFetcher: [Description]
+     * @param lookup: [Description]
+     * @return [ReturnType]: [Description]
+     */
             BlockLoader blockLoaderFromSource(SourceValueFetcher sourceValueFetcher, BlockSourceReader.LeafIteratorLookup lookup) {
                 return new BlockSourceReader.LongsBlockLoader(sourceValueFetcher, lookup);
             }
 
+    /**
+     * @brief [Functional Utility for isOutOfRange]: Describe purpose here.
+     * @param value: [Description]
+     * @return [ReturnType]: [Description]
+     */
             private boolean isOutOfRange(Object value) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (value instanceof Long) {
+    /**
+     * @brief [Functional description for field false]: Describe purpose here.
+     */
                     return false;
                 }
                 String stringValue = (value instanceof BytesRef) ? ((BytesRef) value).utf8ToString() : value.toString();
@@ -1370,8 +2303,17 @@ public class NumberFieldMapper extends FieldMapper {
             }
         };
 
+    /**
+     * @brief [Functional description for field name]: Describe purpose here.
+     */
         private final String name;
+    /**
+     * @brief [Functional description for field numericType]: Describe purpose here.
+     */
         private final NumericType numericType;
+    /**
+     * @brief [Functional description for field parser]: Describe purpose here.
+     */
         private final TypeParser parser;
 
         NumberType(String name, NumericType numericType) {
@@ -1383,16 +2325,37 @@ public class NumberFieldMapper extends FieldMapper {
         }
 
         /** Get the associated type name. */
+    /**
+     * @brief [Functional Utility for typeName]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
         public final String typeName() {
+    /**
+     * @brief [Functional description for field name]: Describe purpose here.
+     */
             return name;
         }
 
         /** Get the associated numeric type */
+    /**
+     * @brief [Functional Utility for numericType]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
         public final NumericType numericType() {
+    /**
+     * @brief [Functional description for field numericType]: Describe purpose here.
+     */
             return numericType;
         }
 
+    /**
+     * @brief [Functional Utility for parser]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
         public final TypeParser parser() {
+    /**
+     * @brief [Functional description for field parser]: Describe purpose here.
+     */
             return parser;
         }
 
@@ -1437,12 +2400,27 @@ public class NumberFieldMapper extends FieldMapper {
             boolean stored
         );
 
+    /**
+     * @brief [Functional Utility for compile]: Describe purpose here.
+     * @param fieldName: [Description]
+     * @param script: [Description]
+     * @param compiler: [Description]
+     * @return [ReturnType]: [Description]
+     */
         public FieldValues<Number> compile(String fieldName, Script script, ScriptCompiler compiler) {
             // only implemented for long and double fields
             throw new IllegalArgumentException("Unknown parameter [script] for mapper [" + fieldName + "]");
         }
 
+    /**
+     * @brief [Functional Utility for valueForSearch]: Describe purpose here.
+     * @param value: [Description]
+     * @return [ReturnType]: [Description]
+     */
         Number valueForSearch(Number value) {
+    /**
+     * @brief [Functional description for field value]: Describe purpose here.
+     */
             return value;
         }
 
@@ -1450,19 +2428,33 @@ public class NumberFieldMapper extends FieldMapper {
          * Returns true if the object is a number and has a decimal part
          */
         public static boolean hasDecimalPart(Object number) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (number instanceof Byte || number instanceof Short || number instanceof Integer || number instanceof Long) {
+    /**
+     * @brief [Functional description for field false]: Describe purpose here.
+     */
                 return false;
             }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (number instanceof Number) {
                 double doubleValue = ((Number) number).doubleValue();
                 return doubleValue % 1 != 0;
             }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (number instanceof BytesRef) {
                 number = ((BytesRef) number).utf8ToString();
             }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (number instanceof String) {
                 return Double.parseDouble((String) number) % 1 != 0;
             }
+    /**
+     * @brief [Functional description for field false]: Describe purpose here.
+     */
             return false;
         }
 
@@ -1470,10 +2462,14 @@ public class NumberFieldMapper extends FieldMapper {
          * Returns -1, 0, or 1 if the value is lower than, equal to, or greater than 0
          */
         static double signum(Object value) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (value instanceof Number) {
                 double doubleValue = ((Number) value).doubleValue();
                 return Math.signum(doubleValue);
             }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (value instanceof BytesRef) {
                 value = ((BytesRef) value).utf8ToString();
             }
@@ -1484,16 +2480,26 @@ public class NumberFieldMapper extends FieldMapper {
          * Converts an Object to a double by checking it against known types first
          */
         public static double objectToDouble(Object value) {
+    /**
+     * @brief [Functional description for field doubleValue]: Describe purpose here.
+     */
             double doubleValue;
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (value instanceof Number) {
                 doubleValue = ((Number) value).doubleValue();
+        // Block Logic: [Describe purpose of this else/else if block]
             } else if (value instanceof BytesRef) {
                 doubleValue = Double.parseDouble(((BytesRef) value).utf8ToString());
+        // Block Logic: [Describe purpose of this else/else if block]
             } else {
                 doubleValue = Double.parseDouble(value.toString());
             }
 
+    /**
+     * @brief [Functional description for field doubleValue]: Describe purpose here.
+     */
             return doubleValue;
         }
 
@@ -1502,6 +2508,8 @@ public class NumberFieldMapper extends FieldMapper {
          * types and checking its range.
          */
         public static long objectToLong(Object value, boolean coerce) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (value instanceof Long) {
                 return (Long) value;
             }
@@ -1509,9 +2517,13 @@ public class NumberFieldMapper extends FieldMapper {
             double doubleValue = objectToDouble(value);
             // this check does not guarantee that value is inside MIN_VALUE/MAX_VALUE because values up to 9223372036854776832 will
             // be equal to Long.MAX_VALUE after conversion to double. More checks ahead.
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (doubleValue < Long.MIN_VALUE || doubleValue > Long.MAX_VALUE) {
                 throw new IllegalArgumentException("Value [" + value + "] is out of range for a long");
             }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (coerce == false && doubleValue % 1 != 0) {
                 throw new IllegalArgumentException("Value [" + value + "] has a decimal part");
             }
@@ -1528,16 +2540,30 @@ public class NumberFieldMapper extends FieldMapper {
             boolean includeUpper,
             BiFunction<Double, Double, Query> builder
         ) {
+    /**
+     * @brief [Functional description for field l]: Describe purpose here.
+     */
             double l = Double.NEGATIVE_INFINITY;
+    /**
+     * @brief [Functional description for field u]: Describe purpose here.
+     */
             double u = Double.POSITIVE_INFINITY;
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (lowerTerm != null) {
                 l = objectToDouble(lowerTerm);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (includeLower == false) {
                     l = DoublePoint.nextUp(l);
                 }
             }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (upperTerm != null) {
                 u = objectToDouble(upperTerm);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (includeUpper == false) {
                     u = DoublePoint.nextDown(u);
                 }
@@ -1556,8 +2582,16 @@ public class NumberFieldMapper extends FieldMapper {
             boolean includeUpper,
             BiFunction<Long, Long, Query> builder
         ) {
+    /**
+     * @brief [Functional description for field l]: Describe purpose here.
+     */
             long l = Long.MIN_VALUE;
+    /**
+     * @brief [Functional description for field u]: Describe purpose here.
+     */
             long u = Long.MAX_VALUE;
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (lowerTerm != null) {
                 l = objectToLong(lowerTerm, true);
                 // if the lower bound is decimal:
@@ -1566,17 +2600,27 @@ public class NumberFieldMapper extends FieldMapper {
                 // - if the bound is negative then we leave it as is:
                 // if lowerTerm=-1.5 then the (inclusive) bound becomes -1 due to the call to longValue
                 boolean lowerTermHasDecimalPart = hasDecimalPart(lowerTerm);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if ((lowerTermHasDecimalPart == false && includeLower == false) || (lowerTermHasDecimalPart && signum(lowerTerm) > 0)) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                     if (l == Long.MAX_VALUE) {
                         return new MatchNoDocsQuery();
                     }
                     ++l;
                 }
             }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (upperTerm != null) {
                 u = objectToLong(upperTerm, true);
                 boolean upperTermHasDecimalPart = hasDecimalPart(upperTerm);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if ((upperTermHasDecimalPart == false && includeUpper == false) || (upperTermHasDecimalPart && signum(upperTerm) < 0)) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                     if (u == Long.MIN_VALUE) {
                         return new MatchNoDocsQuery();
                     }
@@ -1618,6 +2662,13 @@ public class NumberFieldMapper extends FieldMapper {
         ) {
             return new SortedNumericDocValuesSyntheticFieldLoader(fieldName, fieldSimpleName, ignoreMalformed) {
                 @Override
+    /**
+     * @brief [Functional Utility for writeValue]: Describe purpose here.
+     * @param b: [Description]
+     * @param value: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
                 protected void writeValue(XContentBuilder b, long value) throws IOException {
                     b.value(value);
                 }
@@ -1631,12 +2682,33 @@ public class NumberFieldMapper extends FieldMapper {
 
     public static class NumberFieldType extends SimpleMappedFieldType {
 
+    /**
+     * @brief [Functional description for field type]: Describe purpose here.
+     */
         private final NumberType type;
+    /**
+     * @brief [Functional description for field coerce]: Describe purpose here.
+     */
         private final boolean coerce;
+    /**
+     * @brief [Functional description for field nullValue]: Describe purpose here.
+     */
         private final Number nullValue;
+    /**
+     * @brief [Functional description for field scriptValues]: Describe purpose here.
+     */
         private final FieldValues<Number> scriptValues;
+    /**
+     * @brief [Functional description for field isDimension]: Describe purpose here.
+     */
         private final boolean isDimension;
+    /**
+     * @brief [Functional description for field metricType]: Describe purpose here.
+     */
         private final MetricType metricType;
+    /**
+     * @brief [Functional description for field indexMode]: Describe purpose here.
+     */
         private final IndexMode indexMode;
 
         public NumberFieldType(
@@ -1680,15 +2752,32 @@ public class NumberFieldMapper extends FieldMapper {
             );
         }
 
+    /**
+     * @brief [Functional Utility for NumberFieldType]: Describe purpose here.
+     * @param name: [Description]
+     * @param type: [Description]
+     * @return [ReturnType]: [Description]
+     */
         public NumberFieldType(String name, NumberType type) {
             this(name, type, true);
         }
 
+    /**
+     * @brief [Functional Utility for NumberFieldType]: Describe purpose here.
+     * @param name: [Description]
+     * @param type: [Description]
+     * @param isIndexed: [Description]
+     * @return [ReturnType]: [Description]
+     */
         public NumberFieldType(String name, NumberType type, boolean isIndexed) {
             this(name, type, isIndexed, false, true, true, null, Collections.emptyMap(), null, false, null, null);
         }
 
         @Override
+    /**
+     * @brief [Functional Utility for typeName]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
         public String typeName() {
             return type.name;
         }
@@ -1701,37 +2790,70 @@ public class NumberFieldMapper extends FieldMapper {
          * the problem where (e.g.) 0.04F &lt; 0.04D, which causes problems for range aggregations.
          */
         public double reduceToStoredPrecision(double value) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (Double.isInfinite(value)) {
                 // Trying to parse infinite values into ints/longs throws. Understandably.
+    /**
+     * @brief [Functional description for field value]: Describe purpose here.
+     */
                 return value;
             }
             return type.reduceToStoredPrecision(value);
         }
 
+    /**
+     * @brief [Functional Utility for numericType]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
         public NumericType numericType() {
             return type.numericType();
         }
 
         @Override
+    /**
+     * @brief [Functional Utility for mayExistInIndex]: Describe purpose here.
+     * @param context: [Description]
+     * @return [ReturnType]: [Description]
+     */
         public boolean mayExistInIndex(SearchExecutionContext context) {
             return context.fieldExistsInIndex(this.name());
         }
 
+    /**
+     * @brief [Functional Utility for isSearchable]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
         public boolean isSearchable() {
             return isIndexed() || hasDocValues();
         }
 
         @Override
+    /**
+     * @brief [Functional Utility for termQuery]: Describe purpose here.
+     * @param value: [Description]
+     * @param context: [Description]
+     * @return [ReturnType]: [Description]
+     */
         public Query termQuery(Object value, SearchExecutionContext context) {
             failIfNotIndexedNorDocValuesFallback(context);
             return type.termQuery(name(), value, isIndexed());
         }
 
         @Override
+    /**
+     * @brief [Functional Utility for termsQuery]: Describe purpose here.
+     * @param values: [Description]
+     * @param context: [Description]
+     * @return [ReturnType]: [Description]
+     */
         public Query termsQuery(Collection<?> values, SearchExecutionContext context) {
             failIfNotIndexedNorDocValuesFallback(context);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (isIndexed()) {
                 return type.termsQuery(name(), values);
+        // Block Logic: [Describe purpose of this else/else if block]
             } else {
                 return super.termsQuery(values, context);
             }
@@ -1751,14 +2873,26 @@ public class NumberFieldMapper extends FieldMapper {
 
         @Override
         public Function<byte[], Number> pointReaderIfPossible() {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (isIndexed()) {
                 return this::parsePoint;
             }
+    /**
+     * @brief [Functional description for field null]: Describe purpose here.
+     */
             return null;
         }
 
         @Override
+    /**
+     * @brief [Functional Utility for blockLoader]: Describe purpose here.
+     * @param blContext: [Description]
+     * @return [ReturnType]: [Description]
+     */
         public BlockLoader blockLoader(BlockLoaderContext blContext) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (hasDocValues()) {
                 return type.blockLoaderFromDocValues(name());
             }
@@ -1769,9 +2903,16 @@ public class NumberFieldMapper extends FieldMapper {
         }
 
         @Override
+    /**
+     * @brief [Functional Utility for fielddataBuilder]: Describe purpose here.
+     * @param fieldDataContext: [Description]
+     * @return [ReturnType]: [Description]
+     */
         public IndexFieldData.Builder fielddataBuilder(FieldDataContext fieldDataContext) {
             FielddataOperation operation = fieldDataContext.fielddataOperation();
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (fieldDataContext.fielddataOperation() == FielddataOperation.SEARCH) {
                 failIfNoDocValues();
             }
@@ -1780,10 +2921,14 @@ public class NumberFieldMapper extends FieldMapper {
                 ? TimeSeriesValuesSourceType.COUNTER
                 : type.numericType.getValuesSourceType();
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if ((operation == FielddataOperation.SEARCH || operation == FielddataOperation.SCRIPT) && hasDocValues()) {
                 return type.getFieldDataBuilder(this, valuesSourceType);
             }
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (operation == FielddataOperation.SCRIPT) {
                 SearchLookup searchLookup = fieldDataContext.lookupSupplier().get();
                 Set<String> sourcePaths = fieldDataContext.sourcePathsLookup().apply(name());
@@ -1794,29 +2939,64 @@ public class NumberFieldMapper extends FieldMapper {
         }
 
         @Override
+    /**
+     * @brief [Functional Utility for valueForDisplay]: Describe purpose here.
+     * @param value: [Description]
+     * @return [ReturnType]: [Description]
+     */
         public Object valueForDisplay(Object value) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (value == null) {
+    /**
+     * @brief [Functional description for field null]: Describe purpose here.
+     */
                 return null;
             }
             return type.valueForSearch((Number) value);
         }
 
         @Override
+    /**
+     * @brief [Functional Utility for valueFetcher]: Describe purpose here.
+     * @param context: [Description]
+     * @param format: [Description]
+     * @return [ReturnType]: [Description]
+     */
         public ValueFetcher valueFetcher(SearchExecutionContext context, String format) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (format != null) {
                 throw new IllegalArgumentException("Field [" + name() + "] of type [" + typeName() + "] doesn't support formats.");
             }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (this.scriptValues != null) {
                 return FieldValues.valueFetcher(this.scriptValues, context);
             }
             return sourceValueFetcher(context.isSourceEnabled() ? context.sourcePath(name()) : Collections.emptySet());
         }
 
+    /**
+     * @brief [Functional Utility for sourceValueFetcher]: Describe purpose here.
+     * @param sourcePaths: [Description]
+     * @return [ReturnType]: [Description]
+     */
         private SourceValueFetcher sourceValueFetcher(Set<String> sourcePaths) {
             return new SourceValueFetcher(sourcePaths, nullValue) {
                 @Override
+    /**
+     * @brief [Functional Utility for parseSourceValue]: Describe purpose here.
+     * @param value: [Description]
+     * @return [ReturnType]: [Description]
+     */
                 protected Object parseSourceValue(Object value) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                     if (value.equals("")) {
+    /**
+     * @brief [Functional description for field nullValue]: Describe purpose here.
+     */
                         return nullValue;
                     }
                     return type.parse(value, coerce);
@@ -1825,29 +3005,57 @@ public class NumberFieldMapper extends FieldMapper {
         }
 
         @Override
+    /**
+     * @brief [Functional Utility for docValueFormat]: Describe purpose here.
+     * @param format: [Description]
+     * @param timeZone: [Description]
+     * @return [ReturnType]: [Description]
+     */
         public DocValueFormat docValueFormat(String format, ZoneId timeZone) {
             checkNoTimeZone(timeZone);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (format == null) {
                 return DocValueFormat.RAW;
             }
             return new DocValueFormat.Decimal(format);
         }
 
+    /**
+     * @brief [Functional Utility for parsePoint]: Describe purpose here.
+     * @param value: [Description]
+     * @return [ReturnType]: [Description]
+     */
         public Number parsePoint(byte[] value) {
             return type.parsePoint(value);
         }
 
         @Override
+    /**
+     * @brief [Functional Utility for collapseType]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
         public CollapseType collapseType() {
             return CollapseType.NUMERIC;
         }
 
         @Override
+    /**
+     * @brief [Functional Utility for isDimension]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
         public boolean isDimension() {
+    /**
+     * @brief [Functional description for field isDimension]: Describe purpose here.
+     */
             return isDimension;
         }
 
         @Override
+    /**
+     * @brief [Functional Utility for hasScriptValues]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
         public boolean hasScriptValues() {
             return scriptValues != null;
         }
@@ -1857,28 +3065,85 @@ public class NumberFieldMapper extends FieldMapper {
          * @return the metric type or null
          */
         public MetricType getMetricType() {
+    /**
+     * @brief [Functional description for field metricType]: Describe purpose here.
+     */
             return metricType;
         }
     }
 
+    /**
+     * @brief [Functional description for field type]: Describe purpose here.
+     */
     private final NumberType type;
+    /**
+     * @brief [Functional description for field indexed]: Describe purpose here.
+     */
     private final boolean indexed;
+    /**
+     * @brief [Functional description for field hasDocValues]: Describe purpose here.
+     */
     private final boolean hasDocValues;
+    /**
+     * @brief [Functional description for field stored]: Describe purpose here.
+     */
     private final boolean stored;
+    /**
+     * @brief [Functional description for field ignoreMalformed]: Describe purpose here.
+     */
     private final Explicit<Boolean> ignoreMalformed;
+    /**
+     * @brief [Functional description for field coerce]: Describe purpose here.
+     */
     private final Explicit<Boolean> coerce;
+    /**
+     * @brief [Functional description for field nullValue]: Describe purpose here.
+     */
     private final Number nullValue;
+    /**
+     * @brief [Functional description for field scriptValues]: Describe purpose here.
+     */
     private final FieldValues<Number> scriptValues;
+    /**
+     * @brief [Functional description for field ignoreMalformedByDefault]: Describe purpose here.
+     */
     private final boolean ignoreMalformedByDefault;
+    /**
+     * @brief [Functional description for field coerceByDefault]: Describe purpose here.
+     */
     private final boolean coerceByDefault;
+    /**
+     * @brief [Functional description for field dimension]: Describe purpose here.
+     */
     private final boolean dimension;
+    /**
+     * @brief [Functional description for field scriptCompiler]: Describe purpose here.
+     */
     private final ScriptCompiler scriptCompiler;
+    /**
+     * @brief [Functional description for field script]: Describe purpose here.
+     */
     private final Script script;
+    /**
+     * @brief [Functional description for field metricType]: Describe purpose here.
+     */
     private final MetricType metricType;
+    /**
+     * @brief [Functional description for field allowMultipleValues]: Describe purpose here.
+     */
     private boolean allowMultipleValues;
+    /**
+     * @brief [Functional description for field indexCreatedVersion]: Describe purpose here.
+     */
     private final IndexVersion indexCreatedVersion;
+    /**
+     * @brief [Functional description for field storeMalformedFields]: Describe purpose here.
+     */
     private final boolean storeMalformedFields;
 
+    /**
+     * @brief [Functional description for field indexMode]: Describe purpose here.
+     */
     private final IndexMode indexMode;
 
     private NumberFieldMapper(
@@ -1909,46 +3174,88 @@ public class NumberFieldMapper extends FieldMapper {
         this.indexMode = builder.indexMode;
     }
 
+    /**
+     * @brief [Functional Utility for coerce]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     boolean coerce() {
         return coerce.value();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for ignoreMalformed]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public boolean ignoreMalformed() {
         return ignoreMalformed.value();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for fieldType]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public NumberFieldType fieldType() {
         return (NumberFieldType) super.fieldType();
     }
 
+    /**
+     * @brief [Functional Utility for type]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public NumberType type() {
+    /**
+     * @brief [Functional description for field type]: Describe purpose here.
+     */
         return type;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for contentType]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     protected String contentType() {
         return fieldType().type.typeName();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for parseCreateField]: Describe purpose here.
+     * @param context: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
     protected void parseCreateField(DocumentParserContext context) throws IOException {
+    /**
+     * @brief [Functional description for field value]: Describe purpose here.
+     */
         Number value;
         try {
             value = value(context.parser());
         } catch (IllegalArgumentException e) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (ignoreMalformed.value() && context.parser().currentToken().isValue()) {
                 context.addIgnoredField(mappedFieldType.name());
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (storeMalformedFields) {
                     // Save a copy of the field so synthetic source can load it
                     context.doc().add(IgnoreMalformedStoredValues.storedField(fullPath(), context.parser()));
                 }
                 return;
+        // Block Logic: [Describe purpose of this else/else if block]
             } else {
+    /**
+     * @brief [Functional description for field e]: Describe purpose here.
+     */
                 throw e;
             }
         }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (value != null) {
             indexValue(context, value);
         }
@@ -1963,12 +3270,24 @@ public class NumberFieldMapper extends FieldMapper {
      */
     public Number value(XContentParser parser) throws IllegalArgumentException, IOException {
         final Token currentToken = parser.currentToken();
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (currentToken == Token.VALUE_NULL) {
+    /**
+     * @brief [Functional description for field nullValue]: Describe purpose here.
+     */
             return nullValue;
         }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (coerce() && currentToken == Token.VALUE_STRING && parser.textLength() == 0) {
+    /**
+     * @brief [Functional description for field nullValue]: Describe purpose here.
+     */
             return nullValue;
         }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (currentToken == Token.START_OBJECT) {
             throw new IllegalArgumentException("Cannot parse object as number");
         }
@@ -1981,11 +3300,15 @@ public class NumberFieldMapper extends FieldMapper {
      * fields that want to share the behavior of numeric fields.
      */
     public void indexValue(DocumentParserContext context, Number numericValue) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (dimension && numericValue != null) {
             context.getRoutingFields().addLong(fieldType().name(), numericValue.longValue());
         }
         fieldType().type.addFields(context.doc(), fieldType().name(), numericValue, indexed, hasDocValues, stored);
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (false == allowMultipleValues && (indexed || hasDocValues || stored)) {
             // the last field is the current field, Add to the key map, so that we can validate if it has been added
             List<IndexableField> fields = context.doc().getFields();
@@ -1995,6 +3318,8 @@ public class NumberFieldMapper extends FieldMapper {
             context.doc().onlyAddKey(fieldType().name(), fields.get(fields.size() - 1));
         }
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (hasDocValues == false && (stored || indexed)) {
             context.addToFieldNames(fieldType().name());
         }
@@ -2011,6 +3336,10 @@ public class NumberFieldMapper extends FieldMapper {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for getMergeBuilder]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public FieldMapper.Builder getMergeBuilder() {
         return new Builder(leafName(), type, scriptCompiler, ignoreMalformedByDefault, coerceByDefault, indexCreatedVersion, indexMode)
             .dimension(dimension)
@@ -2020,7 +3349,14 @@ public class NumberFieldMapper extends FieldMapper {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for doValidate]: Describe purpose here.
+     * @param lookup: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public void doValidate(MappingLookup lookup) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (dimension && null != lookup.nestedLookup().getNestedParent(fullPath())) {
             throw new IllegalArgumentException(
                 TimeSeriesParams.TIME_SERIES_DIMENSION_PARAM + " can't be configured in nested field [" + fullPath() + "]"
@@ -2029,7 +3365,13 @@ public class NumberFieldMapper extends FieldMapper {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for syntheticSourceSupport]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     protected SyntheticSourceSupport syntheticSourceSupport() {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (hasDocValues) {
             return new SyntheticSourceSupport.Native(() -> type.syntheticFieldLoader(fullPath(), leafName(), ignoreMalformed.value()));
         }
@@ -2038,6 +3380,11 @@ public class NumberFieldMapper extends FieldMapper {
     }
 
     // For testing only:
+    /**
+     * @brief [Functional Utility for setAllowMultipleValues]: Describe purpose here.
+     * @param allowMultipleValues: [Description]
+     * @return [ReturnType]: [Description]
+     */
     void setAllowMultipleValues(boolean allowMultipleValues) {
         this.allowMultipleValues = allowMultipleValues;
     }

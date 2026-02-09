@@ -20,15 +20,29 @@ public class TemplateScriptBridge {
      * An external bridge for {@link TemplateScript.Factory}
      */
     public static class Factory extends StableBridgeAPI.ProxyInternal<TemplateScript.Factory> {
+    /**
+     * @brief [Functional Utility for fromInternal]: Describe purpose here.
+     * @param delegate: [Description]
+     * @return [ReturnType]: [Description]
+     */
         public static Factory fromInternal(final TemplateScript.Factory delegate) {
             return new Factory(delegate);
         }
 
+    /**
+     * @brief [Functional Utility for Factory]: Describe purpose here.
+     * @param delegate: [Description]
+     * @return [ReturnType]: [Description]
+     */
         public Factory(final TemplateScript.Factory delegate) {
             super(delegate);
         }
 
         @Override
+    /**
+     * @brief [Functional Utility for toInternal]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
         public TemplateScript.Factory toInternal() {
             return this.internalDelegate;
         }

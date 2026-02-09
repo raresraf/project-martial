@@ -24,6 +24,7 @@ import (
 	"k8s.io/kubernetes/pkg/healthz"
 )
 
+// Functional Utility: Describe purpose of init here.
 func init() {
 	healthz.DefaultHealthz()
 }

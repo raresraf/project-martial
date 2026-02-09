@@ -37,6 +37,9 @@ public final class GeoIpCache {
     // visible for testing
     static final Object NO_RESULT = new Object() {
         @Override
+        /**
+         * @brief [Functional Utility for toString]: Describe purpose here.
+         */
         public String toString() {
             return "NO_RESULT";
         }
@@ -48,7 +51,13 @@ public final class GeoIpCache {
     private final AtomicLong missesTimeInNanos = new AtomicLong(0);
 
     // package private for testing
+    /**
+     * @brief [Functional Utility for GeoIpCache]: Describe purpose here.
+     */
     GeoIpCache(long maxSize, LongSupplier relativeNanoTimeProvider) {
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (maxSize < 0) {
             throw new IllegalArgumentException("geoip max cache size must be 0 or greater");
         }
@@ -56,6 +65,9 @@ public final class GeoIpCache {
         this.cache = CacheBuilder.<CacheKey, Object>builder().setMaximumWeight(maxSize).build();
     }
 
+    /**
+     * @brief [Functional Utility for GeoIpCache]: Describe purpose here.
+     */
     GeoIpCache(long maxSize) {
         this(maxSize, System::nanoTime);
     }
@@ -70,10 +82,16 @@ public final class GeoIpCache {
         long cacheRequestTime = relativeNanoTimeProvider.getAsLong() - cacheStart;
 
         // populate the cache for this key, if necessary
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (response == null) {
             long retrieveStart = relativeNanoTimeProvider.getAsLong();
             response = retrieveFunction.apply(ip);
             // if the response from the database was null, then use the no-result sentinel value
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (response == null) {
                 response = NO_RESULT;
             }
@@ -85,6 +103,9 @@ public final class GeoIpCache {
             hitsTimeInNanos.addAndGet(cacheRequestTime);
         }
 
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (response == NO_RESULT) {
             return null; // the no-result sentinel is an internal detail, don't expose it
         } else {
@@ -93,15 +114,25 @@ public final class GeoIpCache {
     }
 
     // only useful for testing
+    /**
+     * @brief [Functional Utility for get]: Describe purpose here.
+     */
     Object get(ProjectId projectId, String ip, String databasePath) {
         CacheKey cacheKey = new CacheKey(projectId, ip, databasePath);
         return cache.get(cacheKey);
     }
 
+    /**
+     * @brief [Functional Utility for purgeCacheEntriesForDatabase]: Describe purpose here.
+     */
     public int purgeCacheEntriesForDatabase(ProjectId projectId, Path databaseFile) {
         String databasePath = databaseFile.toString();
         int counter = 0;
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         for (CacheKey key : cache.keys()) {
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (key.projectId.equals(projectId) && key.databasePath.equals(databasePath)) {
                 cache.invalidate(key);
                 counter++;
@@ -110,6 +141,9 @@ public final class GeoIpCache {
         return counter;
     }
 
+    /**
+     * @brief [Functional Utility for count]: Describe purpose here.
+     */
     public int count() {
         return cache.count();
     }
@@ -118,6 +152,9 @@ public final class GeoIpCache {
      * Returns stats about this cache as of this moment. There is no guarantee that the counts reconcile (for example hits + misses = count)
      * because no locking is performed when requesting these stats.
      * @return Current stats about this cache
+     */
+    /**
+     * @brief [Functional Utility for getCacheStats]: Describe purpose here.
      */
     public CacheStats getCacheStats() {
         Cache.CacheStats stats = cache.stats();
@@ -135,6 +172,9 @@ public final class GeoIpCache {
      * The key to use for the cache. Since this cache can span multiple geoip processors that all use different databases, the database
      * path is needed to be included in the cache key. For example, if we only used the IP address as the key the City and ASN the same
      * IP may be in both with different values and we need to cache both.
+     */
+    /**
+     * @brief [Functional Utility for CacheKey]: Describe purpose here.
      */
     private record CacheKey(ProjectId projectId, String ip, String databasePath) {}
 }

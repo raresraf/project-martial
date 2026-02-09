@@ -13,12 +13,29 @@ import org.elasticsearch.test.ESTestCase;
 
 import java.nio.charset.StandardCharsets;
 
+ /**
+  * @brief Functional description of the TextTests class.
+  *        This is a placeholder for detailed semantic documentation.
+  *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+  */
 public class TextTests extends ESTestCase {
     public void testConvertToBytes() {
+         /**
+          * @brief [Functional description for field value]: Describe purpose here.
+          */
         String value = randomUnicodeOfLength(randomInt(128));
+         /**
+          * @brief [Functional description for field encodedArr]: Describe purpose here.
+          */
         byte[] encodedArr = value.getBytes(StandardCharsets.UTF_8);
+         /**
+          * @brief [Functional description for field encoded]: Describe purpose here.
+          */
         var encoded = new XContentString.UTF8Bytes(encodedArr);
 
+         /**
+          * @brief [Functional description for field text]: Describe purpose here.
+          */
         var text = new Text(value);
         assertTrue(text.hasString());
         assertFalse(text.hasBytes());

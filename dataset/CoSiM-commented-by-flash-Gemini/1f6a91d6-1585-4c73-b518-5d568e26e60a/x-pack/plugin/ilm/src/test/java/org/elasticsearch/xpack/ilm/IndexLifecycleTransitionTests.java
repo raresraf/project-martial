@@ -66,9 +66,17 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
 
+ /**
+  * @brief Functional description of the IndexLifecycleTransitionTests class.
+  *        This is a placeholder for detailed semantic documentation.
+  *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+  */
 public class IndexLifecycleTransitionTests extends ESTestCase {
 
     public void testMoveClusterStateToNextStep() {
+         /**
+          * @brief [Functional description for field indexName]: Describe purpose here.
+          */
         String indexName = "my_index";
         LifecyclePolicy policy = randomValueOtherThanMany(
             p -> p.getPhases().isEmpty(),
@@ -82,8 +90,17 @@ public class IndexLifecycleTransitionTests extends ESTestCase {
         List<LifecyclePolicyMetadata> policyMetadatas = List.of(
             new LifecyclePolicyMetadata(policy, Map.of(), randomNonNegativeLong(), randomNonNegativeLong())
         );
+         /**
+          * @brief [Functional description for field currentStep]: Describe purpose here.
+          */
         Step.StepKey currentStep = new Step.StepKey("current_phase", "current_action", "current_step");
+         /**
+          * @brief [Functional description for field nextStep]: Describe purpose here.
+          */
         Step.StepKey nextStep = new Step.StepKey(nextPhase.getName(), "next_action", "next_step");
+         /**
+          * @brief [Functional description for field now]: Describe purpose here.
+          */
         long now = randomNonNegativeLong();
 
         // test going from null lifecycle settings to next step
@@ -93,18 +110,33 @@ public class IndexLifecycleTransitionTests extends ESTestCase {
             LifecycleExecutionState.builder().build(),
             policyMetadatas
         );
+         /**
+          * @brief [Functional description for field index]: Describe purpose here.
+          */
         Index index = project.index(indexName).getIndex();
+         /**
+          * @brief [Functional description for field stepsRegistry]: Describe purpose here.
+          */
         PolicyStepsRegistry stepsRegistry = createOneStepPolicyStepRegistry(policy.getName(), new MockStep(nextStep, nextStep));
+         /**
+          * @brief [Functional description for field newProject]: Describe purpose here.
+          */
         ProjectMetadata newProject = IndexLifecycleTransition.moveIndexToStep(index, project, nextStep, () -> now, stepsRegistry, false);
         assertProjectOnNextStep(project, index, currentStep, nextStep, newProject, now);
 
+         /**
+          * @brief [Functional description for field lifecycleState]: Describe purpose here.
+          */
         LifecycleExecutionState.Builder lifecycleState = LifecycleExecutionState.builder();
         lifecycleState.setPhase(currentStep.phase());
         lifecycleState.setAction(currentStep.action());
         lifecycleState.setStep(currentStep.name());
         // test going from set currentStep settings to nextStep
+         /**
+          * @brief [Functional description for field indexSettingsBuilder]: Describe purpose here.
+          */
         Settings.Builder indexSettingsBuilder = Settings.builder().put(LifecycleSettings.LIFECYCLE_NAME, policy.getName());
-        if (randomBoolean()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (randomBoolean()) {
             lifecycleState.setStepInfo(randomAlphaOfLength(20));
         }
 
@@ -146,7 +178,7 @@ public class IndexLifecycleTransitionTests extends ESTestCase {
         lifecycleState.setPhase(currentStep.phase());
         lifecycleState.setAction(currentStep.action());
         lifecycleState.setStep(currentStep.name());
-        if (randomBoolean()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (randomBoolean()) {
             lifecycleState.setStepInfo(randomAlphaOfLength(20));
         }
 
@@ -190,7 +222,7 @@ public class IndexLifecycleTransitionTests extends ESTestCase {
         lifecycleState.setPhase(currentStep.phase());
         lifecycleState.setAction(currentStep.action());
         lifecycleState.setStep(currentStep.name());
-        if (randomBoolean()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (randomBoolean()) {
             lifecycleState.setStepInfo(randomAlphaOfLength(20));
         }
 
@@ -1206,7 +1238,7 @@ public class IndexLifecycleTransitionTests extends ESTestCase {
 
     private static LifecyclePolicy createPolicy(String policyName, Step.StepKey safeStep, Step.StepKey unsafeStep) {
         Map<String, Phase> phases = new HashMap<>();
-        if (safeStep != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (safeStep != null) {
             assert MockAction.NAME.equals(safeStep.action()) : "The safe action needs to be MockAction.NAME";
             assert unsafeStep == null || safeStep.phase().equals(unsafeStep.phase()) == false
                 : "safe and unsafe actions must be in different phases";
@@ -1217,7 +1249,7 @@ public class IndexLifecycleTransitionTests extends ESTestCase {
             Phase phase = new Phase(safeStep.phase(), TimeValue.timeValueMillis(0), actions);
             phases.put(phase.getName(), phase);
         }
-        if (unsafeStep != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (unsafeStep != null) {
             assert MockAction.NAME.equals(unsafeStep.action()) : "The unsafe action needs to be MockAction.NAME";
             Map<String, LifecycleAction> actions = new HashMap<>();
             List<Step> steps = List.of(new MockStep(unsafeStep, null));
@@ -1229,6 +1261,9 @@ public class IndexLifecycleTransitionTests extends ESTestCase {
         return newTestLifecyclePolicy(policyName, phases);
     }
 
+    /**
+     * @brief [Functional Utility for buildProject]: Describe purpose here.
+     * @return ProjectMetadata: [Description]\n     */
     private ProjectMetadata buildProject(
         String indexName,
         Settings.Builder indexSettingsBuilder,
@@ -1268,6 +1303,9 @@ public class IndexLifecycleTransitionTests extends ESTestCase {
         assertFalse(LifecycleSettings.LIFECYCLE_SKIP_SETTING.exists(indexSettings));
     }
 
+    /**
+     * @brief [Functional Utility for assertProjectOnNextStep]: Describe purpose here.
+     */
     public static void assertProjectOnNextStep(
         ProjectMetadata oldProject,
         Index index,
@@ -1285,22 +1323,22 @@ public class IndexLifecycleTransitionTests extends ESTestCase {
         assertEquals(nextStep.phase(), newLifecycleState.phase());
         assertEquals(nextStep.action(), newLifecycleState.action());
         assertEquals(nextStep.name(), newLifecycleState.step());
-        if (currentStep.phase().equals(nextStep.phase())) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (currentStep.phase().equals(nextStep.phase())) {
             assertEquals(
                 "expected phase times to be the same but they were different",
                 oldLifecycleState.phaseTime(),
                 newLifecycleState.phaseTime()
             );
-        } else {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else {
             assertEquals(now, newLifecycleState.phaseTime().longValue());
         }
-        if (currentStep.action().equals(nextStep.action())) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (currentStep.action().equals(nextStep.action())) {
             assertEquals(
                 "expected action times to be the same but they were different",
                 oldLifecycleState.actionTime(),
                 newLifecycleState.actionTime()
             );
-        } else {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else {
             assertEquals(now, newLifecycleState.actionTime().longValue());
         }
         assertEquals(now, newLifecycleState.stepTime().longValue());
@@ -1317,6 +1355,9 @@ public class IndexLifecycleTransitionTests extends ESTestCase {
             .build();
     }
 
+    /**
+     * @brief [Functional Utility for assertProjectOnErrorStep]: Describe purpose here.
+     */
     private static void assertProjectOnErrorStep(
         ProjectMetadata oldProject,
         Index index,
@@ -1341,6 +1382,9 @@ public class IndexLifecycleTransitionTests extends ESTestCase {
         assertEquals(now, newLifecycleState.stepTime().longValue());
     }
 
+    /**
+     * @brief [Functional Utility for assertProjectStepInfo]: Describe purpose here.
+     * @throws IOException: [Description]\n     */
     private static void assertProjectStepInfo(
         ProjectMetadata oldProject,
         Index index,
@@ -1366,6 +1410,9 @@ public class IndexLifecycleTransitionTests extends ESTestCase {
         assertEquals(oldLifecycleState.stepTime(), newLifecycleState.stepTime());
     }
 
+    /**
+     * @brief [Functional Utility for assertClusterStateOnNextStep]: Describe purpose here.
+     */
     static void assertClusterStateOnNextStep(
         ProjectMetadata oldProject,
         Index index,
@@ -1382,14 +1429,14 @@ public class IndexLifecycleTransitionTests extends ESTestCase {
         assertEquals(nextStep.phase(), newLifecycleState.phase());
         assertEquals(nextStep.action(), newLifecycleState.action());
         assertEquals(nextStep.name(), newLifecycleState.step());
-        if (currentStep.phase().equals(nextStep.phase())) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (currentStep.phase().equals(nextStep.phase())) {
             assertEquals(oldLifecycleState.phaseTime(), newLifecycleState.phaseTime());
-        } else {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else {
             assertEquals(now, newLifecycleState.phaseTime().longValue());
         }
-        if (currentStep.action().equals(nextStep.action())) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (currentStep.action().equals(nextStep.action())) {
             assertEquals(oldLifecycleState.actionTime(), newLifecycleState.actionTime());
-        } else {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else {
             assertEquals(now, newLifecycleState.actionTime().longValue());
         }
         assertEquals(now, newLifecycleState.stepTime().longValue());

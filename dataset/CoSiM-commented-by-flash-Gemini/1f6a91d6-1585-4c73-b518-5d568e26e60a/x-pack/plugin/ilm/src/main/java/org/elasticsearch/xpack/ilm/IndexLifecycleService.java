@@ -84,24 +84,66 @@ public class IndexLifecycleService
         ShutdownAwarePlugin {
     private static final Logger logger = LogManager.getLogger(IndexLifecycleService.class);
     private static final Set<String> IGNORE_STEPS_MAINTENANCE_REQUESTED = Set.of(ShrinkStep.NAME, DownsampleStep.NAME);
+     /**
+      * @brief [Functional description for field isMaster]: Describe purpose here.
+      */
     private volatile boolean isMaster = false;
+     /**
+      * @brief [Functional description for field pollInterval]: Describe purpose here.
+      */
     private volatile TimeValue pollInterval;
 
+     /**
+      * @brief [Functional description for field scheduler]: Describe purpose here.
+      */
     private final SetOnce<SchedulerEngine> scheduler = new SetOnce<>();
+     /**
+      * @brief [Functional description for field clock]: Describe purpose here.
+      */
     private final Clock clock;
+     /**
+      * @brief [Functional description for field policyRegistry]: Describe purpose here.
+      */
     private final PolicyStepsRegistry policyRegistry;
+     /**
+      * @brief [Functional description for field lifecycleRunner]: Describe purpose here.
+      */
     private final IndexLifecycleRunner lifecycleRunner;
+     /**
+      * @brief [Functional description for field settings]: Describe purpose here.
+      */
     private final Settings settings;
+     /**
+      * @brief [Functional description for field clusterService]: Describe purpose here.
+      */
     private final ClusterService clusterService;
+     /**
+      * @brief [Functional description for field threadPool]: Describe purpose here.
+      */
     private final ThreadPool threadPool;
+     /**
+      * @brief [Functional description for field nowSupplier]: Describe purpose here.
+      */
     private final LongSupplier nowSupplier;
+     /**
+      * @brief [Functional description for field managementExecutor]: Describe purpose here.
+      */
     private final ExecutorService managementExecutor;
     /** A reference to the last seen cluster state. If it's not null, we're currently processing a cluster state. */
+     /**
+      * @brief [Functional description for field lastSeenState]: Describe purpose here.
+      */
     private final AtomicReference<ClusterState> lastSeenState = new AtomicReference<>();
 
+     /**
+      * @brief [Functional description for field scheduledJob]: Describe purpose here.
+      */
     private SchedulerEngine.Job scheduledJob;
 
     @SuppressWarnings("this-escape")
+    /**
+     * @brief [Functional Utility for IndexLifecycleService]: Describe purpose here.
+     */
     public IndexLifecycleService(
         Settings settings,
         Client client,
@@ -139,13 +181,13 @@ public class IndexLifecycleService
      * required, but the action and name are optional. If a name is specified, an action is also required.
      */
     public StepKey resolveStepKey(ClusterState state, Index index, String phase, @Nullable String action, @Nullable String name) {
-        if (name == null) {
-            if (action == null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (name == null) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (action == null) {
                 return this.policyRegistry.getFirstStepForPhase(state, index, phase);
-            } else {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            } else {
                 return this.policyRegistry.getFirstStepForPhaseAndAction(state, index, phase, action);
             }
-        } else {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else {
             assert action != null
                 : "action should never be null because we don't allow constructing a partial step key with only a phase and name";
             return new StepKey(phase, action, name);
@@ -172,7 +214,7 @@ public class IndexLifecycleService
 
     public ProjectMetadata moveClusterStateToPreviouslyFailedStep(ProjectMetadata currentProject, String[] indices) {
         ProjectMetadata newProject = currentProject;
-        for (String index : indices) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (String index : indices) {
             newProject = IndexLifecycleTransition.moveClusterStateToPreviouslyFailedStep(
                 newProject,
                 index,
@@ -192,9 +234,9 @@ public class IndexLifecycleService
         @FixForMultiProject
         final ProjectMetadata projectMetadata = clusterState.metadata().getProject(Metadata.DEFAULT_PROJECT_ID);
         final IndexLifecycleMetadata currentMetadata = projectMetadata.custom(IndexLifecycleMetadata.TYPE);
-        if (currentMetadata != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (currentMetadata != null) {
             OperationMode currentMode = currentILMMode(projectMetadata);
-            if (OperationMode.STOPPED.equals(currentMode)) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (OperationMode.STOPPED.equals(currentMode)) {
                 return;
             }
 
@@ -202,15 +244,15 @@ public class IndexLifecycleService
 
             // If we just became master, we need to kick off any async actions that
             // may have not been run due to master rollover
-            for (IndexMetadata idxMeta : projectMetadata.indices().values()) {
-                if (projectMetadata.isIndexManagedByILM(idxMeta)) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            for (IndexMetadata idxMeta : projectMetadata.indices().values()) {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                if (projectMetadata.isIndexManagedByILM(idxMeta)) {
                     String policyName = idxMeta.getLifecyclePolicyName();
                     final LifecycleExecutionState lifecycleState = idxMeta.getLifecycleExecutionState();
                     StepKey stepKey = Step.getCurrentStepKey(lifecycleState);
 
                     try {
-                        if (OperationMode.STOPPING == currentMode) {
-                            if (stepKey != null && IGNORE_STEPS_MAINTENANCE_REQUESTED.contains(stepKey.name())) {
+                         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                         // Invariant: [State condition that holds true before and after each iteration/execution]\n                        if (OperationMode.STOPPING == currentMode) {
+                             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                             // Invariant: [State condition that holds true before and after each iteration/execution]\n                            if (stepKey != null && IGNORE_STEPS_MAINTENANCE_REQUESTED.contains(stepKey.name())) {
                                 logger.info(
                                     "waiting to stop ILM because index [{}] with policy [{}] is currently in step [{}]",
                                     idxMeta.getIndex().getName(),
@@ -220,7 +262,7 @@ public class IndexLifecycleService
                                 lifecycleRunner.maybeRunAsyncAction(clusterState, idxMeta, policyName, stepKey);
                                 // ILM is trying to stop, but this index is in a Shrink step (or other dangerous step) so we can't stop
                                 safeToStop = false;
-                            } else {
+                             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                             // Invariant: [State condition that holds true before and after each iteration/execution]\n                            } else {
                                 logger.info(
                                     "skipping policy execution of step [{}] for index [{}] with policy [{}]" + " because ILM is stopping",
                                     stepKey == null ? "n/a" : stepKey.name(),
@@ -228,11 +270,11 @@ public class IndexLifecycleService
                                     policyName
                                 );
                             }
-                        } else {
+                         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                         // Invariant: [State condition that holds true before and after each iteration/execution]\n                        } else {
                             lifecycleRunner.maybeRunAsyncAction(clusterState, idxMeta, policyName, stepKey);
                         }
                     } catch (Exception e) {
-                        if (logger.isTraceEnabled()) {
+                         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                         // Invariant: [State condition that holds true before and after each iteration/execution]\n                        if (logger.isTraceEnabled()) {
                             logger.warn(
                                 () -> format(
                                     "async action execution failed during master election trigger"
@@ -244,7 +286,7 @@ public class IndexLifecycleService
                                 ),
                                 e
                             );
-                        } else {
+                         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                         // Invariant: [State condition that holds true before and after each iteration/execution]\n                        } else {
                             logger.warn(
                                 () -> format(
                                     "async action execution failed during master election trigger"
@@ -263,7 +305,7 @@ public class IndexLifecycleService
                 }
             }
 
-            if (safeToStop && OperationMode.STOPPING == currentMode) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (safeToStop && OperationMode.STOPPING == currentMode) {
                 stopILM();
             }
         }
@@ -275,7 +317,7 @@ public class IndexLifecycleService
 
     @Override
     public void beforeIndexAddedToCluster(Index index, Settings indexSettings) {
-        if (shouldParseIndexName(indexSettings)) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (shouldParseIndexName(indexSettings)) {
             parseIndexNameAndExtractDate(index.getName());
         }
     }
@@ -296,17 +338,17 @@ public class IndexLifecycleService
     }
 
     private synchronized void maybeScheduleJob() {
-        if (this.isMaster) {
-            if (scheduler.get() == null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (this.isMaster) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (scheduler.get() == null) {
                 // don't create scheduler if the node is shutting down
-                if (isClusterServiceStoppedOrClosed() == false) {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                if (isClusterServiceStoppedOrClosed() == false) {
                     scheduler.set(new SchedulerEngine(settings, clock));
                     scheduler.get().register(this);
                 }
             }
 
             // scheduler could be null if the node might be shutting down
-            if (scheduler.get() != null) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (scheduler.get() != null) {
                 scheduledJob = new SchedulerEngine.Job(XPackField.INDEX_LIFECYCLE, new TimeValueSchedule(pollInterval));
                 scheduler.get().add(scheduledJob);
             }
@@ -316,7 +358,7 @@ public class IndexLifecycleService
     @Override
     public void clusterChanged(ClusterChangedEvent event) {
         // wait for the cluster state to be recovered so the ILM policies are present
-        if (event.state().blocks().hasGlobalBlock(GatewayService.STATE_NOT_RECOVERED_BLOCK)) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (event.state().blocks().hasGlobalBlock(GatewayService.STATE_NOT_RECOVERED_BLOCK)) {
             return;
         }
 
@@ -324,12 +366,12 @@ public class IndexLifecycleService
         // track them here to avoid conditions where master listener events run after other
         // listeners that depend on what happened in the master listener
         final boolean prevIsMaster = this.isMaster;
-        if (prevIsMaster != event.localNodeMaster()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (prevIsMaster != event.localNodeMaster()) {
             this.isMaster = event.localNodeMaster();
-            if (this.isMaster) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (this.isMaster) {
                 // we weren't the master, and now we are
                 onMaster(event.state());
-            } else {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            } else {
                 // we were the master, and now we aren't
                 cancelJob();
                 policyRegistry.clear();
@@ -337,14 +379,14 @@ public class IndexLifecycleService
         }
 
         // if we're the master, then process deleted indices and trigger policies
-        if (this.isMaster) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (this.isMaster) {
             // cleanup cache in policyRegistry on another thread since its not critical to have it run on the applier thread and computing
             // the deleted indices becomes expensive for larger cluster states
             // ClusterChangedEvent.indicesDeleted uses an equality check to skip computation if necessary.
             final List<Index> indicesDeleted = event.indicesDeleted();
-            if (indicesDeleted.isEmpty() == false) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (indicesDeleted.isEmpty() == false) {
                 managementExecutor.execute(() -> {
-                    for (Index index : indicesDeleted) {
+                     // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                     // Invariant: [State condition that holds true before and after each iteration/execution]\n                    for (Index index : indicesDeleted) {
                         policyRegistry.delete(index);
                     }
                 });
@@ -355,9 +397,9 @@ public class IndexLifecycleService
             // This means that when ILM's cluster state processing takes longer than the overall cluster state application or when
             // the forked thread is waiting in the thread pool queue (e.g. when the master node is swamped), we might skip some
             // cluster state updates. Since ILM does not depend on "deltas" in cluster states, we can skip some cluster states just fine.
-            if (lastSeenState.getAndSet(event.state()) == null) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (lastSeenState.getAndSet(event.state()) == null) {
                 processClusterState();
-            } else {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            } else {
                 logger.trace("ILM state processor still running, not starting new thread");
             }
         }
@@ -379,7 +421,7 @@ public class IndexLifecycleService
             protected void doRun() throws Exception {
                 final ClusterState currentState = lastSeenState.get();
                 // This should never be null, but we're checking anyway to be sure.
-                if (currentState == null) {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                if (currentState == null) {
                     assert false : "Expected current state to non-null when processing cluster state in ILM";
                     return;
                 }
@@ -395,7 +437,7 @@ public class IndexLifecycleService
             @Override
             public void onAfter() {
                 // If the last seen state is unchanged, we set it to null to indicate that processing has finished and we return.
-                if (lastSeenState.compareAndSet(currentState.get(), null)) {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                if (lastSeenState.compareAndSet(currentState.get(), null)) {
                     return;
                 }
                 // If the last seen cluster state changed while this thread was running, it means a new cluster state came in and we need to
@@ -416,7 +458,7 @@ public class IndexLifecycleService
     @Override
     public void applyClusterState(ClusterChangedEvent event) {
         // only act if we are master, otherwise keep idle until elected
-        if (event.localNodeMaster() == false) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (event.localNodeMaster() == false) {
             return;
         }
 
@@ -425,20 +467,20 @@ public class IndexLifecycleService
             .metadata()
             .getProject(Metadata.DEFAULT_PROJECT_ID)
             .custom(IndexLifecycleMetadata.TYPE);
-        if (ilmMetadata == null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (ilmMetadata == null) {
             return;
         }
         final IndexLifecycleMetadata previousIlmMetadata = event.previousState()
             .metadata()
             .getProject(Metadata.DEFAULT_PROJECT_ID)
             .custom(IndexLifecycleMetadata.TYPE);
-        if (event.previousState().nodes().isLocalNodeElectedMaster() == false || ilmMetadata != previousIlmMetadata) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (event.previousState().nodes().isLocalNodeElectedMaster() == false || ilmMetadata != previousIlmMetadata) {
             policyRegistry.update(ilmMetadata);
         }
     }
 
     private void cancelJob() {
-        if (scheduler.get() != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (scheduler.get() != null) {
             scheduler.get().remove(XPackField.INDEX_LIFECYCLE);
             scheduledJob = null;
         }
@@ -446,7 +488,7 @@ public class IndexLifecycleService
 
     @Override
     public void triggered(SchedulerEngine.Event event) {
-        if (event.jobName().equals(XPackField.INDEX_LIFECYCLE)) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (event.jobName().equals(XPackField.INDEX_LIFECYCLE)) {
             logger.trace("job triggered: {}, {}, {}", event.jobName(), event.scheduledTime(), event.triggeredTime());
             triggerPolicies(clusterService.state(), false);
         }
@@ -472,15 +514,15 @@ public class IndexLifecycleService
         IndexLifecycleMetadata currentMetadata = projectMetadata.custom(IndexLifecycleMetadata.TYPE);
 
         OperationMode currentMode = currentILMMode(projectMetadata);
-        if (currentMetadata == null) {
-            if (currentMode == OperationMode.STOPPING) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (currentMetadata == null) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (currentMode == OperationMode.STOPPING) {
                 // There are no policies and ILM is in stopping mode, so stop ILM and get out of here
                 stopILM();
             }
             return;
         }
 
-        if (OperationMode.STOPPED.equals(currentMode)) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (OperationMode.STOPPED.equals(currentMode)) {
             return;
         }
 
@@ -489,29 +531,29 @@ public class IndexLifecycleService
         // loop through all indices in cluster state and filter for ones that are
         // managed by the Index Lifecycle Service they have a index.lifecycle.name setting
         // associated to a policy
-        for (IndexMetadata idxMeta : projectMetadata.indices().values()) {
-            if (projectMetadata.isIndexManagedByILM(idxMeta)) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (IndexMetadata idxMeta : projectMetadata.indices().values()) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (projectMetadata.isIndexManagedByILM(idxMeta)) {
                 String policyName = idxMeta.getLifecyclePolicyName();
                 final LifecycleExecutionState lifecycleState = idxMeta.getLifecycleExecutionState();
                 StepKey stepKey = Step.getCurrentStepKey(lifecycleState);
 
                 try {
-                    if (OperationMode.STOPPING == currentMode) {
-                        if (stepKey != null && IGNORE_STEPS_MAINTENANCE_REQUESTED.contains(stepKey.name())) {
+                     // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                     // Invariant: [State condition that holds true before and after each iteration/execution]\n                    if (OperationMode.STOPPING == currentMode) {
+                         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                         // Invariant: [State condition that holds true before and after each iteration/execution]\n                        if (stepKey != null && IGNORE_STEPS_MAINTENANCE_REQUESTED.contains(stepKey.name())) {
                             logger.info(
                                 "waiting to stop ILM because index [{}] with policy [{}] is currently in step [{}]",
                                 idxMeta.getIndex().getName(),
                                 policyName,
                                 stepKey.name()
                             );
-                            if (fromClusterStateChange) {
+                             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                             // Invariant: [State condition that holds true before and after each iteration/execution]\n                            if (fromClusterStateChange) {
                                 lifecycleRunner.runPolicyAfterStateChange(policyName, idxMeta);
-                            } else {
+                             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                             // Invariant: [State condition that holds true before and after each iteration/execution]\n                            } else {
                                 lifecycleRunner.runPeriodicStep(policyName, clusterState.metadata(), idxMeta);
                             }
                             // ILM is trying to stop, but this index is in a Shrink step (or other dangerous step) so we can't stop
                             safeToStop = false;
-                        } else {
+                         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                         // Invariant: [State condition that holds true before and after each iteration/execution]\n                        } else {
                             logger.info(
                                 "skipping policy execution of step [{}] for index [{}] with policy [{}] because ILM is stopping",
                                 stepKey == null ? "n/a" : stepKey.name(),
@@ -519,15 +561,15 @@ public class IndexLifecycleService
                                 policyName
                             );
                         }
-                    } else {
-                        if (fromClusterStateChange) {
+                     // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                     // Invariant: [State condition that holds true before and after each iteration/execution]\n                    } else {
+                         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                         // Invariant: [State condition that holds true before and after each iteration/execution]\n                        if (fromClusterStateChange) {
                             lifecycleRunner.runPolicyAfterStateChange(policyName, idxMeta);
-                        } else {
+                         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                         // Invariant: [State condition that holds true before and after each iteration/execution]\n                        } else {
                             lifecycleRunner.runPeriodicStep(policyName, clusterState.metadata(), idxMeta);
                         }
                     }
                 } catch (Exception e) {
-                    if (logger.isTraceEnabled()) {
+                     // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                     // Invariant: [State condition that holds true before and after each iteration/execution]\n                    if (logger.isTraceEnabled()) {
                         logger.warn(
                             () -> format(
                                 "async action execution failed during policy trigger"
@@ -539,7 +581,7 @@ public class IndexLifecycleService
                             ),
                             e
                         );
-                    } else {
+                     // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                     // Invariant: [State condition that holds true before and after each iteration/execution]\n                    } else {
                         logger.warn(
                             () -> format(
                                 "async action execution failed during policy trigger" + " for index [%s] with policy [%s] in step [%s]",
@@ -557,7 +599,7 @@ public class IndexLifecycleService
             }
         }
 
-        if (safeToStop && OperationMode.STOPPING == currentMode) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (safeToStop && OperationMode.STOPPING == currentMode) {
             stopILM();
         }
     }
@@ -569,7 +611,7 @@ public class IndexLifecycleService
         assert isClusterServiceStoppedOrClosed()
             : "close is called by closing the plugin, which is expected to happen after " + "the cluster service is stopped";
         SchedulerEngine engine = scheduler.get();
-        if (engine != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (engine != null) {
             engine.stop();
         }
     }
@@ -595,7 +637,7 @@ public class IndexLifecycleService
             SingleNodeShutdownMetadata.Type.SIGTERM,
             SingleNodeShutdownMetadata.Type.REPLACE
         );
-        if (shutdownNodes.isEmpty()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (shutdownNodes.isEmpty()) {
             return Set.of();
         }
 

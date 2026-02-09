@@ -42,6 +42,9 @@ public final class FieldPermissionsCache {
     );
     private final Cache<FieldPermissionsDefinition, FieldPermissions> cache;
 
+    /**
+     * @brief [Functional Utility for FieldPermissionsCache]: Describe purpose here.
+     */
     public FieldPermissionsCache(Settings settings) {
         this.cache = CacheBuilder.<FieldPermissionsDefinition, FieldPermissions>builder()
             .setMaximumWeight(CACHE_SIZE_SETTING.get(settings))
@@ -57,6 +60,9 @@ public final class FieldPermissionsCache {
      * Gets a {@link FieldPermissions} instance that corresponds to the granted and denied parameters. The instance may come from the cache
      * or if it gets created, the instance will be cached
      */
+    /**
+     * @brief [Functional Utility for getFieldPermissions]: Describe purpose here.
+     */
     FieldPermissions getFieldPermissions(String[] granted, String[] denied) {
         return getFieldPermissions(new FieldPermissionsDefinition(granted, denied));
     }
@@ -65,6 +71,9 @@ public final class FieldPermissionsCache {
      * Gets a {@link FieldPermissions} instance that corresponds to the granted and denied parameters. The instance may come from the cache
      * or if it gets created, the instance will be cached
      */
+    /**
+     * @brief [Functional Utility for getFieldPermissions]: Describe purpose here.
+     */
     public FieldPermissions getFieldPermissions(FieldPermissionsDefinition fieldPermissionsDefinition) {
         try {
             return cache.computeIfAbsent(
@@ -72,6 +81,8 @@ public final class FieldPermissionsCache {
                 (key) -> new FieldPermissions(key, FieldPermissions.initializePermittedFieldsAutomaton(key))
             );
         } catch (ExecutionException e) {
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (e.getCause() instanceof ElasticsearchException es) {
                 throw es;
             } else {
@@ -86,14 +97,22 @@ public final class FieldPermissionsCache {
      * collection.
      * The returned instance is cached if one was not found in the cache.
      */
+    /**
+     * @brief [Functional Utility for union]: Describe purpose here.
+     */
     FieldPermissions union(Collection<FieldPermissions> fieldPermissionsCollection) {
         Optional<FieldPermissions> allowAllFieldPermissions = fieldPermissionsCollection.stream()
             .filter(((Predicate<FieldPermissions>) (FieldPermissions::hasFieldLevelSecurity)).negate())
             .findFirst();
         return allowAllFieldPermissions.orElseGet(() -> {
             final Set<FieldGrantExcludeGroup> fieldGrantExcludeGroups = new HashSet<>();
+            /**
+             * @brief [Functional Utility for for]: Describe purpose here.
+             */
             for (FieldPermissions fieldPermissions : fieldPermissionsCollection) {
                 final List<FieldPermissionsDefinition> fieldPermissionsDefinitions = fieldPermissions.getFieldPermissionsDefinitions();
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 if (fieldPermissionsDefinitions.size() != 1) {
                     throw new IllegalArgumentException(
                         "Expected a single field permission definition, but found [" + fieldPermissionsDefinitions + "]"

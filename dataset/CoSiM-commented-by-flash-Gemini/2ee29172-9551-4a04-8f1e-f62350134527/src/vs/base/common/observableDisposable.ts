@@ -47,6 +47,8 @@ export abstract class ObservableDisposable extends Disposable {
 	 * that will be disposed with this object.
 	 */
 	public addDisposables(...disposables: IDisposable[]): this {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		for (const disposable of disposables) {
 			this.store.add(disposable);
 		}
@@ -83,6 +85,8 @@ export function assertNotDisposed<TObject extends { disposed: boolean }>(
 	object: TObject,
 	error: string | Error,
 ): asserts object is TNotDisposed<TObject> {
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!object.disposed) {
 		return;
 	}

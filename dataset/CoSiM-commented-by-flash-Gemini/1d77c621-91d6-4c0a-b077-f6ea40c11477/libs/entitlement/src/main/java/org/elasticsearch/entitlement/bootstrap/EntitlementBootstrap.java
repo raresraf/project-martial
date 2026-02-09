@@ -31,6 +31,11 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
+ /**
+  * @brief Functional description of the EntitlementBootstrap class.
+  *        This is a placeholder for detailed semantic documentation.
+  *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+  */
 public class EntitlementBootstrap {
 
     /**
@@ -72,7 +77,7 @@ public class EntitlementBootstrap {
         Set<Package> suppressFailureLogPackages
     ) {
         logger.debug("Loading entitlement agent");
-        if (EntitlementInitialization.initializeArgs != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (EntitlementInitialization.initializeArgs != null) {
             throw new IllegalStateException("initialization data is already set");
         }
         EntitlementInitialization.initializeArgs = new EntitlementInitialization.InitializeArgs(
@@ -100,8 +105,11 @@ public class EntitlementBootstrap {
     }
 
     private static Path getUserHome() {
+         /**
+          * @brief [Functional description for field userHome]: Describe purpose here.
+          */
         String userHome = System.getProperty("user.home");
-        if (userHome == null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (userHome == null) {
             throw new IllegalStateException("user.home system property is required");
         }
         return PathUtils.get(userHome);
@@ -131,18 +139,18 @@ public class EntitlementBootstrap {
     static String findAgentJar() {
         String propertyName = "es.entitlement.agentJar";
         String propertyValue = System.getProperty(propertyName);
-        if (propertyValue != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (propertyValue != null) {
             return propertyValue;
         }
 
         Path esHome = Path.of(System.getProperty("es.path.home"));
         Path dir = esHome.resolve("lib/entitlement-agent");
-        if (Files.exists(dir) == false) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (Files.exists(dir) == false) {
             throw new IllegalStateException("Directory for entitlement jar does not exist: " + dir);
         }
         try (var s = Files.list(dir)) {
             var candidates = s.limit(2).toList();
-            if (candidates.size() != 1) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (candidates.size() != 1) {
                 throw new IllegalStateException("Expected one jar in " + dir + "; found " + candidates.size());
             }
             return candidates.get(0).toString();

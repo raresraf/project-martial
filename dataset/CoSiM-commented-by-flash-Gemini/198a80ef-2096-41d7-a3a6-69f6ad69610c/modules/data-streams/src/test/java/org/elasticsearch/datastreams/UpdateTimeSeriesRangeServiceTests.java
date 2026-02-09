@@ -54,12 +54,25 @@ import static org.hamcrest.Matchers.sameInstance;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+/**
+ * @brief Functional description of the UpdateTimeSeriesRangeServiceTests class.
+ *        This is a placeholder for detailed semantic documentation.
+ *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+ */
 public class UpdateTimeSeriesRangeServiceTests extends ESTestCase {
 
+    /**
+     * @brief [Functional description for field appender]: Describe purpose here.
+     */
     static MockAppender appender;
     static Logger testLogger1 = LogManager.getLogger(UpdateTimeSeriesRangeService.class);
 
     @BeforeClass
+    /**
+     * @brief [Functional Utility for classInit]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws IllegalAccessException: [Description]
+     */
     public static void classInit() throws IllegalAccessException {
         appender = new MockAppender("mock_appender");
         appender.start();
@@ -67,15 +80,29 @@ public class UpdateTimeSeriesRangeServiceTests extends ESTestCase {
     }
 
     @AfterClass
+    /**
+     * @brief [Functional Utility for classCleanup]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public static void classCleanup() {
         Loggers.removeAppender(testLogger1, appender);
         appender.stop();
     }
 
+    /**
+     * @brief [Functional description for field threadPool]: Describe purpose here.
+     */
     private ThreadPool threadPool;
+    /**
+     * @brief [Functional description for field instance]: Describe purpose here.
+     */
     private UpdateTimeSeriesRangeService instance;
 
     @Before
+    /**
+     * @brief [Functional Utility for createInstance]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void createInstance() {
         ClusterService mockClusterService = mock(ClusterService.class);
         ClusterSettings clusterSettings = new ClusterSettings(Settings.EMPTY, Set.of(DataStreamsPlugin.TIME_SERIES_POLL_INTERVAL));
@@ -85,12 +112,24 @@ public class UpdateTimeSeriesRangeServiceTests extends ESTestCase {
     }
 
     @After
+    /**
+     * @brief [Functional Utility for cleanup]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void cleanup() throws Exception {
         instance.doClose();
         terminate(threadPool);
     }
 
+    /**
+     * @brief [Functional Utility for testUpdateTimeSeriesTemporalRange]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testUpdateTimeSeriesTemporalRange() {
+    /**
+     * @brief [Functional description for field dataStreamName]: Describe purpose here.
+     */
         String dataStreamName = "logs-app1";
         Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
         Instant start = now.minus(2, ChronoUnit.HOURS);
@@ -129,6 +168,10 @@ public class UpdateTimeSeriesRangeServiceTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testUpdateTimeSeriesTemporalRange_customLookAHeadTime]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testUpdateTimeSeriesTemporalRange_customLookAHeadTime() {
         int lookAHeadTimeMinutes = randomIntBetween(30, 120);
         TemporalAmount lookAHeadTime = Duration.ofMinutes(lookAHeadTimeMinutes);
@@ -136,6 +179,9 @@ public class UpdateTimeSeriesRangeServiceTests extends ESTestCase {
         TemporalAmount timeSeriesPollInterval = Duration.ofMinutes(timeSeriesPollIntervalMinutes);
         instance.setPollInterval(TimeValue.timeValueMinutes(timeSeriesPollIntervalMinutes));
 
+    /**
+     * @brief [Functional description for field dataStreamName]: Describe purpose here.
+     */
         String dataStreamName = "logs-app1";
         Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
         Instant start = now.minus(2, ChronoUnit.HOURS);
@@ -170,7 +216,14 @@ public class UpdateTimeSeriesRangeServiceTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testUpdateTimeSeriesTemporalRange_NoUpdateBecauseReplicated]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testUpdateTimeSeriesTemporalRange_NoUpdateBecauseReplicated() {
+    /**
+     * @brief [Functional description for field dataStreamName]: Describe purpose here.
+     */
         String dataStreamName = "logs-app1";
         Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
         Instant start = now.minus(2, ChronoUnit.HOURS);
@@ -193,7 +246,14 @@ public class UpdateTimeSeriesRangeServiceTests extends ESTestCase {
         assertThat(result, sameInstance(in));
     }
 
+    /**
+     * @brief [Functional Utility for testUpdateTimeSeriesTemporalRange_NoUpdateBecauseRegularDataStream]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testUpdateTimeSeriesTemporalRange_NoUpdateBecauseRegularDataStream() {
+    /**
+     * @brief [Functional description for field dataStreamName]: Describe purpose here.
+     */
         String dataStreamName = "logs-app1";
         Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
         ClusterState in = DataStreamTestHelper.getClusterStateWithDataStreams(List.of(new Tuple<>(dataStreamName, 2)), List.of());
@@ -203,15 +263,30 @@ public class UpdateTimeSeriesRangeServiceTests extends ESTestCase {
         assertThat(result, sameInstance(in));
     }
 
+    /**
+     * @brief [Functional Utility for testUpdateTimeSeriesTemporalRangeMultipleDataStream]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testUpdateTimeSeriesTemporalRangeMultipleDataStream() {
+    /**
+     * @brief [Functional description for field dataStreamName1]: Describe purpose here.
+     */
         String dataStreamName1 = "logs-app1";
+    /**
+     * @brief [Functional description for field dataStreamName2]: Describe purpose here.
+     */
         String dataStreamName2 = "logs-app2";
+    /**
+     * @brief [Functional description for field dataStreamName3]: Describe purpose here.
+     */
         String dataStreamName3 = "logs-app3";
         Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
 
         Instant start = now.minus(90, ChronoUnit.MINUTES);
         final var projectId = randomProjectIdOrDefault();
         ProjectMetadata.Builder mbBuilder = ProjectMetadata.builder(projectId);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (String dataStreamName : List.of(dataStreamName1, dataStreamName2, dataStreamName3)) {
             Instant end = start.plus(30, ChronoUnit.MINUTES);
             DataStreamTestHelper.getClusterStateWithDataStream(mbBuilder, dataStreamName, List.of(new Tuple<>(start, end)));
@@ -229,9 +304,22 @@ public class UpdateTimeSeriesRangeServiceTests extends ESTestCase {
         assertThat(getEndTime(project, dataStreamName3, 0), equalTo(start));
     }
 
+    /**
+     * @brief [Functional Utility for testUpdateTimeSeriesTemporalOneBadDataStream]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testUpdateTimeSeriesTemporalOneBadDataStream() {
+    /**
+     * @brief [Functional description for field dataStreamName1]: Describe purpose here.
+     */
         String dataStreamName1 = "logs-app1";
+    /**
+     * @brief [Functional description for field dataStreamName2]: Describe purpose here.
+     */
         String dataStreamName2 = "logs-app2-broken";
+    /**
+     * @brief [Functional description for field dataStreamName3]: Describe purpose here.
+     */
         String dataStreamName3 = "logs-app3";
         Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
 
@@ -239,6 +327,8 @@ public class UpdateTimeSeriesRangeServiceTests extends ESTestCase {
         Instant end = start.plus(30, ChronoUnit.MINUTES);
         final var projectId = randomProjectIdOrDefault();
         ProjectMetadata.Builder mbBuilder = ProjectMetadata.builder(projectId);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (String dataStreamName : List.of(dataStreamName1, dataStreamName2, dataStreamName3)) {
             DataStreamTestHelper.getClusterStateWithDataStream(mbBuilder, dataStreamName, List.of(new Tuple<>(start, end)));
         }
@@ -295,13 +385,22 @@ public class UpdateTimeSeriesRangeServiceTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testUpdateTimeSeriesTemporalRange_multipleProjects]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testUpdateTimeSeriesTemporalRange_multipleProjects() {
+    /**
+     * @brief [Functional description for field dataStreamName]: Describe purpose here.
+     */
         String dataStreamName = "logs-app1";
         Instant now = Instant.now().truncatedTo(ChronoUnit.MILLIS);
         Instant start = now.minus(90, ChronoUnit.MINUTES);
         Instant end = now.plus(40, ChronoUnit.MINUTES);
         final var projectIds = randomList(1, 3, ESTestCase::randomProjectIdOrDefault);
         final var builder = ClusterState.builder(ClusterState.EMPTY_STATE);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (ProjectId projectId : projectIds) {
             builder.putProjectMetadata(
                 DataStreamTestHelper.getProjectWithDataStream(projectId, dataStreamName, List.of(new Tuple<>(start, end)))
@@ -313,6 +412,8 @@ public class UpdateTimeSeriesRangeServiceTests extends ESTestCase {
         final ClusterState result = instance.updateTimeSeriesTemporalRange(in, now);
         assertThat(result, not(sameInstance(in)));
         final var expectedEndTime = now.plus(35, ChronoUnit.MINUTES).truncatedTo(ChronoUnit.SECONDS);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (ProjectId projectId : projectIds) {
             final var project = result.getMetadata().getProject(projectId);
             assertThat(getStartTime(project, dataStreamName, 0), equalTo(start));
@@ -320,6 +421,10 @@ public class UpdateTimeSeriesRangeServiceTests extends ESTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for testUpdatePollInterval]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testUpdatePollInterval() {
         instance.scheduleTask();
         assertThat(instance.pollInterval, equalTo(TimeValue.timeValueMinutes(5)));
@@ -329,6 +434,10 @@ public class UpdateTimeSeriesRangeServiceTests extends ESTestCase {
         assertThat(instance.job.toString(), containsString("1m"));
     }
 
+    /**
+     * @brief [Functional Utility for testUpdatePollIntervalUnscheduled]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testUpdatePollIntervalUnscheduled() {
         assertThat(instance.pollInterval, equalTo(TimeValue.timeValueMinutes(5)));
         assertThat(instance.job, nullValue());
@@ -337,12 +446,26 @@ public class UpdateTimeSeriesRangeServiceTests extends ESTestCase {
         assertThat(instance.job, nullValue());
     }
 
+    /**
+     * @brief [Functional Utility for getEndTime]: Describe purpose here.
+     * @param project: [Description]
+     * @param dataStreamName: [Description]
+     * @param index: [Description]
+     * @return [ReturnType]: [Description]
+     */
     static Instant getEndTime(ProjectMetadata project, String dataStreamName, int index) {
         DataStream dataStream = project.dataStreams().get(dataStreamName);
         Settings indexSettings = project.index(dataStream.getIndices().get(index)).getSettings();
         return IndexSettings.TIME_SERIES_END_TIME.get(indexSettings);
     }
 
+    /**
+     * @brief [Functional Utility for getStartTime]: Describe purpose here.
+     * @param project: [Description]
+     * @param dataStreamName: [Description]
+     * @param index: [Description]
+     * @return [ReturnType]: [Description]
+     */
     static Instant getStartTime(ProjectMetadata project, String dataStreamName, int index) {
         DataStream dataStream = project.dataStreams().get(dataStreamName);
         Settings indexSettings = project.index(dataStream.getIndices().get(index)).getSettings();
@@ -350,6 +473,9 @@ public class UpdateTimeSeriesRangeServiceTests extends ESTestCase {
     }
 
     static class MockAppender extends AbstractAppender {
+    /**
+     * @brief [Functional description for field lastEvent]: Describe purpose here.
+     */
         public LogEvent lastEvent;
 
         MockAppender(final String name) throws IllegalAccessException {
@@ -357,17 +483,36 @@ public class UpdateTimeSeriesRangeServiceTests extends ESTestCase {
         }
 
         @Override
+    /**
+     * @brief [Functional Utility for append]: Describe purpose here.
+     * @param event: [Description]
+     * @return [ReturnType]: [Description]
+     */
         public void append(LogEvent event) {
             lastEvent = event.toImmutable();
         }
 
+    /**
+     * @brief [Functional Utility for lastMessage]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
         Message lastMessage() {
             return lastEvent.getMessage();
         }
 
+    /**
+     * @brief [Functional Utility for getLastEventAndReset]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
         public LogEvent getLastEventAndReset() {
+    /**
+     * @brief [Functional description for field toReturn]: Describe purpose here.
+     */
             LogEvent toReturn = lastEvent;
             lastEvent = null;
+    /**
+     * @brief [Functional description for field toReturn]: Describe purpose here.
+     */
             return toReturn;
         }
     }

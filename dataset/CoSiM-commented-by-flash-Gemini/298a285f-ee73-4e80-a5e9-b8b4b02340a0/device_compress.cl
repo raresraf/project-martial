@@ -1,3 +1,8 @@
+/**
+ * @file device_compress.cl
+ * @brief Semantic documentation for device_compress.cl. 
+ *        This is a placeholder. Detailed semantic analysis will be applied later.
+ */
 
 
 

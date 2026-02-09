@@ -23,6 +23,11 @@ import java.nio.charset.StandardCharsets;
 
 import static org.elasticsearch.xpack.inference.external.response.XContentUtils.moveToFirstToken;
 
+ /**
+  * @brief Functional description of the GoogleVertexAiCompletionResponseEntity class.
+  *        This is a placeholder for detailed semantic documentation.
+  *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+  */
 public class GoogleVertexAiCompletionResponseEntity {
     /**
      * Parses the response from Google Vertex AI's generateContent endpoint
@@ -83,11 +88,17 @@ public class GoogleVertexAiCompletionResponseEntity {
      * @param request The original request made to the service.
      **/
     public static InferenceServiceResults fromResponse(Request request, HttpResult response) throws IOException {
+         /**
+          * @brief [Functional description for field responseJson]: Describe purpose here.
+          */
         var responseJson = new String(response.body(), StandardCharsets.UTF_8);
 
         // Response from generateContent has the same shape as streamGenerateContent. We reuse the already implemented
         // class to avoid code duplication
 
+         /**
+          * @brief [Functional description for field chunk]: Describe purpose here.
+          */
         StreamingUnifiedChatCompletionResults.ChatCompletionChunk chunk;
         try (
             XContentParser parser = XContentFactory.xContent(XContentType.JSON)

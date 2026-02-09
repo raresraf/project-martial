@@ -83,8 +83,18 @@ public abstract class SearchContext implements Releasable {
 
     private Query rewriteQuery;
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected SearchContext() {}
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final List<Runnable> getCancellationChecks() {
         final Runnable timeoutRunnable = QueryPhase.getTimeoutCheck(this);
         if (lowLevelCancellation()) {
@@ -107,6 +117,11 @@ public abstract class SearchContext implements Releasable {
     public abstract boolean isCancelled();
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void close() {
         if (closed.compareAndSet(false, true)) {
             Releasables.close(releasables);
@@ -146,6 +161,11 @@ public abstract class SearchContext implements Releasable {
 
     public abstract void highlight(SearchHighlightContext highlight);
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public InnerHitsContext innerHits() {
         if (innerHitsContext == null) {
             innerHitsContext = new InnerHitsContext();
@@ -166,6 +186,11 @@ public abstract class SearchContext implements Releasable {
 
     public abstract void addRescore(RescoreContext rescore);
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final RescoreDocIds rescoreDocIds() {
         final List<RescoreContext> rescore = rescore();
         if (rescore == null) {
@@ -184,6 +209,12 @@ public abstract class SearchContext implements Releasable {
         return rescoreDocIds == null ? RescoreDocIds.EMPTY : new RescoreDocIds(rescoreDocIds);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param rescoreDocIds: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void assignRescoreDocIds(RescoreDocIds rescoreDocIds) {
         final List<RescoreContext> rescore = rescore();
         if (rescore != null) {
@@ -393,6 +424,11 @@ public abstract class SearchContext implements Releasable {
     public abstract SearchExecutionContext getSearchExecutionContext();
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public String toString() {
         StringBuilder result = new StringBuilder().append(shardTarget());
         if (searchType() != SearchType.DEFAULT) {

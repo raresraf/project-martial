@@ -57,6 +57,11 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+/**
+ * @brief Functional description of the AbstractScriptFieldTypeTestCase class.
+ *        This is a placeholder for detailed semantic documentation.
+ *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+ */
 public abstract class AbstractScriptFieldTypeTestCase extends MapperServiceTestCase {
 
     private static final ToXContent.Params INCLUDE_DEFAULTS = new ToXContent.MapParams(Map.of("include_defaults", "true"));
@@ -79,6 +84,11 @@ public abstract class AbstractScriptFieldTypeTestCase extends MapperServiceTestC
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void testMinimalSerializesToItself() throws IOException {
         XContentBuilder orig = JsonXContent.contentBuilder().startObject();
         createMapperService(runtimeFieldMapping(this::minimalMapping)).documentMapper().mapping().toXContent(orig, ToXContent.EMPTY_PARAMS);
@@ -89,6 +99,11 @@ public abstract class AbstractScriptFieldTypeTestCase extends MapperServiceTestC
         assertEquals(Strings.toString(orig), Strings.toString(parsedFromOrig));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void testMeta() throws IOException {
         XContentBuilder mapping = runtimeFieldMapping(b -> {
             minimalMapping(b);
@@ -118,6 +133,11 @@ public abstract class AbstractScriptFieldTypeTestCase extends MapperServiceTestC
         );
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void testMinimalMappingToMaximal() throws IOException {
         XContentBuilder orig = JsonXContent.contentBuilder().startObject();
         createMapperService(runtimeFieldMapping(this::minimalMapping)).documentMapper().mapping().toXContent(orig, INCLUDE_DEFAULTS);
@@ -128,6 +148,11 @@ public abstract class AbstractScriptFieldTypeTestCase extends MapperServiceTestC
         assertEquals(Strings.toString(orig), Strings.toString(parsedFromOrig));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testCopyToIsNotSupported() throws IOException {
         XContentBuilder mapping = runtimeFieldMapping(b -> {
             minimalMapping(b);
@@ -137,6 +162,11 @@ public abstract class AbstractScriptFieldTypeTestCase extends MapperServiceTestC
         assertThat(exception.getMessage(), containsString("unknown parameter [copy_to] on runtime field"));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testMultiFieldsIsNotSupported() throws IOException {
         XContentBuilder mapping = runtimeFieldMapping(b -> {
             minimalMapping(b);
@@ -146,6 +176,11 @@ public abstract class AbstractScriptFieldTypeTestCase extends MapperServiceTestC
         assertThat(exception.getMessage(), containsString("unknown parameter [fields] on runtime field"));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testStoredScriptsAreNotSupported() throws Exception {
         XContentBuilder mapping = runtimeFieldMapping(b -> {
             b.field("type", typeName());
@@ -155,6 +190,11 @@ public abstract class AbstractScriptFieldTypeTestCase extends MapperServiceTestC
         assertEquals("Failed to parse mapping: stored scripts are not supported for runtime field [field]", exception.getMessage());
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testFieldCaps() throws Exception {
         MapperService scriptIndexMapping = createMapperService(runtimeFieldMapping(this::minimalMapping));
         MapperService concreteIndexMapping;
@@ -202,6 +242,11 @@ public abstract class AbstractScriptFieldTypeTestCase extends MapperServiceTestC
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void testOnScriptErrorFail() throws IOException {
         try (Directory directory = newDirectory(); RandomIndexWriter iw = new RandomIndexWriter(random(), directory)) {
             iw.addDocument(List.of(new StoredField("_source", new BytesRef("{\"foo\": [1]}"))));
@@ -216,16 +261,31 @@ public abstract class AbstractScriptFieldTypeTestCase extends MapperServiceTestC
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testFieldHasValue() {
         assertTrue(getMappedFieldType().fieldHasValue(new FieldInfos(new FieldInfo[] { getFieldInfoWithName(randomAlphaOfLength(5)) })));
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testFieldHasValueWithEmptyFieldInfos() {
         assertTrue(getMappedFieldType().fieldHasValue(FieldInfos.EMPTY));
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public MappedFieldType getMappedFieldType() {
         return simpleMappedFieldType();
     }
@@ -259,10 +319,20 @@ public abstract class AbstractScriptFieldTypeTestCase extends MapperServiceTestC
 
     protected abstract Query randomTermsQuery(MappedFieldType ft, SearchExecutionContext ctx);
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected static SearchExecutionContext mockContext() {
         return mockContext(true);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected static FieldDataContext mockFielddataContext() {
         SearchExecutionContext searchExecutionContext = mockContext();
         return new FieldDataContext(
@@ -274,18 +344,41 @@ public abstract class AbstractScriptFieldTypeTestCase extends MapperServiceTestC
         );
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param allowExpensiveQueries: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected static SearchExecutionContext mockContext(boolean allowExpensiveQueries) {
         return mockContext(allowExpensiveQueries, null);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected boolean supportsTermQueries() {
         return true;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected boolean supportsRangeQueries() {
         return true;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param allowExpensiveQueries: [Description]
+     * @param mappedFieldType: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected static SearchExecutionContext mockContext(boolean allowExpensiveQueries, MappedFieldType mappedFieldType) {
         return mockContext(allowExpensiveQueries, mappedFieldType, SourceProvider.fromStoredFields());
     }
@@ -317,14 +410,29 @@ public abstract class AbstractScriptFieldTypeTestCase extends MapperServiceTestC
         return context;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testExistsQueryIsExpensive() {
         checkExpensiveQuery(MappedFieldType::existsQuery);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testExistsQueryInLoop() {
         checkLoop(MappedFieldType::existsQuery);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testRangeQueryWithShapeRelationIsError() {
         Exception e = expectThrows(
             IllegalArgumentException.class,
@@ -333,56 +441,111 @@ public abstract class AbstractScriptFieldTypeTestCase extends MapperServiceTestC
         assertThat(e.getMessage(), equalTo("Runtime field [test] of type [" + typeName() + "] does not support DISJOINT ranges"));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testRangeQueryIsExpensive() {
         assumeTrue("Impl does not support range queries", supportsRangeQueries());
         checkExpensiveQuery(this::randomRangeQuery);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testRangeQueryInLoop() {
         assumeTrue("Impl does not support range queries", supportsRangeQueries());
         checkLoop(this::randomRangeQuery);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testTermQueryIsExpensive() {
         assumeTrue("Impl does not support term queries", supportsTermQueries());
         checkExpensiveQuery(this::randomTermQuery);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testTermQueryInLoop() {
         assumeTrue("Impl does not support term queries", supportsTermQueries());
         checkLoop(this::randomTermQuery);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testTermsQueryIsExpensive() {
         assumeTrue("Impl does not support term queries", supportsTermQueries());
         checkExpensiveQuery(this::randomTermsQuery);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testTermsQueryInLoop() {
         assumeTrue("Impl does not support term queries", supportsTermQueries());
         checkLoop(this::randomTermsQuery);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testPhraseQueryIsError() {
         assumeTrue("Impl does not support term queries", supportsTermQueries());
         assertQueryOnlyOnText("phrase", () -> simpleMappedFieldType().phraseQuery(null, 1, false, null));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testPhrasePrefixQueryIsError() {
         assumeTrue("Impl does not support term queries", supportsTermQueries());
         assertQueryOnlyOnText("phrase prefix", () -> simpleMappedFieldType().phrasePrefixQuery(null, 1, 1, null));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testMultiPhraseQueryIsError() {
         assumeTrue("Impl does not support term queries", supportsTermQueries());
         assertQueryOnlyOnText("phrase", () -> simpleMappedFieldType().multiPhraseQuery(null, 1, false, null));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testSpanPrefixQueryIsError() {
         assumeTrue("Impl does not support term queries", supportsTermQueries());
         assertQueryOnlyOnText("span prefix", () -> simpleMappedFieldType().spanPrefixQuery(null, null, null));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void testCacheable() throws IOException {
         XContentBuilder mapping = runtimeMapping(b -> {
             b.startObject("field")
@@ -448,45 +611,94 @@ public abstract class AbstractScriptFieldTypeTestCase extends MapperServiceTestC
         return all;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private MappedFieldType.BlockLoaderContext blContext() {
         return new MappedFieldType.BlockLoaderContext() {
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public String indexName() {
                 throw new UnsupportedOperationException();
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public IndexSettings indexSettings() {
                 throw new UnsupportedOperationException();
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public MappedFieldType.FieldExtractPreference fieldExtractPreference() {
                 return MappedFieldType.FieldExtractPreference.NONE;
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public SearchLookup lookup() {
                 return mockContext().lookup();
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param name: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public Set<String> sourcePaths(String name) {
                 throw new UnsupportedOperationException();
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param field: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public String parentField(String field) {
                 throw new UnsupportedOperationException();
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public FieldNamesFieldMapper.FieldNamesFieldType fieldNames() {
                 return FieldNamesFieldMapper.FieldNamesFieldType.get(true);
             }
         };
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param queryName: [Description]
+     * @param buildQuery: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private void assertQueryOnlyOnText(String queryName, ThrowingRunnable buildQuery) {
         Exception e = expectThrows(IllegalArgumentException.class, buildQuery);
         assertThat(
@@ -501,10 +713,24 @@ public abstract class AbstractScriptFieldTypeTestCase extends MapperServiceTestC
         );
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param reader: [Description]
+     * @param docId: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected final String readSource(IndexReader reader, int docId) throws IOException {
         return reader.document(docId).getBinaryValue("_source").utf8ToString();
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param BiConsumer<MappedFieldType: [Description]
+     * @param queryBuilder: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected final void checkExpensiveQuery(BiConsumer<MappedFieldType, SearchExecutionContext> queryBuilder) {
         Exception e = expectThrows(ElasticsearchException.class, () -> queryBuilder.accept(simpleMappedFieldType(), mockContext(false)));
         assertThat(
@@ -513,11 +739,24 @@ public abstract class AbstractScriptFieldTypeTestCase extends MapperServiceTestC
         );
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param BiConsumer<MappedFieldType: [Description]
+     * @param queryBuilder: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected final void checkLoop(BiConsumer<MappedFieldType, SearchExecutionContext> queryBuilder) {
         Exception e = expectThrows(IllegalArgumentException.class, () -> queryBuilder.accept(loopFieldType(), mockContext()));
         assertThat(e.getMessage(), equalTo("Cyclic dependency detected while resolving runtime fields: test -> test"));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param b: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected final void minimalMapping(XContentBuilder b) throws IOException {
         b.field("type", typeName());
         b.startObject("script").field("source", "dummy_source").field("lang", "test").endObject();
@@ -529,6 +768,13 @@ public abstract class AbstractScriptFieldTypeTestCase extends MapperServiceTestC
 
     @Override
     @SuppressWarnings("unchecked")
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param script: [Description]
+     * @param context: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected <T> T compileScript(Script script, ScriptContext<T> context) {
         boolean deterministicSource = "deterministic_source".equals(script.getIdOrCode());
         return deterministicSource ? (T) parseFromSource() : (T) dummyScript();

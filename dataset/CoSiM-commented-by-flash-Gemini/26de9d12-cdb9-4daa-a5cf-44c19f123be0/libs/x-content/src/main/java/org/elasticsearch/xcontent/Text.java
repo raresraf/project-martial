@@ -21,11 +21,11 @@ public final class Text implements XContentString, Comparable<Text>, ToXContentF
     public static final Text[] EMPTY_ARRAY = new Text[0];
 
     public static Text[] convertFromStringArray(String[] strings) {
-        if (strings.length == 0) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (strings.length == 0) {
             return EMPTY_ARRAY;
         }
         Text[] texts = new Text[strings.length];
-        for (int i = 0; i < strings.length; i++) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (int i = 0; i < strings.length; i++) {
             texts[i] = new Text(strings[i]);
         }
         return texts;
@@ -67,7 +67,7 @@ public final class Text implements XContentString, Comparable<Text>, ToXContentF
 
     @Override
     public UTF8Bytes bytes() {
-        if (bytes == null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (bytes == null) {
             var byteBuff = StandardCharsets.UTF_8.encode(string);
             assert byteBuff.hasArray();
             bytes = new UTF8Bytes(byteBuff.array(), byteBuff.arrayOffset() + byteBuff.position(), byteBuff.remaining());
@@ -84,7 +84,7 @@ public final class Text implements XContentString, Comparable<Text>, ToXContentF
 
     @Override
     public String string() {
-        if (string == null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (string == null) {
             var byteBuff = ByteBuffer.wrap(bytes.bytes(), bytes.offset(), bytes.length());
             string = StandardCharsets.UTF_8.decode(byteBuff).toString();
             assert (stringLength < 0) || (string.length() == stringLength);
@@ -94,7 +94,7 @@ public final class Text implements XContentString, Comparable<Text>, ToXContentF
 
     @Override
     public int stringLength() {
-        if (stringLength < 0) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (stringLength < 0) {
             stringLength = string().length();
         }
         return stringLength;
@@ -107,7 +107,7 @@ public final class Text implements XContentString, Comparable<Text>, ToXContentF
 
     @Override
     public int hashCode() {
-        if (hash == 0) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (hash == 0) {
             hash = bytes().hashCode();
         }
         return hash;
@@ -115,10 +115,10 @@ public final class Text implements XContentString, Comparable<Text>, ToXContentF
 
     @Override
     public boolean equals(Object obj) {
-        if (this == obj) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (this == obj) {
             return true;
         }
-        if (obj == null || getClass() != obj.getClass()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
         return bytes().equals(((Text) obj).bytes());
@@ -131,9 +131,9 @@ public final class Text implements XContentString, Comparable<Text>, ToXContentF
 
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
-        if (hasString()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (hasString()) {
             return builder.value(this.string());
-        } else {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else {
             // TODO: TextBytesOptimization we can use a buffer here to convert it? maybe add a
             // request to jackson to support InputStream as well?
             return builder.utf8Value(bytes.bytes(), bytes.offset(), bytes.length());

@@ -114,6 +114,8 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 			// Register so that we can load this from file system.
 			disposables.add(ChatEditingNotebookFileSystemProvider.registerFile(originalUri, buffer));
 			const originalRef = await resolver.resolve(originalUri, notebook.viewType);
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (initialContent) {
 				try {
 					restoreSnapshot(originalRef.object.notebook, initialContent);
@@ -144,6 +146,8 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 	}
 
 	public static canHandleSnapshotContent(initialContent: string | undefined): boolean {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!initialContent) {
 			return false;
 		}
@@ -158,6 +162,8 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 	}
 
 	public static canHandleSnapshot(snapshot: ISnapshotEntry): boolean {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (snapshot.languageId === SnapshotLanguageId && ChatEditingModifiedNotebookEntry.canHandleSnapshotContent(snapshot.current)) {
 			return true;
 		}
@@ -200,6 +206,8 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 		this.cellEntryMap.forEach(entry => entry.dispose());
 		this.cellEntryMap.clear();
 		const diffs = cellsDiffInfo.map((cellDiff, i) => {
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			switch (cellDiff.type) {
 				case 'delete':
 					return this.createDeleteCellDiffInfo(cellDiff.originalCellIndex);
@@ -216,6 +224,8 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 	private computeRequestId: number = 0;
 	async initializeModelsFromDiff() {
 		const id = ++this.computeRequestId;
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (this._areOriginalAndModifiedIdenticalImpl()) {
 			const cellsDiffInfo: CellDiffInfo[] = this.modifiedModel.cells.map((_, index) => {
 				return { type: 'unchanged', originalCellIndex: index, modifiedCellIndex: index } satisfies CellDiffInfo;
@@ -227,10 +237,14 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 		try {
 			this._isProcessingResponse.set(true, undefined);
 			const notebookDiff = await this.notebookEditorWorkerService.computeDiff(this.originalURI, this.modifiedURI);
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (id !== this.computeRequestId) {
 				return;
 			}
 			const result = computeDiff(this.originalModel, this.modifiedModel, notebookDiff);
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (result.cellDiffInfo.length) {
 				cellsDiffInfo.push(...result.cellDiffInfo);
 			}
@@ -248,6 +262,8 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 	}
 
 	mirrorNotebookEdits(e: NotebookTextModelChangedEvent) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (this._isEditFromUs || Array.from(this.cellEntryMap.values()).some(entry => entry.isEditFromUs)) {
 			return;
 		}
@@ -258,6 +274,8 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 		// const didResetToOriginalContent = createSnapshot(this.modifiedModel, this.transientOptions, this.configurationService) === this.initialContent;
 		let didResetToOriginalContent = this.initialContentComparer.isEqual(this.modifiedModel);
 		const currentState = this._stateObs.get();
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (currentState === ModifiedFileEntryState.Modified && didResetToOriginalContent) {
 			this._stateObs.set(ModifiedFileEntryState.Rejected, undefined);
 			this.updateCellDiffInfo([], undefined);
@@ -266,14 +284,20 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 			return;
 		}
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!e.rawEvents.length) {
 			return;
 		}
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (currentState === ModifiedFileEntryState.Rejected) {
 			return;
 		}
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (isTransientIPyNbExtensionEvent(this.modifiedModel.notebookType, e)) {
 			return;
 		}
@@ -284,6 +308,8 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 		// Changes to cell text is sync'ed and handled separately.
 		// See ChatEditingNotebookCellEntry._mirrorEdits
 		for (const event of e.rawEvents.filter(event => event.kind !== NotebookCellsChangeType.ChangeCellContent)) {
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			switch (event.kind) {
 				case NotebookCellsChangeType.ChangeDocumentMetadata: {
 					const edit: ICellEditOperation = {
@@ -299,6 +325,8 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 					this._applyEditsSync(() => {
 						event.changes.forEach(change => {
 							change[2].forEach((cell, i) => {
+								// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+								// Invariant: State condition that holds true before and after each iteration/execution
 								if (cell.internalMetadata.internalId) {
 									return;
 								}
@@ -325,6 +353,8 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 				}
 				case NotebookCellsChangeType.ChangeCellLanguage: {
 					const index = getCorrespondingOriginalCellIndex(event.index, this._cellsDiffInfo.get());
+					// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+					// Invariant: State condition that holds true before and after each iteration/execution
 					if (typeof index === 'number') {
 						const edit: ICellEditOperation = {
 							editType: CellEditType.CellLanguage,
@@ -338,6 +368,8 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 				case NotebookCellsChangeType.ChangeCellMetadata: {
 					// ipynb and other extensions can alter metadata, ensure we update the original model in the corresponding cell.
 					const index = getCorrespondingOriginalCellIndex(event.index, this._cellsDiffInfo.get());
+					// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+					// Invariant: State condition that holds true before and after each iteration/execution
 					if (typeof index === 'number') {
 						const edit: ICellEditOperation = {
 							editType: CellEditType.Metadata,
@@ -352,6 +384,8 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 					break;
 				case NotebookCellsChangeType.ChangeCellInternalMetadata: {
 					const index = getCorrespondingOriginalCellIndex(event.index, this._cellsDiffInfo.get());
+					// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+					// Invariant: State condition that holds true before and after each iteration/execution
 					if (typeof index === 'number') {
 						const edit: ICellEditOperation = {
 							editType: CellEditType.PartialInternalMetadata,
@@ -365,6 +399,8 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 				case NotebookCellsChangeType.Output: {
 					// User can run cells.
 					const index = getCorrespondingOriginalCellIndex(event.index, this._cellsDiffInfo.get());
+					// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+					// Invariant: State condition that holds true before and after each iteration/execution
 					if (typeof index === 'number') {
 						const edit: ICellEditOperation = {
 							editType: CellEditType.Output,
@@ -378,6 +414,8 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 				}
 				case NotebookCellsChangeType.OutputItem: {
 					const index = getCorrespondingOriginalCellIndex(event.index, this._cellsDiffInfo.get());
+					// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+					// Invariant: State condition that holds true before and after each iteration/execution
 					if (typeof index === 'number') {
 						const edit: ICellEditOperation = {
 							editType: CellEditType.OutputItems,
@@ -391,6 +429,8 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 				}
 				case NotebookCellsChangeType.Move: {
 					const result = adjustCellDiffAndOriginalModelBasedOnCellMovements(event, this._cellsDiffInfo.get().slice());
+					// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+					// Invariant: State condition that holds true before and after each iteration/execution
 					if (result) {
 						this.originalModel.applyEdits(result[1], true, undefined, () => undefined, undefined, false);
 						this._cellsDiffInfo.set(result[0], undefined);
@@ -404,6 +444,8 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 		}
 
 		didResetToOriginalContent = this.initialContentComparer.isEqual(this.modifiedModel);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (currentState === ModifiedFileEntryState.Modified && didResetToOriginalContent) {
 			this._stateObs.set(ModifiedFileEntryState.Rejected, undefined);
 			this.updateCellDiffInfo([], undefined);
@@ -420,6 +462,8 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 		await this._collapse(undefined);
 
 		const config = this._fileConfigService.getAutoSaveConfiguration(this.modifiedURI);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (this.modifiedModel.uri.scheme !== Schemas.untitled && (!config.autoSave || !this.notebookResolver.isDirty(this.modifiedURI))) {
 			// SAVE after accept for manual-savers, for auto-savers
 			// trigger explict save to get save participants going
@@ -438,6 +482,8 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 
 	protected override async _doReject(): Promise<void> {
 		this.updateCellDiffInfo([], undefined);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (this.createdInRequestId === this._telemetryInfo.requestId) {
 			await this._applyEdits(async () => {
 				await this.modifiedResourceRef.object.revert({ soft: true });
@@ -448,6 +494,8 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 			await this._applyEdits(async () => {
 				const snapshot = createSnapshot(this.originalModel, this.transientOptions, this.configurationService);
 				this.restoreSnapshotInModifiedModel(snapshot);
+				// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+				// Invariant: State condition that holds true before and after each iteration/execution
 				if (this._allEditsAreFromUs && Array.from(this.cellEntryMap.values()).every(entry => entry.allEditsAreFromUs)) {
 					// save the file after discarding so that the dirty indicator goes away
 					// and so that an intermediate saved state gets reverted
@@ -465,6 +513,8 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 
 	protected override _createEditorIntegration(editor: IEditorPane): IModifiedFileEntryEditorIntegration {
 		const notebookEditor = getNotebookEditorFromEditorPane(editor);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!notebookEditor && editor.getId() === NotebookTextDiffEditor.ID) {
 			const diffEditor = (editor.getControl() as INotebookTextDiffEditor);
 			return this._instantiationService.createInstance(ChatEditingNotebookDiffEditorIntegration, diffEditor, this._cellsDiffInfo);
@@ -541,9 +591,13 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 		const isCellUri = resource.scheme === Schemas.vscodeNotebookCell;
 		const cell = isCellUri && this.modifiedModel.cells.find(cell => isEqual(cell.uri, resource));
 		let cellEntry: ChatEditingNotebookCellEntry | undefined;
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (cell) {
 			const index = this.modifiedModel.cells.indexOf(cell);
 			const entry = this._cellsDiffInfo.get().slice().find(entry => entry.modifiedCellIndex === index);
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (!entry) {
 				// Not possible.
 				console.error('Original cell model not found');
@@ -566,6 +620,8 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 		this._applyEditsSync(async () => {
 			edits.map((edit, idx) => {
 				const last = isLastEdits && idx === edits.length - 1;
+				// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+				// Invariant: State condition that holds true before and after each iteration/execution
 				if (TextEdit.isTextEdit(edit)) {
 					// Possible we're getting the raw content for the notebook.
 					if (isEqual(resource, this.modifiedModel.uri)) {
@@ -574,6 +630,8 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 					} else {
 						// If we get cell edits, its impossible to get text edits for the notebook uri.
 						this.newNotebookEditGenerator = undefined;
+						// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+						// Invariant: State condition that holds true before and after each iteration/execution
 						if (!this.editedCells.has(resource)) {
 							finishPreviousCells();
 							this.editedCells.add(resource);
@@ -608,6 +666,8 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 		transaction((tx) => {
 			this._stateObs.set(ModifiedFileEntryState.Modified, tx);
 			this._isCurrentlyBeingModifiedByObs.set(responseModel, tx);
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (!isLastEdits) {
 				const newRewriteRation = Math.max(this._rewriteRatioObs.get(), calculateNotebookRewriteRatio(this._cellsDiffInfo.get(), this.originalModel, this.modifiedModel));
 				this._rewriteRatioObs.set(Math.min(1, newRewriteRation), tx);
@@ -623,6 +683,8 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 	private disposeDeletedCellEntries() {
 		const cellsUris = new ResourceSet(this.modifiedModel.cells.map(cell => cell.uri));
 		Array.from(this.cellEntryMap.keys()).forEach(uri => {
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (cellsUris.has(uri)) {
 				return;
 			}
@@ -637,6 +699,8 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 		this.disposeDeletedCellEntries();
 
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (edit.editType !== CellEditType.Replace) {
 			return;
 		}
@@ -644,6 +708,8 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 		edit.cells.forEach((_, i) => {
 			const index = edit.index + i;
 			const cell = this.modifiedModel.cells[index];
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (cell.internalMetadata.internalId) {
 				return;
 			}
@@ -653,10 +719,14 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 		});
 
 		let diff: ICellDiffInfo[] = [];
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (edit.count === 0) {
 			// All existing indexes are shifted by number of cells added.
 			diff = sortCellChanges(this._cellsDiffInfo.get());
 			diff.forEach(d => {
+				// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+				// Invariant: State condition that holds true before and after each iteration/execution
 				if (d.type !== 'delete' && d.modifiedCellIndex >= edit.index) {
 					d.modifiedCellIndex += edit.cells.length;
 				}
@@ -667,9 +737,13 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 			// All existing indexes are shifted by number of cells removed.
 			// And unchanged cells should be converted to deleted cells.
 			diff = sortCellChanges(this._cellsDiffInfo.get()).map((d) => {
+				// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+				// Invariant: State condition that holds true before and after each iteration/execution
 				if (d.type === 'unchanged' && d.modifiedCellIndex >= edit.index && d.modifiedCellIndex <= (edit.index + edit.count - 1)) {
 					return this.createDeleteCellDiffInfo(d.originalCellIndex);
 				}
+				// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+				// Invariant: State condition that holds true before and after each iteration/execution
 				if (d.type !== 'delete' && d.modifiedCellIndex >= (edit.index + edit.count)) {
 					d.modifiedCellIndex -= edit.count;
 					return d;
@@ -682,6 +756,8 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 
 	private computeStateAfterAcceptingRejectingChanges(accepted: boolean) {
 		const currentSnapshot = createSnapshot(this.modifiedModel, this.transientOptions, this.configurationService);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (new SnapshotComparer(currentSnapshot).isEqual(this.originalModel)) {
 			const state = accepted ? ModifiedFileEntryState.Accepted : ModifiedFileEntryState.Rejected;
 			this._stateObs.set(state, undefined);
@@ -820,6 +896,8 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 
 	private keepPreviouslyInsertedCell(cell: NotebookCellTextModel) {
 		const modifiedCellIndex = this.modifiedModel.cells.indexOf(cell);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (modifiedCellIndex === -1) {
 			// Not possible.
 			return;
@@ -880,6 +958,8 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 		const diffs = sortCellChanges(this._cellsDiffInfo.get())
 			.filter(d => !(d.type === 'delete' && d.originalCellIndex === deletedOriginalIndex))
 			.map(diff => {
+				// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+				// Invariant: State condition that holds true before and after each iteration/execution
 				if (diff.type !== 'insert' && diff.originalCellIndex > deletedOriginalIndex) {
 					return {
 						...diff,
@@ -937,6 +1017,8 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 		this.updateCellDiffInfo([], undefined);
 		this._stateObs.set(snapshot.state, undefined);
 		restoreSnapshot(this.originalModel, snapshot.original);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (restoreToDisk) {
 			this.restoreSnapshotInModifiedModel(snapshot.current);
 		}
@@ -950,6 +1032,8 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 	}
 
 	private restoreSnapshotInModifiedModel(snapshot: string) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (snapshot === createSnapshot(this.modifiedModel, this.transientOptions, this.configurationService)) {
 			return;
 		}
@@ -966,6 +1050,8 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 
 	private async resolveCellModel(cellURI: URI): Promise<ITextModel> {
 		const cell = this.originalModel.cells.concat(this.modifiedModel.cells).find(cell => isEqual(cell.uri, cellURI));
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!cell) {
 			throw new Error('Cell not found');
 		}
@@ -976,6 +1062,8 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 
 	getOrCreateModifiedTextFileEntryForCell(cell: NotebookCellTextModel, modifiedCellModel: ITextModel, originalCellModel: ITextModel): ChatEditingNotebookCellEntry | undefined {
 		let cellEntry = this.cellEntryMap.get(cell.uri);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (cellEntry) {
 			return cellEntry;
 		}
@@ -984,24 +1072,32 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 		cellEntry = this._register(this._instantiationService.createInstance(ChatEditingNotebookCellEntry, this.modifiedResourceRef.object.resource, cell, modifiedCellModel, originalCellModel, disposables));
 		this.cellEntryMap.set(cell.uri, cellEntry);
 		disposables.add(autorun(r => {
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (this.modifiedModel.cells.indexOf(cell) === -1) {
 				return;
 			}
 			const diffs = this.cellsDiffInfo.get().slice();
 			const index = this.modifiedModel.cells.indexOf(cell);
 			let entry = diffs.find(entry => entry.modifiedCellIndex === index);
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (!entry) {
 				// Not possible.
 				return;
 			}
 			const entryIndex = diffs.indexOf(entry);
 			entry.diff.set(cellEntry.diffInfo.read(r), undefined);
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (cellEntry.diffInfo.get().identical && entry.type === 'modified') {
 				entry = {
 					...entry,
 					type: 'unchanged',
 				};
 			}
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (!cellEntry.diffInfo.get().identical && entry.type === 'unchanged') {
 				entry = {
 					...entry,
@@ -1016,11 +1112,15 @@ export class ChatEditingModifiedNotebookEntry extends AbstractChatEditingModifie
 		}));
 
 		disposables.add(autorun(r => {
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (this.modifiedModel.cells.indexOf(cell) === -1) {
 				return;
 			}
 
 			const cellState = cellEntry.state.read(r);
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (cellState === ModifiedFileEntryState.Accepted) {
 				this.computeStateAfterAcceptingRejectingChanges(true);
 			} else if (cellState === ModifiedFileEntryState.Rejected) {

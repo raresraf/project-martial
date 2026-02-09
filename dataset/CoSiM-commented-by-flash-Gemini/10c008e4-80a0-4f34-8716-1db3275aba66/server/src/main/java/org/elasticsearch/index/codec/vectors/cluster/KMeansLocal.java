@@ -33,7 +33,13 @@ class KMeansLocal {
     // second closest centroid.
     private static final float SOAR_MIN_DISTANCE = 1e-16f;
 
+    /**
+     * @brief [Functional description for field sampleSize]: Describe purpose here.
+     */
     final int sampleSize;
+    /**
+     * @brief [Functional description for field maxIterations]: Describe purpose here.
+     */
     final int maxIterations;
 
     KMeansLocal(int sampleSize, int maxIterations) {
@@ -50,24 +56,48 @@ class KMeansLocal {
      * @return randomly selected centroids that are the min of centroidCount and sampleSize
      * @throws IOException is thrown if vectors is inaccessible
      */
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param vectors: [Description]
+     * @param centroidCount: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     static float[][] pickInitialCentroids(FloatVectorValues vectors, int centroidCount) throws IOException {
         Random random = new Random(42L);
         int centroidsSize = Math.min(vectors.size(), centroidCount);
         float[][] centroids = new float[centroidsSize][vectors.dimension()];
-        for (int i = 0; i < vectors.size(); i++) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (int i = 0; i < vectors.size(); i++) {
+    /**
+     * @brief [Functional description for field vector]: Describe purpose here.
+     */
             float[] vector;
-            if (i < centroidCount) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (i < centroidCount) {
                 vector = vectors.vectorValue(i);
                 System.arraycopy(vector, 0, centroids[i], 0, vector.length);
+        // Block Logic: [Describe purpose of this else/else if block]
             } else if (random.nextDouble() < centroidCount * (1.0 / i)) {
                 int c = random.nextInt(centroidCount);
                 vector = vectors.vectorValue(i);
                 System.arraycopy(vector, 0, centroids[c], 0, vector.length);
             }
         }
+    /**
+     * @brief [Functional description for field centroids]: Describe purpose here.
+     */
         return centroids;
     }
 
+    /**
+     * @brief [Functional Utility for stepLloyd]: Describe purpose here.
+     * @return boolean: [Description]\n     * @throws IOException: [Description]\n     */
+    /**
+     * @brief [Functional Utility for stepLloyd]: Describe purpose here.
+     * @return boolean: [Description]\n     * @throws IOException: [Description]\n     */
     private static boolean stepLloyd(
         FloatVectorValues vectors,
         IntToIntFunction translateOrd,
@@ -76,104 +106,203 @@ class KMeansLocal {
         int[] assignments,
         List<NeighborHood> neighborhoods
     ) throws IOException {
+    /**
+     * @brief [Functional description for field changed]: Describe purpose here.
+     */
         boolean changed = false;
         int dim = vectors.dimension();
+    /**
+     * @brief [Functional description for field centroidCounts]: Describe purpose here.
+     */
         int[] centroidCounts = new int[centroids.length];
 
-        for (float[] nextCentroid : nextCentroids) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (float[] nextCentroid : nextCentroids) {
             Arrays.fill(nextCentroid, 0.0f);
         }
 
-        for (int idx = 0; idx < vectors.size(); idx++) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (int idx = 0; idx < vectors.size(); idx++) {
             float[] vector = vectors.vectorValue(idx);
             int vectorOrd = translateOrd.apply(idx);
+    /**
+     * @brief [Functional description for field assignment]: Describe purpose here.
+     */
             final int assignment = assignments[vectorOrd];
+    /**
+     * @brief [Functional description for field bestCentroidOffset]: Describe purpose here.
+     */
             final int bestCentroidOffset;
-            if (neighborhoods != null) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (neighborhoods != null) {
                 bestCentroidOffset = getBestCentroidFromNeighbours(centroids, vector, assignment, neighborhoods.get(assignment));
+        // Block Logic: [Describe purpose of this else/else if block]
             } else {
                 bestCentroidOffset = getBestCentroid(centroids, vector);
             }
-            if (assignment != bestCentroidOffset) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (assignment != bestCentroidOffset) {
                 assignments[vectorOrd] = bestCentroidOffset;
                 changed = true;
             }
             centroidCounts[bestCentroidOffset]++;
-            for (int d = 0; d < dim; d++) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            for (int d = 0; d < dim; d++) {
                 nextCentroids[bestCentroidOffset][d] += vector[d];
             }
         }
 
-        for (int clusterIdx = 0; clusterIdx < centroids.length; clusterIdx++) {
-            if (centroidCounts[clusterIdx] > 0) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (int clusterIdx = 0; clusterIdx < centroids.length; clusterIdx++) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (centroidCounts[clusterIdx] > 0) {
                 float countF = (float) centroidCounts[clusterIdx];
-                for (int d = 0; d < dim; d++) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                for (int d = 0; d < dim; d++) {
                     centroids[clusterIdx][d] = nextCentroids[clusterIdx][d] / countF;
                 }
             }
         }
 
+    /**
+     * @brief [Functional description for field changed]: Describe purpose here.
+     */
         return changed;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param centroids: [Description]
+     * @param vector: [Description]
+     * @param centroidIdx: [Description]
+     * @param neighborhood: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private static int getBestCentroidFromNeighbours(float[][] centroids, float[] vector, int centroidIdx, NeighborHood neighborhood) {
+    /**
+     * @brief [Functional description for field bestCentroidOffset]: Describe purpose here.
+     */
         int bestCentroidOffset = centroidIdx;
         assert centroidIdx >= 0 && centroidIdx < centroids.length;
         float minDsq = VectorUtil.squareDistance(vector, centroids[centroidIdx]);
-        for (int i = 0; i < neighborhood.neighbors.length; i++) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (int i = 0; i < neighborhood.neighbors.length; i++) {
+    /**
+     * @brief [Functional description for field offset]: Describe purpose here.
+     */
             int offset = neighborhood.neighbors[i];
             // float score = neighborhood.scores[i];
             assert offset >= 0 && offset < centroids.length : "Invalid neighbor offset: " + offset;
-            if (minDsq < neighborhood.maxIntraDistance) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (minDsq < neighborhood.maxIntraDistance) {
                 // if the distance found is smaller than the maximum intra-cluster distance
                 // we don't consider it for further re-assignment
+    /**
+     * @brief [Functional description for field bestCentroidOffset]: Describe purpose here.
+     */
                 return bestCentroidOffset;
             }
             // compute the distance to the centroid
             float dsq = VectorUtil.squareDistance(vector, centroids[offset]);
-            if (dsq < minDsq) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (dsq < minDsq) {
                 minDsq = dsq;
                 bestCentroidOffset = offset;
             }
         }
+    /**
+     * @brief [Functional description for field bestCentroidOffset]: Describe purpose here.
+     */
         return bestCentroidOffset;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param centroids: [Description]
+     * @param vector: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private static int getBestCentroid(float[][] centroids, float[] vector) {
+    /**
+     * @brief [Functional description for field bestCentroidOffset]: Describe purpose here.
+     */
         int bestCentroidOffset = 0;
+    /**
+     * @brief [Functional description for field minDsq]: Describe purpose here.
+     */
         float minDsq = Float.MAX_VALUE;
-        for (int i = 0; i < centroids.length; i++) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (int i = 0; i < centroids.length; i++) {
             float dsq = VectorUtil.squareDistance(vector, centroids[i]);
-            if (dsq < minDsq) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (dsq < minDsq) {
                 minDsq = dsq;
                 bestCentroidOffset = i;
             }
         }
+    /**
+     * @brief [Functional description for field bestCentroidOffset]: Describe purpose here.
+     */
         return bestCentroidOffset;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param centers: [Description]
+     * @param neighborhoods: [Description]
+     * @param clustersPerNeighborhood: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private void computeNeighborhoods(float[][] centers, List<NeighborHood> neighborhoods, int clustersPerNeighborhood) {
         int k = neighborhoods.size();
 
-        if (k == 0 || clustersPerNeighborhood <= 0) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (k == 0 || clustersPerNeighborhood <= 0) {
             return;
         }
 
         List<NeighborQueue> neighborQueues = new ArrayList<>(k);
-        for (int i = 0; i < k; i++) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (int i = 0; i < k; i++) {
             neighborQueues.add(new NeighborQueue(clustersPerNeighborhood, true));
         }
-        for (int i = 0; i < k - 1; i++) {
-            for (int j = i + 1; j < k; j++) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (int i = 0; i < k - 1; i++) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            for (int j = i + 1; j < k; j++) {
                 float dsq = VectorUtil.squareDistance(centers[i], centers[j]);
                 neighborQueues.get(j).insertWithOverflow(i, dsq);
                 neighborQueues.get(i).insertWithOverflow(j, dsq);
             }
         }
 
-        for (int i = 0; i < k; i++) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (int i = 0; i < k; i++) {
             NeighborQueue queue = neighborQueues.get(i);
-            if (queue.size() == 0) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (queue.size() == 0) {
                 // no neighbors, skip
                 neighborhoods.set(i, NeighborHood.EMPTY);
                 continue;
@@ -181,8 +310,13 @@ class KMeansLocal {
             // consume the queue into the neighbors array and get the maximum intra-cluster distance
             int[] neighbors = new int[queue.size()];
             float maxIntraDistance = queue.topScore();
+    /**
+     * @brief [Functional description for field iter]: Describe purpose here.
+     */
             int iter = 0;
-            while (queue.size() > 0) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            while (queue.size() > 0) {
                 neighbors[neighbors.length - ++iter] = queue.pop();
             }
             NeighborHood neighborHood = new NeighborHood(neighbors, maxIntraDistance);
@@ -190,6 +324,12 @@ class KMeansLocal {
         }
     }
 
+    /**
+     * @brief [Functional Utility for assignSpilled]: Describe purpose here.
+     * @return [ReturnType]: [Description]\n     * @throws IOException: [Description]\n     */
+    /**
+     * @brief [Functional Utility for assignSpilled]: Describe purpose here.
+     * @return [ReturnType]: [Description]\n     * @throws IOException: [Description]\n     */
     private int[] assignSpilled(
         FloatVectorValues vectors,
         List<NeighborHood> neighborhoods,
@@ -206,49 +346,96 @@ class KMeansLocal {
         // centroid the document was assigned to. The document is assigned to the
         // cluster with the smallest soar(x, c).
 
+    /**
+     * @brief [Functional description for field spilledAssignments]: Describe purpose here.
+     */
         int[] spilledAssignments = new int[assignments.length];
 
         float[] diffs = new float[vectors.dimension()];
-        for (int i = 0; i < vectors.size(); i++) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (int i = 0; i < vectors.size(); i++) {
             float[] vector = vectors.vectorValue(i);
 
+    /**
+     * @brief [Functional description for field currAssignment]: Describe purpose here.
+     */
             int currAssignment = assignments[i];
+    /**
+     * @brief [Functional description for field currentCentroid]: Describe purpose here.
+     */
             float[] currentCentroid = centroids[currAssignment];
 
             // TODO: cache these?
             float vectorCentroidDist = VectorUtil.squareDistance(vector, currentCentroid);
 
-            if (vectorCentroidDist > SOAR_MIN_DISTANCE) {
-                for (int j = 0; j < vectors.dimension(); j++) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (vectorCentroidDist > SOAR_MIN_DISTANCE) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                for (int j = 0; j < vectors.dimension(); j++) {
+    /**
+     * @brief [Functional description for field diff]: Describe purpose here.
+     */
                     float diff = vector[j] - currentCentroid[j];
                     diffs[j] = diff;
                 }
             }
 
+    /**
+     * @brief [Functional description for field bestAssignment]: Describe purpose here.
+     */
             int bestAssignment = -1;
+    /**
+     * @brief [Functional description for field minSoar]: Describe purpose here.
+     */
             float minSoar = Float.MAX_VALUE;
+    /**
+     * @brief [Functional description for field centroidCount]: Describe purpose here.
+     */
             int centroidCount = centroids.length;
+    /**
+     * @brief [Functional description for field centroidOrds]: Describe purpose here.
+     */
             IntToIntFunction centroidOrds = c -> c;
-            if (neighborhoods != null) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (neighborhoods != null) {
                 assert neighborhoods.get(currAssignment) != null;
                 NeighborHood neighborhood = neighborhoods.get(currAssignment);
                 centroidCount = neighborhood.neighbors.length;
                 centroidOrds = c -> neighborhood.neighbors[c];
             }
-            for (int j = 0; j < centroidCount; j++) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            for (int j = 0; j < centroidCount; j++) {
                 int centroidOrd = centroidOrds.apply(j);
-                if (centroidOrd == currAssignment) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                if (centroidOrd == currAssignment) {
                     continue; // skip the current assignment
                 }
+    /**
+     * @brief [Functional description for field centroid]: Describe purpose here.
+     */
                 float[] centroid = centroids[centroidOrd];
+    /**
+     * @brief [Functional description for field soar]: Describe purpose here.
+     */
                 float soar;
-                if (vectorCentroidDist > SOAR_MIN_DISTANCE) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                if (vectorCentroidDist > SOAR_MIN_DISTANCE) {
                     soar = ESVectorUtil.soarDistance(vector, centroid, diffs, soarLambda, vectorCentroidDist);
+        // Block Logic: [Describe purpose of this else/else if block]
                 } else {
                     // if the vector is very close to the centroid, we look for the second-nearest centroid
                     soar = VectorUtil.squareDistance(vector, centroid);
                 }
-                if (soar < minSoar) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                if (soar < minSoar) {
                     minSoar = soar;
                     bestAssignment = centroidOrd;
                 }
@@ -258,9 +445,18 @@ class KMeansLocal {
             spilledAssignments[i] = bestAssignment;
         }
 
+    /**
+     * @brief [Functional description for field spilledAssignments]: Describe purpose here.
+     */
         return spilledAssignments;
     }
 
+    /**
+     * @brief [Functional Utility for NeighborHood]: Describe purpose here.
+     * @param neighbors: [Description]
+     * @param maxIntraDistance: [Description]
+     * @return [ReturnType]: [Description]
+     */
     record NeighborHood(int[] neighbors, float maxIntraDistance) {
         static final NeighborHood EMPTY = new NeighborHood(new int[0], Float.POSITIVE_INFINITY);
     }
@@ -294,29 +490,54 @@ class KMeansLocal {
      */
     void cluster(FloatVectorValues vectors, KMeansIntermediate kMeansIntermediate, int clustersPerNeighborhood, float soarLambda)
         throws IOException {
-        if (clustersPerNeighborhood < 2) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (clustersPerNeighborhood < 2) {
             throw new IllegalArgumentException("clustersPerNeighborhood must be at least 2, got [" + clustersPerNeighborhood + "]");
         }
         doCluster(vectors, kMeansIntermediate, clustersPerNeighborhood, soarLambda);
     }
 
+    /**
+     * @brief [Functional Utility for doCluster]: Describe purpose here.
+     * @param vectors: [Description]
+     * @param kMeansIntermediate: [Description]
+     * @param clustersPerNeighborhood: [Description]
+     * @param soarLambda: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private void doCluster(FloatVectorValues vectors, KMeansIntermediate kMeansIntermediate, int clustersPerNeighborhood, float soarLambda)
         throws IOException {
         float[][] centroids = kMeansIntermediate.centroids();
+    /**
+     * @brief [Functional description for field neighborAware]: Describe purpose here.
+     */
         boolean neighborAware = clustersPerNeighborhood != -1 && centroids.length > 1;
 
+    /**
+     * @brief [Functional description for field neighborhoods]: Describe purpose here.
+     */
         List<NeighborHood> neighborhoods = null;
         // if there are very few centroids, don't bother with neighborhoods or neighbor aware clustering
-        if (neighborAware && centroids.length > clustersPerNeighborhood) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (neighborAware && centroids.length > clustersPerNeighborhood) {
+    /**
+     * @brief [Functional description for field k]: Describe purpose here.
+     */
             int k = centroids.length;
             neighborhoods = new ArrayList<>(k);
-            for (int i = 0; i < k; ++i) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            for (int i = 0; i < k; ++i) {
                 neighborhoods.add(null);
             }
             computeNeighborhoods(centroids, neighborhoods, clustersPerNeighborhood);
         }
         cluster(vectors, kMeansIntermediate, neighborhoods);
-        if (neighborAware) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (neighborAware) {
             int[] assignments = kMeansIntermediate.assignments();
             assert assignments != null;
             assert assignments.length == vectors.size();
@@ -324,34 +545,60 @@ class KMeansLocal {
         }
     }
 
+    /**
+     * @brief [Functional Utility for cluster]: Describe purpose here.
+     * @param vectors: [Description]
+     * @param kMeansIntermediate: [Description]
+     * @param neighborhoods: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private void cluster(FloatVectorValues vectors, KMeansIntermediate kMeansIntermediate, List<NeighborHood> neighborhoods)
         throws IOException {
         float[][] centroids = kMeansIntermediate.centroids();
+    /**
+     * @brief [Functional description for field k]: Describe purpose here.
+     */
         int k = centroids.length;
         int n = vectors.size();
         int[] assignments = kMeansIntermediate.assignments();
 
-        if (k == 1) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (k == 1) {
             Arrays.fill(assignments, 0);
             return;
         }
+    /**
+     * @brief [Functional description for field translateOrd]: Describe purpose here.
+     */
         IntToIntFunction translateOrd = i -> i;
+    /**
+     * @brief [Functional description for field sampledVectors]: Describe purpose here.
+     */
         FloatVectorValues sampledVectors = vectors;
-        if (sampleSize < n) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (sampleSize < n) {
             sampledVectors = SampleReader.createSampleReader(vectors, sampleSize, 42L);
             translateOrd = sampledVectors::ordToDoc;
         }
 
         assert assignments.length == n;
         float[][] nextCentroids = new float[centroids.length][vectors.dimension()];
-        for (int i = 0; i < maxIterations; i++) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (int i = 0; i < maxIterations; i++) {
             // This is potentially sampled, so we need to translate ordinals
-            if (stepLloyd(sampledVectors, translateOrd, centroids, nextCentroids, assignments, neighborhoods) == false) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (stepLloyd(sampledVectors, translateOrd, centroids, nextCentroids, assignments, neighborhoods) == false) {
                 break;
             }
         }
         // If we were sampled, do a once over the full set of vectors to finalize the centroids
-        if (sampleSize < n || maxIterations == 0) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (sampleSize < n || maxIterations == 0) {
             // No ordinal translation needed here, we are using the full set of vectors
             stepLloyd(vectors, i -> i, centroids, nextCentroids, assignments, neighborhoods);
         }
@@ -365,6 +612,15 @@ class KMeansLocal {
      * @param centroids the initialized centroids to be shifted using k-means
      * @param sampleSize the subset of vectors to use when shifting centroids
      * @param maxIterations the max iterations to shift centroids
+     */
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param vectors: [Description]
+     * @param centroids: [Description]
+     * @param sampleSize: [Description]
+     * @param maxIterations: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
      */
     public static void cluster(FloatVectorValues vectors, float[][] centroids, int sampleSize, int maxIterations) throws IOException {
         KMeansIntermediate kMeansIntermediate = new KMeansIntermediate(centroids, new int[vectors.size()], vectors::ordToDoc);

@@ -31,8 +31,17 @@ import static org.elasticsearch.core.Tuple.tuple;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
 
+/**
+ * @brief Functional description of the PutMappingRequestTests class.
+ *        This is a placeholder for detailed semantic documentation.
+ *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+ */
 public class PutMappingRequestTests extends ESTestCase {
 
+    /**
+     * @brief [Functional Utility for testValidation]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testValidation() {
         PutMappingRequest r = new PutMappingRequest("myindex");
         ActionRequestValidationException ex = r.validate();
@@ -68,7 +77,14 @@ public class PutMappingRequestTests extends ESTestCase {
         assertEquals("mapping source must be pairs of fieldnames and properties definition.", e.getMessage());
     }
 
+    /**
+     * @brief [Functional Utility for testResolveIndicesWithWriteIndexOnlyAndDataStreamsAndWriteAliases]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testResolveIndicesWithWriteIndexOnlyAndDataStreamsAndWriteAliases() {
+    /**
+     * @brief [Functional description for field dataStreamNames]: Describe purpose here.
+     */
         String[] dataStreamNames = { "foo", "bar", "baz" };
         List<Tuple<String, Integer>> dsMetadata = List.of(
             tuple(dataStreamNames[0], randomIntBetween(1, 3)),
@@ -96,7 +112,14 @@ public class PutMappingRequestTests extends ESTestCase {
         assertThat(indexNames, containsInAnyOrder(expectedDs.getWriteIndex().getName(), "index2", "index3"));
     }
 
+    /**
+     * @brief [Functional Utility for testResolveIndicesWithoutWriteIndexOnlyAndDataStreamsAndWriteAliases]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testResolveIndicesWithoutWriteIndexOnlyAndDataStreamsAndWriteAliases() {
+    /**
+     * @brief [Functional description for field dataStreamNames]: Describe purpose here.
+     */
         String[] dataStreamNames = { "foo", "bar", "baz" };
         List<Tuple<String, Integer>> dsMetadata = List.of(
             tuple(dataStreamNames[0], randomIntBetween(1, 3)),
@@ -129,7 +152,14 @@ public class PutMappingRequestTests extends ESTestCase {
         assertThat(indexNames, containsInAnyOrder(expectedIndices.toArray()));
     }
 
+    /**
+     * @brief [Functional Utility for testResolveIndicesWithWriteIndexOnlyAndDataStreamAndIndex]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testResolveIndicesWithWriteIndexOnlyAndDataStreamAndIndex() {
+    /**
+     * @brief [Functional description for field dataStreamNames]: Describe purpose here.
+     */
         String[] dataStreamNames = { "foo", "bar", "baz" };
         List<Tuple<String, Integer>> dsMetadata = List.of(
             tuple(dataStreamNames[0], randomIntBetween(1, 3)),
@@ -162,7 +192,14 @@ public class PutMappingRequestTests extends ESTestCase {
         assertThat(indexNames, containsInAnyOrder(expectedDs.getWriteIndex().getName(), "index3"));
     }
 
+    /**
+     * @brief [Functional Utility for testResolveIndicesWithWriteIndexOnlyAndNoSingleWriteIndex]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testResolveIndicesWithWriteIndexOnlyAndNoSingleWriteIndex() {
+    /**
+     * @brief [Functional description for field dataStreamNames]: Describe purpose here.
+     */
         String[] dataStreamNames = { "foo", "bar", "baz" };
         List<Tuple<String, Integer>> dsMetadata = List.of(
             tuple(dataStreamNames[0], randomIntBetween(1, 3)),
@@ -190,7 +227,14 @@ public class PutMappingRequestTests extends ESTestCase {
         assertThat(e.getMessage(), containsString("The index expression [*] and options provided did not point to a single write-index"));
     }
 
+    /**
+     * @brief [Functional Utility for testResolveIndicesWithWriteIndexOnlyAndAliasWithoutWriteIndex]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testResolveIndicesWithWriteIndexOnlyAndAliasWithoutWriteIndex() {
+    /**
+     * @brief [Functional description for field dataStreamNames]: Describe purpose here.
+     */
         String[] dataStreamNames = { "foo", "bar", "baz" };
         List<Tuple<String, Integer>> dsMetadata = List.of(
             tuple(dataStreamNames[0], randomIntBetween(1, 3)),
@@ -225,7 +269,11 @@ public class PutMappingRequestTests extends ESTestCase {
      */
     private static ClusterState addAliases(ClusterState cs, List<Tuple<String, List<Tuple<String, Boolean>>>> aliases) {
         Metadata.Builder builder = Metadata.builder(cs.metadata());
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (Tuple<String, List<Tuple<String, Boolean>>> alias : aliases) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             for (Tuple<String, Boolean> index : alias.v2()) {
                 IndexMetadata im = builder.get(index.v1());
                 AliasMetadata newAliasMd = AliasMetadata.newAliasMetadataBuilder(alias.v1()).writeIndex(index.v2()).build();

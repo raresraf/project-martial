@@ -1,3 +1,8 @@
+/**
+ * @file solver_blas.c
+ * @brief Semantic documentation for solver_blas.c. 
+ *        This is a placeholder. Detailed semantic analysis will be applied later.
+ */
 
 #include "utils.h"
 #include <string.h>

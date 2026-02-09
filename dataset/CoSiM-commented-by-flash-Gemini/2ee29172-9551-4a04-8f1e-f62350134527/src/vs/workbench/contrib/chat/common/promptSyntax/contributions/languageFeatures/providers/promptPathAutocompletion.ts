@@ -55,6 +55,8 @@ const findFileReference = (
 	references: readonly TPromptReference[],
 	position: Position,
 ): IPromptFileReference | undefined => {
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	for (const reference of references) {
 		const { range } = reference;
 
@@ -70,6 +72,8 @@ const findFileReference = (
 
 		// reference must match the provided position
 		const { startLineNumber, endColumn } = range;
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if ((startLineNumber !== position.lineNumber) || (endColumn !== position.column)) {
 			continue;
 		}
@@ -152,6 +156,8 @@ export class PromptPathAutocompletion extends Disposable implements CompletionIt
 		);
 
 		const fileReference = findFileReference(references, position);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!fileReference) {
 			return undefined;
 		}
@@ -176,6 +182,8 @@ export class PromptPathAutocompletion extends Disposable implements CompletionIt
 			};
 		}
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (triggerCharacter === '/' || triggerCharacter === '.') {
 			return {
 				suggestions: await this.getNonFirstFolderSuggestions(
@@ -208,6 +216,8 @@ export class PromptPathAutocompletion extends Disposable implements CompletionIt
 			return suggestions;
 		}
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		for (const child of children) {
 			const kind = child.isDirectory
 				? CompletionItemKind.Folder
@@ -306,6 +316,8 @@ export class PromptPathAutocompletion extends Disposable implements CompletionIt
 	): Promise<TFilesystemCompletionItem[]> {
 		const { linkRange, path } = fileReference;
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (linkRange === undefined) {
 			return [];
 		}

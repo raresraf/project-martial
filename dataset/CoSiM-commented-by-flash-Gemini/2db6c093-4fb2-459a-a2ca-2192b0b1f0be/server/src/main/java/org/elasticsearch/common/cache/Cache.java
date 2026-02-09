@@ -93,9 +93,18 @@ public class Cache<K, V> {
     private RemovalListener<K, V> removalListener = notification -> {};
 
     // use CacheBuilder to construct
+    /**
+     * @brief [Functional Utility for Cache]: Describe purpose here.
+     */
     Cache() {}
 
+    /**
+     * @brief [Functional Utility for setExpireAfterAccessNanos]: Describe purpose here.
+     */
     void setExpireAfterAccessNanos(long expireAfterAccessNanos) {
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (expireAfterAccessNanos <= 0) {
             throw new IllegalArgumentException("expireAfterAccessNanos <= 0");
         }
@@ -104,11 +113,20 @@ public class Cache<K, V> {
     }
 
     // public for testing
+    /**
+     * @brief [Functional Utility for getExpireAfterAccessNanos]: Describe purpose here.
+     */
     public long getExpireAfterAccessNanos() {
         return this.expireAfterAccessNanos;
     }
 
+    /**
+     * @brief [Functional Utility for setExpireAfterWriteNanos]: Describe purpose here.
+     */
     void setExpireAfterWriteNanos(long expireAfterWriteNanos) {
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (expireAfterWriteNanos <= 0) {
             throw new IllegalArgumentException("expireAfterWriteNanos <= 0");
         }
@@ -117,22 +135,37 @@ public class Cache<K, V> {
     }
 
     // pkg-private for testing
+    /**
+     * @brief [Functional Utility for getExpireAfterWriteNanos]: Describe purpose here.
+     */
     long getExpireAfterWriteNanos() {
         return this.expireAfterWriteNanos;
     }
 
+    /**
+     * @brief [Functional Utility for setMaximumWeight]: Describe purpose here.
+     */
     void setMaximumWeight(long maximumWeight) {
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (maximumWeight < 0) {
             throw new IllegalArgumentException("maximumWeight < 0");
         }
         this.maximumWeight = maximumWeight;
     }
 
+    /**
+     * @brief [Functional Utility for setWeigher]: Describe purpose here.
+     */
     void setWeigher(ToLongBiFunction<K, V> weigher) {
         Objects.requireNonNull(weigher);
         this.weigher = weigher;
     }
 
+    /**
+     * @brief [Functional Utility for setRemovalListener]: Describe purpose here.
+     */
     void setRemovalListener(RemovalListener<K, V> removalListener) {
         Objects.requireNonNull(removalListener);
         this.removalListener = removalListener;
@@ -142,6 +175,9 @@ public class Cache<K, V> {
      * The relative time used to track time-based evictions.
      *
      * @return the current relative time
+     */
+    /**
+     * @brief [Functional Utility for now]: Describe purpose here.
      */
     protected long now() {
         // System.nanoTime takes non-negligible time, so we only use it if we need it
@@ -165,6 +201,9 @@ public class Cache<K, V> {
         Entry<K, V> after;
         State state = State.NEW;
 
+        /**
+         * @brief [Functional Utility for Entry]: Describe purpose here.
+         */
         Entry(K key, V value, long writeTime) {
             this.key = key;
             this.value = value;
@@ -203,6 +242,9 @@ public class Cache<K, V> {
             } finally {
                 readLock.unlock();
             }
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (future != null) {
                 Entry<K, V> entry;
                 try {
@@ -214,8 +256,13 @@ public class Cache<K, V> {
                 } catch (InterruptedException e) {
                     throw new IllegalStateException(e);
                 }
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 if (isExpired(entry, now)) {
                     misses.increment();
+                    /**
+                     * @brief [Functional Utility for if]: Describe purpose here.
+                     */
                     if (eagerEvict) {
                         lruLock.lock();
                         try {
@@ -250,10 +297,16 @@ public class Cache<K, V> {
             writeLock.lock();
             try {
                 try {
+                    /**
+                     * @brief [Functional Utility for if]: Describe purpose here.
+                     */
                     if (map == null) {
                         map = new HashMap<>();
                     }
                     CompletableFuture<Entry<K, V>> future = map.put(key, CompletableFuture.completedFuture(entry));
+                    /**
+                     * @brief [Functional Utility for if]: Describe purpose here.
+                     */
                     if (future != null) {
                         existing = future.handle((ok, ex) -> ok).get();
                     }
@@ -271,14 +324,22 @@ public class Cache<K, V> {
          *
          * @param key       the key of the entry to remove from the cache
          */
+        /**
+         * @brief [Functional Utility for remove]: Describe purpose here.
+         */
         void remove(K key) {
             CompletableFuture<Entry<K, V>> future;
             writeLock.lock();
             try {
+                /**
+                 * @brief [Functional Utility for if]: Describe purpose here.
+                 */
                 if (map == null) {
                     future = null;
                 } else {
                     future = map.remove(key);
+                    // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                    // Invariant: State condition that holds true before and after each iteration/execution
                     if (map.isEmpty()) {
                         map = null;
                     }
@@ -286,6 +347,9 @@ public class Cache<K, V> {
             } finally {
                 writeLock.unlock();
             }
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (future != null) {
                 evictions.increment();
                 notifyWithInvalidated(future);
@@ -300,6 +364,9 @@ public class Cache<K, V> {
          * @param value the value expected to be associated with the key
          * @param notify whether to trigger a removal notification if the entry has been removed
          */
+        /**
+         * @brief [Functional Utility for remove]: Describe purpose here.
+         */
         void remove(K key, V value, boolean notify) {
             CompletableFuture<Entry<K, V>> future;
             boolean removed = false;
@@ -307,11 +374,20 @@ public class Cache<K, V> {
             try {
                 future = map == null ? null : map.get(key);
                 try {
+                    /**
+                     * @brief [Functional Utility for if]: Describe purpose here.
+                     */
                     if (future != null) {
+                        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                        // Invariant: State condition that holds true before and after each iteration/execution
                         if (future.isDone()) {
                             Entry<K, V> entry = future.get();
+                            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                            // Invariant: State condition that holds true before and after each iteration/execution
                             if (Objects.equals(value, entry.value)) {
                                 removed = map.remove(key, future);
+                                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                                // Invariant: State condition that holds true before and after each iteration/execution
                                 if (map.isEmpty()) {
                                     map = null;
                                 }
@@ -325,8 +401,14 @@ public class Cache<K, V> {
                 writeLock.unlock();
             }
 
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (future != null && removed) {
                 evictions.increment();
+                /**
+                 * @brief [Functional Utility for if]: Describe purpose here.
+                 */
                 if (notify) {
                     notifyWithInvalidated(future);
                 }
@@ -340,6 +422,9 @@ public class Cache<K, V> {
     private final CacheSegment[] segments = (CacheSegment[]) Array.newInstance(CacheSegment.class, NUMBER_OF_SEGMENTS);
 
     {
+        /**
+         * @brief [Functional Utility for for]: Describe purpose here.
+         */
         for (int i = 0; i < segments.length; i++) {
             segments[i] = new CacheSegment();
         }
@@ -357,13 +442,22 @@ public class Cache<K, V> {
      * @param key the key whose associated value is to be returned
      * @return the value to which the specified key is mapped, or null if this map contains no mapping for the key
      */
+    /**
+     * @brief [Functional Utility for get]: Describe purpose here.
+     */
     public V get(K key) {
         return get(key, now(), false);
     }
 
+    /**
+     * @brief [Functional Utility for get]: Describe purpose here.
+     */
     private V get(K key, long now, boolean eagerEvict) {
         CacheSegment segment = getCacheSegment(key);
         Entry<K, V> entry = segment.get(key, now, eagerEvict);
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (entry == null) {
             return null;
         } else {
@@ -386,10 +480,16 @@ public class Cache<K, V> {
      * @return the current (existing or computed) non-null value associated with the specified key
      * @throws ExecutionException thrown if loader throws an exception or returns a null value
      */
+    /**
+     * @brief [Functional Utility for computeIfAbsent]: Describe purpose here.
+     */
     public V computeIfAbsent(K key, CacheLoader<K, V> loader) throws ExecutionException {
         long now = now();
         // we have to eagerly evict expired entries or our putIfAbsent call below will fail
         V value = get(key, now, true);
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (value == null) {
             // we need to synchronize loading of a value for a given key; however, holding the segment lock while
             // invoking load can lead to deadlock against another thread due to dependent key loading; therefore, we
@@ -402,6 +502,9 @@ public class Cache<K, V> {
 
             segment.writeLock.lock();
             try {
+                /**
+                 * @brief [Functional Utility for if]: Describe purpose here.
+                 */
                 if (segment.map == null) {
                     segment.map = new HashMap<>();
                 }
@@ -411,6 +514,9 @@ public class Cache<K, V> {
             }
 
             BiFunction<? super Entry<K, V>, Throwable, ? extends V> handler = (ok, ex) -> {
+                /**
+                 * @brief [Functional Utility for if]: Describe purpose here.
+                 */
                 if (ok != null) {
                     promote(ok, now);
                     return ok.value;
@@ -418,8 +524,12 @@ public class Cache<K, V> {
                     segment.writeLock.lock();
                     try {
                         CompletableFuture<Entry<K, V>> sanity = segment.map == null ? null : segment.map.get(key);
+                        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                        // Invariant: State condition that holds true before and after each iteration/execution
                         if (sanity != null && sanity.isCompletedExceptionally()) {
                             segment.map.remove(key);
+                            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                            // Invariant: State condition that holds true before and after each iteration/execution
                             if (segment.map.isEmpty()) {
                                 segment.map = null;
                             }
@@ -432,6 +542,9 @@ public class Cache<K, V> {
             };
 
             CompletableFuture<V> completableValue;
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (future == null) {
                 future = completableFuture;
                 completableValue = future.handle(handler);
@@ -442,6 +555,9 @@ public class Cache<K, V> {
                     future.completeExceptionally(e);
                     throw new ExecutionException(e);
                 }
+                /**
+                 * @brief [Functional Utility for if]: Describe purpose here.
+                 */
                 if (loaded == null) {
                     NullPointerException npe = new NullPointerException("loader returned a null value");
                     future.completeExceptionally(npe);
@@ -474,18 +590,28 @@ public class Cache<K, V> {
      * @param key   key with which the specified value is to be associated
      * @param value value to be associated with the specified key
      */
+    /**
+     * @brief [Functional Utility for put]: Describe purpose here.
+     */
     public void put(K key, V value) {
         long now = now();
         put(key, value, now);
     }
 
+    /**
+     * @brief [Functional Utility for put]: Describe purpose here.
+     */
     private void put(K key, V value, long now) {
         CacheSegment segment = getCacheSegment(key);
         Tuple<Entry<K, V>, Entry<K, V>> tuple = segment.put(key, value, now);
         boolean replaced = false;
         lruLock.lock();
         try {
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (tuple.v2() != null && tuple.v2().state == State.EXISTING) {
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 if (unlink(tuple.v2())) {
                     replaced = true;
                 }
@@ -494,6 +620,9 @@ public class Cache<K, V> {
         } finally {
             lruLock.unlock();
         }
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (replaced) {
             removalListener.onRemoval(
                 new RemovalNotification<>(tuple.v2().key, tuple.v2().value, RemovalNotification.RemovalReason.REPLACED)
@@ -501,6 +630,9 @@ public class Cache<K, V> {
         }
     }
 
+    /**
+     * @brief [Functional Utility for notifyWithInvalidated]: Describe purpose here.
+     */
     private void notifyWithInvalidated(CompletableFuture<Entry<K, V>> f) {
         try {
             Entry<K, V> entry = f.get();
@@ -523,6 +655,9 @@ public class Cache<K, V> {
      *
      * @param key the key whose mapping is to be invalidated from the cache
      */
+    /**
+     * @brief [Functional Utility for invalidate]: Describe purpose here.
+     */
     public void invalidate(K key) {
         CacheSegment segment = getCacheSegment(key);
         segment.remove(key);
@@ -536,6 +671,9 @@ public class Cache<K, V> {
      * @param key the key whose mapping is to be invalidated from the cache
      * @param value the expected value that should be associated with the key
      */
+    /**
+     * @brief [Functional Utility for invalidate]: Describe purpose here.
+     */
     public void invalidate(K key, V value) {
         CacheSegment segment = getCacheSegment(key);
         segment.remove(key, value, true);
@@ -545,6 +683,9 @@ public class Cache<K, V> {
      * Invalidate all cache entries. A removal notification will be issued for invalidated entries with
      * {@link org.elasticsearch.common.cache.RemovalNotification.RemovalReason} INVALIDATED.
      */
+    /**
+     * @brief [Functional Utility for invalidateAll]: Describe purpose here.
+     */
     public void invalidateAll() {
         Entry<K, V> h;
 
@@ -552,15 +693,24 @@ public class Cache<K, V> {
         lruLock.lock();
         try {
             try {
+                /**
+                 * @brief [Functional Utility for for]: Describe purpose here.
+                 */
                 for (int i = 0; i < NUMBER_OF_SEGMENTS; i++) {
                     segments[i].segmentLock.writeLock().lock();
                     haveSegmentLock[i] = true;
                 }
                 h = head;
+                /**
+                 * @brief [Functional Utility for for]: Describe purpose here.
+                 */
                 for (CacheSegment segment : segments) {
                     segment.map = null;
                 }
                 Entry<K, V> current = head;
+                /**
+                 * @brief [Functional Utility for while]: Describe purpose here.
+                 */
                 while (current != null) {
                     current.state = State.DELETED;
                     current = current.after;
@@ -569,7 +719,13 @@ public class Cache<K, V> {
                 count = 0;
                 weight = 0;
             } finally {
+                /**
+                 * @brief [Functional Utility for for]: Describe purpose here.
+                 */
                 for (int i = NUMBER_OF_SEGMENTS - 1; i >= 0; i--) {
+                    /**
+                     * @brief [Functional Utility for if]: Describe purpose here.
+                     */
                     if (haveSegmentLock[i]) {
                         segments[i].segmentLock.writeLock().unlock();
                     }
@@ -578,6 +734,9 @@ public class Cache<K, V> {
         } finally {
             lruLock.unlock();
         }
+        /**
+         * @brief [Functional Utility for while]: Describe purpose here.
+         */
         while (h != null) {
             removalListener.onRemoval(new RemovalNotification<>(h.key, h.value, RemovalNotification.RemovalReason.INVALIDATED));
             h = h.after;
@@ -602,6 +761,9 @@ public class Cache<K, V> {
      *
      * @return the number of entries in the cache
      */
+    /**
+     * @brief [Functional Utility for count]: Describe purpose here.
+     */
     public int count() {
         return count;
     }
@@ -610,6 +772,9 @@ public class Cache<K, V> {
      * The weight of the entries in the cache.
      *
      * @return the weight of the entries in the cache
+     */
+    /**
+     * @brief [Functional Utility for weight]: Describe purpose here.
      */
     public long weight() {
         return weight;
@@ -622,21 +787,33 @@ public class Cache<K, V> {
      *
      * @return an LRU-ordered {@link Iterable} over the keys in the cache
      */
+    /**
+     * @brief [Functional Utility for keys]: Describe purpose here.
+     */
     public Iterable<K> keys() {
         return () -> new Iterator<>() {
             private final CacheIterator iterator = new CacheIterator(head);
 
             @Override
+            /**
+             * @brief [Functional Utility for hasNext]: Describe purpose here.
+             */
             public boolean hasNext() {
                 return iterator.hasNext();
             }
 
             @Override
+            /**
+             * @brief [Functional Utility for next]: Describe purpose here.
+             */
             public K next() {
                 return iterator.next().key;
             }
 
             @Override
+            /**
+             * @brief [Functional Utility for remove]: Describe purpose here.
+             */
             public void remove() {
                 iterator.remove();
             }
@@ -650,21 +827,33 @@ public class Cache<K, V> {
      *
      * @return an LRU-ordered {@link Iterable} over the values in the cache
      */
+    /**
+     * @brief [Functional Utility for values]: Describe purpose here.
+     */
     public Iterable<V> values() {
         return () -> new Iterator<>() {
             private final CacheIterator iterator = new CacheIterator(head);
 
             @Override
+            /**
+             * @brief [Functional Utility for hasNext]: Describe purpose here.
+             */
             public boolean hasNext() {
                 return iterator.hasNext();
             }
 
             @Override
+            /**
+             * @brief [Functional Utility for next]: Describe purpose here.
+             */
             public V next() {
                 return iterator.next().value;
             }
 
             @Override
+            /**
+             * @brief [Functional Utility for remove]: Describe purpose here.
+             */
             public void remove() {
                 iterator.remove();
             }
@@ -679,15 +868,28 @@ public class Cache<K, V> {
      *
      * @param consumer the {@link Consumer}
      */
+    /**
+     * @brief [Functional Utility for forEach]: Describe purpose here.
+     */
     public void forEach(BiConsumer<K, V> consumer) {
+        /**
+         * @brief [Functional Utility for for]: Describe purpose here.
+         */
         for (CacheSegment segment : segments) {
             segment.readLock.lock();
             try {
+                /**
+                 * @brief [Functional Utility for if]: Describe purpose here.
+                 */
                 if (segment.map == null) {
                     continue;
                 }
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 for (CompletableFuture<Entry<K, V>> future : segment.map.values()) {
                     try {
+                        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                        // Invariant: State condition that holds true before and after each iteration/execution
                         if (future != null && future.isDone()) {
                             final Entry<K, V> entry = future.get();
                             consumer.accept(entry.key, entry.value);
@@ -706,12 +908,18 @@ public class Cache<K, V> {
         private Entry<K, V> current;
         private Entry<K, V> next;
 
+        /**
+         * @brief [Functional Utility for CacheIterator]: Describe purpose here.
+         */
         CacheIterator(Entry<K, V> head) {
             current = null;
             next = head;
         }
 
         @Override
+        /**
+         * @brief [Functional Utility for hasNext]: Describe purpose here.
+         */
         public boolean hasNext() {
             return next != null;
         }
@@ -724,8 +932,14 @@ public class Cache<K, V> {
         }
 
         @Override
+        /**
+         * @brief [Functional Utility for remove]: Describe purpose here.
+         */
         public void remove() {
             Entry<K, V> entry = current;
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (entry != null) {
                 CacheSegment segment = getCacheSegment(entry.key);
                 segment.remove(entry.key, entry.value, false);
@@ -746,6 +960,9 @@ public class Cache<K, V> {
      *
      * @return the current cache statistics
      */
+    /**
+     * @brief [Functional Utility for stats]: Describe purpose here.
+     */
     public CacheStats stats() {
         return new CacheStats(this.hits.sum(), misses.sum(), evictions.sum());
     }
@@ -755,34 +972,55 @@ public class Cache<K, V> {
         private final long misses;
         private final long evictions;
 
+        /**
+         * @brief [Functional Utility for CacheStats]: Describe purpose here.
+         */
         public CacheStats(long hits, long misses, long evictions) {
             this.hits = hits;
             this.misses = misses;
             this.evictions = evictions;
         }
 
+        /**
+         * @brief [Functional Utility for getHits]: Describe purpose here.
+         */
         public long getHits() {
             return hits;
         }
 
+        /**
+         * @brief [Functional Utility for getMisses]: Describe purpose here.
+         */
         public long getMisses() {
             return misses;
         }
 
+        /**
+         * @brief [Functional Utility for getEvictions]: Describe purpose here.
+         */
         public long getEvictions() {
             return evictions;
         }
     }
 
+    /**
+     * @brief [Functional Utility for promote]: Describe purpose here.
+     */
     private void promote(Entry<K, V> entry, long now) {
         boolean promoted = true;
         lruLock.lock();
         try {
+            /**
+             * @brief [Functional Utility for switch]: Describe purpose here.
+             */
             switch (entry.state) {
                 case DELETED -> promoted = false;
                 case EXISTING -> relinkAtHead(entry);
                 case NEW -> linkAtHead(entry);
             }
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (promoted) {
                 evict(now);
             }
@@ -791,56 +1029,93 @@ public class Cache<K, V> {
         }
     }
 
+    /**
+     * @brief [Functional Utility for evict]: Describe purpose here.
+     */
     private void evict(long now) {
         assert lruLock.isHeldByCurrentThread();
 
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         while (tail != null && shouldPrune(tail, now)) {
             evictEntry(tail);
         }
     }
 
+    /**
+     * @brief [Functional Utility for evictEntry]: Describe purpose here.
+     */
     private void evictEntry(Entry<K, V> entry) {
         assert lruLock.isHeldByCurrentThread();
 
         CacheSegment segment = getCacheSegment(entry.key);
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (segment != null) {
             segment.remove(entry.key, entry.value, false);
         }
         delete(entry, RemovalNotification.RemovalReason.EVICTED);
     }
 
+    /**
+     * @brief [Functional Utility for delete]: Describe purpose here.
+     */
     private void delete(Entry<K, V> entry, RemovalNotification.RemovalReason removalReason) {
         assert lruLock.isHeldByCurrentThread();
 
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (unlink(entry)) {
             removalListener.onRemoval(new RemovalNotification<>(entry.key, entry.value, removalReason));
         }
     }
 
+    /**
+     * @brief [Functional Utility for shouldPrune]: Describe purpose here.
+     */
     private boolean shouldPrune(Entry<K, V> entry, long now) {
         return exceedsWeight() || isExpired(entry, now);
     }
 
+    /**
+     * @brief [Functional Utility for exceedsWeight]: Describe purpose here.
+     */
     private boolean exceedsWeight() {
         return maximumWeight != -1 && weight > maximumWeight;
     }
 
+    /**
+     * @brief [Functional Utility for isExpired]: Describe purpose here.
+     */
     private boolean isExpired(Entry<K, V> entry, long now) {
         return (entriesExpireAfterAccess && now - entry.accessTime > expireAfterAccessNanos)
             || (entriesExpireAfterWrite && now - entry.writeTime > expireAfterWriteNanos);
     }
 
+    /**
+     * @brief [Functional Utility for unlink]: Describe purpose here.
+     */
     private boolean unlink(Entry<K, V> entry) {
         assert lruLock.isHeldByCurrentThread();
 
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (entry.state == State.EXISTING) {
             final Entry<K, V> before = entry.before;
             final Entry<K, V> after = entry.after;
 
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (before == null) {
                 // removing the head
                 assert head == entry;
                 head = after;
+                /**
+                 * @brief [Functional Utility for if]: Describe purpose here.
+                 */
                 if (head != null) {
                     head.before = null;
                 }
@@ -850,10 +1125,16 @@ public class Cache<K, V> {
                 entry.before = null;
             }
 
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (after == null) {
                 // removing tail
                 assert tail == entry;
                 tail = before;
+                /**
+                 * @brief [Functional Utility for if]: Describe purpose here.
+                 */
                 if (tail != null) {
                     tail.after = null;
                 }
@@ -872,6 +1153,9 @@ public class Cache<K, V> {
         }
     }
 
+    /**
+     * @brief [Functional Utility for linkAtHead]: Describe purpose here.
+     */
     private void linkAtHead(Entry<K, V> entry) {
         assert lruLock.isHeldByCurrentThread();
 
@@ -879,6 +1163,9 @@ public class Cache<K, V> {
         entry.before = null;
         entry.after = head;
         head = entry;
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (h == null) {
             tail = entry;
         } else {
@@ -890,15 +1177,24 @@ public class Cache<K, V> {
         entry.state = State.EXISTING;
     }
 
+    /**
+     * @brief [Functional Utility for relinkAtHead]: Describe purpose here.
+     */
     private void relinkAtHead(Entry<K, V> entry) {
         assert lruLock.isHeldByCurrentThread();
 
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (head != entry) {
             unlink(entry);
             linkAtHead(entry);
         }
     }
 
+    /**
+     * @brief [Functional Utility for getCacheSegment]: Describe purpose here.
+     */
     private CacheSegment getCacheSegment(K key) {
         return segments[key.hashCode() & 0xff];
     }

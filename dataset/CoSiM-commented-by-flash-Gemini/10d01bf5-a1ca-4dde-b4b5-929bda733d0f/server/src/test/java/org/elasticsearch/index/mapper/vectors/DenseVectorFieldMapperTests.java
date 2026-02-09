@@ -70,6 +70,11 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+/**
+ * @brief Functional description of the DenseVectorFieldMapperTests class.
+ *        This is a placeholder for detailed semantic documentation.
+ *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+ */
 public class DenseVectorFieldMapperTests extends MapperTestCase {
 
     private static final IndexVersion INDEXED_BY_DEFAULT_PREVIOUS_INDEX_VERSION = IndexVersions.V_8_10_0;
@@ -78,6 +83,11 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
     private final boolean indexOptionsSet;
     private final int dims;
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public DenseVectorFieldMapperTests() {
         this.elementType = randomFrom(ElementType.BYTE, ElementType.FLOAT, ElementType.BIT);
         this.indexed = randomBoolean();
@@ -86,15 +96,35 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param b: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected void minimalMapping(XContentBuilder b) throws IOException {
         indexMapping(b, IndexVersion.current());
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param b: [Description]
+     * @param indexVersion: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected void minimalMapping(XContentBuilder b, IndexVersion indexVersion) throws IOException {
         indexMapping(b, indexVersion);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param b: [Description]
+     * @param indexVersion: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private void indexMapping(XContentBuilder b, IndexVersion indexVersion) throws IOException {
         b.field("type", "dense_vector").field("dims", dims);
         if (elementType != ElementType.FLOAT) {
@@ -127,11 +157,22 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected Object getSampleValueForDocument() {
         return elementType == ElementType.FLOAT ? List.of(0.5, 0.5, 0.5, 0.5) : List.of((byte) 1, (byte) 1, (byte) 1, (byte) 1);
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param checker: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected void registerParameters(ParameterChecker checker) throws IOException {
         checker.registerConflictCheck(
             "dims",
@@ -856,22 +897,46 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected boolean supportsStoredFields() {
         return false;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected boolean supportsIgnoreMalformed() {
         return false;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param fieldType: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected void assertSearchable(MappedFieldType fieldType) {
         assertThat(fieldType, instanceOf(DenseVectorFieldType.class));
         assertEquals(fieldType.isIndexed(), indexed);
         assertEquals(fieldType.isSearchable(), indexed);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param fieldType: [Description]
+     * @param query: [Description]
+     * @param fields: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected void assertExistsQuery(MappedFieldType fieldType, Query query, LuceneDocument fields) {
         assertThat(query, instanceOf(FieldExistsQuery.class));
         FieldExistsQuery existsQuery = (FieldExistsQuery) query;
@@ -882,8 +947,18 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
     // We override this because dense vectors are the only field type that are not aggregatable but
     // that do provide fielddata. TODO: resolve this inconsistency!
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testAggregatableConsistency() {}
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testRescoreVectorForNonQuantized() {
         for (String indexType : List.of("hnsw", "flat")) {
             Exception e = expectThrows(
@@ -903,6 +978,11 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testRescoreVectorOldIndexVersion() {
         IndexVersion incompatibleVersion = IndexVersionUtils.randomVersionBetween(
             random(),
@@ -927,6 +1007,11 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testRescoreZeroVectorOldIndexVersion() {
         IndexVersion incompatibleVersion = IndexVersionUtils.randomVersionBetween(
             random(),
@@ -951,6 +1036,11 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testInvalidRescoreVector() {
         for (String indexType : List.of("int8_hnsw", "int8_flat", "int4_hnsw", "int4_flat", "bbq_hnsw", "bbq_flat")) {
             Exception e = expectThrows(
@@ -1022,6 +1112,11 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testDefaultOversampleValue() throws IOException {
         {
             DocumentMapper mapperService = createDocumentMapper(fieldMapping(b -> {
@@ -1076,6 +1171,11 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testDims() {
         {
             Exception e = expectThrows(MapperParsingException.class, () -> createMapperService(fieldMapping(b -> {
@@ -1112,6 +1212,11 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testMergeDims() throws IOException {
         XContentBuilder mapping = mapping(b -> {
             b.startObject("field");
@@ -1140,6 +1245,11 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testLargeDimsBit() throws IOException {
         createMapperService(fieldMapping(b -> {
             b.field("type", "dense_vector");
@@ -1148,12 +1258,22 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
         }));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testDefaults() throws Exception {
         DocumentMapper mapper = createDocumentMapper(fieldMapping(b -> b.field("type", "dense_vector").field("dims", 3)));
 
         testIndexedVector(VectorSimilarity.COSINE, mapper);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testIndexedVector() throws Exception {
         VectorSimilarity similarity = RandomPicks.randomFrom(random(), VectorSimilarity.values());
         DocumentMapper mapper = createDocumentMapper(
@@ -1163,6 +1283,13 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
         testIndexedVector(similarity, mapper);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param similarity: [Description]
+     * @param mapper: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private void testIndexedVector(VectorSimilarity similarity, DocumentMapper mapper) throws Exception {
 
         float[] vector = { -0.5f, 0.5f, 0.7071f };
@@ -1180,6 +1307,11 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testNonIndexedVector() throws Exception {
         DocumentMapper mapper = createDocumentMapper(
             fieldMapping(b -> b.field("type", "dense_vector").field("dims", 3).field("index", false))
@@ -1204,6 +1336,11 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
         assertArrayEquals("Decoded dense vector values is not equal to the indexed one.", validVector, decodedValues, 0.001f);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testIndexedByteVector() throws Exception {
         VectorSimilarity similarity = RandomPicks.randomFrom(random(), VectorSimilarity.values());
         DocumentMapper mapper = createDocumentMapper(
@@ -1236,6 +1373,11 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testDotProductWithInvalidNorm() throws Exception {
         DocumentMapper mapper = createDocumentMapper(
             fieldMapping(
@@ -1272,6 +1414,11 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testCosineWithZeroVector() throws Exception {
         DocumentMapper mapper = createDocumentMapper(
             fieldMapping(
@@ -1292,6 +1439,11 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testCosineWithZeroByteVector() throws Exception {
         DocumentMapper mapper = createDocumentMapper(
             fieldMapping(
@@ -1314,6 +1466,11 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testMaxInnerProductWithValidNorm() throws Exception {
         DocumentMapper mapper = createDocumentMapper(
             fieldMapping(
@@ -1328,6 +1485,11 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
         mapper.parse(source(b -> b.array("field", vector)));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testWithExtremeFloatVector() throws Exception {
         for (VectorSimilarity vs : List.of(VectorSimilarity.COSINE, VectorSimilarity.DOT_PRODUCT, VectorSimilarity.COSINE)) {
             DocumentMapper mapper = createDocumentMapper(
@@ -1348,6 +1510,11 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testInvalidParameters() {
         MapperParsingException e = expectThrows(
             MapperParsingException.class,
@@ -1446,6 +1613,11 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testInvalidParametersBeforeIndexedByDefault() {
         MapperParsingException e = expectThrows(
             MapperParsingException.class,
@@ -1487,6 +1659,11 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testDefaultParamsBeforeIndexByDefault() throws Exception {
         DocumentMapper documentMapper = createDocumentMapper(INDEXED_BY_DEFAULT_PREVIOUS_INDEX_VERSION, fieldMapping(b -> {
             b.field("type", "dense_vector").field("dims", 3);
@@ -1498,6 +1675,11 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
         assertNull(denseVectorFieldType.getSimilarity());
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testParamsBeforeIndexByDefault() throws Exception {
         DocumentMapper documentMapper = createDocumentMapper(INDEXED_BY_DEFAULT_PREVIOUS_INDEX_VERSION, fieldMapping(b -> {
             b.field("type", "dense_vector").field("dims", 3).field("index", true).field("similarity", "dot_product");
@@ -1509,6 +1691,11 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
         assertEquals(VectorSimilarity.DOT_PRODUCT, denseVectorFieldType.getSimilarity());
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testDefaultParamsIndexByDefault() throws Exception {
         DocumentMapper documentMapper = createDocumentMapper(fieldMapping(b -> { b.field("type", "dense_vector").field("dims", 3); }));
         DenseVectorFieldMapper denseVectorFieldMapper = (DenseVectorFieldMapper) documentMapper.mappers().getMapper("field");
@@ -1518,6 +1705,11 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
         assertEquals(VectorSimilarity.COSINE, denseVectorFieldType.getSimilarity());
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testAddDocumentsToIndexBefore_V_7_5_0() throws Exception {
         IndexVersion indexVersion = IndexVersions.V_7_4_0;
         DocumentMapper mapper = createDocumentMapper(
@@ -1536,6 +1728,11 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
         assertArrayEquals("Decoded dense vector values is not equal to the indexed one.", validVector, decodedValues, 0.001f);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testValidateOnBuild() {
         final MapperBuilderContext context = MapperBuilderContext.root(false, false);
 
@@ -1550,6 +1747,13 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
         assertThat(e.getMessage(), containsString("[element_type] cannot be [byte] when using index type [int8_hnsw]"));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param indexVersion: [Description]
+     * @param encodedVector: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private static float[] decodeDenseVector(IndexVersion indexVersion, BytesRef encodedVector) {
         int dimCount = VectorEncoderDecoder.denseVectorLength(indexVersion, encodedVector);
         float[] vector = new float[dimCount];
@@ -1557,6 +1761,11 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
         return vector;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testDocumentsWithIncorrectDims() throws Exception {
         for (boolean index : Arrays.asList(false, true)) {
             int dims = 3;
@@ -1592,6 +1801,11 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testCosineDenseVectorValues() throws IOException {
         final int dims = randomIntBetween(64, 2048);
         VectorSimilarity similarity = VectorSimilarity.COSINE;
@@ -1613,6 +1827,11 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
         assertArrayEquals("Parsed vector is not equal to normalized original.", vector, vectorField.vectorValue(), 0.001f);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testCosineDenseVectorValuesOlderIndexVersions() throws IOException {
         final int dims = randomIntBetween(64, 2048);
         VectorSimilarity similarity = VectorSimilarity.COSINE;
@@ -1700,6 +1919,11 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
         assertArrayEquals("Parsed vector is not equal to original.", vector, vectorField.vectorValue());
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testVectorSimilarity() {
         assertEquals(
             VectorSimilarityFunction.COSINE,
@@ -1742,6 +1966,16 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param mapperService: [Description]
+     * @param field: [Description]
+     * @param value: [Description]
+     * @param format: [Description]
+     * @param count: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected void assertFetchMany(MapperService mapperService, String field, Object value, String format, int count) throws IOException {
         assumeFalse("Dense vectors currently don't support multiple values in the same field", false);
     }
@@ -1787,6 +2021,12 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
 
     @Override
     // TODO: add `byte` element_type tests
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param b: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected void randomFetchTestFieldConfig(XContentBuilder b) throws IOException {
         b.field("type", "dense_vector").field("dims", randomIntBetween(2, 4096)).field("element_type", "float");
         if (randomBoolean()) {
@@ -1795,6 +2035,12 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param ft: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected Object generateRandomInputValue(MappedFieldType ft) {
         DenseVectorFieldType vectorFieldType = (DenseVectorFieldType) ft;
         return switch (vectorFieldType.getElementType()) {
@@ -1819,6 +2065,11 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
         };
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testCannotBeUsedInMultifields() {
         Exception e = expectThrows(MapperParsingException.class, () -> createMapperService(fieldMapping(b -> {
             b.field("type", "keyword");
@@ -1831,6 +2082,11 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
         assertThat(e.getMessage(), containsString("Field [vectors] of type [dense_vector] can't be used in multifields"));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testByteVectorIndexBoundaries() throws IOException {
         DocumentMapper mapper = createDocumentMapper(
             fieldMapping(
@@ -1867,6 +2123,11 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testByteVectorQueryBoundaries() throws IOException {
         MapperService mapperService = createMapperService(fieldMapping(b -> {
             b.field("type", "dense_vector");
@@ -1976,6 +2237,11 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testFloatVectorQueryBoundaries() throws IOException {
         MapperService mapperService = createMapperService(fieldMapping(b -> {
             b.field("type", "dense_vector");
@@ -2041,6 +2307,11 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testKnnVectorsFormat() throws IOException {
         final int m = randomIntBetween(1, DEFAULT_MAX_CONN + 10);
         final int efConstruction = randomIntBetween(1, DEFAULT_BEAM_WIDTH + 10);
@@ -2083,6 +2354,11 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
         assertEquals(expectedString, knnVectorsFormat.toString());
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testKnnQuantizedFlatVectorsFormat() throws IOException {
         boolean setConfidenceInterval = randomBoolean();
         float confidenceInterval = (float) randomDoubleBetween(0.90f, 1.0f, true);
@@ -2131,6 +2407,11 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testKnnQuantizedHNSWVectorsFormat() throws IOException {
         final int m = randomIntBetween(1, DEFAULT_MAX_CONN + 10);
         final int efConstruction = randomIntBetween(1, DEFAULT_BEAM_WIDTH + 10);
@@ -2181,6 +2462,11 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
         assertEquals(expectedString, knnVectorsFormat.toString());
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testKnnBBQHNSWVectorsFormat() throws IOException {
         final int m = randomIntBetween(1, DEFAULT_MAX_CONN + 10);
         final int efConstruction = randomIntBetween(1, DEFAULT_BEAM_WIDTH + 10);
@@ -2219,6 +2505,11 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
         assertEquals(expectedString, knnVectorsFormat.toString());
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testInvalidVectorDimensionsBBQ() {
         for (String quantizedFlatFormat : new String[] { "bbq_hnsw", "bbq_flat" }) {
             MapperParsingException e = expectThrows(MapperParsingException.class, () -> createDocumentMapper(fieldMapping(b -> {
@@ -2235,6 +2526,11 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testKnnHalfByteQuantizedHNSWVectorsFormat() throws IOException {
         final int m = randomIntBetween(1, DEFAULT_MAX_CONN + 10);
         final int efConstruction = randomIntBetween(1, DEFAULT_BEAM_WIDTH + 10);
@@ -2285,6 +2581,11 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
         assertEquals(expectedString, knnVectorsFormat.toString());
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testInvalidVectorDimensions() {
         for (String quantizedFlatFormat : new String[] { "int4_hnsw", "int4_flat" }) {
             MapperParsingException e = expectThrows(MapperParsingException.class, () -> createDocumentMapper(fieldMapping(b -> {
@@ -2302,16 +2603,32 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected IngestScriptSupport ingestScriptSupport() {
         throw new AssumptionViolatedException("not supported");
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param ignoreMalformed: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected SyntheticSourceSupport syntheticSourceSupport(boolean ignoreMalformed) {
         return new DenseVectorSyntheticSourceSupport();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected boolean supportsEmptyInputArray() {
         return false;
     }
@@ -2323,6 +2640,12 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
         private final boolean indexOptionsSet = indexed && randomBoolean();
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param maxValues: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public SyntheticSourceExample example(int maxValues) throws IOException {
             Object value = switch (elementType) {
                 case BYTE, BIT:
@@ -2333,6 +2656,12 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
             return new SyntheticSourceExample(value, value, this::mapping);
         }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param b: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         private void mapping(XContentBuilder b) throws IOException {
             b.field("type", "dense_vector");
             if (elementType == ElementType.BYTE || elementType == ElementType.BIT || randomBoolean()) {
@@ -2355,12 +2684,22 @@ public class DenseVectorFieldMapperTests extends MapperTestCase {
         }
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public List<SyntheticSourceInvalidExample> invalidExample() {
             return List.of();
         }
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testSyntheticSourceKeepArrays() {
         // The mapper expects to parse an array of values by default, it's not compatible with array of arrays.
     }

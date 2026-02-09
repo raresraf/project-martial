@@ -19,6 +19,11 @@ import java.nio.charset.StandardCharsets;
  */
 public class MistralErrorResponse extends ErrorResponse {
 
+    /**
+     * @brief [Functional Utility for MistralErrorResponse]: Describe purpose here.
+     * @param message: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public MistralErrorResponse(String message) {
         super(message);
     }

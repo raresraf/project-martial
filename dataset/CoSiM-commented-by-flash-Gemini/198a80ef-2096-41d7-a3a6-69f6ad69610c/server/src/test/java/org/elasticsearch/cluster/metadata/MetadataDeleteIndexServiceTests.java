@@ -57,12 +57,28 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+/**
+ * @brief Functional description of the MetadataDeleteIndexServiceTests class.
+ *        This is a placeholder for detailed semantic documentation.
+ *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+ */
 public class MetadataDeleteIndexServiceTests extends ESTestCase {
+    /**
+     * @brief [Functional description for field allocationService]: Describe purpose here.
+     */
     private AllocationService allocationService;
+    /**
+     * @brief [Functional description for field service]: Describe purpose here.
+     */
     private MetadataDeleteIndexService service;
 
     @Override
     @Before
+    /**
+     * @brief [Functional Utility for setUp]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void setUp() throws Exception {
         super.setUp();
         allocationService = mock(AllocationService.class);
@@ -76,6 +92,10 @@ public class MetadataDeleteIndexServiceTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testDeleteMissing]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testDeleteMissing() {
         Index index = new Index("missing", "doesn't matter");
         ClusterState state = ClusterState.builder(ClusterName.DEFAULT).build();
@@ -86,6 +106,10 @@ public class MetadataDeleteIndexServiceTests extends ESTestCase {
         assertEquals(index, e.getIndex());
     }
 
+    /**
+     * @brief [Functional Utility for testDeleteSnapshotting]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testDeleteSnapshotting() {
         String indexName = randomAlphaOfLength(5);
         Snapshot snapshot = new Snapshot("doesn't matter", new SnapshotId("snapshot name", "snapshot uuid"));
@@ -121,6 +145,11 @@ public class MetadataDeleteIndexServiceTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testDeleteUnassigned]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void testDeleteUnassigned() throws Exception {
         // Create an unassigned index
         String indexName = randomAlphaOfLength(5);
@@ -156,6 +185,10 @@ public class MetadataDeleteIndexServiceTests extends ESTestCase {
         verify(allocationService).reroute(any(ClusterState.class), any(String.class), any());
     }
 
+    /**
+     * @brief [Functional Utility for testDeleteIndexWithAnAlias]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testDeleteIndexWithAnAlias() {
         ProjectId projectId = randomProjectIdOrDefault();
         String index = randomAlphaOfLength(5);
@@ -189,6 +222,10 @@ public class MetadataDeleteIndexServiceTests extends ESTestCase {
         assertThat(after.metadata().getProject(projectId).aliasedIndices(alias), empty());
     }
 
+    /**
+     * @brief [Functional Utility for testDeleteBackingIndexForDataStream]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testDeleteBackingIndexForDataStream() {
         int numBackingIndices = randomIntBetween(2, 5);
         String dataStreamName = randomAlphaOfLength(6).toLowerCase(Locale.ROOT);
@@ -213,6 +250,10 @@ public class MetadataDeleteIndexServiceTests extends ESTestCase {
         assertThat(after.metadata().getProject(projectId).indices().get(indexToDelete.getName()), nullValue());
     }
 
+    /**
+     * @brief [Functional Utility for testDeleteFailureIndexForDataStream]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testDeleteFailureIndexForDataStream() {
         long now = System.currentTimeMillis();
         int numBackingIndices = randomIntBetween(2, 5);
@@ -248,6 +289,10 @@ public class MetadataDeleteIndexServiceTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testDeleteMultipleBackingIndexForDataStream]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testDeleteMultipleBackingIndexForDataStream() {
         int numBackingIndices = randomIntBetween(3, 5);
         int numBackingIndicesToDelete = randomIntBetween(2, numBackingIndices - 1);
@@ -265,6 +310,8 @@ public class MetadataDeleteIndexServiceTests extends ESTestCase {
         );
 
         Set<Index> indicesToDelete = new HashSet<>();
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (int k : indexNumbersToDelete) {
             final var index = before.metadata().getProject(projectId).dataStreams().get(dataStreamName).getIndices().get(k - 1);
             indicesToDelete.add(index);
@@ -274,6 +321,8 @@ public class MetadataDeleteIndexServiceTests extends ESTestCase {
         DataStream dataStream = after.metadata().getProject(projectId).dataStreams().get(dataStreamName);
         assertThat(dataStream, notNullValue());
         assertThat(dataStream.getIndices().size(), equalTo(numBackingIndices - indexNumbersToDelete.size()));
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (Index i : indicesToDelete) {
             assertThat(after.metadata().getProject(projectId).indices().get(i.getName()), nullValue());
             assertFalse(dataStream.getIndices().contains(i));
@@ -281,6 +330,10 @@ public class MetadataDeleteIndexServiceTests extends ESTestCase {
         assertThat(after.metadata().getProject(projectId).indices().size(), equalTo(numBackingIndices - indexNumbersToDelete.size()));
     }
 
+    /**
+     * @brief [Functional Utility for testDeleteCurrentWriteIndexForDataStream]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testDeleteCurrentWriteIndexForDataStream() {
         int numBackingIndices = randomIntBetween(1, 5);
         String dataStreamName = randomAlphaOfLength(6).toLowerCase(Locale.ROOT);
@@ -308,6 +361,10 @@ public class MetadataDeleteIndexServiceTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testDeleteMultipleFailureIndexForDataStream]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testDeleteMultipleFailureIndexForDataStream() {
         int numBackingIndices = randomIntBetween(3, 5);
         int numBackingIndicesToDelete = randomIntBetween(2, numBackingIndices - 1);
@@ -331,6 +388,8 @@ public class MetadataDeleteIndexServiceTests extends ESTestCase {
         );
 
         Set<Index> indicesToDelete = new HashSet<>();
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (int k : indexNumbersToDelete) {
             indicesToDelete.add(
                 before.metadata().getProject(projectId).index(DataStream.getDefaultFailureStoreName(dataStreamName, k, ts)).getIndex()
@@ -341,6 +400,8 @@ public class MetadataDeleteIndexServiceTests extends ESTestCase {
         DataStream dataStream = after.metadata().getProject(projectId).dataStreams().get(dataStreamName);
         assertThat(dataStream, notNullValue());
         assertThat(dataStream.getFailureIndices().size(), equalTo(numBackingIndices - indexNumbersToDelete.size()));
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (Index i : indicesToDelete) {
             assertThat(after.metadata().getProject(projectId).indices().get(i.getName()), nullValue());
             assertFalse(dataStream.getFailureIndices().contains(i));
@@ -348,6 +409,10 @@ public class MetadataDeleteIndexServiceTests extends ESTestCase {
         assertThat(after.metadata().getProject(projectId).indices().size(), equalTo((2 * numBackingIndices) - indexNumbersToDelete.size()));
     }
 
+    /**
+     * @brief [Functional Utility for testDeleteCurrentWriteFailureIndexForDataStream]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testDeleteCurrentWriteFailureIndexForDataStream() {
         int numBackingIndices = randomIntBetween(1, 5);
         String dataStreamName = randomAlphaOfLength(6).toLowerCase(Locale.ROOT);
@@ -385,15 +450,23 @@ public class MetadataDeleteIndexServiceTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testDeleteIndicesFromMultipleProjects]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testDeleteIndicesFromMultipleProjects() {
         final int numProjects = randomIntBetween(2, 5);
 
         final Set<Index> indicesToDelete = new HashSet<>();
         final Metadata.Builder metadataBuilder = Metadata.builder();
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (int p = 0; p < numProjects; p++) {
             final int numberOfIndicesToCreate = randomIntBetween(1, 10);
             final int numberOfIndicesToDelete = randomIntBetween(1, numberOfIndicesToCreate);
             final ProjectMetadata.Builder projectBuilder = ProjectMetadata.builder(randomUniqueProjectId());
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             for (int i = 0; i < numberOfIndicesToCreate; i++) {
                 final Index index = new Index(randomAlphaOfLengthBetween(8, 12), randomUUID());
                 projectBuilder.put(
@@ -407,6 +480,8 @@ public class MetadataDeleteIndexServiceTests extends ESTestCase {
                             )
                         )
                 );
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (i < numberOfIndicesToDelete) {
                     indicesToDelete.add(index);
                 }
@@ -427,12 +502,19 @@ public class MetadataDeleteIndexServiceTests extends ESTestCase {
             after.metadata().getTotalNumberOfIndices(),
             equalTo(before.metadata().getTotalNumberOfIndices() - indicesToDelete.size())
         );
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (Index idx : indicesToDelete) {
             assertThat(after.metadata().findIndex(idx), isEmpty());
         }
         assertThat(after.metadata().projects(), aMapWithSize(numProjects));
     }
 
+    /**
+     * @brief [Functional Utility for clusterState]: Describe purpose here.
+     * @param index: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private ClusterState clusterState(Index index) {
         final IndexMetadata indexMetadata = IndexMetadata.builder(index.getName())
             .settings(indexSettings(IndexVersionUtils.randomVersion(), index.getUUID(), 1, 1))
@@ -440,8 +522,12 @@ public class MetadataDeleteIndexServiceTests extends ESTestCase {
         final ProjectId projectId = randomProjectIdOrDefault();
         final Metadata.Builder metadataBuilder = Metadata.builder().put(ProjectMetadata.builder(projectId).put(indexMetadata, false));
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (randomBoolean()) {
             final ProjectMetadata.Builder secondProject = ProjectMetadata.builder(randomUniqueProjectId());
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (randomBoolean()) {
                 secondProject.put(
                     IndexMetadata.builder(index.getName()).settings(indexSettings(IndexVersion.current(), randomUUID(), 1, 1))

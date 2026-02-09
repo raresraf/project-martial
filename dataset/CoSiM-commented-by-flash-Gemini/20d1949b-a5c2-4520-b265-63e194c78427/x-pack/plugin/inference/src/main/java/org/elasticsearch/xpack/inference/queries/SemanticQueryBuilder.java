@@ -49,6 +49,11 @@ import static org.elasticsearch.xcontent.ConstructingObjectParser.optionalConstr
 import static org.elasticsearch.xpack.core.ClientHelper.ML_ORIGIN;
 import static org.elasticsearch.xpack.core.ClientHelper.executeAsyncWithOrigin;
 
+ /**
+  * @brief Functional description of the SemanticQueryBuilder class.
+  *        This is a placeholder for detailed semantic documentation.
+  *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+  */
 public class SemanticQueryBuilder extends AbstractQueryBuilder<SemanticQueryBuilder> {
     public static final String NAME = "semantic";
 
@@ -81,10 +86,10 @@ public class SemanticQueryBuilder extends AbstractQueryBuilder<SemanticQueryBuil
     }
 
     public SemanticQueryBuilder(String fieldName, String query, Boolean lenient) {
-        if (fieldName == null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (fieldName == null) {
             throw new IllegalArgumentException("[" + NAME + "] requires a " + FIELD_FIELD.getPreferredName() + " value");
         }
-        if (query == null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (query == null) {
             throw new IllegalArgumentException("[" + NAME + "] requires a " + QUERY_FIELD.getPreferredName() + " value");
         }
         this.fieldName = fieldName;
@@ -102,27 +107,30 @@ public class SemanticQueryBuilder extends AbstractQueryBuilder<SemanticQueryBuil
         this.inferenceResults = in.readOptionalNamedWriteable(InferenceResults.class);
         this.noInferenceResults = in.readBoolean();
         this.inferenceResultsSupplier = null;
-        if (in.getTransportVersion().onOrAfter(TransportVersions.SEMANTIC_QUERY_LENIENT)) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (in.getTransportVersion().onOrAfter(TransportVersions.SEMANTIC_QUERY_LENIENT)) {
             this.lenient = in.readOptionalBoolean();
-        } else {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else {
             this.lenient = null;
         }
     }
 
     @Override
     protected void doWriteTo(StreamOutput out) throws IOException {
-        if (inferenceResultsSupplier != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (inferenceResultsSupplier != null) {
             throw new IllegalStateException("Inference results supplier is set. Missing a rewriteAndFetch?");
         }
         out.writeString(fieldName);
         out.writeString(query);
         out.writeOptionalNamedWriteable(inferenceResults);
         out.writeBoolean(noInferenceResults);
-        if (out.getTransportVersion().onOrAfter(TransportVersions.SEMANTIC_QUERY_LENIENT)) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (out.getTransportVersion().onOrAfter(TransportVersions.SEMANTIC_QUERY_LENIENT)) {
             out.writeOptionalBoolean(lenient);
         }
     }
 
+    /**
+     * @brief [Functional Utility for SemanticQueryBuilder]: Describe purpose here.
+     */
     private SemanticQueryBuilder(
         SemanticQueryBuilder other,
         SetOnce<InferenceServiceResults> inferenceResultsSupplier,
@@ -166,7 +174,7 @@ public class SemanticQueryBuilder extends AbstractQueryBuilder<SemanticQueryBuil
         builder.startObject(NAME);
         builder.field(FIELD_FIELD.getPreferredName(), fieldName);
         builder.field(QUERY_FIELD.getPreferredName(), query);
-        if (lenient != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (lenient != null) {
             builder.field(LENIENT_FIELD.getPreferredName(), lenient);
         }
         boostAndQueryNameToXContent(builder);
@@ -176,7 +184,7 @@ public class SemanticQueryBuilder extends AbstractQueryBuilder<SemanticQueryBuil
     @Override
     protected QueryBuilder doRewrite(QueryRewriteContext queryRewriteContext) {
         SearchExecutionContext searchExecutionContext = queryRewriteContext.convertToSearchExecutionContext();
-        if (searchExecutionContext != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (searchExecutionContext != null) {
             return doRewriteBuildSemanticQuery(searchExecutionContext);
         }
 
@@ -185,10 +193,10 @@ public class SemanticQueryBuilder extends AbstractQueryBuilder<SemanticQueryBuil
 
     private QueryBuilder doRewriteBuildSemanticQuery(SearchExecutionContext searchExecutionContext) {
         MappedFieldType fieldType = searchExecutionContext.getFieldType(fieldName);
-        if (fieldType == null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (fieldType == null) {
             return new MatchNoneQueryBuilder();
-        } else if (fieldType instanceof SemanticTextFieldMapper.SemanticTextFieldType semanticTextFieldType) {
-            if (inferenceResults == null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else if (fieldType instanceof SemanticTextFieldMapper.SemanticTextFieldType semanticTextFieldType) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (inferenceResults == null) {
                 // This should never happen, but throw on it in case it ever does
                 throw new IllegalStateException(
                     "No inference results set for [" + semanticTextFieldType.typeName() + "] field [" + fieldName + "]"
@@ -196,9 +204,9 @@ public class SemanticQueryBuilder extends AbstractQueryBuilder<SemanticQueryBuil
             }
 
             return semanticTextFieldType.semanticQuery(inferenceResults, searchExecutionContext.requestSize(), boost(), queryName());
-        } else if (lenient != null && lenient) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else if (lenient != null && lenient) {
             return new MatchNoneQueryBuilder();
-        } else {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else {
             throw new IllegalArgumentException(
                 "Field [" + fieldName + "] of type [" + fieldType.typeName() + "] does not support " + NAME + " queries"
             );
@@ -206,28 +214,28 @@ public class SemanticQueryBuilder extends AbstractQueryBuilder<SemanticQueryBuil
     }
 
     private SemanticQueryBuilder doRewriteGetInferenceResults(QueryRewriteContext queryRewriteContext) {
-        if (inferenceResults != null || noInferenceResults) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (inferenceResults != null || noInferenceResults) {
             return this;
         }
 
-        if (inferenceResultsSupplier != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (inferenceResultsSupplier != null) {
             InferenceResults inferenceResults = validateAndConvertInferenceResults(inferenceResultsSupplier, fieldName);
             return inferenceResults != null ? new SemanticQueryBuilder(this, null, inferenceResults, noInferenceResults) : this;
         }
 
         ResolvedIndices resolvedIndices = queryRewriteContext.getResolvedIndices();
-        if (resolvedIndices == null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (resolvedIndices == null) {
             throw new IllegalStateException(
                 "Rewriting on the coordinator node requires a query rewrite context with non-null resolved indices"
             );
-        } else if (resolvedIndices.getRemoteClusterIndices().isEmpty() == false) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else if (resolvedIndices.getRemoteClusterIndices().isEmpty() == false) {
             throw new IllegalArgumentException(NAME + " query does not support cross-cluster search");
         }
 
         String inferenceId = getInferenceIdForForField(resolvedIndices.getConcreteLocalIndicesMetadata().values(), fieldName);
         SetOnce<InferenceServiceResults> inferenceResultsSupplier = new SetOnce<>();
         boolean noInferenceResults = false;
-        if (inferenceId != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (inferenceId != null) {
             InferenceAction.Request inferenceRequest = new InferenceAction.Request(
                 TaskType.ANY,
                 inferenceId,
@@ -253,7 +261,7 @@ public class SemanticQueryBuilder extends AbstractQueryBuilder<SemanticQueryBuil
                     })
                 )
             );
-        } else {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else {
             // The inference ID can be null if either the field name or index name(s) are invalid (or both).
             // If this happens, we set the "no inference results" flag to true so the rewrite process can continue.
             // Invalid index names will be handled in the transport layer, when the query is sent to the shard.
@@ -264,31 +272,34 @@ public class SemanticQueryBuilder extends AbstractQueryBuilder<SemanticQueryBuil
         return new SemanticQueryBuilder(this, noInferenceResults ? null : inferenceResultsSupplier, null, noInferenceResults);
     }
 
+    /**
+     * @brief [Functional Utility for validateAndConvertInferenceResults]: Describe purpose here.
+     * @return InferenceResults: [Description]\n     */
     private static InferenceResults validateAndConvertInferenceResults(
         SetOnce<InferenceServiceResults> inferenceResultsSupplier,
         String fieldName
     ) {
         InferenceServiceResults inferenceServiceResults = inferenceResultsSupplier.get();
-        if (inferenceServiceResults == null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (inferenceServiceResults == null) {
             return null;
         }
 
         List<? extends InferenceResults> inferenceResultsList = inferenceServiceResults.transformToCoordinationFormat();
-        if (inferenceResultsList.isEmpty()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (inferenceResultsList.isEmpty()) {
             throw new IllegalArgumentException("No inference results retrieved for field [" + fieldName + "]");
-        } else if (inferenceResultsList.size() > 1) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else if (inferenceResultsList.size() > 1) {
             // The inference call should truncate if the query is too large.
             // Thus, if we receive more than one inference result, it is a server-side error.
             throw new IllegalStateException(inferenceResultsList.size() + " inference results retrieved for field [" + fieldName + "]");
         }
 
         InferenceResults inferenceResults = inferenceResultsList.get(0);
-        if (inferenceResults instanceof ErrorInferenceResults errorInferenceResults) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (inferenceResults instanceof ErrorInferenceResults errorInferenceResults) {
             throw new IllegalStateException(
                 "Field [" + fieldName + "] query inference error: " + errorInferenceResults.getException().getMessage(),
                 errorInferenceResults.getException()
             );
-        } else if (inferenceResults instanceof WarningInferenceResults warningInferenceResults) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else if (inferenceResults instanceof WarningInferenceResults warningInferenceResults) {
             throw new IllegalStateException("Field [" + fieldName + "] query inference warning: " + warningInferenceResults.getWarning());
         } else if (inferenceResults instanceof TextExpansionResults == false
             && inferenceResults instanceof MlTextEmbeddingResults == false) {
@@ -315,11 +326,11 @@ public class SemanticQueryBuilder extends AbstractQueryBuilder<SemanticQueryBuil
 
     private static String getInferenceIdForForField(Collection<IndexMetadata> indexMetadataCollection, String fieldName) {
         String inferenceId = null;
-        for (IndexMetadata indexMetadata : indexMetadataCollection) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (IndexMetadata indexMetadata : indexMetadataCollection) {
             InferenceFieldMetadata inferenceFieldMetadata = indexMetadata.getInferenceFields().get(fieldName);
             String indexInferenceId = inferenceFieldMetadata != null ? inferenceFieldMetadata.getSearchInferenceId() : null;
-            if (indexInferenceId != null) {
-                if (inferenceId != null && inferenceId.equals(indexInferenceId) == false) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (indexInferenceId != null) {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                if (inferenceId != null && inferenceId.equals(indexInferenceId) == false) {
                     throw new IllegalArgumentException("Field [" + fieldName + "] has multiple inference IDs associated with it");
                 }
 

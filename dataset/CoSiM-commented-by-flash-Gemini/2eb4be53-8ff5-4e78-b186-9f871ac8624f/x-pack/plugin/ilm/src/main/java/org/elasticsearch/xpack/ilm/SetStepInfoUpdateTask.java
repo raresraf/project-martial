@@ -30,16 +30,25 @@ public class SetStepInfoUpdateTask extends IndexLifecycleClusterStateUpdateTask 
     private final String policy;
     private final ToXContentObject stepInfo;
 
+    /**
+     * @brief [Functional Utility for SetStepInfoUpdateTask]: Describe purpose here.
+     */
     public SetStepInfoUpdateTask(Index index, String policy, Step.StepKey currentStepKey, ToXContentObject stepInfo) {
         super(index, currentStepKey);
         this.policy = policy;
         this.stepInfo = stepInfo;
     }
 
+    /**
+     * @brief [Functional Utility for getPolicy]: Describe purpose here.
+     */
     String getPolicy() {
         return policy;
     }
 
+    /**
+     * @brief [Functional Utility for getStepInfo]: Describe purpose here.
+     */
     ToXContentObject getStepInfo() {
         return stepInfo;
     }
@@ -48,11 +57,16 @@ public class SetStepInfoUpdateTask extends IndexLifecycleClusterStateUpdateTask 
     protected ClusterState doExecute(ClusterState currentState) throws IOException {
         final var project = currentState.metadata().getProject();
         IndexMetadata idxMeta = project.index(index);
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (idxMeta == null) {
             // Index must have been since deleted, ignore it
             return currentState;
         }
         LifecycleExecutionState lifecycleState = idxMeta.getLifecycleExecutionState();
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (policy.equals(idxMeta.getLifecyclePolicyName()) && Objects.equals(currentStepKey, Step.getCurrentStepKey(lifecycleState))) {
             return ClusterState.builder(currentState)
                 .putProjectMetadata(IndexLifecycleTransition.addStepInfoToProject(index, project, stepInfo))
@@ -66,6 +80,9 @@ public class SetStepInfoUpdateTask extends IndexLifecycleClusterStateUpdateTask 
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for handleFailure]: Describe purpose here.
+     */
     public void handleFailure(Exception e) {
         logger.warn(
             () -> format("policy [%s] for index [%s] failed trying to set step info for step [%s].", policy, index, currentStepKey),
@@ -74,8 +91,15 @@ public class SetStepInfoUpdateTask extends IndexLifecycleClusterStateUpdateTask 
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for equals]: Describe purpose here.
+     */
     public boolean equals(Object o) {
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (this == o) return true;
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (o == null || getClass() != o.getClass()) return false;
         SetStepInfoUpdateTask that = (SetStepInfoUpdateTask) o;
         return index.equals(that.index)
@@ -85,6 +109,9 @@ public class SetStepInfoUpdateTask extends IndexLifecycleClusterStateUpdateTask 
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for hashCode]: Describe purpose here.
+     */
     public int hashCode() {
         return Objects.hash(index, policy, currentStepKey, stepInfo);
     }
@@ -92,6 +119,9 @@ public class SetStepInfoUpdateTask extends IndexLifecycleClusterStateUpdateTask 
     public static class ExceptionWrapper implements ToXContentObject {
         private final Throwable exception;
 
+        /**
+         * @brief [Functional Utility for ExceptionWrapper]: Describe purpose here.
+         */
         public ExceptionWrapper(Throwable exception) {
             this.exception = exception;
         }

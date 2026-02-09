@@ -40,11 +40,21 @@ import java.util.function.Function;
 
 import static org.hamcrest.Matchers.equalTo;
 
+/**
+ * @brief Functional description of the GeoPointScriptFieldDistanceFeatureQueryTests class.
+ *        This is a placeholder for detailed semantic documentation.
+ *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+ */
 public class GeoPointScriptFieldDistanceFeatureQueryTests extends AbstractScriptFieldQueryTestCase<
     GeoPointScriptFieldDistanceFeatureQuery> {
     private final Function<LeafReaderContext, AbstractLongFieldScript> leafFactory = ctx -> null;
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected GeoPointScriptFieldDistanceFeatureQuery createTestInstance() {
         double lat = GeoTestUtil.nextLatitude();
         double lon = GeoTestUtil.nextLongitude();
@@ -53,6 +63,12 @@ public class GeoPointScriptFieldDistanceFeatureQueryTests extends AbstractScript
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param orig: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected GeoPointScriptFieldDistanceFeatureQuery copy(GeoPointScriptFieldDistanceFeatureQuery orig) {
         return new GeoPointScriptFieldDistanceFeatureQuery(
             orig.script(),
@@ -65,6 +81,12 @@ public class GeoPointScriptFieldDistanceFeatureQueryTests extends AbstractScript
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param orig: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected GeoPointScriptFieldDistanceFeatureQuery mutate(GeoPointScriptFieldDistanceFeatureQuery orig) {
         Script script = orig.script();
         String fieldName = orig.fieldName();
@@ -83,6 +105,11 @@ public class GeoPointScriptFieldDistanceFeatureQueryTests extends AbstractScript
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testMatches() throws IOException {
         IndexWriterConfig config = LuceneTestCase.newIndexWriterConfig(random(), new MockAnalyzer(random()));
         // Use LogDocMergePolicy to avoid randomization issues with the doc retrieval order.
@@ -103,6 +130,11 @@ public class GeoPointScriptFieldDistanceFeatureQueryTests extends AbstractScript
                 ) {
                     @Override
                     @SuppressWarnings("unchecked")
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
                     public void execute() {
                         Map<String, Object> source = (Map<String, Object>) this.getParams().get("_source");
                         GeoPoint point = GeoUtils.parseGeoPoint(source.get("location"), true);
@@ -126,6 +158,11 @@ public class GeoPointScriptFieldDistanceFeatureQueryTests extends AbstractScript
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testMaxScore() throws IOException {
         try (Directory directory = newDirectory(); RandomIndexWriter iw = new RandomIndexWriter(random(), directory)) {
             iw.addDocument(List.of());
@@ -142,6 +179,12 @@ public class GeoPointScriptFieldDistanceFeatureQueryTests extends AbstractScript
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param query: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected void assertToString(GeoPointScriptFieldDistanceFeatureQuery query) {
         assertThat(
             query.toString(query.fieldName()),
@@ -150,6 +193,11 @@ public class GeoPointScriptFieldDistanceFeatureQueryTests extends AbstractScript
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void testVisit() {
         assertEmptyVisit();
     }

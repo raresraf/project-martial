@@ -27,6 +27,11 @@ import java.util.Objects;
 import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.elasticsearch.core.Strings.format;
 
+/**
+ * @brief Functional description of the GoogleVertexAiUnifiedChatCompletionRequestEntity class.
+ *        This is a placeholder for detailed semantic documentation.
+ *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+ */
 public class GoogleVertexAiUnifiedChatCompletionRequestEntity implements ToXContentObject {
     private static final String CONTENTS = "contents";
     private static final String ROLE = "role";
@@ -64,10 +69,22 @@ public class GoogleVertexAiUnifiedChatCompletionRequestEntity implements ToXCont
 
     private static final String SYSTEM_INSTRUCTION = "systemInstruction";
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param unifiedChatInput: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public GoogleVertexAiUnifiedChatCompletionRequestEntity(UnifiedChatInput unifiedChatInput) {
         this.unifiedChatInput = Objects.requireNonNull(unifiedChatInput);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param messageRole: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private String messageRoleToGoogleVertexAiSupportedRole(String messageRole) {
         var messageRoleLowered = messageRole.toLowerCase();
 
@@ -111,6 +128,12 @@ public class GoogleVertexAiUnifiedChatCompletionRequestEntity implements ToXCont
 
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param jsonString: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private static Map<String, String> jsonStringToMap(String jsonString) throws IOException {
         if (jsonString == null || jsonString.isEmpty()) {
             return null;
@@ -126,6 +149,12 @@ public class GoogleVertexAiUnifiedChatCompletionRequestEntity implements ToXCont
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param builder: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private void buildSystemInstruction(XContentBuilder builder) throws IOException {
         var messages = unifiedChatInput.getRequest().messages();
         var systemMessages = messages.stream().filter(message -> message.role().equalsIgnoreCase(SYSTEM_ROLE)).toList();
@@ -163,6 +192,12 @@ public class GoogleVertexAiUnifiedChatCompletionRequestEntity implements ToXCont
 
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param builder: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private void buildContents(XContentBuilder builder) throws IOException {
         var messages = unifiedChatInput.getRequest().messages();
 
@@ -210,6 +245,12 @@ public class GoogleVertexAiUnifiedChatCompletionRequestEntity implements ToXCont
         builder.endArray();
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param builder: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private void buildTools(XContentBuilder builder) throws IOException {
         var request = unifiedChatInput.getRequest();
 
@@ -254,6 +295,12 @@ public class GoogleVertexAiUnifiedChatCompletionRequestEntity implements ToXCont
         builder.endArray();
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param builder: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private void buildToolConfig(XContentBuilder builder) throws IOException {
         var request = unifiedChatInput.getRequest();
 
@@ -305,6 +352,12 @@ public class GoogleVertexAiUnifiedChatCompletionRequestEntity implements ToXCont
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param builder: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private void buildGenerationConfig(XContentBuilder builder) throws IOException {
         var request = unifiedChatInput.getRequest();
 
@@ -336,6 +389,13 @@ public class GoogleVertexAiUnifiedChatCompletionRequestEntity implements ToXCont
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param builder: [Description]
+     * @param params: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         builder.startObject();
 

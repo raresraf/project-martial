@@ -49,6 +49,11 @@ import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+/**
+ * @brief Functional description of the LogsdbIndexModeSettingsProviderTests class.
+ *        This is a placeholder for detailed semantic documentation.
+ *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+ */
 public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
 
     private static final String DATA_STREAM_NAME = "logs-app1";
@@ -70,10 +75,18 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
         }
         """;
 
+    /**
+     * @brief [Functional description for field logsdbLicenseService]: Describe purpose here.
+     */
     private LogsdbLicenseService logsdbLicenseService;
     private final AtomicInteger newMapperServiceCounter = new AtomicInteger();
 
     @Before
+    /**
+     * @brief [Functional Utility for setup]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void setup() throws Exception {
         MockLicenseState licenseState = MockLicenseState.createMock();
         when(licenseState.isAllowed(any())).thenReturn(true);
@@ -85,10 +98,21 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
         logsdbLicenseService.setLicenseService(mockLicenseService);
     }
 
+    /**
+     * @brief [Functional Utility for withSyntheticSourceDemotionSupport]: Describe purpose here.
+     * @param enabled: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private LogsdbIndexModeSettingsProvider withSyntheticSourceDemotionSupport(boolean enabled) {
         return withSyntheticSourceDemotionSupport(enabled, Version.CURRENT);
     }
 
+    /**
+     * @brief [Functional Utility for withSyntheticSourceDemotionSupport]: Describe purpose here.
+     * @param enabled: [Description]
+     * @param version: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private LogsdbIndexModeSettingsProvider withSyntheticSourceDemotionSupport(boolean enabled, Version version) {
         newMapperServiceCounter.set(0);
         var provider = new LogsdbIndexModeSettingsProvider(
@@ -99,26 +123,58 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
             newMapperServiceCounter.incrementAndGet();
             return MapperTestUtils.newMapperService(xContentRegistry(), createTempDir(), im.getSettings(), im.getIndex().getName());
         }, IndexVersion::current, () -> version, true, true);
+    /**
+     * @brief [Functional description for field provider]: Describe purpose here.
+     */
         return provider;
     }
 
+    /**
+     * @brief [Functional Utility for withoutMapperService]: Describe purpose here.
+     * @param enabled: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private LogsdbIndexModeSettingsProvider withoutMapperService(boolean enabled) {
         var provider = new LogsdbIndexModeSettingsProvider(
             logsdbLicenseService,
             Settings.builder().put("cluster.logsdb.enabled", enabled).build()
         );
         provider.init(im -> null, IndexVersion::current, () -> Version.CURRENT, true, true);
+    /**
+     * @brief [Functional description for field provider]: Describe purpose here.
+     */
         return provider;
     }
 
+    /**
+     * @brief [Functional Utility for generateLogsdbSettings]: Describe purpose here.
+     * @param settings: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
     private Settings generateLogsdbSettings(Settings settings) throws IOException {
         return generateLogsdbSettings(settings, null, Version.CURRENT);
     }
 
+    /**
+     * @brief [Functional Utility for generateLogsdbSettings]: Describe purpose here.
+     * @param settings: [Description]
+     * @param mapping: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
     private Settings generateLogsdbSettings(Settings settings, String mapping) throws IOException {
         return generateLogsdbSettings(settings, mapping, Version.CURRENT);
     }
 
+    /**
+     * @brief [Functional Utility for generateLogsdbSettings]: Describe purpose here.
+     * @param settings: [Description]
+     * @param mapping: [Description]
+     * @param version: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
     private Settings generateLogsdbSettings(Settings settings, String mapping, Version version) throws IOException {
         var provider = new LogsdbIndexModeSettingsProvider(
             logsdbLicenseService,
@@ -140,6 +196,11 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
         return builder().put(result).build();
     }
 
+    /**
+     * @brief [Functional Utility for testDisabled]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
     public void testDisabled() throws IOException {
         final LogsdbIndexModeSettingsProvider provider = new LogsdbIndexModeSettingsProvider(
             logsdbLicenseService,
@@ -159,6 +220,11 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
         assertTrue(additionalIndexSettings.isEmpty());
     }
 
+    /**
+     * @brief [Functional Utility for testOnIndexCreation]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
     public void testOnIndexCreation() throws IOException {
         final LogsdbIndexModeSettingsProvider provider = new LogsdbIndexModeSettingsProvider(
             logsdbLicenseService,
@@ -178,6 +244,11 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
         assertTrue(additionalIndexSettings.isEmpty());
     }
 
+    /**
+     * @brief [Functional Utility for testOnExplicitStandardIndex]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
     public void testOnExplicitStandardIndex() throws IOException {
         final LogsdbIndexModeSettingsProvider provider = new LogsdbIndexModeSettingsProvider(
             logsdbLicenseService,
@@ -197,6 +268,11 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
         assertTrue(additionalIndexSettings.isEmpty());
     }
 
+    /**
+     * @brief [Functional Utility for testOnExplicitTimeSeriesIndex]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
     public void testOnExplicitTimeSeriesIndex() throws IOException {
         final LogsdbIndexModeSettingsProvider provider = new LogsdbIndexModeSettingsProvider(
             logsdbLicenseService,
@@ -216,6 +292,11 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
         assertTrue(additionalIndexSettings.isEmpty());
     }
 
+    /**
+     * @brief [Functional Utility for testNonLogsDataStream]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
     public void testNonLogsDataStream() throws IOException {
         final LogsdbIndexModeSettingsProvider provider = new LogsdbIndexModeSettingsProvider(
             logsdbLicenseService,
@@ -235,6 +316,11 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
         assertTrue(additionalIndexSettings.isEmpty());
     }
 
+    /**
+     * @brief [Functional Utility for testWithoutLogsComponentTemplate]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
     public void testWithoutLogsComponentTemplate() throws IOException {
         final LogsdbIndexModeSettingsProvider provider = withoutMapperService(true);
         final Settings additionalIndexSettings = provider.getAdditionalIndexSettings(
@@ -250,6 +336,11 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
         assertIndexMode(additionalIndexSettings, IndexMode.LOGSDB.getName());
     }
 
+    /**
+     * @brief [Functional Utility for testWithLogsComponentTemplate]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
     public void testWithLogsComponentTemplate() throws IOException {
         final LogsdbIndexModeSettingsProvider provider = withoutMapperService(true);
         final Settings additionalIndexSettings = provider.getAdditionalIndexSettings(
@@ -265,6 +356,11 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
         assertIndexMode(additionalIndexSettings, IndexMode.LOGSDB.getName());
     }
 
+    /**
+     * @brief [Functional Utility for testWithMultipleComponentTemplates]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
     public void testWithMultipleComponentTemplates() throws IOException {
         final LogsdbIndexModeSettingsProvider provider = withoutMapperService(true);
         final Settings additionalIndexSettings = provider.getAdditionalIndexSettings(
@@ -280,6 +376,11 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
         assertIndexMode(additionalIndexSettings, IndexMode.LOGSDB.getName());
     }
 
+    /**
+     * @brief [Functional Utility for testWithCustomComponentTemplatesOnly]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
     public void testWithCustomComponentTemplatesOnly() throws IOException {
         final LogsdbIndexModeSettingsProvider provider = withoutMapperService(true);
         final Settings additionalIndexSettings = provider.getAdditionalIndexSettings(
@@ -295,6 +396,11 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
         assertIndexMode(additionalIndexSettings, IndexMode.LOGSDB.getName());
     }
 
+    /**
+     * @brief [Functional Utility for testNonMatchingTemplateIndexPattern]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
     public void testNonMatchingTemplateIndexPattern() throws IOException {
         final LogsdbIndexModeSettingsProvider provider = withoutMapperService(true);
         final Settings additionalIndexSettings = provider.getAdditionalIndexSettings(
@@ -310,6 +416,11 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
         assertIndexMode(additionalIndexSettings, IndexMode.LOGSDB.getName());
     }
 
+    /**
+     * @brief [Functional Utility for testCaseSensitivity]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
     public void testCaseSensitivity() throws IOException {
         final LogsdbIndexModeSettingsProvider provider = new LogsdbIndexModeSettingsProvider(
             logsdbLicenseService,
@@ -329,6 +440,11 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
         assertTrue(additionalIndexSettings.isEmpty());
     }
 
+    /**
+     * @brief [Functional Utility for testMultipleHyphensInDataStreamName]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
     public void testMultipleHyphensInDataStreamName() throws IOException {
         final LogsdbIndexModeSettingsProvider provider = withoutMapperService(true);
 
@@ -345,6 +461,11 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
         assertIndexMode(additionalIndexSettings, IndexMode.LOGSDB.getName());
     }
 
+    /**
+     * @brief [Functional Utility for testBeforeAndAfterSettingUpdate]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
     public void testBeforeAndAfterSettingUpdate() throws IOException {
         final LogsdbIndexModeSettingsProvider provider = withoutMapperService(false);
         final Settings beforeSettings = provider.getAdditionalIndexSettings(
@@ -388,6 +509,12 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
         assertTrue(laterSettings.isEmpty());
     }
 
+    /**
+     * @brief [Functional Utility for buildMetadata]: Describe purpose here.
+     * @param indexPatterns: [Description]
+     * @param componentTemplates: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private static ProjectMetadata buildMetadata(final List<String> indexPatterns, final List<String> componentTemplates)
         throws IOException {
         final Template template = new Template(Settings.EMPTY, new CompressedXContent(DEFAULT_MAPPING), null);
@@ -403,13 +530,30 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
             .build();
     }
 
+    /**
+     * @brief [Functional Utility for assertIndexMode]: Describe purpose here.
+     * @param settings: [Description]
+     * @param expectedIndexMode: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private void assertIndexMode(final Settings settings, final String expectedIndexMode) {
         assertEquals(expectedIndexMode, settings.get(IndexSettings.MODE.getKey()));
     }
 
+    /**
+     * @brief [Functional Utility for testNewIndexHasSyntheticSourceUsage]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
     public void testNewIndexHasSyntheticSourceUsage() throws IOException {
+    /**
+     * @brief [Functional description for field dataStreamName]: Describe purpose here.
+     */
         String dataStreamName = DATA_STREAM_NAME;
         String indexName = DataStream.getDefaultBackingIndexName(dataStreamName, 0);
+    /**
+     * @brief [Functional description for field settings]: Describe purpose here.
+     */
         Settings settings = Settings.EMPTY;
         LogsdbIndexModeSettingsProvider provider = withSyntheticSourceDemotionSupport(false);
         {
@@ -434,8 +578,13 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
             assertWarnings(SourceFieldMapper.DEPRECATION_WARNING);
         }
         {
+    /**
+     * @brief [Functional description for field mapping]: Describe purpose here.
+     */
             String mapping;
             boolean withSourceMode = randomBoolean();
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (withSourceMode) {
                 mapping = """
                     {
@@ -451,6 +600,7 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
                         }
                     }
                     """;
+        // Block Logic: [Describe purpose of this else/else if block]
             } else {
                 mapping = """
                     {
@@ -468,13 +618,23 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
                 .hasSyntheticSourceUsage();
             assertFalse(result);
             assertThat(newMapperServiceCounter.get(), equalTo(2));
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (withSourceMode) {
                 assertWarnings(SourceFieldMapper.DEPRECATION_WARNING);
             }
         }
     }
 
+    /**
+     * @brief [Functional Utility for testValidateIndexName]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
     public void testValidateIndexName() throws IOException {
+    /**
+     * @brief [Functional description for field indexName]: Describe purpose here.
+     */
         String indexName = MetadataIndexTemplateService.VALIDATE_INDEX_NAME;
         String mapping = """
             {
@@ -490,6 +650,9 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
                 }
             }
             """;
+    /**
+     * @brief [Functional description for field settings]: Describe purpose here.
+     */
         Settings settings = Settings.EMPTY;
         LogsdbIndexModeSettingsProvider provider = withSyntheticSourceDemotionSupport(false);
         boolean result = provider.getMappingHints(indexName, null, settings, List.of(new CompressedXContent(mapping)))
@@ -497,7 +660,15 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
         assertFalse(result);
     }
 
+    /**
+     * @brief [Functional Utility for testNewIndexHasSyntheticSourceUsageLogsdbIndex]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
     public void testNewIndexHasSyntheticSourceUsageLogsdbIndex() throws IOException {
+    /**
+     * @brief [Functional description for field dataStreamName]: Describe purpose here.
+     */
         String dataStreamName = DATA_STREAM_NAME;
         String indexName = DataStream.getDefaultBackingIndexName(dataStreamName, 0);
         String mapping = """
@@ -538,7 +709,15 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for testNewIndexHasSyntheticSourceUsageTimeSeries]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
     public void testNewIndexHasSyntheticSourceUsageTimeSeries() throws IOException {
+    /**
+     * @brief [Functional description for field dataStreamName]: Describe purpose here.
+     */
         String dataStreamName = DATA_STREAM_NAME;
         String indexName = DataStream.getDefaultBackingIndexName(dataStreamName, 0);
         String mapping = """
@@ -576,7 +755,15 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for testNewIndexHasSyntheticSourceUsageInvalidSettings]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
     public void testNewIndexHasSyntheticSourceUsageInvalidSettings() throws IOException {
+    /**
+     * @brief [Functional description for field dataStreamName]: Describe purpose here.
+     */
         String dataStreamName = DATA_STREAM_NAME;
         String indexName = DataStream.getDefaultBackingIndexName(dataStreamName, 0);
         Settings settings = Settings.builder().put("index.soft_deletes.enabled", false).build();
@@ -620,7 +807,14 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for testGetAdditionalIndexSettingsDowngradeFromSyntheticSource]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testGetAdditionalIndexSettingsDowngradeFromSyntheticSource() {
+    /**
+     * @brief [Functional description for field dataStreamName]: Describe purpose here.
+     */
         String dataStreamName = DATA_STREAM_NAME;
         final var projectId = randomProjectIdOrDefault();
         ProjectMetadata project = DataStreamTestHelper.getClusterStateWithDataStreams(
@@ -690,6 +884,10 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
         assertThat(newMapperServiceCounter.get(), equalTo(4));
     }
 
+    /**
+     * @brief [Functional Utility for testGetAdditionalIndexSettingsDowngradeFromSyntheticSourceOldNode]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testGetAdditionalIndexSettingsDowngradeFromSyntheticSourceOldNode() {
         logsdbLicenseService.setSyntheticSourceFallback(true);
         LogsdbIndexModeSettingsProvider provider = withSyntheticSourceDemotionSupport(true, Version.V_8_16_0);
@@ -716,11 +914,22 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
         assertTrue(result.isEmpty());
     }
 
+    /**
+     * @brief [Functional Utility for testGetAdditionalIndexSettingsDowngradeFromSyntheticSourceFileMatch]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
     public void testGetAdditionalIndexSettingsDowngradeFromSyntheticSourceFileMatch() throws IOException {
         logsdbLicenseService.setSyntheticSourceFallback(true);
         LogsdbIndexModeSettingsProvider provider = withSyntheticSourceDemotionSupport(true);
+    /**
+     * @brief [Functional description for field settings]: Describe purpose here.
+     */
         final Settings settings = Settings.EMPTY;
 
+    /**
+     * @brief [Functional description for field dataStreamName]: Describe purpose here.
+     */
         String dataStreamName = DATA_STREAM_NAME;
         final var projectId = randomProjectIdOrDefault();
         ProjectMetadata project = DataStreamTestHelper.getClusterStateWithDataStreams(
@@ -779,6 +988,11 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
         assertThat(result.size(), equalTo(0));
     }
 
+    /**
+     * @brief [Functional Utility for testRoutingPathOnSortFields]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void testRoutingPathOnSortFields() throws Exception {
         var settings = Settings.builder()
             .put(IndexSortConfig.INDEX_SORT_FIELD_SETTING.getKey(), "host,message")
@@ -788,6 +1002,11 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
         assertThat(IndexMetadata.INDEX_ROUTING_PATH.get(result), contains("host", "message"));
     }
 
+    /**
+     * @brief [Functional Utility for testRoutingPathOnSortFieldsDisabledInOldNode]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void testRoutingPathOnSortFieldsDisabledInOldNode() throws Exception {
         var settings = Settings.builder()
             .put(IndexSortConfig.INDEX_SORT_FIELD_SETTING.getKey(), "host,message")
@@ -797,6 +1016,11 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
         assertTrue(result.isEmpty());
     }
 
+    /**
+     * @brief [Functional Utility for testRoutingPathOnSortFieldsFilterTimestamp]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void testRoutingPathOnSortFieldsFilterTimestamp() throws Exception {
         var settings = Settings.builder()
             .put(IndexSortConfig.INDEX_SORT_FIELD_SETTING.getKey(), "host,message,@timestamp")
@@ -806,6 +1030,11 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
         assertThat(IndexMetadata.INDEX_ROUTING_PATH.get(result), contains("host", "message"));
     }
 
+    /**
+     * @brief [Functional Utility for testRoutingPathOnSortSingleField]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void testRoutingPathOnSortSingleField() throws Exception {
         var settings = Settings.builder()
             .put(IndexSortConfig.INDEX_SORT_FIELD_SETTING.getKey(), "host")
@@ -823,6 +1052,11 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testExplicitRoutingPathMatchesSortFields]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void testExplicitRoutingPathMatchesSortFields() throws Exception {
         var settings = Settings.builder()
             .put(IndexSettings.MODE.getKey(), IndexMode.LOGSDB)
@@ -834,6 +1068,10 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
         assertTrue(result.isEmpty());
     }
 
+    /**
+     * @brief [Functional Utility for testExplicitRoutingPathDoesNotMatchSortFields]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testExplicitRoutingPathDoesNotMatchSortFields() {
         var settings = Settings.builder()
             .put(IndexSortConfig.INDEX_SORT_FIELD_SETTING.getKey(), "host,message,@timestamp")
@@ -853,6 +1091,11 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testExplicitRoutingPathNotAllowedByLicense]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void testExplicitRoutingPathNotAllowedByLicense() throws Exception {
         MockLicenseState licenseState = MockLicenseState.createMock();
         when(licenseState.copyCurrentLicenseState()).thenReturn(licenseState);
@@ -869,6 +1112,11 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
         assertThat(IndexMetadata.INDEX_ROUTING_PATH.get(result), empty());
     }
 
+    /**
+     * @brief [Functional Utility for testSortAndHostNamePropagateValue]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void testSortAndHostNamePropagateValue() throws Exception {
         var settings = Settings.builder()
             .put(IndexSettings.MODE.getKey(), IndexMode.LOGSDB)
@@ -881,6 +1129,11 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
         assertEquals(0, newMapperServiceCounter.get());
     }
 
+    /**
+     * @brief [Functional Utility for testSortAndHostNameWithCustomSortConfig]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void testSortAndHostNameWithCustomSortConfig() throws Exception {
         var settings = Settings.builder()
             .put(IndexSettings.MODE.getKey(), IndexMode.LOGSDB)
@@ -892,6 +1145,11 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
         assertEquals(0, newMapperServiceCounter.get());
     }
 
+    /**
+     * @brief [Functional Utility for testSortAndHostNoHost]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void testSortAndHostNoHost() throws Exception {
         var settings = Settings.builder().put(IndexSettings.MODE.getKey(), IndexMode.LOGSDB).build();
         var mappings = """
@@ -911,6 +1169,11 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
         assertEquals(1, newMapperServiceCounter.get());
     }
 
+    /**
+     * @brief [Functional Utility for testSortAndHostNoHostOldNode]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void testSortAndHostNoHostOldNode() throws Exception {
         var settings = Settings.builder().put(IndexSettings.MODE.getKey(), IndexMode.LOGSDB).build();
         var mappings = """
@@ -928,6 +1191,11 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
         assertTrue(result.isEmpty());
     }
 
+    /**
+     * @brief [Functional Utility for testSortAndHostNameKeyword]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void testSortAndHostNameKeyword() throws Exception {
         var settings = Settings.builder().put(IndexSettings.MODE.getKey(), IndexMode.LOGSDB).build();
         var mappings = """
@@ -950,6 +1218,11 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
         assertEquals(1, newMapperServiceCounter.get());
     }
 
+    /**
+     * @brief [Functional Utility for testSortAndHostNameKeywordNoDocvalues]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void testSortAndHostNameKeywordNoDocvalues() throws Exception {
         var settings = Settings.builder().put(IndexSettings.MODE.getKey(), IndexMode.LOGSDB).build();
         var mappings = """
@@ -973,6 +1246,11 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
         assertEquals(1, newMapperServiceCounter.get());
     }
 
+    /**
+     * @brief [Functional Utility for testSortAndHostNameInteger]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void testSortAndHostNameInteger() throws Exception {
         var settings = Settings.builder().put(IndexSettings.MODE.getKey(), IndexMode.LOGSDB).build();
         var mappings = """
@@ -995,6 +1273,11 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
         assertEquals(1, newMapperServiceCounter.get());
     }
 
+    /**
+     * @brief [Functional Utility for testSortAndHostNameIntegerNoDocvalues]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void testSortAndHostNameIntegerNoDocvalues() throws Exception {
         var settings = Settings.builder().put(IndexSettings.MODE.getKey(), IndexMode.LOGSDB).build();
         var mappings = """
@@ -1018,6 +1301,11 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
         assertEquals(1, newMapperServiceCounter.get());
     }
 
+    /**
+     * @brief [Functional Utility for testSortAndHostNameBoolean]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void testSortAndHostNameBoolean() throws Exception {
         var settings = Settings.builder().put(IndexSettings.MODE.getKey(), IndexMode.LOGSDB).build();
         var mappings = """
@@ -1040,6 +1328,11 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
         assertEquals(1, newMapperServiceCounter.get());
     }
 
+    /**
+     * @brief [Functional Utility for testSortAndHostObject]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void testSortAndHostObject() throws Exception {
         var settings = Settings.builder().put(IndexSettings.MODE.getKey(), IndexMode.LOGSDB).build();
         var mappings = """
@@ -1062,6 +1355,11 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
         assertEquals(1, newMapperServiceCounter.get());
     }
 
+    /**
+     * @brief [Functional Utility for testSortAndHostField]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void testSortAndHostField() throws Exception {
         var settings = Settings.builder().put(IndexSettings.MODE.getKey(), IndexMode.LOGSDB).build();
         var mappings = """
@@ -1084,6 +1382,11 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
         assertEquals(1, newMapperServiceCounter.get());
     }
 
+    /**
+     * @brief [Functional Utility for testSortAndHostFieldSubobjectsFalse]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void testSortAndHostFieldSubobjectsFalse() throws Exception {
         var settings = Settings.builder().put(IndexSettings.MODE.getKey(), IndexMode.LOGSDB).build();
         var mappings = """
@@ -1107,6 +1410,11 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
         assertEquals(1, newMapperServiceCounter.get());
     }
 
+    /**
+     * @brief [Functional Utility for testSortAndHostNameObject]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void testSortAndHostNameObject() throws Exception {
         var settings = Settings.builder()
             .put(IndexSettings.MODE.getKey(), IndexMode.LOGSDB)
@@ -1132,6 +1440,11 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
         assertEquals(1, newMapperServiceCounter.get());
     }
 
+    /**
+     * @brief [Functional Utility for testSortFastRefresh]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void testSortFastRefresh() throws Exception {
         var settings = Settings.builder()
             .put(IndexSettings.MODE.getKey(), IndexMode.LOGSDB)
@@ -1149,6 +1462,9 @@ public class LogsdbIndexModeSettingsProviderTests extends ESTestCase {
             }
             """;
 
+    /**
+     * @brief [Functional description for field systemIndex]: Describe purpose here.
+     */
         String systemIndex = ".security-profile";
         var provider = new LogsdbIndexModeSettingsProvider(
             logsdbLicenseService,

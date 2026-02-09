@@ -1,3 +1,8 @@
+/**
+ * @file consumer.py
+ * @brief Semantic documentation for consumer.py. 
+ *        This is a placeholder. Detailed semantic analysis will be applied later.
+ */
 
 
 

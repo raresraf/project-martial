@@ -25,14 +25,30 @@ public class MistralUnifiedChatCompletionResponseHandler extends OpenAiUnifiedCh
 
     private static final String MISTRAL_ERROR = "mistral_error";
 
+    /**
+     * @brief [Functional Utility for MistralUnifiedChatCompletionResponseHandler]: Describe purpose here.
+     * @param requestType: [Description]
+     * @param parseFunction: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public MistralUnifiedChatCompletionResponseHandler(String requestType, ResponseParser parseFunction) {
         super(requestType, parseFunction, MistralErrorResponse::fromResponse);
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for buildError]: Describe purpose here.
+     * @param message: [Description]
+     * @param request: [Description]
+     * @param result: [Description]
+     * @param errorResponse: [Description]
+     * @return [ReturnType]: [Description]
+     */
     protected Exception buildError(String message, Request request, HttpResult result, ErrorResponse errorResponse) {
         assert request.isStreaming() : "Only streaming requests support this format";
         var responseStatusCode = result.response().getStatusLine().getStatusCode();
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (request.isStreaming()) {
             var errorMessage = errorMessage(message, request, result, errorResponse, responseStatusCode);
             var restStatus = toRestStatus(responseStatusCode);
@@ -44,6 +60,7 @@ public class MistralUnifiedChatCompletionResponseHandler extends OpenAiUnifiedCh
                     createErrorType(errorResponse),
                     restStatus.name().toLowerCase(Locale.ROOT)
                 );
+        // Block Logic: [Describe purpose of this else/else if block]
         } else {
             return super.buildError(message, request, result, errorResponse);
         }

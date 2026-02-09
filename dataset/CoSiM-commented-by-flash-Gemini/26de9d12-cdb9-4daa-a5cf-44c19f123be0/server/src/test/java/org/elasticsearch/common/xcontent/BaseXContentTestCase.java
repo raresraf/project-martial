@@ -336,9 +336,9 @@ public abstract class BaseXContentTestCase extends ESTestCase {
         final int length = randomIntBetween(1, Math.max(1, randomBytes.length - offset - 1));
 
         XContentBuilder builder = builder().startObject();
-        if (randomBoolean()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (randomBoolean()) {
             builder.field("bin", randomBytes, offset, length);
-        } else {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else {
             builder.field("bin").value(randomBytes, offset, length);
         }
         builder.endObject();
@@ -624,7 +624,7 @@ public abstract class BaseXContentTestCase extends ESTestCase {
             new Object[] { x1, x2 }
         );
 
-        for (Map.Entry<String, Object[]> o : objects.entrySet()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (Map.Entry<String, Object[]> o : objects.entrySet()) {
             final String expected = o.getKey();
             assertResult(expected, () -> builder().startObject().field("objects", o.getValue()).endObject());
             assertResult(expected, () -> builder().startObject().field("objects").value(o.getValue()).endObject());
@@ -665,7 +665,7 @@ public abstract class BaseXContentTestCase extends ESTestCase {
         final ToXContent x2 = (builder, params) -> builder.startObject().field("f1", "v1").field("f2", x1).endObject();
         object.put("{'object':{'f1':'v1','f2':{'f1':'v1','f2':2,'f3':[3,4,5]}}}", x2);
 
-        for (Map.Entry<String, Object> o : object.entrySet()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (Map.Entry<String, Object> o : object.entrySet()) {
             final String expected = o.getKey();
             assertResult(expected, () -> builder().humanReadable(true).startObject().field("object", o.getValue()).endObject());
             assertResult(expected, () -> builder().humanReadable(true).startObject().field("object").value(o.getValue()).endObject());
@@ -756,7 +756,7 @@ public abstract class BaseXContentTestCase extends ESTestCase {
         final String path = Constants.WINDOWS ? "path\\\\to\\\\file" : "path/to/file";
         maps.put("{'map':{'path':'" + path + "','string':'value','long[]':[1,3],'int':42,'long':42,'object':{'key':'value'}}}", innerMap);
 
-        for (Map.Entry<String, Map<String, ?>> m : maps.entrySet()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (Map.Entry<String, Map<String, ?>> m : maps.entrySet()) {
             final String expected = m.getKey();
             assertResult(expected, () -> builder().startObject().field("map", m.getValue()).endObject());
             assertResult(expected, () -> builder().startObject().field("map").value(m.getValue()).endObject());
@@ -776,7 +776,7 @@ public abstract class BaseXContentTestCase extends ESTestCase {
         final String paths = Constants.WINDOWS ? "{'iter':['a\\\\b\\\\c','c\\\\d']}" : "{'iter':['a/b/c','c/d']}";
         iterables.put(paths, Arrays.asList(PathUtils.get("a", "b", "c"), PathUtils.get("c", "d")));
 
-        for (Map.Entry<String, Iterable<?>> i : iterables.entrySet()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (Map.Entry<String, Iterable<?>> i : iterables.entrySet()) {
             final String expected = i.getKey();
             assertResult(expected, () -> builder().startObject().field("iter", i.getValue()).endObject());
             assertResult(expected, () -> builder().startObject().field("iter").value(i.getValue()).endObject());
@@ -789,7 +789,7 @@ public abstract class BaseXContentTestCase extends ESTestCase {
         objects.put("{'obj':'MINUTES'}", TimeUnit.MINUTES);
         objects.put("{'obj':'class org.elasticsearch.common.xcontent.BaseXContentTestCase'}", BaseXContentTestCase.class);
 
-        for (Map.Entry<String, ?> o : objects.entrySet()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (Map.Entry<String, ?> o : objects.entrySet()) {
             final String expected = o.getKey();
             assertResult(expected, () -> builder().startObject().field("obj", o.getValue()).endObject());
             assertResult(expected, () -> builder().startObject().field("obj").value(o.getValue()).endObject());
@@ -830,8 +830,8 @@ public abstract class BaseXContentTestCase extends ESTestCase {
     }
 
     public void testRawField() throws Exception {
-        for (boolean useStream : new boolean[] { false, true }) {
-            for (XContentType xcontentType : XContentType.values()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (boolean useStream : new boolean[] { false, true }) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            for (XContentType xcontentType : XContentType.values()) {
                 doTestRawField(xcontentType.xContent(), useStream);
             }
         }
@@ -850,9 +850,9 @@ public abstract class BaseXContentTestCase extends ESTestCase {
         os = new ByteArrayOutputStream();
         try (XContentGenerator generator = xcontentType().xContent().createGenerator(os)) {
             generator.writeStartObject();
-            if (useStream) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (useStream) {
                 generator.writeRawField("bar", new ByteArrayInputStream(rawData));
-            } else {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            } else {
                 generator.writeRawField("bar", new BytesArray(rawData).streamInput());
             }
             generator.writeEndObject();
@@ -873,7 +873,7 @@ public abstract class BaseXContentTestCase extends ESTestCase {
     }
 
     public void testRawValue() throws Exception {
-        for (XContentType xcontentType : XContentType.values()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (XContentType xcontentType : XContentType.values()) {
             doTestRawValue(xcontentType.xContent());
         }
     }

@@ -94,6 +94,11 @@ import java.util.function.ToLongFunction;
 
 import static org.elasticsearch.search.SearchService.DEFAULT_SIZE;
 
+/**
+ * @brief Functional description of the DefaultSearchContext class.
+ *        This is a placeholder for detailed semantic documentation.
+ *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+ */
 final class DefaultSearchContext extends SearchContext {
 
     private final ReaderContext readerContext;
@@ -231,6 +236,12 @@ final class DefaultSearchContext extends SearchContext {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param executor: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private static Executor wrapExecutor(Executor executor) {
         if (executor instanceof ThreadPoolExecutor tpe) {
             // let this searcher fork to a limited maximum number of tasks, to protect against situations where Lucene may
@@ -261,6 +272,14 @@ final class DefaultSearchContext extends SearchContext {
         return executor;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param field: [Description]
+     * @param indexService: [Description]
+     * @param directoryReader: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     static long getFieldCardinality(String field, IndexService indexService, DirectoryReader directoryReader) {
         MappedFieldType mappedFieldType = indexService.mapperService().fieldType(field);
         if (mappedFieldType == null) {
@@ -276,6 +295,13 @@ final class DefaultSearchContext extends SearchContext {
         return getFieldCardinality(indexFieldData, directoryReader);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param indexFieldData: [Description]
+     * @param directoryReader: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     static long getFieldCardinality(IndexFieldData<?> indexFieldData, DirectoryReader directoryReader) {
         if (indexFieldData instanceof IndexOrdinalsFieldData indexOrdinalsFieldData) {
             if (indexOrdinalsFieldData.supportsGlobalOrdinalsMapping()) {
@@ -347,29 +373,54 @@ final class DefaultSearchContext extends SearchContext {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void addRankFeatureResult() {
         this.rankFeatureResult = new RankFeatureResult(this.readerContext.id(), this.shardTarget, this.request);
         addReleasable(rankFeatureResult::decRef);
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public RankFeatureResult rankFeatureResult() {
         return rankFeatureResult;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void addFetchResult() {
         this.fetchResult = new FetchSearchResult(this.readerContext.id(), this.shardTarget);
         addReleasable(fetchResult::decRef);
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void addQueryResult() {
         this.queryResult = new QuerySearchResult(this.readerContext.id(), this.shardTarget, this.request);
         addReleasable(queryResult::decRef);
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void addDfsResult() {
         this.dfsResult = new DfsSearchResult(this.readerContext.id(), this.shardTarget, this.request);
     }
@@ -475,6 +526,12 @@ final class DefaultSearchContext extends SearchContext {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param query: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public Query buildFilteredQuery(Query query) {
         List<Query> filters = new ArrayList<>();
         NestedLookup nestedLookup = searchExecutionContext.nestedLookup();
@@ -511,51 +568,103 @@ final class DefaultSearchContext extends SearchContext {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public ShardSearchContextId id() {
         return readerContext.id();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public String source() {
         return "search";
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public ShardSearchRequest request() {
         return this.request;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SearchType searchType() {
         return this.searchType;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SearchShardTarget shardTarget() {
         return this.shardTarget;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public int numberOfShards() {
         return request.numberOfShards();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public ScrollContext scrollContext() {
         return readerContext.scrollContext();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SearchContextAggregations aggregations() {
         return aggregations;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param aggregations: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SearchContext aggregations(SearchContextAggregations aggregations) {
         this.aggregations = aggregations;
         return this;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param searchExtBuilder: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void addSearchExt(SearchExtBuilder searchExtBuilder) {
         // it's ok to use the writeable name here given that we enforce it to be the same as the name of the element that gets
         // parsed by the corresponding parser. There is one single name and one single way to retrieve the parsed object from the context.
@@ -563,40 +672,84 @@ final class DefaultSearchContext extends SearchContext {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param name: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SearchExtBuilder getSearchExt(String name) {
         return searchExtBuilders.get(name);
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SearchHighlightContext highlight() {
         return highlight;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param highlight: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void highlight(SearchHighlightContext highlight) {
         this.highlight = highlight;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SuggestionSearchContext suggest() {
         return suggest;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param suggest: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void suggest(SuggestionSearchContext suggest) {
         this.suggest = suggest;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public QueryPhaseRankShardContext queryPhaseRankShardContext() {
         return queryPhaseRankShardContext;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param queryPhaseRankShardContext: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void queryPhaseRankShardContext(QueryPhaseRankShardContext queryPhaseRankShardContext) {
         this.queryPhaseRankShardContext = queryPhaseRankShardContext;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public List<RescoreContext> rescore() {
         if (rescore == null) {
             return List.of();
@@ -605,6 +758,12 @@ final class DefaultSearchContext extends SearchContext {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param rescore: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void addRescore(RescoreContext rescore) {
         if (this.rescore == null) {
             this.rescore = new ArrayList<>();
@@ -613,11 +772,21 @@ final class DefaultSearchContext extends SearchContext {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public boolean hasScriptFields() {
         return scriptFields != null && scriptFields.fields().isEmpty() == false;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public ScriptFieldsContext scriptFields() {
         if (scriptFields == null) {
             scriptFields = new ScriptFieldsContext();
@@ -634,159 +803,323 @@ final class DefaultSearchContext extends SearchContext {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public FetchSourceContext fetchSourceContext() {
         return this.fetchSourceContext;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param fetchSourceContext: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SearchContext fetchSourceContext(FetchSourceContext fetchSourceContext) {
         this.fetchSourceContext = fetchSourceContext;
         return this;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public FetchDocValuesContext docValuesContext() {
         return docValuesContext;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param docValuesContext: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SearchContext docValuesContext(FetchDocValuesContext docValuesContext) {
         this.docValuesContext = docValuesContext;
         return this;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public FetchFieldsContext fetchFieldsContext() {
         return fetchFieldsContext;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param fetchFieldsContext: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SearchContext fetchFieldsContext(FetchFieldsContext fetchFieldsContext) {
         this.fetchFieldsContext = fetchFieldsContext;
         return this;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public ContextIndexSearcher searcher() {
         return this.searcher;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public IndexShard indexShard() {
         return this.indexShard;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public BitsetFilterCache bitsetFilterCache() {
         return indexService.cache().bitsetFilterCache();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public TimeValue timeout() {
         return timeout;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param timeout: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void timeout(TimeValue timeout) {
         this.timeout = timeout;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public int terminateAfter() {
         return terminateAfter;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param terminateAfter: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void terminateAfter(int terminateAfter) {
         this.terminateAfter = terminateAfter;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param minimumScore: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SearchContext minimumScore(float minimumScore) {
         this.minimumScore = minimumScore;
         return this;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public Float minimumScore() {
         return this.minimumScore;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param sort: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SearchContext sort(SortAndFormats sort) {
         this.sort = sort;
         return this;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SortAndFormats sort() {
         return this.sort;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param trackScores: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SearchContext trackScores(boolean trackScores) {
         this.trackScores = trackScores;
         return this;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public boolean trackScores() {
         return this.trackScores;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param trackTotalHitsUpTo: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SearchContext trackTotalHitsUpTo(int trackTotalHitsUpTo) {
         this.trackTotalHitsUpTo = trackTotalHitsUpTo;
         return this;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public int trackTotalHitsUpTo() {
         return trackTotalHitsUpTo;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param searchAfter: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SearchContext searchAfter(FieldDoc searchAfter) {
         this.searchAfter = searchAfter;
         return this;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public boolean lowLevelCancellation() {
         return lowLevelCancellation;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public FieldDoc searchAfter() {
         return searchAfter;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param collapse: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SearchContext collapse(CollapseContext collapse) {
         this.collapse = collapse;
         return this;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public CollapseContext collapse() {
         return collapse;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param sliceBuilder: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SearchContext sliceBuilder(SliceBuilder sliceBuilder) {
         this.sliceBuilder = sliceBuilder;
         return this;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param postFilter: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SearchContext parsedPostFilter(ParsedQuery postFilter) {
         this.postFilter = postFilter;
         return this;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public ParsedQuery parsedPostFilter() {
         return this.postFilter;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param query: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SearchContext parsedQuery(ParsedQuery query) {
         this.originalQuery = query;
         this.query = query.query();
@@ -794,108 +1127,221 @@ final class DefaultSearchContext extends SearchContext {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public ParsedQuery parsedQuery() {
         return this.originalQuery;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public Query query() {
         return this.query;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public int from() {
         return from;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param from: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SearchContext from(int from) {
         this.from = from;
         return this;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public int size() {
         return size;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param size: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SearchContext size(int size) {
         this.size = size;
         return this;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public boolean hasStoredFields() {
         return storedFields != null && storedFields.fieldNames() != null;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public StoredFieldsContext storedFieldsContext() {
         return storedFields;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param storedFieldsContext: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SearchContext storedFieldsContext(StoredFieldsContext storedFieldsContext) {
         this.storedFields = storedFieldsContext;
         return this;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public boolean explain() {
         return explain;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param explain: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void explain(boolean explain) {
         this.explain = explain;
     }
 
     @Override
     @Nullable
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public List<String> groupStats() {
         return this.groupStats;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param groupStats: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void groupStats(List<String> groupStats) {
         this.groupStats = groupStats;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public boolean version() {
         return version;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param version: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void version(boolean version) {
         this.version = version;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public boolean seqNoAndPrimaryTerm() {
         return seqAndPrimaryTerm;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param seqNoAndPrimaryTerm: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void seqNoAndPrimaryTerm(boolean seqNoAndPrimaryTerm) {
         this.seqAndPrimaryTerm = seqNoAndPrimaryTerm;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public DfsSearchResult dfsResult() {
         return dfsResult;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public QuerySearchResult queryResult() {
         return queryResult;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param releasable: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void addQuerySearchResultReleasable(Releasable releasable) {
         queryResult.addReleasable(releasable);
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public TotalHits getTotalHits() {
         if (queryResult != null) {
             return queryResult.getTotalHits();
@@ -904,6 +1350,11 @@ final class DefaultSearchContext extends SearchContext {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public float getMaxScore() {
         if (queryResult != null) {
             return queryResult.getMaxScore();
@@ -912,60 +1363,122 @@ final class DefaultSearchContext extends SearchContext {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public FetchPhase fetchPhase() {
         return fetchPhase;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public FetchSearchResult fetchResult() {
         return fetchResult;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public long getRelativeTimeInMillis() {
         return relativeTimeSupplier.getAsLong();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SearchExecutionContext getSearchExecutionContext() {
         return searchExecutionContext;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public Profilers getProfilers() {
         return profilers;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param profilers: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void setProfilers(Profilers profilers) {
         this.profilers = profilers;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param task: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void setTask(CancellableTask task) {
         this.task = task;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public CancellableTask getTask() {
         return task;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public boolean isCancelled() {
         return task.isCancelled();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public ReaderContext readerContext() {
         return readerContext;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SourceLoader newSourceLoader() {
         return searchExecutionContext.newSourceLoader(request.isForceSyntheticSource());
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public IdLoader newIdLoader() {
         if (indexService.getIndexSettings().getMode() == IndexMode.TIME_SERIES) {
             IndexRouting.ExtractFromSource indexRouting = null;

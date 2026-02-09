@@ -42,6 +42,11 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+/**
+ * @brief Functional description of the OffsetSourceFieldMapperTests class.
+ *        This is a placeholder for detailed semantic documentation.
+ *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+ */
 public class OffsetSourceFieldMapperTests extends MapperTestCase {
     @Override
     protected Collection<? extends Plugin> getPlugins() {
@@ -49,67 +54,143 @@ public class OffsetSourceFieldMapperTests extends MapperTestCase {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param b: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected void minimalMapping(XContentBuilder b) throws IOException {
         b.field("type", "offset_source");
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected Object getSampleValueForDocument() {
         return getSampleObjectForDocument();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected Object getSampleObjectForDocument() {
         return Map.of("field", "foo", "start", 100, "end", 300);
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param ft: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected Object generateRandomInputValue(MappedFieldType ft) {
         return new OffsetSourceFieldMapper.OffsetSource("field", randomIntBetween(0, 100), randomIntBetween(101, 1000));
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected IngestScriptSupport ingestScriptSupport() {
         throw new AssumptionViolatedException("not supported");
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param checker: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected void registerParameters(ParameterChecker checker) throws IOException {}
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param fieldType: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected void assertSearchable(MappedFieldType fieldType) {
         assertFalse(fieldType.isSearchable());
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected boolean supportsStoredFields() {
         return false;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected boolean supportsEmptyInputArray() {
         return false;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected boolean supportsCopyTo() {
         return false;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected boolean supportsIgnoreMalformed() {
         return false;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param ignoreMalformed: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected SyntheticSourceSupport syntheticSourceSupport(boolean ignoreMalformed) {
         return new SyntheticSourceSupport() {
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param maxValues: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public SyntheticSourceExample example(int maxValues) {
                 return new SyntheticSourceExample(getSampleValueForDocument(), getSampleValueForDocument(), b -> minimalMapping(b));
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public List<SyntheticSourceInvalidExample> invalidExample() {
                 return List.of();
             }
@@ -117,10 +198,20 @@ public class OffsetSourceFieldMapperTests extends MapperTestCase {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testSyntheticSourceKeepArrays() {
         // This mapper doesn't support multiple values (array of objects).
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testDefaults() throws Exception {
         DocumentMapper mapper = createDocumentMapper(fieldMapping(this::minimalMapping));
         assertEquals(Strings.toString(fieldMapping(this::minimalMapping)), mapper.mappingSource().toString());
@@ -142,6 +233,15 @@ public class OffsetSourceFieldMapperTests extends MapperTestCase {
         assertTokenStream(offsetField2.tokenStream(null, null), "bar", 128, 512);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param tk: [Description]
+     * @param expectedTerm: [Description]
+     * @param expectedStartOffset: [Description]
+     * @param expectedEndOffset: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private void assertTokenStream(TokenStream tk, String expectedTerm, int expectedStartOffset, int expectedEndOffset) throws IOException {
         CharTermAttribute termAttribute = tk.addAttribute(CharTermAttribute.class);
         OffsetAttribute offsetAttribute = tk.addAttribute(OffsetAttribute.class);
@@ -154,6 +254,15 @@ public class OffsetSourceFieldMapperTests extends MapperTestCase {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param mapperService: [Description]
+     * @param field: [Description]
+     * @param value: [Description]
+     * @param format: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected void assertFetch(MapperService mapperService, String field, Object value, String format) throws IOException {
         MappedFieldType ft = mapperService.fieldType(field);
         MappedFieldType.FielddataOperation fdt = MappedFieldType.FielddataOperation.SEARCH;
@@ -176,10 +285,25 @@ public class OffsetSourceFieldMapperTests extends MapperTestCase {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param mapperService: [Description]
+     * @param field: [Description]
+     * @param value: [Description]
+     * @param format: [Description]
+     * @param count: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected void assertFetchMany(MapperService mapperService, String field, Object value, String format, int count) throws IOException {
         assumeFalse("[offset_source] currently don't support multiple values in the same field", false);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testInvalidCharset() {
         var exc = expectThrows(Exception.class, () -> createDocumentMapper(mapping(b -> {
             b.startObject("field").field("type", "offset_source").field("charset", "utf_8").endObject();
@@ -187,6 +311,11 @@ public class OffsetSourceFieldMapperTests extends MapperTestCase {
         assertThat(exc.getCause().getMessage(), containsString("Unknown value [utf_8] for field [charset]"));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testRejectMultiValuedFields() throws IOException {
         DocumentMapper mapper = createDocumentMapper(mapping(b -> { b.startObject("field").field("type", "offset_source").endObject(); }));
 
@@ -201,6 +330,11 @@ public class OffsetSourceFieldMapperTests extends MapperTestCase {
         assertThat(exc.getCause().getMessage(), containsString("[offset_source] fields do not support indexing multiple values"));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testInvalidOffsets() throws IOException {
         DocumentMapper mapper = createDocumentMapper(mapping(b -> { b.startObject("field").field("type", "offset_source").endObject(); }));
 

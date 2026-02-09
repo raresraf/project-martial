@@ -181,6 +181,9 @@ public class EsqlSession {
         this.preMapper = new PreMapper(services);
     }
 
+    /**
+     * @brief [Functional Utility for sessionId]: Describe purpose here.
+     */
     public String sessionId() {
         return sessionId;
     }
@@ -192,6 +195,9 @@ public class EsqlSession {
         assert executionInfo != null : "Null EsqlExecutionInfo";
         LOGGER.debug("ESQL query:\n{}", request.query());
         LogicalPlan parsed = parse(request.query(), request.params());
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (parsed instanceof Explain explain) {
             explainMode = true;
             parsed = explain.query();
@@ -199,6 +205,9 @@ public class EsqlSession {
         }
         analyzedPlan(parsed, executionInfo, request.filter(), new EsqlCCSUtils.CssPartialErrorsActionListener(executionInfo, listener) {
             @Override
+            /**
+             * @brief [Functional Utility for onResponse]: Describe purpose here.
+             */
             public void onResponse(LogicalPlan analyzedPlan) {
                 preMapper.preMapper(
                     analyzedPlan,
@@ -220,6 +229,9 @@ public class EsqlSession {
         ActionListener<Result> listener
     ) {
         PhysicalPlan physicalPlan = logicalPlanToPhysicalPlan(optimizedPlan, request);
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (explainMode) {
             String physicalPlanString = physicalPlan.toString();
             List<Attribute> fields = List.of(
@@ -240,6 +252,9 @@ public class EsqlSession {
         executeSubPlans(physicalPlan, planRunner, executionInfo, request, listener);
     }
 
+    /**
+     * @brief [Functional Utility for PlanTuple]: Describe purpose here.
+     */
     private record PlanTuple(PhysicalPlan physical, LogicalPlan logical) {}
 
     private void executeSubPlans(
@@ -302,6 +317,8 @@ public class EsqlSession {
                     );
                 });
 
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 if (subPlanIterator.hasNext() == false) {
                     runner.run(newPlan, next.delegateFailureAndWrap((finalListener, finalResult) -> {
                         completionInfoAccumulator.accumulate(finalResult.completionInfo());
@@ -319,6 +336,9 @@ public class EsqlSession {
         }));
     }
 
+    /**
+     * @brief [Functional Utility for resultToPlan]: Describe purpose here.
+     */
     private LocalRelation resultToPlan(LogicalPlan plan, Result result) {
         List<Page> pages = result.pages();
         List<Attribute> schema = result.schema();
@@ -327,6 +347,9 @@ public class EsqlSession {
         return new LocalRelation(plan.source(), schema, LocalSupplier.of(blocks));
     }
 
+    /**
+     * @brief [Functional Utility for parse]: Describe purpose here.
+     */
     private LogicalPlan parse(String query, QueryParams params) {
         var parsed = new EsqlParser().createStatement(query, params, planTelemetry);
         LOGGER.debug("Parsed logical plan:\n{}", parsed);
@@ -339,6 +362,8 @@ public class EsqlSession {
         QueryBuilder requestFilter,
         ActionListener<LogicalPlan> logicalPlanListener
     ) {
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (parsed.analyzed()) {
             logicalPlanListener.onResponse(parsed);
             return;
@@ -376,6 +401,9 @@ public class EsqlSession {
             .<PreAnalysisResult>andThen((l, enrichResolution) -> resolveFieldNames(parsed, enrichResolution, l))
             .<PreAnalysisResult>andThen((l, preAnalysisResult) -> resolveInferences(preAnalysis.inferencePlans, preAnalysisResult, l));
         // first resolve the lookup indices, then the main indices
+        /**
+         * @brief [Functional Utility for for]: Describe purpose here.
+         */
         for (var index : preAnalysis.lookupIndices) {
             listener = listener.andThen((l, preAnalysisResult) -> preAnalyzeLookupIndex(index, preAnalysisResult, executionInfo, l));
         }
@@ -427,12 +455,16 @@ public class EsqlSession {
             : "Lookup index name should not include remote, but got: " + localPattern;
         Set<String> fieldNames = result.wildcardJoinIndices().contains(localPattern) ? IndexResolver.ALL_FIELDS : result.fieldNames;
         StringBuilder patternWithRemotes = new StringBuilder(localPattern);
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (executionInfo.getClusters().isEmpty() == false) {
             // Get the list of active clusters for the lookup index
             Stream<EsqlExecutionInfo.Cluster> clusters = executionInfo.getClusterStates(EsqlExecutionInfo.Cluster.Status.RUNNING);
             // Create a pattern with all active remote clusters
             clusters.forEach(cluster -> {
                 String clusterAlias = cluster.getClusterAlias();
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 if (RemoteClusterAware.LOCAL_CLUSTER_GROUP_KEY.equals(clusterAlias)) {
                     // Skip the local cluster, as it is already included in the localPattern
                     return;
@@ -449,6 +481,9 @@ public class EsqlSession {
         );
     }
 
+    /**
+     * @brief [Functional Utility for skipClusterOrError]: Describe purpose here.
+     */
     private void skipClusterOrError(String clusterAlias, EsqlExecutionInfo executionInfo, String message) {
         VerificationException error = new VerificationException(message);
         // If we can, skip the cluster and mark it as such
@@ -466,6 +501,8 @@ public class EsqlSession {
         IndexResolution newIndexResolution
     ) {
         EsqlCCSUtils.updateExecutionInfoWithUnavailableClusters(executionInfo, newIndexResolution.unavailableClusters());
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (newIndexResolution.isValid() == false || executionInfo.getClusters().isEmpty()) {
             // If the index resolution is invalid, don't bother with the rest of the analysis
             return result.addLookupIndexResolution(index, newIndexResolution);
@@ -475,6 +512,9 @@ public class EsqlSession {
         newIndexResolution.get().indexNameWithModes().forEach((indexName, indexMode) -> {
             String clusterAlias = RemoteClusterAware.parseClusterAlias(indexName);
             // Check that all indices are in lookup mode
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (indexMode != IndexMode.LOOKUP) {
                 skipClusterOrError(
                     clusterAlias,
@@ -499,6 +539,8 @@ public class EsqlSession {
         // Verify that all active clusters have the lookup index resolved
         clusters.forEach(cluster -> {
             String clusterAlias = cluster.getClusterAlias();
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (clustersWithResolvedIndices.containsKey(clusterAlias) == false) {
                 // Missing cluster resolution
                 skipClusterOrError(
@@ -509,9 +551,14 @@ public class EsqlSession {
             }
         });
 
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (clustersWithResolvedIndices.size() > 1) {
             // If we have multiple resolutions for the lookup index, we need to only leave the local resolution
             String localIndexName = clustersWithResolvedIndices.get(RemoteClusterAware.LOCAL_CLUSTER_GROUP_KEY);
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (localIndexName == null) {
                 // Get the first index name instead
                 localIndexName = RemoteClusterAware.splitIndexName(clustersWithResolvedIndices.values().iterator().next())[1];
@@ -528,7 +575,12 @@ public class EsqlSession {
         return result.addLookupIndexResolution(index, newIndexResolution);
     }
 
+    /**
+     * @brief [Functional Utility for initializeClusterData]: Describe purpose here.
+     */
     private void initializeClusterData(List<IndexPattern> indices, EsqlExecutionInfo executionInfo) {
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (indices.isEmpty()) {
             return;
         }
@@ -538,6 +590,8 @@ public class EsqlSession {
             IndicesOptions.DEFAULT,
             indices.getFirst().indexPattern()
         );
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         for (Map.Entry<String, OriginalIndices> entry : clusterIndices.entrySet()) {
             final String clusterAlias = entry.getKey();
             String indexExpr = Strings.arrayToCommaDelimitedString(entry.getValue().indices());
@@ -557,6 +611,8 @@ public class EsqlSession {
     ) {
         // TODO we plan to support joins in the future when possible, but for now we'll just fail early if we see one
         List<IndexPattern> indices = preAnalysis.indices;
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (indices.size() > 1) {
             // Note: JOINs are not supported but we detect them when
             listener.onFailure(new MappingException("Queries with multiple indices are not supported"));
@@ -566,6 +622,8 @@ public class EsqlSession {
             // if the preceding call to the enrich policy API found unavailable clusters, recreate the index expression to search
             // based only on available clusters (which could now be an empty list)
             String indexExpressionToResolve = EsqlCCSUtils.createIndexExpressionFromAvailableClusters(executionInfo);
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (indexExpressionToResolve.isEmpty()) {
                 // if this was a pure remote CCS request (no local indices) and all remotes are offline, return an empty IndexResolution
                 listener.onResponse(
@@ -573,9 +631,15 @@ public class EsqlSession {
                 );
             } else {
                 // call the EsqlResolveFieldsAction (field-caps) to resolve indices and get field types
+                /**
+                 * @brief [Functional Utility for if]: Describe purpose here.
+                 */
                 if (preAnalysis.indexMode == IndexMode.TIME_SERIES) {
                     // TODO: Maybe if no indices are returned, retry without index mode and provide a clearer error message.
                     var indexModeFilter = new TermQueryBuilder(IndexModeFieldMapper.NAME, IndexMode.TIME_SERIES.getName());
+                    /**
+                     * @brief [Functional Utility for if]: Describe purpose here.
+                     */
                     if (requestFilter != null) {
                         requestFilter = new BoolQueryBuilder().filter(requestFilter).filter(indexModeFilter);
                     } else {
@@ -587,6 +651,8 @@ public class EsqlSession {
                     result.fieldNames,
                     requestFilter,
                     listener.delegateFailure((l, indexResolution) -> {
+                        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                        // Invariant: State condition that holds true before and after each iteration/execution
                         if (configuration.allowPartialResults() == false && indexResolution.getUnavailableShards().isEmpty() == false) {
                             l.onFailure(indexResolution.getUnavailableShards().iterator().next());
                         } else {
@@ -617,6 +683,8 @@ public class EsqlSession {
     ) {
         IndexResolution indexResolution = result.indices;
         EsqlCCSUtils.updateExecutionInfoWithUnavailableClusters(executionInfo, indexResolution.unavailableClusters());
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (executionInfo.isCrossClusterSearch()
             && executionInfo.getClusterStates(EsqlExecutionInfo.Cluster.Status.RUNNING).findAny().isEmpty()) {
             // for a CCS, if all clusters have been marked as SKIPPED, nothing to search so send a sentinel Exception
@@ -643,6 +711,8 @@ public class EsqlSession {
         LOGGER.debug("Analyzing the plan ({} attempt, {} filter)", attemptMessage, filterPresentMessage);
 
         try {
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (result.indices.isValid() || requestFilter != null) {
                 // We won't run this check with no filter and no valid indices since this may lead to false positive - missing index report
                 // when the resolution result is not valid for a different reason.
@@ -650,6 +720,9 @@ public class EsqlSession {
             }
             plan = analyzeAction.apply(result);
         } catch (Exception e) {
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (e instanceof VerificationException ve) {
                 LOGGER.debug(
                     "Analyzing the plan ({} attempt, {} filter) failed with {}",
@@ -657,6 +730,9 @@ public class EsqlSession {
                     filterPresentMessage,
                     ve.getDetailedMessage()
                 );
+                /**
+                 * @brief [Functional Utility for if]: Describe purpose here.
+                 */
                 if (requestFilter == null) {
                     // if the initial request didn't have a filter, then just pass the exception back to the user
                     logicalPlanListener.onFailure(ve);
@@ -698,13 +774,21 @@ public class EsqlSession {
         inferenceRunner.resolveInferenceIds(inferencePlans, l.map(preAnalysisResult::withInferenceResolution));
     }
 
+    /**
+     * @brief [Functional Utility for fieldNames]: Describe purpose here.
+     */
     static PreAnalysisResult fieldNames(LogicalPlan parsed, Set<String> enrichPolicyMatchFields, PreAnalysisResult result) {
         List<LogicalPlan> inlinestats = parsed.collect(InlineStats.class::isInstance);
         Set<Aggregate> inlinestatsAggs = new HashSet<>();
+        /**
+         * @brief [Functional Utility for for]: Describe purpose here.
+         */
         for (var i : inlinestats) {
             inlinestatsAggs.add(((InlineStats) i).aggregate());
         }
 
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (false == parsed.anyMatch(p -> shouldCollectReferencedFields(p, inlinestatsAggs))) {
             // no explicit columns selection, for example "from employees"
             // also, inlinestats only adds columns to the existent output, its Aggregate shouldn't interfere with potentially using "*"
@@ -718,12 +802,16 @@ public class EsqlSession {
 
         Holder<Boolean> projectAll = new Holder<>(false);
         parsed.forEachExpressionDown(UnresolvedStar.class, us -> {// explicit "*" fields selection
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (projectAll.get()) {
                 return;
             }
             projectAll.set(true);
         });
 
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (projectAll.get()) {
             return result.withFieldNames(IndexResolver.ALL_FIELDS);
         }
@@ -744,6 +832,9 @@ public class EsqlSession {
         boolean[] canRemoveAliases = new boolean[] { true };
 
         parsed.forEachDown(p -> {// go over each plan top-down
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (p instanceof RegexExtract re) { // for Grok and Dissect
                 // keep the inputs needed by Grok/Dissect
                 referencesBuilder.addAll(re.input().references());
@@ -755,9 +846,13 @@ public class EsqlSession {
                 enrichRefs.removeIf(attr -> attr instanceof EmptyAttribute);
                 referencesBuilder.addAll(enrichRefs);
             } else if (p instanceof LookupJoin join) {
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 if (join.config().type() instanceof JoinTypes.UsingJoinType usingJoinType) {
                     keepJoinRefsBuilder.addAll(usingJoinType.columns());
                 }
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 if (shadowingRefsBuilder.isEmpty()) {
                     // No KEEP commands after the JOIN, so we need to mark this index for "*" field resolution
                     wildcardJoinIndices.add(((UnresolvedRelation) join.right()).indexPattern().indexPattern());
@@ -767,6 +862,8 @@ public class EsqlSession {
                 }
             } else {
                 referencesBuilder.addAll(p.references());
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 if (p instanceof UnresolvedRelation ur && ur.indexMode() == IndexMode.TIME_SERIES) {
                     // METRICS aggs generally rely on @timestamp without the user having to mention it.
                     referencesBuilder.add(new UnresolvedAttribute(ur.source(), MetadataAttribute.TIMESTAMP_FIELD));
@@ -777,6 +874,9 @@ public class EsqlSession {
                     referencesBuilder.add(ua);
                     shadowingRefsBuilder.add(ua);
                 });
+                /**
+                 * @brief [Functional Utility for if]: Describe purpose here.
+                 */
                 if (p instanceof Keep) {
                     shadowingRefsBuilder.addAll(p.references());
                 }
@@ -796,6 +896,9 @@ public class EsqlSession {
             if (canRemoveAliases[0] && p.anyMatch(EsqlSession::couldOverrideAliases)) {
                 canRemoveAliases[0] = false;
             }
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (canRemoveAliases[0]) {
                 // remove any already discovered UnresolvedAttributes that are in fact aliases defined later down in the tree
                 // for example "from test | eval x = salary | stats max = max(x) by gender"
@@ -804,6 +907,8 @@ public class EsqlSession {
                 AttributeSet planRefs = p.references();
                 Set<String> fieldNames = planRefs.names();
                 p.forEachExpressionDown(NamedExpression.class, ne -> {
+                    // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                    // Invariant: State condition that holds true before and after each iteration/execution
                     if ((ne instanceof Alias || ne instanceof ReferenceAttribute) == false) {
                         return;
                     }
@@ -829,6 +934,8 @@ public class EsqlSession {
         referencesBuilder.removeIf(a -> a instanceof MetadataAttribute || MetadataAttribute.isSupported(a.name()));
         Set<String> fieldNames = referencesBuilder.build().names();
 
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (fieldNames.isEmpty() && enrichPolicyMatchFields.isEmpty()) {
             // there cannot be an empty list of fields, we'll ask the simplest and lightest one instead: _index
             return result.withFieldNames(IndexResolver.INDEX_METADATA_FIELD);
@@ -876,6 +983,9 @@ public class EsqlSession {
 
     private static boolean matchByName(Attribute attr, String other, boolean skipIfPattern) {
         boolean isPattern = Regex.isSimpleMatchPattern(attr.name());
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (skipIfPattern && isPattern) {
             return false;
         }
@@ -887,10 +997,16 @@ public class EsqlSession {
         return names.stream().filter(name -> name.endsWith(WILDCARD) == false).map(name -> name + ".*").collect(Collectors.toSet());
     }
 
+    /**
+     * @brief [Functional Utility for logicalPlanToPhysicalPlan]: Describe purpose here.
+     */
     private PhysicalPlan logicalPlanToPhysicalPlan(LogicalPlan optimizedPlan, EsqlQueryRequest request) {
         PhysicalPlan physicalPlan = optimizedPhysicalPlan(optimizedPlan);
         physicalPlan = physicalPlan.transformUp(FragmentExec.class, f -> {
             QueryBuilder filter = request.filter();
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (filter != null) {
                 var fragmentFilter = f.esFilter();
                 // TODO: have an ESFilter and push down to EsQueryExec / EsSource
@@ -905,7 +1021,12 @@ public class EsqlSession {
         return EstimatesRowSize.estimateRowSize(0, physicalPlan);
     }
 
+    /**
+     * @brief [Functional Utility for optimizedPlan]: Describe purpose here.
+     */
     public LogicalPlan optimizedPlan(LogicalPlan logicalPlan) {
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (logicalPlan.analyzed() == false) {
             throw new IllegalStateException("Expected analyzed plan");
         }
@@ -914,7 +1035,12 @@ public class EsqlSession {
         return plan;
     }
 
+    /**
+     * @brief [Functional Utility for physicalPlan]: Describe purpose here.
+     */
     public PhysicalPlan physicalPlan(LogicalPlan optimizedPlan) {
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (optimizedPlan.optimized() == false) {
             throw new IllegalStateException("Expected optimized plan");
         }
@@ -924,6 +1050,9 @@ public class EsqlSession {
         return plan;
     }
 
+    /**
+     * @brief [Functional Utility for optimizedPhysicalPlan]: Describe purpose here.
+     */
     public PhysicalPlan optimizedPhysicalPlan(LogicalPlan optimizedPlan) {
         var plan = physicalPlanOptimizer.optimize(physicalPlan(optimizedPlan));
         LOGGER.debug("Optimized physical plan:\n{}", plan);
@@ -938,10 +1067,16 @@ public class EsqlSession {
         Set<String> wildcardJoinIndices,
         InferenceResolution inferenceResolution
     ) {
+        /**
+         * @brief [Functional Utility for PreAnalysisResult]: Describe purpose here.
+         */
         PreAnalysisResult(EnrichResolution newEnrichResolution) {
             this(null, new HashMap<>(), newEnrichResolution, Set.of(), Set.of(), InferenceResolution.EMPTY);
         }
 
+        /**
+         * @brief [Functional Utility for withEnrichResolution]: Describe purpose here.
+         */
         PreAnalysisResult withEnrichResolution(EnrichResolution newEnrichResolution) {
             return new PreAnalysisResult(
                 indices(),
@@ -953,6 +1088,9 @@ public class EsqlSession {
             );
         }
 
+        /**
+         * @brief [Functional Utility for withInferenceResolution]: Describe purpose here.
+         */
         PreAnalysisResult withInferenceResolution(InferenceResolution newInferenceResolution) {
             return new PreAnalysisResult(
                 indices(),
@@ -964,6 +1102,9 @@ public class EsqlSession {
             );
         }
 
+        /**
+         * @brief [Functional Utility for withIndexResolution]: Describe purpose here.
+         */
         PreAnalysisResult withIndexResolution(IndexResolution newIndexResolution) {
             return new PreAnalysisResult(
                 newIndexResolution,
@@ -975,11 +1116,17 @@ public class EsqlSession {
             );
         }
 
+        /**
+         * @brief [Functional Utility for addLookupIndexResolution]: Describe purpose here.
+         */
         PreAnalysisResult addLookupIndexResolution(String index, IndexResolution newIndexResolution) {
             lookupIndices.put(index, newIndexResolution);
             return this;
         }
 
+        /**
+         * @brief [Functional Utility for withFieldNames]: Describe purpose here.
+         */
         PreAnalysisResult withFieldNames(Set<String> newFields) {
             return new PreAnalysisResult(
                 indices(),
@@ -991,6 +1138,9 @@ public class EsqlSession {
             );
         }
 
+        /**
+         * @brief [Functional Utility for withWildcardJoinIndices]: Describe purpose here.
+         */
         public PreAnalysisResult withWildcardJoinIndices(Set<String> wildcardJoinIndices) {
             return new PreAnalysisResult(
                 indices(),

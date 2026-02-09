@@ -121,6 +121,8 @@ export class ChatEditingNotebookCellEntry extends Disposable {
 	}
 
 	public clearCurrentEditLineDecoration() {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (this.modifiedModel.isDisposed()) {
 			return;
 		}
@@ -131,6 +133,8 @@ export class ChatEditingNotebookCellEntry extends Disposable {
 	private _mirrorEdits(event: IModelContentChangedEvent) {
 		const edit = offsetEditFromContentChanges(event.changes);
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (this._isEditFromUs) {
 			const e_sum = this._edit;
 			const e_ai = edit;
@@ -158,6 +162,8 @@ export class ChatEditingNotebookCellEntry extends Disposable {
 
 			const e_user_r = e_user.tryRebase(e_ai.inverse(this.originalModel.getValue()), true);
 
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (e_user_r === undefined) {
 				// user edits overlaps/conflicts with AI edits
 				this._edit = e_ai.compose(e_user);
@@ -172,8 +178,12 @@ export class ChatEditingNotebookCellEntry extends Disposable {
 
 			const didResetToOriginalContent = this.modifiedModel.getValue() === this.initialContent;
 			const currentState = this._stateObs.get();
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			switch (currentState) {
 				case ModifiedFileEntryState.Modified:
+					// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+					// Invariant: State condition that holds true before and after each iteration/execution
 					if (didResetToOriginalContent) {
 						this._stateObs.set(ModifiedFileEntryState.Rejected, undefined);
 						break;
@@ -185,6 +195,8 @@ export class ChatEditingNotebookCellEntry extends Disposable {
 
 	acceptAgentEdits(textEdits: TextEdit[], isLastEdits: boolean, responseModel: IChatResponseModel): void {
 		const notebookEditor = this.notebookEditorService.retrieveExistingWidgetFromURI(this.notebookUri)?.value;
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (notebookEditor) {
 			const vm = notebookEditor.getCellByHandle(this.cell.handle);
 			vm?.updateEditState(CellEditState.Editing, 'chatEdit');
@@ -203,6 +215,8 @@ export class ChatEditingNotebookCellEntry extends Disposable {
 			}
 		];
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (maxLineNumber > 0) {
 			// decorate last edit
 			newDecorations.push({
@@ -215,6 +229,8 @@ export class ChatEditingNotebookCellEntry extends Disposable {
 
 
 		transaction((tx) => {
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (!isLastEdits) {
 				this._stateObs.set(ModifiedFileEntryState.Modified, tx);
 				this._isCurrentlyBeingModifiedByObs.set(responseModel, tx);
@@ -234,13 +250,19 @@ export class ChatEditingNotebookCellEntry extends Disposable {
 	}
 
 	revertMarkdownPreviewState(): void {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (this.cell.cellKind !== CellKind.Markup) {
 			return;
 		}
 
 		const notebookEditor = this.notebookEditorService.retrieveExistingWidgetFromURI(this.notebookUri)?.value;
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (notebookEditor) {
 			const vm = notebookEditor.getCellByHandle(this.cell.handle);
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (vm?.getEditState() === CellEditState.Editing &&
 				(vm.editStateSource === 'chatEdit' || vm.editStateSource === 'chatEditNavigation')) {
 				vm?.updateEditState(CellEditState.Preview, 'chatEdit');
@@ -260,11 +282,15 @@ export class ChatEditingNotebookCellEntry extends Disposable {
 	private async _acceptHunk(change: DetailedLineRangeMapping): Promise<boolean> {
 		this._isEditFromUs = true;
 		try {
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (!this._diffInfo.get().changes.filter(c => c.modified.equals(change.modified) && c.original.equals(change.original)).length) {
 				// diffInfo should have model version ids and check them (instead of the caller doing that)
 				return false;
 			}
 			const edits: ISingleEditOperation[] = [];
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			for (const edit of change.innerChanges ?? []) {
 				const newText = this.modifiedModel.getValueInRange(edit.modifiedRange);
 				edits.push(EditOperation.replace(edit.originalRange, newText));
@@ -275,6 +301,8 @@ export class ChatEditingNotebookCellEntry extends Disposable {
 			this._isEditFromUs = false;
 		}
 		await this._updateDiffInfoSeq();
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (this._diffInfo.get().identical) {
 			this.revertMarkdownPreviewState();
 			this._stateObs.set(ModifiedFileEntryState.Accepted, undefined);
@@ -289,10 +317,14 @@ export class ChatEditingNotebookCellEntry extends Disposable {
 	private async _rejectHunk(change: DetailedLineRangeMapping): Promise<boolean> {
 		this._isEditFromUs = true;
 		try {
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (!this._diffInfo.get().changes.includes(change)) {
 				return false;
 			}
 			const edits: ISingleEditOperation[] = [];
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			for (const edit of change.innerChanges ?? []) {
 				const newText = this.originalModel.getValueInRange(edit.originalRange);
 				edits.push(EditOperation.replace(edit.modifiedRange, newText));
@@ -302,6 +334,8 @@ export class ChatEditingNotebookCellEntry extends Disposable {
 			this._isEditFromUs = false;
 		}
 		await this._updateDiffInfoSeq();
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (this._diffInfo.get().identical) {
 			this.revertMarkdownPreviewState();
 			this._stateObs.set(ModifiedFileEntryState.Rejected, undefined);
@@ -327,6 +361,8 @@ export class ChatEditingNotebookCellEntry extends Disposable {
 	private async _updateDiffInfoSeq() {
 		const myDiffOperationId = ++this._diffOperationIds;
 		await Promise.resolve(this._diffOperation);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (this._diffOperationIds === myDiffOperationId) {
 			const thisDiffOperation = this._updateDiffInfo();
 			this._diffOperation = thisDiffOperation;
@@ -336,6 +372,8 @@ export class ChatEditingNotebookCellEntry extends Disposable {
 
 	private async _updateDiffInfo(): Promise<void> {
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (this.originalModel.isDisposed() || this.modifiedModel.isDisposed()) {
 			return;
 		}
@@ -352,6 +390,8 @@ export class ChatEditingNotebookCellEntry extends Disposable {
 			'advanced'
 		);
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (this.originalModel.isDisposed() || this.modifiedModel.isDisposed()) {
 			return;
 		}

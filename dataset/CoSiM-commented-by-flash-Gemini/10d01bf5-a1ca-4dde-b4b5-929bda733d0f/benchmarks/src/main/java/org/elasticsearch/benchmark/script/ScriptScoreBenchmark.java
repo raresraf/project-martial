@@ -74,6 +74,11 @@ import java.util.concurrent.TimeUnit;
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
 @OperationsPerInvocation(1_000_000)   // The index has a million documents in it.
 @State(Scope.Benchmark)
+/**
+ * @brief Functional description of the ScriptScoreBenchmark class.
+ *        This is a placeholder for detailed semantic documentation.
+ *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+ */
 public class ScriptScoreBenchmark {
     private final PluginsService pluginsService = new PluginsService(
         Settings.EMPTY,
@@ -104,6 +109,11 @@ public class ScriptScoreBenchmark {
     private IndexReader reader;
 
     @Setup
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void setupScript() {
         factory = switch (script) {
             case "expression" -> scriptModule.engines.get("expression").compile("test", "doc['n'].value", ScoreScript.CONTEXT, Map.of());
@@ -121,6 +131,11 @@ public class ScriptScoreBenchmark {
     }
 
     @Setup
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void setupIndex() throws IOException {
         Path path = Path.of(System.getProperty("tests.index"));
         IOUtils.rm(path);
@@ -140,6 +155,11 @@ public class ScriptScoreBenchmark {
     }
 
     @Benchmark
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public TopDocs benchmark() throws IOException {
         TopDocs topDocs = new IndexSearcher(reader).search(scriptScoreQuery(factory), 10);
         if (topDocs.scoreDocs[0].score != 1_000_000) {
@@ -148,23 +168,46 @@ public class ScriptScoreBenchmark {
         return topDocs;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param factory: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private Query scriptScoreQuery(ScoreScript.Factory factory) {
         ScoreScript.LeafFactory leafFactory = factory.newFactory(Map.of(), lookup);
         return new ScriptScoreQuery(new MatchAllDocsQuery(), null, leafFactory, lookup, null, "test", 0, IndexVersion.current());
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private ScoreScript.Factory bareMetalScript() {
         return (params, lookup) -> {
             MappedFieldType type = fieldTypes.get("n");
             IndexNumericFieldData ifd = (IndexNumericFieldData) lookup.getForField(type, MappedFieldType.FielddataOperation.SEARCH);
             return new ScoreScript.LeafFactory() {
                 @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param docReader: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
                 public ScoreScript newInstance(DocReader docReader) throws IOException {
                     SortedNumericDocValues values = ifd.load(((DocValuesDocReader) docReader).getLeafReaderContext()).getLongValues();
                     return new ScoreScript(params, null, docReader) {
                         private int docId;
 
                         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param explanation: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
                         public double execute(ExplanationHolder explanation) {
                             try {
                                 values.advance(docId);
@@ -178,6 +221,12 @@ public class ScriptScoreBenchmark {
                         }
 
                         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param docid: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
                         public void setDocument(int docid) {
                             this.docId = docid;
                         }
@@ -185,11 +234,21 @@ public class ScriptScoreBenchmark {
                 }
 
                 @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
                 public boolean needs_score() {
                     return false;
                 }
 
                 @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
                 public boolean needs_termStats() {
                     return false;
                 }

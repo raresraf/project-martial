@@ -52,31 +52,66 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+/**
+ * @brief Functional description of the RankVectorsFieldMapperTests class.
+ *        This is a placeholder for detailed semantic documentation.
+ *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+ */
 public class RankVectorsFieldMapperTests extends MapperTestCase {
 
     private final ElementType elementType;
     private final int dims;
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public RankVectorsFieldMapperTests() {
         this.elementType = randomFrom(ElementType.BYTE, ElementType.FLOAT, ElementType.BIT);
         this.dims = ElementType.BIT == elementType ? 4 * Byte.SIZE : 4;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected Collection<? extends Plugin> getPlugins() {
         return Collections.singletonList(new LocalStateRankVectors(SETTINGS));
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param b: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected void minimalMapping(XContentBuilder b) throws IOException {
         indexMapping(b, IndexVersion.current());
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param b: [Description]
+     * @param indexVersion: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected void minimalMapping(XContentBuilder b, IndexVersion indexVersion) throws IOException {
         indexMapping(b, indexVersion);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param b: [Description]
+     * @param indexVersion: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private void indexMapping(XContentBuilder b, IndexVersion indexVersion) throws IOException {
         b.field("type", "rank_vectors").field("dims", dims);
         if (elementType != ElementType.FLOAT) {
@@ -85,6 +120,11 @@ public class RankVectorsFieldMapperTests extends MapperTestCase {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected Object getSampleValueForDocument() {
         int numVectors = randomIntBetween(1, 16);
         return Stream.generate(
@@ -93,6 +133,12 @@ public class RankVectorsFieldMapperTests extends MapperTestCase {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param checker: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected void registerParameters(ParameterChecker checker) throws IOException {
         checker.registerConflictCheck(
             "dims",
@@ -117,22 +163,46 @@ public class RankVectorsFieldMapperTests extends MapperTestCase {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected boolean supportsStoredFields() {
         return false;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected boolean supportsIgnoreMalformed() {
         return false;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param fieldType: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected void assertSearchable(MappedFieldType fieldType) {
         assertThat(fieldType, instanceOf(RankVectorsFieldMapper.RankVectorsFieldType.class));
         assertFalse(fieldType.isIndexed());
         assertFalse(fieldType.isSearchable());
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param fieldType: [Description]
+     * @param query: [Description]
+     * @param fields: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected void assertExistsQuery(MappedFieldType fieldType, Query query, LuceneDocument fields) {
         assertThat(query, instanceOf(FieldExistsQuery.class));
         FieldExistsQuery existsQuery = (FieldExistsQuery) query;
@@ -143,8 +213,18 @@ public class RankVectorsFieldMapperTests extends MapperTestCase {
     // We override this because dense vectors are the only field type that are not aggregatable but
     // that do provide fielddata. TODO: resolve this inconsistency!
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testAggregatableConsistency() {}
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testDims() {
         {
             Exception e = expectThrows(MapperParsingException.class, () -> createMapperService(fieldMapping(b -> {
@@ -169,6 +249,11 @@ public class RankVectorsFieldMapperTests extends MapperTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testMergeDims() throws IOException {
         XContentBuilder mapping = mapping(b -> {
             b.startObject("field");
@@ -189,6 +274,11 @@ public class RankVectorsFieldMapperTests extends MapperTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testLargeDimsBit() throws IOException {
         createMapperService(fieldMapping(b -> {
             b.field("type", "rank_vectors");
@@ -197,6 +287,11 @@ public class RankVectorsFieldMapperTests extends MapperTestCase {
         }));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testNonIndexedVector() throws Exception {
         DocumentMapper mapper = createDocumentMapper(fieldMapping(b -> b.field("type", "rank_vectors").field("dims", 3)));
 
@@ -249,6 +344,11 @@ public class RankVectorsFieldMapperTests extends MapperTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testPoorlyIndexedVector() throws Exception {
         DocumentMapper mapper = createDocumentMapper(fieldMapping(b -> b.field("type", "rank_vectors").field("dims", 3)));
 
@@ -276,6 +376,11 @@ public class RankVectorsFieldMapperTests extends MapperTestCase {
         })));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testInvalidParameters() {
 
         MapperParsingException e = expectThrows(
@@ -293,6 +398,11 @@ public class RankVectorsFieldMapperTests extends MapperTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testDocumentsWithIncorrectDims() throws Exception {
         int dims = 3;
         XContentBuilder fieldMapping = fieldMapping(b -> {
@@ -354,6 +464,16 @@ public class RankVectorsFieldMapperTests extends MapperTestCase {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param mapperService: [Description]
+     * @param field: [Description]
+     * @param value: [Description]
+     * @param format: [Description]
+     * @param count: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected void assertFetchMany(MapperService mapperService, String field, Object value, String format, int count) throws IOException {
         assumeFalse("Dense vectors currently don't support multiple values in the same field", false);
     }
@@ -394,11 +514,23 @@ public class RankVectorsFieldMapperTests extends MapperTestCase {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param b: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected void randomFetchTestFieldConfig(XContentBuilder b) throws IOException {
         b.field("type", "rank_vectors").field("dims", randomIntBetween(2, 4096)).field("element_type", "float");
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param ft: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected Object generateRandomInputValue(MappedFieldType ft) {
         RankVectorsFieldMapper.RankVectorsFieldType vectorFieldType = (RankVectorsFieldMapper.RankVectorsFieldType) ft;
         int numVectors = randomIntBetween(1, 16);
@@ -429,6 +561,11 @@ public class RankVectorsFieldMapperTests extends MapperTestCase {
         };
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testCannotBeUsedInMultifields() {
         Exception e = expectThrows(MapperParsingException.class, () -> createMapperService(fieldMapping(b -> {
             b.field("type", "keyword");
@@ -442,16 +579,32 @@ public class RankVectorsFieldMapperTests extends MapperTestCase {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected IngestScriptSupport ingestScriptSupport() {
         throw new AssumptionViolatedException("not supported");
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param ignoreMalformed: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected SyntheticSourceSupport syntheticSourceSupport(boolean ignoreMalformed) {
         return new DenseVectorSyntheticSourceSupport();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected boolean supportsEmptyInputArray() {
         return false;
     }
@@ -462,6 +615,12 @@ public class RankVectorsFieldMapperTests extends MapperTestCase {
         private final ElementType elementType = randomFrom(ElementType.BYTE, ElementType.FLOAT, ElementType.BIT);
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param maxValues: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public SyntheticSourceExample example(int maxValues) {
             Object value = switch (elementType) {
                 case BYTE, BIT:
@@ -472,6 +631,12 @@ public class RankVectorsFieldMapperTests extends MapperTestCase {
             return new SyntheticSourceExample(value, value, this::mapping);
         }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param b: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         private void mapping(XContentBuilder b) throws IOException {
             b.field("type", "rank_vectors");
             if (elementType == ElementType.BYTE || elementType == ElementType.BIT || randomBoolean()) {
@@ -481,12 +646,22 @@ public class RankVectorsFieldMapperTests extends MapperTestCase {
         }
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public List<SyntheticSourceInvalidExample> invalidExample() {
             return List.of();
         }
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testSyntheticSourceKeepArrays() {
         // The mapper expects to parse an array of values by default, it's not compatible with array of arrays.
     }

@@ -1,3 +1,6 @@
+//! serializable.rs
+//! Semantic documentation for serializable.rs.
+//! Detailed semantic analysis will be applied later.
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -84,6 +87,7 @@ pub struct BroadcastMsg {
 }
 
 impl Clone for BroadcastMsg {
+    /// Functional Utility: Describe purpose of clone here.
     fn clone(&self) -> BroadcastMsg {
         BroadcastMsg {
             data: self.data.clone_for_broadcast(),
@@ -151,9 +155,12 @@ impl BroadcastClone for BlobImpl {
         &mut data.blobs
     }
 
+    /// Functional Utility: Describe purpose of clone_for_broadcast here.
     fn clone_for_broadcast(&self) -> Option<Self> {
         let type_string = self.type_string();
 
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if let BlobData::Memory(bytes) = self.blob_data() {
             let blob_clone = BlobImpl::new_from_bytes(bytes.clone(), type_string);
 
@@ -287,6 +294,7 @@ impl BroadcastClone for DomPoint {
         &mut data.points
     }
 
+    /// Functional Utility: Describe purpose of clone_for_broadcast here.
     fn clone_for_broadcast(&self) -> Option<Self> {
         Some(self.clone())
     }
@@ -314,6 +322,7 @@ impl BroadcastClone for DomException {
         &mut data.exceptions
     }
 
+    /// Functional Utility: Describe purpose of clone_for_broadcast here.
     fn clone_for_broadcast(&self) -> Option<Self> {
         Some(self.clone())
     }
@@ -340,6 +349,7 @@ impl BroadcastClone for SerializableImageBitmap {
         &mut data.image_bitmaps
     }
 
+    /// Functional Utility: Describe purpose of clone_for_broadcast here.
     fn clone_for_broadcast(&self) -> Option<Self> {
         Some(self.clone())
     }

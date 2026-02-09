@@ -62,6 +62,8 @@ export class PromptLinkProvider extends Disposable implements LinkProvider {
 		const links: ILink[] = references
 			.filter((reference) => {
 				const { errorCondition, linkRange } = reference;
+				// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+				// Invariant: State condition that holds true before and after each iteration/execution
 				if (!errorCondition && linkRange) {
 					return true;
 				}

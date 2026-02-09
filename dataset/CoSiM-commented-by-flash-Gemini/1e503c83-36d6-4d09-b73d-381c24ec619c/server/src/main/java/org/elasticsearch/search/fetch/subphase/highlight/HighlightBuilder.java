@@ -122,7 +122,7 @@ public final class HighlightBuilder extends AbstractHighlighterBuilder<Highlight
      */
     public HighlightBuilder(StreamInput in) throws IOException {
         super(in);
-        if (in.getTransportVersion().before(TransportVersions.V_8_14_0)) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (in.getTransportVersion().before(TransportVersions.V_8_14_0)) {
             encoder(in.readOptionalString());
         }
         useExplicitFieldOrder(in.readBoolean());
@@ -132,7 +132,7 @@ public final class HighlightBuilder extends AbstractHighlighterBuilder<Highlight
 
     @Override
     protected void doWriteTo(StreamOutput out) throws IOException {
-        if (out.getTransportVersion().before(TransportVersions.V_8_14_0)) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (out.getTransportVersion().before(TransportVersions.V_8_14_0)) {
             out.writeOptionalString(encoder);
         }
         out.writeBoolean(useExplicitFieldOrder);
@@ -238,10 +238,10 @@ public final class HighlightBuilder extends AbstractHighlighterBuilder<Highlight
 
         // create field options
         Collection<SearchHighlightContext.Field> fieldOptions = new ArrayList<>();
-        for (Field field : this.fields) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (Field field : this.fields) {
             final SearchHighlightContext.FieldOptions.Builder fieldOptionsBuilder = new SearchHighlightContext.FieldOptions.Builder();
             fieldOptionsBuilder.fragmentOffset(field.fragmentOffset);
-            if (field.matchedFields != null) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (field.matchedFields != null) {
                 Set<String> matchedFields = Sets.newHashSetWithExpectedSize(field.matchedFields.length);
                 Collections.addAll(matchedFields, field.matchedFields);
                 fieldOptionsBuilder.matchedFields(matchedFields);
@@ -263,66 +263,69 @@ public final class HighlightBuilder extends AbstractHighlighterBuilder<Highlight
      * @throws IOException on errors parsing any optional nested highlight query
      */
     @SuppressWarnings({ "rawtypes", "unchecked" })
+    /**
+     * @brief [Functional Utility for transferOptions]: Describe purpose here.
+     * @throws IOException: [Description]\n     */
     private static void transferOptions(
         AbstractHighlighterBuilder highlighterBuilder,
         SearchHighlightContext.FieldOptions.Builder targetOptionsBuilder,
         SearchExecutionContext context
     ) throws IOException {
-        if (highlighterBuilder.preTags != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (highlighterBuilder.preTags != null) {
             targetOptionsBuilder.preTags(highlighterBuilder.preTags);
         }
-        if (highlighterBuilder.postTags != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (highlighterBuilder.postTags != null) {
             targetOptionsBuilder.postTags(highlighterBuilder.postTags);
         }
-        if (highlighterBuilder.order != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (highlighterBuilder.order != null) {
             targetOptionsBuilder.scoreOrdered(highlighterBuilder.order == Order.SCORE);
         }
-        if (highlighterBuilder.highlightFilter != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (highlighterBuilder.highlightFilter != null) {
             targetOptionsBuilder.highlightFilter(highlighterBuilder.highlightFilter);
         }
-        if (highlighterBuilder.fragmentSize != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (highlighterBuilder.fragmentSize != null) {
             targetOptionsBuilder.fragmentCharSize(highlighterBuilder.fragmentSize);
         }
-        if (highlighterBuilder.numOfFragments != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (highlighterBuilder.numOfFragments != null) {
             targetOptionsBuilder.numberOfFragments(highlighterBuilder.numOfFragments);
         }
-        if (highlighterBuilder.encoder != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (highlighterBuilder.encoder != null) {
             targetOptionsBuilder.encoder(highlighterBuilder.encoder);
         }
-        if (highlighterBuilder.requireFieldMatch != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (highlighterBuilder.requireFieldMatch != null) {
             targetOptionsBuilder.requireFieldMatch(highlighterBuilder.requireFieldMatch);
         }
-        if (highlighterBuilder.maxAnalyzedOffset != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (highlighterBuilder.maxAnalyzedOffset != null) {
             targetOptionsBuilder.maxAnalyzedOffset(highlighterBuilder.maxAnalyzedOffset);
         }
-        if (highlighterBuilder.boundaryScannerType != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (highlighterBuilder.boundaryScannerType != null) {
             targetOptionsBuilder.boundaryScannerType(highlighterBuilder.boundaryScannerType);
         }
-        if (highlighterBuilder.boundaryMaxScan != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (highlighterBuilder.boundaryMaxScan != null) {
             targetOptionsBuilder.boundaryMaxScan(highlighterBuilder.boundaryMaxScan);
         }
-        if (highlighterBuilder.boundaryChars != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (highlighterBuilder.boundaryChars != null) {
             targetOptionsBuilder.boundaryChars(highlighterBuilder.boundaryChars);
         }
-        if (highlighterBuilder.boundaryScannerLocale != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (highlighterBuilder.boundaryScannerLocale != null) {
             targetOptionsBuilder.boundaryScannerLocale(highlighterBuilder.boundaryScannerLocale);
         }
-        if (highlighterBuilder.highlighterType != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (highlighterBuilder.highlighterType != null) {
             targetOptionsBuilder.highlighterType(highlighterBuilder.highlighterType);
         }
-        if (highlighterBuilder.fragmenter != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (highlighterBuilder.fragmenter != null) {
             targetOptionsBuilder.fragmenter(highlighterBuilder.fragmenter);
         }
-        if (highlighterBuilder.noMatchSize != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (highlighterBuilder.noMatchSize != null) {
             targetOptionsBuilder.noMatchSize(highlighterBuilder.noMatchSize);
         }
-        if (highlighterBuilder.phraseLimit != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (highlighterBuilder.phraseLimit != null) {
             targetOptionsBuilder.phraseLimit(highlighterBuilder.phraseLimit);
         }
-        if (highlighterBuilder.options != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (highlighterBuilder.options != null) {
             targetOptionsBuilder.options(highlighterBuilder.options);
         }
-        if (highlighterBuilder.highlightQuery != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (highlighterBuilder.highlightQuery != null) {
             targetOptionsBuilder.highlightQuery(highlighterBuilder.highlightQuery.toQuery(context));
         }
     }
@@ -332,24 +335,24 @@ public final class HighlightBuilder extends AbstractHighlighterBuilder<Highlight
         // first write common options
         commonOptionsToXContent(builder);
         // special options for top-level highlighter
-        if (fields.size() > 0) {
-            if (useExplicitFieldOrder) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (fields.size() > 0) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (useExplicitFieldOrder) {
                 builder.startArray(FIELDS_FIELD.getPreferredName());
-            } else {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            } else {
                 builder.startObject(FIELDS_FIELD.getPreferredName());
             }
-            for (Field field : fields) {
-                if (useExplicitFieldOrder) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            for (Field field : fields) {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                if (useExplicitFieldOrder) {
                     builder.startObject();
                 }
                 field.innerXContent(builder);
-                if (useExplicitFieldOrder) {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                if (useExplicitFieldOrder) {
                     builder.endObject();
                 }
             }
-            if (useExplicitFieldOrder) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (useExplicitFieldOrder) {
                 builder.endArray();
-            } else {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            } else {
                 builder.endObject();
             }
         }
@@ -368,11 +371,11 @@ public final class HighlightBuilder extends AbstractHighlighterBuilder<Highlight
     @Override
     public HighlightBuilder rewrite(QueryRewriteContext ctx) throws IOException {
         QueryBuilder highlightQuery = this.highlightQuery;
-        if (highlightQuery != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (highlightQuery != null) {
             highlightQuery = this.highlightQuery.rewrite(ctx);
         }
         List<Field> fields = Rewriteable.rewrite(this.fields, ctx);
-        if (highlightQuery == this.highlightQuery && fields == this.fields) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (highlightQuery == this.highlightQuery && fields == this.fields) {
             return this;
         }
         return new HighlightBuilder(this, highlightQuery, fields);
@@ -449,10 +452,10 @@ public final class HighlightBuilder extends AbstractHighlighterBuilder<Highlight
             // write common options
             commonOptionsToXContent(builder);
             // write special field-highlighter options
-            if (fragmentOffset != -1) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (fragmentOffset != -1) {
                 builder.field(FRAGMENT_OFFSET_FIELD.getPreferredName(), fragmentOffset);
             }
-            if (matchedFields != null) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (matchedFields != null) {
                 builder.array(MATCHED_FIELDS_FIELD.getPreferredName(), matchedFields);
             }
             builder.endObject();
@@ -472,9 +475,9 @@ public final class HighlightBuilder extends AbstractHighlighterBuilder<Highlight
 
         @Override
         public Field rewrite(QueryRewriteContext ctx) throws IOException {
-            if (highlightQuery != null) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (highlightQuery != null) {
                 QueryBuilder rewrite = highlightQuery.rewrite(ctx);
-                if (rewrite != highlightQuery) {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                if (rewrite != highlightQuery) {
                     return new Field(this, rewrite);
                 }
             }
@@ -496,7 +499,7 @@ public final class HighlightBuilder extends AbstractHighlighterBuilder<Highlight
         }
 
         public static Order fromString(String order) {
-            if (order.toUpperCase(Locale.ROOT).equals(SCORE.name())) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (order.toUpperCase(Locale.ROOT).equals(SCORE.name())) {
                 return Order.SCORE;
             }
             return NONE;

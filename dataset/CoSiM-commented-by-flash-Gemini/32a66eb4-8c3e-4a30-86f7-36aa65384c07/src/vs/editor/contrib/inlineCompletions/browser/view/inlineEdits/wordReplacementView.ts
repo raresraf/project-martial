@@ -56,6 +56,8 @@ export class WordReplacementView extends Disposable implements IInlineEditsView 
 		const lineToTokenize = edit.apply(origLine);
 		const t = tm.tokenization.tokenizeLinesAt(this._edit.range.startLineNumber, [lineToTokenize])?.[0];
 		let tokens: LineTokens;
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (t) {
 			tokens = TokenArray.fromLineTokens(t).slice(edit.getRangeAfterApply()).toLineTokens(this._edit.text, this._languageService.languageIdCodec);
 		} else {
@@ -75,6 +77,8 @@ export class WordReplacementView extends Disposable implements IInlineEditsView 
 		const widgetStart = this._start.read(reader);
 		const widgetEnd = this._end.read(reader);
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!widgetStart || !widgetEnd || widgetStart.x > widgetEnd.x) {
 			return undefined;
 		}
@@ -94,11 +98,15 @@ export class WordReplacementView extends Disposable implements IInlineEditsView 
 		let textLengthDelta = 0;
 		const editLocations = this._editLocations.read(reader);
 		const innerEdits = [];
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		for (const editLocation of editLocations) {
 			const editStart = editLocation.start.read(reader);
 			const editEnd = editLocation.end.read(reader);
 			const edit = editLocation.edit;
 
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (!editStart || !editEnd || editStart.x > editEnd.x) {
 				return;
 			}
@@ -130,6 +138,8 @@ export class WordReplacementView extends Disposable implements IInlineEditsView 
 	}, [
 		derived(reader => {
 			const layout = mapOutFalsy(this._layout).read(reader);
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (!layout) {
 				return [];
 			}
@@ -140,6 +150,8 @@ export class WordReplacementView extends Disposable implements IInlineEditsView 
 			let contentWidth = this._editor.contentWidth.read(reader);
 			const contentHeight = this._editor.editor.getContentHeight();
 
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (scrollLeft === 0) {
 				contentLeft -= layoutProps.padding;
 				contentWidth += layoutProps.padding;
@@ -288,6 +300,8 @@ export class LineReplacementView extends Disposable implements IInlineEditsView 
 
 		const textModel = this._editor.model.get()!;
 		const startLineNumber = this._modifiedRange.startLineNumber;
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		for (let i = 0; i < this._modifiedRange.length; i++) {
 			const line = document.createElement('div');
 			const lineNumber = startLineNumber + i;
@@ -295,6 +309,8 @@ export class LineReplacementView extends Disposable implements IInlineEditsView 
 
 			const t = textModel.tokenization.tokenizeLinesAt(lineNumber, [modLine])?.[0];
 			let tokens: LineTokens;
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (t) {
 				tokens = TokenArray.fromLineTokens(t).toLineTokens(modLine, this._languageService.languageIdCodec);
 			} else {
@@ -302,6 +318,8 @@ export class LineReplacementView extends Disposable implements IInlineEditsView 
 			}
 
 			const decorations = [];
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			for (const modified of modifiedBubbles.filter(b => b.startLineNumber === lineNumber)) {
 				const validatedEndColumn = Math.min(modified.endColumn, modLine.length + 1);
 				decorations.push(new InlineDecoration(new Range(1, modified.startColumn, 1, validatedEndColumn), 'inlineCompletions-modified-bubble', InlineDecorationType.Regular));
@@ -362,10 +380,14 @@ export class LineReplacementView extends Disposable implements IInlineEditsView 
 
 		// Add ViewZone if needed
 		const shouldShowViewZone = this._editor.editor.getOption(EditorOption.inlineSuggest).edits.codeShifting;
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (shouldShowViewZone) {
 			const viewZoneHeight = lowerBackground.height + 2 * PADDING;
 			const viewZoneLineNumber = this._originalRange.endLineNumberExclusive;
 			const activeViewZone = this._viewZoneInfo.get();
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (!activeViewZone || activeViewZone.lineNumber !== viewZoneLineNumber || activeViewZone.height !== viewZoneHeight) {
 				this._viewZoneInfo.set({ height: viewZoneHeight, lineNumber: viewZoneLineNumber }, undefined);
 			}
@@ -389,12 +411,16 @@ export class LineReplacementView extends Disposable implements IInlineEditsView 
 		const viewZoneInfo = this._viewZoneInfo.read(reader);
 		this._editor.editor.changeViewZones((changeAccessor) => {
 			this.removePreviousViewZone(changeAccessor);
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (!viewZoneInfo) { return; }
 			this.addViewZone(viewZoneInfo, changeAccessor);
 		});
 	}).recomputeInitiallyAndOnChange(this._store);
 
 	private removePreviousViewZone(changeAccessor: IViewZoneChangeAccessor) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!this._previousViewZoneInfo) {
 			return;
 		}
@@ -402,6 +428,8 @@ export class LineReplacementView extends Disposable implements IInlineEditsView 
 		changeAccessor.removeZone(this._previousViewZoneInfo.id);
 
 		const cursorLineNumber = this._editor.cursorLineNumber.get();
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (cursorLineNumber !== null && cursorLineNumber >= this._previousViewZoneInfo.lineNumber) {
 			this._editor.editor.setScrollTop(this._editor.scrollTop.get() - this._previousViewZoneInfo.height);
 		}
@@ -417,6 +445,8 @@ export class LineReplacementView extends Disposable implements IInlineEditsView 
 		});
 
 		const cursorLineNumber = this._editor.cursorLineNumber.get();
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (cursorLineNumber !== null && cursorLineNumber >= viewZoneInfo.lineNumber) {
 			this._editor.editor.setScrollTop(this._editor.scrollTop.get() + viewZoneInfo.height);
 		}
@@ -429,6 +459,8 @@ export class LineReplacementView extends Disposable implements IInlineEditsView 
 	}, [
 		derived(reader => {
 			const layout = mapOutFalsy(this._layout).read(reader);
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (!layout) {
 				return [];
 			}
@@ -439,6 +471,8 @@ export class LineReplacementView extends Disposable implements IInlineEditsView 
 			let contentWidth = this._editor.contentWidth.read(reader);
 			const contentHeight = this._editor.editor.getContentHeight();
 
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (scrollLeft === 0) {
 				contentLeft -= layoutProps.padding;
 				contentWidth += layoutProps.padding;
@@ -559,8 +593,12 @@ export class LineReplacementView extends Disposable implements IInlineEditsView 
 
 function rangesToBubbleRanges(ranges: Range[]): Range[] {
 	const result: Range[] = [];
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	while (ranges.length) {
 		let range = ranges.shift()!;
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (range.startLineNumber !== range.endLineNumber) {
 			ranges.push(new Range(range.startLineNumber + 1, 1, range.endLineNumber, range.endColumn));
 			range = new Range(range.startLineNumber, range.startColumn, range.startLineNumber, Number.MAX_SAFE_INTEGER); // TODO: this is not correct
@@ -582,6 +620,8 @@ export class WordInsertView extends Disposable implements IInlineEditsView {
 
 	private readonly _layout = derived(this, reader => {
 		const start = this._start.read(reader);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!start) {
 			return undefined;
 		}
@@ -609,6 +649,8 @@ export class WordInsertView extends Disposable implements IInlineEditsView {
 	}, [
 		derived(reader => {
 			const layout = mapOutFalsy(this._layout).read(reader);
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (!layout) {
 				return [];
 			}

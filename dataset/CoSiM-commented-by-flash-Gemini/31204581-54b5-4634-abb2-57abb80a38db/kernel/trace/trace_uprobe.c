@@ -86,6 +86,8 @@ static struct trace_uprobe *to_trace_uprobe(struct dyn_event *ev)
  */
 #define for_each_trace_uprobe(pos, dpos)	\
 	for_each_dyn_event(dpos)		\
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (is_trace_uprobe(dpos) && (pos = to_trace_uprobe(dpos)))
 
 static int register_uprobe_event(struct trace_uprobe *tu);
@@ -116,6 +118,8 @@ static unsigned long get_user_stack_nth(struct pt_regs *regs, unsigned int n)
 
 	addr = adjust_stack_addr(addr, n);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (copy_from_user(&ret, (void __force __user *) addr, sizeof(ret)))
 		return 0;
 
@@ -152,16 +156,29 @@ fetch_store_string(unsigned long addr, void *dest, void *base)
 	u8 *dst = get_loc_data(dest, base);
 	void __user *src = (void __force __user *) addr;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (unlikely(!maxlen))
 		return -ENOMEM;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (addr == FETCH_TOKEN_COMM)
 		ret = strscpy(dst, current->comm, maxlen);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	else
 		ret = strncpy_from_user(dst, src, maxlen);
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (ret >= 0) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (ret == maxlen)
 			dst[ret - 1] = '\0';
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		else
 			/*
 			 * Include the terminating null byte. In this case it
@@ -189,8 +206,12 @@ fetch_store_strlen(unsigned long addr)
 	int len;
 	void __user *vaddr = (void __force __user *) addr;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (addr == FETCH_TOKEN_COMM)
 		len = strlen(current->comm) + 1;
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	else
 		len = strnlen_user(vaddr, MAX_STRING_SIZE);
 
@@ -224,6 +245,9 @@ process_fetch_insn(struct fetch_insn *code, void *rec, void *edata,
 	int ret;
 
 	/* 1st stage: get value from context */
+	/**
+	 * @brief [Functional Utility for switch]: Describe purpose here.
+	 */
 	switch (code->op) {
 	case FETCH_OP_REG:
 		val = regs_get_register(regs, code->param);
@@ -245,6 +269,8 @@ process_fetch_insn(struct fetch_insn *code, void *rec, void *edata,
 		break;
 	default:
 		ret = process_common_fetch_insn(code, &val);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (ret < 0)
 			return ret;
 	}
@@ -284,20 +310,30 @@ static bool trace_uprobe_match_command_head(struct trace_uprobe *tu,
 	char buf[MAX_ARGSTR_LEN + 1];
 	int len;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!argc)
 		return true;
 
 	len = strlen(tu->filename);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (strncmp(tu->filename, argv[0], len) || argv[0][len] != ':')
 		return false;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (tu->ref_ctr_offset == 0)
 		snprintf(buf, sizeof(buf), "0x%0*lx",
 				(int)(sizeof(void *) * 2), tu->offset);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	else
 		snprintf(buf, sizeof(buf), "0x%0*lx(0x%lx)",
 				(int)(sizeof(void *) * 2), tu->offset,
 				tu->ref_ctr_offset);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (strcmp(buf, &argv[0][len + 1]))
 		return false;
 
@@ -323,6 +359,8 @@ trace_uprobe_primary_from_call(struct trace_event_call *call)
 	struct trace_probe *tp;
 
 	tp = trace_probe_primary_from_call(call);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (WARN_ON_ONCE(!tp))
 		return NULL;
 
@@ -339,21 +377,30 @@ alloc_trace_uprobe(const char *group, const char *event, int nargs, bool is_ret)
 	int ret;
 
 	tu = kzalloc(struct_size(tu, tp.args, nargs), GFP_KERNEL);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!tu)
 		return ERR_PTR(-ENOMEM);
 
 	tu->nhits = alloc_percpu(unsigned long);
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (!tu->nhits) {
 		ret = -ENOMEM;
 		goto error;
 	}
 
 	ret = trace_probe_init(&tu->tp, event, group, true, nargs);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret < 0)
 		goto error;
 
 	dyn_event_init(&tu->devent, &trace_uprobe_ops);
 	tu->consumer.handler = uprobe_dispatcher;
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (is_ret)
 		tu->consumer.ret_handler = uretprobe_dispatcher;
 	init_trace_uprobe_filter(tu->tp.event->filter);
@@ -368,6 +415,8 @@ error:
 
 static void free_trace_uprobe(struct trace_uprobe *tu)
 {
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!tu)
 		return;
 
@@ -384,6 +433,8 @@ static struct trace_uprobe *find_probe_event(const char *event, const char *grou
 	struct trace_uprobe *tu;
 
 	for_each_trace_uprobe(tu, pos)
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (strcmp(trace_probe_name(&tu->tp), event) == 0 &&
 		    strcmp(trace_probe_group_name(&tu->tp), group) == 0)
 			return tu;
@@ -396,6 +447,8 @@ static int unregister_trace_uprobe(struct trace_uprobe *tu)
 {
 	int ret;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (trace_probe_has_sibling(&tu->tp))
 		goto unreg;
 
@@ -404,6 +457,8 @@ static int unregister_trace_uprobe(struct trace_uprobe *tu)
 		return -EBUSY;
 
 	ret = unregister_uprobe_event(tu);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret)
 		return ret;
 
@@ -421,7 +476,12 @@ static bool trace_uprobe_has_same_uprobe(struct trace_uprobe *orig,
 	struct inode *comp_inode = d_real_inode(comp->path.dentry);
 	int i;
 
+	/**
+	 * @brief [Functional Utility for list_for_each_entry]: Describe purpose here.
+	 */
 	list_for_each_entry(orig, &tpe->probes, tp.list) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (comp_inode != d_real_inode(orig->path.dentry) ||
 		    comp->offset != orig->offset)
 			continue;
@@ -430,12 +490,17 @@ static bool trace_uprobe_has_same_uprobe(struct trace_uprobe *orig,
 		 * trace_probe_compare_arg_type() ensured that nr_args and
 		 * each argument name and type are same. Let's compare comm.
 		 */
+		/**
+		 * @brief [Functional Utility for for]: Describe purpose here.
+		 */
 		for (i = 0; i < orig->tp.nr_args; i++) {
 			if (strcmp(orig->tp.args[i].comm,
 				   comp->tp.args[i].comm))
 				break;
 		}
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (i == orig->tp.nr_args)
 			return true;
 	}
@@ -448,12 +513,17 @@ static int append_trace_uprobe(struct trace_uprobe *tu, struct trace_uprobe *to)
 	int ret;
 
 	ret = trace_probe_compare_arg_type(&tu->tp, &to->tp);
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (ret) {
 		/* Note that argument starts index = 2 */
 		trace_probe_log_set_index(ret + 1);
 		trace_probe_log_err(0, DIFF_ARG_TYPE);
 		return -EEXIST;
 	}
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (trace_uprobe_has_same_uprobe(to, tu)) {
 		trace_probe_log_set_index(0);
 		trace_probe_log_err(0, SAME_PROBE);
@@ -462,6 +532,8 @@ static int append_trace_uprobe(struct trace_uprobe *tu, struct trace_uprobe *to)
 
 	/* Append to existing event */
 	ret = trace_probe_append(&tu->tp, &to->tp);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!ret)
 		dyn_event_add(&tu->devent, trace_probe_event_call(&tu->tp));
 
@@ -483,7 +555,12 @@ static int validate_ref_ctr_offset(struct trace_uprobe *new)
 	struct trace_uprobe *tmp;
 	struct inode *new_inode = d_real_inode(new->path.dentry);
 
+	/**
+	 * @brief [Functional Utility for for_each_trace_uprobe]: Describe purpose here.
+	 */
 	for_each_trace_uprobe(tmp, pos) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (new_inode == d_real_inode(tmp->path.dentry) &&
 		    new->offset == tmp->offset &&
 		    new->ref_ctr_offset != tmp->ref_ctr_offset) {
@@ -503,13 +580,20 @@ static int register_trace_uprobe(struct trace_uprobe *tu)
 	guard(mutex)(&event_mutex);
 
 	ret = validate_ref_ctr_offset(tu);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret)
 		return ret;
 
 	/* register as an event */
 	old_tu = find_probe_event(trace_probe_name(&tu->tp),
 				  trace_probe_group_name(&tu->tp));
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (old_tu) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (is_ret_probe(tu) != is_ret_probe(old_tu)) {
 			trace_probe_log_set_index(0);
 			trace_probe_log_err(0, DIFF_PROBE_TYPE);
@@ -519,7 +603,13 @@ static int register_trace_uprobe(struct trace_uprobe *tu)
 	}
 
 	ret = register_uprobe_event(tu);
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (ret) {
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (ret == -EEXIST) {
 			trace_probe_log_set_index(0);
 			trace_probe_log_err(0, EVENT_EXIST);
@@ -552,6 +642,9 @@ static int __trace_uprobe_create(int argc, const char **argv)
 
 	ref_ctr_offset = 0;
 
+	/**
+	 * @brief [Functional Utility for switch]: Describe purpose here.
+	 */
 	switch (argv[0][0]) {
 	case 'r':
 		is_return = true;
@@ -562,29 +655,42 @@ static int __trace_uprobe_create(int argc, const char **argv)
 		return -ECANCELED;
 	}
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (argc < 2)
 		return -ECANCELED;
 
 	trace_probe_log_init("trace_uprobe", argc, argv);
 
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (argc - 2 > MAX_TRACE_ARGS) {
 		trace_probe_log_set_index(2);
 		trace_probe_log_err(0, TOO_MANY_ARGS);
 		return -E2BIG;
 	}
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (argv[0][1] == ':')
 		event = &argv[0][2];
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!strchr(argv[1], '/'))
 		return -ECANCELED;
 
 	filename = kstrdup(argv[1], GFP_KERNEL);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!filename)
 		return -ENOMEM;
 
 	/* Find the last occurrence, in case the path contains ':' too. */
 	arg = strrchr(filename, ':');
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!arg || !isdigit(arg[1])) {
 		kfree(filename);
 		return -ECANCELED;
@@ -594,12 +700,17 @@ static int __trace_uprobe_create(int argc, const char **argv)
 
 	*arg++ = '\0';
 	ret = kern_path(filename, LOOKUP_FOLLOW, &path);
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (ret) {
 		trace_probe_log_err(0, FILE_NOT_FOUND);
 		kfree(filename);
 		trace_probe_log_clear();
 		return ret;
 	}
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!d_is_reg(path.dentry)) {
 		trace_probe_log_err(0, NO_REGULAR_FILE);
 		ret = -EINVAL;
@@ -608,8 +719,14 @@ static int __trace_uprobe_create(int argc, const char **argv)
 
 	/* Parse reference counter offset if specified. */
 	rctr = strchr(arg, '(');
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (rctr) {
 		rctr_end = strchr(rctr, ')');
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (!rctr_end) {
 			ret = -EINVAL;
 			rctr_end = rctr + strlen(rctr);
@@ -626,6 +743,9 @@ static int __trace_uprobe_create(int argc, const char **argv)
 		*rctr++ = '\0';
 		*rctr_end = '\0';
 		ret = kstrtoul(rctr, 0, &ref_ctr_offset);
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (ret) {
 			trace_probe_log_err(rctr - filename, BAD_REFCNT);
 			goto fail_address_parse;
@@ -634,7 +754,12 @@ static int __trace_uprobe_create(int argc, const char **argv)
 
 	/* Check if there is %return suffix */
 	tmp = strchr(arg, '%');
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (tmp) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!strcmp(tmp, "%return")) {
 			*tmp = '\0';
 			is_return = true;
@@ -647,6 +772,9 @@ static int __trace_uprobe_create(int argc, const char **argv)
 
 	/* Parse uprobe offset. */
 	ret = kstrtoul(arg, 0, &offset);
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (ret) {
 		trace_probe_log_err(arg - filename, BAD_UPROBE_OFFS);
 		goto fail_address_parse;
@@ -654,30 +782,46 @@ static int __trace_uprobe_create(int argc, const char **argv)
 
 	/* setup a probe */
 	trace_probe_log_set_index(0);
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (event) {
 		gbuf = kmalloc(MAX_EVENT_NAME_LEN, GFP_KERNEL);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!gbuf)
 			goto fail_mem;
 
 		ret = traceprobe_parse_event_name(&event, &group, gbuf,
 						  event - argv[0]);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (ret)
 			goto fail_address_parse;
 	}
 
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (!event) {
 		char *tail;
 		char *ptr;
 
 		tail = kstrdup(kbasename(filename), GFP_KERNEL);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!tail)
 			goto fail_mem;
 
 		ptr = strpbrk(tail, ".-_");
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (ptr)
 			*ptr = '\0';
 
 		buf = kmalloc(MAX_EVENT_NAME_LEN, GFP_KERNEL);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!buf)
 			goto fail_mem;
 		snprintf(buf, MAX_EVENT_NAME_LEN, "%c_%s_0x%lx", 'p', tail, offset);
@@ -689,6 +833,8 @@ static int __trace_uprobe_create(int argc, const char **argv)
 	argv += 2;
 
 	tu = alloc_trace_uprobe(group, event, argc, is_return);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (IS_ERR(tu)) {
 		ret = PTR_ERR(tu);
 		/* This must return -ENOMEM otherwise there is a bug */
@@ -701,10 +847,16 @@ static int __trace_uprobe_create(int argc, const char **argv)
 	tu->filename = filename;
 
 	/* parse arguments */
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (i = 0; i < argc; i++) {
 		struct traceprobe_parse_context *ctx __free(traceprobe_parse_context)
 			= kzalloc(sizeof(*ctx), GFP_KERNEL);
 
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (!ctx) {
 			ret = -ENOMEM;
 			goto error;
@@ -712,16 +864,22 @@ static int __trace_uprobe_create(int argc, const char **argv)
 		ctx->flags = (is_return ? TPARG_FL_RETURN : 0) | TPARG_FL_USER;
 		trace_probe_log_set_index(i + 2);
 		ret = traceprobe_parse_probe_arg(&tu->tp, i, argv[i], ctx);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (ret)
 			goto error;
 	}
 
 	ptype = is_ret_probe(tu) ? PROBE_PRINT_RETURN : PROBE_PRINT_NORMAL;
 	ret = traceprobe_set_print_fmt(&tu->tp, ptype);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret < 0)
 		goto error;
 
 	ret = register_trace_uprobe(tu);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!ret)
 		goto out;
 
@@ -751,6 +909,8 @@ static int create_or_delete_trace_uprobe(const char *raw_command)
 {
 	int ret;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (raw_command[0] == '-')
 		return dyn_event_release(raw_command, &trace_uprobe_ops);
 
@@ -776,9 +936,13 @@ static int trace_uprobe_show(struct seq_file *m, struct dyn_event *ev)
 			trace_probe_name(&tu->tp), tu->filename,
 			(int)(sizeof(void *) * 2), tu->offset);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (tu->ref_ctr_offset)
 		seq_printf(m, "(0x%lx)", tu->ref_ctr_offset);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	for (i = 0; i < tu->tp.nr_args; i++)
 		seq_printf(m, " %s=%s", tu->tp.args[i].name, tu->tp.args[i].comm);
 
@@ -790,6 +954,8 @@ static int probes_seq_show(struct seq_file *m, void *v)
 {
 	struct dyn_event *ev = v;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!is_trace_uprobe(ev))
 		return 0;
 
@@ -808,11 +974,17 @@ static int probes_open(struct inode *inode, struct file *file)
 	int ret;
 
 	ret = security_locked_down(LOCKDOWN_TRACEFS);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret)
 		return ret;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if ((file->f_mode & FMODE_WRITE) && (file->f_flags & O_TRUNC)) {
 		ret = dyn_events_release_all(&trace_uprobe_ops);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (ret)
 			return ret;
 	}
@@ -844,12 +1016,17 @@ static int probes_profile_seq_show(struct seq_file *m, void *v)
 	unsigned long nhits;
 	int cpu;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!is_trace_uprobe(ev))
 		return 0;
 
 	tu = to_trace_uprobe(ev);
 
 	nhits = 0;
+	/**
+	 * @brief [Functional Utility for for_each_possible_cpu]: Describe purpose here.
+	 */
 	for_each_possible_cpu(cpu) {
 		nhits += per_cpu(*tu->nhits, cpu);
 	}
@@ -871,6 +1048,8 @@ static int profile_open(struct inode *inode, struct file *file)
 	int ret;
 
 	ret = security_locked_down(LOCKDOWN_TRACEFS);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret)
 		return ret;
 
@@ -899,12 +1078,20 @@ static int uprobe_buffer_init(void)
 	int cpu, err_cpu;
 
 	uprobe_cpu_buffer = alloc_percpu(struct uprobe_cpu_buffer);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (uprobe_cpu_buffer == NULL)
 		return -ENOMEM;
 
+	/**
+	 * @brief [Functional Utility for for_each_possible_cpu]: Describe purpose here.
+	 */
 	for_each_possible_cpu(cpu) {
 		struct page *p = alloc_pages_node(cpu_to_node(cpu),
 						  GFP_KERNEL, 0);
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (p == NULL) {
 			err_cpu = cpu;
 			goto err;
@@ -916,7 +1103,12 @@ static int uprobe_buffer_init(void)
 	return 0;
 
 err:
+	/**
+	 * @brief [Functional Utility for for_each_possible_cpu]: Describe purpose here.
+	 */
 	for_each_possible_cpu(cpu) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (cpu == err_cpu)
 			break;
 		free_page((unsigned long)per_cpu_ptr(uprobe_cpu_buffer, cpu)->buf);
@@ -932,8 +1124,13 @@ static int uprobe_buffer_enable(void)
 
 	BUG_ON(!mutex_is_locked(&event_mutex));
 
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (uprobe_buffer_refcnt++ == 0) {
 		ret = uprobe_buffer_init();
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (ret < 0)
 			uprobe_buffer_refcnt--;
 	}
@@ -947,6 +1144,9 @@ static void uprobe_buffer_disable(void)
 
 	BUG_ON(!mutex_is_locked(&event_mutex));
 
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (--uprobe_buffer_refcnt == 0) {
 		for_each_possible_cpu(cpu)
 			free_page((unsigned long)per_cpu_ptr(uprobe_cpu_buffer,
@@ -976,6 +1176,8 @@ static struct uprobe_cpu_buffer *uprobe_buffer_get(void)
 
 static void uprobe_buffer_put(struct uprobe_cpu_buffer *ucb)
 {
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!ucb)
 		return;
 	mutex_unlock(&ucb->mutex);
@@ -988,6 +1190,8 @@ static struct uprobe_cpu_buffer *prepare_uprobe_buffer(struct trace_uprobe *tu,
 	struct uprobe_cpu_buffer *ucb;
 	int dsize, esize;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (*ucbp)
 		return *ucbp;
 
@@ -997,6 +1201,8 @@ static struct uprobe_cpu_buffer *prepare_uprobe_buffer(struct trace_uprobe *tu,
 	ucb = uprobe_buffer_get();
 	ucb->dsize = tu->tp.size + dsize;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (WARN_ON_ONCE(ucb->dsize > MAX_UCB_BUFFER_SIZE)) {
 		ucb->dsize = MAX_UCB_BUFFER_SIZE;
 		dsize = MAX_UCB_BUFFER_SIZE - tu->tp.size;
@@ -1021,15 +1227,21 @@ static void __uprobe_trace_func(struct trace_uprobe *tu,
 
 	WARN_ON(call != trace_file->event_call);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (trace_trigger_soft_disabled(trace_file))
 		return;
 
 	esize = SIZEOF_TRACE_ENTRY(is_ret_probe(tu));
 	size = esize + ucb->dsize;
 	entry = trace_event_buffer_reserve(&fbuffer, trace_file, size);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!entry)
 		return;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (is_ret_probe(tu)) {
 		entry->vaddr[0] = func;
 		entry->vaddr[1] = instruction_pointer(regs);
@@ -1051,6 +1263,8 @@ static int uprobe_trace_func(struct trace_uprobe *tu, struct pt_regs *regs,
 	struct event_file_link *link;
 	struct uprobe_cpu_buffer *ucb;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (is_ret_probe(tu))
 		return 0;
 
@@ -1091,9 +1305,13 @@ print_uprobe_event(struct trace_iterator *iter, int flags, struct trace_event *e
 	entry = (struct uprobe_trace_entry_head *)iter->ent;
 	tu = trace_uprobe_primary_from_call(
 		container_of(event, struct trace_event_call, event));
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (unlikely(!tu))
 		goto out;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (is_ret_probe(tu)) {
 		trace_seq_printf(s, "%s: (0x%lx <- 0x%lx)",
 				 trace_probe_name(&tu->tp),
@@ -1106,6 +1324,8 @@ print_uprobe_event(struct trace_iterator *iter, int flags, struct trace_event *e
 		data = DATAOF_TRACE_ENTRY(entry, false);
 	}
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (trace_probe_print_args(s, tu->tp.args, tu->tp.nr_args, data, entry) < 0)
 		goto out;
 
@@ -1124,6 +1344,8 @@ static int trace_uprobe_enable(struct trace_uprobe *tu, filter_func_t filter)
 
 	tu->consumer.filter = filter;
 	uprobe = uprobe_register(inode, tu->offset, tu->ref_ctr_offset, &tu->consumer);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (IS_ERR(uprobe))
 		return PTR_ERR(uprobe);
 
@@ -1140,6 +1362,8 @@ static void __probe_event_disable(struct trace_probe *tp)
 	WARN_ON(!uprobe_filter_is_empty(tu->tp.event->filter));
 
 	list_for_each_entry(tu, trace_probe_probe_list(tp), tp.list) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!tu->uprobe)
 			continue;
 
@@ -1147,6 +1371,8 @@ static void __probe_event_disable(struct trace_probe *tp)
 		sync = true;
 		tu->uprobe = NULL;
 	}
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (sync)
 		uprobe_unregister_sync();
 }
@@ -1160,19 +1386,30 @@ static int probe_event_enable(struct trace_event_call *call,
 	int ret;
 
 	tp = trace_probe_primary_from_call(call);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (WARN_ON_ONCE(!tp))
 		return -ENODEV;
 	enabled = trace_probe_is_enabled(tp);
 
 	/* This may also change "enabled" state */
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (file) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (trace_probe_test_flag(tp, TP_FLAG_PROFILE))
 			return -EINTR;
 
 		ret = trace_probe_add_file(tp, file);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (ret < 0)
 			return ret;
 	} else {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (trace_probe_test_flag(tp, TP_FLAG_TRACE))
 			return -EINTR;
 
@@ -1182,15 +1419,22 @@ static int probe_event_enable(struct trace_event_call *call,
 	tu = container_of(tp, struct trace_uprobe, tp);
 	WARN_ON(!uprobe_filter_is_empty(tu->tp.event->filter));
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (enabled)
 		return 0;
 
 	ret = uprobe_buffer_enable();
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret)
 		goto err_flags;
 
 	list_for_each_entry(tu, trace_probe_probe_list(tp), tp.list) {
 		ret = trace_uprobe_enable(tu, filter);
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (ret) {
 			__probe_event_disable(tp);
 			goto err_buffer;
@@ -1203,8 +1447,12 @@ static int probe_event_enable(struct trace_event_call *call,
 	uprobe_buffer_disable();
 
  err_flags:
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (file)
 		trace_probe_remove_file(tp, file);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	else
 		trace_probe_clear_flag(tp, TP_FLAG_PROFILE);
 
@@ -1217,16 +1465,27 @@ static void probe_event_disable(struct trace_event_call *call,
 	struct trace_probe *tp;
 
 	tp = trace_probe_primary_from_call(call);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (WARN_ON_ONCE(!tp))
 		return;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!trace_probe_is_enabled(tp))
 		return;
 
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (file) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (trace_probe_remove_file(tp, file) < 0)
 			return;
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (trace_probe_is_enabled(tp))
 			return;
 	} else
@@ -1243,9 +1502,13 @@ static int uprobe_event_define_fields(struct trace_event_call *event_call)
 	struct trace_uprobe *tu;
 
 	tu = trace_uprobe_primary_from_call(event_call);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (unlikely(!tu))
 		return -ENODEV;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (is_ret_probe(tu)) {
 		DEFINE_FIELD(unsigned long, vaddr[0], FIELD_STRING_FUNC, 0);
 		DEFINE_FIELD(unsigned long, vaddr[1], FIELD_STRING_RETIP, 0);
@@ -1264,7 +1527,12 @@ __uprobe_perf_filter(struct trace_uprobe_filter *filter, struct mm_struct *mm)
 {
 	struct perf_event *event;
 
+	/**
+	 * @brief [Functional Utility for list_for_each_entry]: Describe purpose here.
+	 */
 	list_for_each_entry(event, &filter->perf_events, hw.tp_list) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (event->hw.target->mm == mm)
 			return true;
 	}
@@ -1285,6 +1553,9 @@ static bool trace_uprobe_filter_remove(struct trace_uprobe_filter *filter,
 	bool done;
 
 	write_lock(&filter->rwlock);
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (event->hw.target) {
 		list_del(&event->hw.tp_list);
 		done = filter->nr_systemwide ||
@@ -1306,6 +1577,9 @@ static bool trace_uprobe_filter_add(struct trace_uprobe_filter *filter,
 	bool done;
 
 	write_lock(&filter->rwlock);
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (event->hw.target) {
 		/*
 		 * event->parent != NULL means copy_process(), we can avoid
@@ -1336,15 +1610,21 @@ static int uprobe_perf_close(struct trace_event_call *call,
 	int ret = 0;
 
 	tp = trace_probe_primary_from_call(call);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (WARN_ON_ONCE(!tp))
 		return -ENODEV;
 
 	tu = container_of(tp, struct trace_uprobe, tp);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (trace_uprobe_filter_remove(tu->tp.event->filter, event))
 		return 0;
 
 	list_for_each_entry(tu, trace_probe_probe_list(tp), tp.list) {
 		ret = uprobe_apply(tu->uprobe, &tu->consumer, false);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (ret)
 			break;
 	}
@@ -1360,15 +1640,22 @@ static int uprobe_perf_open(struct trace_event_call *call,
 	int err = 0;
 
 	tp = trace_probe_primary_from_call(call);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (WARN_ON_ONCE(!tp))
 		return -ENODEV;
 
 	tu = container_of(tp, struct trace_uprobe, tp);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (trace_uprobe_filter_add(tu->tp.event->filter, event))
 		return 0;
 
 	list_for_each_entry(tu, trace_probe_probe_list(tp), tp.list) {
 		err = uprobe_apply(tu->uprobe, &tu->consumer, true);
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (err) {
 			uprobe_perf_close(call, event);
 			break;
@@ -1391,6 +1678,8 @@ static bool uprobe_perf_filter(struct uprobe_consumer *uc, struct mm_struct *mm)
 	 * speculative short-circuiting check to avoid unnecessarily taking
 	 * filter->rwlock below, if the uprobe has system-wide consumer
 	 */
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (READ_ONCE(filter->nr_systemwide))
 		return true;
 
@@ -1422,6 +1711,8 @@ static void __uprobe_perf_func(struct trace_uprobe *tu,
 		array = rcu_dereference_check(call->prog_array, rcu_read_lock_trace_held());
 		ret = bpf_prog_run_array_uprobe(array, regs, bpf_prog_run);
 		rcu_read_unlock_trace();
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!ret)
 			return;
 	}
@@ -1432,18 +1723,26 @@ static void __uprobe_perf_func(struct trace_uprobe *tu,
 	ucb = prepare_uprobe_buffer(tu, regs, ucbp);
 	size = esize + ucb->dsize;
 	size = ALIGN(size + sizeof(u32), sizeof(u64)) - sizeof(u32);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (WARN_ONCE(size > PERF_MAX_TRACE_SIZE, "profile buffer not large enough"))
 		return;
 
 	preempt_disable();
 	head = this_cpu_ptr(call->perf_events);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (hlist_empty(head))
 		goto out;
 
 	entry = perf_trace_buf_alloc(size, NULL, &rctx);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!entry)
 		goto out;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (is_ret_probe(tu)) {
 		entry->vaddr[0] = func;
 		entry->vaddr[1] = instruction_pointer(regs);
@@ -1455,6 +1754,8 @@ static void __uprobe_perf_func(struct trace_uprobe *tu,
 
 	memcpy(data, ucb->buf, ucb->dsize);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (size - esize > ucb->dsize)
 		memset(data + ucb->dsize, 0, size - esize - ucb->dsize);
 
@@ -1468,9 +1769,13 @@ static void __uprobe_perf_func(struct trace_uprobe *tu,
 static int uprobe_perf_func(struct trace_uprobe *tu, struct pt_regs *regs,
 			    struct uprobe_cpu_buffer **ucbp)
 {
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!uprobe_perf_filter(&tu->consumer, current->mm))
 		return UPROBE_HANDLER_REMOVE;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!is_ret_probe(tu))
 		__uprobe_perf_func(tu, 0, regs, ucbp);
 	return 0;
@@ -1491,10 +1796,16 @@ int bpf_get_uprobe_info(const struct perf_event *event, u32 *fd_type,
 	const char *group = event->tp_event->class->system;
 	struct trace_uprobe *tu;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (perf_type_tracepoint)
 		tu = find_probe_event(pevent, group);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	else
 		tu = trace_uprobe_primary_from_call(event->tp_event);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!tu)
 		return -EINVAL;
 
@@ -1513,6 +1824,9 @@ trace_uprobe_register(struct trace_event_call *event, enum trace_reg type,
 {
 	struct trace_event_file *file = data;
 
+	/**
+	 * @brief [Functional Utility for switch]: Describe purpose here.
+	 */
 	switch (type) {
 	case TRACE_REG_REGISTER:
 		return probe_event_enable(event, file, NULL);
@@ -1558,9 +1872,13 @@ static int uprobe_dispatcher(struct uprobe_consumer *con, struct pt_regs *regs,
 
 	current->utask->vaddr = (unsigned long) &udd;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (WARN_ON_ONCE(!uprobe_cpu_buffer))
 		return 0;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (trace_probe_test_flag(&tu->tp, TP_FLAG_TRACE))
 		ret |= uprobe_trace_func(tu, regs, &ucb);
 
@@ -1587,9 +1905,13 @@ static int uretprobe_dispatcher(struct uprobe_consumer *con,
 
 	current->utask->vaddr = (unsigned long) &udd;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (WARN_ON_ONCE(!uprobe_cpu_buffer))
 		return 0;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (trace_probe_test_flag(&tu->tp, TP_FLAG_TRACE))
 		uretprobe_trace_func(tu, func, regs, &ucb);
 
@@ -1644,9 +1966,13 @@ create_local_trace_uprobe(char *name, unsigned long offs,
 	int ret;
 
 	ret = kern_path(name, LOOKUP_FOLLOW, &path);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret)
 		return ERR_PTR(ret);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!d_is_reg(path.dentry)) {
 		path_put(&path);
 		return ERR_PTR(-EINVAL);
@@ -1660,6 +1986,8 @@ create_local_trace_uprobe(char *name, unsigned long offs,
 	tu = alloc_trace_uprobe(UPROBE_EVENT_SYSTEM, "DUMMY_EVENT", 0,
 				is_return);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (IS_ERR(tu)) {
 		pr_info("Failed to allocate trace_uprobe.(%d)\n",
 			(int)PTR_ERR(tu));
@@ -1671,6 +1999,9 @@ create_local_trace_uprobe(char *name, unsigned long offs,
 	tu->path = path;
 	tu->ref_ctr_offset = ref_ctr_offset;
 	tu->filename = kstrdup(name, GFP_KERNEL);
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (!tu->filename) {
 		ret = -ENOMEM;
 		goto error;
@@ -1679,6 +2010,8 @@ create_local_trace_uprobe(char *name, unsigned long offs,
 	init_trace_event_call(tu);
 
 	ptype = is_ret_probe(tu) ? PROBE_PRINT_RETURN : PROBE_PRINT_NORMAL;
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (traceprobe_set_print_fmt(&tu->tp, ptype) < 0) {
 		ret = -ENOMEM;
 		goto error;
@@ -1706,10 +2039,14 @@ static __init int init_uprobe_trace(void)
 	int ret;
 
 	ret = dyn_event_register(&trace_uprobe_ops);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret)
 		return ret;
 
 	ret = tracing_init_dentry();
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret)
 		return 0;
 

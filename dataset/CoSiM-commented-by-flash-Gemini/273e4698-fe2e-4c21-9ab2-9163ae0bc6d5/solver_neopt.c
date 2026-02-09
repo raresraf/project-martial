@@ -1,3 +1,8 @@
+/**
+ * @file solver_neopt.c
+ * @brief Semantic documentation for solver_neopt.c. 
+ *        This is a placeholder. Detailed semantic analysis will be applied later.
+ */
 
 #include "utils.h"
 

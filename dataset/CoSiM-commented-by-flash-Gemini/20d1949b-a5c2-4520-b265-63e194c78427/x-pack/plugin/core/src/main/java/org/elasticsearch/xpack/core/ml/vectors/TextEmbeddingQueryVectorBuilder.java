@@ -36,6 +36,11 @@ import static org.elasticsearch.xcontent.ConstructingObjectParser.optionalConstr
 import static org.elasticsearch.xpack.core.ClientHelper.ML_ORIGIN;
 import static org.elasticsearch.xpack.core.ClientHelper.executeAsyncWithOrigin;
 
+ /**
+  * @brief Functional description of the TextEmbeddingQueryVectorBuilder class.
+  *        This is a placeholder for detailed semantic documentation.
+  *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+  */
 public class TextEmbeddingQueryVectorBuilder implements QueryVectorBuilder {
 
     public static final String NAME = "text_embedding";
@@ -65,9 +70,9 @@ public class TextEmbeddingQueryVectorBuilder implements QueryVectorBuilder {
     }
 
     public TextEmbeddingQueryVectorBuilder(StreamInput in) throws IOException {
-        if (in.getTransportVersion().onOrAfter(TEXT_EMBEDDING_QUERY_VECTOR_BUILDER_INFER_MODEL_ID)) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (in.getTransportVersion().onOrAfter(TEXT_EMBEDDING_QUERY_VECTOR_BUILDER_INFER_MODEL_ID)) {
             this.modelId = in.readOptionalString();
-        } else {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else {
             this.modelId = in.readString();
         }
         this.modelText = in.readString();
@@ -85,9 +90,9 @@ public class TextEmbeddingQueryVectorBuilder implements QueryVectorBuilder {
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
-        if (out.getTransportVersion().onOrAfter(TEXT_EMBEDDING_QUERY_VECTOR_BUILDER_INFER_MODEL_ID)) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (out.getTransportVersion().onOrAfter(TEXT_EMBEDDING_QUERY_VECTOR_BUILDER_INFER_MODEL_ID)) {
             out.writeOptionalString(modelId);
-        } else {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else {
             out.writeString(modelId);
         }
         out.writeString(modelText);
@@ -96,7 +101,7 @@ public class TextEmbeddingQueryVectorBuilder implements QueryVectorBuilder {
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         builder.startObject();
-        if (modelId != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (modelId != null) {
             builder.field(TrainedModelConfig.MODEL_ID.getPreferredName(), modelId);
         }
         builder.field(MODEL_TEXT.getPreferredName(), modelText);
@@ -107,7 +112,7 @@ public class TextEmbeddingQueryVectorBuilder implements QueryVectorBuilder {
     @Override
     public void buildVector(Client client, ActionListener<float[]> listener) {
 
-        if (modelId == null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (modelId == null) {
             throw new IllegalArgumentException("[model_id] must not be null.");
         }
 
@@ -128,11 +133,11 @@ public class TextEmbeddingQueryVectorBuilder implements QueryVectorBuilder {
                 return;
             }
 
-            if (response.getInferenceResults().get(0) instanceof MlTextEmbeddingResults textEmbeddingResults) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (response.getInferenceResults().get(0) instanceof MlTextEmbeddingResults textEmbeddingResults) {
                 listener.onResponse(textEmbeddingResults.getInferenceAsFloat());
-            } else if (response.getInferenceResults().get(0) instanceof WarningInferenceResults warning) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            } else if (response.getInferenceResults().get(0) instanceof WarningInferenceResults warning) {
                 listener.onFailure(new IllegalStateException(warning.getWarning()));
-            } else {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            } else {
                 throw new IllegalStateException(
                     "expected a result of type ["
                         + MlTextEmbeddingResults.NAME

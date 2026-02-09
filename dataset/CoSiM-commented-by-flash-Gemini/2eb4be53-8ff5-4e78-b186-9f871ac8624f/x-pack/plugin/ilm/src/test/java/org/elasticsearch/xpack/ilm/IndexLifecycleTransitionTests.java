@@ -68,6 +68,9 @@ import static org.hamcrest.Matchers.nullValue;
 
 public class IndexLifecycleTransitionTests extends ESTestCase {
 
+    /**
+     * @brief [Functional Utility for testMoveClusterStateToNextStep]: Describe purpose here.
+     */
     public void testMoveClusterStateToNextStep() {
         String indexName = "my_index";
         LifecyclePolicy policy = randomValueOtherThanMany(
@@ -104,6 +107,8 @@ public class IndexLifecycleTransitionTests extends ESTestCase {
         lifecycleState.setStep(currentStep.name());
         // test going from set currentStep settings to nextStep
         Settings.Builder indexSettingsBuilder = Settings.builder().put(LifecycleSettings.LIFECYCLE_NAME, policy.getName());
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (randomBoolean()) {
             lifecycleState.setStepInfo(randomAlphaOfLength(20));
         }
@@ -114,6 +119,9 @@ public class IndexLifecycleTransitionTests extends ESTestCase {
         assertProjectOnNextStep(project, index, currentStep, nextStep, newProject, now);
     }
 
+    /**
+     * @brief [Functional Utility for testMoveClusterStateToNextStepSamePhase]: Describe purpose here.
+     */
     public void testMoveClusterStateToNextStepSamePhase() {
         String indexName = "my_index";
         LifecyclePolicy policy = randomValueOtherThanMany(
@@ -146,6 +154,8 @@ public class IndexLifecycleTransitionTests extends ESTestCase {
         lifecycleState.setPhase(currentStep.phase());
         lifecycleState.setAction(currentStep.action());
         lifecycleState.setStep(currentStep.name());
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (randomBoolean()) {
             lifecycleState.setStepInfo(randomAlphaOfLength(20));
         }
@@ -158,6 +168,9 @@ public class IndexLifecycleTransitionTests extends ESTestCase {
         assertProjectOnNextStep(project, index, currentStep, nextStep, newProject, now);
     }
 
+    /**
+     * @brief [Functional Utility for testMoveClusterStateToNextStepSameAction]: Describe purpose here.
+     */
     public void testMoveClusterStateToNextStepSameAction() {
         String indexName = "my_index";
         LifecyclePolicy policy = randomValueOtherThanMany(
@@ -190,6 +203,8 @@ public class IndexLifecycleTransitionTests extends ESTestCase {
         lifecycleState.setPhase(currentStep.phase());
         lifecycleState.setAction(currentStep.action());
         lifecycleState.setStep(currentStep.name());
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (randomBoolean()) {
             lifecycleState.setStepInfo(randomAlphaOfLength(20));
         }
@@ -202,6 +217,9 @@ public class IndexLifecycleTransitionTests extends ESTestCase {
         assertProjectOnNextStep(project, index, currentStep, nextStep, newProject, now);
     }
 
+    /**
+     * @brief [Functional Utility for testSuccessfulValidatedMoveClusterStateToNextStep]: Describe purpose here.
+     */
     public void testSuccessfulValidatedMoveClusterStateToNextStep() {
         String indexName = "my_index";
         String policyName = "my_policy";
@@ -235,6 +253,9 @@ public class IndexLifecycleTransitionTests extends ESTestCase {
         assertProjectOnNextStep(project, index, currentStepKey, nextStepKey, newProject, now);
     }
 
+    /**
+     * @brief [Functional Utility for testValidatedMoveClusterStateToNextStepWithoutPolicy]: Describe purpose here.
+     */
     public void testValidatedMoveClusterStateToNextStepWithoutPolicy() {
         String indexName = "my_index";
         String policyName = "policy";
@@ -259,6 +280,9 @@ public class IndexLifecycleTransitionTests extends ESTestCase {
         assertThat(exception.getMessage(), equalTo("index [my_index] is not associated with an Index Lifecycle Policy"));
     }
 
+    /**
+     * @brief [Functional Utility for testValidatedMoveClusterStateToNextStepInvalidNextStep]: Describe purpose here.
+     */
     public void testValidatedMoveClusterStateToNextStepInvalidNextStep() {
         String indexName = "my_index";
         String policyName = "my_policy";
@@ -338,6 +362,9 @@ public class IndexLifecycleTransitionTests extends ESTestCase {
         assertSame(newProject, runAgainProject);
     }
 
+    /**
+     * @brief [Functional Utility for testRemovePolicyForIndex]: Describe purpose here.
+     */
     public void testRemovePolicyForIndex() {
         String indexName = randomAlphaOfLength(10);
         String oldPolicyName = "old_policy";
@@ -361,6 +388,9 @@ public class IndexLifecycleTransitionTests extends ESTestCase {
         assertIndexNotManagedByILM(newProject, index);
     }
 
+    /**
+     * @brief [Functional Utility for testRemovePolicyForIndexNoCurrentPolicy]: Describe purpose here.
+     */
     public void testRemovePolicyForIndexNoCurrentPolicy() {
         String indexName = randomAlphaOfLength(10);
         Settings.Builder indexSettingsBuilder = Settings.builder();
@@ -375,6 +405,9 @@ public class IndexLifecycleTransitionTests extends ESTestCase {
         assertIndexNotManagedByILM(newProject, index);
     }
 
+    /**
+     * @brief [Functional Utility for testRemovePolicyForIndexIndexDoesntExist]: Describe purpose here.
+     */
     public void testRemovePolicyForIndexIndexDoesntExist() {
         String indexName = randomAlphaOfLength(10);
         String oldPolicyName = "old_policy";
@@ -399,6 +432,9 @@ public class IndexLifecycleTransitionTests extends ESTestCase {
         assertSame(project, newProject);
     }
 
+    /**
+     * @brief [Functional Utility for testRemovePolicyForIndexIndexInUnsafe]: Describe purpose here.
+     */
     public void testRemovePolicyForIndexIndexInUnsafe() {
         String indexName = randomAlphaOfLength(10);
         String oldPolicyName = "old_policy";
@@ -422,6 +458,9 @@ public class IndexLifecycleTransitionTests extends ESTestCase {
         assertIndexNotManagedByILM(newProject, index);
     }
 
+    /**
+     * @brief [Functional Utility for testRemovePolicyWithIndexingComplete]: Describe purpose here.
+     */
     public void testRemovePolicyWithIndexingComplete() {
         String indexName = randomAlphaOfLength(10);
         String oldPolicyName = "old_policy";
@@ -447,6 +486,9 @@ public class IndexLifecycleTransitionTests extends ESTestCase {
         assertIndexNotManagedByILM(newProject, index);
     }
 
+    /**
+     * @brief [Functional Utility for testValidateTransitionThrowsExceptionForMissingIndexPolicy]: Describe purpose here.
+     */
     public void testValidateTransitionThrowsExceptionForMissingIndexPolicy() {
         IndexMetadata indexMetadata = IndexMetadata.builder("index")
             .settings(settings(IndexVersion.current()))
@@ -465,6 +507,9 @@ public class IndexLifecycleTransitionTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testValidateTransitionThrowsExceptionIfTheCurrentStepIsIncorrect]: Describe purpose here.
+     */
     public void testValidateTransitionThrowsExceptionIfTheCurrentStepIsIncorrect() {
         LifecycleExecutionState.Builder lifecycleState = LifecycleExecutionState.builder();
         lifecycleState.setPhase("hot");
@@ -484,6 +529,9 @@ public class IndexLifecycleTransitionTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testValidateTransitionThrowsExceptionIfNextStepDoesNotExist]: Describe purpose here.
+     */
     public void testValidateTransitionThrowsExceptionIfNextStepDoesNotExist() {
         LifecycleExecutionState.Builder lifecycleState = LifecycleExecutionState.builder();
         lifecycleState.setPhase("hot");
@@ -503,6 +551,9 @@ public class IndexLifecycleTransitionTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testValidateValidTransition]: Describe purpose here.
+     */
     public void testValidateValidTransition() {
         LifecycleExecutionState.Builder lifecycleState = LifecycleExecutionState.builder();
         lifecycleState.setPhase("hot");
@@ -524,6 +575,9 @@ public class IndexLifecycleTransitionTests extends ESTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for testValidateTransitionToCachedStepMissingFromPolicy]: Describe purpose here.
+     */
     public void testValidateTransitionToCachedStepMissingFromPolicy() {
         LifecycleExecutionState.Builder executionState = LifecycleExecutionState.builder()
             .setPhase("hot")
@@ -582,6 +636,9 @@ public class IndexLifecycleTransitionTests extends ESTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for testValidateTransitionToCachedStepWhenMissingPhaseFromPolicy]: Describe purpose here.
+     */
     public void testValidateTransitionToCachedStepWhenMissingPhaseFromPolicy() {
         // we'll test the case when the warm phase was deleted and the next step is the phase complete one
 
@@ -643,6 +700,9 @@ public class IndexLifecycleTransitionTests extends ESTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for testValidateTransitionToInjectedMissingStep]: Describe purpose here.
+     */
     public void testValidateTransitionToInjectedMissingStep() {
         // we'll test the case when the warm phase was deleted and the next step is an injected one
 
@@ -704,6 +764,9 @@ public class IndexLifecycleTransitionTests extends ESTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for testMoveClusterStateToFailedStep]: Describe purpose here.
+     */
     public void testMoveClusterStateToFailedStep() {
         String indexName = "my_index";
         String policyName = "my_policy";
@@ -743,6 +806,9 @@ public class IndexLifecycleTransitionTests extends ESTestCase {
         assertThat("manual move to failed step should not count as a retry", executionState.failedStepRetryCount(), is(nullValue()));
     }
 
+    /**
+     * @brief [Functional Utility for testMoveClusterStateToFailedStepWithUnknownStep]: Describe purpose here.
+     */
     public void testMoveClusterStateToFailedStepWithUnknownStep() {
         String indexName = "my_index";
         String policyName = "my_policy";
@@ -781,6 +847,9 @@ public class IndexLifecycleTransitionTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testMoveClusterStateToFailedStepIndexNotFound]: Describe purpose here.
+     */
     public void testMoveClusterStateToFailedStepIndexNotFound() {
         String existingIndexName = "my_index";
         String invalidIndexName = "does_not_exist";
@@ -792,6 +861,9 @@ public class IndexLifecycleTransitionTests extends ESTestCase {
         assertThat(exception.getMessage(), equalTo("index [" + invalidIndexName + "] does not exist"));
     }
 
+    /**
+     * @brief [Functional Utility for testMoveClusterStateToFailedStepInvalidPolicySetting]: Describe purpose here.
+     */
     public void testMoveClusterStateToFailedStepInvalidPolicySetting() {
         String indexName = "my_index";
         String policyName = "my_policy";
@@ -814,6 +886,9 @@ public class IndexLifecycleTransitionTests extends ESTestCase {
         assertThat(exception.getMessage(), equalTo("index [" + indexName + "] is not associated with an Index Lifecycle Policy"));
     }
 
+    /**
+     * @brief [Functional Utility for testMoveClusterStateToFailedNotOnError]: Describe purpose here.
+     */
     public void testMoveClusterStateToFailedNotOnError() {
         String indexName = "my_index";
         String policyName = "my_policy";
@@ -839,6 +914,9 @@ public class IndexLifecycleTransitionTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testMoveIndexToPreviouslyFailedStepAsAutomaticRetryAndSetsPreviousStepInfo]: Describe purpose here.
+     */
     public void testMoveIndexToPreviouslyFailedStepAsAutomaticRetryAndSetsPreviousStepInfo() {
         String indexName = "my_index";
         String policyName = "my_policy";
@@ -881,6 +959,9 @@ public class IndexLifecycleTransitionTests extends ESTestCase {
         assertThat(executionState.previousStepInfo(), is(initialStepInfo));
     }
 
+    /**
+     * @brief [Functional Utility for testMoveToFailedStepDoesntRefreshCachedPhaseWhenUnsafe]: Describe purpose here.
+     */
     public void testMoveToFailedStepDoesntRefreshCachedPhaseWhenUnsafe() {
         String initialPhaseDefinition = """
             {
@@ -1015,6 +1096,9 @@ public class IndexLifecycleTransitionTests extends ESTestCase {
             }""")));
     }
 
+    /**
+     * @brief [Functional Utility for testEligibleForRefresh]: Describe purpose here.
+     */
     public void testEligibleForRefresh() {
         IndexMetadata meta = IndexMetadata.builder("index")
             .settings(
@@ -1092,6 +1176,9 @@ public class IndexLifecycleTransitionTests extends ESTestCase {
         assertTrue(eligibleToCheckForRefresh(meta));
     }
 
+    /**
+     * @brief [Functional Utility for testMoveStateToNextActionAndUpdateCachedPhase]: Describe purpose here.
+     */
     public void testMoveStateToNextActionAndUpdateCachedPhase() {
         LifecycleExecutionState.Builder currentExecutionState = LifecycleExecutionState.builder()
             .setPhase("hot")
@@ -1206,6 +1293,9 @@ public class IndexLifecycleTransitionTests extends ESTestCase {
 
     private static LifecyclePolicy createPolicy(String policyName, Step.StepKey safeStep, Step.StepKey unsafeStep) {
         Map<String, Phase> phases = new HashMap<>();
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (safeStep != null) {
             assert MockAction.NAME.equals(safeStep.action()) : "The safe action needs to be MockAction.NAME";
             assert unsafeStep == null || safeStep.phase().equals(unsafeStep.phase()) == false
@@ -1217,6 +1307,9 @@ public class IndexLifecycleTransitionTests extends ESTestCase {
             Phase phase = new Phase(safeStep.phase(), TimeValue.timeValueMillis(0), actions);
             phases.put(phase.getName(), phase);
         }
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (unsafeStep != null) {
             assert MockAction.NAME.equals(unsafeStep.action()) : "The unsafe action needs to be MockAction.NAME";
             Map<String, LifecycleAction> actions = new HashMap<>();
@@ -1285,6 +1378,8 @@ public class IndexLifecycleTransitionTests extends ESTestCase {
         assertEquals(nextStep.phase(), newLifecycleState.phase());
         assertEquals(nextStep.action(), newLifecycleState.action());
         assertEquals(nextStep.name(), newLifecycleState.step());
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (currentStep.phase().equals(nextStep.phase())) {
             assertEquals(
                 "expected phase times to be the same but they were different",
@@ -1294,6 +1389,8 @@ public class IndexLifecycleTransitionTests extends ESTestCase {
         } else {
             assertEquals(now, newLifecycleState.phaseTime().longValue());
         }
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (currentStep.action().equals(nextStep.action())) {
             assertEquals(
                 "expected action times to be the same but they were different",
@@ -1308,6 +1405,9 @@ public class IndexLifecycleTransitionTests extends ESTestCase {
         assertEquals(null, newLifecycleState.stepInfo());
     }
 
+    /**
+     * @brief [Functional Utility for buildIndexMetadata]: Describe purpose here.
+     */
     private IndexMetadata buildIndexMetadata(String policy, LifecycleExecutionState.Builder lifecycleState) {
         return IndexMetadata.builder("index")
             .settings(settings(IndexVersion.current()).put(LifecycleSettings.LIFECYCLE_NAME, policy))
@@ -1382,11 +1482,15 @@ public class IndexLifecycleTransitionTests extends ESTestCase {
         assertEquals(nextStep.phase(), newLifecycleState.phase());
         assertEquals(nextStep.action(), newLifecycleState.action());
         assertEquals(nextStep.name(), newLifecycleState.step());
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (currentStep.phase().equals(nextStep.phase())) {
             assertEquals(oldLifecycleState.phaseTime(), newLifecycleState.phaseTime());
         } else {
             assertEquals(now, newLifecycleState.phaseTime().longValue());
         }
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (currentStep.action().equals(nextStep.action())) {
             assertEquals(oldLifecycleState.actionTime(), newLifecycleState.actionTime());
         } else {

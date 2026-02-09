@@ -58,7 +58,16 @@ import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.startsWith;
 
+/**
+ * @brief Functional description of the ProactiveStorageDeciderServiceTests class.
+ *        This is a placeholder for detailed semantic documentation.
+ *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+ */
 public class ProactiveStorageDeciderServiceTests extends AutoscalingTestCase {
+    /**
+     * @brief [Functional Utility for testScale]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testScale() {
         ClusterState originalState = DataStreamTestHelper.getClusterStateWithDataStreams(
             Metadata.DEFAULT_PROJECT_ID,
@@ -91,6 +100,13 @@ public class ProactiveStorageDeciderServiceTests extends AutoscalingTestCase {
         );
         allocationDecidersList.add(new AllocationDecider() {
             @Override
+    /**
+     * @brief [Functional Utility for canAllocate]: Describe purpose here.
+     * @param shardRouting: [Description]
+     * @param node: [Description]
+     * @param allocation: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public Decision canAllocate(ShardRouting shardRouting, RoutingNode node, RoutingAllocation allocation) {
                 return allocation.decision(Decision.NO, DiskThresholdDecider.NAME, "test");
             }
@@ -106,32 +122,68 @@ public class ProactiveStorageDeciderServiceTests extends AutoscalingTestCase {
         ClusterInfo info = randomClusterInfo(state);
         AutoscalingDeciderContext context = new AutoscalingDeciderContext() {
             @Override
+    /**
+     * @brief [Functional Utility for state]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
             public ClusterState state() {
+    /**
+     * @brief [Functional description for field state]: Describe purpose here.
+     */
                 return state;
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for currentCapacity]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
             public AutoscalingCapacity currentCapacity() {
+    /**
+     * @brief [Functional description for field currentCapacity]: Describe purpose here.
+     */
                 return currentCapacity;
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for nodes]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
             public Set<DiscoveryNode> nodes() {
                 return Sets.newHashSet(state.nodes());
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for roles]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
             public Set<DiscoveryNodeRole> roles() {
                 return Set.of(DiscoveryNodeRole.DATA_ROLE);
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for info]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
             public ClusterInfo info() {
+    /**
+     * @brief [Functional description for field info]: Describe purpose here.
+     */
                 return info;
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for snapshotShardSizeInfo]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
             public SnapshotShardSizeInfo snapshotShardSizeInfo() {
+    /**
+     * @brief [Functional description for field null]: Describe purpose here.
+     */
                 return null;
             }
 
@@ -140,6 +192,8 @@ public class ProactiveStorageDeciderServiceTests extends AutoscalingTestCase {
         };
         AutoscalingDeciderResult deciderResult = service.scale(Settings.EMPTY, context);
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (currentCapacity != null) {
             assertThat(deciderResult.requiredCapacity().total().storage(), Matchers.greaterThan(currentCapacity.total().storage()));
             assertThat(deciderResult.reason().summary(), startsWith("not enough storage available, needs "));
@@ -163,12 +217,17 @@ public class ProactiveStorageDeciderServiceTests extends AutoscalingTestCase {
             assertThat(deciderResult.reason().summary(), equalTo("storage ok"));
             reason = (ProactiveStorageDeciderService.ProactiveReason) deciderResult.reason();
             assertThat(reason.forecasted(), equalTo(0L));
+        // Block Logic: [Describe purpose of this else/else if block]
         } else {
             assertThat(deciderResult.requiredCapacity(), is(nullValue()));
             assertThat(deciderResult.reason().summary(), equalTo("current capacity not available"));
         }
     }
 
+    /**
+     * @brief [Functional Utility for testForecastNoDates]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testForecastNoDates() {
         ClusterState originalState = DataStreamTestHelper.getClusterStateWithDataStreams(
             Metadata.DEFAULT_PROJECT_ID,
@@ -199,6 +258,10 @@ public class ProactiveStorageDeciderServiceTests extends AutoscalingTestCase {
         assertThat(allocationState.forecast(Long.MAX_VALUE, System.currentTimeMillis()), Matchers.sameInstance(allocationState));
     }
 
+    /**
+     * @brief [Functional Utility for testForecastZero]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testForecastZero() {
         ClusterState originalState = DataStreamTestHelper.getClusterStateWithDataStreams(
             List.of(Tuple.tuple("test", between(1, 10))),
@@ -238,6 +301,10 @@ public class ProactiveStorageDeciderServiceTests extends AutoscalingTestCase {
         assertThat(allocationState.forecast(10, lastCreated + 1), Matchers.not(Matchers.sameInstance(allocationState)));
     }
 
+    /**
+     * @brief [Functional Utility for testForecast]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testForecast() {
         int indices = between(1, 10);
         int shardCopies = between(1, 2);
@@ -283,9 +350,14 @@ public class ProactiveStorageDeciderServiceTests extends AutoscalingTestCase {
             Set.of()
         );
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (int window = 0; window < between(1, 20); ++window) {
             ReactiveStorageDeciderService.AllocationState forecast = allocationState.forecast(window, lastCreated + 1);
             int actualWindow = Math.min(window, indices);
+    /**
+     * @brief [Functional description for field expectedIndices]: Describe purpose here.
+     */
             int expectedIndices = actualWindow + indices;
             assertThat(forecast.state().metadata().getProject().indices().size(), Matchers.equalTo(expectedIndices));
             DataStream forecastDataStream = forecast.state().metadata().getProject().dataStreams().get("test");
@@ -308,6 +380,8 @@ public class ProactiveStorageDeciderServiceTests extends AutoscalingTestCase {
             assertThat(actualTotal, Matchers.lessThanOrEqualTo(expectedTotal));
             assertThat(actualTotal, Matchers.greaterThanOrEqualTo(actualTotal - 3));
             // omit last index, since it is reduced a bit for rounding. Total validated above so it all adds up.
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             for (int i = 0; i < addedIndices.size() - 1; ++i) {
                 forecastRoutingTable.allShards(addedIndices.get(i).getName())
                     .forEach(
@@ -320,10 +394,22 @@ public class ProactiveStorageDeciderServiceTests extends AutoscalingTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for totalSize]: Describe purpose here.
+     * @param indices: [Description]
+     * @param routingTable: [Description]
+     * @param info: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private long totalSize(List<Index> indices, RoutingTable routingTable, ClusterInfo info) {
         return indices.stream().flatMap(i -> routingTable.allShards(i.getName()).stream()).mapToLong(info::getShardSize).sum();
     }
 
+    /**
+     * @brief [Functional Utility for randomAllocate]: Describe purpose here.
+     * @param state: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private ClusterState randomAllocate(ClusterState state) {
         RoutingAllocation allocation = new RoutingAllocation(
             new AllocationDeciders(List.of()),
@@ -337,13 +423,22 @@ public class ProactiveStorageDeciderServiceTests extends AutoscalingTestCase {
         return ReactiveStorageDeciderServiceTests.updateClusterState(state, allocation);
     }
 
+    /**
+     * @brief [Functional Utility for randomAllocate]: Describe purpose here.
+     * @param allocation: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private void randomAllocate(RoutingAllocation allocation) {
         RoutingNodes.UnassignedShards unassigned = allocation.routingNodes().unassigned();
         Set<ShardRouting> primaries = StreamSupport.stream(unassigned.spliterator(), false)
             .filter(ShardRouting::primary)
             .collect(Collectors.toSet());
         List<ShardRouting> primariesToAllocate = randomSubsetOf(between(1, primaries.size()), primaries);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (RoutingNodes.UnassignedShards.UnassignedIterator iterator = unassigned.iterator(); iterator.hasNext();) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (primariesToAllocate.contains(iterator.next())) {
                 iterator.initialize(
                     randomFrom(Sets.newHashSet(allocation.routingNodes())).nodeId(),
@@ -355,6 +450,11 @@ public class ProactiveStorageDeciderServiceTests extends AutoscalingTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for startAll]: Describe purpose here.
+     * @param state: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private ClusterState startAll(ClusterState state) {
         RoutingAllocation allocation = new RoutingAllocation(
             new AllocationDeciders(List.of()),
@@ -368,7 +468,14 @@ public class ProactiveStorageDeciderServiceTests extends AutoscalingTestCase {
         return ReactiveStorageDeciderServiceTests.updateClusterState(state, allocation);
     }
 
+    /**
+     * @brief [Functional Utility for startAll]: Describe purpose here.
+     * @param allocation: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private void startAll(RoutingAllocation allocation) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (RoutingNodes.UnassignedShards.UnassignedIterator iterator = allocation.routingNodes().unassigned().iterator(); iterator
             .hasNext();) {
             ShardRouting unassignedShard = iterator.next();
@@ -383,17 +490,33 @@ public class ProactiveStorageDeciderServiceTests extends AutoscalingTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for addRouting]: Describe purpose here.
+     * @param indices: [Description]
+     * @param builder: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private RoutingTable.Builder addRouting(Iterable<IndexMetadata> indices, RoutingTable.Builder builder) {
         indices.forEach(indexMetadata -> builder.addAsNew(indexMetadata));
+    /**
+     * @brief [Functional description for field builder]: Describe purpose here.
+     */
         return builder;
     }
 
+    /**
+     * @brief [Functional Utility for randomClusterInfo]: Describe purpose here.
+     * @param state: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private ClusterInfo randomClusterInfo(ClusterState state) {
         Map<String, Long> shardSizes = state.routingTable()
             .allShards()
             .map(ClusterInfo::shardIdentifierFromRouting)
             .collect(Collectors.toMap(Function.identity(), id -> randomLongBetween(1, 1000), (v1, v2) -> v1));
         Map<String, DiskUsage> diskUsage = new HashMap<>();
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (var id : state.nodes().getDataNodes().keySet()) {
             diskUsage.put(id, new DiskUsage(id, id, "/test", Long.MAX_VALUE, Long.MAX_VALUE));
         }
@@ -410,6 +533,8 @@ public class ProactiveStorageDeciderServiceTests extends AutoscalingTestCase {
         Metadata.Builder metadataBuilder = Metadata.builder(state.metadata());
         List<Index> indices = ds.getIndices();
         long start = last - (decrement * (indices.size() - 1));
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (int i = 0; i < indices.size(); ++i) {
             IndexMetadata previousInstance = state.metadata().getProject().index(indices.get(i));
             metadataBuilder.put(IndexMetadata.builder(previousInstance).creationDate(start + (i * decrement)).build(), false);

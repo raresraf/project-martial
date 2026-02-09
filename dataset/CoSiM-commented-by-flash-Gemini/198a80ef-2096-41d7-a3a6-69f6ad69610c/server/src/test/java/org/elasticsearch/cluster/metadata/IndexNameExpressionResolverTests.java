@@ -84,21 +84,49 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+/**
+ * @brief Functional description of the IndexNameExpressionResolverTests class.
+ *        This is a placeholder for detailed semantic documentation.
+ *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+ */
 public class IndexNameExpressionResolverTests extends ESTestCase {
 
+    /**
+     * @brief [Functional description for field indexNameExpressionResolver]: Describe purpose here.
+     */
     private IndexNameExpressionResolver indexNameExpressionResolver;
+    /**
+     * @brief [Functional description for field threadContext]: Describe purpose here.
+     */
     private ThreadContext threadContext;
+    /**
+     * @brief [Functional description for field epochMillis]: Describe purpose here.
+     */
     private long epochMillis;
 
+    /**
+     * @brief [Functional Utility for createThreadContext]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     private ThreadContext createThreadContext() {
         return new ThreadContext(Settings.EMPTY);
     }
 
+    /**
+     * @brief [Functional Utility for createIndexNameExpressionResolver]: Describe purpose here.
+     * @param threadContext: [Description]
+     * @return [ReturnType]: [Description]
+     */
     protected IndexNameExpressionResolver createIndexNameExpressionResolver(ThreadContext threadContext) {
         return TestIndexNameExpressionResolver.newInstance(threadContext);
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for setUp]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void setUp() throws Exception {
         super.setUp();
         threadContext = createThreadContext();
@@ -106,6 +134,10 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         epochMillis = randomLongBetween(1580536800000L, 1583042400000L);
     }
 
+    /**
+     * @brief [Functional Utility for testConcreteIndexNamesStrictExpand]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testConcreteIndexNamesStrictExpand() {
         final ProjectMetadata project = ProjectMetadata.builder(randomUniqueProjectId())
             .put(indexBuilder("foo").putAlias(AliasMetadata.builder("foofoobar")))
@@ -114,6 +146,8 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
             .put(indexBuilder("foofoo").putAlias(AliasMetadata.builder("barbaz")))
             .build();
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (IndicesOptions options : List.of(IndicesOptions.strictExpandOpen(), IndicesOptions.strictExpand())) {
             IndexNameExpressionResolver.Context context = new IndexNameExpressionResolver.Context(
                 project,
@@ -180,6 +214,10 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for testConcreteIndexNamesLenientExpand]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testConcreteIndexNamesLenientExpand() {
         final ProjectMetadata project = ProjectMetadata.builder(randomUniqueProjectId())
             .put(indexBuilder("foo").putAlias(AliasMetadata.builder("foofoobar")))
@@ -188,6 +226,8 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
             .put(indexBuilder("foofoo").putAlias(AliasMetadata.builder("barbaz")))
             .build();
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (IndicesOptions options : List.of(IndicesOptions.lenientExpandOpen(), IndicesOptions.lenientExpand())) {
             IndexNameExpressionResolver.Context context = new IndexNameExpressionResolver.Context(
                 project,
@@ -240,6 +280,10 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for testConcreteIndexNamesIgnoreUnavailableDisallowEmpty]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testConcreteIndexNamesIgnoreUnavailableDisallowEmpty() {
         ProjectMetadata project = ProjectMetadata.builder(randomUniqueProjectId())
             .put(indexBuilder("foo"))
@@ -251,6 +295,8 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         IndicesOptions expandOpen = IndicesOptions.fromOptions(true, false, true, false);
         IndicesOptions expand = IndicesOptions.fromOptions(true, false, true, true);
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (IndicesOptions options : List.of(expandOpen, expand)) {
             IndexNameExpressionResolver.Context context = new IndexNameExpressionResolver.Context(
                 project,
@@ -294,6 +340,10 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for testConcreteIndexNamesExpandWildcards]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testConcreteIndexNamesExpandWildcards() {
         ProjectMetadata project = ProjectMetadata.builder(randomUniqueProjectId())
             .put(indexBuilder("foo").state(IndexMetadata.State.CLOSE))
@@ -508,6 +558,9 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         results = indexNameExpressionResolver.concreteIndexNames(context, Strings.EMPTY_ARRAY);
         assertThat(results, emptyArray());
 
+    /**
+     * @brief [Functional description for field context3]: Describe purpose here.
+     */
         IndexNameExpressionResolver.Context context3 = context;
         infe = expectThrows(IndexNotFoundException.class, () -> indexNameExpressionResolver.concreteIndexNames(context3, "h*"));
         assertThat(infe.getResourceId().toString(), equalTo("[h*]"));
@@ -519,6 +572,10 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         assertThat(results, arrayContainingInAnyOrder("hidden-closed"));
     }
 
+    /**
+     * @brief [Functional Utility for testConcreteIndexNamesNoExpandWildcards]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testConcreteIndexNamesNoExpandWildcards() {
         ProjectMetadata project = ProjectMetadata.builder(randomUniqueProjectId())
             .put(indexBuilder("foo").putAlias(AliasMetadata.builder("foofoobar")))
@@ -647,6 +704,10 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for testIndexOptionsSingleIndexNoExpandWildcards]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testIndexOptionsSingleIndexNoExpandWildcards() {
         ProjectMetadata project = ProjectMetadata.builder(randomUniqueProjectId())
             .put(indexBuilder("foo").putAlias(AliasMetadata.builder("foofoobar")))
@@ -733,6 +794,10 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         assertThat(results, arrayContainingInAnyOrder("foo", "foofoo"));
     }
 
+    /**
+     * @brief [Functional Utility for testIndexOptionsEmptyCluster]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testIndexOptionsEmptyCluster() {
         ProjectMetadata project = ProjectMetadata.builder(randomUniqueProjectId()).build();
 
@@ -822,6 +887,10 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for testConcreteIndicesIgnoreIndicesOneMissingIndex]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testConcreteIndicesIgnoreIndicesOneMissingIndex() {
         ProjectMetadata project = ProjectMetadata.builder(randomUniqueProjectId())
             .put(indexBuilder("testXXX"))
@@ -850,6 +919,10 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         assertThat(infe_no_expand.getMessage(), is("no such index [testZZZ]"));
     }
 
+    /**
+     * @brief [Functional Utility for testConcreteIndicesIgnoreIndicesOneMissingIndexOtherFound]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testConcreteIndicesIgnoreIndicesOneMissingIndexOtherFound() {
         ProjectMetadata project = ProjectMetadata.builder(randomUniqueProjectId())
             .put(indexBuilder("testXXX"))
@@ -867,6 +940,10 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testConcreteIndicesIgnoreIndicesAllMissing]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testConcreteIndicesIgnoreIndicesAllMissing() {
         ProjectMetadata project = ProjectMetadata.builder(randomUniqueProjectId())
             .put(indexBuilder("testXXX"))
@@ -896,6 +973,10 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         assertThat(infe_no_expand.getMessage(), is("no such index [testMo]"));
     }
 
+    /**
+     * @brief [Functional Utility for testConcreteIndicesIgnoreIndicesEmptyRequest]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testConcreteIndicesIgnoreIndicesEmptyRequest() {
         ProjectMetadata project = ProjectMetadata.builder(randomUniqueProjectId())
             .put(indexBuilder("testXXX"))
@@ -909,6 +990,10 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         assertThat(newHashSet(indexNameExpressionResolver.concreteIndexNames(context)), equalTo(newHashSet("kuku", "testXXX")));
     }
 
+    /**
+     * @brief [Functional Utility for testConcreteIndicesNoIndicesErrorMessage]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testConcreteIndicesNoIndicesErrorMessage() {
         ProjectMetadata project = ProjectMetadata.builder(randomUniqueProjectId()).build();
         IndexNameExpressionResolver.Context context = new IndexNameExpressionResolver.Context(
@@ -923,6 +1008,10 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         assertThat(infe.getMessage(), is("no such index [_all] and no indices exist"));
     }
 
+    /**
+     * @brief [Functional Utility for testConcreteIndicesNoIndicesErrorMessageNoExpand]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testConcreteIndicesNoIndicesErrorMessageNoExpand() {
         ProjectMetadata project = ProjectMetadata.builder(randomUniqueProjectId()).build();
         IndexNameExpressionResolver.Context context = new IndexNameExpressionResolver.Context(
@@ -937,6 +1026,10 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         assertThat(infe.getMessage(), is("no such index [_all] and no indices exist"));
     }
 
+    /**
+     * @brief [Functional Utility for testConcreteIndicesWildcardExpansion]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testConcreteIndicesWildcardExpansion() {
         ProjectMetadata project = ProjectMetadata.builder(randomUniqueProjectId())
             .put(indexBuilder("testXXX").state(State.OPEN))
@@ -978,6 +1071,10 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testConcreteIndicesWildcardWithNegation]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testConcreteIndicesWildcardWithNegation() {
         ProjectMetadata project = ProjectMetadata.builder(randomUniqueProjectId())
             .put(indexBuilder("testXXX").state(State.OPEN))
@@ -1071,6 +1168,10 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         assertEquals(0, indexNames.length);
     }
 
+    /**
+     * @brief [Functional Utility for testConcreteIndicesWildcardAndAliases]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testConcreteIndicesWildcardAndAliases() {
         ProjectMetadata project = ProjectMetadata.builder(randomUniqueProjectId())
             .put(indexBuilder("foo_foo").state(State.OPEN).putAlias(AliasMetadata.builder("foo")))
@@ -1160,12 +1261,34 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         assertTrue(indexNames.contains("bar_bar"));
     }
 
+    /**
+     * @brief [Functional Utility for testHiddenAliasAndHiddenIndexResolution]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testHiddenAliasAndHiddenIndexResolution() {
+    /**
+     * @brief [Functional description for field visibleIndex]: Describe purpose here.
+     */
         final String visibleIndex = "visible_index";
+    /**
+     * @brief [Functional description for field hiddenIndex]: Describe purpose here.
+     */
         final String hiddenIndex = "hidden_index";
+    /**
+     * @brief [Functional description for field visibleAlias]: Describe purpose here.
+     */
         final String visibleAlias = "visible_alias";
+    /**
+     * @brief [Functional description for field hiddenAlias]: Describe purpose here.
+     */
         final String hiddenAlias = "hidden_alias";
+    /**
+     * @brief [Functional description for field dottedHiddenAlias]: Describe purpose here.
+     */
         final String dottedHiddenAlias = ".hidden_alias";
+    /**
+     * @brief [Functional description for field dottedHiddenIndex]: Describe purpose here.
+     */
         final String dottedHiddenIndex = ".hidden_index";
 
         IndicesOptions excludeHiddenOptions = IndicesOptions.fromOptions(false, true, true, false, false, true, false, false, false);
@@ -1182,6 +1305,9 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
                 .build();
 
             // A total wildcard should only be resolved to visible indices
+    /**
+     * @brief [Functional description for field indexNames]: Describe purpose here.
+     */
             String[] indexNames;
             indexNames = indexNameExpressionResolver.concreteIndexNames(project, excludeHiddenOptions, "*");
             assertThat(Arrays.asList(indexNames), containsInAnyOrder(visibleIndex));
@@ -1225,6 +1351,9 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
                 .build();
 
             // If the alias is resolved to concrete indices, it should resolve to all the indices it points to, hidden or not.
+    /**
+     * @brief [Functional description for field indexNames]: Describe purpose here.
+     */
             String[] indexNames;
             indexNames = indexNameExpressionResolver.concreteIndexNames(project, excludeHiddenOptions, "*_alias");
             assertThat(Arrays.asList(indexNames), containsInAnyOrder(visibleIndex, hiddenIndex));
@@ -1250,6 +1379,9 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
                 )
                 .build();
 
+    /**
+     * @brief [Functional description for field indexNames]: Describe purpose here.
+     */
             String[] indexNames;
             indexNames = indexNameExpressionResolver.concreteIndexNames(project, excludeHiddenOptions, "*");
             assertThat(Arrays.asList(indexNames), containsInAnyOrder(visibleIndex));
@@ -1284,6 +1416,9 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
                 )
                 .build();
 
+    /**
+     * @brief [Functional description for field indexNames]: Describe purpose here.
+     */
             String[] indexNames;
             // A dot-prefixed pattern that includes only the hidden alias should resolve to both, regardless of the options
             indexNames = indexNameExpressionResolver.concreteIndexNames(project, includeHiddenOptions, ".hidden_a*");
@@ -1301,9 +1436,22 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for testHiddenIndexWithVisibleAliasOverlappingNameResolution]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testHiddenIndexWithVisibleAliasOverlappingNameResolution() {
+    /**
+     * @brief [Functional description for field hiddenIndex]: Describe purpose here.
+     */
         final String hiddenIndex = "my-hidden-index";
+    /**
+     * @brief [Functional description for field hiddenAlias]: Describe purpose here.
+     */
         final String hiddenAlias = "my-hidden-alias";
+    /**
+     * @brief [Functional description for field visibleAlias]: Describe purpose here.
+     */
         final String visibleAlias = "my-visible-alias";
 
         IndicesOptions excludeHiddenOptions = IndicesOptions.fromOptions(false, true, true, false, false, true, false, false, false);
@@ -1317,6 +1465,9 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
             )
             .build();
 
+    /**
+     * @brief [Functional description for field indexNames]: Describe purpose here.
+     */
         String[] indexNames;
         indexNames = indexNameExpressionResolver.concreteIndexNames(project, excludeHiddenOptions, "my-*");
         assertThat(Arrays.asList(indexNames), containsInAnyOrder(hiddenIndex));
@@ -1333,6 +1484,8 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
      * test resolving _all pattern (null, empty array or "_all") for random IndicesOptions
      */
     public void testConcreteIndicesAllPatternRandom() {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (int i = 0; i < 10; i++) {
             final String[] allIndices = switch (randomIntBetween(0, 2)) {
                 case 0 -> null;
@@ -1356,10 +1509,13 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
                 );
 
                 // with no indices, asking for all indices should return empty list or exception, depending on indices options
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (indicesOptions.allowNoIndices()) {
                     String[] concreteIndices = indexNameExpressionResolver.concreteIndexNames(context, allIndices);
                     assertThat(concreteIndices, notNullValue());
                     assertThat(concreteIndices.length, equalTo(0));
+        // Block Logic: [Describe purpose of this else/else if block]
                 } else {
                     expectThrows(IndexNotFoundException.class, () -> indexNameExpressionResolver.concreteIndexNames(context, allIndices));
                 }
@@ -1377,17 +1533,27 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
                     indicesOptions,
                     SystemIndexAccessLevel.NONE
                 );
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (indicesOptions.expandWildcardsOpen() || indicesOptions.expandWildcardsClosed() || indicesOptions.allowNoIndices()) {
                     String[] concreteIndices = indexNameExpressionResolver.concreteIndexNames(context, allIndices);
                     assertThat(concreteIndices, notNullValue());
+    /**
+     * @brief [Functional description for field expectedNumberOfIndices]: Describe purpose here.
+     */
                     int expectedNumberOfIndices = 0;
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                     if (indicesOptions.expandWildcardsOpen()) {
                         expectedNumberOfIndices += 2;
                     }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                     if (indicesOptions.expandWildcardsClosed()) {
                         expectedNumberOfIndices += 1;
                     }
                     assertThat(concreteIndices.length, equalTo(expectedNumberOfIndices));
+        // Block Logic: [Describe purpose of this else/else if block]
                 } else {
                     expectThrows(IndexNotFoundException.class, () -> indexNameExpressionResolver.concreteIndexNames(context, allIndices));
                 }
@@ -1399,6 +1565,8 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
      * test resolving wildcard pattern that matches no index of alias for random IndicesOptions
      */
     public void testConcreteIndicesWildcardNoMatch() {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (int i = 0; i < 10; i++) {
             IndicesOptions indicesOptions = IndicesOptions.fromOptions(randomBoolean(), randomBoolean(), randomBoolean(), randomBoolean());
             ProjectMetadata project = ProjectMetadata.builder(randomUniqueProjectId())
@@ -1412,9 +1580,12 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
                 SystemIndexAccessLevel.NONE
             );
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (indicesOptions.allowNoIndices() == false
                 || indicesOptions.expandWildcardExpressions() == false && indicesOptions.ignoreUnavailable() == false) {
                 expectThrows(IndexNotFoundException.class, () -> indexNameExpressionResolver.concreteIndexNames(context, "Foo*"));
+        // Block Logic: [Describe purpose of this else/else if block]
             } else {
                 // asking for non existing wildcard pattern should return empty list or exception
                 String[] concreteIndices = indexNameExpressionResolver.concreteIndexNames(context, "Foo*");
@@ -1424,58 +1595,114 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for testIsAllIndicesNull]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testIsAllIndicesNull() {
         assertThat(IndexNameExpressionResolver.isAllIndices(null), equalTo(true));
     }
 
+    /**
+     * @brief [Functional Utility for testIsAllIndicesEmpty]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testIsAllIndicesEmpty() {
         assertThat(IndexNameExpressionResolver.isAllIndices(List.of()), equalTo(true));
     }
 
+    /**
+     * @brief [Functional Utility for testIsAllIndicesExplicitAll]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testIsAllIndicesExplicitAll() {
         assertThat(IndexNameExpressionResolver.isAllIndices(List.of("_all")), equalTo(true));
     }
 
+    /**
+     * @brief [Functional Utility for testIsAllIndicesExplicitAllPlusOther]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testIsAllIndicesExplicitAllPlusOther() {
         assertThat(IndexNameExpressionResolver.isAllIndices(List.of("_all", "other")), equalTo(false));
     }
 
+    /**
+     * @brief [Functional Utility for testIsNoneIndices]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testIsNoneIndices() {
         assertThat(IndexNameExpressionResolver.isNoneExpression(new String[] { "*", "-*" }), equalTo(true));
     }
 
+    /**
+     * @brief [Functional Utility for testIsAllIndicesNormalIndexes]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testIsAllIndicesNormalIndexes() {
         assertThat(IndexNameExpressionResolver.isAllIndices(List.of("index1", "index2", "index3")), equalTo(false));
     }
 
+    /**
+     * @brief [Functional Utility for testIsAllIndicesWildcard]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testIsAllIndicesWildcard() {
         assertThat(IndexNameExpressionResolver.isAllIndices(List.of("*")), equalTo(false));
     }
 
+    /**
+     * @brief [Functional Utility for testIsExplicitAllIndicesNull]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testIsExplicitAllIndicesNull() {
         assertThat(IndexNameExpressionResolver.isExplicitAllPattern(null), equalTo(false));
     }
 
+    /**
+     * @brief [Functional Utility for testIsExplicitAllIndicesEmpty]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testIsExplicitAllIndicesEmpty() {
         assertThat(IndexNameExpressionResolver.isExplicitAllPattern(List.of()), equalTo(false));
     }
 
+    /**
+     * @brief [Functional Utility for testIsExplicitAllIndicesExplicitAll]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testIsExplicitAllIndicesExplicitAll() {
         assertThat(IndexNameExpressionResolver.isExplicitAllPattern(List.of("_all")), equalTo(true));
     }
 
+    /**
+     * @brief [Functional Utility for testIsExplicitAllIndicesExplicitAllPlusOther]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testIsExplicitAllIndicesExplicitAllPlusOther() {
         assertThat(IndexNameExpressionResolver.isExplicitAllPattern(List.of("_all", "other")), equalTo(false));
     }
 
+    /**
+     * @brief [Functional Utility for testIsExplicitAllIndicesNormalIndexes]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testIsExplicitAllIndicesNormalIndexes() {
         assertThat(IndexNameExpressionResolver.isExplicitAllPattern(List.of("index1", "index2", "index3")), equalTo(false));
     }
 
+    /**
+     * @brief [Functional Utility for testIsExplicitAllIndicesWildcard]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testIsExplicitAllIndicesWildcard() {
         assertThat(IndexNameExpressionResolver.isExplicitAllPattern(List.of("*")), equalTo(false));
     }
 
+    /**
+     * @brief [Functional Utility for testIndexOptionsFailClosedIndicesAndAliases]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testIndexOptionsFailClosedIndicesAndAliases() {
         ProjectMetadata project = ProjectMetadata.builder(randomUniqueProjectId())
             .put(
@@ -1555,6 +1782,10 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         assertThat(results, arrayContainingInAnyOrder("foo1-closed", "foo2-closed", "foo3"));
     }
 
+    /**
+     * @brief [Functional Utility for testDedupConcreteIndices]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testDedupConcreteIndices() {
         ProjectMetadata project = ProjectMetadata.builder(randomUniqueProjectId())
             .put(indexBuilder("index1").putAlias(AliasMetadata.builder("alias1")))
@@ -1564,6 +1795,8 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
             IndicesOptions.strictExpand(),
             IndicesOptions.lenientExpandOpen(),
             IndicesOptions.strictExpandOpenAndForbidClosed() };
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (IndicesOptions options : indicesOptions) {
             IndexNameExpressionResolver.Context context = new IndexNameExpressionResolver.Context(
                 project,
@@ -1575,6 +1808,10 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for testFilterClosedIndicesOnAliases]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testFilterClosedIndicesOnAliases() {
         ProjectMetadata project = ProjectMetadata.builder(randomUniqueProjectId())
             .put(indexBuilder("test-0").state(State.OPEN).putAlias(AliasMetadata.builder("alias-0")))
@@ -1595,6 +1832,10 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         assertArrayEquals(new String[] { "test-0" }, strings);
     }
 
+    /**
+     * @brief [Functional Utility for testResolveExpressions]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testResolveExpressions() {
         ProjectMetadata project = ProjectMetadata.builder(Metadata.DEFAULT_PROJECT_ID)
             .put(indexBuilder("test-0").state(State.OPEN).putAlias(AliasMetadata.builder("alias-0").filter("{ \"term\": \"foo\"}")))
@@ -1609,6 +1850,12 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
             Set.of(
                 new ResolvedExpression("test-0", DATA),
                 new ResolvedExpression("alias-0", DATA),
+    /**
+     * @brief [Functional Utility for ResolvedExpression]: Describe purpose here.
+     * @param "alias-1": [Description]
+     * @param DATA: [Description]
+     * @return [ReturnType]: [Description]
+     */
                 new ResolvedExpression("alias-1", DATA)
             ),
             indexNameExpressionResolver.resolveExpressions(project, "test-0", "alias-*")
@@ -1618,6 +1865,12 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
                 new ResolvedExpression("test-0", DATA),
                 new ResolvedExpression("test-1", DATA),
                 new ResolvedExpression("alias-0", DATA),
+    /**
+     * @brief [Functional Utility for ResolvedExpression]: Describe purpose here.
+     * @param "alias-1": [Description]
+     * @param DATA: [Description]
+     * @return [ReturnType]: [Description]
+     */
                 new ResolvedExpression("alias-1", DATA)
             ),
             indexNameExpressionResolver.resolveExpressions(project, "test-*", "alias-*")
@@ -1628,6 +1881,10 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testFilteringAliases]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testFilteringAliases() {
         ProjectMetadata project = ProjectMetadata.builder(Metadata.DEFAULT_PROJECT_ID)
             .put(indexBuilder("test-0").state(State.OPEN).putAlias(AliasMetadata.builder("alias-0").filter("{ \"term\": \"foo\"}")))
@@ -1642,6 +1899,11 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         resolvedExpressions = Set.of(
             new ResolvedExpression("test-0"),
             new ResolvedExpression("alias-0"),
+    /**
+     * @brief [Functional Utility for ResolvedExpression]: Describe purpose here.
+     * @param "alias-1": [Description]
+     * @return [ReturnType]: [Description]
+     */
             new ResolvedExpression("alias-1")
         );
         strings = indexNameExpressionResolver.filteringAliases(project, "test-0", resolvedExpressions);
@@ -1651,12 +1913,21 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
             new ResolvedExpression("test-0"),
             new ResolvedExpression("test-1"),
             new ResolvedExpression("alias-0"),
+    /**
+     * @brief [Functional Utility for ResolvedExpression]: Describe purpose here.
+     * @param "alias-1": [Description]
+     * @return [ReturnType]: [Description]
+     */
             new ResolvedExpression("alias-1")
         );
         strings = indexNameExpressionResolver.filteringAliases(project, "test-0", resolvedExpressions);
         assertNull(strings);
     }
 
+    /**
+     * @brief [Functional Utility for testIndexAliases]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testIndexAliases() {
         ProjectMetadata project = ProjectMetadata.builder(Metadata.DEFAULT_PROJECT_ID)
             .put(
@@ -1683,8 +1954,18 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         assertArrayEquals(null, strings);
     }
 
+    /**
+     * @brief [Functional Utility for testIndexAliasesDataStreamAliases]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testIndexAliasesDataStreamAliases() {
+    /**
+     * @brief [Functional description for field dataStreamName1]: Describe purpose here.
+     */
         final String dataStreamName1 = "logs-foobar";
+    /**
+     * @brief [Functional description for field dataStreamName2]: Describe purpose here.
+     */
         final String dataStreamName2 = "logs-barbaz";
         IndexMetadata backingIndex1 = createBackingIndex(dataStreamName1, 1).build();
         IndexMetadata backingIndex2 = createBackingIndex(dataStreamName2, 1).build();
@@ -1764,8 +2045,18 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for testIndexAliasesDataStreamFailureStoreAndAliases]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testIndexAliasesDataStreamFailureStoreAndAliases() {
+    /**
+     * @brief [Functional description for field dataStreamName1]: Describe purpose here.
+     */
         final String dataStreamName1 = "logs-foobar";
+    /**
+     * @brief [Functional description for field dataStreamName2]: Describe purpose here.
+     */
         final String dataStreamName2 = "logs-barbaz";
         IndexMetadata backingIndex1 = createBackingIndex(dataStreamName1, 1).build();
         IndexMetadata failureIndex1 = createFailureStore(dataStreamName1, 2).build();
@@ -1826,6 +2117,10 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for testIndexAliasesSkipIdentity]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testIndexAliasesSkipIdentity() {
         ProjectMetadata project = ProjectMetadata.builder(Metadata.DEFAULT_PROJECT_ID)
             .put(
@@ -1855,6 +2150,10 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         assertArrayEquals(new String[] { "other-alias" }, aliases);
     }
 
+    /**
+     * @brief [Functional Utility for testConcreteWriteIndexSuccessful]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testConcreteWriteIndexSuccessful() {
         boolean testZeroWriteIndex = randomBoolean();
         ProjectMetadata project = ProjectMetadata.builder(Metadata.DEFAULT_PROJECT_ID)
@@ -1870,11 +2169,19 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         IndicesRequest request = new IndicesRequest() {
 
             @Override
+    /**
+     * @brief [Functional Utility for indices]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
             public String[] indices() {
                 return new String[] { "test-alias" };
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for indicesOptions]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
             public IndicesOptions indicesOptions() {
                 return IndicesOptions.strictSingleIndexNoExpandForbidClosed();
             }
@@ -1894,6 +2201,10 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         assertThat(writeIndex.getName(), equalTo(testZeroWriteIndex ? "test-0" : "test-1"));
     }
 
+    /**
+     * @brief [Functional Utility for testConcreteWriteIndexWithInvalidIndicesRequest]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testConcreteWriteIndexWithInvalidIndicesRequest() {
         ProjectMetadata project = ProjectMetadata.builder(randomUniqueProjectId())
             .put(indexBuilder("test-0").state(State.OPEN).putAlias(AliasMetadata.builder("test-alias")))
@@ -1901,11 +2212,22 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         Function<String[], IndicesRequest> requestGen = (indices) -> new IndicesRequest() {
 
             @Override
+    /**
+     * @brief [Functional Utility for indices]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
             public String[] indices() {
+    /**
+     * @brief [Functional description for field indices]: Describe purpose here.
+     */
                 return indices;
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for indicesOptions]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
             public IndicesOptions indicesOptions() {
                 return IndicesOptions.strictSingleIndexNoExpandForbidClosed();
             }
@@ -1924,6 +2246,10 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
 
     }
 
+    /**
+     * @brief [Functional Utility for testConcreteWriteIndexWithWildcardExpansion]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testConcreteWriteIndexWithWildcardExpansion() {
         boolean testZeroWriteIndex = randomBoolean();
         ProjectMetadata project = ProjectMetadata.builder(Metadata.DEFAULT_PROJECT_ID)
@@ -1946,11 +2272,19 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         IndicesRequest request = new IndicesRequest() {
 
             @Override
+    /**
+     * @brief [Functional Utility for indices]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
             public String[] indices() {
                 return new String[] { "test-*" };
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for indicesOptions]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
             public IndicesOptions indicesOptions() {
                 return IndicesOptions.strictExpandOpenAndForbidClosed();
             }
@@ -1967,6 +2301,10 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testConcreteWriteIndexWithNoWriteIndexWithSingleIndex]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testConcreteWriteIndexWithNoWriteIndexWithSingleIndex() {
         ProjectMetadata project = ProjectMetadata.builder(Metadata.DEFAULT_PROJECT_ID)
             .put(indexBuilder("test-0").state(State.OPEN).putAlias(AliasMetadata.builder("test-alias").writeIndex(false)))
@@ -1977,6 +2315,11 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         DocWriteRequest<?> request = randomFrom(
             new IndexRequest("test-alias"),
             new UpdateRequest("test-alias", "_id"),
+    /**
+     * @brief [Functional Utility for DeleteRequest]: Describe purpose here.
+     * @param "test-alias": [Description]
+     * @return [ReturnType]: [Description]
+     */
             new DeleteRequest("test-alias")
         );
         IllegalArgumentException exception = expectThrows(
@@ -1993,6 +2336,10 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testConcreteWriteIndexWithNoWriteIndexWithMultipleIndices]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testConcreteWriteIndexWithNoWriteIndexWithMultipleIndices() {
         ProjectMetadata project = ProjectMetadata.builder(Metadata.DEFAULT_PROJECT_ID)
             .put(indexBuilder("test-0").state(State.OPEN).putAlias(AliasMetadata.builder("test-alias").writeIndex(randomFrom(false, null))))
@@ -2008,6 +2355,11 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         DocWriteRequest<?> request = randomFrom(
             new IndexRequest("test-alias"),
             new UpdateRequest("test-alias", "_id"),
+    /**
+     * @brief [Functional Utility for DeleteRequest]: Describe purpose here.
+     * @param "test-alias": [Description]
+     * @return [ReturnType]: [Description]
+     */
             new DeleteRequest("test-alias")
         );
         IllegalArgumentException exception = expectThrows(
@@ -2024,6 +2376,10 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testAliasResolutionNotAllowingMultipleIndices]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testAliasResolutionNotAllowingMultipleIndices() {
         boolean test0WriteIndex = randomBoolean();
         ProjectMetadata project = ProjectMetadata.builder(Metadata.DEFAULT_PROJECT_ID)
@@ -2054,6 +2410,10 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         assertThat(exception.getMessage(), endsWith(", can't execute a single index op"));
     }
 
+    /**
+     * @brief [Functional Utility for testDeleteIndexIgnoresAliases]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testDeleteIndexIgnoresAliases() {
         ProjectMetadata project = ProjectMetadata.builder(Metadata.DEFAULT_PROJECT_ID)
             .put(indexBuilder("test-index").state(State.OPEN).putAlias(AliasMetadata.builder("test-alias")))
@@ -2152,6 +2512,10 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for testIndicesAliasesRequestIgnoresAliases]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testIndicesAliasesRequestIgnoresAliases() {
         ProjectMetadata project = ProjectMetadata.builder(randomUniqueProjectId())
             .put(indexBuilder("test-index").state(State.OPEN).putAlias(AliasMetadata.builder("test-alias")))
@@ -2252,7 +2616,14 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for testIndicesAliasesRequestTargetDataStreams]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testIndicesAliasesRequestTargetDataStreams() {
+    /**
+     * @brief [Functional description for field dataStreamName]: Describe purpose here.
+     */
         final String dataStreamName = "my-data-stream";
         IndexMetadata backingIndex = createBackingIndex(dataStreamName, 1).build();
 
@@ -2288,6 +2659,10 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for testInvalidIndex]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testInvalidIndex() {
         ProjectMetadata project = ProjectMetadata.builder(randomUniqueProjectId()).put(indexBuilder("test")).build();
         IndexNameExpressionResolver.Context context = new IndexNameExpressionResolver.Context(
@@ -2303,6 +2678,10 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         assertEquals("Invalid index name [_foo], must not start with '_'.", iine.getMessage());
     }
 
+    /**
+     * @brief [Functional Utility for testIgnoreThrottled]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testIgnoreThrottled() {
         ProjectMetadata project = ProjectMetadata.builder(Metadata.DEFAULT_PROJECT_ID)
             .put(
@@ -2395,6 +2774,10 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for testFullWildcardSystemIndexResolutionWithExpandHiddenAllowed]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testFullWildcardSystemIndexResolutionWithExpandHiddenAllowed() {
         ProjectMetadata state = systemIndexTestClusterState();
         SearchRequest request = new SearchRequest(randomFrom("*", "_all"));
@@ -2404,6 +2787,10 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         assertThat(indexNames, arrayContainingInAnyOrder("some-other-index", ".ml-stuff", ".ml-meta", ".watches"));
     }
 
+    /**
+     * @brief [Functional Utility for testWildcardSystemIndexResolutionMultipleMatchesAllowed]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testWildcardSystemIndexResolutionMultipleMatchesAllowed() {
         ProjectMetadata state = systemIndexTestClusterState();
         SearchRequest request = new SearchRequest(".w*");
@@ -2412,6 +2799,10 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         assertThat(indexNames, arrayContainingInAnyOrder(".watches"));
     }
 
+    /**
+     * @brief [Functional Utility for testWildcardSystemIndexResolutionSingleMatchAllowed]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testWildcardSystemIndexResolutionSingleMatchAllowed() {
         ProjectMetadata state = systemIndexTestClusterState();
         SearchRequest request = new SearchRequest(".ml-*");
@@ -2420,6 +2811,10 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         assertThat(indexNames, arrayContainingInAnyOrder(".ml-meta", ".ml-stuff"));
     }
 
+    /**
+     * @brief [Functional Utility for testSingleSystemIndexResolutionAllowed]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testSingleSystemIndexResolutionAllowed() {
         ProjectMetadata state = systemIndexTestClusterState();
         SearchRequest request = new SearchRequest(".ml-meta");
@@ -2428,6 +2823,10 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         assertThat(indexNames, arrayContainingInAnyOrder(".ml-meta"));
     }
 
+    /**
+     * @brief [Functional Utility for testFullWildcardSystemIndicesAreHidden]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testFullWildcardSystemIndicesAreHidden() {
         ProjectMetadata state = systemIndexTestClusterState();
         SearchRequest request = new SearchRequest(randomFrom("*", "_all"));
@@ -2436,6 +2835,10 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         assertThat(indexNames, arrayContaining("some-other-index"));
     }
 
+    /**
+     * @brief [Functional Utility for testFullWildcardSystemIndexResolutionDeprecated]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testFullWildcardSystemIndexResolutionDeprecated() {
         threadContext.putHeader(SYSTEM_INDEX_ACCESS_CONTROL_HEADER_KEY, Boolean.FALSE.toString());
         ProjectMetadata state = systemIndexTestClusterState();
@@ -2455,6 +2858,10 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
 
     }
 
+    /**
+     * @brief [Functional Utility for testSingleSystemIndexResolutionDeprecated]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testSingleSystemIndexResolutionDeprecated() {
         threadContext.putHeader(SYSTEM_INDEX_ACCESS_CONTROL_HEADER_KEY, Boolean.FALSE.toString());
         ProjectMetadata state = systemIndexTestClusterState();
@@ -2472,6 +2879,10 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testWildcardSystemIndexResolutionSingleMatchDeprecated]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testWildcardSystemIndexResolutionSingleMatchDeprecated() {
         threadContext.putHeader(SYSTEM_INDEX_ACCESS_CONTROL_HEADER_KEY, Boolean.FALSE.toString());
         ProjectMetadata state = systemIndexTestClusterState();
@@ -2490,6 +2901,10 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
 
     }
 
+    /**
+     * @brief [Functional Utility for testWildcardSystemIndexResolutionMultipleMatchesDeprecated]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testWildcardSystemIndexResolutionMultipleMatchesDeprecated() {
         threadContext.putHeader(SYSTEM_INDEX_ACCESS_CONTROL_HEADER_KEY, Boolean.FALSE.toString());
         ProjectMetadata state = systemIndexTestClusterState();
@@ -2508,6 +2923,10 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
 
     }
 
+    /**
+     * @brief [Functional Utility for testExternalSystemIndexAccess]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testExternalSystemIndexAccess() {
         final ProjectMetadata prev = systemIndexTestClusterState();
         ProjectMetadata state = ProjectMetadata.builder(prev)
@@ -2626,8 +3045,15 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for testConcreteIndicesPreservesOrdering]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testConcreteIndicesPreservesOrdering() {
         epochMillis = 1582761600L; // set to a date known to fail without #65027
+    /**
+     * @brief [Functional description for field dataStreamName]: Describe purpose here.
+     */
         final String dataStreamName = "my-data-stream";
         IndexMetadata index1 = createBackingIndex(dataStreamName, 1, epochMillis).build();
         IndexMetadata index2 = createBackingIndex(dataStreamName, 2, epochMillis).build();
@@ -2639,6 +3065,9 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
             .build();
 
         {
+    /**
+     * @brief [Functional description for field indicesOptions]: Describe purpose here.
+     */
             IndicesOptions indicesOptions = IndicesOptions.STRICT_EXPAND_OPEN;
             Index[] result = indexNameExpressionResolver.concreteIndices(project, indicesOptions, true, dataStreamName);
             assertThat(result.length, equalTo(2));
@@ -2647,7 +3076,14 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for testDataStreams]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testDataStreams() {
+    /**
+     * @brief [Functional description for field dataStreamName]: Describe purpose here.
+     */
         final String dataStreamName = "my-data-stream";
         IndexMetadata index1 = createBackingIndex(dataStreamName, 1, epochMillis).build();
         IndexMetadata index2 = createBackingIndex(dataStreamName, 2, epochMillis).build();
@@ -2659,6 +3095,9 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
             .build();
 
         {
+    /**
+     * @brief [Functional description for field indicesOptions]: Describe purpose here.
+     */
             IndicesOptions indicesOptions = IndicesOptions.STRICT_EXPAND_OPEN;
             Index[] result = indexNameExpressionResolver.concreteIndices(project, indicesOptions, true, "my-data-stream");
             assertThat(result.length, equalTo(2));
@@ -2667,6 +3106,9 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         }
         {
             // Ignore data streams,allow no indices and expand wildcards
+    /**
+     * @brief [Functional description for field indicesOptions]: Describe purpose here.
+     */
             IndicesOptions indicesOptions = IndicesOptions.STRICT_EXPAND_OPEN;
             Exception e = expectThrows(
                 IndexNotFoundException.class,
@@ -2685,6 +3127,9 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         }
         {
             // Ignore data streams, allow no indices and ignore unavailable
+    /**
+     * @brief [Functional description for field indicesOptions]: Describe purpose here.
+     */
             IndicesOptions indicesOptions = IndicesOptions.LENIENT_EXPAND_OPEN;
             Index[] result = indexNameExpressionResolver.concreteIndices(project, indicesOptions, false, "my-data-stream");
             assertThat(result.length, equalTo(0));
@@ -2699,6 +3144,9 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
             assertThat(result.length, equalTo(0));
         }
         {
+    /**
+     * @brief [Functional description for field indicesOptions]: Describe purpose here.
+     */
             IndicesOptions indicesOptions = IndicesOptions.STRICT_EXPAND_OPEN;
             Index result = indexNameExpressionResolver.concreteWriteIndex(project, indicesOptions, "my-data-stream", false, true);
             assertThat(result.getName(), equalTo(DataStream.getDefaultBackingIndexName(dataStreamName, 2, epochMillis)));
@@ -2731,6 +3179,9 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         }
         {
             // Ignore data streams and allow no indices
+    /**
+     * @brief [Functional description for field indicesOptions]: Describe purpose here.
+     */
             IndicesOptions indicesOptions = IndicesOptions.STRICT_EXPAND_OPEN;
             Exception e = expectThrows(
                 IndexNotFoundException.class,
@@ -2772,7 +3223,14 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for testDataStreamsWithFailureStore]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testDataStreamsWithFailureStore() {
+    /**
+     * @brief [Functional description for field dataStreamName]: Describe purpose here.
+     */
         final String dataStreamName = "my-data-stream";
         IndexMetadata index1 = createBackingIndex(dataStreamName, 1, epochMillis).build();
         IndexMetadata index2 = createBackingIndex(dataStreamName, 2, epochMillis).build();
@@ -2797,6 +3255,9 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
 
         // Test default with an exact data stream name
         {
+    /**
+     * @brief [Functional description for field indicesOptions]: Describe purpose here.
+     */
             IndicesOptions indicesOptions = IndicesOptions.STRICT_EXPAND_OPEN;
             Index[] result = indexNameExpressionResolver.concreteIndices(project, indicesOptions, true, "my-data-stream");
             assertThat(result.length, equalTo(2));
@@ -2806,6 +3267,9 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
 
         // Test default with an exact data stream name and include failures true
         {
+    /**
+     * @brief [Functional description for field indicesOptions]: Describe purpose here.
+     */
             IndicesOptions indicesOptions = IndicesOptions.STRICT_EXPAND_OPEN_CLOSED_HIDDEN_FAILURE_NO_SELECTORS;
             Index[] result = indexNameExpressionResolver.concreteIndices(project, indicesOptions, true, "my-data-stream");
             assertThat(result.length, equalTo(4));
@@ -2817,6 +3281,9 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
 
         // Test explicit include failure store with an exact data stream name
         {
+    /**
+     * @brief [Functional description for field indicesOptions]: Describe purpose here.
+     */
             IndicesOptions indicesOptions = IndicesOptions.STRICT_EXPAND_OPEN;
             Index[] result = indexNameExpressionResolver.concreteIndices(
                 project,
@@ -2846,6 +3313,9 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
 
         // Test explicitly selecting only failure store with an exact data stream name
         {
+    /**
+     * @brief [Functional description for field indicesOptions]: Describe purpose here.
+     */
             IndicesOptions indicesOptions = IndicesOptions.STRICT_EXPAND_OPEN;
             Index[] result = indexNameExpressionResolver.concreteIndices(project, indicesOptions, true, "my-data-stream::failures");
             assertThat(result.length, equalTo(2));
@@ -2855,6 +3325,9 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
 
         // Test default without any expressions
         {
+    /**
+     * @brief [Functional description for field indicesOptions]: Describe purpose here.
+     */
             IndicesOptions indicesOptions = IndicesOptions.STRICT_EXPAND_OPEN;
             Index[] result = indexNameExpressionResolver.concreteIndices(project, indicesOptions, true);
             assertThat(result.length, equalTo(3));
@@ -2891,6 +3364,9 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
 
         // Test default with wildcard expression
         {
+    /**
+     * @brief [Functional description for field indicesOptions]: Describe purpose here.
+     */
             IndicesOptions indicesOptions = IndicesOptions.STRICT_EXPAND_OPEN;
             Index[] result = indexNameExpressionResolver.concreteIndices(project, indicesOptions, true, "my-*");
             assertThat(result.length, equalTo(3));
@@ -2907,6 +3383,9 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
 
         // Test explicit include failure store with wildcard expression
         {
+    /**
+     * @brief [Functional description for field indicesOptions]: Describe purpose here.
+     */
             IndicesOptions indicesOptions = IndicesOptions.STRICT_EXPAND_OPEN;
             Index[] result = indexNameExpressionResolver.concreteIndices(project, indicesOptions, true, "my-*::data", "my-*::failures");
             assertThat(result.length, equalTo(5));
@@ -2925,6 +3404,9 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
 
         // Test explicit only failure store with wildcard expression
         {
+    /**
+     * @brief [Functional description for field indicesOptions]: Describe purpose here.
+     */
             IndicesOptions indicesOptions = IndicesOptions.STRICT_EXPAND_OPEN;
             Index[] result = indexNameExpressionResolver.concreteIndices(project, indicesOptions, true, "my-*::failures");
             assertThat(result.length, equalTo(2));
@@ -2939,19 +3421,41 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for testDataStreamAliases]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testDataStreamAliases() {
+    /**
+     * @brief [Functional description for field dataStream1]: Describe purpose here.
+     */
         String dataStream1 = "my-data-stream-1";
         IndexMetadata index1 = createBackingIndex(dataStream1, 1, epochMillis).build();
         IndexMetadata index2 = createBackingIndex(dataStream1, 2, epochMillis).build();
+    /**
+     * @brief [Functional description for field dataStream2]: Describe purpose here.
+     */
         String dataStream2 = "my-data-stream-2";
         IndexMetadata index3 = createBackingIndex(dataStream2, 1, epochMillis).build();
         IndexMetadata index4 = createBackingIndex(dataStream2, 2, epochMillis).build();
+    /**
+     * @brief [Functional description for field dataStream3]: Describe purpose here.
+     */
         String dataStream3 = "my-data-stream-3";
         IndexMetadata index5 = createBackingIndex(dataStream3, 1, epochMillis).build();
         IndexMetadata index6 = createBackingIndex(dataStream3, 2, epochMillis).build();
 
+    /**
+     * @brief [Functional description for field dataStreamAlias1]: Describe purpose here.
+     */
         String dataStreamAlias1 = "my-alias1";
+    /**
+     * @brief [Functional description for field dataStreamAlias2]: Describe purpose here.
+     */
         String dataStreamAlias2 = "my-alias2";
+    /**
+     * @brief [Functional description for field dataStreamAlias3]: Describe purpose here.
+     */
         String dataStreamAlias3 = "my-alias3";
         ProjectMetadata.Builder projectBuilder = ProjectMetadata.builder(Metadata.DEFAULT_PROJECT_ID)
             .put(index1, false)
@@ -2991,6 +3495,9 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
             assertThat(result, arrayContainingInAnyOrder(index5.getIndex(), index6.getIndex()));
         }
         {
+    /**
+     * @brief [Functional description for field indicesOptions]: Describe purpose here.
+     */
             IndicesOptions indicesOptions = IndicesOptions.STRICT_EXPAND_OPEN;
             Exception e = expectThrows(
                 IndexNotFoundException.class,
@@ -3008,6 +3515,9 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
             assertThat(e.getMessage(), equalTo("no such index [" + dataStreamAlias1 + "]"));
         }
         {
+    /**
+     * @brief [Functional description for field indicesOptions]: Describe purpose here.
+     */
             IndicesOptions indicesOptions = IndicesOptions.STRICT_EXPAND_OPEN;
             Exception e = expectThrows(
                 IndexNotFoundException.class,
@@ -3025,6 +3535,9 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
             assertThat(e.getMessage(), equalTo("no such index [" + dataStreamAlias2 + "]"));
         }
         {
+    /**
+     * @brief [Functional description for field indicesOptions]: Describe purpose here.
+     */
             IndicesOptions indicesOptions = IndicesOptions.STRICT_EXPAND_OPEN;
             Exception e = expectThrows(
                 IndexNotFoundException.class,
@@ -3042,6 +3555,9 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
             assertThat(e.getMessage(), equalTo("no such index [" + dataStreamAlias3 + "]"));
         }
         {
+    /**
+     * @brief [Functional description for field indicesOptions]: Describe purpose here.
+     */
             IndicesOptions indicesOptions = IndicesOptions.STRICT_EXPAND_OPEN;
             Index[] result = indexNameExpressionResolver.concreteIndices(project, indicesOptions, true, "my-alias*");
             assertThat(
@@ -3057,11 +3573,17 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
             );
         }
         {
+    /**
+     * @brief [Functional description for field indicesOptions]: Describe purpose here.
+     */
             IndicesOptions indicesOptions = IndicesOptions.STRICT_EXPAND_OPEN;
             Index[] result = indexNameExpressionResolver.concreteIndices(project, indicesOptions, false, "my-alias*");
             assertThat(result, arrayWithSize(0));
         }
         {
+    /**
+     * @brief [Functional description for field indicesOptions]: Describe purpose here.
+     */
             IndicesOptions indicesOptions = IndicesOptions.STRICT_EXPAND_OPEN;
             Index result = indexNameExpressionResolver.concreteWriteIndex(project, indicesOptions, dataStreamAlias1, false, true);
             assertThat(result, notNullValue());
@@ -3076,8 +3598,18 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for testDataStreamsWithWildcardExpression]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testDataStreamsWithWildcardExpression() {
+    /**
+     * @brief [Functional description for field dataStream1]: Describe purpose here.
+     */
         final String dataStream1 = "logs-mysql";
+    /**
+     * @brief [Functional description for field dataStream2]: Describe purpose here.
+     */
         final String dataStream2 = "logs-redis";
         IndexMetadata index1 = createBackingIndex(dataStream1, 1, epochMillis).build();
         IndexMetadata index2 = createBackingIndex(dataStream1, 2, epochMillis).build();
@@ -3093,6 +3625,9 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
             .build();
 
         {
+    /**
+     * @brief [Functional description for field indicesOptions]: Describe purpose here.
+     */
             IndicesOptions indicesOptions = IndicesOptions.STRICT_EXPAND_OPEN;
             Index[] result = indexNameExpressionResolver.concreteIndices(project, indicesOptions, true, "logs-*");
             Arrays.sort(result, Index.COMPARE_BY_NAME);
@@ -3103,6 +3638,9 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
             assertThat(result[3].getName(), equalTo(DataStream.getDefaultBackingIndexName(dataStream2, 2, epochMillis)));
         }
         {
+    /**
+     * @brief [Functional description for field indicesOptions]: Describe purpose here.
+     */
             IndicesOptions indicesOptions = IndicesOptions.STRICT_EXPAND_OPEN;
             Index[] result = indexNameExpressionResolver.concreteIndices(
                 project,
@@ -3118,6 +3656,9 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
             assertThat(result[3].getName(), equalTo(DataStream.getDefaultBackingIndexName(dataStream2, 2, epochMillis)));
         }
         {
+    /**
+     * @brief [Functional description for field indicesOptions]: Describe purpose here.
+     */
             IndicesOptions indicesOptions = IndicesOptions.STRICT_EXPAND_OPEN;
             Index[] result = indexNameExpressionResolver.concreteIndices(project, indicesOptions, true, "logs-m*");
             Arrays.sort(result, Index.COMPARE_BY_NAME);
@@ -3126,14 +3667,27 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
             assertThat(result[1].getName(), equalTo(DataStream.getDefaultBackingIndexName(dataStream1, 2, epochMillis)));
         }
         {
+    /**
+     * @brief [Functional description for field indicesOptions]: Describe purpose here.
+     */
             IndicesOptions indicesOptions = IndicesOptions.STRICT_EXPAND_OPEN; // without include data streams
             Index[] result = indexNameExpressionResolver.concreteIndices(project, indicesOptions, "logs-*");
             assertThat(result.length, equalTo(0));
         }
     }
 
+    /**
+     * @brief [Functional Utility for testDataStreamsWithClosedBackingIndicesAndWildcardExpressions]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testDataStreamsWithClosedBackingIndicesAndWildcardExpressions() {
+    /**
+     * @brief [Functional description for field dataStream1]: Describe purpose here.
+     */
         final String dataStream1 = "logs-mysql";
+    /**
+     * @brief [Functional description for field dataStream2]: Describe purpose here.
+     */
         final String dataStream2 = "logs-redis";
         IndexMetadata index1 = createBackingIndex(dataStream1, 1, epochMillis).state(State.CLOSE).build();
         IndexMetadata index2 = createBackingIndex(dataStream1, 2, epochMillis).build();
@@ -3148,6 +3702,9 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
             .put(newInstance(dataStream2, List.of(index3.getIndex(), index4.getIndex())))
             .build();
 
+    /**
+     * @brief [Functional description for field indicesOptions]: Describe purpose here.
+     */
         IndicesOptions indicesOptions = IndicesOptions.STRICT_EXPAND_OPEN;
         {
             Index[] result = indexNameExpressionResolver.concreteIndices(project, indicesOptions, true, "logs-*");
@@ -3165,7 +3722,14 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for testDataStreamsWithRegularIndexAndAlias]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testDataStreamsWithRegularIndexAndAlias() {
+    /**
+     * @brief [Functional description for field dataStream1]: Describe purpose here.
+     */
         final String dataStream1 = "logs-foobar";
         IndexMetadata index1 = createBackingIndex(dataStream1, 1, epochMillis).build();
         IndexMetadata index2 = createBackingIndex(dataStream1, 2, epochMillis).build();
@@ -3192,7 +3756,14 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         assertThat(result[2].getName(), equalTo("logs-foobarbaz-0"));
     }
 
+    /**
+     * @brief [Functional Utility for testHiddenDataStreams]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testHiddenDataStreams() {
+    /**
+     * @brief [Functional description for field dataStream1]: Describe purpose here.
+     */
         final String dataStream1 = "logs-foobar";
         IndexMetadata index1 = createBackingIndex(dataStream1, 1, epochMillis).build();
         IndexMetadata index2 = createBackingIndex(dataStream1, 2, epochMillis).build();
@@ -3222,8 +3793,18 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         assertThat(result, arrayContaining(justAnIndex.getIndex()));
     }
 
+    /**
+     * @brief [Functional Utility for testDataStreamsNames]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testDataStreamsNames() {
+    /**
+     * @brief [Functional description for field dataStream1]: Describe purpose here.
+     */
         final String dataStream1 = "logs-foobar";
+    /**
+     * @brief [Functional description for field dataStream2]: Describe purpose here.
+     */
         final String dataStream2 = "other-foobar";
         IndexMetadata index1 = createBackingIndex(dataStream1, 1).build();
         IndexMetadata index2 = createBackingIndex(dataStream1, 2).build();
@@ -3300,12 +3881,22 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
                 new ResolvedExpression(dataStream1, DATA),
                 new ResolvedExpression(dataStream1, FAILURES),
                 new ResolvedExpression(dataStream2, DATA),
+    /**
+     * @brief [Functional Utility for ResolvedExpression]: Describe purpose here.
+     * @param dataStream2: [Description]
+     * @param FAILURES: [Description]
+     * @return [ReturnType]: [Description]
+     */
                 new ResolvedExpression(dataStream2, FAILURES)
             )
         );
         assertThat(names, containsInAnyOrder(dataStream1, dataStream2));
     }
 
+    /**
+     * @brief [Functional Utility for testDateMathMixedArray]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testDateMathMixedArray() {
         long now = System.currentTimeMillis();
         String dataMathIndex1 = ".marvel-" + formatDate("uuuu.MM.dd", dateFromMillis(now));
@@ -3337,11 +3928,21 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
                 new ResolvedExpression("name1", DATA),
                 new ResolvedExpression(dataMathIndex1, DATA),
                 new ResolvedExpression("name2", DATA),
+    /**
+     * @brief [Functional Utility for ResolvedExpression]: Describe purpose here.
+     * @param dateMathIndex2: [Description]
+     * @param DATA: [Description]
+     * @return [ReturnType]: [Description]
+     */
                 new ResolvedExpression(dateMathIndex2, DATA)
             )
         );
     }
 
+    /**
+     * @brief [Functional Utility for testMathExpressionSupport]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testMathExpressionSupport() {
         Instant instant = LocalDate.of(2021, 01, 11).atStartOfDay().toInstant(ZoneOffset.UTC);
         String resolved = IndexNameExpressionResolver.resolveDateMathExpression("<a-name-{now/M{yyyy-MM}}>", instant.toEpochMilli());
@@ -3349,15 +3950,26 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         assertEquals(resolved, "a-name-2021-01");
     }
 
+    /**
+     * @brief [Functional Utility for testMathExpressionSupportWithOlderDate]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testMathExpressionSupportWithOlderDate() {
 
         Instant instant = LocalDate.of(2020, 12, 2).atStartOfDay().toInstant(ZoneOffset.UTC);
+    /**
+     * @brief [Functional description for field indexName]: Describe purpose here.
+     */
         final String indexName = "<older-date-{now/M{yyyy-MM}}>";
         String resolved = IndexNameExpressionResolver.resolveDateMathExpression(indexName, instant.toEpochMilli());
 
         assertEquals(resolved, "older-date-2020-12");
     }
 
+    /**
+     * @brief [Functional Utility for testRemoteIndex]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testRemoteIndex() {
         ProjectMetadata project = ProjectMetadata.builder(randomUniqueProjectId()).build();
 
@@ -3395,6 +4007,10 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for testResolveWriteIndexAbstraction]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testResolveWriteIndexAbstraction() {
         ClusterState state = DataStreamTestHelper.getClusterStateWithDataStreams(
             List.of(new Tuple<>("logs-foobar", 1)),
@@ -3409,11 +4025,16 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
             new DeleteRequest(name),
             new UpdateRequest(name, randomAlphaOfLength(8))
         );
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (DocWriteRequest<?> request : docWriteRequestsForName.apply("logs-foobar")) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (request.opType() == DocWriteRequest.OpType.CREATE) {
                 IndexAbstraction result = indexNameExpressionResolver.resolveWriteIndexAbstraction(finalState, request);
                 assertThat(result.getType(), equalTo(IndexAbstraction.Type.DATA_STREAM));
                 assertThat(result.getName(), equalTo("logs-foobar"));
+        // Block Logic: [Describe purpose of this else/else if block]
             } else {
                 IndexNotFoundException infe = expectThrows(
                     IndexNotFoundException.class,
@@ -3423,11 +4044,15 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
                 assertThat(infe.getMetadataKeys().contains(IndexNameExpressionResolver.EXCLUDED_DATA_STREAMS_KEY), is(true));
             }
         }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (DocWriteRequest<?> request : docWriteRequestsForName.apply("my-index")) {
             IndexAbstraction result = indexNameExpressionResolver.resolveWriteIndexAbstraction(finalState, request);
             assertThat(result.getName(), equalTo("my-index"));
             assertThat(result.getType(), equalTo(IndexAbstraction.Type.CONCRETE_INDEX));
         }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (DocWriteRequest<?> request : docWriteRequestsForName.apply("my-alias")) {
             IndexAbstraction result = indexNameExpressionResolver.resolveWriteIndexAbstraction(finalState, request);
             assertThat(result.getName(), equalTo("my-alias"));
@@ -3435,6 +4060,10 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for testResolveWriteIndexAbstractionNoWriteIndexForAlias]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testResolveWriteIndexAbstractionNoWriteIndexForAlias() {
         ClusterState state1 = DataStreamTestHelper.getClusterStateWithDataStreams(
             List.of(new Tuple<>("logs-foobar", 1)),
@@ -3461,6 +4090,10 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testResolveWriteIndexAbstractionMissing]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testResolveWriteIndexAbstractionMissing() {
         ProjectMetadata project = DataStreamTestHelper.getClusterStateWithDataStreams(
             List.of(new Tuple<>("logs-foobar", 1)),
@@ -3470,6 +4103,10 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         expectThrows(IndexNotFoundException.class, () -> indexNameExpressionResolver.resolveWriteIndexAbstraction(project, request));
     }
 
+    /**
+     * @brief [Functional Utility for testResolveWriteIndexAbstractionMultipleMatches]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testResolveWriteIndexAbstractionMultipleMatches() {
         ProjectMetadata project = DataStreamTestHelper.getClusterStateWithDataStreams(List.of(), List.of("logs-foo", "logs-bar"))
             .getMetadata()
@@ -3489,10 +4126,19 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for indexBuilder]: Describe purpose here.
+     * @param index: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static IndexMetadata.Builder indexBuilder(String index) {
         return indexBuilder(index, Settings.EMPTY);
     }
 
+    /**
+     * @brief [Functional Utility for systemIndexTestClusterState]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     private ProjectMetadata systemIndexTestClusterState() {
         ProjectMetadata project = ProjectMetadata.builder(Metadata.DEFAULT_PROJECT_ID)
             .put(indexBuilder(".ml-meta", SystemIndexDescriptor.DEFAULT_SETTINGS).state(State.OPEN).system(true))
@@ -3514,17 +4160,35 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
             )
         );
         indexNameExpressionResolver = TestIndexNameExpressionResolver.newInstance(threadContext, systemIndices);
+    /**
+     * @brief [Functional description for field project]: Describe purpose here.
+     */
         return project;
     }
 
+    /**
+     * @brief [Functional Utility for indexBuilder]: Describe purpose here.
+     * @param index: [Description]
+     * @param additionalSettings: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private static IndexMetadata.Builder indexBuilder(String index, Settings additionalSettings) {
         return IndexMetadata.builder(index).settings(indexSettings(IndexVersion.current(), 1, 0).put(additionalSettings));
     }
 
+    /**
+     * @brief [Functional Utility for doNotExpandWildcards]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     private static IndicesOptions.WildcardOptions doNotExpandWildcards() {
         return doNotExpandWildcards(true);
     }
 
+    /**
+     * @brief [Functional Utility for doNotExpandWildcards]: Describe purpose here.
+     * @param lenient: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private static IndicesOptions.WildcardOptions doNotExpandWildcards(boolean lenient) {
         return IndicesOptions.WildcardOptions.builder()
             .matchOpen(false)
@@ -3534,6 +4198,11 @@ public class IndexNameExpressionResolverTests extends ESTestCase {
             .build();
     }
 
+    /**
+     * @brief [Functional Utility for resolvedExpressionsSet]: Describe purpose here.
+     * @param expressions: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private Set<ResolvedExpression> resolvedExpressionsSet(String... expressions) {
         return Arrays.stream(expressions).map(ResolvedExpression::new).collect(Collectors.toSet());
     }

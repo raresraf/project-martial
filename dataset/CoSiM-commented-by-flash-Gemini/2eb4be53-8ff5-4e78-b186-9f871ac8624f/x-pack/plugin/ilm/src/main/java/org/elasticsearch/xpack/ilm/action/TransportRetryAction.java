@@ -66,13 +66,21 @@ public class TransportRetryAction extends TransportMasterNodeAction<RetryActionR
         ClusterState state,
         ActionListener<AcknowledgedResponse> listener
     ) {
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (request.requireError() == false) {
             maybeRunAsyncAction(state, request.indices());
             listener.onResponse(AcknowledgedResponse.TRUE);
             return;
         }
+        /**
+         * @brief [Functional Utility for submitUnbatchedTask]: Describe purpose here.
+         */
         submitUnbatchedTask("ilm-re-run", new AckedClusterStateUpdateTask(request, listener) {
             @Override
+            /**
+             * @brief [Functional Utility for execute]: Describe purpose here.
+             */
             public ClusterState execute(ClusterState currentState) {
                 final var project = state.metadata().getProject();
                 final var updatedProject = indexLifecycleService.moveIndicesToPreviouslyFailedStep(project, request.indices());
@@ -80,15 +88,27 @@ public class TransportRetryAction extends TransportMasterNodeAction<RetryActionR
             }
 
             @Override
+            /**
+             * @brief [Functional Utility for clusterStateProcessed]: Describe purpose here.
+             */
             public void clusterStateProcessed(ClusterState oldState, ClusterState newState) {
                 maybeRunAsyncAction(newState, request.indices());
             }
         });
     }
 
+    /**
+     * @brief [Functional Utility for maybeRunAsyncAction]: Describe purpose here.
+     */
     private void maybeRunAsyncAction(ClusterState state, String[] indices) {
+        /**
+         * @brief [Functional Utility for for]: Describe purpose here.
+         */
         for (String index : indices) {
             IndexMetadata idxMeta = state.metadata().getProject().index(index);
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (idxMeta == null) {
                 // The index has somehow been deleted - there shouldn't be any opportunity for this to happen, but just in case.
                 logger.debug("index [" + index + "] has been deleted, skipping async action check");
@@ -106,6 +126,9 @@ public class TransportRetryAction extends TransportMasterNodeAction<RetryActionR
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for checkBlock]: Describe purpose here.
+     */
     protected ClusterBlockException checkBlock(RetryActionRequest request, ClusterState state) {
         return state.blocks().globalBlockedException(ClusterBlockLevel.METADATA_WRITE);
     }

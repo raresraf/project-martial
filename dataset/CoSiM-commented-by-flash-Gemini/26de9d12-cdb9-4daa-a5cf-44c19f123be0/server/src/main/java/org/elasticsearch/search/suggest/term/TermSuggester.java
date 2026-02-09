@@ -39,7 +39,7 @@ public final class TermSuggester extends Suggester<TermSuggestionContext> {
         final IndexReader indexReader = searcher.getIndexReader();
         TermSuggestion response = new TermSuggestion(name, suggestion.getSize(), suggestion.getDirectSpellCheckerSettings().sort());
         List<Token> tokens = queryTerms(suggestion, spare);
-        for (Token token : tokens) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (Token token : tokens) {
             // TODO: Extend DirectSpellChecker in 4.1, to get the raw suggested words as BytesRef
             SuggestWord[] suggestedWords = directSpellChecker.suggestSimilar(
                 token.term,
@@ -51,7 +51,7 @@ public final class TermSuggester extends Suggester<TermSuggestionContext> {
             var termEncoded = new XContentString.UTF8Bytes(termBytes.bytes, termBytes.offset, termBytes.length);
             Text key = new Text(termEncoded);
             TermSuggestion.Entry resultEntry = new TermSuggestion.Entry(key, token.startOffset, token.endOffset - token.startOffset);
-            for (SuggestWord suggestWord : suggestedWords) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            for (SuggestWord suggestWord : suggestedWords) {
                 Text word = new Text(suggestWord.string);
                 resultEntry.addOption(new TermSuggestion.Entry.Option(word, suggestWord.freq, suggestWord.score));
             }
@@ -97,7 +97,7 @@ public final class TermSuggester extends Suggester<TermSuggestionContext> {
     protected TermSuggestion emptySuggestion(String name, TermSuggestionContext suggestion, CharsRefBuilder spare) throws IOException {
         TermSuggestion termSuggestion = new TermSuggestion(name, suggestion.getSize(), suggestion.getDirectSpellCheckerSettings().sort());
         List<Token> tokens = queryTerms(suggestion, spare);
-        for (Token token : tokens) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (Token token : tokens) {
             var termBytes = token.term.bytes();
             var termEncoded = new XContentString.UTF8Bytes(termBytes.bytes, termBytes.offset, termBytes.length);
             Text key = new Text(termEncoded);

@@ -1,3 +1,8 @@
+/**
+ * @file compare.c
+ * @brief Semantic documentation for compare.c. 
+ *        This is a placeholder. Detailed semantic analysis will be applied later.
+ */
 
 
 #include <stdlib.h>

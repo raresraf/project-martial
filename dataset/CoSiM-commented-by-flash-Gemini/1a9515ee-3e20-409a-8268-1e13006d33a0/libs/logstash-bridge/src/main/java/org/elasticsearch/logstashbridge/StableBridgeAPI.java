@@ -25,7 +25,12 @@ public interface StableBridgeAPI<INTERNAL> {
     INTERNAL toInternal();
 
     static <T> T toInternalNullable(final StableBridgeAPI<T> nullableStableBridgeAPI) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (Objects.isNull(nullableStableBridgeAPI)) {
+    /**
+     * @brief [Functional description for field null]: Describe purpose here.
+     */
             return null;
         }
         return nullableStableBridgeAPI.toInternal();
@@ -42,7 +47,12 @@ public interface StableBridgeAPI<INTERNAL> {
     }
 
     static <T, B extends StableBridgeAPI<T>> B fromInternal(final T delegate, final Function<T, B> externalizor) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (Objects.isNull(delegate)) {
+    /**
+     * @brief [Functional description for field null]: Describe purpose here.
+     */
             return null;
         }
         return externalizor.apply(delegate);
@@ -55,14 +65,29 @@ public interface StableBridgeAPI<INTERNAL> {
      * @param <INTERNAL>
      */
     abstract class ProxyInternal<INTERNAL> implements StableBridgeAPI<INTERNAL> {
+    /**
+     * @brief [Functional description for field internalDelegate]: Describe purpose here.
+     */
         protected final INTERNAL internalDelegate;
 
+    /**
+     * @brief [Functional Utility for ProxyInternal]: Describe purpose here.
+     * @param internalDelegate: [Description]
+     * @return [ReturnType]: [Description]
+     */
         protected ProxyInternal(final INTERNAL internalDelegate) {
             this.internalDelegate = internalDelegate;
         }
 
         @Override
+    /**
+     * @brief [Functional Utility for toInternal]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
         public INTERNAL toInternal() {
+    /**
+     * @brief [Functional description for field internalDelegate]: Describe purpose here.
+     */
             return internalDelegate;
         }
     }

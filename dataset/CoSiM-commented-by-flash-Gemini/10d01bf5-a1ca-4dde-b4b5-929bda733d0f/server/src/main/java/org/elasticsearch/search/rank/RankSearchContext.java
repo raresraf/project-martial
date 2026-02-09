@@ -63,6 +63,14 @@ public class RankSearchContext extends SearchContext {
     private final QuerySearchResult querySearchResult;
 
     @SuppressWarnings("this-escape")
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param parent: [Description]
+     * @param rankQuery: [Description]
+     * @param rankWindowSize: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public RankSearchContext(SearchContext parent, Query rankQuery, int rankWindowSize) {
         this.parent = parent;
         this.rankQuery = parent.buildFilteredQuery(rankQuery);
@@ -72,11 +80,21 @@ public class RankSearchContext extends SearchContext {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public ShardSearchRequest request() {
         return parent.request();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SearchShardTarget shardTarget() {
         return parent.shardTarget();
     }
@@ -106,26 +124,51 @@ public class RankSearchContext extends SearchContext {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public ContextIndexSearcher searcher() {
         return parent.searcher();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public IndexShard indexShard() {
         return parent.indexShard();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public TimeValue timeout() {
         return parent.timeout();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public int terminateAfter() {
         return parent.terminateAfter();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public Float minimumScore() {
         return parent.minimumScore();
     }
@@ -139,6 +182,11 @@ public class RankSearchContext extends SearchContext {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public boolean trackScores() {
         return parent.trackScores();
     }
@@ -152,6 +200,11 @@ public class RankSearchContext extends SearchContext {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public FieldDoc searchAfter() {
         return parent.searchAfter();
     }
@@ -165,6 +218,11 @@ public class RankSearchContext extends SearchContext {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public ParsedQuery parsedPostFilter() {
         return parent.parsedPostFilter();
     }
@@ -178,11 +236,21 @@ public class RankSearchContext extends SearchContext {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public int from() {
         return parent.from();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public int size() {
         return rankWindowSize;
     }
@@ -204,6 +272,11 @@ public class RankSearchContext extends SearchContext {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public long getRelativeTimeInMillis() {
         return parent.getRelativeTimeInMillis();
     }
@@ -211,325 +284,675 @@ public class RankSearchContext extends SearchContext {
     /* ---- ALL METHODS ARE UNSUPPORTED BEYOND HERE ---- */
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param task: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void setTask(CancellableTask task) {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public CancellableTask getTask() {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public boolean isCancelled() {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void preProcess() {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param query: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public Query buildFilteredQuery(Query query) {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public ShardSearchContextId id() {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public String source() {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SearchType searchType() {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public int numberOfShards() {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param aggregations: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SearchContext aggregations(SearchContextAggregations aggregations) {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param name: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SearchExtBuilder getSearchExt(String name) {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SearchHighlightContext highlight() {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param highlight: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void highlight(SearchHighlightContext highlight) {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public InnerHitsContext innerHits() {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SuggestionSearchContext suggest() {
         throw new UnsupportedOperationException();
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param suggest: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void suggest(SuggestionSearchContext suggest) {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public QueryPhaseRankShardContext queryPhaseRankShardContext() {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param queryPhaseRankShardContext: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void queryPhaseRankShardContext(QueryPhaseRankShardContext queryPhaseRankShardContext) {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param rescore: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void addRescore(RescoreContext rescore) {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public boolean hasScriptFields() {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public ScriptFieldsContext scriptFields() {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public boolean sourceRequested() {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public FetchSourceContext fetchSourceContext() {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param fetchSourceContext: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SearchContext fetchSourceContext(FetchSourceContext fetchSourceContext) {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public FetchDocValuesContext docValuesContext() {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param docValuesContext: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SearchContext docValuesContext(FetchDocValuesContext docValuesContext) {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public FetchFieldsContext fetchFieldsContext() {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param fetchFieldsContext: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SearchContext fetchFieldsContext(FetchFieldsContext fetchFieldsContext) {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public BitsetFilterCache bitsetFilterCache() {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param terminateAfter: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void terminateAfter(int terminateAfter) {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public boolean lowLevelCancellation() {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param minimumScore: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SearchContext minimumScore(float minimumScore) {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param sort: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SearchContext sort(SortAndFormats sort) {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param trackScores: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SearchContext trackScores(boolean trackScores) {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param trackTotalHits: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SearchContext trackTotalHitsUpTo(int trackTotalHits) {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param searchAfter: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SearchContext searchAfter(FieldDoc searchAfter) {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param postFilter: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SearchContext parsedPostFilter(ParsedQuery postFilter) {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param query: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SearchContext parsedQuery(ParsedQuery query) {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public ParsedQuery parsedQuery() {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param from: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SearchContext from(int from) {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param size: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SearchContext size(int size) {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public boolean hasStoredFields() {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public StoredFieldsContext storedFieldsContext() {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param storedFieldsContext: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SearchContext storedFieldsContext(StoredFieldsContext storedFieldsContext) {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public boolean explain() {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param explain: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void explain(boolean explain) {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public List<String> groupStats() {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public boolean version() {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param version: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void version(boolean version) {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public boolean seqNoAndPrimaryTerm() {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param seqNoAndPrimaryTerm: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void seqNoAndPrimaryTerm(boolean seqNoAndPrimaryTerm) {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public DfsSearchResult dfsResult() {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void addDfsResult() {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void addQueryResult() {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public TotalHits getTotalHits() {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public float getMaxScore() {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public FetchPhase fetchPhase() {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void addRankFeatureResult() {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public RankFeatureResult rankFeatureResult() {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public FetchSearchResult fetchResult() {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void addFetchResult() {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SearchExecutionContext getSearchExecutionContext() {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public ReaderContext readerContext() {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SourceLoader newSourceLoader() {
         throw new UnsupportedOperationException();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public IdLoader newIdLoader() {
         throw new UnsupportedOperationException();
     }

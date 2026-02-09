@@ -179,7 +179,7 @@ public abstract class StreamInput extends InputStream {
     @Nullable
     public BytesReference readOptionalBytesReference() throws IOException {
         int length = readVInt() - 1;
-        if (length < 0) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (length < 0) {
             return null;
         }
         return readBytesReference(length);
@@ -190,7 +190,7 @@ public abstract class StreamInput extends InputStream {
      * bytes of the stream.
      */
     public BytesReference readBytesReference(int length) throws IOException {
-        if (length == 0) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (length == 0) {
             return BytesArray.EMPTY;
         }
         byte[] bytes = new byte[length];
@@ -204,7 +204,7 @@ public abstract class StreamInput extends InputStream {
     }
 
     public BytesRef readBytesRef(int length) throws IOException {
-        if (length == 0) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (length == 0) {
             return new BytesRef();
         }
         byte[] bytes = new byte[length];
@@ -231,7 +231,7 @@ public abstract class StreamInput extends InputStream {
      * Reads an optional {@link Integer}.
      */
     public Integer readOptionalInt() throws IOException {
-        if (readBoolean()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (readBoolean()) {
             return readInt();
         }
         return null;
@@ -250,26 +250,26 @@ public abstract class StreamInput extends InputStream {
     protected final int readVIntSlow() throws IOException {
         byte b = readByte();
         int i = b & 0x7F;
-        if ((b & 0x80) == 0) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if ((b & 0x80) == 0) {
             return i;
         }
         b = readByte();
         i |= (b & 0x7F) << 7;
-        if ((b & 0x80) == 0) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if ((b & 0x80) == 0) {
             return i;
         }
         b = readByte();
         i |= (b & 0x7F) << 14;
-        if ((b & 0x80) == 0) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if ((b & 0x80) == 0) {
             return i;
         }
         b = readByte();
         i |= (b & 0x7F) << 21;
-        if ((b & 0x80) == 0) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if ((b & 0x80) == 0) {
             return i;
         }
         b = readByte();
-        if ((b & 0x80) != 0) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if ((b & 0x80) != 0) {
             throwOnBrokenVInt(b, i);
         }
         return i | ((b & 0x7F) << 28);
@@ -297,51 +297,51 @@ public abstract class StreamInput extends InputStream {
     protected final long readVLongSlow() throws IOException {
         byte b = readByte();
         long i = b & 0x7FL;
-        if ((b & 0x80) == 0) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if ((b & 0x80) == 0) {
             return i;
         }
         b = readByte();
         i |= (b & 0x7FL) << 7;
-        if ((b & 0x80) == 0) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if ((b & 0x80) == 0) {
             return i;
         }
         b = readByte();
         i |= (b & 0x7FL) << 14;
-        if ((b & 0x80) == 0) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if ((b & 0x80) == 0) {
             return i;
         }
         b = readByte();
         i |= (b & 0x7FL) << 21;
-        if ((b & 0x80) == 0) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if ((b & 0x80) == 0) {
             return i;
         }
         b = readByte();
         i |= (b & 0x7FL) << 28;
-        if ((b & 0x80) == 0) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if ((b & 0x80) == 0) {
             return i;
         }
         b = readByte();
         i |= (b & 0x7FL) << 35;
-        if ((b & 0x80) == 0) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if ((b & 0x80) == 0) {
             return i;
         }
         b = readByte();
         i |= (b & 0x7FL) << 42;
-        if ((b & 0x80) == 0) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if ((b & 0x80) == 0) {
             return i;
         }
         b = readByte();
         i |= (b & 0x7FL) << 49;
-        if ((b & 0x80) == 0) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if ((b & 0x80) == 0) {
             return i;
         }
         b = readByte();
         i |= ((b & 0x7FL) << 56);
-        if ((b & 0x80) == 0) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if ((b & 0x80) == 0) {
             return i;
         }
         b = readByte();
-        if (b != 0 && b != 1) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (b != 0 && b != 1) {
             throwOnBrokenVLong(b, i);
         }
         i |= ((long) b) << 63;
@@ -354,7 +354,7 @@ public abstract class StreamInput extends InputStream {
 
     @Nullable
     public Long readOptionalVLong() throws IOException {
-        if (readBoolean()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (readBoolean()) {
             return readVLong();
         }
         return null;
@@ -364,10 +364,10 @@ public abstract class StreamInput extends InputStream {
         long accumulator = 0L;
         int i = 0;
         long currentByte;
-        while (((currentByte = readByte()) & 0x80L) != 0) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        while (((currentByte = readByte()) & 0x80L) != 0) {
             accumulator |= (currentByte & 0x7F) << i;
             i += 7;
-            if (i > 63) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (i > 63) {
                 throw new IOException("variable-length stream is too long");
             }
         }
@@ -376,7 +376,7 @@ public abstract class StreamInput extends InputStream {
 
     @Nullable
     public Long readOptionalLong() throws IOException {
-        if (readBoolean()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (readBoolean()) {
             return readLong();
         }
         return null;
@@ -388,7 +388,7 @@ public abstract class StreamInput extends InputStream {
 
     private Text readText(int length) throws IOException {
         byte[] bytes = new byte[length];
-        if (length > 0) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (length > 0) {
             readBytes(bytes, 0, length);
         }
         var encoded = new XContentString.UTF8Bytes(bytes);
@@ -398,7 +398,7 @@ public abstract class StreamInput extends InputStream {
     @Nullable
     public Text readOptionalText() throws IOException {
         int length = readInt();
-        if (length == -1) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (length == -1) {
             return null;
         }
         return readText(length);
@@ -412,7 +412,7 @@ public abstract class StreamInput extends InputStream {
 
     @Nullable
     public String readOptionalString() throws IOException {
-        if (readBoolean()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (readBoolean()) {
             return readString();
         }
         return null;
@@ -422,7 +422,7 @@ public abstract class StreamInput extends InputStream {
     public SecureString readOptionalSecureString() throws IOException {
         SecureString value = null;
         BytesReference bytesRef = readOptionalBytesReference();
-        if (bytesRef != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (bytesRef != null) {
             byte[] bytes = BytesReference.toBytes(bytesRef);
             try {
                 value = new SecureString(CharArrays.utf8BytesToChars(bytes));
@@ -435,7 +435,7 @@ public abstract class StreamInput extends InputStream {
 
     @Nullable
     public Float readOptionalFloat() throws IOException {
-        if (readBoolean()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (readBoolean()) {
             return readFloat();
         }
         return null;
@@ -443,7 +443,7 @@ public abstract class StreamInput extends InputStream {
 
     @Nullable
     public Integer readOptionalVInt() throws IOException {
-        if (readBoolean()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (readBoolean()) {
             return readVInt();
         }
         return null;
@@ -465,7 +465,7 @@ public abstract class StreamInput extends InputStream {
 
     private char[] ensureLargeSpare(int charCount) {
         char[] spare = largeSpare;
-        if (spare == null || spare.length < charCount) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (spare == null || spare.length < charCount) {
             // we don't use ArrayUtils.grow since there is no need to copy the array
             spare = new char[ArrayUtil.oversize(charCount, Character.BYTES)];
             largeSpare = spare;
@@ -486,25 +486,25 @@ public abstract class StreamInput extends InputStream {
         int sizeByteArray = 0;
         int missingFromPartial = 0;
         final byte[] byteBuffer = stringReadBuffer.get();
-        for (; charsOffset < charCount;) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (; charsOffset < charCount;) {
             final int charsLeft = charCount - charsOffset;
             int bufferFree = byteBuffer.length - sizeByteArray;
             // Determine the minimum amount of bytes that are left in the string
             final int minRemainingBytes;
-            if (missingFromPartial > 0) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (missingFromPartial > 0) {
                 // One byte for each remaining char except for the already partially read char
                 minRemainingBytes = missingFromPartial + charsLeft - 1;
                 missingFromPartial = 0;
-            } else {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            } else {
                 // Each char has at least a single byte
                 minRemainingBytes = charsLeft;
             }
             final int toRead;
-            if (bufferFree < minRemainingBytes) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (bufferFree < minRemainingBytes) {
                 // We don't have enough space left in the byte array to read as much as we'd like to so we free up as many bytes in the
                 // buffer by moving unused bytes that didn't make up a full char in the last iteration to the beginning of the buffer,
                 // if there are any
-                if (offsetByteArray > 0) {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                if (offsetByteArray > 0) {
                     sizeByteArray = sizeByteArray - offsetByteArray;
                     switch (sizeByteArray) { // We only have 0, 1 or 2 => no need to bother with a native call to System#arrayCopy
                         case 1 -> byteBuffer[0] = byteBuffer[offsetByteArray];
@@ -516,17 +516,17 @@ public abstract class StreamInput extends InputStream {
                     assert sizeByteArray <= 2 : "We never copy more than 2 bytes here since a char is 3 bytes max";
                     toRead = Math.min(bufferFree + offsetByteArray, minRemainingBytes);
                     offsetByteArray = 0;
-                } else {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                } else {
                     toRead = bufferFree;
                 }
-            } else {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            } else {
                 toRead = minRemainingBytes;
             }
             readBytes(byteBuffer, sizeByteArray, toRead);
             sizeByteArray += toRead;
             // As long as we at least have three bytes buffered we don't need to do any bounds checking when getting the next char since we
             // read 3 bytes per char/iteration at most
-            for (; offsetByteArray < sizeByteArray - 2; offsetByteArray++) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            for (; offsetByteArray < sizeByteArray - 2; offsetByteArray++) {
                 final int c = byteBuffer[offsetByteArray] & 0xff;
                 switch (c >> 4) {
                     case 0, 1, 2, 3, 4, 5, 6, 7 -> charBuffer[charsOffset++] = (char) c;
@@ -538,7 +538,7 @@ public abstract class StreamInput extends InputStream {
             }
             // try to extract chars from remaining bytes with bounds checks for multi-byte chars
             final int bufferedBytesRemaining = sizeByteArray - offsetByteArray;
-            for (int i = 0; i < bufferedBytesRemaining; i++) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            for (int i = 0; i < bufferedBytesRemaining; i++) {
                 final int c = byteBuffer[offsetByteArray] & 0xff;
                 switch (c >> 4) {
                     case 0, 1, 2, 3, 4, 5, 6, 7 -> {
@@ -547,7 +547,7 @@ public abstract class StreamInput extends InputStream {
                     }
                     case 12, 13 -> {
                         missingFromPartial = 2 - (bufferedBytesRemaining - i);
-                        if (missingFromPartial == 0) {
+                         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                         // Invariant: [State condition that holds true before and after each iteration/execution]\n                        if (missingFromPartial == 0) {
                             offsetByteArray++;
                             charBuffer[charsOffset++] = (char) ((c & 0x1F) << 6 | byteBuffer[offsetByteArray++] & 0x3F);
                         }
@@ -566,11 +566,11 @@ public abstract class StreamInput extends InputStream {
 
     protected String tryReadStringFromBytes(final byte[] bytes, final int start, final int limit, final int chars) throws IOException {
         final int end = start + chars;
-        if (limit < end) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (limit < end) {
             return null; // not enough bytes to read chars
         }
-        for (int pos = start; pos < end; pos++) {
-            if ((bytes[pos] & 0x80) != 0) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (int pos = start; pos < end; pos++) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if ((bytes[pos] & 0x80) != 0) {
                 // not an ASCII char, fall back to reading a UTF-8 string
                 return tryReadUtf8StringFromBytes(bytes, start, limit, pos, end - pos);
             }
@@ -582,7 +582,7 @@ public abstract class StreamInput extends InputStream {
     }
 
     private String tryReadUtf8StringFromBytes(final byte[] bytes, final int start, final int limit, int pos, int chars) throws IOException {
-        while (pos < limit && chars-- > 0) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        while (pos < limit && chars-- > 0) {
             int c = bytes[pos] & 0xff;
             switch (c >> 4) {
                 case 0, 1, 2, 3, 4, 5, 6, 7 -> pos++;
@@ -596,7 +596,7 @@ public abstract class StreamInput extends InputStream {
             }
         }
 
-        if (chars == 0 && pos <= limit) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (chars == 0 && pos <= limit) {
             pos = pos - start;
             skip(pos); // skip the number of bytes relative to start on the stream input
             return new String(bytes, start, pos, UTF_8);
@@ -607,7 +607,7 @@ public abstract class StreamInput extends InputStream {
     }
 
     private static boolean maybeHighSurrogate(final byte[] bytes, final int pos, final int limit) {
-        if (pos + 2 >= limit) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (pos + 2 >= limit) {
             return true; // beyond limit, we can't tell
         }
         int c1 = bytes[pos] & 0xff;
@@ -625,9 +625,9 @@ public abstract class StreamInput extends InputStream {
     public SecureString readSecureString() throws IOException {
         BytesReference bytesRef = readSlicedBytesReference();
         final char[] chars;
-        if (bytesRef.hasArray()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (bytesRef.hasArray()) {
             chars = CharArrays.utf8BytesToChars(bytesRef.array(), bytesRef.arrayOffset(), bytesRef.length());
-        } else {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else {
             chars = CharArrays.utf8BytesToChars(BytesReference.toBytes(bytesRef));
         }
         return new SecureString(chars);
@@ -643,7 +643,7 @@ public abstract class StreamInput extends InputStream {
 
     @Nullable
     public final Double readOptionalDouble() throws IOException {
-        if (readBoolean()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (readBoolean()) {
             return readDouble();
         }
         return null;
@@ -657,11 +657,11 @@ public abstract class StreamInput extends InputStream {
     }
 
     private static boolean readBoolean(final byte value) {
-        if (value == 0) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (value == 0) {
             return false;
-        } else if (value == 1) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else if (value == 1) {
             return true;
-        } else {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else {
             final String message = String.format(Locale.ROOT, "unexpected byte [0x%02x]", value);
             throw new IllegalStateException(message);
         }
@@ -670,9 +670,9 @@ public abstract class StreamInput extends InputStream {
     @Nullable
     public final Boolean readOptionalBoolean() throws IOException {
         final byte value = readByte();
-        if (value == 2) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (value == 2) {
             return null;
-        } else {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else {
             return readBoolean(value);
         }
     }
@@ -688,11 +688,11 @@ public abstract class StreamInput extends InputStream {
 
     public String[] readStringArray() throws IOException {
         int size = readArraySize();
-        if (size == 0) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (size == 0) {
             return Strings.EMPTY_ARRAY;
         }
         String[] ret = new String[size];
-        for (int i = 0; i < size; i++) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (int i = 0; i < size; i++) {
             ret[i] = readString();
         }
         return ret;
@@ -700,7 +700,7 @@ public abstract class StreamInput extends InputStream {
 
     @Nullable
     public String[] readOptionalStringArray() throws IOException {
-        if (readBoolean()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (readBoolean()) {
             return readStringArray();
         }
         return null;
@@ -714,7 +714,7 @@ public abstract class StreamInput extends InputStream {
      */
     @Nullable
     public byte[] readOptionalByteArray() throws IOException {
-        if (readBoolean()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (readBoolean()) {
             return readByteArray();
         }
         return null;
@@ -728,7 +728,7 @@ public abstract class StreamInput extends InputStream {
      */
     @Nullable
     public float[] readOptionalFloatArray() throws IOException {
-        if (readBoolean()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (readBoolean()) {
             return readFloatArray();
         }
         return null;
@@ -755,11 +755,11 @@ public abstract class StreamInput extends InputStream {
     private <K, V> Map<K, V> readMap(Writeable.Reader<K> keyReader, Writeable.Reader<V> valueReader, IntFunction<Map<K, V>> constructor)
         throws IOException {
         int size = readArraySize();
-        if (size == 0) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (size == 0) {
             return Collections.emptyMap();
         }
         Map<K, V> map = constructor.apply(size);
-        for (int i = 0; i < size; i++) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (int i = 0; i < size; i++) {
             K key = keyReader.read(this);
             V value = valueReader.read(this);
             map.put(key, value);
@@ -791,11 +791,11 @@ public abstract class StreamInput extends InputStream {
      */
     public <K, V> Map<K, V> readMapValues(final Writeable.Reader<V> valueReader, final Function<V, K> keyMapper) throws IOException {
         final int size = readArraySize();
-        if (size == 0) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (size == 0) {
             return Map.of();
         }
         final Map<K, V> map = Maps.newMapWithExpectedSize(size);
-        for (int i = 0; i < size; i++) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (int i = 0; i < size; i++) {
             V value = valueReader.read(this);
             map.put(keyMapper.apply(value), value);
         }
@@ -827,14 +827,14 @@ public abstract class StreamInput extends InputStream {
      */
     public <K, V> Map<K, V> readImmutableMap(Writeable.Reader<K> keyReader, Writeable.Reader<V> valueReader) throws IOException {
         final int size = readVInt();
-        if (size == 0) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (size == 0) {
             return Map.of();
-        } else if (size == 1) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else if (size == 1) {
             return Map.of(keyReader.read(this), valueReader.read(this));
         }
         @SuppressWarnings({ "rawtypes", "unchecked" })
         Map.Entry<K, V> entries[] = new Map.Entry[size];
-        for (int i = 0; i < size; ++i) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (int i = 0; i < size; ++i) {
             entries[i] = Map.entry(keyReader.read(this), valueReader.read(this));
         }
         return Map.ofEntries(entries);
@@ -849,11 +849,11 @@ public abstract class StreamInput extends InputStream {
     public <K, V> ImmutableOpenMap<K, V> readImmutableOpenMap(Writeable.Reader<K> keyReader, Writeable.Reader<V> valueReader)
         throws IOException {
         final int size = readVInt();
-        if (size == 0) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (size == 0) {
             return ImmutableOpenMap.of();
         }
         final ImmutableOpenMap.Builder<K, V> builder = ImmutableOpenMap.builder(size);
-        for (int i = 0; i < size; i++) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (int i = 0; i < size; i++) {
             builder.put(keyReader.read(this), valueReader.read(this));
         }
         return builder.build();
@@ -930,9 +930,9 @@ public abstract class StreamInput extends InputStream {
     private ZonedDateTime readZonedDateTime() throws IOException {
         final String timeZoneId = readString();
         final Instant instant;
-        if (getTransportVersion().onOrAfter(TransportVersions.V_8_16_0)) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (getTransportVersion().onOrAfter(TransportVersions.V_8_16_0)) {
             instant = Instant.ofEpochSecond(readZLong(), readInt());
-        } else {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else {
             instant = Instant.ofEpochMilli(readLong());
         }
         return ZonedDateTime.ofInstant(instant, ZoneId.of(timeZoneId));
@@ -960,11 +960,11 @@ public abstract class StreamInput extends InputStream {
 
     private Object[] readArray() throws IOException {
         int size8 = readArraySize();
-        if (size8 == 0) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (size8 == 0) {
             return EMPTY_OBJECT_ARRAY;
         }
         Object[] list8 = new Object[size8];
-        for (int i = 0; i < size8; i++) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (int i = 0; i < size8; i++) {
             list8[i] = readGenericValue();
         }
         return list8;
@@ -992,7 +992,7 @@ public abstract class StreamInput extends InputStream {
      * Read an optional {@linkplain ZoneId}.
      */
     public ZoneId readOptionalZoneId() throws IOException {
-        if (readBoolean()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (readBoolean()) {
             return ZoneId.of(readString());
         }
         return null;
@@ -1002,11 +1002,11 @@ public abstract class StreamInput extends InputStream {
 
     public int[] readIntArray() throws IOException {
         int length = readArraySize();
-        if (length == 0) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (length == 0) {
             return EMPTY_INT_ARRAY;
         }
         int[] values = new int[length];
-        for (int i = 0; i < length; i++) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (int i = 0; i < length; i++) {
             values[i] = readInt();
         }
         return values;
@@ -1014,11 +1014,11 @@ public abstract class StreamInput extends InputStream {
 
     public int[] readVIntArray() throws IOException {
         int length = readArraySize();
-        if (length == 0) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (length == 0) {
             return EMPTY_INT_ARRAY;
         }
         int[] values = new int[length];
-        for (int i = 0; i < length; i++) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (int i = 0; i < length; i++) {
             values[i] = readVInt();
         }
         return values;
@@ -1028,11 +1028,11 @@ public abstract class StreamInput extends InputStream {
 
     public long[] readLongArray() throws IOException {
         int length = readArraySize();
-        if (length == 0) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (length == 0) {
             return EMPTY_LONG_ARRAY;
         }
         long[] values = new long[length];
-        for (int i = 0; i < length; i++) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (int i = 0; i < length; i++) {
             values[i] = readLong();
         }
         return values;
@@ -1040,11 +1040,11 @@ public abstract class StreamInput extends InputStream {
 
     public long[] readVLongArray() throws IOException {
         int length = readArraySize();
-        if (length == 0) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (length == 0) {
             return EMPTY_LONG_ARRAY;
         }
         long[] values = new long[length];
-        for (int i = 0; i < length; i++) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (int i = 0; i < length; i++) {
             values[i] = readVLong();
         }
         return values;
@@ -1054,11 +1054,11 @@ public abstract class StreamInput extends InputStream {
 
     public float[] readFloatArray() throws IOException {
         int length = readArraySize();
-        if (length == 0) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (length == 0) {
             return EMPTY_FLOAT_ARRAY;
         }
         float[] values = new float[length];
-        for (int i = 0; i < length; i++) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (int i = 0; i < length; i++) {
             values[i] = readFloat();
         }
         return values;
@@ -1068,11 +1068,11 @@ public abstract class StreamInput extends InputStream {
 
     public double[] readDoubleArray() throws IOException {
         int length = readArraySize();
-        if (length == 0) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (length == 0) {
             return EMPTY_DOUBLE_ARRAY;
         }
         double[] values = new double[length];
-        for (int i = 0; i < length; i++) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (int i = 0; i < length; i++) {
             values[i] = readDouble();
         }
         return values;
@@ -1082,7 +1082,7 @@ public abstract class StreamInput extends InputStream {
 
     public byte[] readByteArray() throws IOException {
         final int length = readArraySize();
-        if (length == 0) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (length == 0) {
             return EMPTY_BYTE_ARRAY;
         }
         final byte[] bytes = new byte[length];
@@ -1105,7 +1105,7 @@ public abstract class StreamInput extends InputStream {
     public <T> T[] readArray(final Writeable.Reader<T> reader, final IntFunction<T[]> arraySupplier) throws IOException {
         final int length = readArraySize();
         final T[] values = arraySupplier.apply(length);
-        for (int i = 0; i < length; i++) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (int i = 0; i < length; i++) {
             values[i] = reader.read(this);
         }
         return values;
@@ -1132,13 +1132,13 @@ public abstract class StreamInput extends InputStream {
      * @see StreamOutput#writeOptional
      */
     public <T> T readOptional(Writeable.Reader<T> reader) throws IOException {
-        if (readBoolean()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (readBoolean()) {
             T t = reader.read(this);
-            if (t == null) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (t == null) {
                 throwOnNullRead(reader);
             }
             return t;
-        } else {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else {
             return null;
         }
     }
@@ -1196,7 +1196,7 @@ public abstract class StreamInput extends InputStream {
      */
     @Nullable
     public <C extends NamedWriteable> C readOptionalNamedWriteable(Class<C> categoryClass) throws IOException {
-        if (readBoolean()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (readBoolean()) {
             return readNamedWriteable(categoryClass);
         }
         return null;
@@ -1222,7 +1222,7 @@ public abstract class StreamInput extends InputStream {
             case 2 -> List.of(reader.read(this), reader.read(this));
             default -> {
                 Object[] entries = new Object[count];
-                for (int i = 0; i < count; i++) {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                for (int i = 0; i < count; i++) {
                     entries[i] = reader.read(this);
                 }
                 @SuppressWarnings("unchecked")
@@ -1288,7 +1288,7 @@ public abstract class StreamInput extends InputStream {
             case 2 -> Set.of(reader.read(this), reader.read(this));
             default -> {
                 Object[] entries = new Object[count];
-                for (int i = 0; i < count; i++) {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                for (int i = 0; i < count; i++) {
                     entries[i] = reader.read(this);
                 }
                 @SuppressWarnings("unchecked")
@@ -1314,7 +1314,7 @@ public abstract class StreamInput extends InputStream {
         throws IOException {
         int count = readArraySize();
         var result = constructor.apply(count);
-        for (int i = 0; i < count; i++) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (int i = 0; i < count; i++) {
             itemConsumer.accept(this, result);
         }
         return result;
@@ -1330,11 +1330,11 @@ public abstract class StreamInput extends InputStream {
     private <T, C extends Collection<? super T>> C readCollection(Writeable.Reader<T> reader, IntFunction<C> constructor, C empty)
         throws IOException {
         int count = readArraySize();
-        if (count == 0) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (count == 0) {
             return empty;
         }
         C builder = constructor.apply(count);
-        for (int i = 0; i < count; i++) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (int i = 0; i < count; i++) {
             builder.add(reader.read(this));
         }
         assert builder.size() == count
@@ -1356,16 +1356,16 @@ public abstract class StreamInput extends InputStream {
      */
     @Nullable
     public <E extends Enum<E>> E readOptionalEnum(Class<E> enumClass) throws IOException {
-        if (readBoolean()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (readBoolean()) {
             return readEnum(enumClass, enumClass.getEnumConstants());
-        } else {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else {
             return null;
         }
     }
 
     private <E extends Enum<E>> E readEnum(Class<E> enumClass, E[] values) throws IOException {
         int ordinal = readVInt();
-        if (ordinal < 0 || ordinal >= values.length) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (ordinal < 0 || ordinal >= values.length) {
             throw new IOException("Unknown " + enumClass.getSimpleName() + " ordinal [" + ordinal + "]");
         }
         return values[ordinal];
@@ -1378,11 +1378,11 @@ public abstract class StreamInput extends InputStream {
     public <E extends Enum<E>> EnumSet<E> readEnumSet(Class<E> enumClass) throws IOException {
         int size = readVInt();
         final EnumSet<E> res = EnumSet.noneOf(enumClass);
-        if (size == 0) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (size == 0) {
             return res;
         }
         final E[] values = enumClass.getEnumConstants();
-        for (int i = 0; i < size; i++) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (int i = 0; i < size; i++) {
             res.add(readEnum(enumClass, values));
         }
         return res;
@@ -1402,10 +1402,10 @@ public abstract class StreamInput extends InputStream {
      */
     protected int readArraySize() throws IOException {
         final int arraySize = readVInt();
-        if (arraySize > ArrayUtil.MAX_ARRAY_LENGTH) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (arraySize > ArrayUtil.MAX_ARRAY_LENGTH) {
             throwExceedsMaxArraySize(arraySize);
         }
-        if (arraySize < 0) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (arraySize < 0) {
             throwNegative(arraySize);
         }
         // let's do a sanity check that if we are reading an array size that is bigger that the remaining bytes we can safely
@@ -1471,9 +1471,9 @@ public abstract class StreamInput extends InputStream {
      * Read an optional {@link TimeValue} from the stream, returning null if no TimeValue was written.
      */
     public @Nullable TimeValue readOptionalTimeValue() throws IOException {
-        if (readBoolean()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (readBoolean()) {
             return readTimeValue();
-        } else {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else {
             return null;
         }
     }

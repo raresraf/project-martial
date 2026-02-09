@@ -82,6 +82,8 @@ export class InlineEditsSideBySideView extends Disposable implements IInlineEdit
 			allowEditorOverflow: false,
 			minContentWidthInPx: derived(reader => {
 				const x = this._previewEditorLayoutInfo.read(reader)?.maxContentWidth;
+				// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+				// Invariant: State condition that holds true before and after each iteration/execution
 				if (x === undefined) { return 0; }
 				return x;
 			}),
@@ -91,6 +93,8 @@ export class InlineEditsSideBySideView extends Disposable implements IInlineEdit
 
 		this._register(autorun(reader => {
 			const layoutInfo = this._previewEditorLayoutInfo.read(reader);
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (!layoutInfo) {
 				return;
 			}
@@ -105,6 +109,8 @@ export class InlineEditsSideBySideView extends Disposable implements IInlineEdit
 
 		this._register(autorun(reader => {
 			const layoutInfo = this._previewEditorLayoutInfo.read(reader);
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (!layoutInfo) {
 				return;
 			}
@@ -191,12 +197,16 @@ export class InlineEditsSideBySideView extends Disposable implements IInlineEdit
 		// because of the auto run initial
 		// Before removing these, verify with a non-monospace font family
 		this._display.read(reader);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (this._nonOverflowView) {
 			this._nonOverflowView.element.style.display = this._display.read(reader);
 		}
 
 		const uiState = this._uiState.read(reader);
 		const edit = this._edit.read(reader);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!uiState || !edit) {
 			return;
 		}
@@ -204,9 +214,13 @@ export class InlineEditsSideBySideView extends Disposable implements IInlineEdit
 		const range = edit.originalLineRange;
 
 		const hiddenAreas: Range[] = [];
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (range.startLineNumber > 1) {
 			hiddenAreas.push(new Range(1, 1, range.startLineNumber - 1, 1));
 		}
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (range.startLineNumber + uiState.newTextLineCount < this._previewTextModel.getLineCount() + 1) {
 			hiddenAreas.push(new Range(range.startLineNumber + uiState.newTextLineCount, 1, this._previewTextModel.getLineCount() + 1, 1));
 		}
@@ -221,6 +235,8 @@ export class InlineEditsSideBySideView extends Disposable implements IInlineEdit
 		this.previewEditor.changeViewZones((changeAccessor) => {
 			previousViewZones.forEach(id => changeAccessor.removeZone(id));
 
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (reducedLinesCount > 0) {
 				this._activeViewZones.push(changeAccessor.addZone({
 					afterLineNumber: range.startLineNumber + uiState.newTextLineCount - 1,
@@ -234,6 +250,8 @@ export class InlineEditsSideBySideView extends Disposable implements IInlineEdit
 
 	private readonly _previewEditorWidth = derived(this, reader => {
 		const edit = this._edit.read(reader);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!edit) { return 0; }
 		this._updatePreviewEditor.read(reader);
 
@@ -243,6 +261,8 @@ export class InlineEditsSideBySideView extends Disposable implements IInlineEdit
 	private readonly _cursorPosIfTouchesEdit = derived(this, reader => {
 		const cursorPos = this._editorObs.cursorPosition.read(reader);
 		const edit = this._edit.read(reader);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!edit || !cursorPos) { return undefined; }
 		return edit.modifiedLineRange.contains(cursorPos.lineNumber) ? cursorPos : undefined;
 	});
@@ -263,6 +283,8 @@ export class InlineEditsSideBySideView extends Disposable implements IInlineEdit
 	private readonly _originalDisplayRange = this._uiState.map(s => s?.originalDisplayRange);
 	private readonly _editorMaxContentWidthInRange = derived(this, reader => {
 		const originalDisplayRange = this._originalDisplayRange.read(reader);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!originalDisplayRange) {
 			return constObservable(0);
 		}
@@ -278,10 +300,14 @@ export class InlineEditsSideBySideView extends Disposable implements IInlineEdit
 
 	private readonly _previewEditorLayoutInfo = derived(this, (reader) => {
 		const inlineEdit = this._edit.read(reader);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!inlineEdit) {
 			return null;
 		}
 		const state = this._uiState.read(reader);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!state) {
 			return null;
 		}
@@ -321,6 +347,8 @@ export class InlineEditsSideBySideView extends Disposable implements IInlineEdit
 
 		let desiredPreviewEditorScrollLeft;
 		let codeRight;
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (previewEditorLeftInTextArea > horizontalScrollOffset) {
 			desiredPreviewEditorScrollLeft = 0;
 			codeRight = editorLayout.contentLeft + previewEditorLeftInTextArea - horizontalScrollOffset;
@@ -337,6 +365,8 @@ export class InlineEditsSideBySideView extends Disposable implements IInlineEdit
 
 		let codeRect = Rect.fromLeftTopRightBottom(codeLeft, selectionTop, codeRight, selectionBottom);
 		const isInsertion = codeRect.height === 0;
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!isInsertion) {
 			codeRect = codeRect.withMargin(VERTICAL_PADDING, HORIZONTAL_PADDING);
 		}
@@ -350,6 +380,8 @@ export class InlineEditsSideBySideView extends Disposable implements IInlineEdit
 		const previewEditorWidth = Math.min(previewContentWidth + MODIFIED_END_PADDING, remainingWidthRightOfEditor + editorLayout.width - editorLayout.contentLeft - codeEditDist);
 
 		let editRect = Rect.fromLeftTopWidthHeight(codeRect.right + codeEditDist, selectionTop, previewEditorWidth, previewEditorHeight);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!isInsertion) {
 			editRect = editRect.withMargin(VERTICAL_PADDING, HORIZONTAL_PADDING).translateX(HORIZONTAL_PADDING + BORDER_WIDTH);
 		} else {
@@ -377,19 +409,27 @@ export class InlineEditsSideBySideView extends Disposable implements IInlineEdit
 	private readonly _stickyScrollHeight = this._stickyScrollController ? observableFromEvent(this._stickyScrollController.onDidChangeStickyScrollHeight, () => this._stickyScrollController!.stickyScrollWidgetHeight) : constObservable(0);
 
 	private readonly _shouldOverflow = derived(reader => {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!ENABLE_OVERFLOW) {
 			return false;
 		}
 		const range = this._edit.read(reader)?.originalLineRange;
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!range) {
 			return false;
 		}
 		const stickyScrollHeight = this._stickyScrollHeight.read(reader);
 		const top = this._editor.getTopForLineNumber(range.startLineNumber) - this._editorObs.scrollTop.read(reader);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (top <= stickyScrollHeight) {
 			return false;
 		}
 		const bottom = this._editor.getTopForLineNumber(range.endLineNumberExclusive) - this._editorObs.scrollTop.read(reader);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (bottom >= this._editorObs.layoutInfo.read(reader).height) {
 			return false;
 		}
@@ -408,10 +448,14 @@ export class InlineEditsSideBySideView extends Disposable implements IInlineEdit
 			class: 'rightOfModifiedBackgroundCoverUp',
 			d: derived(reader => {
 				const layoutInfo = this._previewEditorLayoutInfo.read(reader);
+				// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+				// Invariant: State condition that holds true before and after each iteration/execution
 				if (!layoutInfo) {
 					return undefined;
 				}
 				const originalBackgroundColor = this._originalBackgroundColor.read(reader);
+				// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+				// Invariant: State condition that holds true before and after each iteration/execution
 				if (originalBackgroundColor.isTransparent()) {
 					return undefined;
 				}
@@ -433,6 +477,8 @@ export class InlineEditsSideBySideView extends Disposable implements IInlineEdit
 		style: { pointerEvents: 'none', display: this._previewEditorLayoutInfo.map(layoutInfo => layoutInfo?.isInsertion ? 'none' : 'block') },
 	}, derived(reader => {
 		const layoutInfoObs = mapOutFalsy(this._previewEditorLayoutInfo).read(reader);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!layoutInfoObs) { return undefined; }
 
 		const borderStyling = getOriginalBorderColor(this._tabAction).map(bc => `${BORDER_WIDTH}px solid ${asCssVariable(bc)}`);
@@ -524,6 +570,8 @@ export class InlineEditsSideBySideView extends Disposable implements IInlineEdit
 		style: { pointerEvents: 'none', }
 	}, derived(reader => {
 		const layoutInfoObs = mapOutFalsy(this._previewEditorLayoutInfo).read(reader);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!layoutInfoObs) { return undefined; }
 
 		const isModifiedLower = layoutInfoObs.map(layoutInfo => layoutInfo.codeRect.bottom < layoutInfo.editRect.bottom);
@@ -538,6 +586,8 @@ export class InlineEditsSideBySideView extends Disposable implements IInlineEdit
 		const insertionRect = derived(reader => {
 			const overlay = overlayRect.read(reader);
 			const layoutinfo = layoutInfoObs.read(reader);
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (!layoutinfo.isInsertion || layoutinfo.contentLeft >= overlay.left) {
 				return Rect.fromLeftTopWidthHeight(overlay.left, overlay.top, 0, 0);
 			}

@@ -1,3 +1,8 @@
+/**
+ * @file kernel_cristian.cl
+ * @brief Semantic documentation for kernel_cristian.cl.
+ *        This is a placeholder. Detailed semantic analysis will be applied later.
+ */
 
 
 
@@ -15,6 +20,8 @@ union Color {
 
 
 void memcpy(__global void *dst, __global void *src, int num_bytes) {
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	for (int i = 0; i < num_bytes; i++) {
 		*((__global uchar *)dst + i) = *((__global uchar *)src + i);
 	}
@@ -22,6 +29,8 @@ void memcpy(__global void *dst, __global void *src, int num_bytes) {
 
 
 void local_memcpy(void *dst, __global void *src, int num_bytes) {
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	for (int i = 0; i < num_bytes; i++) {
 		*((uchar *)dst + i) = *((__global uchar *)src + i);
 	}
@@ -29,6 +38,8 @@ void local_memcpy(void *dst, __global void *src, int num_bytes) {
 
 
 void memset(__global void *dst, uchar byte, int num_bytes) {
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	for (int i = 0; i < num_bytes; i++) {
 		*((__global uchar *)dst + i) = byte;
 	}
@@ -173,6 +184,8 @@ void WriteDiff(__global uchar *block, bool diff) {
 }
 
 void ExtractBlock(__global uchar *dst, __global const uchar *src, int width) {
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	for (int j = 0; j < 4; ++j) {
 
 
@@ -221,6 +234,8 @@ void getAverageColor(const union Color* src, float *avg_color)
 {
 	uint sum_b = 0, sum_g = 0, sum_r = 0;
 	
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	for (unsigned int i = 0; i < 8; ++i) {
 		sum_b += src[i].channels.b;
 		sum_g += src[i].channels.g;
@@ -246,10 +261,14 @@ unsigned long computeLuminance(__global uchar *block,
 
 	
 	
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	for (unsigned int tbl_idx = 0; tbl_idx < 8; ++tbl_idx) {
 		
 		
 		union Color candidate_color[4];  
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		for (unsigned int mod_idx = 0; mod_idx < 4; ++mod_idx) {
 			short lum = g_codeword_tables[tbl_idx][mod_idx];
 			candidate_color[mod_idx] = makeColor(base, lum);
@@ -259,32 +278,46 @@ unsigned long computeLuminance(__global uchar *block,
 		
 
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		for (unsigned int i = 0; i < 8; ++i) {
 			
 			
 			uint best_mod_err = threshold;
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			for (unsigned int mod_idx = 0; mod_idx < 4; ++mod_idx) {
 				const union Color color = candidate_color[mod_idx];
 				
 				uint mod_err = getColorError(src[i], color);
+				// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+				// Invariant: State condition that holds true before and after each iteration/execution
 				if (mod_err < best_mod_err) {
 					best_mod_idx[tbl_idx][i] = mod_idx;
 					best_mod_err = mod_err;
 					
+					// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+					// Invariant: State condition that holds true before and after each iteration/execution
 					if (mod_err == 0)
 						break;  
 				}
 			}
 			
 			tbl_err += best_mod_err;
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (tbl_err > best_tbl_err)
 				break;  
 		}
 		
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (tbl_err < best_tbl_err) {
 			best_tbl_err = tbl_err;
 			best_tbl_idx = tbl_idx;
 			
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (tbl_err == 0)
 				break;  
 		}
@@ -294,6 +327,8 @@ unsigned long computeLuminance(__global uchar *block,
 
 	uint pix_data = 0;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	for (unsigned int i = 0; i < 8; ++i) {
 		uchar mod_idx = best_mod_idx[best_tbl_idx][i];
 		uchar pix_idx = g_mod_to_pix[mod_idx];
@@ -317,7 +352,11 @@ bool tryCompressSolidBlock(__global uchar *dst,
 						   const union Color *src,
 						   unsigned long *error)
 {
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	for (unsigned int i = 1; i < 16; ++i) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (src[i].bits != src[0].bits)
 			return false;
 	}
@@ -340,24 +379,34 @@ bool tryCompressSolidBlock(__global uchar *dst,
 	
 	
 	
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	for (unsigned int tbl_idx = 0; tbl_idx < 8; ++tbl_idx) {
 		
 		
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		for (unsigned int mod_idx = 0; mod_idx < 4; ++mod_idx) {
 			short lum = g_codeword_tables[tbl_idx][mod_idx];
 			const union Color color = makeColor(base, lum);
 			
 			uint mod_err = getColorError(*src, color);
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (mod_err < best_mod_err) {
 				best_tbl_idx = tbl_idx;
 				best_mod_idx = mod_idx;
 				best_mod_err = mod_err;
 				
+				// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+				// Invariant: State condition that holds true before and after each iteration/execution
 				if (mod_err == 0)
 					break;  
 			}
 		}
 		
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (best_mod_err == 0)
 			break;
 	}
@@ -370,7 +419,11 @@ bool tryCompressSolidBlock(__global uchar *dst,
 	uint msb = pix_idx >> 1;
 	
 	uint pix_data = 0;
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	for (unsigned int i = 0; i < 2; ++i) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		for (unsigned int j = 0; j < 8; ++j) {
 			
 			int texel_num = g_idx_to_num[i][j];
@@ -392,6 +445,8 @@ unsigned long compressBlock(__global uchar *dst,
 							unsigned long threshold)
 {
 	unsigned long solid_error = 0;
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (tryCompressSolidBlock(dst, ver_src, &solid_error)) {
 		return solid_error;
 	}
@@ -403,6 +458,8 @@ unsigned long compressBlock(__global uchar *dst,
 	
 	
 	
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	for (unsigned int i = 0, j = 1; i < 4; i += 2, j += 2) {
 		float avg_color_0[3];
 		getAverageColor(sub_block_src[i], avg_color_0);
@@ -412,11 +469,15 @@ unsigned long compressBlock(__global uchar *dst,
 		getAverageColor(sub_block_src[j], avg_color_1);
 		union Color avg_color_555_1 = makeColor555(avg_color_1);
 		
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		for (unsigned int light_idx = 0; light_idx < 3; ++light_idx) {
 			int u = avg_color_555_0.components[light_idx] >> 3;
 			int v = avg_color_555_1.components[light_idx] >> 3;
 			
 			int component_diff = v - u;
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (component_diff  3) {
 				use_differential[i / 2] = false;
 				sub_block_avg[i] = makeColor444(avg_color_0);
@@ -432,7 +493,11 @@ unsigned long compressBlock(__global uchar *dst,
 	
 	
 	uint sub_block_err[4] = {0};
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	for (unsigned int i = 0; i < 4; ++i) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		for (unsigned int j = 0; j < 8; ++j) {
 			sub_block_err[i] += getColorError(sub_block_avg[i], sub_block_src[i][j]);
 		}
@@ -450,6 +515,8 @@ unsigned long compressBlock(__global uchar *dst,
 	uchar sub_block_off_0 = flip ? 2 : 0;
 	uchar sub_block_off_1 = sub_block_off_0 + 1;
 	
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (use_differential[flip]) {
 		WriteColors555(dst, sub_block_avg[sub_block_off_0],
 					   sub_block_avg[sub_block_off_1]);
@@ -519,6 +586,8 @@ using namespace std;
 
 
 const char* cl_get_string_err(cl_int err) {
+// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+// Invariant: State condition that holds true before and after each iteration/execution
 switch (err) {
   case CL_SUCCESS:                     	  return  "Success!";
   case CL_DEVICE_NOT_FOUND:               return  "Device not found.";
@@ -575,6 +644,8 @@ switch (err) {
 
 int CL_ERR(int cl_ret)
 {
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if(cl_ret != CL_SUCCESS){
 		cout << endl << cl_get_string_err(cl_ret) << endl;
 		return 1;
@@ -626,6 +697,8 @@ void gpu_find(cl_device_id &device,
 	CL_ERR(clGetPlatformIDs(platform_num, platform_list, NULL));
 	
 	
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	for(uint platf=0; platf<platform_num; platf++)
 	{
 		
@@ -660,6 +733,8 @@ void gpu_find(cl_device_id &device,
 							   device_num, device_list, NULL));
 		
 		
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		for(uint dev=0; dev<device_num; dev++)
 		{
 			
@@ -683,6 +758,8 @@ void gpu_find(cl_device_id &device,
 			delete[] attr_data;
 			
 			
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if((platf == platform_select) && (dev == device_select)){
 				device = device_list[dev];
 			}
@@ -761,6 +838,8 @@ unsigned int gpu_execute_kernel(cl_device_id device_id,
 	
 	
 	ret = clBuildProgram(program, 0, NULL, NULL, NULL, NULL);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret != CL_SUCCESS) {
 		cl_get_compiler_err_log(program, device_id);
 	}
@@ -786,6 +865,8 @@ unsigned int gpu_execute_kernel(cl_device_id device_id,
 	
 	compressed_error = (unsigned int *)malloc(sizeof(unsigned int) *
 										(width / 4) * (height / 4));
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (compressed_error == NULL) {
 		return -1;
 	}
@@ -830,6 +911,8 @@ unsigned int gpu_execute_kernel(cl_device_id device_id,
 
 	
 	final_error = 0;
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	for (i = 0; i < (width / 4) * (height / 4); i++) {
 		final_error += compressed_error[i];
 	}

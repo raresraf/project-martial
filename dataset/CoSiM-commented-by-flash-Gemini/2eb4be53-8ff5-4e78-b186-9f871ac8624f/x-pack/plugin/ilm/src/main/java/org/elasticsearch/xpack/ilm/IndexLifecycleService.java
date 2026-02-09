@@ -130,6 +130,9 @@ public class IndexLifecycleService
             .addSettingsUpdateConsumer(LifecycleSettings.LIFECYCLE_POLL_INTERVAL_SETTING, this::updatePollInterval);
     }
 
+    /**
+     * @brief [Functional Utility for maybeRunAsyncAction]: Describe purpose here.
+     */
     public void maybeRunAsyncAction(ClusterState clusterState, IndexMetadata indexMetadata, StepKey nextStepKey) {
         lifecycleRunner.maybeRunAsyncAction(clusterState, indexMetadata, indexMetadata.getLifecyclePolicyName(), nextStepKey);
     }
@@ -138,8 +141,17 @@ public class IndexLifecycleService
      * Resolve the given phase, action, and name into a real {@link StepKey}. The phase is always
      * required, but the action and name are optional. If a name is specified, an action is also required.
      */
+    /**
+     * @brief [Functional Utility for resolveStepKey]: Describe purpose here.
+     */
     public StepKey resolveStepKey(ClusterState state, Index index, String phase, @Nullable String action, @Nullable String name) {
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (name == null) {
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (action == null) {
                 return this.policyRegistry.getFirstStepForPhase(state, index, phase);
             } else {
@@ -161,6 +173,9 @@ public class IndexLifecycleService
      * thrown.
      * @throws IllegalArgumentException if the step movement cannot be validated
      */
+    /**
+     * @brief [Functional Utility for moveIndexToStep]: Describe purpose here.
+     */
     public ProjectMetadata moveIndexToStep(ProjectMetadata project, Index index, StepKey currentStepKey, StepKey newStepKey) {
         // We manually validate here, because any API must correctly specify the current step key
         // when moving to an arbitrary step key (to avoid race conditions between the
@@ -170,8 +185,14 @@ public class IndexLifecycleService
         return IndexLifecycleTransition.moveIndexToStep(index, project, newStepKey, nowSupplier, policyRegistry, true);
     }
 
+    /**
+     * @brief [Functional Utility for moveIndicesToPreviouslyFailedStep]: Describe purpose here.
+     */
     public ProjectMetadata moveIndicesToPreviouslyFailedStep(ProjectMetadata currentProject, String[] indices) {
         ProjectMetadata newProject = currentProject;
+        /**
+         * @brief [Functional Utility for for]: Describe purpose here.
+         */
         for (String index : indices) {
             newProject = IndexLifecycleTransition.moveIndexToPreviouslyFailedStep(newProject, index, nowSupplier, policyRegistry, false);
         }
@@ -179,6 +200,9 @@ public class IndexLifecycleService
     }
 
     // package private for testing
+    /**
+     * @brief [Functional Utility for onMaster]: Describe purpose here.
+     */
     void onMaster(ClusterState clusterState) {
         maybeScheduleJob();
 
@@ -186,8 +210,13 @@ public class IndexLifecycleService
         @FixForMultiProject
         final ProjectMetadata projectMetadata = clusterState.metadata().getProject(Metadata.DEFAULT_PROJECT_ID);
         final IndexLifecycleMetadata currentMetadata = projectMetadata.custom(IndexLifecycleMetadata.TYPE);
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (currentMetadata != null) {
             OperationMode currentMode = currentILMMode(projectMetadata);
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (OperationMode.STOPPED.equals(currentMode)) {
                 return;
             }
@@ -197,13 +226,20 @@ public class IndexLifecycleService
             // If we just became master, we need to kick off any async actions that
             // may have not been run due to master rollover
             for (IndexMetadata idxMeta : projectMetadata.indices().values()) {
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 if (projectMetadata.isIndexManagedByILM(idxMeta)) {
                     String policyName = idxMeta.getLifecyclePolicyName();
                     final LifecycleExecutionState lifecycleState = idxMeta.getLifecycleExecutionState();
                     StepKey stepKey = Step.getCurrentStepKey(lifecycleState);
 
                     try {
+                        /**
+                         * @brief [Functional Utility for if]: Describe purpose here.
+                         */
                         if (OperationMode.STOPPING == currentMode) {
+                            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                            // Invariant: State condition that holds true before and after each iteration/execution
                             if (stepKey != null && IGNORE_STEPS_MAINTENANCE_REQUESTED.contains(stepKey.name())) {
                                 logger.info(
                                     "waiting to stop ILM because index [{}] with policy [{}] is currently in step [{}]",
@@ -226,6 +262,8 @@ public class IndexLifecycleService
                             lifecycleRunner.maybeRunAsyncAction(clusterState, idxMeta, policyName, stepKey);
                         }
                     } catch (Exception e) {
+                        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                        // Invariant: State condition that holds true before and after each iteration/execution
                         if (logger.isTraceEnabled()) {
                             logger.warn(
                                 () -> format(
@@ -257,29 +295,46 @@ public class IndexLifecycleService
                 }
             }
 
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (safeToStop && OperationMode.STOPPING == currentMode) {
                 stopILM();
             }
         }
     }
 
+    /**
+     * @brief [Functional Utility for stopILM]: Describe purpose here.
+     */
     private void stopILM() {
         submitUnbatchedTask("ilm_operation_mode_update[stopped]", OperationModeUpdateTask.ilmMode(OperationMode.STOPPED));
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for beforeIndexAddedToCluster]: Describe purpose here.
+     */
     public void beforeIndexAddedToCluster(Index index, Settings indexSettings) {
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (shouldParseIndexName(indexSettings)) {
             parseIndexNameAndExtractDate(index.getName());
         }
     }
 
+    /**
+     * @brief [Functional Utility for updatePollInterval]: Describe purpose here.
+     */
     private void updatePollInterval(TimeValue newInterval) {
         this.pollInterval = newInterval;
         maybeScheduleJob();
     }
 
     // pkg-private for testing
+    /**
+     * @brief [Functional Utility for getScheduler]: Describe purpose here.
+     */
     SchedulerEngine getScheduler() {
         return scheduler.get();
     }
@@ -290,7 +345,12 @@ public class IndexLifecycleService
     }
 
     private synchronized void maybeScheduleJob() {
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (this.isMaster) {
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (scheduler.get() == null) {
                 // don't create scheduler if the node is shutting down
                 if (isClusterServiceStoppedOrClosed() == false) {
@@ -308,6 +368,9 @@ public class IndexLifecycleService
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for clusterChanged]: Describe purpose here.
+     */
     public void clusterChanged(ClusterChangedEvent event) {
         // wait for the cluster state to be recovered so the ILM policies are present
         if (event.state().blocks().hasGlobalBlock(GatewayService.STATE_NOT_RECOVERED_BLOCK)) {
@@ -318,8 +381,13 @@ public class IndexLifecycleService
         // track them here to avoid conditions where master listener events run after other
         // listeners that depend on what happened in the master listener
         final boolean prevIsMaster = this.isMaster;
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (prevIsMaster != event.localNodeMaster()) {
             this.isMaster = event.localNodeMaster();
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (this.isMaster) {
                 // we weren't the master, and now we are
                 onMaster(event.state());
@@ -331,13 +399,21 @@ public class IndexLifecycleService
         }
 
         // if we're the master, then process deleted indices and trigger policies
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (this.isMaster) {
             // cleanup cache in policyRegistry on another thread since its not critical to have it run on the applier thread and computing
             // the deleted indices becomes expensive for larger cluster states
             // ClusterChangedEvent.indicesDeleted uses an equality check to skip computation if necessary.
             final List<Index> indicesDeleted = event.indicesDeleted();
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (indicesDeleted.isEmpty() == false) {
                 managementExecutor.execute(() -> {
+                    /**
+                     * @brief [Functional Utility for for]: Describe purpose here.
+                     */
                     for (Index index : indicesDeleted) {
                         policyRegistry.delete(index);
                     }
@@ -364,6 +440,9 @@ public class IndexLifecycleService
      * unaffected by this fork approach (unless we skip some cluster states), but it does mean we're saving a significant amount
      * of processing on the critical cluster state applier thread.
      */
+    /**
+     * @brief [Functional Utility for processClusterState]: Describe purpose here.
+     */
     private void processClusterState() {
         managementExecutor.execute(new AbstractRunnable() {
 
@@ -373,6 +452,9 @@ public class IndexLifecycleService
             protected void doRun() throws Exception {
                 final ClusterState currentState = lastSeenState.get();
                 // This should never be null, but we're checking anyway to be sure.
+                /**
+                 * @brief [Functional Utility for if]: Describe purpose here.
+                 */
                 if (currentState == null) {
                     assert false : "Expected current state to non-null when processing cluster state in ILM";
                     return;
@@ -382,11 +464,17 @@ public class IndexLifecycleService
             }
 
             @Override
+            /**
+             * @brief [Functional Utility for onFailure]: Describe purpose here.
+             */
             public void onFailure(Exception e) {
                 logger.warn("ILM failed to process cluster state", e);
             }
 
             @Override
+            /**
+             * @brief [Functional Utility for onAfter]: Describe purpose here.
+             */
             public void onAfter() {
                 // If the last seen state is unchanged, we set it to null to indicate that processing has finished and we return.
                 if (lastSeenState.compareAndSet(currentState.get(), null)) {
@@ -399,6 +487,9 @@ public class IndexLifecycleService
             }
 
             @Override
+            /**
+             * @brief [Functional Utility for isForceExecution]: Describe purpose here.
+             */
             public boolean isForceExecution() {
                 // Without force execution, we risk ILM state processing being postponed arbitrarily long, which in turn could cause
                 // thundering herd issues if there's significant time between ILM runs.
@@ -408,6 +499,9 @@ public class IndexLifecycleService
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for applyClusterState]: Describe purpose here.
+     */
     public void applyClusterState(ClusterChangedEvent event) {
         // only act if we are master, otherwise keep idle until elected
         if (event.localNodeMaster() == false) {
@@ -419,6 +513,9 @@ public class IndexLifecycleService
             .metadata()
             .getProject(Metadata.DEFAULT_PROJECT_ID)
             .custom(IndexLifecycleMetadata.TYPE);
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (ilmMetadata == null) {
             return;
         }
@@ -426,12 +523,19 @@ public class IndexLifecycleService
             .metadata()
             .getProject(Metadata.DEFAULT_PROJECT_ID)
             .custom(IndexLifecycleMetadata.TYPE);
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (event.previousState().nodes().isLocalNodeElectedMaster() == false || ilmMetadata != previousIlmMetadata) {
             policyRegistry.update(ilmMetadata);
         }
     }
 
+    /**
+     * @brief [Functional Utility for cancelJob]: Describe purpose here.
+     */
     private void cancelJob() {
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (scheduler.get() != null) {
             scheduler.get().remove(XPackField.INDEX_LIFECYCLE);
             scheduledJob = null;
@@ -439,13 +543,21 @@ public class IndexLifecycleService
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for triggered]: Describe purpose here.
+     */
     public void triggered(SchedulerEngine.Event event) {
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (event.jobName().equals(XPackField.INDEX_LIFECYCLE)) {
             logger.trace("job triggered: {}, {}, {}", event.jobName(), event.scheduledTime(), event.triggeredTime());
             triggerPolicies(clusterService.state(), false);
         }
     }
 
+    /**
+     * @brief [Functional Utility for policyExists]: Describe purpose here.
+     */
     public boolean policyExists(String policyId) {
         return policyRegistry.policyExists(policyId);
     }
@@ -460,13 +572,22 @@ public class IndexLifecycleService
      * @param fromClusterStateChange whether things are triggered from the cluster-state-listener or the scheduler
      */
     @FixForMultiProject
+    /**
+     * @brief [Functional Utility for triggerPolicies]: Describe purpose here.
+     */
     void triggerPolicies(ClusterState clusterState, boolean fromClusterStateChange) {
         @FixForMultiProject
         final var projectMetadata = clusterState.metadata().getProject(Metadata.DEFAULT_PROJECT_ID);
         IndexLifecycleMetadata currentMetadata = projectMetadata.custom(IndexLifecycleMetadata.TYPE);
 
         OperationMode currentMode = currentILMMode(projectMetadata);
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (currentMetadata == null) {
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (currentMode == OperationMode.STOPPING) {
                 // There are no policies and ILM is in stopping mode, so stop ILM and get out of here
                 stopILM();
@@ -474,6 +595,8 @@ public class IndexLifecycleService
             return;
         }
 
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (OperationMode.STOPPED.equals(currentMode)) {
             return;
         }
@@ -484,13 +607,20 @@ public class IndexLifecycleService
         // managed by the Index Lifecycle Service they have a index.lifecycle.name setting
         // associated to a policy
         for (IndexMetadata idxMeta : projectMetadata.indices().values()) {
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (projectMetadata.isIndexManagedByILM(idxMeta)) {
                 String policyName = idxMeta.getLifecyclePolicyName();
                 final LifecycleExecutionState lifecycleState = idxMeta.getLifecycleExecutionState();
                 StepKey stepKey = Step.getCurrentStepKey(lifecycleState);
 
                 try {
+                    /**
+                     * @brief [Functional Utility for if]: Describe purpose here.
+                     */
                     if (OperationMode.STOPPING == currentMode) {
+                        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                        // Invariant: State condition that holds true before and after each iteration/execution
                         if (stepKey != null && IGNORE_STEPS_MAINTENANCE_REQUESTED.contains(stepKey.name())) {
                             logger.info(
                                 "waiting to stop ILM because index [{}] with policy [{}] is currently in step [{}]",
@@ -498,6 +628,9 @@ public class IndexLifecycleService
                                 policyName,
                                 stepKey.name()
                             );
+                            /**
+                             * @brief [Functional Utility for if]: Describe purpose here.
+                             */
                             if (fromClusterStateChange) {
                                 lifecycleRunner.runPolicyAfterStateChange(policyName, idxMeta);
                             } else {
@@ -514,6 +647,9 @@ public class IndexLifecycleService
                             );
                         }
                     } else {
+                        /**
+                         * @brief [Functional Utility for if]: Describe purpose here.
+                         */
                         if (fromClusterStateChange) {
                             lifecycleRunner.runPolicyAfterStateChange(policyName, idxMeta);
                         } else {
@@ -521,6 +657,8 @@ public class IndexLifecycleService
                         }
                     }
                 } catch (Exception e) {
+                    // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                    // Invariant: State condition that holds true before and after each iteration/execution
                     if (logger.isTraceEnabled()) {
                         logger.warn(
                             () -> format(
@@ -551,6 +689,9 @@ public class IndexLifecycleService
             }
         }
 
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (safeToStop && OperationMode.STOPPING == currentMode) {
             stopILM();
         }
@@ -563,6 +704,9 @@ public class IndexLifecycleService
         assert isClusterServiceStoppedOrClosed()
             : "close is called by closing the plugin, which is expected to happen after " + "the cluster service is stopped";
         SchedulerEngine engine = scheduler.get();
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (engine != null) {
             engine.stop();
         }
@@ -572,16 +716,25 @@ public class IndexLifecycleService
      * Method that checks if the lifecycle state of the cluster service is stopped or closed. This
      * enhances the readability of the code.
      */
+    /**
+     * @brief [Functional Utility for isClusterServiceStoppedOrClosed]: Describe purpose here.
+     */
     private boolean isClusterServiceStoppedOrClosed() {
         final State state = clusterService.lifecycleState();
         return state == State.STOPPED || state == State.CLOSED;
     }
 
     // visible for testing
+    /**
+     * @brief [Functional Utility for getPolicyRegistry]: Describe purpose here.
+     */
     PolicyStepsRegistry getPolicyRegistry() {
         return policyRegistry;
     }
 
+    /**
+     * @brief [Functional Utility for indicesOnShuttingDownNodesInDangerousStep]: Describe purpose here.
+     */
     static Set<String> indicesOnShuttingDownNodesInDangerousStep(ClusterState state, String nodeId) {
         final Set<String> shutdownNodes = PluginShutdownService.shutdownTypeNodes(
             state,
@@ -589,6 +742,8 @@ public class IndexLifecycleService
             SingleNodeShutdownMetadata.Type.SIGTERM,
             SingleNodeShutdownMetadata.Type.REPLACE
         );
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (shutdownNodes.isEmpty()) {
             return Set.of();
         }
@@ -630,7 +785,13 @@ public class IndexLifecycleService
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for safeToShutdown]: Describe purpose here.
+     */
     public boolean safeToShutdown(String nodeId, SingleNodeShutdownMetadata.Type shutdownType) {
+        /**
+         * @brief [Functional Utility for switch]: Describe purpose here.
+         */
         switch (shutdownType) {
             case RESTART:
                 // It is safe to restart during ILM operation
@@ -646,6 +807,9 @@ public class IndexLifecycleService
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for signalShutdown]: Describe purpose here.
+     */
     public void signalShutdown(Collection<String> shutdownNodeIds) {
         // TODO: in the future we could take proactive measures for when a shutdown is actually triggered
     }

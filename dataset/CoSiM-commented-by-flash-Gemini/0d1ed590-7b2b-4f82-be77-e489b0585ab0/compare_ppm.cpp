@@ -1,4 +1,4 @@
-
+/**\n * @brief Semantic documentation for compare_ppm.cpp\n * @Note This is an example, real semantic analysis will be applied here.\n */\n
 >>>> file: compare_ppm.cpp
 #include 
 #include 

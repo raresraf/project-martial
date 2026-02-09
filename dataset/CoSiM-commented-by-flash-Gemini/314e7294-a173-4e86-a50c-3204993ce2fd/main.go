@@ -25,6 +25,7 @@ import (
 	"os"
 )
 
+// Functional Utility: Describe purpose of main here.
 func main() {
 	hk := HyperKube{
 		Name: "hyperkube",

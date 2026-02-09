@@ -101,14 +101,31 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
 
+ /**
+  * @brief Functional description of the IndexLifecycleRunnerTests class.
+  *        This is a placeholder for detailed semantic documentation.
+  *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+  */
 public class IndexLifecycleRunnerTests extends ESTestCase {
     private static final NamedXContentRegistry REGISTRY;
+     /**
+      * @brief [Functional description for field threadPool]: Describe purpose here.
+      */
     private ThreadPool threadPool;
+     /**
+      * @brief [Functional description for field noopClient]: Describe purpose here.
+      */
     private Client noopClient;
+     /**
+      * @brief [Functional description for field historyStore]: Describe purpose here.
+      */
     private NoOpHistoryStore historyStore;
 
     static {
         try (IndexLifecycle indexLifecycle = new IndexLifecycle(Settings.EMPTY)) {
+             /**
+              * @brief [Functional description for field entries]: Describe purpose here.
+              */
             List<NamedXContentRegistry.Entry> entries = new ArrayList<>(indexLifecycle.getNamedXContent());
             REGISTRY = new NamedXContentRegistry(entries);
         }
@@ -342,11 +359,11 @@ public class IndexLifecycleRunnerTests extends ESTestCase {
         MockClusterStateActionStep nextStep = new MockClusterStateActionStep(nextStepKey, null);
         MockPolicyStepsRegistry stepRegistry = createMultiStepPolicyStepRegistry(policyName, List.of(step, nextStep));
         stepRegistry.setResolver((i, k) -> {
-            if (stepKey.equals(k)) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (stepKey.equals(k)) {
                 return step;
-            } else if (nextStepKey.equals(k)) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            } else if (nextStepKey.equals(k)) {
                 return nextStep;
-            } else {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            } else {
                 fail("should not try to retrieve different step");
                 return null;
             }
@@ -461,11 +478,11 @@ public class IndexLifecycleRunnerTests extends ESTestCase {
         IndexLifecycleRunner runner = new IndexLifecycleRunner(stepRegistry, historyStore, clusterService, threadPool, () -> stepTime);
 
         ClusterState before = clusterService.state();
-        if (asyncAction) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (asyncAction) {
             runner.maybeRunAsyncAction(before, indexMetadata, policyName, stepKey);
-        } else if (periodicAction) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else if (periodicAction) {
             runner.runPeriodicStep(policyName, Metadata.builder().put(indexMetadata, true).build(), indexMetadata);
-        } else {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else {
             runner.runPolicyAfterStateChange(policyName, indexMetadata);
         }
 
@@ -530,11 +547,11 @@ public class IndexLifecycleRunnerTests extends ESTestCase {
         MockAsyncActionStep nextStep = new MockAsyncActionStep(nextStepKey, null);
         MockPolicyStepsRegistry stepRegistry = createMultiStepPolicyStepRegistry(policyName, List.of(step, nextStep));
         stepRegistry.setResolver((i, k) -> {
-            if (stepKey.equals(k)) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (stepKey.equals(k)) {
                 return step;
-            } else if (nextStepKey.equals(k)) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            } else if (nextStepKey.equals(k)) {
                 return nextStep;
-            } else {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            } else {
                 fail("should not try to retrieve different step");
                 return null;
             }
@@ -607,11 +624,11 @@ public class IndexLifecycleRunnerTests extends ESTestCase {
         MockAsyncWaitStep nextStep = new MockAsyncWaitStep(nextStepKey, null);
         MockPolicyStepsRegistry stepRegistry = createOneStepPolicyStepRegistry(policyName, step);
         stepRegistry.setResolver((i, k) -> {
-            if (stepKey.equals(k)) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (stepKey.equals(k)) {
                 return step;
-            } else if (nextStepKey.equals(k)) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            } else if (nextStepKey.equals(k)) {
                 return nextStep;
-            } else {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            } else {
                 fail("should not try to retrieve different step");
                 return null;
             }
@@ -893,7 +910,7 @@ public class IndexLifecycleRunnerTests extends ESTestCase {
 
     private static LifecyclePolicy createPolicy(String policyName, StepKey safeStep, StepKey unsafeStep) {
         Map<String, Phase> phases = new HashMap<>();
-        if (safeStep != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (safeStep != null) {
             assert MockAction.NAME.equals(safeStep.action()) : "The safe action needs to be MockAction.NAME";
             assert unsafeStep == null || safeStep.phase().equals(unsafeStep.phase()) == false
                 : "safe and unsafe actions must be in different phases";
@@ -904,7 +921,7 @@ public class IndexLifecycleRunnerTests extends ESTestCase {
             Phase phase = new Phase(safeStep.phase(), TimeValue.timeValueMillis(0), actions);
             phases.put(phase.getName(), phase);
         }
-        if (unsafeStep != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (unsafeStep != null) {
             assert MockAction.NAME.equals(unsafeStep.action()) : "The unsafe action needs to be MockAction.NAME";
             Map<String, LifecycleAction> actions = new HashMap<>();
             List<Step> steps = List.of(new MockStep(unsafeStep, null));
@@ -958,6 +975,9 @@ public class IndexLifecycleRunnerTests extends ESTestCase {
         }
 
         @Override
+        /**
+         * @brief [Functional Utility for performAction]: Describe purpose here.
+         */
         public void performAction(
             IndexMetadata indexMetadata,
             ClusterState currentState,
@@ -965,12 +985,12 @@ public class IndexLifecycleRunnerTests extends ESTestCase {
             ActionListener<Void> listener
         ) {
             executeCount++;
-            if (latch != null) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (latch != null) {
                 latch.countDown();
             }
-            if (exception == null) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (exception == null) {
                 listener.onResponse(null);
-            } else {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            } else {
                 listener.onFailure(exception);
             }
         }
@@ -1008,12 +1028,12 @@ public class IndexLifecycleRunnerTests extends ESTestCase {
         @Override
         public void evaluateCondition(Metadata metadata, Index index, Listener listener, TimeValue masterTimeout) {
             executeCount++;
-            if (latch != null) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (latch != null) {
                 latch.countDown();
             }
-            if (exception == null) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (exception == null) {
                 listener.onResponse(true, expectedInfo);
-            } else {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            } else {
                 listener.onFailure(exception);
             }
         }
@@ -1050,10 +1070,10 @@ public class IndexLifecycleRunnerTests extends ESTestCase {
         @Override
         public ClusterState performAction(Index index, ClusterState clusterState) {
             executeCount++;
-            if (latch != null) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (latch != null) {
                 latch.countDown();
             }
-            if (exception != null) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (exception != null) {
                 throw exception;
             }
             return clusterState;
@@ -1095,7 +1115,7 @@ public class IndexLifecycleRunnerTests extends ESTestCase {
         @Override
         public Result isConditionMet(Index index, ClusterState clusterState) {
             executeCount++;
-            if (exception != null) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (exception != null) {
                 throw exception;
             }
             return new Result(willComplete, expectedInfo);
@@ -1119,7 +1139,7 @@ public class IndexLifecycleRunnerTests extends ESTestCase {
 
         @Override
         public boolean matches(SetStepInfoUpdateTask other) {
-            if (other == null) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (other == null) {
                 return false;
             }
             return Objects.equals(index, other.getIndex())
@@ -1154,7 +1174,7 @@ public class IndexLifecycleRunnerTests extends ESTestCase {
 
         @Override
         public boolean matches(ExecuteStepsUpdateTask other) {
-            if (other == null) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (other == null) {
                 return false;
             }
             return Objects.equals(index, other.getIndex())
@@ -1181,6 +1201,9 @@ public class IndexLifecycleRunnerTests extends ESTestCase {
         private BiFunction<IndexMetadata, StepKey, Step> fn = null;
         private static Logger logger = LogManager.getLogger(MockPolicyStepsRegistry.class);
 
+        /**
+         * @brief [Functional Utility for MockPolicyStepsRegistry]: Describe purpose here.
+         * @return [ReturnType]: [Description]\n         */
         MockPolicyStepsRegistry(
             SortedMap<String, LifecyclePolicyMetadata> lifecyclePolicyMap,
             Map<String, Step> firstStepMap,
@@ -1197,10 +1220,10 @@ public class IndexLifecycleRunnerTests extends ESTestCase {
 
         @Override
         public Step getStep(IndexMetadata indexMetadata, StepKey stepKey) {
-            if (fn == null) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (fn == null) {
                 logger.info("--> retrieving step {}", stepKey);
                 return super.getStep(indexMetadata, stepKey);
-            } else {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            } else {
                 logger.info("--> returning mock step");
                 return fn.apply(indexMetadata, stepKey);
             }

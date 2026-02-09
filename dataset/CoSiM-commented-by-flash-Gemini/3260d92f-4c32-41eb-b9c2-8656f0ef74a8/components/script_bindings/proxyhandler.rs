@@ -1,3 +1,6 @@
+//! proxyhandler.rs
+//! Semantic documentation for proxyhandler.rs.
+//! Detailed semantic analysis will be applied later.
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -318,6 +321,8 @@ pub(crate) unsafe extern "C" fn maybe_cross_origin_set_prototype_rawcx(
     //
     // > 2. Let current be `? O.[[GetPrototypeOf]]()`.
     rooted!(in(cx) let mut current = ptr::null_mut::<JSObject>());
+    /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+    /// Invariant: State condition that holds true before and after each iteration/execution
     if !jsapi::GetObjectProto(cx, proxy, current.handle_mut().into()) {
         return false;
     }
@@ -417,6 +422,8 @@ const ALLOWLISTED_SYMBOL_CODES: &[SymbolCode] = &[
 
 pub(crate) fn is_cross_origin_allowlisted_prop(cx: SafeJSContext, id: RawHandleId) -> bool {
     unsafe {
+        /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        /// Invariant: State condition that holds true before and after each iteration/execution
         if jsid_to_string(*cx, Handle::from_raw(id)).is_some_and(|st| st == "then") {
             return true;
         }
@@ -541,6 +548,8 @@ pub(crate) unsafe extern "C" fn maybe_cross_origin_set_rawcx<D: DomTypes>(
 ) -> bool {
     let cx = SafeJSContext::from_ptr(cx);
 
+    /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+    /// Invariant: State condition that holds true before and after each iteration/execution
     if !<D as DomHelpers<D>>::is_platform_object_same_origin(cx, proxy) {
         return cross_origin_set::<D>(cx, proxy, id, v, receiver, result);
     }
@@ -715,6 +724,8 @@ pub(crate) unsafe fn cross_origin_set<D: DomTypes>(
     // >
     // > 3.2. Return true.
     rooted!(in(*cx) let mut ignored = UndefinedValue());
+    /// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+    /// Invariant: State condition that holds true before and after each iteration/execution
     if !jsapi::Call(
         *cx,
         receiver,

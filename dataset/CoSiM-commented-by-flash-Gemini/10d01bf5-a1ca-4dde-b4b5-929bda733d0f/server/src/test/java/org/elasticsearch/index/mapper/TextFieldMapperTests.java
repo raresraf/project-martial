@@ -90,6 +90,11 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.core.Is.is;
 
+/**
+ * @brief Functional description of the TextFieldMapperTests class.
+ *        This is a placeholder for detailed semantic documentation.
+ *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+ */
 public class TextFieldMapperTests extends MapperTestCase {
 
     @Override
@@ -97,6 +102,11 @@ public class TextFieldMapperTests extends MapperTestCase {
         return "value";
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void testExistsQueryIndexDisabled() throws IOException {
         MapperService mapperService = createMapperService(fieldMapping(b -> {
             minimalMapping(b);
@@ -107,6 +117,11 @@ public class TextFieldMapperTests extends MapperTestCase {
         assertParseMinimalWarnings();
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void testExistsQueryIndexDisabledStoreTrue() throws IOException {
         MapperService mapperService = createMapperService(fieldMapping(b -> {
             minimalMapping(b);
@@ -118,6 +133,11 @@ public class TextFieldMapperTests extends MapperTestCase {
         assertParseMinimalWarnings();
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void testExistsQueryWithNorms() throws IOException {
         MapperService mapperService = createMapperService(fieldMapping(b -> {
             minimalMapping(b);
@@ -128,6 +148,12 @@ public class TextFieldMapperTests extends MapperTestCase {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param checker: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected void registerParameters(ParameterChecker checker) throws IOException {
         checker.registerUpdateCheck(b -> b.field("fielddata", true), m -> {
             TextFieldType ft = (TextFieldType) m.fieldType();
@@ -189,6 +215,12 @@ public class TextFieldMapperTests extends MapperTestCase {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param indexSettings: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected IndexAnalyzers createIndexAnalyzers(IndexSettings indexSettings) {
         NamedAnalyzer dflt = new NamedAnalyzer(
             "default",
@@ -207,11 +239,22 @@ public class TextFieldMapperTests extends MapperTestCase {
                 new CharFilterFactory[0],
                 new TokenFilterFactory[] { new TokenFilterFactory() {
                     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
                     public String name() {
                         return "stop";
                     }
 
                     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param tokenStream: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
                     public TokenStream create(TokenStream tokenStream) {
                         return new StopFilter(tokenStream, EnglishAnalyzer.ENGLISH_STOP_WORDS_SET);
                     }
@@ -225,10 +268,21 @@ public class TextFieldMapperTests extends MapperTestCase {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param b: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected void minimalMapping(XContentBuilder b) throws IOException {
         b.field("type", "text");
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testDefaults() throws IOException {
         DocumentMapper mapper = createDocumentMapper(fieldMapping(this::minimalMapping));
         assertEquals(Strings.toString(fieldMapping(this::minimalMapping)), mapper.mappingSource().toString());
@@ -249,6 +303,11 @@ public class TextFieldMapperTests extends MapperTestCase {
         assertEquals(DocValuesType.NONE, fieldType.docValuesType());
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testStoreParameterDefaults() throws IOException {
         var timeSeriesIndexMode = randomBoolean();
         var isStored = randomBoolean();
@@ -307,6 +366,11 @@ public class TextFieldMapperTests extends MapperTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testBWCSerialization() throws IOException {
         MapperService mapperService = createMapperService(fieldMapping(b -> {
             b.field("type", "text");
@@ -323,6 +387,11 @@ public class TextFieldMapperTests extends MapperTestCase {
             "fielddata":true}}}}""", Strings.toString(mapperService.documentMapper().mapping()));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testEnableStore() throws IOException {
         DocumentMapper mapper = createDocumentMapper(fieldMapping(b -> b.field("type", "text").field("store", true)));
         ParsedDocument doc = mapper.parse(source(b -> b.field("field", "1234")));
@@ -331,6 +400,11 @@ public class TextFieldMapperTests extends MapperTestCase {
         assertTrue(fields.get(0).fieldType().stored());
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testDisableIndex() throws IOException {
         DocumentMapper mapper = createDocumentMapper(fieldMapping(b -> b.field("type", "text").field("index", false)));
         ParsedDocument doc = mapper.parse(source(b -> b.field("field", "1234")));
@@ -338,6 +412,11 @@ public class TextFieldMapperTests extends MapperTestCase {
         assertEquals(0, fields.size());
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testDisableNorms() throws IOException {
         DocumentMapper mapper = createDocumentMapper(fieldMapping(b -> b.field("type", "text").field("norms", false)));
         ParsedDocument doc = mapper.parse(source(b -> b.field("field", "1234")));
@@ -346,6 +425,11 @@ public class TextFieldMapperTests extends MapperTestCase {
         assertTrue(fields.get(0).fieldType().omitNorms());
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testIndexOptions() throws IOException {
         Map<String, IndexOptions> supportedOptions = new HashMap<>();
         supportedOptions.put("docs", IndexOptions.DOCS);
@@ -383,6 +467,11 @@ public class TextFieldMapperTests extends MapperTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testDefaultPositionIncrementGap() throws IOException {
         MapperService mapperService = createMapperService(fieldMapping(this::minimalMapping));
         ParsedDocument doc = mapperService.documentMapper().parse(source(b -> b.array("field", new String[] { "a", "b" })));
@@ -401,6 +490,11 @@ public class TextFieldMapperTests extends MapperTestCase {
         });
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testDefaultPositionIncrementGapOnSubfields() throws IOException {
         MapperService mapperService = createMapperService(fieldMapping(b -> {
             b.field("type", "text");
@@ -424,6 +518,11 @@ public class TextFieldMapperTests extends MapperTestCase {
         });
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testPositionIncrementGap() throws IOException {
         final int positionIncrementGap = randomIntBetween(1, 1000);
         MapperService mapperService = createMapperService(
@@ -445,6 +544,11 @@ public class TextFieldMapperTests extends MapperTestCase {
         });
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testPositionIncrementGapOnSubfields() throws IOException {
         MapperService mapperService = createMapperService(fieldMapping(b -> {
             b.field("type", "text");
@@ -469,6 +573,11 @@ public class TextFieldMapperTests extends MapperTestCase {
         });
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testSearchAnalyzerSerialization() throws IOException {
         XContentBuilder mapping = fieldMapping(
             b -> b.field("type", "text").field("analyzer", "standard").field("search_analyzer", "keyword")
@@ -494,6 +603,11 @@ public class TextFieldMapperTests extends MapperTestCase {
         assertTrue(mappingString.contains("search_quote_analyzer"));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testSearchQuoteAnalyzerSerialization() throws IOException {
         XContentBuilder mapping = fieldMapping(
             b -> b.field("type", "text")
@@ -513,6 +627,11 @@ public class TextFieldMapperTests extends MapperTestCase {
         assertEquals(Strings.toString(mapping), createDocumentMapper(mapping).mappingSource().toString());
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testTermVectors() throws IOException {
         XContentBuilder mapping = mapping(
             b -> b.startObject("field1")
@@ -585,6 +704,11 @@ public class TextFieldMapperTests extends MapperTestCase {
         assertThat(doc.rootDoc().getField("field6").fieldType().storeTermVectorPayloads(), equalTo(true));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testEagerGlobalOrdinals() throws IOException {
         DocumentMapper mapper = createDocumentMapper(fieldMapping(b -> b.field("type", "text").field("eager_global_ordinals", true)));
 
@@ -592,6 +716,11 @@ public class TextFieldMapperTests extends MapperTestCase {
         assertTrue(fieldMapper.fieldType().eagerGlobalOrdinals());
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testFielddata() throws IOException {
         MapperService disabledMapper = createMapperService(fieldMapping(this::minimalMapping));
         assertFalse(disabledMapper.fieldType("field").isAggregatable());
@@ -618,6 +747,11 @@ public class TextFieldMapperTests extends MapperTestCase {
         assertThat(e.getMessage(), containsString("Cannot enable fielddata on a [text] field that is not indexed"));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testFrequencyFilter() throws IOException {
         MapperService mapperService = createMapperService(
             fieldMapping(
@@ -636,6 +770,11 @@ public class TextFieldMapperTests extends MapperTestCase {
         assertThat(fieldType.fielddataMinSegmentSize(), equalTo(1000));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testNullConfigValuesFail() throws MapperParsingException {
         Exception e = expectThrows(
             MapperParsingException.class,
@@ -644,6 +783,11 @@ public class TextFieldMapperTests extends MapperTestCase {
         assertThat(e.getMessage(), containsString("[analyzer] on mapper [field] of type [text] must not have a [null] value"));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testNotIndexedFieldPositionIncrement() {
         Exception e = expectThrows(
             MapperParsingException.class,
@@ -652,6 +796,11 @@ public class TextFieldMapperTests extends MapperTestCase {
         assertThat(e.getMessage(), containsString("Cannot set position_increment_gap on field [field] without positions enabled"));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testAnalyzedFieldPositionIncrementWithoutPositions() {
         for (String indexOptions : Arrays.asList("docs", "freqs")) {
             Exception e = expectThrows(
@@ -664,6 +813,11 @@ public class TextFieldMapperTests extends MapperTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testIndexPrefixIndexTypes() throws IOException {
         {
             DocumentMapper mapper = createDocumentMapper(
@@ -745,6 +899,11 @@ public class TextFieldMapperTests extends MapperTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testNestedIndexPrefixes() throws IOException {
         {
             MapperService mapperService = createMapperService(
@@ -800,6 +959,11 @@ public class TextFieldMapperTests extends MapperTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testFastPhraseMapping() throws IOException {
         MapperService mapperService = createMapperService(mapping(b -> {
             b.startObject("field").field("type", "text").field("analyzer", "my_stop_analyzer").field("index_phrases", true).endObject();
@@ -839,6 +1003,12 @@ public class TextFieldMapperTests extends MapperTestCase {
         CannedTokenStream cts = new CannedTokenStream(new Token("foo", 1, 0, 2, 2), new Token("bar", 0, 0, 2), new Token("baz", 1, 0, 2));
         Analyzer synonymAnalyzer = new Analyzer() {
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param fieldName: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             protected TokenStreamComponents createComponents(String fieldName) {
                 return new TokenStreamComponents(reader -> {}, cts);
             }
@@ -895,6 +1065,11 @@ public class TextFieldMapperTests extends MapperTestCase {
         assertThat(e.getMessage(), containsString("Cannot set index_phrases on field [field] if positions are not enabled"));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testObjectExistsQuery() throws IOException, ParseException {
         MapperService ms = createMapperService(mapping(b -> {
             b.startObject("foo");
@@ -919,6 +1094,15 @@ public class TextFieldMapperTests extends MapperTestCase {
         assertEquals(new ConstantScoreQuery(new FieldExistsQuery("foo.bar")), q);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param analyzer: [Description]
+     * @param field: [Description]
+     * @param input: [Description]
+     * @param output: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private static void assertAnalyzesTo(Analyzer analyzer, String field, String input, String[] output) throws IOException {
         try (TokenStream ts = analyzer.tokenStream(field, input)) {
             ts.reset();
@@ -932,6 +1116,11 @@ public class TextFieldMapperTests extends MapperTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testIndexPrefixMapping() throws IOException {
 
         {
@@ -1022,6 +1211,11 @@ public class TextFieldMapperTests extends MapperTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testFastPhrasePrefixes() throws IOException {
         MapperService mapperService = createMapperService(mapping(b -> {
             b.startObject("field");
@@ -1126,6 +1320,11 @@ public class TextFieldMapperTests extends MapperTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testSimpleMerge() throws IOException {
         XContentBuilder startingMapping = fieldMapping(
             b -> b.field("type", "text").startObject("index_prefixes").endObject().field("index_phrases", true)
@@ -1158,37 +1357,78 @@ public class TextFieldMapperTests extends MapperTestCase {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param ft: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected Object generateRandomInputValue(MappedFieldType ft) {
         assumeFalse("We don't have a way to assert things here", true);
         return null;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param b: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected void randomFetchTestFieldConfig(XContentBuilder b) throws IOException {
         assumeFalse("We don't have a way to assert things here", true);
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected boolean supportsIgnoreMalformed() {
         return false;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param ignoreMalformed: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected SyntheticSourceSupport syntheticSourceSupport(boolean ignoreMalformed) {
         assumeFalse("ignore_malformed not supported", ignoreMalformed);
         return TextFieldFamilySyntheticSourceTestSetup.syntheticSourceSupport("text", true);
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected IngestScriptSupport ingestScriptSupport() {
         throw new AssumptionViolatedException("not supported");
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param syntheticSource: [Description]
+     * @param reader: [Description]
+     * @param roundTripReader: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected void validateRoundTripReader(String syntheticSource, DirectoryReader reader, DirectoryReader roundTripReader) {
         TextFieldFamilySyntheticSourceTestSetup.validateRoundTripReader(syntheticSource, reader, roundTripReader);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testUnknownAnalyzerOnLegacyIndex() throws IOException {
         XContentBuilder startingMapping = fieldMapping(b -> b.field("type", "text").field("analyzer", "does_not_exist"));
 
@@ -1206,6 +1446,11 @@ public class TextFieldMapperTests extends MapperTestCase {
         assertThat(mapperService.documentMapper().mappers().getMapper("field"), instanceOf(TextFieldMapper.class));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testIgnoreFieldDataOnLegacyIndex() throws IOException {
         XContentBuilder mapping = fieldMapping(b -> b.field("type", "text").field("fielddata", true));
         MapperService mapperService = createMapperService(mapping);
@@ -1222,6 +1467,11 @@ public class TextFieldMapperTests extends MapperTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testIgnoreEagerGlobalOrdinalsOnLegacyIndex() throws IOException {
         XContentBuilder mapping = fieldMapping(b -> b.field("type", "text").field("eager_global_ordinals", true));
         MapperService mapperService = createMapperService(mapping);
@@ -1231,6 +1481,11 @@ public class TextFieldMapperTests extends MapperTestCase {
         assertFalse(((TextFieldMapper) mapperService.documentMapper().mappers().getMapper("field")).fieldType().eagerGlobalOrdinals());
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testDocValues() throws IOException {
         MapperService mapper = createMapperService(fieldMapping(b -> b.field("type", "text")));
         for (String input : new String[] {
@@ -1241,6 +1496,11 @@ public class TextFieldMapperTests extends MapperTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testDocValuesLoadedFromStoredSynthetic() throws IOException {
         MapperService mapper = createSytheticSourceMapperService(fieldMapping(b -> b.field("type", "text").field("store", true)));
         for (String input : new String[] {
@@ -1251,6 +1511,11 @@ public class TextFieldMapperTests extends MapperTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testDocValuesLoadedFromSubKeywordSynthetic() throws IOException {
         MapperService mapper = createSytheticSourceMapperService(fieldMapping(b -> {
             b.field("type", "text");
@@ -1268,6 +1533,11 @@ public class TextFieldMapperTests extends MapperTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testDocValuesLoadedFromSubStoredKeywordSynthetic() throws IOException {
         MapperService mapper = createSytheticSourceMapperService(fieldMapping(b -> {
             b.field("type", "text");
@@ -1285,6 +1555,11 @@ public class TextFieldMapperTests extends MapperTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testEmpty() throws Exception {
         MapperService mapperService = createMapperService(fieldMapping(b -> b.field("type", "text")));
         var d0 = source(b -> b.field("field", new String[0]));

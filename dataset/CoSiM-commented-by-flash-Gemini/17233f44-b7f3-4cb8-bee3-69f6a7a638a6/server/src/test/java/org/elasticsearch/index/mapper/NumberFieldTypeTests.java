@@ -66,15 +66,31 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
 
+/**
+ * @brief Functional description of the NumberFieldTypeTests class.
+ *        This is a placeholder for detailed semantic documentation.
+ *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+ */
 public class NumberFieldTypeTests extends FieldTypeTestCase {
 
+    /**
+     * @brief [Functional description for field type]: Describe purpose here.
+     */
     NumberType type;
 
     @Before
+    /**
+     * @brief [Functional Utility for pickType]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void pickType() {
         type = RandomPicks.randomFrom(random(), NumberFieldMapper.NumberType.values());
     }
 
+    /**
+     * @brief [Functional Utility for testEqualsWithDifferentNumberTypes]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testEqualsWithDifferentNumberTypes() {
         NumberType type = randomFrom(NumberType.values());
         NumberFieldType fieldType = new NumberFieldType("foo", type);
@@ -85,6 +101,11 @@ public class NumberFieldTypeTests extends FieldTypeTestCase {
         assertNotEquals(fieldType, otherFieldType);
     }
 
+    /**
+     * @brief [Functional Utility for testIsFieldWithinQuery]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
     public void testIsFieldWithinQuery() throws IOException {
         MappedFieldType ft = new NumberFieldType("field", NumberType.INTEGER);
         // current impl ignores args and should always return INTERSECTS
@@ -94,6 +115,10 @@ public class NumberFieldTypeTests extends FieldTypeTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testIntegerTermsQueryWithDecimalPart]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testIntegerTermsQueryWithDecimalPart() {
         MappedFieldType ft = new NumberFieldMapper.NumberFieldType("field", NumberType.INTEGER);
         assertEquals(IntPoint.newSetQuery("field", 1), ft.termsQuery(Arrays.asList(1, 2.1), MOCK_CONTEXT));
@@ -101,6 +126,10 @@ public class NumberFieldTypeTests extends FieldTypeTestCase {
         assertTrue(ft.termsQuery(Arrays.asList(1.1, 2.1), MOCK_CONTEXT) instanceof MatchNoDocsQuery);
     }
 
+    /**
+     * @brief [Functional Utility for testLongTermsQueryWithDecimalPart]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testLongTermsQueryWithDecimalPart() {
         MappedFieldType ft = new NumberFieldMapper.NumberFieldType("field", NumberType.LONG);
         assertEquals(LongPoint.newSetQuery("field", 1), ft.termsQuery(Arrays.asList(1, 2.1), MOCK_CONTEXT));
@@ -108,26 +137,46 @@ public class NumberFieldTypeTests extends FieldTypeTestCase {
         assertTrue(ft.termsQuery(Arrays.asList(1.1, 2.1), MOCK_CONTEXT) instanceof MatchNoDocsQuery);
     }
 
+    /**
+     * @brief [Functional Utility for testByteTermQueryWithDecimalPart]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testByteTermQueryWithDecimalPart() {
         MappedFieldType ft = new NumberFieldMapper.NumberFieldType("field", NumberType.BYTE, randomBoolean());
         assertTrue(ft.termQuery(42.1, MOCK_CONTEXT) instanceof MatchNoDocsQuery);
     }
 
+    /**
+     * @brief [Functional Utility for testShortTermQueryWithDecimalPart]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testShortTermQueryWithDecimalPart() {
         MappedFieldType ft = new NumberFieldMapper.NumberFieldType("field", NumberType.SHORT, randomBoolean());
         assertTrue(ft.termQuery(42.1, MOCK_CONTEXT) instanceof MatchNoDocsQuery);
     }
 
+    /**
+     * @brief [Functional Utility for testIntegerTermQueryWithDecimalPart]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testIntegerTermQueryWithDecimalPart() {
         MappedFieldType ft = new NumberFieldMapper.NumberFieldType("field", NumberType.INTEGER, randomBoolean());
         assertTrue(ft.termQuery(42.1, MOCK_CONTEXT) instanceof MatchNoDocsQuery);
     }
 
+    /**
+     * @brief [Functional Utility for testLongTermQueryWithDecimalPart]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testLongTermQueryWithDecimalPart() {
         MappedFieldType ft = new NumberFieldMapper.NumberFieldType("field", NumberFieldMapper.NumberType.LONG, randomBoolean());
         assertTrue(ft.termQuery(42.1, MOCK_CONTEXT) instanceof MatchNoDocsQuery);
     }
 
+    /**
+     * @brief [Functional Utility for unsearchable]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     private static MappedFieldType unsearchable() {
         return new NumberFieldType(
             "field",
@@ -145,6 +194,10 @@ public class NumberFieldTypeTests extends FieldTypeTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testTermQuery]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testTermQuery() {
         MappedFieldType ft = new NumberFieldMapper.NumberFieldType("field", NumberFieldMapper.NumberType.LONG);
         assertEquals(LongPoint.newExactQuery("field", 42), ft.termQuery("42", MOCK_CONTEXT));
@@ -166,6 +219,10 @@ public class NumberFieldTypeTests extends FieldTypeTestCase {
 
     private record OutOfRangeTermQueryTestCase(NumberType type, Object value) {}
 
+    /**
+     * @brief [Functional Utility for testTermQueryWithOutOfRangeValues]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testTermQueryWithOutOfRangeValues() {
         List<OutOfRangeTermQueryTestCase> testCases = List.of(
             new OutOfRangeTermQueryTestCase(NumberType.BYTE, "128"),
@@ -197,14 +254,26 @@ public class NumberFieldTypeTests extends FieldTypeTestCase {
             new OutOfRangeTermQueryTestCase(NumberType.DOUBLE, new BigDecimal("-1.7976931348623157E309")),
             new OutOfRangeTermQueryTestCase(NumberType.DOUBLE, Double.NaN),
             new OutOfRangeTermQueryTestCase(NumberType.DOUBLE, Double.POSITIVE_INFINITY),
+    /**
+     * @brief [Functional Utility for OutOfRangeTermQueryTestCase]: Describe purpose here.
+     * @param NumberType.DOUBLE: [Description]
+     * @param Double.NEGATIVE_INFINITY: [Description]
+     * @return [ReturnType]: [Description]
+     */
             new OutOfRangeTermQueryTestCase(NumberType.DOUBLE, Double.NEGATIVE_INFINITY)
         );
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (OutOfRangeTermQueryTestCase testCase : testCases) {
             assertTrue(testCase.type.termQuery("field", testCase.value, randomBoolean()) instanceof MatchNoDocsQuery);
         }
     }
 
+    /**
+     * @brief [Functional Utility for testRangeQueryWithNegativeBounds]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testRangeQueryWithNegativeBounds() {
         MappedFieldType ftInt = new NumberFieldMapper.NumberFieldType("field", NumberType.INTEGER, randomBoolean());
         assertEquals(
@@ -309,6 +378,10 @@ public class NumberFieldTypeTests extends FieldTypeTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testByteRangeQueryWithDecimalParts]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testByteRangeQueryWithDecimalParts() {
         MappedFieldType ft = new NumberFieldMapper.NumberFieldType("field", NumberType.BYTE, randomBoolean());
         assertEquals(
@@ -329,6 +402,10 @@ public class NumberFieldTypeTests extends FieldTypeTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testShortRangeQueryWithDecimalParts]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testShortRangeQueryWithDecimalParts() {
         MappedFieldType ft = new NumberFieldMapper.NumberFieldType("field", NumberType.SHORT, randomBoolean());
         assertEquals(
@@ -349,6 +426,10 @@ public class NumberFieldTypeTests extends FieldTypeTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testIntegerRangeQueryWithDecimalParts]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testIntegerRangeQueryWithDecimalParts() {
         MappedFieldType ft = new NumberFieldMapper.NumberFieldType("field", NumberType.INTEGER, randomBoolean());
         assertEquals(
@@ -369,6 +450,10 @@ public class NumberFieldTypeTests extends FieldTypeTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testLongRangeQueryWithDecimalParts]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testLongRangeQueryWithDecimalParts() {
         MappedFieldType ft = new NumberFieldMapper.NumberFieldType("field", NumberType.LONG, randomBoolean());
         assertEquals(
@@ -389,9 +474,19 @@ public class NumberFieldTypeTests extends FieldTypeTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testHalfFloatRangeQueryWithOverflowingBounds]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testHalfFloatRangeQueryWithOverflowingBounds() {
         MappedFieldType ft = new NumberFieldMapper.NumberFieldType("field", NumberType.HALF_FLOAT, randomBoolean());
+    /**
+     * @brief [Functional description for field min_half_float]: Describe purpose here.
+     */
         final float min_half_float = -65504;
+    /**
+     * @brief [Functional description for field max_half_float]: Describe purpose here.
+     */
         final float max_half_float = 65504;
         assertEquals(
             ft.rangeQuery(min_half_float, 10, true, true, null, null, null, MOCK_CONTEXT),
@@ -434,6 +529,10 @@ public class NumberFieldTypeTests extends FieldTypeTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testFloatRangeQueryWithOverflowingBounds]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testFloatRangeQueryWithOverflowingBounds() {
         MappedFieldType ft = new NumberFieldMapper.NumberFieldType("field", NumberType.FLOAT, randomBoolean());
 
@@ -478,6 +577,10 @@ public class NumberFieldTypeTests extends FieldTypeTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testRangeQuery]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testRangeQuery() {
         MappedFieldType ft = new NumberFieldMapper.NumberFieldType("field", NumberFieldMapper.NumberType.LONG);
         Query expected = new IndexOrDocValuesQuery(
@@ -508,6 +611,10 @@ public class NumberFieldTypeTests extends FieldTypeTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testConversions]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testConversions() {
         assertEquals((byte) 3, NumberType.BYTE.parse(3d, true));
         assertEquals((short) 3, NumberType.SHORT.parse(3d, true));
@@ -538,6 +645,10 @@ public class NumberFieldTypeTests extends FieldTypeTestCase {
         assertEquals(1.1d, NumberType.DOUBLE.parse(1.1, true));
     }
 
+    /**
+     * @brief [Functional Utility for testCoercions]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testCoercions() {
         assertEquals((byte) 5, NumberType.BYTE.parse((short) 5, true));
         assertEquals((byte) 5, NumberType.BYTE.parse("5", true));
@@ -569,13 +680,23 @@ public class NumberFieldTypeTests extends FieldTypeTestCase {
         assertEquals(-4115420654264075766L, NumberType.LONG.parse(-4115420654264075766L, true));
     }
 
+    /**
+     * @brief [Functional Utility for testHalfFloatRange]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
     public void testHalfFloatRange() throws IOException {
         // make sure the accuracy loss of half floats only occurs at index time
         // this test checks that searching half floats yields the same results as
         // searching floats that are rounded to the closest half float
         Directory dir = newDirectory();
         IndexWriter w = new IndexWriter(dir, new IndexWriterConfig(null));
+    /**
+     * @brief [Functional description for field numDocs]: Describe purpose here.
+     */
         final int numDocs = 10000;
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (int i = 0; i < numDocs; ++i) {
             Document doc = new Document();
             // Note: this test purposefully allows half-floats to be indexed over their dynamic range (65504), which
@@ -592,7 +713,12 @@ public class NumberFieldTypeTests extends FieldTypeTestCase {
         w.close();
 
         IndexSearcher searcher = newSearcher(reader);
+    /**
+     * @brief [Functional description for field numQueries]: Describe purpose here.
+     */
         final int numQueries = 1000;
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (int i = 0; i < numQueries; ++i) {
             float l = (randomFloat() * 2 - 1) * 65504;
             float u = (randomFloat() * 2 - 1) * 65504;
@@ -623,6 +749,10 @@ public class NumberFieldTypeTests extends FieldTypeTestCase {
         IOUtils.close(reader, dir);
     }
 
+    /**
+     * @brief [Functional Utility for testNegativeZero]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testNegativeZero() {
         final boolean isIndexed = randomBoolean();
         assertEquals(
@@ -645,38 +775,82 @@ public class NumberFieldTypeTests extends FieldTypeTestCase {
 
     // Make sure we construct the IndexOrDocValuesQuery objects with queries that match
     // the same ranges
+    /**
+     * @brief [Functional Utility for testDocValueByteRange]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void testDocValueByteRange() throws Exception {
         doTestDocValueRangeQueries(NumberType.BYTE, () -> (byte) random().nextInt(256));
     }
 
+    /**
+     * @brief [Functional Utility for testDocValueShortRange]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void testDocValueShortRange() throws Exception {
         doTestDocValueRangeQueries(NumberType.SHORT, () -> (short) random().nextInt(65536));
     }
 
+    /**
+     * @brief [Functional Utility for testDocValueIntRange]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void testDocValueIntRange() throws Exception {
         doTestDocValueRangeQueries(NumberType.INTEGER, random()::nextInt);
     }
 
+    /**
+     * @brief [Functional Utility for testDocValueLongRange]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void testDocValueLongRange() throws Exception {
         doTestDocValueRangeQueries(NumberType.LONG, random()::nextLong);
     }
 
+    /**
+     * @brief [Functional Utility for testDocValueHalfFloatRange]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void testDocValueHalfFloatRange() throws Exception {
         doTestDocValueRangeQueries(NumberType.HALF_FLOAT, random()::nextFloat);
     }
 
+    /**
+     * @brief [Functional Utility for testDocValueFloatRange]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void testDocValueFloatRange() throws Exception {
         doTestDocValueRangeQueries(NumberType.FLOAT, random()::nextFloat);
     }
 
+    /**
+     * @brief [Functional Utility for testDocValueDoubleRange]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void testDocValueDoubleRange() throws Exception {
         doTestDocValueRangeQueries(NumberType.DOUBLE, random()::nextDouble);
     }
 
+    /**
+     * @brief [Functional Utility for doTestDocValueRangeQueries]: Describe purpose here.
+     * @param type: [Description]
+     * @param valueSupplier: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void doTestDocValueRangeQueries(NumberType type, Supplier<Number> valueSupplier) throws Exception {
         Directory dir = newDirectory();
         IndexWriter w = new IndexWriter(dir, newIndexWriterConfig());
         final int numDocs = TestUtil.nextInt(random(), 100, 500);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (int i = 0; i < numDocs; ++i) {
             final LuceneDocument doc = new LuceneDocument();
             type.addFields(doc, "foo", valueSupplier.get(), true, true, false);
@@ -685,7 +859,12 @@ public class NumberFieldTypeTests extends FieldTypeTestCase {
         DirectoryReader reader = DirectoryReader.open(w);
         IndexSearcher searcher = newSearcher(reader);
         w.close();
+    /**
+     * @brief [Functional description for field iters]: Describe purpose here.
+     */
         final int iters = 10;
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (int iter = 0; iter < iters; ++iter) {
             Query query = type.rangeQuery(
                 "foo",
@@ -705,14 +884,31 @@ public class NumberFieldTypeTests extends FieldTypeTestCase {
         dir.close();
     }
 
+    /**
+     * @brief [Functional Utility for testIndexSortIntRange]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void testIndexSortIntRange() throws Exception {
         doTestIndexSortRangeQueries(NumberType.INTEGER, random()::nextInt);
     }
 
+    /**
+     * @brief [Functional Utility for testIndexSortLongRange]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void testIndexSortLongRange() throws Exception {
         doTestIndexSortRangeQueries(NumberType.LONG, random()::nextLong);
     }
 
+    /**
+     * @brief [Functional Utility for doTestIndexSortRangeQueries]: Describe purpose here.
+     * @param type: [Description]
+     * @param valueSupplier: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
     public void doTestIndexSortRangeQueries(NumberType type, Supplier<Number> valueSupplier) throws IOException {
         // Create index settings with an index sort.
         Settings settings = indexSettings(IndexVersion.current(), 1, 1).put("index.sort.field", "field").build();
@@ -731,6 +927,8 @@ public class NumberFieldTypeTests extends FieldTypeTestCase {
         Directory dir = newDirectory();
         IndexWriter w = new IndexWriter(dir, writerConfig);
         final int numDocs = TestUtil.nextInt(random(), 100, 500);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (int i = 0; i < numDocs; ++i) {
             final LuceneDocument doc = new LuceneDocument();
             type.addFields(doc, "field", valueSupplier.get(), true, true, false);
@@ -743,7 +941,12 @@ public class NumberFieldTypeTests extends FieldTypeTestCase {
 
         SearchExecutionContext context = SearchExecutionContextHelper.createSimple(indexSettings, parserConfig(), writableRegistry());
 
+    /**
+     * @brief [Functional description for field iters]: Describe purpose here.
+     */
         final int iters = 10;
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (int iter = 0; iter < iters; ++iter) {
             boolean isIndexed = randomBoolean();
             Query query = type.rangeQuery(
@@ -759,10 +962,13 @@ public class NumberFieldTypeTests extends FieldTypeTestCase {
             assertThat(query, instanceOf(XIndexSortSortedNumericDocValuesRangeQuery.class));
             Query fallbackQuery = ((XIndexSortSortedNumericDocValuesRangeQuery) query).getFallbackQuery();
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (isIndexed) {
                 assertThat(fallbackQuery, instanceOf(IndexOrDocValuesQuery.class));
                 IndexOrDocValuesQuery indexOrDvQuery = (IndexOrDocValuesQuery) fallbackQuery;
                 assertEquals(searcher.count(query), searcher.count(indexOrDvQuery.getIndexQuery()));
+        // Block Logic: [Describe purpose of this else/else if block]
             } else {
                 assertEquals(searcher.count(query), searcher.count(fallbackQuery));
             }
@@ -773,6 +979,11 @@ public class NumberFieldTypeTests extends FieldTypeTestCase {
         dir.close();
     }
 
+    /**
+     * @brief [Functional Utility for testParseOutOfRangeValues]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
     public void testParseOutOfRangeValues() throws IOException {
         final List<OutOfRangeSpec> inputs = Arrays.asList(
             OutOfRangeSpec.of(NumberType.BYTE, "128", "out of range for a byte"),
@@ -816,6 +1027,8 @@ public class NumberFieldTypeTests extends FieldTypeTestCase {
             OutOfRangeSpec.of(NumberType.DOUBLE, Double.NEGATIVE_INFINITY, "[double] supports only finite values")
         );
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (OutOfRangeSpec item : inputs) {
             try {
                 item.type.parse(item.value, false);
@@ -832,10 +1045,26 @@ public class NumberFieldTypeTests extends FieldTypeTestCase {
 
     static class OutOfRangeSpec {
 
+    /**
+     * @brief [Functional description for field type]: Describe purpose here.
+     */
         final NumberType type;
+    /**
+     * @brief [Functional description for field value]: Describe purpose here.
+     */
         final Object value;
+    /**
+     * @brief [Functional description for field message]: Describe purpose here.
+     */
         final String message;
 
+    /**
+     * @brief [Functional Utility for of]: Describe purpose here.
+     * @param t: [Description]
+     * @param v: [Description]
+     * @param m: [Description]
+     * @return [ReturnType]: [Description]
+     */
         static OutOfRangeSpec of(NumberType t, Object v, String m) {
             return new OutOfRangeSpec(t, v, m);
         }
@@ -846,16 +1075,31 @@ public class NumberFieldTypeTests extends FieldTypeTestCase {
             message = m;
         }
 
+    /**
+     * @brief [Functional Utility for write]: Describe purpose here.
+     * @param b: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
         public void write(XContentBuilder b) throws IOException {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (value instanceof BigInteger) {
                 b.rawField("field", new ByteArrayInputStream(value.toString().getBytes("UTF-8")), XContentType.JSON);
+        // Block Logic: [Describe purpose of this else/else if block]
             } else {
                 b.field("field", value);
             }
         }
     }
 
+    /**
+     * @brief [Functional Utility for testDisplayValue]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testDisplayValue() {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (NumberFieldMapper.NumberType type : NumberFieldMapper.NumberType.values()) {
             NumberFieldMapper.NumberFieldType fieldType = new NumberFieldMapper.NumberFieldType("field", type);
             assertNull(fieldType.valueForDisplay(null));
@@ -890,51 +1134,84 @@ public class NumberFieldTypeTests extends FieldTypeTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testParsePoint]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testParsePoint() {
         {
+    /**
+     * @brief [Functional description for field bytes]: Describe purpose here.
+     */
             byte[] bytes = new byte[Integer.BYTES];
             byte value = randomByte();
             IntPoint.encodeDimension(value, bytes, 0);
             assertThat(NumberType.BYTE.parsePoint(bytes), equalTo(value));
         }
         {
+    /**
+     * @brief [Functional description for field bytes]: Describe purpose here.
+     */
             byte[] bytes = new byte[Integer.BYTES];
             short value = randomShort();
             IntPoint.encodeDimension(value, bytes, 0);
             assertThat(NumberType.SHORT.parsePoint(bytes), equalTo(value));
         }
         {
+    /**
+     * @brief [Functional description for field bytes]: Describe purpose here.
+     */
             byte[] bytes = new byte[Integer.BYTES];
             int value = randomInt();
             IntPoint.encodeDimension(value, bytes, 0);
             assertThat(NumberType.INTEGER.parsePoint(bytes), equalTo(value));
         }
         {
+    /**
+     * @brief [Functional description for field bytes]: Describe purpose here.
+     */
             byte[] bytes = new byte[Long.BYTES];
             long value = randomLong();
             LongPoint.encodeDimension(value, bytes, 0);
             assertThat(NumberType.LONG.parsePoint(bytes), equalTo(value));
         }
         {
+    /**
+     * @brief [Functional description for field bytes]: Describe purpose here.
+     */
             byte[] bytes = new byte[Float.BYTES];
             float value = randomFloat();
             FloatPoint.encodeDimension(value, bytes, 0);
             assertThat(NumberType.FLOAT.parsePoint(bytes), equalTo(value));
         }
         {
+    /**
+     * @brief [Functional description for field bytes]: Describe purpose here.
+     */
             byte[] bytes = new byte[Double.BYTES];
             double value = randomDouble();
             DoublePoint.encodeDimension(value, bytes, 0);
             assertThat(NumberType.DOUBLE.parsePoint(bytes), equalTo(value));
         }
         {
+    /**
+     * @brief [Functional description for field bytes]: Describe purpose here.
+     */
             byte[] bytes = new byte[Float.BYTES];
+    /**
+     * @brief [Functional description for field value]: Describe purpose here.
+     */
             float value = 3f;
             HalfFloatPoint.encodeDimension(value, bytes, 0);
             assertThat(NumberType.HALF_FLOAT.parsePoint(bytes), equalTo(value));
         }
     }
 
+    /**
+     * @brief [Functional Utility for testFetchSourceValue]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
     public void testFetchSourceValue() throws IOException {
         MappedFieldType mapper = new NumberFieldMapper.Builder(
             "field",
@@ -962,6 +1239,11 @@ public class NumberFieldTypeTests extends FieldTypeTestCase {
         assertEquals(List.of(2.71f), fetchSourceValue(nullValueMapper, null));
     }
 
+    /**
+     * @brief [Functional Utility for testFetchHalfFloatFromSource]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
     public void testFetchHalfFloatFromSource() throws IOException {
         MappedFieldType mapper = new NumberFieldMapper.Builder(
             "field",

@@ -115,30 +115,68 @@ public abstract class MapperServiceTestCase extends FieldTypeTestCase {
 
     protected static final ToXContent.Params INCLUDE_DEFAULTS = new ToXContent.MapParams(Map.of("include_defaults", "true"));
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected Collection<? extends Plugin> getPlugins() {
         return emptyList();
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected Settings getIndexSettings() {
         return SETTINGS;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected final Settings.Builder getIndexSettingsBuilder() {
         return Settings.builder().put(getIndexSettings());
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param indexSettings: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected IndexAnalyzers createIndexAnalyzers(IndexSettings indexSettings) {
         return createIndexAnalyzers();
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected static IndexAnalyzers createIndexAnalyzers() {
         return IndexAnalyzers.of(Map.of("default", new NamedAnalyzer("default", AnalyzerScope.INDEX, new StandardAnalyzer())));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected static String randomIndexOptions() {
         return randomFrom("docs", "freqs", "positions", "offsets");
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param mappings: [Description]
+     * @param indexMode: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected final DocumentMapper createDocumentMapper(XContentBuilder mappings, IndexMode indexMode) throws IOException {
         return switch (indexMode) {
             case STANDARD, LOOKUP -> createDocumentMapper(mappings);
@@ -147,10 +185,22 @@ public abstract class MapperServiceTestCase extends FieldTypeTestCase {
         };
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param mappings: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected final DocumentMapper createDocumentMapper(XContentBuilder mappings) throws IOException {
         return createMapperService(mappings).documentMapper();
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param mappings: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected final DocumentMapper createTimeSeriesModeDocumentMapper(XContentBuilder mappings) throws IOException {
         Settings settings = Settings.builder()
             .put(IndexSettings.MODE.getKey(), "time_series")
@@ -159,48 +209,111 @@ public abstract class MapperServiceTestCase extends FieldTypeTestCase {
         return createMapperService(settings, mappings).documentMapper();
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param mappings: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected final DocumentMapper createLogsModeDocumentMapper(XContentBuilder mappings) throws IOException {
         Settings settings = Settings.builder().put(IndexSettings.MODE.getKey(), IndexMode.LOGSDB.getName()).build();
         return createMapperService(settings, mappings).documentMapper();
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param version: [Description]
+     * @param mappings: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected final DocumentMapper createDocumentMapper(IndexVersion version, XContentBuilder mappings) throws IOException {
         return createMapperService(version, mappings).documentMapper();
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param mappings: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected final DocumentMapper createDocumentMapper(String mappings) throws IOException {
         var mapperService = createMapperService(mapping(b -> {}));
         merge(mapperService, mappings);
         return mapperService.documentMapper();
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param mappings: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final MapperService createMapperService(XContentBuilder mappings) throws IOException {
         return createMapperService(getVersion(), mappings);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param mappings: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final MapperService createSytheticSourceMapperService(XContentBuilder mappings) throws IOException {
         var settings = Settings.builder().put("index.mapping.source.mode", "synthetic").build();
         return createMapperService(getVersion(), settings, () -> true, mappings);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected IndexVersion getVersion() {
         return IndexVersion.current();
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param settings: [Description]
+     * @param mappings: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected final MapperService createMapperService(Settings settings, XContentBuilder mappings) throws IOException {
         return createMapperService(getVersion(), settings, () -> true, mappings);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param idFieldEnabled: [Description]
+     * @param mappings: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected final MapperService createMapperService(BooleanSupplier idFieldEnabled, XContentBuilder mappings) throws IOException {
         return createMapperService(getVersion(), getIndexSettings(), idFieldEnabled, mappings);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param mappings: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final MapperService createMapperService(String mappings) throws IOException {
         MapperService mapperService = createMapperService(mapping(b -> {}));
         merge(mapperService, mappings);
         return mapperService;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param settings: [Description]
+     * @param mappings: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected final MapperService createMapperService(Settings settings, String mappings) throws IOException {
         MapperService mapperService = createMapperService(IndexVersion.current(), settings, () -> true, mapping(b -> {}));
         merge(mapperService, mappings);
@@ -213,6 +326,13 @@ public abstract class MapperServiceTestCase extends FieldTypeTestCase {
         return mapperService;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param version: [Description]
+     * @param mapping: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected final MapperService createMapperService(IndexVersion version, XContentBuilder mapping) throws IOException {
         return createMapperService(version, getIndexSettings(), () -> true, mapping);
     }
@@ -230,10 +350,25 @@ public abstract class MapperServiceTestCase extends FieldTypeTestCase {
         return withMapping(mapperService, mapping);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param version: [Description]
+     * @param settings: [Description]
+     * @param idFieldDataEnabled: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected final MapperService createMapperService(IndexVersion version, Settings settings, BooleanSupplier idFieldDataEnabled) {
         return new TestMapperServiceBuilder().indexVersion(version).settings(settings).idFieldDataEnabled(idFieldDataEnabled).build();
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param mapperService: [Description]
+     * @param mapping: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected final MapperService withMapping(MapperService mapperService, XContentBuilder mapping) throws IOException {
         merge(mapperService, mapping);
         return mapperService;
@@ -247,6 +382,11 @@ public abstract class MapperServiceTestCase extends FieldTypeTestCase {
         private MapperMetrics mapperMetrics;
         private boolean applyDefaultMapping;
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public TestMapperServiceBuilder() {
             indexVersion = getVersion();
             settings = getIndexSettings();
@@ -256,31 +396,66 @@ public abstract class MapperServiceTestCase extends FieldTypeTestCase {
             applyDefaultMapping = true;
         }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param indexVersion: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public TestMapperServiceBuilder indexVersion(IndexVersion indexVersion) {
             this.indexVersion = indexVersion;
             return this;
         }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param settings: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public TestMapperServiceBuilder settings(Settings settings) {
             this.settings = settings;
             return this;
         }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param idFieldDataEnabled: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public TestMapperServiceBuilder idFieldDataEnabled(BooleanSupplier idFieldDataEnabled) {
             this.idFieldDataEnabled = idFieldDataEnabled;
             return this;
         }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param mapperMetrics: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public TestMapperServiceBuilder mapperMetrics(MapperMetrics mapperMetrics) {
             this.mapperMetrics = mapperMetrics;
             return this;
         }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param applyDefaultMapping: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public TestMapperServiceBuilder applyDefaultMapping(boolean applyDefaultMapping) {
             this.applyDefaultMapping = applyDefaultMapping;
             return this;
         }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public MapperService build() {
             IndexSettings indexSettings = createIndexSettings(indexVersion, settings);
             SimilarityService similarityService = new SimilarityService(indexSettings, null, Map.of());
@@ -326,12 +501,24 @@ public abstract class MapperServiceTestCase extends FieldTypeTestCase {
         throw new UnsupportedOperationException("Cannot compile script " + Strings.toString(script));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param version: [Description]
+     * @param settings: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected static IndexSettings createIndexSettings(IndexVersion version, Settings settings) {
         settings = indexSettings(1, 0).put(settings).put(IndexMetadata.SETTING_VERSION_CREATED, version).build();
         IndexMetadata meta = IndexMetadata.builder("index").settings(settings).build();
         return new IndexSettings(meta, settings);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected MapperMetrics createTestMapperMetrics() {
         var telemetryProvider = getPlugins().stream()
             .filter(p -> p instanceof TelemetryPlugin)
@@ -342,6 +529,11 @@ public abstract class MapperServiceTestCase extends FieldTypeTestCase {
             private long value = 1;
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public long getAsLong() {
                 return value++;
             }
@@ -418,6 +610,14 @@ public abstract class MapperServiceTestCase extends FieldTypeTestCase {
         mapperService.merge(null, new CompressedXContent(mapping), MapperService.MergeReason.MAPPING_UPDATE);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param mapperService: [Description]
+     * @param reason: [Description]
+     * @param mapping: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected static void merge(MapperService mapperService, MapperService.MergeReason reason, String mapping) throws IOException {
         mapperService.merge(null, new CompressedXContent(mapping), reason);
     }
@@ -429,12 +629,26 @@ public abstract class MapperServiceTestCase extends FieldTypeTestCase {
         mapperService.merge(null, new CompressedXContent(BytesReference.bytes(mapping)), reason);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param CheckedConsumer<XContentBuilder: [Description]
+     * @param buildFields: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected static XContentBuilder topMapping(CheckedConsumer<XContentBuilder, IOException> buildFields) throws IOException {
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject().startObject("_doc");
         buildFields.accept(builder);
         return builder.endObject().endObject();
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param CheckedConsumer<XContentBuilder: [Description]
+     * @param buildFields: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected static XContentBuilder mappingNoSubobjects(CheckedConsumer<XContentBuilder, IOException> buildFields) throws IOException {
         return mappingWithSubobjects(buildFields, "false");
     }
@@ -449,18 +663,38 @@ public abstract class MapperServiceTestCase extends FieldTypeTestCase {
         });
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param CheckedConsumer<XContentBuilder: [Description]
+     * @param buildFields: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public static XContentBuilder mapping(CheckedConsumer<XContentBuilder, IOException> buildFields) throws IOException {
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject().startObject("_doc").startObject("properties");
         buildFields.accept(builder);
         return builder.endObject().endObject().endObject();
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param dynamicMapping: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected static XContentBuilder dynamicMapping(Mapping dynamicMapping) throws IOException {
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject();
         dynamicMapping.toXContent(builder, ToXContent.EMPTY_PARAMS);
         return builder.endObject();
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param CheckedConsumer<XContentBuilder: [Description]
+     * @param buildField: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected static XContentBuilder fieldMapping(CheckedConsumer<XContentBuilder, IOException> buildField) throws IOException {
         return mapping(b -> {
             b.startObject("field");
@@ -469,6 +703,13 @@ public abstract class MapperServiceTestCase extends FieldTypeTestCase {
         });
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param CheckedConsumer<XContentBuilder: [Description]
+     * @param buildField: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected static XContentBuilder runtimeFieldMapping(CheckedConsumer<XContentBuilder, IOException> buildField) throws IOException {
         return runtimeMapping(b -> {
             b.startObject("field");
@@ -477,6 +718,13 @@ public abstract class MapperServiceTestCase extends FieldTypeTestCase {
         });
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param CheckedConsumer<XContentBuilder: [Description]
+     * @param buildFields: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected static XContentBuilder runtimeMapping(CheckedConsumer<XContentBuilder, IOException> buildFields) throws IOException {
         XContentBuilder builder = XContentFactory.jsonBuilder().startObject().startObject("_doc").startObject("runtime");
         buildFields.accept(builder);
@@ -494,31 +742,63 @@ public abstract class MapperServiceTestCase extends FieldTypeTestCase {
             private final CircuitBreaker breaker = mock(CircuitBreaker.class);
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public IndexSearcher searcher() {
                 return searcher;
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param agg: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public Aggregator profileIfEnabled(Aggregator agg) throws IOException {
                 return agg;
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public boolean profiling() {
                 return false;
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public Query query() {
                 return query;
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public long nowInMillis() {
                 return 0;
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param analyzer: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public Analyzer getNamedAnalyzer(String analyzer) {
                 return null;
             }
@@ -535,153 +815,319 @@ public abstract class MapperServiceTestCase extends FieldTypeTestCase {
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public SearchLookup lookup() {
                 return lookupSupplier.get();
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public ValuesSourceRegistry getValuesSourceRegistry() {
                 return valuesSourceRegistry;
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public IndexSettings getIndexSettings() {
                 throw new UnsupportedOperationException();
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public ClusterSettings getClusterSettings() {
                 throw new UnsupportedOperationException();
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param path: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public MappedFieldType getFieldType(String path) {
                 return mapperService.fieldType(path);
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param pattern: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public Set<String> getMatchingFieldNames(String pattern) {
                 throw new UnsupportedOperationException();
             }
 
             @Override
             @SuppressWarnings("unchecked")
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param script: [Description]
+     * @param context: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public <FactoryType> FactoryType compile(Script script, ScriptContext<FactoryType> context) {
                 return compileScript(script, context);
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param sortBuilders: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public Optional<SortAndFormats> buildSort(List<SortBuilder<?>> sortBuilders) throws IOException {
                 throw new UnsupportedOperationException();
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param builder: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public Query buildQuery(QueryBuilder builder) throws IOException {
                 throw new UnsupportedOperationException();
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param query: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public Query filterQuery(Query query) {
                 throw new UnsupportedOperationException();
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param ft: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             protected IndexFieldData<?> buildFieldData(MappedFieldType ft) {
                 return ft.fielddataBuilder(FieldDataContext.noRuntimeFields("test"))
                     .build(new IndexFieldDataCache.None(), new NoneCircuitBreakerService());
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public BigArrays bigArrays() {
                 return new MockBigArrays(new MockPageCacheRecycler(Settings.EMPTY), new NoneCircuitBreakerService());
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public NestedLookup nestedLookup() {
                 throw new UnsupportedOperationException();
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public NestedScope nestedScope() {
                 throw new UnsupportedOperationException();
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public SubSearchContext subSearchContext() {
                 throw new UnsupportedOperationException();
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param aggregator: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public void addReleasable(Aggregator aggregator) {
                 // TODO we'll have to handle this in the tests eventually
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param aggregator: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public void removeReleasable(Aggregator aggregator) {
                 // TODO we'll have to handle this in the tests eventually
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public int maxBuckets() {
                 return Integer.MAX_VALUE;
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public BitsetFilterCache bitsetFilterCache() {
                 throw new UnsupportedOperationException();
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param sort: [Description]
+     * @param size: [Description]
+     * @param values: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public BucketedSort buildBucketedSort(SortBuilder<?> sort, int size, ExtraData values) throws IOException {
                 throw new UnsupportedOperationException();
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public int shardRandomSeed() {
                 throw new UnsupportedOperationException();
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public long getRelativeTimeInMillis() {
                 return 0;
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public boolean isCancelled() {
                 return false;
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public CircuitBreaker breaker() {
                 return breaker;
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param Function<String: [Description]
+     * @param unindexedFieldAnalyzer: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public Analyzer getIndexAnalyzer(Function<String, NamedAnalyzer> unindexedFieldAnalyzer) {
                 throw new UnsupportedOperationException();
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public boolean isCacheable() {
                 throw new UnsupportedOperationException();
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public boolean enableRewriteToFilterByFilter() {
                 throw new UnsupportedOperationException();
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public boolean isInSortOrderExecutionRequired() {
                 return false;
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param fullName: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public Set<String> sourcePath(String fullName) {
                 return Set.of(fullName);
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public void close() {
                 throw new UnsupportedOperationException();
             }
@@ -738,14 +1184,35 @@ public abstract class MapperServiceTestCase extends FieldTypeTestCase {
         }, reader -> test.accept(aggregationContext(valuesSourceRegistry, mapperService, newSearcher(reader), query, lookupSupplier)));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param mapperService: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected SearchExecutionContext createSearchExecutionContext(MapperService mapperService) {
         return createSearchExecutionContext(mapperService, null, Settings.EMPTY);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param mapperService: [Description]
+     * @param searcher: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final SearchExecutionContext createSearchExecutionContext(MapperService mapperService, IndexSearcher searcher) {
         return createSearchExecutionContext(mapperService, searcher, Settings.EMPTY);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param mapperService: [Description]
+     * @param searcher: [Description]
+     * @param settings: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected SearchExecutionContext createSearchExecutionContext(MapperService mapperService, IndexSearcher searcher, Settings settings) {
         Settings mergedSettings = Settings.builder().put(mapperService.getIndexSettings().getSettings()).put(settings).build();
         IndexMetadata indexMetadata = IndexMetadata.builder(mapperService.getIndexSettings().getIndexMetadata())
@@ -791,11 +1258,25 @@ public abstract class MapperServiceTestCase extends FieldTypeTestCase {
             .build(new IndexFieldDataCache.None(), new NoneCircuitBreakerService());
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param directory: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected RandomIndexWriter indexWriterForSyntheticSource(Directory directory) throws IOException {
         // MockAnalyzer (rarely) produces random payloads that lead to failures during assertReaderEquals.
         return new RandomIndexWriter(random(), directory, new StandardAnalyzer());
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param mapper: [Description]
+     * @param CheckedConsumer<XContentBuilder: [Description]
+     * @param build: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected final String syntheticSource(DocumentMapper mapper, CheckedConsumer<XContentBuilder, IOException> build) throws IOException {
         return syntheticSource(mapper, null, build);
     }
@@ -831,6 +1312,14 @@ public abstract class MapperServiceTestCase extends FieldTypeTestCase {
      * That's the point, really. It'll just be "close enough" for
      * round tripping.
      */
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param mapper: [Description]
+     * @param syntheticSource: [Description]
+     * @param reader: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private void roundTripSyntheticSource(DocumentMapper mapper, String syntheticSource, DirectoryReader reader) throws IOException {
         try (Directory roundTripDirectory = newDirectory()) {
             RandomIndexWriter roundTripIw = indexWriterForSyntheticSource(roundTripDirectory);
@@ -848,10 +1337,27 @@ public abstract class MapperServiceTestCase extends FieldTypeTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param mapper: [Description]
+     * @param reader: [Description]
+     * @param docId: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected static String syntheticSource(DocumentMapper mapper, IndexReader reader, int docId) throws IOException {
         return syntheticSource(mapper, null, reader, docId);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param mapper: [Description]
+     * @param filter: [Description]
+     * @param reader: [Description]
+     * @param docId: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected static String syntheticSource(DocumentMapper mapper, SourceFilter filter, IndexReader reader, int docId) throws IOException {
         LeafReader leafReader = getOnlyLeafReader(reader);
 
@@ -898,6 +1404,12 @@ public abstract class MapperServiceTestCase extends FieldTypeTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param directoryReader: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected static DirectoryReader wrapInMockESDirectoryReader(DirectoryReader directoryReader) throws IOException {
         return ElasticsearchDirectoryReader.wrap(directoryReader, new ShardId(new Index("index", "_na_"), 0));
     }

@@ -70,13 +70,13 @@ public final class IndexLifecycleTransition {
         String policyName = idxMeta.getLifecyclePolicyName();
 
         // policy could be updated in-between execution
-        if (Strings.isNullOrEmpty(policyName)) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (Strings.isNullOrEmpty(policyName)) {
             throw new IllegalArgumentException("index [" + indexName + "] is not associated with an Index Lifecycle Policy");
         }
 
         LifecycleExecutionState lifecycleState = idxMeta.getLifecycleExecutionState();
         Step.StepKey realKey = Step.getCurrentStepKey(lifecycleState);
-        if (currentStepKey != null && currentStepKey.equals(realKey) == false) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (currentStepKey != null && currentStepKey.equals(realKey) == false) {
             throw new IllegalArgumentException(
                 "index [" + indexName + "] is not on current step [" + currentStepKey + "], currently: [" + realKey + "]"
             );
@@ -161,9 +161,9 @@ public final class IndexLifecycleTransition {
         // if an error is encountered while initialising the policy the lifecycle execution state will not yet contain any step information
         // as we haven't yet initialised the policy, so we'll manually set the current step to be the "initialize policy" step so we can
         // record the error (and later retry the init policy step)
-        if (cause instanceof InitializePolicyException) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (cause instanceof InitializePolicyException) {
             currentStep = InitializePolicyContextStep.KEY;
-        } else {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else {
             currentStep = Objects.requireNonNull(
                 Step.getCurrentStepKey(currentState),
                 "unable to move to an error step where there is no current step, state: " + currentState
@@ -186,13 +186,13 @@ public final class IndexLifecycleTransition {
         })));
         Step failedStep = stepLookupFunction.apply(idxMeta, currentStep);
 
-        if (failedStep != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (failedStep != null) {
             // as an initial step we'll mark the failed step as auto retryable without actually looking at the cause to determine
             // if the error is transient/recoverable from
             failedState.setIsAutoRetryableError(failedStep.isRetryable());
             // maintain the retry count of the failed step as it will be cleared after a successful execution
             failedState.setFailedStepRetryCount(currentState.failedStepRetryCount());
-        } else {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else {
             logger.warn(
                 "failed step [{}] for index [{}] is not part of policy [{}] anymore, or it is invalid",
                 currentStep.name(),
@@ -216,13 +216,13 @@ public final class IndexLifecycleTransition {
         boolean isAutomaticRetry
     ) {
         IndexMetadata indexMetadata = project.index(index);
-        if (indexMetadata == null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (indexMetadata == null) {
             throw new IllegalArgumentException("index [" + index + "] does not exist");
         }
         LifecycleExecutionState lifecycleState = indexMetadata.getLifecycleExecutionState();
         Step.StepKey currentStepKey = Step.getCurrentStepKey(lifecycleState);
         String failedStep = lifecycleState.failedStep();
-        if (currentStepKey != null && ErrorStep.NAME.equals(currentStepKey.name()) && Strings.isNullOrEmpty(failedStep) == false) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (currentStepKey != null && ErrorStep.NAME.equals(currentStepKey.name()) && Strings.isNullOrEmpty(failedStep) == false) {
             Step.StepKey nextStepKey = new Step.StepKey(currentStepKey.phase(), currentStepKey.action(), failedStep);
             validateTransition(indexMetadata, currentStepKey, nextStepKey, stepRegistry);
             IndexLifecycleMetadata ilmMeta = project.custom(IndexLifecycleMetadata.TYPE);
@@ -249,14 +249,14 @@ public final class IndexLifecycleTransition {
             LifecycleExecutionState.Builder retryStepState = LifecycleExecutionState.builder(nextStepState);
             retryStepState.setIsAutoRetryableError(lifecycleState.isAutoRetryableError());
             Integer currentRetryCount = lifecycleState.failedStepRetryCount();
-            if (isAutomaticRetry) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (isAutomaticRetry) {
                 retryStepState.setFailedStepRetryCount(currentRetryCount == null ? 1 : ++currentRetryCount);
-            } else {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            } else {
                 // manual retries don't update the retry count
                 retryStepState.setFailedStepRetryCount(lifecycleState.failedStepRetryCount());
             }
             return project.withLifecycleState(indexMetadata.getIndex(), retryStepState.build());
-        } else {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else {
             throw new IllegalArgumentException(
                 "cannot retry an action for an index [" + index + "] that has not encountered an error when running a Lifecycle Policy"
             );
@@ -285,19 +285,19 @@ public final class IndexLifecycleTransition {
 
         // clear any step info or error-related settings from the current step
         updatedState.setFailedStep(null);
-        if (allowNullPreviousStepInfo || existingState.stepInfo() != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (allowNullPreviousStepInfo || existingState.stepInfo() != null) {
             updatedState.setPreviousStepInfo(existingState.stepInfo());
         }
         updatedState.setStepInfo(null);
         updatedState.setIsAutoRetryableError(null);
         updatedState.setFailedStepRetryCount(null);
 
-        if (currentStep == null || currentStep.phase().equals(newStep.phase()) == false || forcePhaseDefinitionRefresh) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (currentStep == null || currentStep.phase().equals(newStep.phase()) == false || forcePhaseDefinitionRefresh) {
             final String newPhaseDefinition;
             final Phase nextPhase;
-            if ("new".equals(newStep.phase()) || TerminalPolicyStep.KEY.equals(newStep)) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if ("new".equals(newStep.phase()) || TerminalPolicyStep.KEY.equals(newStep)) {
                 nextPhase = null;
-            } else {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            } else {
                 nextPhase = policyMetadata.getPolicy().getPhases().get(newStep.phase());
             }
             PhaseExecutionInfo phaseExecutionInfo = new PhaseExecutionInfo(
@@ -309,7 +309,7 @@ public final class IndexLifecycleTransition {
             newPhaseDefinition = Strings.toString(phaseExecutionInfo, false, false);
             updatedState.setPhaseDefinition(newPhaseDefinition);
             updatedState.setPhaseTime(nowAsMillis);
-        } else if (currentStep.phase().equals(InitializePolicyContextStep.INITIALIZATION_PHASE)) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else if (currentStep.phase().equals(InitializePolicyContextStep.INITIALIZATION_PHASE)) {
             // The "new" phase is the initialization phase, usually the phase
             // time would be set on phase transition, but since there is no
             // transition into the "new" phase, we set it any time in the "new"
@@ -317,7 +317,7 @@ public final class IndexLifecycleTransition {
             updatedState.setPhaseTime(nowAsMillis);
         }
 
-        if (currentStep == null || currentStep.action().equals(newStep.action()) == false) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (currentStep == null || currentStep.action().equals(newStep.action()) == false) {
             updatedState.setActionTime(nowAsMillis);
         }
         return updatedState.build();
@@ -344,7 +344,7 @@ public final class IndexLifecycleTransition {
         String indexName = indexMetadata.getIndex().getName();
         String policyName = indexMetadata.getLifecyclePolicyName();
         Step.StepKey currentStepKey = Step.getCurrentStepKey(existingState);
-        if (currentStepKey == null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (currentStepKey == null) {
             logger.warn(
                 "unable to identify what the current step is for index [{}] as part of policy [{}]. the "
                     + "cached phase definition will not be updated for this index",
@@ -357,7 +357,7 @@ public final class IndexLifecycleTransition {
         List<Step> policySteps = oldPolicy.toSteps(client, licenseState);
         Optional<Step> currentStep = policySteps.stream().filter(step -> step.getKey().equals(currentStepKey)).findFirst();
 
-        if (currentStep.isPresent() == false) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (currentStep.isPresent() == false) {
             logger.warn(
                 "unable to find current step [{}] for index [{}] as part of policy [{}]. the cached phase definition will not be "
                     + "updated for this index",
@@ -410,13 +410,13 @@ public final class IndexLifecycleTransition {
      */
     static ProjectMetadata addStepInfoToClusterState(Index index, ProjectMetadata project, ToXContentObject stepInfo) {
         IndexMetadata indexMetadata = project.index(index);
-        if (indexMetadata == null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (indexMetadata == null) {
             // This index doesn't exist anymore, we can't do anything
             return project;
         }
         LifecycleExecutionState lifecycleState = indexMetadata.getLifecycleExecutionState();
         final String stepInfoString = Strings.toString(stepInfo);
-        if (stepInfoString.equals(lifecycleState.stepInfo())) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (stepInfoString.equals(lifecycleState.stepInfo())) {
             return project;
         }
         LifecycleExecutionState.Builder newState = LifecycleExecutionState.builder(lifecycleState);
@@ -434,15 +434,15 @@ public final class IndexLifecycleTransition {
         List<String> failedIndexes
     ) {
         ProjectMetadata.Builder newProject = null;
-        for (Index index : indices) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (Index index : indices) {
             IndexMetadata indexMetadata = currentProject.index(index);
-            if (indexMetadata == null) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (indexMetadata == null) {
                 // Index doesn't exist so fail it
                 failedIndexes.add(index.getName());
-            } else {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            } else {
                 IndexMetadata.Builder newIdxMetadata = removePolicyForIndex(indexMetadata);
-                if (newIdxMetadata != null) {
-                    if (newProject == null) {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                if (newIdxMetadata != null) {
+                     // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                     // Invariant: [State condition that holds true before and after each iteration/execution]\n                    if (newProject == null) {
                         newProject = ProjectMetadata.builder(currentProject);
                     }
                     newProject.put(newIdxMetadata);

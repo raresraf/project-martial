@@ -68,8 +68,12 @@ int PRINT_TYPE_FUNC_NAME(string)(struct trace_seq *s, void *data, void *ent)
 {
 	int len = *(u32 *)data >> 16;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!len)
 		trace_seq_puts(s, FAULT_STRING);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	else
 		trace_seq_printf(s, "\"%s\"",
 				 (const char *)get_loc_data(data, ent));
@@ -115,21 +119,33 @@ static const struct fetch_type *find_fetch_type(const char *type, unsigned long 
 	    (!strcmp(type, "symbol") || !strcmp(type, "symstr")))
 		return NULL;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!type)
 		type = DEFAULT_FETCH_TYPE_STR;
 
 	/* Special case: bitfield */
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (*type == 'b') {
 		unsigned long bs;
 
 		type = strchr(type, '/');
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!type)
 			goto fail;
 
 		type++;
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (kstrtoul(type, 0, &bs))
 			goto fail;
 
+		/**
+		 * @brief [Functional Utility for switch]: Describe purpose here.
+		 */
 		switch (bs) {
 		case 8:
 			return find_fetch_type("u8", flags);
@@ -144,7 +160,12 @@ static const struct fetch_type *find_fetch_type(const char *type, unsigned long 
 		}
 	}
 
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (i = 0; probe_fetch_types[i].name; i++) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (strcmp(type, probe_fetch_types[i].name) == 0)
 			return &probe_fetch_types[i];
 	}
@@ -187,19 +208,31 @@ void __trace_probe_log_err(int offset, int err_type)
 
 	lockdep_assert_held(&dyn_event_ops_mutex);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!trace_probe_log.argv)
 		return;
 
 	/* Recalculate the length and allocate buffer */
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (i = 0; i < trace_probe_log.argc; i++) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (i == trace_probe_log.index)
 			pos = len;
 		len += strlen(trace_probe_log.argv[i]) + 1;
 	}
 	command = kzalloc(len, GFP_KERNEL);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!command)
 		return;
 
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (trace_probe_log.index >= trace_probe_log.argc) {
 		/**
 		 * Set the error position is next to the last arg + space.
@@ -212,6 +245,9 @@ void __trace_probe_log_err(int offset, int err_type)
 
 	/* And make a command string from argv array */
 	p = command;
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (i = 0; i < trace_probe_log.argc; i++) {
 		len = strlen(trace_probe_log.argv[i]);
 		strcpy(p, trace_probe_log.argv[i]);
@@ -232,12 +268,19 @@ int traceprobe_split_symbol_offset(char *symbol, long *offset)
 	char *tmp;
 	int ret;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!offset)
 		return -EINVAL;
 
 	tmp = strpbrk(symbol, "+-");
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (tmp) {
 		ret = kstrtol(tmp, 0, offset);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (ret)
 			return ret;
 		*tmp = '\0';
@@ -273,19 +316,32 @@ int traceprobe_parse_event_name(const char **pevent, const char **pgroup,
 	int len;
 
 	slash = strchr(event, '/');
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!slash)
 		slash = strchr(event, '.');
 
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (slash) {
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (slash == event) {
 			trace_probe_log_err(offset, NO_GROUP_NAME);
 			return -EINVAL;
 		}
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (slash - event + 1 > MAX_EVENT_NAME_LEN) {
 			trace_probe_log_err(offset, GROUP_TOO_LONG);
 			return -EINVAL;
 		}
 		strscpy(buf, event, slash - event + 1);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!is_good_system_name(buf)) {
 			trace_probe_log_err(offset, BAD_GROUP_NAME);
 			return -EINVAL;
@@ -296,7 +352,13 @@ int traceprobe_parse_event_name(const char **pevent, const char **pgroup,
 		event = *pevent;
 	}
 	len = strlen(event);
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (len == 0) {
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (slash) {
 			*pevent = NULL;
 			return 0;
@@ -307,6 +369,8 @@ int traceprobe_parse_event_name(const char **pevent, const char **pgroup,
 		trace_probe_log_err(offset, EVENT_TOO_LONG);
 		return -EINVAL;
 	}
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!is_good_name(event)) {
 		trace_probe_log_err(offset, BAD_EVENT_NAME);
 		return -EINVAL;
@@ -321,7 +385,12 @@ static int parse_trace_event_arg(char *arg, struct fetch_insn *code,
 	struct list_head *head;
 
 	head = trace_get_fields(ctx->event);
+	/**
+	 * @brief [Functional Utility for list_for_each_entry]: Describe purpose here.
+	 */
 	list_for_each_entry(field, head, link) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!strcmp(arg, field->name)) {
 			code->op = FETCH_OP_TP_ARG;
 			code->data = field;
@@ -345,9 +414,13 @@ static bool btf_type_is_char_ptr(struct btf *btf, const struct btf_type *type)
 	s32 tid;
 
 	real_type = btf_type_skip_modifiers(btf, type->type, &tid);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!real_type)
 		return false;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (BTF_INFO_KIND(real_type->info) != BTF_KIND_INT)
 		return false;
 
@@ -363,6 +436,8 @@ static bool btf_type_is_char_array(struct btf *btf, const struct btf_type *type)
 	u32 intdata;
 	s32 tid;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (BTF_INFO_KIND(type->info) != BTF_KIND_ARRAY)
 		return false;
 
@@ -381,6 +456,8 @@ static int check_prepare_btf_string_fetch(char *typename,
 {
 	struct btf *btf = ctx->btf;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!btf || !ctx->last_type)
 		return 0;
 
@@ -392,12 +469,19 @@ static int check_prepare_btf_string_fetch(char *typename,
 	if (btf_type_is_char_ptr(btf, ctx->last_type)) {
 		struct fetch_insn *code = *pcode + 1;
 
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (code->op == FETCH_OP_END) {
 			trace_probe_log_err(ctx->offset, TOO_MANY_OPS);
 			return -E2BIG;
 		}
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (typename[0] == 'u')
 			code->op = FETCH_OP_UDEREF;
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		else
 			code->op = FETCH_OP_DEREF;
 		code->offset = 0;
@@ -426,11 +510,17 @@ static const char *fetch_type_from_btf_type(struct btf *btf,
 		/* pointer will be converted to "x??" */
 		if (IS_ENABLED(CONFIG_64BIT))
 			return "x64";
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		else
 			return "x32";
 	case BTF_KIND_INT:
 		intdata = btf_type_int(type);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (BTF_INT_ENCODING(intdata) & BTF_INT_SIGNED) {
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			switch (BTF_INT_BITS(intdata)) {
 			case 8:
 				return "s8";
@@ -442,6 +532,8 @@ static const char *fetch_type_from_btf_type(struct btf *btf,
 				return "s64";
 			}
 		} else {	/* unsigned */
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			switch (BTF_INT_BITS(intdata)) {
 			case 8:
 				return "u8";
@@ -470,13 +562,19 @@ static int query_btf_context(struct traceprobe_parse_context *ctx)
 	struct btf *btf;
 	s32 nr;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ctx->btf)
 		return 0;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!ctx->funcname)
 		return -EINVAL;
 
 	type = btf_find_func_proto(ctx->funcname, &btf);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!type)
 		return -ENOENT;
 
@@ -486,14 +584,22 @@ static int query_btf_context(struct traceprobe_parse_context *ctx)
 	/* ctx->params is optional, since func(void) will not have params. */
 	nr = 0;
 	param = btf_get_func_param(type, &nr);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!IS_ERR_OR_NULL(param)) {
 		/* Hide the first 'data' argument of tracepoint */
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (ctx->flags & TPARG_FL_TPOINT) {
 			nr--;
 			param++;
 		}
 	}
 
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (nr > 0) {
 		ctx->nr_params = nr;
 		ctx->params = param;
@@ -507,6 +613,9 @@ static int query_btf_context(struct traceprobe_parse_context *ctx)
 
 static void clear_btf_context(struct traceprobe_parse_context *ctx)
 {
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (ctx->btf) {
 		btf_put(ctx->btf);
 		ctx->btf = NULL;
@@ -524,7 +633,13 @@ static int split_next_field(char *varname, char **next_field,
 	int ret = 0;
 
 	field = strpbrk(varname, ".-");
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (field) {
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (field[0] == '-' && field[1] == '>') {
 			field[0] = '\0';
 			field += 2;
@@ -565,6 +680,9 @@ static int parse_btf_field(char *fieldname, const struct btf_type *type,
 		}
 		/* Convert a struct pointer type to a struct type */
 		type = btf_type_skip_modifiers(ctx->btf, type->type, &tid);
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (!type) {
 			trace_probe_log_err(ctx->offset, BAD_BTF_TID);
 			return -EINVAL;
@@ -575,16 +693,23 @@ static int parse_btf_field(char *fieldname, const struct btf_type *type,
 			/* Inner loop for solving dot operator ('.') */
 			next = NULL;
 			is_ptr = split_next_field(fieldname, &next, ctx);
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (is_ptr < 0)
 				return is_ptr;
 
 			anon_offs = 0;
 			field = btf_find_struct_member(ctx->btf, type, fieldname,
 						       &anon_offs);
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (IS_ERR(field)) {
 				trace_probe_log_err(ctx->offset, BAD_BTF_TID);
 				return PTR_ERR(field);
 			}
+			/**
+			 * @brief [Functional Utility for if]: Describe purpose here.
+			 */
 			if (!field) {
 				trace_probe_log_err(ctx->offset, NO_BTF_FIELD);
 				return -ENOENT;
@@ -602,6 +727,9 @@ static int parse_btf_field(char *fieldname, const struct btf_type *type,
 			}
 
 			type = btf_type_skip_modifiers(ctx->btf, field->type, &tid);
+			/**
+			 * @brief [Functional Utility for if]: Describe purpose here.
+			 */
 			if (!type) {
 				trace_probe_log_err(ctx->offset, BAD_BTF_TID);
 				return -EINVAL;
@@ -611,6 +739,9 @@ static int parse_btf_field(char *fieldname, const struct btf_type *type,
 			fieldname = next;
 		} while (!is_ptr && fieldname);
 
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (++code == end) {
 			trace_probe_log_err(ctx->offset, TOO_MANY_OPS);
 			return -EINVAL;
@@ -639,12 +770,19 @@ static int parse_btf_arg(char *varname,
 	int i, is_ptr, ret;
 	u32 tid;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (WARN_ON_ONCE(!ctx->funcname))
 		return -EINVAL;
 
 	is_ptr = split_next_field(varname, &field, ctx);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (is_ptr < 0)
 		return is_ptr;
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (!is_ptr && field) {
 		/* dot-connected field on an argument is not supported. */
 		trace_probe_log_err(ctx->offset + field - varname,
@@ -652,10 +790,15 @@ static int parse_btf_arg(char *varname,
 		return -EOPNOTSUPP;
 	}
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ctx->flags & TPARG_FL_RETURN && !strcmp(varname, "$retval")) {
 		code->op = FETCH_OP_RETVAL;
 		/* Check whether the function return type is not void */
 		if (query_btf_context(ctx) == 0) {
+			/**
+			 * @brief [Functional Utility for if]: Describe purpose here.
+			 */
 			if (ctx->proto->type == 0) {
 				trace_probe_log_err(ctx->offset, NO_RETVAL);
 				return -ENOENT;
@@ -663,6 +806,9 @@ static int parse_btf_arg(char *varname,
 			tid = ctx->proto->type;
 			goto found;
 		}
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (field) {
 			trace_probe_log_err(ctx->offset + field - varname,
 					    NO_BTF_ENTRY);
@@ -671,8 +817,14 @@ static int parse_btf_arg(char *varname,
 		return 0;
 	}
 
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (!ctx->btf) {
 		ret = query_btf_context(ctx);
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (ret < 0 || ctx->nr_params == 0) {
 			trace_probe_log_err(ctx->offset, NO_BTF_ENTRY);
 			return -ENOENT;
@@ -680,19 +832,33 @@ static int parse_btf_arg(char *varname,
 	}
 	params = ctx->params;
 
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (i = 0; i < ctx->nr_params; i++) {
 		const char *name = btf_name_by_offset(ctx->btf, params[i].name_off);
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (name && !strcmp(name, varname)) {
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (tparg_is_function_entry(ctx->flags)) {
 				code->op = FETCH_OP_ARG;
+				// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+				// Invariant: State condition that holds true before and after each iteration/execution
 				if (ctx->flags & TPARG_FL_TPOINT)
 					code->param = i + 1;
+				// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+				// Invariant: State condition that holds true before and after each iteration/execution
 				else
 					code->param = i;
 			} else if (tparg_is_function_return(ctx->flags)) {
 				code->op = FETCH_OP_EDATA;
 				ret = __store_entry_arg(ctx->tp, i);
+				/**
+				 * @brief [Functional Utility for if]: Describe purpose here.
+				 */
 				if (ret < 0) {
 					/* internal error */
 					return ret;
@@ -708,6 +874,9 @@ static int parse_btf_arg(char *varname,
 
 found:
 	type = btf_type_skip_modifiers(ctx->btf, tid, &tid);
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (!type) {
 		trace_probe_log_err(ctx->offset, BAD_BTF_TID);
 		return -EINVAL;
@@ -716,6 +885,9 @@ found:
 	ctx->last_type = type;
 	ctx->last_bitoffs = 0;
 	ctx->last_bitsize = 0;
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (field) {
 		ctx->offset += field - varname;
 		return parse_btf_field(field, type, pcode, end, ctx);
@@ -729,6 +901,8 @@ static const struct fetch_type *find_fetch_type_from_btf_type(
 	struct btf *btf = ctx->btf;
 	const char *typestr = NULL;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (btf && ctx->last_type)
 		typestr = fetch_type_from_btf_type(btf, ctx->last_type, ctx);
 
@@ -740,10 +914,15 @@ static int parse_btf_bitfield(struct fetch_insn **pcode,
 {
 	struct fetch_insn *code = *pcode;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if ((ctx->last_bitsize % 8 == 0) && ctx->last_bitoffs == 0)
 		return 0;
 
 	code++;
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (code->op != FETCH_OP_NOP) {
 		trace_probe_log_err(ctx->offset, TOO_MANY_OPS);
 		return -EINVAL;
@@ -819,8 +998,15 @@ static int get_entry_arg_max_offset(struct probe_entry_arg *earg)
 	 * stored. Thus we need to find the last FETCH_OP_ST_EDATA in the
 	 * code array.
 	 */
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (i = 0; i < earg->size - 1 && earg->code[i].op != FETCH_OP_END; i++) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (earg->code[i].op == FETCH_OP_ST_EDATA)
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (earg->code[i].offset > max_offset)
 				max_offset = earg->code[i].offset;
 	}
@@ -836,13 +1022,21 @@ static int __store_entry_arg(struct trace_probe *tp, int argnum)
 	struct probe_entry_arg *earg = tp->entry_arg;
 	int i, offset, last_offset = 0;
 
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (!earg) {
 		earg = kzalloc(sizeof(*tp->entry_arg), GFP_KERNEL);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!earg)
 			return -ENOMEM;
 		earg->size = 2 * tp->nr_args + 1;
 		earg->code = kcalloc(earg->size, sizeof(struct fetch_insn),
 				     GFP_KERNEL);
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (!earg->code) {
 			kfree(earg);
 			return -ENOMEM;
@@ -868,13 +1062,22 @@ static int __store_entry_arg(struct trace_probe *tp, int argnum)
 	 */
 
 	/* Search the offset for the sprcified argnum. */
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (i = 0; i < earg->size - 1 && earg->code[i].op != FETCH_OP_END; i += 2) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (WARN_ON_ONCE(earg->code[i].op != FETCH_OP_ARG))
 			return -EINVAL;
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (earg->code[i].param != argnum)
 			continue;
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (WARN_ON_ONCE(earg->code[i + 1].op != FETCH_OP_ST_EDATA))
 			return -EINVAL;
 
@@ -885,7 +1088,12 @@ static int __store_entry_arg(struct trace_probe *tp, int argnum)
 		return -ENOSPC;
 
 	/* The last entry must have the largest offset. */
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (i != 0) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (WARN_ON_ONCE(earg->code[i - 1].op != FETCH_OP_ST_EDATA))
 			return -EINVAL;
 		last_offset = earg->code[i - 1].offset;
@@ -900,6 +1108,8 @@ int traceprobe_get_entry_data_size(struct trace_probe *tp)
 {
 	struct probe_entry_arg *earg = tp->entry_arg;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!earg)
 		return 0;
 
@@ -912,12 +1122,20 @@ void store_trace_entry_data(void *edata, struct trace_probe *tp, struct pt_regs 
 	unsigned long val = 0;
 	int i;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!earg)
 		return;
 
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (i = 0; i < earg->size; i++) {
 		struct fetch_insn *code = &earg->code[i];
 
+		/**
+		 * @brief [Functional Utility for switch]: Describe purpose here.
+		 */
 		switch (code->op) {
 		case FETCH_OP_ARG:
 			val = regs_get_kernel_argument(regs, code->param);
@@ -952,12 +1170,21 @@ static int parse_probe_vars(char *orig_arg, const struct fetch_type *t,
 	int ret = 0;
 	int len;
 
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (ctx->flags & TPARG_FL_TEVENT) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (code->data)
 			return -EFAULT;
 		ret = parse_trace_event_arg(arg, code, ctx);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!ret)
 			return 0;
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (strcmp(arg, "comm") == 0 || strcmp(arg, "COMM") == 0) {
 			code->op = FETCH_OP_COMM;
 			return 0;
@@ -967,11 +1194,17 @@ static int parse_probe_vars(char *orig_arg, const struct fetch_type *t,
 		goto inval;
 	}
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (str_has_prefix(arg, "retval")) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!(ctx->flags & TPARG_FL_RETURN)) {
 			err = TP_ERR_RETVAL_ON_PROBE;
 			goto inval;
 		}
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!(ctx->flags & TPARG_FL_KERNEL) ||
 		    !IS_ENABLED(CONFIG_PROBE_EVENTS_BTF_ARGS)) {
 			code->op = FETCH_OP_RETVAL;
@@ -981,18 +1214,30 @@ static int parse_probe_vars(char *orig_arg, const struct fetch_type *t,
 	}
 
 	len = str_has_prefix(arg, "stack");
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (len) {
 
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (arg[len] == '\0') {
 			code->op = FETCH_OP_STACKP;
 			return 0;
 		}
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (isdigit(arg[len])) {
 			ret = kstrtoul(arg + len, 10, &param);
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (ret)
 				goto inval;
 
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if ((ctx->flags & TPARG_FL_KERNEL) &&
 			    param > PARAM_MAX_STACK) {
 				err = TP_ERR_BAD_STACK_NUM;
@@ -1005,6 +1250,8 @@ static int parse_probe_vars(char *orig_arg, const struct fetch_type *t,
 		goto inval;
 	}
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (strcmp(arg, "comm") == 0 || strcmp(arg, "COMM") == 0) {
 		code->op = FETCH_OP_COMM;
 		return 0;
@@ -1012,17 +1259,27 @@ static int parse_probe_vars(char *orig_arg, const struct fetch_type *t,
 
 #ifdef CONFIG_HAVE_FUNCTION_ARG_ACCESS_API
 	len = str_has_prefix(arg, "arg");
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (len) {
 		ret = kstrtoul(arg + len, 10, &param);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (ret)
 			goto inval;
 
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (!param || param > PARAM_MAX_STACK) {
 			err = TP_ERR_BAD_ARG_NUM;
 			goto inval;
 		}
 		param--; /* argN starts from 1, but internal arg[N] starts from 0 */
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (tparg_is_function_entry(ctx->flags)) {
 			code->op = FETCH_OP_ARG;
 			code->param = (unsigned int)param;
@@ -1030,11 +1287,15 @@ static int parse_probe_vars(char *orig_arg, const struct fetch_type *t,
 			 * The tracepoint probe will probe a stub function, and the
 			 * first parameter of the stub is a dummy and should be ignored.
 			 */
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (ctx->flags & TPARG_FL_TPOINT)
 				code->param++;
 		} else if (tparg_is_function_return(ctx->flags)) {
 			/* function entry argument access from return probe */
 			ret = __store_entry_arg(ctx->tp, param);
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (ret < 0)	/* This error should be an internal error */
 				return ret;
 
@@ -1055,10 +1316,16 @@ inval:
 
 static int str_to_immediate(char *str, unsigned long *imm)
 {
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (isdigit(str[0]))
 		return kstrtoul(str, 0, imm);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	else if (str[0] == '-')
 		return kstrtol(str, 0, (long *)imm);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	else if (str[0] == '+')
 		return kstrtol(str + 1, 0, (long *)imm);
 	return -EINVAL;
@@ -1068,11 +1335,16 @@ static int __parse_imm_string(char *str, char **pbuf, int offs)
 {
 	size_t len = strlen(str);
 
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (str[len - 1] != '"') {
 		trace_probe_log_err(offs + len, IMMSTR_NO_CLOSE);
 		return -EINVAL;
 	}
 	*pbuf = kstrndup(str, len - 1, GFP_KERNEL);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!*pbuf)
 		return -ENOMEM;
 	return 0;
@@ -1091,18 +1363,26 @@ parse_probe_arg(char *arg, const struct fetch_type *type,
 	char *tmp;
 	int ret = 0;
 
+	/**
+	 * @brief [Functional Utility for switch]: Describe purpose here.
+	 */
 	switch (arg[0]) {
 	case '$':
 		ret = parse_probe_vars(arg, type, pcode, end, ctx);
 		break;
 
 	case '%':	/* named register */
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (ctx->flags & (TPARG_FL_TEVENT | TPARG_FL_FPROBE)) {
 			/* eprobe and fprobe do not handle registers */
 			trace_probe_log_err(ctx->offset, BAD_VAR);
 			break;
 		}
 		ret = regs_query_register_offset(arg + 1);
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (ret >= 0) {
 			code->op = FETCH_OP_REG;
 			code->param = (unsigned int)ret;
@@ -1112,8 +1392,13 @@ parse_probe_arg(char *arg, const struct fetch_type *type,
 		break;
 
 	case '@':	/* memory, file-offset or symbol */
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (isdigit(arg[1])) {
 			ret = kstrtoul(arg + 1, 0, &param);
+			/**
+			 * @brief [Functional Utility for if]: Describe purpose here.
+			 */
 			if (ret) {
 				trace_probe_log_err(ctx->offset, BAD_MEM_ADDR);
 				break;
@@ -1123,11 +1408,17 @@ parse_probe_arg(char *arg, const struct fetch_type *type,
 			code->immediate = param;
 		} else if (arg[1] == '+') {
 			/* kprobes don't support file offsets */
+			/**
+			 * @brief [Functional Utility for if]: Describe purpose here.
+			 */
 			if (ctx->flags & TPARG_FL_KERNEL) {
 				trace_probe_log_err(ctx->offset, FILE_ON_KPROBE);
 				return -EINVAL;
 			}
 			ret = kstrtol(arg + 2, 0, &offset);
+			/**
+			 * @brief [Functional Utility for if]: Describe purpose here.
+			 */
 			if (ret) {
 				trace_probe_log_err(ctx->offset, BAD_FILE_OFFS);
 				break;
@@ -1144,8 +1435,13 @@ parse_probe_arg(char *arg, const struct fetch_type *type,
 			/* Preserve symbol for updating */
 			code->op = FETCH_NOP_SYMBOL;
 			code->data = kstrdup(arg + 1, GFP_KERNEL);
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (!code->data)
 				return -ENOMEM;
+			/**
+			 * @brief [Functional Utility for if]: Describe purpose here.
+			 */
 			if (++code == end) {
 				trace_probe_log_err(ctx->offset, TOO_MANY_OPS);
 				return -EINVAL;
@@ -1154,6 +1450,9 @@ parse_probe_arg(char *arg, const struct fetch_type *type,
 			code->immediate = 0;
 		}
 		/* These are fetching from memory */
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (++code == end) {
 			trace_probe_log_err(ctx->offset, TOO_MANY_OPS);
 			return -EINVAL;
@@ -1165,20 +1464,31 @@ parse_probe_arg(char *arg, const struct fetch_type *type,
 
 	case '+':	/* deref memory */
 	case '-':
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (arg[1] == 'u') {
 			deref = FETCH_OP_UDEREF;
 			arg[1] = arg[0];
 			arg++;
 		}
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (arg[0] == '+')
 			arg++;	/* Skip '+', because kstrtol() rejects it. */
 		tmp = strchr(arg, '(');
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (!tmp) {
 			trace_probe_log_err(ctx->offset, DEREF_NEED_BRACE);
 			return -EINVAL;
 		}
 		*tmp = '\0';
 		ret = kstrtol(arg, 0, &offset);
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (ret) {
 			trace_probe_log_err(ctx->offset, BAD_DEREF_OFFS);
 			break;
@@ -1186,6 +1496,9 @@ parse_probe_arg(char *arg, const struct fetch_type *type,
 		ctx->offset += (tmp + 1 - arg) + (arg[0] != '-' ? 1 : 0);
 		arg = tmp + 1;
 		tmp = strrchr(arg, ')');
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (!tmp) {
 			trace_probe_log_err(ctx->offset + strlen(arg),
 					    DEREF_OPEN_BRACE);
@@ -1196,6 +1509,8 @@ parse_probe_arg(char *arg, const struct fetch_type *type,
 
 			*tmp = '\0';
 			ret = parse_probe_arg(arg, t2, &code, end, ctx);
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (ret)
 				break;
 			ctx->offset = cur_offs;
@@ -1204,6 +1519,9 @@ parse_probe_arg(char *arg, const struct fetch_type *type,
 				trace_probe_log_err(ctx->offset, COMM_CANT_DEREF);
 				return -EINVAL;
 			}
+			/**
+			 * @brief [Functional Utility for if]: Describe purpose here.
+			 */
 			if (++code == end) {
 				trace_probe_log_err(ctx->offset, TOO_MANY_OPS);
 				return -EINVAL;
@@ -1217,22 +1535,35 @@ parse_probe_arg(char *arg, const struct fetch_type *type,
 		}
 		break;
 	case '\\':	/* Immediate value */
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (arg[1] == '"') {	/* Immediate string */
 			ret = __parse_imm_string(arg + 2, &tmp, ctx->offset + 2);
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (ret)
 				break;
 			code->op = FETCH_OP_DATA;
 			code->data = tmp;
 		} else {
 			ret = str_to_immediate(arg + 1, &code->immediate);
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (ret)
 				trace_probe_log_err(ctx->offset + 1, BAD_IMM);
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			else
 				code->op = FETCH_OP_IMM;
 		}
 		break;
 	default:
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (isalpha(arg[0]) || arg[0] == '_') {	/* BTF variable */
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (!tparg_is_function_entry(ctx->flags) &&
 			    !tparg_is_function_return(ctx->flags)) {
 				trace_probe_log_err(ctx->offset, NOSUP_BTFARG);
@@ -1242,6 +1573,9 @@ parse_probe_arg(char *arg, const struct fetch_type *type,
 			break;
 		}
 	}
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (!ret && code->op == FETCH_OP_NOP) {
 		/* Parsed, but do not find fetch method */
 		trace_probe_log_err(ctx->offset, BAD_FETCH_ARG);
@@ -1259,20 +1593,28 @@ static int __parse_bitfield_probe_arg(const char *bf,
 	unsigned long bw, bo;
 	char *tail;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (*bf != 'b')
 		return 0;
 
 	bw = simple_strtoul(bf + 1, &tail, 0);	/* Use simple one */
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (bw == 0 || *tail != '@')
 		return -EINVAL;
 
 	bf = tail + 1;
 	bo = simple_strtoul(bf, &tail, 0);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (tail == bf || *tail != '/')
 		return -EINVAL;
 	code++;
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (code->op != FETCH_OP_NOP)
 		return -EINVAL;
 	*pcode = code;
@@ -1293,12 +1635,21 @@ static char *parse_probe_arg_type(char *arg, struct probe_arg *parg,
 	int offs;
 
 	t = strchr(arg, ':');
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (t) {
 		*t++ = '\0';
 		t2 = strchr(t, '[');
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (t2) {
 			*t2++ = '\0';
 			t3 = strchr(t2, ']');
+			/**
+			 * @brief [Functional Utility for if]: Describe purpose here.
+			 */
 			if (!t3) {
 				offs = t2 + strlen(t2) - arg;
 
@@ -1311,11 +1662,16 @@ static char *parse_probe_arg_type(char *arg, struct probe_arg *parg,
 				return ERR_PTR(-EINVAL);
 			}
 			*t3 = '\0';
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (kstrtouint(t2, 0, &parg->count) || !parg->count) {
 				trace_probe_log_err(ctx->offset + t2 - arg,
 						    BAD_ARRAY_NUM);
 				return ERR_PTR(-EINVAL);
 			}
+			/**
+			 * @brief [Functional Utility for if]: Describe purpose here.
+			 */
 			if (parg->count > MAX_ARRAY_LEN) {
 				trace_probe_log_err(ctx->offset + t2 - arg,
 						    ARRAY_TOO_BIG);
@@ -1329,6 +1685,8 @@ static char *parse_probe_arg_type(char *arg, struct probe_arg *parg,
 	 * Since $comm and immediate string can not be dereferenced,
 	 * we can find those by strcmp. But ignore for eprobes.
 	 */
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!(ctx->flags & TPARG_FL_TEVENT) &&
 	    (strcmp(arg, "$comm") == 0 || strcmp(arg, "$COMM") == 0 ||
 	     strncmp(arg, "\\\"", 2) == 0)) {
@@ -1341,6 +1699,9 @@ static char *parse_probe_arg_type(char *arg, struct probe_arg *parg,
 	} else
 		parg->type = find_fetch_type(t, ctx->flags);
 
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (!parg->type) {
 		trace_probe_log_err(ctx->offset + offs, BAD_TYPE);
 		return ERR_PTR(-EINVAL);
@@ -1360,6 +1721,9 @@ static int finalize_fetch_insn(struct fetch_insn *code,
 	int ret;
 
 	/* Store operation */
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (parg->type->is_string) {
 		/* Check bad combination of the type and the last fetch_insn. */
 		if (!strcmp(parg->type->name, "symstr")) {
@@ -1380,6 +1744,8 @@ static int finalize_fetch_insn(struct fetch_insn *code,
 			}
 		}
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!strcmp(parg->type->name, "symstr") ||
 		    (code->op == FETCH_OP_IMM || code->op == FETCH_OP_COMM ||
 		     code->op == FETCH_OP_DATA) || code->op == FETCH_OP_TP_ARG ||
@@ -1393,6 +1759,9 @@ static int finalize_fetch_insn(struct fetch_insn *code,
 			 * it just get the value.
 			 */
 			code++;
+			/**
+			 * @brief [Functional Utility for if]: Describe purpose here.
+			 */
 			if (code->op != FETCH_OP_NOP) {
 				trace_probe_log_err(ctx->offset, TOO_MANY_OPS);
 				return -EINVAL;
@@ -1403,8 +1772,12 @@ static int finalize_fetch_insn(struct fetch_insn *code,
 		if (!strcmp(parg->type->name, "ustring") ||
 		    code->op == FETCH_OP_UDEREF)
 			code->op = FETCH_OP_ST_USTRING;
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		else if (!strcmp(parg->type->name, "symstr"))
 			code->op = FETCH_OP_ST_SYMSTR;
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		else
 			code->op = FETCH_OP_ST_STRING;
 		code->size = parg->type->size;
@@ -1417,6 +1790,9 @@ static int finalize_fetch_insn(struct fetch_insn *code,
 		code->size = parg->type->size;
 	} else {
 		code++;
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (code->op != FETCH_OP_NOP) {
 			trace_probe_log_err(ctx->offset, TOO_MANY_OPS);
 			return -E2BIG;
@@ -1429,9 +1805,15 @@ static int finalize_fetch_insn(struct fetch_insn *code,
 	scode = code;
 
 	/* Modify operation */
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (type != NULL) {
 		/* Bitfield needs a special fetch_insn. */
 		ret = __parse_bitfield_probe_arg(type, parg->type, &code);
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (ret) {
 			trace_probe_log_err(ctx->offset + type_offset, BAD_BITFIELD);
 			return ret;
@@ -1440,11 +1822,16 @@ static int finalize_fetch_insn(struct fetch_insn *code,
 		   ctx->last_type) {
 		/* If user not specified the type, try parsing BTF bitfield. */
 		ret = parse_btf_bitfield(&code, ctx);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (ret)
 			return ret;
 	}
 
 	/* Loop(Array) operation */
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (parg->count) {
 		if (scode->op != FETCH_OP_ST_MEM &&
 		    scode->op != FETCH_OP_ST_STRING &&
@@ -1453,6 +1840,9 @@ static int finalize_fetch_insn(struct fetch_insn *code,
 			return -EINVAL;
 		}
 		code++;
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (code->op != FETCH_OP_NOP) {
 			trace_probe_log_err(ctx->offset, TOO_MANY_OPS);
 			return -E2BIG;
@@ -1478,6 +1868,9 @@ static int traceprobe_parse_probe_arg_body(const char *argv, ssize_t *size,
 	int ret, len;
 
 	len = strlen(argv);
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (len > MAX_ARGSTR_LEN) {
 		trace_probe_log_err(ctx->offset, ARG_TOO_LONG);
 		return -E2BIG;
@@ -1487,18 +1880,26 @@ static int traceprobe_parse_probe_arg_body(const char *argv, ssize_t *size,
 	}
 
 	arg = kstrdup(argv, GFP_KERNEL);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!arg)
 		return -ENOMEM;
 
 	parg->comm = kstrdup(arg, GFP_KERNEL);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!parg->comm)
 		return -ENOMEM;
 
 	type = parse_probe_arg_type(arg, parg, ctx);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (IS_ERR(type))
 		return PTR_ERR(type);
 
 	code = tmp = kcalloc(FETCH_INSN_MAX, sizeof(*code), GFP_KERNEL);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!code)
 		return -ENOMEM;
 	code[FETCH_INSN_MAX - 1].op = FETCH_OP_END;
@@ -1506,16 +1907,23 @@ static int traceprobe_parse_probe_arg_body(const char *argv, ssize_t *size,
 	ctx->last_type = NULL;
 	ret = parse_probe_arg(arg, parg->type, &code, &code[FETCH_INSN_MAX - 1],
 			      ctx);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret < 0)
 		goto fail;
 
 	/* Update storing type if BTF is available */
 	if (IS_ENABLED(CONFIG_PROBE_EVENTS_BTF_ARGS) &&
 	    ctx->last_type) {
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (!type) {
 			parg->type = find_fetch_type_from_btf_type(ctx);
 		} else if (strstr(type, "string")) {
 			ret = check_prepare_btf_string_fetch(type, &code, ctx);
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (ret)
 				goto fail;
 		}
@@ -1523,9 +1931,15 @@ static int traceprobe_parse_probe_arg_body(const char *argv, ssize_t *size,
 	parg->offset = *size;
 	*size += parg->type->size * (parg->count ?: 1);
 
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (parg->count) {
 		len = strlen(parg->type->fmttype) + 6;
 		parg->fmt = kmalloc(len, GFP_KERNEL);
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (!parg->fmt) {
 			ret = -ENOMEM;
 			goto fail;
@@ -1535,21 +1949,36 @@ static int traceprobe_parse_probe_arg_body(const char *argv, ssize_t *size,
 	}
 
 	ret = finalize_fetch_insn(code, parg, type, type ? type - arg : 0, ctx);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret < 0)
 		goto fail;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	for (; code < tmp + FETCH_INSN_MAX; code++)
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (code->op == FETCH_OP_END)
 			break;
 	/* Shrink down the code buffer */
 	parg->code = kcalloc(code - tmp + 1, sizeof(*code), GFP_KERNEL);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!parg->code)
 		ret = -ENOMEM;
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	else
 		memcpy(parg->code, tmp, sizeof(*code) * (code - tmp + 1));
 
 fail:
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (ret < 0) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		for (code = tmp; code < tmp + FETCH_INSN_MAX; code++)
 			if (code->op == FETCH_NOP_SYMBOL ||
 			    code->op == FETCH_OP_DATA)
@@ -1566,11 +1995,19 @@ static int traceprobe_conflict_field_name(const char *name,
 {
 	int i;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	for (i = 0; i < ARRAY_SIZE(reserved_field_names); i++)
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (strcmp(reserved_field_names[i], name) == 0)
 			return 1;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	for (i = 0; i < narg; i++)
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (strcmp(args[i].name, name) == 0)
 			return 1;
 
@@ -1586,18 +2023,26 @@ static char *generate_probe_arg_name(const char *arg, int idx)
 	 * If argument name is omitted, try arg as a name (BTF variable)
 	 * or "argN".
 	 */
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (IS_ENABLED(CONFIG_PROBE_EVENTS_BTF_ARGS)) {
 		end = strchr(arg, ':');
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!end)
 			end = arg + strlen(arg);
 
 		name = kmemdup_nul(arg, end - arg, GFP_KERNEL);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!name || !is_good_name(name)) {
 			kfree(name);
 			name = NULL;
 		}
 	}
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!name)
 		name = kasprintf(GFP_KERNEL, "arg%d", idx + 1);
 
@@ -1612,7 +2057,13 @@ int traceprobe_parse_probe_arg(struct trace_probe *tp, int i, const char *arg,
 
 	ctx->tp = tp;
 	body = strchr(arg, '=');
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (body) {
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (body - arg > MAX_ARG_NAME_LEN) {
 			trace_probe_log_err(0, ARG_NAME_TOO_LONG);
 			return -EINVAL;
@@ -1626,13 +2077,19 @@ int traceprobe_parse_probe_arg(struct trace_probe *tp, int i, const char *arg,
 		parg->name = generate_probe_arg_name(arg, i);
 		body = arg;
 	}
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!parg->name)
 		return -ENOMEM;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!is_good_name(parg->name)) {
 		trace_probe_log_err(0, BAD_ARG_NAME);
 		return -EINVAL;
 	}
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (traceprobe_conflict_field_name(parg->name, tp->args, i)) {
 		trace_probe_log_err(0, USED_ARG_NAME);
 		return -EINVAL;
@@ -1646,6 +2103,9 @@ void traceprobe_free_probe_arg(struct probe_arg *arg)
 {
 	struct fetch_insn *code = arg->code;
 
+	/**
+	 * @brief [Functional Utility for while]: Describe purpose here.
+	 */
 	while (code && code->op != FETCH_OP_END) {
 		if (code->op == FETCH_NOP_SYMBOL ||
 		    code->op == FETCH_OP_DATA)
@@ -1663,26 +2123,40 @@ static int argv_has_var_arg(int argc, const char *argv[], int *args_idx,
 {
 	int i, found = 0;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	for (i = 0; i < argc; i++)
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (str_has_prefix(argv[i], "$arg")) {
 			trace_probe_log_set_index(i + 2);
 
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (!tparg_is_function_entry(ctx->flags) &&
 			    !tparg_is_function_return(ctx->flags)) {
 				trace_probe_log_err(0, NOFENTRY_ARGS);
 				return -EINVAL;
 			}
 
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (isdigit(argv[i][4])) {
 				found = 1;
 				continue;
 			}
 
+			/**
+			 * @brief [Functional Utility for if]: Describe purpose here.
+			 */
 			if (argv[i][4] != '*') {
 				trace_probe_log_err(0, BAD_VAR);
 				return -EINVAL;
 			}
 
+			/**
+			 * @brief [Functional Utility for if]: Describe purpose here.
+			 */
 			if (*args_idx >= 0 && *args_idx < argc) {
 				trace_probe_log_err(0, DOUBLE_ARGS);
 				return -EINVAL;
@@ -1701,16 +2175,25 @@ static int sprint_nth_btf_arg(int idx, const char *type,
 	const char *name;
 	int ret;
 
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (idx >= ctx->nr_params) {
 		trace_probe_log_err(0, NO_BTFARG);
 		return -ENOENT;
 	}
 	name = btf_name_by_offset(ctx->btf, ctx->params[idx].name_off);
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (!name) {
 		trace_probe_log_err(0, NO_BTF_ENTRY);
 		return -ENOENT;
 	}
 	ret = snprintf(buf, bufsize, "%s%s", name, type);
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (ret >= bufsize) {
 		trace_probe_log_err(0, ARGS_2LONG);
 		return -E2BIG;
@@ -1728,16 +2211,27 @@ const char **traceprobe_expand_meta_args(int argc, const char *argv[],
 	const char **new_argv __free(kfree) = NULL;
 
 	ret = argv_has_var_arg(argc, argv, &args_idx, ctx);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret < 0)
 		return ERR_PTR(ret);
 
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (!ret) {
 		*new_argc = argc;
 		return NULL;
 	}
 
 	ret = query_btf_context(ctx);
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (ret < 0 || ctx->nr_params == 0) {
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (args_idx != -1) {
 			/* $arg* requires BTF info */
 			trace_probe_log_err(0, NOSUP_BTFARG);
@@ -1747,22 +2241,39 @@ const char **traceprobe_expand_meta_args(int argc, const char *argv[],
 		return NULL;
 	}
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (args_idx >= 0)
 		*new_argc = argc + ctx->nr_params - 1;
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	else
 		*new_argc = argc;
 
 	new_argv = kcalloc(*new_argc, sizeof(char *), GFP_KERNEL);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!new_argv)
 		return ERR_PTR(-ENOMEM);
 
 	used = 0;
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (i = 0, j = 0; i < argc; i++) {
 		trace_probe_log_set_index(i + 2);
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (i == args_idx) {
+			/**
+			 * @brief [Functional Utility for for]: Describe purpose here.
+			 */
 			for (n = 0; n < ctx->nr_params; n++) {
 				ret = sprint_nth_btf_arg(n, "", buf + used,
 							 bufsize - used, ctx);
+				// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+				// Invariant: State condition that holds true before and after each iteration/execution
 				if (ret < 0)
 					return ERR_PTR(ret);
 
@@ -1772,10 +2283,14 @@ const char **traceprobe_expand_meta_args(int argc, const char *argv[],
 			continue;
 		}
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (str_has_prefix(argv[i], "$arg")) {
 			char *type = NULL;
 
 			n = simple_strtoul(argv[i] + 4, &type, 10);
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (type && !(*type == ':' || *type == '\0')) {
 				trace_probe_log_err(0, BAD_VAR);
 				return ERR_PTR(-ENOENT);
@@ -1783,6 +2298,8 @@ const char **traceprobe_expand_meta_args(int argc, const char *argv[],
 			/* Note: $argN starts from $arg1 */
 			ret = sprint_nth_btf_arg(n - 1, type, buf + used,
 						 bufsize - used, ctx);
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (ret < 0)
 				return ERR_PTR(ret);
 			new_argv[j++] = buf + used;
@@ -1801,39 +2318,59 @@ int traceprobe_expand_dentry_args(int argc, const char *argv[], char **buf)
 	const int bufsize = MAX_DENTRY_ARGS_LEN;
 	char *tmpbuf __free(kfree) = NULL;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (*buf)
 		return -EINVAL;
 
 	used = 0;
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (i = 0; i < argc; i++) {
 		char *tmp __free(kfree) = NULL;
 		char *equal;
 		size_t arg_len;
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!glob_match("*:%p[dD]", argv[i]))
 			continue;
 
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (!tmpbuf) {
 			tmpbuf = kmalloc(bufsize, GFP_KERNEL);
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (!tmpbuf)
 				return -ENOMEM;
 		}
 
 		tmp = kstrdup(argv[i], GFP_KERNEL);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!tmp)
 			return -ENOMEM;
 
 		equal = strchr(tmp, '=');
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (equal)
 			*equal = '\0';
 		arg_len = strlen(argv[i]);
 		tmp[arg_len - 4] = '\0';
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (argv[i][arg_len - 1] == 'd')
 			ret = snprintf(tmpbuf + used, bufsize - used,
 				       "%s%s+0x0(+0x%zx(%s)):string",
 				       equal ? tmp : "", equal ? "=" : "",
 				       offsetof(struct dentry, d_name.name),
 				       equal ? equal + 1 : tmp);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		else
 			ret = snprintf(tmpbuf + used, bufsize - used,
 				       "%s%s+0x0(+0x%zx(+0x%zx(%s))):string",
@@ -1842,6 +2379,8 @@ int traceprobe_expand_dentry_args(int argc, const char *argv[], char **buf)
 				       offsetof(struct file, f_path.dentry),
 				       equal ? equal + 1 : tmp);
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (ret >= bufsize - used)
 			return -ENOMEM;
 		argv[i] = tmpbuf + used;
@@ -1865,23 +2404,39 @@ int traceprobe_update_arg(struct probe_arg *arg)
 	char c;
 	int ret = 0;
 
+	/**
+	 * @brief [Functional Utility for while]: Describe purpose here.
+	 */
 	while (code && code->op != FETCH_OP_END) {
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (code->op == FETCH_NOP_SYMBOL) {
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (code[1].op != FETCH_OP_IMM)
 				return -EINVAL;
 
 			tmp = strpbrk(code->data, "+-");
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (tmp)
 				c = *tmp;
 			ret = traceprobe_split_symbol_offset(code->data,
 							     &offset);
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (ret)
 				return ret;
 
 			code[1].immediate =
 				(unsigned long)kallsyms_lookup_name(code->data);
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (tmp)
 				*tmp = c;
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (!code[1].immediate)
 				return -ENOENT;
 			code[1].immediate += offset;
@@ -1901,6 +2456,9 @@ static int __set_print_fmt(struct trace_probe *tp, char *buf, int len,
 	int pos = 0;
 	const char *fmt, *arg;
 
+	/**
+	 * @brief [Functional Utility for switch]: Describe purpose here.
+	 */
 	switch (ptype) {
 	case PROBE_PRINT_NORMAL:
 		fmt = "(%lx)";
@@ -1921,12 +2479,20 @@ static int __set_print_fmt(struct trace_probe *tp, char *buf, int len,
 
 	pos += snprintf(buf + pos, LEN_OR_ZERO, "\"%s", fmt);
 
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (i = 0; i < tp->nr_args; i++) {
 		parg = tp->args + i;
 		pos += snprintf(buf + pos, LEN_OR_ZERO, " %s=", parg->name);
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (parg->count) {
 			pos += snprintf(buf + pos, LEN_OR_ZERO, "{%s",
 					parg->type->fmt);
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			for (j = 1; j < parg->count; j++)
 				pos += snprintf(buf + pos, LEN_OR_ZERO, ",%s",
 						parg->type->fmt);
@@ -1938,19 +2504,35 @@ static int __set_print_fmt(struct trace_probe *tp, char *buf, int len,
 
 	pos += snprintf(buf + pos, LEN_OR_ZERO, "\"%s", arg);
 
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (i = 0; i < tp->nr_args; i++) {
 		parg = tp->args + i;
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (parg->count) {
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (parg->type->is_string)
 				fmt = ", __get_str(%s[%d])";
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			else
 				fmt = ", REC->%s[%d]";
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			for (j = 0; j < parg->count; j++)
 				pos += snprintf(buf + pos, LEN_OR_ZERO,
 						fmt, parg->name, j);
 		} else {
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (parg->type->is_string)
 				fmt = ", __get_str(%s)";
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			else
 				fmt = ", REC->%s";
 			pos += snprintf(buf + pos, LEN_OR_ZERO,
@@ -1972,6 +2554,8 @@ int traceprobe_set_print_fmt(struct trace_probe *tp, enum probe_print_type ptype
 	/* First: called with 0 length to calculate the needed length */
 	len = __set_print_fmt(tp, NULL, 0, ptype);
 	print_fmt = kmalloc(len + 1, GFP_KERNEL);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!print_fmt)
 		return -ENOMEM;
 
@@ -1988,19 +2572,28 @@ int traceprobe_define_arg_fields(struct trace_event_call *event_call,
 	int ret, i;
 
 	/* Set argument names as fields */
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (i = 0; i < tp->nr_args; i++) {
 		struct probe_arg *parg = &tp->args[i];
 		const char *fmt = parg->type->fmttype;
 		int size = parg->type->size;
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (parg->fmt)
 			fmt = parg->fmt;
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (parg->count)
 			size *= parg->count;
 		ret = trace_define_field(event_call, fmt, parg->name,
 					 offset + parg->offset, size,
 					 parg->type->is_signed,
 					 FILTER_OTHER);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (ret)
 			return ret;
 	}
@@ -2017,6 +2610,8 @@ static void trace_probe_event_free(struct trace_probe_event *tpe)
 
 int trace_probe_append(struct trace_probe *tp, struct trace_probe *to)
 {
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (trace_probe_has_sibling(tp))
 		return -EBUSY;
 
@@ -2032,6 +2627,8 @@ int trace_probe_append(struct trace_probe *tp, struct trace_probe *to)
 void trace_probe_unlink(struct trace_probe *tp)
 {
 	list_del_init(&tp->list);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (list_empty(trace_probe_probe_list(tp)))
 		trace_probe_event_free(tp->event);
 	tp->event = NULL;
@@ -2041,15 +2638,22 @@ void trace_probe_cleanup(struct trace_probe *tp)
 {
 	int i;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	for (i = 0; i < tp->nr_args; i++)
 		traceprobe_free_probe_arg(&tp->args[i]);
 
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (tp->entry_arg) {
 		kfree(tp->entry_arg->code);
 		kfree(tp->entry_arg);
 		tp->entry_arg = NULL;
 	}
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (tp->event)
 		trace_probe_unlink(tp);
 }
@@ -2061,13 +2665,19 @@ int trace_probe_init(struct trace_probe *tp, const char *event,
 	size_t size = sizeof(struct trace_probe_event);
 	int ret = 0;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!event || !group)
 		return -EINVAL;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (alloc_filter)
 		size += sizeof(struct trace_uprobe_filter);
 
 	tp->event = kzalloc(size, GFP_KERNEL);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!tp->event)
 		return -ENOMEM;
 
@@ -2080,12 +2690,18 @@ int trace_probe_init(struct trace_probe *tp, const char *event,
 	call = trace_probe_event_call(tp);
 	call->class = &tp->event->class;
 	call->name = kstrdup(event, GFP_KERNEL);
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (!call->name) {
 		ret = -ENOMEM;
 		goto error;
 	}
 
 	tp->event->class.system = kstrdup(group, GFP_KERNEL);
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (!tp->event->class.system) {
 		ret = -ENOMEM;
 		goto error;
@@ -2109,11 +2725,16 @@ find_trace_event_call(const char *system, const char *event_name)
 	struct trace_event_call *tp_event;
 	const char *name;
 
+	/**
+	 * @brief [Functional Utility for list_for_each_entry]: Describe purpose here.
+	 */
 	list_for_each_entry(tp_event, &ftrace_events, list) {
 		if (!tp_event->class->system ||
 		    strcmp(system, tp_event->class->system))
 			continue;
 		name = trace_event_name(tp_event);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!name || strcmp(event_name, name))
 			continue;
 		return tp_event;
@@ -2129,15 +2750,21 @@ int trace_probe_register_event_call(struct trace_probe *tp)
 
 	lockdep_assert_held(&event_mutex);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (find_trace_event_call(trace_probe_group_name(tp),
 				  trace_probe_name(tp)))
 		return -EEXIST;
 
 	ret = register_trace_event(&call->event);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!ret)
 		return -ENODEV;
 
 	ret = trace_add_event_call(call);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret)
 		unregister_trace_event(&call->event);
 
@@ -2149,6 +2776,8 @@ int trace_probe_add_file(struct trace_probe *tp, struct trace_event_file *file)
 	struct event_file_link *link;
 
 	link = kmalloc(sizeof(*link), GFP_KERNEL);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!link)
 		return -ENOMEM;
 
@@ -2164,7 +2793,12 @@ struct event_file_link *trace_probe_get_file_link(struct trace_probe *tp,
 {
 	struct event_file_link *link;
 
+	/**
+	 * @brief [Functional Utility for trace_probe_for_each_link]: Describe purpose here.
+	 */
 	trace_probe_for_each_link(link, tp) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (link->file == file)
 			return link;
 	}
@@ -2178,12 +2812,16 @@ int trace_probe_remove_file(struct trace_probe *tp,
 	struct event_file_link *link;
 
 	link = trace_probe_get_file_link(tp, file);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!link)
 		return -ENOENT;
 
 	list_del_rcu(&link->list);
 	kvfree_rcu_mightsleep(link);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (list_empty(&tp->event->files))
 		trace_probe_clear_flag(tp, TP_FLAG_TRACE);
 
@@ -2201,10 +2839,17 @@ int trace_probe_compare_arg_type(struct trace_probe *a, struct trace_probe *b)
 	/* In case of more arguments */
 	if (a->nr_args < b->nr_args)
 		return a->nr_args + 1;
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (a->nr_args > b->nr_args)
 		return b->nr_args + 1;
 
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (i = 0; i < a->nr_args; i++) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if ((b->nr_args <= i) ||
 		    ((a->args[i].type != b->args[i].type) ||
 		     (a->args[i].count != b->args[i].count) ||
@@ -2221,12 +2866,19 @@ bool trace_probe_match_command_args(struct trace_probe *tp,
 	char buf[MAX_ARGSTR_LEN + 1];
 	int i;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (tp->nr_args < argc)
 		return false;
 
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (i = 0; i < argc; i++) {
 		snprintf(buf, sizeof(buf), "%s=%s",
 			 tp->args[i].name, tp->args[i].comm);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (strcmp(buf, argv[i]))
 			return false;
 	}
@@ -2239,9 +2891,13 @@ int trace_probe_create(const char *raw_command, int (*createfn)(int, const char 
 	char **argv;
 
 	argv = argv_split(GFP_KERNEL, raw_command, &argc);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!argv)
 		return -ENOMEM;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (argc)
 		ret = createfn(argc, (const char **)argv);
 
@@ -2256,18 +2912,30 @@ int trace_probe_print_args(struct trace_seq *s, struct probe_arg *args, int nr_a
 	void *p;
 	int i, j;
 
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (i = 0; i < nr_args; i++) {
 		struct probe_arg *a = args + i;
 
 		trace_seq_printf(s, " %s=", a->name);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (likely(!a->count)) {
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (!a->type->print(s, data + a->offset, field))
 				return -ENOMEM;
 			continue;
 		}
 		trace_seq_putc(s, '{');
 		p = data + a->offset;
+		/**
+		 * @brief [Functional Utility for for]: Describe purpose here.
+		 */
 		for (j = 0; j < a->count; j++) {
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (!a->type->print(s, p, field))
 				return -ENOMEM;
 			trace_seq_putc(s, j == a->count - 1 ? '}' : ',');

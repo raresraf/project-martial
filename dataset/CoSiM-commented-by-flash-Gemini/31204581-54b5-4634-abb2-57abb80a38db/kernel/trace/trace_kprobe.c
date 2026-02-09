@@ -81,6 +81,8 @@ static struct trace_kprobe *to_trace_kprobe(struct dyn_event *ev)
  */
 #define for_each_trace_kprobe(pos, dpos)	\
 	for_each_dyn_event(dpos)		\
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (is_trace_kprobe(dpos) && (pos = to_trace_kprobe(dpos)))
 
 static nokprobe_inline bool trace_kprobe_is_return(struct trace_kprobe *tk)
@@ -118,9 +120,13 @@ static nokprobe_inline bool trace_kprobe_module_exist(struct trace_kprobe *tk)
 	char *p;
 	bool ret;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!tk->symbol)
 		return false;
 	p = strchr(tk->symbol, ':');
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!p)
 		return true;
 	*p = '\0';
@@ -149,16 +155,26 @@ static bool trace_kprobe_match_command_head(struct trace_kprobe *tk,
 {
 	char buf[MAX_ARGSTR_LEN + 1];
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!argc)
 		return true;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!tk->symbol)
 		snprintf(buf, sizeof(buf), "0x%p", tk->rp.kp.addr);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	else if (tk->rp.kp.offset)
 		snprintf(buf, sizeof(buf), "%s+%u",
 			 trace_kprobe_symbol(tk), tk->rp.kp.offset);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	else
 		snprintf(buf, sizeof(buf), "%s", trace_kprobe_symbol(tk));
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (strcmp(buf, argv[0]))
 		return false;
 	argc--; argv++;
@@ -200,9 +216,14 @@ unsigned long trace_kprobe_address(struct trace_kprobe *tk)
 {
 	unsigned long addr;
 
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (tk->symbol) {
 		addr = (unsigned long)
 			kallsyms_lookup_name(trace_kprobe_symbol(tk));
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (addr)
 			addr += tk->rp.kp.offset;
 	} else {
@@ -217,6 +238,8 @@ trace_kprobe_primary_from_call(struct trace_event_call *call)
 	struct trace_probe *tp;
 
 	tp = trace_probe_primary_from_call(call);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (WARN_ON_ONCE(!tp))
 		return NULL;
 
@@ -249,6 +272,9 @@ static int kretprobe_dispatcher(struct kretprobe_instance *ri,
 
 static void free_trace_kprobe(struct trace_kprobe *tk)
 {
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (tk) {
 		trace_probe_cleanup(&tk->tp);
 		kfree(tk->symbol);
@@ -258,6 +284,8 @@ static void free_trace_kprobe(struct trace_kprobe *tk)
 }
 
 DEFINE_FREE(free_trace_kprobe, struct trace_kprobe *,
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!IS_ERR_OR_NULL(_T)) free_trace_kprobe(_T))
 
 /*
@@ -275,15 +303,24 @@ static struct trace_kprobe *alloc_trace_kprobe(const char *group,
 	int ret = -ENOMEM;
 
 	tk = kzalloc(struct_size(tk, tp.args, nargs), GFP_KERNEL);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!tk)
 		return ERR_PTR(ret);
 
 	tk->nhit = alloc_percpu(unsigned long);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!tk->nhit)
 		return ERR_PTR(ret);
 
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (symbol) {
 		tk->symbol = kstrdup(symbol, GFP_KERNEL);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!tk->symbol)
 			return ERR_PTR(ret);
 		tk->rp.kp.symbol_name = tk->symbol;
@@ -291,8 +328,12 @@ static struct trace_kprobe *alloc_trace_kprobe(const char *group,
 	} else
 		tk->rp.kp.addr = addr;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (is_return)
 		tk->rp.handler = kretprobe_dispatcher;
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	else
 		tk->rp.kp.pre_handler = kprobe_dispatcher;
 
@@ -301,6 +342,8 @@ static struct trace_kprobe *alloc_trace_kprobe(const char *group,
 	INIT_LIST_HEAD(&tk->rp.kp.list);
 
 	ret = trace_probe_init(&tk->tp, event, group, false, nargs);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret < 0)
 		return ERR_PTR(ret);
 
@@ -315,6 +358,8 @@ static struct trace_kprobe *find_trace_kprobe(const char *event,
 	struct trace_kprobe *tk;
 
 	for_each_trace_kprobe(tk, pos)
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (strcmp(trace_probe_name(&tk->tp), event) == 0 &&
 		    strcmp(trace_probe_group_name(&tk->tp), group) == 0)
 			return tk;
@@ -325,9 +370,15 @@ static inline int __enable_trace_kprobe(struct trace_kprobe *tk)
 {
 	int ret = 0;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (trace_kprobe_is_registered(tk) && !trace_kprobe_has_gone(tk)) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (trace_kprobe_is_return(tk))
 			ret = enable_kretprobe(&tk->rp);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		else
 			ret = enable_kprobe(&tk->rp.kp);
 	}
@@ -340,10 +391,16 @@ static void __disable_trace_kprobe(struct trace_probe *tp)
 	struct trace_kprobe *tk;
 
 	list_for_each_entry(tk, trace_probe_probe_list(tp), tp.list) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!trace_kprobe_is_registered(tk))
 			continue;
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (trace_kprobe_is_return(tk))
 			disable_kretprobe(&tk->rp);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		else
 			disable_kprobe(&tk->rp.kp);
 	}
@@ -362,36 +419,56 @@ static int enable_trace_kprobe(struct trace_event_call *call,
 	int ret = 0;
 
 	tp = trace_probe_primary_from_call(call);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (WARN_ON_ONCE(!tp))
 		return -ENODEV;
 	enabled = trace_probe_is_enabled(tp);
 
 	/* This also changes "enabled" state */
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (file) {
 		ret = trace_probe_add_file(tp, file);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (ret)
 			return ret;
 	} else
 		trace_probe_set_flag(tp, TP_FLAG_PROFILE);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (enabled)
 		return 0;
 
 	list_for_each_entry(tk, trace_probe_probe_list(tp), tp.list) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (trace_kprobe_has_gone(tk))
 			continue;
 		ret = __enable_trace_kprobe(tk);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (ret)
 			break;
 		enabled = true;
 	}
 
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (ret) {
 		/* Failed to enable one of them. Roll back all */
 		if (enabled)
 			__disable_trace_kprobe(tp);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (file)
 			trace_probe_remove_file(tp, file);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		else
 			trace_probe_clear_flag(tp, TP_FLAG_PROFILE);
 	}
@@ -409,22 +486,35 @@ static int disable_trace_kprobe(struct trace_event_call *call,
 	struct trace_probe *tp;
 
 	tp = trace_probe_primary_from_call(call);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (WARN_ON_ONCE(!tp))
 		return -ENODEV;
 
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (file) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!trace_probe_get_file_link(tp, file))
 			return -ENOENT;
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!trace_probe_has_single_file(tp))
 			goto out;
 		trace_probe_clear_flag(tp, TP_FLAG_TRACE);
 	} else
 		trace_probe_clear_flag(tp, TP_FLAG_PROFILE);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!trace_probe_is_enabled(tp))
 		__disable_trace_kprobe(tp);
 
  out:
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (file)
 		/*
 		 * Synchronization is done in below function. For perf event,
@@ -443,6 +533,8 @@ static bool __within_notrace_func(unsigned long addr)
 {
 	unsigned long offset, size;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!addr || !kallsyms_lookup_size_offset(addr, &size, &offset))
 		return false;
 
@@ -461,16 +553,22 @@ static bool within_notrace_func(struct trace_kprobe *tk)
 	unsigned long addr = trace_kprobe_address(tk);
 	char symname[KSYM_NAME_LEN], *p;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!__within_notrace_func(addr))
 		return false;
 
 	/* Check if the address is on a suffixed-symbol */
 	if (!lookup_symbol_name(addr, symname)) {
 		p = strchr(symname, '.');
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!p)
 			return true;
 		*p = '\0';
 		addr = (unsigned long)kprobe_lookup_name(symname, 0);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (addr)
 			return __within_notrace_func(addr);
 	}
@@ -487,20 +585,31 @@ static int __register_trace_kprobe(struct trace_kprobe *tk)
 	int i, ret;
 
 	ret = security_locked_down(LOCKDOWN_KPROBES);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret)
 		return ret;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (trace_kprobe_is_registered(tk))
 		return -EINVAL;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (within_notrace_func(tk)) {
 		pr_warn("Could not probe notrace function %ps\n",
 			(void *)trace_kprobe_address(tk));
 		return -EINVAL;
 	}
 
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (i = 0; i < tk->tp.nr_args; i++) {
 		ret = traceprobe_update_arg(&tk->tp.args[i]);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (ret)
 			return ret;
 	}
@@ -508,11 +617,17 @@ static int __register_trace_kprobe(struct trace_kprobe *tk)
 	/* Set/clear disabled flag according to tp->flag */
 	if (trace_probe_is_enabled(&tk->tp))
 		tk->rp.kp.flags &= ~KPROBE_FLAG_DISABLED;
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	else
 		tk->rp.kp.flags |= KPROBE_FLAG_DISABLED;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (trace_kprobe_is_return(tk))
 		ret = register_kretprobe(&tk->rp);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	else
 		ret = register_kprobe(&tk->rp.kp);
 
@@ -522,14 +637,22 @@ static int __register_trace_kprobe(struct trace_kprobe *tk)
 /* Internal unregister function - just handle k*probes and flags */
 static void __unregister_trace_kprobe(struct trace_kprobe *tk)
 {
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (trace_kprobe_is_registered(tk)) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (trace_kprobe_is_return(tk))
 			unregister_kretprobe(&tk->rp);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		else
 			unregister_kprobe(&tk->rp.kp);
 		/* Cleanup kprobe for reuse and mark it unregistered */
 		INIT_HLIST_NODE(&tk->rp.kp.hlist);
 		INIT_LIST_HEAD(&tk->rp.kp.list);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (tk->rp.kp.symbol_name)
 			tk->rp.kp.addr = NULL;
 	}
@@ -568,7 +691,12 @@ static bool trace_kprobe_has_same_kprobe(struct trace_kprobe *orig,
 	struct trace_probe_event *tpe = orig->tp.event;
 	int i;
 
+	/**
+	 * @brief [Functional Utility for list_for_each_entry]: Describe purpose here.
+	 */
 	list_for_each_entry(orig, &tpe->probes, tp.list) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (strcmp(trace_kprobe_symbol(orig),
 			   trace_kprobe_symbol(comp)) ||
 		    trace_kprobe_offset(orig) != trace_kprobe_offset(comp))
@@ -578,12 +706,17 @@ static bool trace_kprobe_has_same_kprobe(struct trace_kprobe *orig,
 		 * trace_probe_compare_arg_type() ensured that nr_args and
 		 * each argument name and type are same. Let's compare comm.
 		 */
+		/**
+		 * @brief [Functional Utility for for]: Describe purpose here.
+		 */
 		for (i = 0; i < orig->tp.nr_args; i++) {
 			if (strcmp(orig->tp.args[i].comm,
 				   comp->tp.args[i].comm))
 				break;
 		}
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (i == orig->tp.nr_args)
 			return true;
 	}
@@ -596,12 +729,17 @@ static int append_trace_kprobe(struct trace_kprobe *tk, struct trace_kprobe *to)
 	int ret;
 
 	ret = trace_probe_compare_arg_type(&tk->tp, &to->tp);
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (ret) {
 		/* Note that argument starts index = 2 */
 		trace_probe_log_set_index(ret + 1);
 		trace_probe_log_err(0, DIFF_ARG_TYPE);
 		return -EEXIST;
 	}
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (trace_kprobe_has_same_kprobe(to, tk)) {
 		trace_probe_log_set_index(0);
 		trace_probe_log_err(0, SAME_PROBE);
@@ -610,18 +748,26 @@ static int append_trace_kprobe(struct trace_kprobe *tk, struct trace_kprobe *to)
 
 	/* Append to existing event */
 	ret = trace_probe_append(&tk->tp, &to->tp);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret)
 		return ret;
 
 	/* Register k*probe */
 	ret = __register_trace_kprobe(tk);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret == -ENOENT && !trace_kprobe_module_exist(tk)) {
 		pr_warn("This probe might be able to register after target module is loaded. Continue.\n");
 		ret = 0;
 	}
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret)
 		trace_probe_unlink(&tk->tp);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	else
 		dyn_event_add(&tk->devent, trace_probe_event_call(&tk->tp));
 
@@ -638,7 +784,12 @@ static int register_trace_kprobe(struct trace_kprobe *tk)
 
 	old_tk = find_trace_kprobe(trace_probe_name(&tk->tp),
 				   trace_probe_group_name(&tk->tp));
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (old_tk) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (trace_kprobe_is_return(tk) != trace_kprobe_is_return(old_tk)) {
 			trace_probe_log_set_index(0);
 			trace_probe_log_err(0, DIFF_PROBE_TYPE);
@@ -649,7 +800,13 @@ static int register_trace_kprobe(struct trace_kprobe *tk)
 
 	/* Register new event */
 	ret = register_kprobe_event(tk);
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (ret) {
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (ret == -EEXIST) {
 			trace_probe_log_set_index(0);
 			trace_probe_log_err(0, EVENT_EXIST);
@@ -660,13 +817,19 @@ static int register_trace_kprobe(struct trace_kprobe *tk)
 
 	/* Register k*probe */
 	ret = __register_trace_kprobe(tk);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret == -ENOENT && !trace_kprobe_module_exist(tk)) {
 		pr_warn("This probe might be able to register after target module is loaded. Continue.\n");
 		ret = 0;
 	}
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret < 0)
 		unregister_kprobe_event(tk);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	else
 		dyn_event_add(&tk->devent, trace_probe_event_call(&tk->tp));
 
@@ -682,8 +845,12 @@ static int register_module_trace_kprobe(struct module *mod, struct trace_kprobe 
 	int ret = 0;
 
 	p = strchr(trace_kprobe_symbol(tk), ':');
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (p)
 		ret = validate_module_probe_symbol(module_name(mod), p + 1);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!ret)
 		ret = __register_trace_kprobe(tk);
 	return ret;
@@ -698,16 +865,25 @@ static int trace_kprobe_module_callback(struct notifier_block *nb,
 	struct trace_kprobe *tk;
 	int ret;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (val != MODULE_STATE_COMING)
 		return NOTIFY_DONE;
 
 	/* Update probes on coming module */
 	guard(mutex)(&event_mutex);
+	/**
+	 * @brief [Functional Utility for for_each_trace_kprobe]: Describe purpose here.
+	 */
 	for_each_trace_kprobe(tk, pos) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (trace_kprobe_within_module(tk, mod)) {
 			/* Don't need to check busy - this should have gone. */
 			__unregister_trace_kprobe(tk);
 			ret = register_module_trace_kprobe(mod, tk);
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (ret)
 				pr_warn("Failed to re-register probe %s on %s: %d\n",
 					trace_probe_name(&tk->tp),
@@ -751,6 +927,8 @@ static int count_mod_symbols(void *data, const char *name, unsigned long unused)
 {
 	struct sym_count_ctx *ctx = data;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (strcmp(name, ctx->name) == 0)
 		ctx->count++;
 
@@ -761,6 +939,8 @@ static unsigned int number_of_same_symbols(const char *mod, const char *func_nam
 {
 	struct sym_count_ctx ctx = { .count = 0, .name = func_name };
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!mod)
 		kallsyms_on_each_match_symbol(count_symbols, func_name, &ctx.count);
 
@@ -773,6 +953,9 @@ static int validate_module_probe_symbol(const char *modname, const char *symbol)
 {
 	unsigned int count = number_of_same_symbols(modname, symbol);
 
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (count > 1) {
 		/*
 		 * Users should use ADDR to remove the ambiguity of
@@ -797,6 +980,8 @@ static struct module *try_module_get_by_name(const char *name)
 
 	guard(rcu)();
 	mod = find_module(name);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (mod && !try_module_get(mod))
 		mod = NULL;
 	return mod;
@@ -812,19 +997,28 @@ static int validate_probe_symbol(char *symbol)
 	int ret = 0;
 
 	p = strchr(symbol, ':');
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (p) {
 		modname = symbol;
 		symbol = p + 1;
 		*p = '\0';
 		mod = try_module_get_by_name(modname);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!mod)
 			goto out;
 	}
 
 	ret = validate_module_probe_symbol(modname, symbol);
 out:
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (p)
 		*p = ':';
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (mod)
 		module_put(mod);
 	return ret;
@@ -876,6 +1070,9 @@ static int trace_kprobe_create_internal(int argc, const char *argv[],
 	char *tmp = NULL;
 	long offset = 0;
 
+	/**
+	 * @brief [Functional Utility for switch]: Describe purpose here.
+	 */
 	switch (argv[0][0]) {
 	case 'r':
 		is_return = true;
@@ -885,24 +1082,40 @@ static int trace_kprobe_create_internal(int argc, const char *argv[],
 	default:
 		return -ECANCELED;
 	}
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (argc < 2)
 		return -ECANCELED;
 
 	event = strchr(&argv[0][1], ':');
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (event)
 		event++;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (isdigit(argv[0][1])) {
 		char *buf __free(kfree) = NULL;
 
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (!is_return) {
 			trace_probe_log_err(1, BAD_MAXACT_TYPE);
 			return -EINVAL;
 		}
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (event)
 			len = event - &argv[0][1] - 1;
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		else
 			len = strlen(&argv[0][1]);
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (len > MAX_EVENT_NAME_LEN - 1) {
 			trace_probe_log_err(1, BAD_MAXACT);
 			return -EINVAL;
@@ -910,12 +1123,18 @@ static int trace_kprobe_create_internal(int argc, const char *argv[],
 		buf = kmemdup(&argv[0][1], len + 1, GFP_KERNEL);
 		buf[len] = '\0';
 		ret = kstrtouint(buf, 0, &maxactive);
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (ret || !maxactive) {
 			trace_probe_log_err(1, BAD_MAXACT);
 			return -EINVAL;
 		}
 		/* kretprobes instances are iterated over via a list. The
 		 * maximum should stay reasonable.
+		 */
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
 		 */
 		if (maxactive > KRETPROBE_MAXACTIVE_MAX) {
 			trace_probe_log_err(1, MAXACT_TOO_BIG);
@@ -925,6 +1144,8 @@ static int trace_kprobe_create_internal(int argc, const char *argv[],
 
 	/* try to parse an address. if that fails, try to read the
 	 * input as a symbol. */
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (kstrtoul(argv[1], 0, (unsigned long *)&addr)) {
 		trace_probe_log_set_index(1);
 		/* Check whether uprobe event specified */
@@ -933,11 +1154,18 @@ static int trace_kprobe_create_internal(int argc, const char *argv[],
 
 		/* a symbol specified */
 		symbol = kstrdup(argv[1], GFP_KERNEL);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!symbol)
 			return -ENOMEM;
 
 		tmp = strchr(symbol, '%');
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (tmp) {
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (!strcmp(tmp, "%return")) {
 				*tmp = '\0';
 				is_return = true;
@@ -949,24 +1177,41 @@ static int trace_kprobe_create_internal(int argc, const char *argv[],
 
 		/* TODO: support .init module functions */
 		ret = traceprobe_split_symbol_offset(symbol, &offset);
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (ret || offset < 0 || offset > UINT_MAX) {
 			trace_probe_log_err(0, BAD_PROBE_ADDR);
 			return -EINVAL;
 		}
 		ret = validate_probe_symbol(symbol);
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (ret) {
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (ret == -EADDRNOTAVAIL)
 				trace_probe_log_err(0, NON_UNIQ_SYMBOL);
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			else
 				trace_probe_log_err(0, BAD_PROBE_ADDR);
 			return -EINVAL;
 		}
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (is_return)
 			ctx->flags |= TPARG_FL_RETURN;
 		ret = kprobe_on_func_entry(NULL, symbol, offset);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (ret == 0 && !is_return)
 			ctx->flags |= TPARG_FL_FENTRY;
 		/* Defer the ENOENT case until register kprobe */
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (ret == -EINVAL && is_return) {
 			trace_probe_log_err(0, BAD_RETPROBE);
 			return -EINVAL;
@@ -974,24 +1219,40 @@ static int trace_kprobe_create_internal(int argc, const char *argv[],
 	}
 
 	trace_probe_log_set_index(0);
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (event) {
 		gbuf = kmalloc(MAX_EVENT_NAME_LEN, GFP_KERNEL);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!gbuf)
 			return -ENOMEM;
 		ret = traceprobe_parse_event_name(&event, &group, gbuf,
 						  event - argv[0]);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (ret)
 			return ret;
 	}
 
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (!event) {
 		/* Make a new event name */
 		ebuf = kmalloc(MAX_EVENT_NAME_LEN, GFP_KERNEL);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!ebuf)
 			return -ENOMEM;
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (symbol)
 			snprintf(ebuf, MAX_EVENT_NAME_LEN, "%c_%s_%ld",
 				 is_return ? 'r' : 'p', symbol, offset);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		else
 			snprintf(ebuf, MAX_EVENT_NAME_LEN, "%c_0x%p",
 				 is_return ? 'r' : 'p', addr);
@@ -1000,21 +1261,31 @@ static int trace_kprobe_create_internal(int argc, const char *argv[],
 	}
 
 	abuf = kmalloc(MAX_BTF_ARGS_LEN, GFP_KERNEL);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!abuf)
 		return -ENOMEM;
 	argc -= 2; argv += 2;
 	ctx->funcname = symbol;
 	new_argv = traceprobe_expand_meta_args(argc, argv, &new_argc,
 					       abuf, MAX_BTF_ARGS_LEN, ctx);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (IS_ERR(new_argv)) {
 		ret = PTR_ERR(new_argv);
 		new_argv = NULL;
 		return ret;
 	}
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (new_argv) {
 		argc = new_argc;
 		argv = new_argv;
 	}
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (argc > MAX_TRACE_ARGS) {
 		trace_probe_log_set_index(2);
 		trace_probe_log_err(0, TOO_MANY_ARGS);
@@ -1022,12 +1293,16 @@ static int trace_kprobe_create_internal(int argc, const char *argv[],
 	}
 
 	ret = traceprobe_expand_dentry_args(argc, argv, &dbuf);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret)
 		return ret;
 
 	/* setup a probe */
 	tk = alloc_trace_kprobe(group, event, addr, symbol, offset, maxactive,
 				argc, is_return);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (IS_ERR(tk)) {
 		ret = PTR_ERR(tk);
 		/* This must return -ENOMEM, else there is a bug */
@@ -1036,14 +1311,22 @@ static int trace_kprobe_create_internal(int argc, const char *argv[],
 	}
 
 	/* parse arguments */
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (i = 0; i < argc; i++) {
 		trace_probe_log_set_index(i + 2);
 		ctx->offset = 0;
 		ret = traceprobe_parse_probe_arg(&tk->tp, i, argv[i], ctx);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (ret)
 			return ret;	/* This can be -ENOMEM */
 	}
 	/* entry handler for kretprobe */
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (is_return && tk->tp.entry_arg) {
 		tk->rp.entry_handler = trace_kprobe_entry_handler;
 		tk->rp.data_size = traceprobe_get_entry_data_size(&tk->tp);
@@ -1051,16 +1334,27 @@ static int trace_kprobe_create_internal(int argc, const char *argv[],
 
 	ptype = is_return ? PROBE_PRINT_RETURN : PROBE_PRINT_NORMAL;
 	ret = traceprobe_set_print_fmt(&tk->tp, ptype);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret < 0)
 		return ret;
 
 	ret = register_trace_kprobe(tk);
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (ret) {
 		trace_probe_log_set_index(1);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (ret == -EILSEQ)
 			trace_probe_log_err(0, BAD_INSN_BNDRY);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		else if (ret == -ENOENT)
 			trace_probe_log_err(0, BAD_PROBE_ADDR);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		else if (ret != -ENOMEM && ret != -EEXIST)
 			trace_probe_log_err(0, FAIL_REG_PROBE);
 		return ret;
@@ -1080,6 +1374,8 @@ static int trace_kprobe_create_cb(int argc, const char *argv[])
 	int ret;
 
 	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!ctx)
 		return -ENOMEM;
 	ctx->flags = TPARG_FL_KERNEL;
@@ -1101,6 +1397,8 @@ static int create_or_delete_trace_kprobe(const char *raw_command)
 {
 	int ret;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (raw_command[0] == '-')
 		return dyn_event_release(raw_command, &trace_kprobe_ops);
 
@@ -1160,35 +1458,55 @@ int __kprobe_event_gen_cmd_start(struct dynevent_cmd *cmd, bool kretprobe,
 	va_list args;
 	int ret;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (cmd->type != DYNEVENT_TYPE_KPROBE)
 		return -EINVAL;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!loc)
 		return -EINVAL;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (kretprobe)
 		snprintf(buf, MAX_EVENT_NAME_LEN, "r:kprobes/%s", name);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	else
 		snprintf(buf, MAX_EVENT_NAME_LEN, "p:kprobes/%s", name);
 
 	ret = dynevent_str_add(cmd, buf);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret)
 		return ret;
 
 	dynevent_arg_init(&arg, 0);
 	arg.str = loc;
 	ret = dynevent_arg_add(cmd, &arg, NULL);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret)
 		return ret;
 
 	va_start(args, loc);
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (;;) {
 		const char *field;
 
 		field = va_arg(args, const char *);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!field)
 			break;
 
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (++cmd->n_fields > MAX_TRACE_ARGS) {
 			ret = -EINVAL;
 			break;
@@ -1196,6 +1514,8 @@ int __kprobe_event_gen_cmd_start(struct dynevent_cmd *cmd, bool kretprobe,
 
 		arg.str = field;
 		ret = dynevent_arg_add(cmd, &arg, NULL);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (ret)
 			break;
 	}
@@ -1227,19 +1547,29 @@ int __kprobe_event_add_fields(struct dynevent_cmd *cmd, ...)
 	va_list args;
 	int ret = 0;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (cmd->type != DYNEVENT_TYPE_KPROBE)
 		return -EINVAL;
 
 	dynevent_arg_init(&arg, 0);
 
 	va_start(args, cmd);
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (;;) {
 		const char *field;
 
 		field = va_arg(args, const char *);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!field)
 			break;
 
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (++cmd->n_fields > MAX_TRACE_ARGS) {
 			ret = -EINVAL;
 			break;
@@ -1247,6 +1577,8 @@ int __kprobe_event_add_fields(struct dynevent_cmd *cmd, ...)
 
 		arg.str = field;
 		ret = dynevent_arg_add(cmd, &arg, NULL);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (ret)
 			break;
 	}
@@ -1280,6 +1612,8 @@ static int trace_kprobe_release(struct dyn_event *ev)
 	struct trace_kprobe *tk = to_trace_kprobe(ev);
 	int ret = unregister_trace_kprobe(tk);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!ret)
 		free_trace_kprobe(tk);
 	return ret;
@@ -1291,19 +1625,29 @@ static int trace_kprobe_show(struct seq_file *m, struct dyn_event *ev)
 	int i;
 
 	seq_putc(m, trace_kprobe_is_return(tk) ? 'r' : 'p');
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (trace_kprobe_is_return(tk) && tk->rp.maxactive)
 		seq_printf(m, "%d", tk->rp.maxactive);
 	seq_printf(m, ":%s/%s", trace_probe_group_name(&tk->tp),
 				trace_probe_name(&tk->tp));
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!tk->symbol)
 		seq_printf(m, " 0x%p", tk->rp.kp.addr);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	else if (tk->rp.kp.offset)
 		seq_printf(m, " %s+%u", trace_kprobe_symbol(tk),
 			   tk->rp.kp.offset);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	else
 		seq_printf(m, " %s", trace_kprobe_symbol(tk));
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	for (i = 0; i < tk->tp.nr_args; i++)
 		seq_printf(m, " %s=%s", tk->tp.args[i].name, tk->tp.args[i].comm);
 	seq_putc(m, '\n');
@@ -1315,6 +1659,8 @@ static int probes_seq_show(struct seq_file *m, void *v)
 {
 	struct dyn_event *ev = v;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!is_trace_kprobe(ev))
 		return 0;
 
@@ -1333,11 +1679,17 @@ static int probes_open(struct inode *inode, struct file *file)
 	int ret;
 
 	ret = security_locked_down(LOCKDOWN_TRACEFS);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret)
 		return ret;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if ((file->f_mode & FMODE_WRITE) && (file->f_flags & O_TRUNC)) {
 		ret = dyn_events_release_all(&trace_kprobe_ops);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (ret < 0)
 			return ret;
 	}
@@ -1374,6 +1726,8 @@ static int probes_profile_seq_show(struct seq_file *m, void *v)
 	struct trace_kprobe *tk;
 	unsigned long nmissed;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!is_trace_kprobe(ev))
 		return 0;
 
@@ -1399,6 +1753,8 @@ static int profile_open(struct inode *inode, struct file *file)
 	int ret;
 
 	ret = security_locked_down(LOCKDOWN_TRACEFS);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret)
 		return ret;
 
@@ -1424,6 +1780,9 @@ process_fetch_insn(struct fetch_insn *code, void *rec, void *edata,
 
 retry:
 	/* 1st stage: get value from context */
+	/**
+	 * @brief [Functional Utility for switch]: Describe purpose here.
+	 */
 	switch (code->op) {
 	case FETCH_OP_REG:
 		val = regs_get_register(regs, code->param);
@@ -1450,6 +1809,8 @@ retry:
 		goto retry;
 	default:
 		ret = process_common_fetch_insn(code, &val);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (ret < 0)
 			return ret;
 	}
@@ -1471,6 +1832,8 @@ __kprobe_trace_func(struct trace_kprobe *tk, struct pt_regs *regs,
 
 	WARN_ON(call != trace_file->event_call);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (trace_trigger_soft_disabled(trace_file))
 		return;
 
@@ -1478,6 +1841,8 @@ __kprobe_trace_func(struct trace_kprobe *tk, struct pt_regs *regs,
 
 	entry = trace_event_buffer_reserve(&fbuffer, trace_file,
 					   sizeof(*entry) + tk->tp.size + dsize);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!entry)
 		return;
 
@@ -1511,6 +1876,8 @@ static int trace_kprobe_entry_handler(struct kretprobe_instance *ri,
 	 * the kretprobe is unregister on another CPU between kretprobe's
 	 * trampoline_handler and this function.
 	 */
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (unlikely(!rp))
 		return -ENOENT;
 
@@ -1536,6 +1903,8 @@ __kretprobe_trace_func(struct trace_kprobe *tk, struct kretprobe_instance *ri,
 
 	WARN_ON(call != trace_file->event_call);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (trace_trigger_soft_disabled(trace_file))
 		return;
 
@@ -1543,6 +1912,8 @@ __kretprobe_trace_func(struct trace_kprobe *tk, struct kretprobe_instance *ri,
 
 	entry = trace_event_buffer_reserve(&fbuffer, trace_file,
 					   sizeof(*entry) + tk->tp.size + dsize);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!entry)
 		return;
 
@@ -1577,11 +1948,15 @@ print_kprobe_event(struct trace_iterator *iter, int flags,
 	field = (struct kprobe_trace_entry_head *)iter->ent;
 	tp = trace_probe_primary_from_call(
 		container_of(event, struct trace_event_call, event));
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (WARN_ON_ONCE(!tp))
 		goto out;
 
 	trace_seq_printf(s, "%s: (", trace_probe_name(tp));
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!seq_print_ip_sym(s, field->ip, flags | TRACE_ITER_SYM_OFFSET))
 		goto out;
 
@@ -1607,16 +1982,22 @@ print_kretprobe_event(struct trace_iterator *iter, int flags,
 	field = (struct kretprobe_trace_entry_head *)iter->ent;
 	tp = trace_probe_primary_from_call(
 		container_of(event, struct trace_event_call, event));
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (WARN_ON_ONCE(!tp))
 		goto out;
 
 	trace_seq_printf(s, "%s: (", trace_probe_name(tp));
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!seq_print_ip_sym(s, field->ret_ip, flags | TRACE_ITER_SYM_OFFSET))
 		goto out;
 
 	trace_seq_puts(s, " <- ");
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!seq_print_ip_sym(s, field->func, flags & ~TRACE_ITER_SYM_OFFSET))
 		goto out;
 
@@ -1640,6 +2021,8 @@ static int kprobe_event_define_fields(struct trace_event_call *event_call)
 	struct trace_probe *tp;
 
 	tp = trace_probe_primary_from_call(event_call);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (WARN_ON_ONCE(!tp))
 		return -ENOENT;
 
@@ -1655,6 +2038,8 @@ static int kretprobe_event_define_fields(struct trace_event_call *event_call)
 	struct trace_probe *tp;
 
 	tp = trace_probe_primary_from_call(event_call);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (WARN_ON_ONCE(!tp))
 		return -ENOENT;
 
@@ -1676,6 +2061,8 @@ kprobe_perf_func(struct trace_kprobe *tk, struct pt_regs *regs)
 	int size, __size, dsize;
 	int rctx;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (bpf_prog_array_valid(call)) {
 		unsigned long orig_ip = instruction_pointer(regs);
 		int ret;
@@ -1687,13 +2074,19 @@ kprobe_perf_func(struct trace_kprobe *tk, struct pt_regs *regs)
 		 * pt_regs, and if so return 1 so that we don't do the
 		 * single stepping.
 		 */
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (orig_ip != instruction_pointer(regs))
 			return 1;
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!ret)
 			return 0;
 	}
 
 	head = this_cpu_ptr(call->perf_events);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (hlist_empty(head))
 		return 0;
 
@@ -1703,6 +2096,8 @@ kprobe_perf_func(struct trace_kprobe *tk, struct pt_regs *regs)
 	size -= sizeof(u32);
 
 	entry = perf_trace_buf_alloc(size, NULL, &rctx);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!entry)
 		return 0;
 
@@ -1726,10 +2121,14 @@ kretprobe_perf_func(struct trace_kprobe *tk, struct kretprobe_instance *ri,
 	int size, __size, dsize;
 	int rctx;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (bpf_prog_array_valid(call) && !trace_call_bpf(call, regs))
 		return;
 
 	head = this_cpu_ptr(call->perf_events);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (hlist_empty(head))
 		return;
 
@@ -1739,6 +2138,8 @@ kretprobe_perf_func(struct trace_kprobe *tk, struct kretprobe_instance *ri,
 	size -= sizeof(u32);
 
 	entry = perf_trace_buf_alloc(size, NULL, &rctx);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!entry)
 		return;
 
@@ -1759,10 +2160,16 @@ int bpf_get_kprobe_info(const struct perf_event *event, u32 *fd_type,
 	const char *group = event->tp_event->class->system;
 	struct trace_kprobe *tk;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (perf_type_tracepoint)
 		tk = find_trace_kprobe(pevent, group);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	else
 		tk = trace_kprobe_primary_from_call(event->tp_event);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!tk)
 		return -EINVAL;
 
@@ -1772,6 +2179,8 @@ int bpf_get_kprobe_info(const struct perf_event *event, u32 *fd_type,
 	*probe_addr = kallsyms_show_value(current_cred()) ?
 		      (unsigned long)tk->rp.kp.addr : 0;
 	*symbol = tk->symbol;
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (missed)
 		*missed = trace_kprobe_missed(tk);
 	return 0;
@@ -1789,6 +2198,9 @@ static int kprobe_register(struct trace_event_call *event,
 {
 	struct trace_event_file *file = data;
 
+	/**
+	 * @brief [Functional Utility for switch]: Describe purpose here.
+	 */
 	switch (type) {
 	case TRACE_REG_REGISTER:
 		return enable_trace_kprobe(event, file);
@@ -1817,6 +2229,8 @@ static int kprobe_dispatcher(struct kprobe *kp, struct pt_regs *regs)
 
 	raw_cpu_inc(*tk->nhit);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (trace_probe_test_flag(&tk->tp, TP_FLAG_TRACE))
 		kprobe_trace_func(tk, regs);
 #ifdef CONFIG_PERF_EVENTS
@@ -1838,12 +2252,16 @@ kretprobe_dispatcher(struct kretprobe_instance *ri, struct pt_regs *regs)
 	 * the kretprobe is unregister on another CPU between kretprobe's
 	 * trampoline_handler and this function.
 	 */
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (unlikely(!rp))
 		return 0;
 
 	tk = container_of(rp, struct trace_kprobe, rp);
 	raw_cpu_inc(*tk->nhit);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (trace_probe_test_flag(&tk->tp, TP_FLAG_TRACE))
 		kretprobe_trace_func(tk, ri, regs);
 #ifdef CONFIG_PERF_EVENTS
@@ -1878,6 +2296,8 @@ static inline void init_trace_event_call(struct trace_kprobe *tk)
 {
 	struct trace_event_call *call = trace_probe_event_call(&tk->tp);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (trace_kprobe_is_return(tk)) {
 		call->event.funcs = &kretprobe_funcs;
 		call->class->fields_array = kretprobe_fields_array;
@@ -1914,8 +2334,13 @@ create_local_trace_kprobe(char *func, void *addr, unsigned long offs,
 	int ret;
 	char *event;
 
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (func) {
 		ret = validate_probe_symbol(func);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (ret)
 			return ERR_PTR(ret);
 	}
@@ -1931,6 +2356,8 @@ create_local_trace_kprobe(char *func, void *addr, unsigned long offs,
 				offs, 0 /* maxactive */, 0 /* nargs */,
 				is_return);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (IS_ERR(tk)) {
 		pr_info("Failed to allocate trace_probe.(%d)\n",
 			(int)PTR_ERR(tk));
@@ -1941,10 +2368,14 @@ create_local_trace_kprobe(char *func, void *addr, unsigned long offs,
 
 	ptype = trace_kprobe_is_return(tk) ?
 		PROBE_PRINT_RETURN : PROBE_PRINT_NORMAL;
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (traceprobe_set_print_fmt(&tk->tp, ptype) < 0)
 		return ERR_PTR(-ENOMEM);
 
 	ret = __register_trace_kprobe(tk);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret < 0)
 		return ERR_PTR(ret);
 
@@ -1956,9 +2387,13 @@ void destroy_local_trace_kprobe(struct trace_event_call *event_call)
 	struct trace_kprobe *tk;
 
 	tk = trace_kprobe_primary_from_call(event_call);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (unlikely(!tk))
 		return;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (trace_probe_is_enabled(&tk->tp)) {
 		WARN_ON(1);
 		return;
@@ -1978,8 +2413,13 @@ static __init void enable_boot_kprobe_events(void)
 	struct dyn_event *pos;
 
 	guard(mutex)(&event_mutex);
+	/**
+	 * @brief [Functional Utility for for_each_trace_kprobe]: Describe purpose here.
+	 */
 	for_each_trace_kprobe(tk, pos) {
 		list_for_each_entry(file, &tr->events, list)
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (file->event_call == trace_probe_event_call(&tk->tp))
 				trace_event_enable_disable(file, 1, 0);
 	}
@@ -1992,12 +2432,19 @@ static __init void setup_boot_kprobe_events(void)
 
 	strreplace(kprobe_boot_events_buf, ',', ' ');
 
+	/**
+	 * @brief [Functional Utility for while]: Describe purpose here.
+	 */
 	while (cmd && *cmd != '\0') {
 		p = strchr(cmd, ';');
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (p)
 			*p++ = '\0';
 
 		ret = create_or_delete_trace_kprobe(cmd);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (ret)
 			pr_warn("Failed to add event(%d): %s\n", ret, cmd);
 
@@ -2016,9 +2463,13 @@ static __init int init_kprobe_trace_early(void)
 	int ret;
 
 	ret = dyn_event_register(&trace_kprobe_ops);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret)
 		return ret;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (trace_kprobe_register_module_notifier())
 		return -EINVAL;
 
@@ -2032,6 +2483,8 @@ static __init int init_kprobe_trace(void)
 	int ret;
 
 	ret = tracing_init_dentry();
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret)
 		return 0;
 
@@ -2057,6 +2510,8 @@ find_trace_probe_file(struct trace_kprobe *tk, struct trace_array *tr)
 	struct trace_event_file *file;
 
 	list_for_each_entry(file, &tr->events, list)
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (file->event_call == trace_probe_event_call(&tk->tp))
 			return file;
 
@@ -2074,9 +2529,13 @@ static __init int kprobe_trace_self_tests_init(void)
 	struct trace_kprobe *tk;
 	struct trace_event_file *file;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (tracing_is_disabled())
 		return -ENODEV;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (tracing_selftest_disabled)
 		return 0;
 
@@ -2085,15 +2544,21 @@ static __init int kprobe_trace_self_tests_init(void)
 	pr_info("Testing kprobe tracing: ");
 
 	ret = create_or_delete_trace_kprobe("p:testprobe kprobe_trace_selftest_target $stack $stack0 +0($stack)");
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (WARN_ONCE(ret, "error on probing function entry.")) {
 		warn++;
 	} else {
 		/* Enable trace point */
 		tk = find_trace_kprobe("testprobe", KPROBE_EVENT_SYSTEM);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (WARN_ONCE(tk == NULL, "error on probing function entry.")) {
 			warn++;
 		} else {
 			file = find_trace_probe_file(tk, top_trace_array());
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (WARN_ONCE(file == NULL, "error on getting probe file.")) {
 				warn++;
 			} else
@@ -2103,15 +2568,21 @@ static __init int kprobe_trace_self_tests_init(void)
 	}
 
 	ret = create_or_delete_trace_kprobe("r:testprobe2 kprobe_trace_selftest_target $retval");
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (WARN_ONCE(ret, "error on probing function return.")) {
 		warn++;
 	} else {
 		/* Enable trace point */
 		tk = find_trace_kprobe("testprobe2", KPROBE_EVENT_SYSTEM);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (WARN_ONCE(tk == NULL, "error on getting 2nd new probe.")) {
 			warn++;
 		} else {
 			file = find_trace_probe_file(tk, top_trace_array());
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (WARN_ONCE(file == NULL, "error on getting probe file.")) {
 				warn++;
 			} else
@@ -2120,6 +2591,8 @@ static __init int kprobe_trace_self_tests_init(void)
 		}
 	}
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (warn)
 		goto end;
 
@@ -2130,19 +2603,27 @@ static __init int kprobe_trace_self_tests_init(void)
 	 * optimizer from removing the call to target() as otherwise there
 	 * are no side-effects and the call is never performed.
 	 */
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret != 21)
 		warn++;
 
 	/* Disable trace points before removing it */
 	tk = find_trace_kprobe("testprobe", KPROBE_EVENT_SYSTEM);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (WARN_ONCE(tk == NULL, "error on getting test probe.")) {
 		warn++;
 	} else {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (WARN_ONCE(trace_kprobe_nhit(tk) != 1,
 				 "incorrect number of testprobe hits."))
 			warn++;
 
 		file = find_trace_probe_file(tk, top_trace_array());
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (WARN_ONCE(file == NULL, "error on getting probe file.")) {
 			warn++;
 		} else
@@ -2151,14 +2632,20 @@ static __init int kprobe_trace_self_tests_init(void)
 	}
 
 	tk = find_trace_kprobe("testprobe2", KPROBE_EVENT_SYSTEM);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (WARN_ONCE(tk == NULL, "error on getting 2nd test probe.")) {
 		warn++;
 	} else {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (WARN_ONCE(trace_kprobe_nhit(tk) != 1,
 				 "incorrect number of testprobe2 hits."))
 			warn++;
 
 		file = find_trace_probe_file(tk, top_trace_array());
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (WARN_ONCE(file == NULL, "error on getting probe file.")) {
 			warn++;
 		} else
@@ -2167,10 +2654,14 @@ static __init int kprobe_trace_self_tests_init(void)
 	}
 
 	ret = create_or_delete_trace_kprobe("-:testprobe");
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (WARN_ONCE(ret, "error on deleting a probe."))
 		warn++;
 
 	ret = create_or_delete_trace_kprobe("-:testprobe2");
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (WARN_ONCE(ret, "error on deleting a probe."))
 		warn++;
 
@@ -2181,8 +2672,12 @@ end:
 	 * with probes in already freed __init text.
 	 */
 	wait_for_kprobe_optimizer();
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (warn)
 		pr_cont("NG: Some tests are failed. Please check them.\n");
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	else
 		pr_cont("OK\n");
 	return 0;

@@ -68,6 +68,11 @@ import static org.elasticsearch.xpack.inference.services.googlevertexai.GoogleVe
 import static org.elasticsearch.xpack.inference.services.googlevertexai.GoogleVertexAiServiceFields.PROJECT_ID;
 import static org.elasticsearch.xpack.inference.services.googlevertexai.action.GoogleVertexAiActionCreator.COMPLETION_ERROR_PREFIX;
 
+ /**
+  * @brief Functional description of the GoogleVertexAiService class.
+  *        This is a placeholder for detailed semantic documentation.
+  *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+  */
 public class GoogleVertexAiService extends SenderService {
 
     public static final String NAME = "googlevertexai";
@@ -108,6 +113,9 @@ public class GoogleVertexAiService extends SenderService {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for parseRequestConfig]: Describe purpose here.
+     */
     public void parseRequestConfig(
         String inferenceEntityId,
         TaskType taskType,
@@ -119,7 +127,7 @@ public class GoogleVertexAiService extends SenderService {
             Map<String, Object> taskSettingsMap = removeFromMapOrDefaultEmpty(config, ModelConfigurations.TASK_SETTINGS);
 
             ChunkingSettings chunkingSettings = null;
-            if (TaskType.TEXT_EMBEDDING.equals(taskType)) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (TaskType.TEXT_EMBEDDING.equals(taskType)) {
                 chunkingSettings = ChunkingSettingsBuilder.fromMap(
                     removeFromMapOrDefaultEmpty(config, ModelConfigurations.CHUNKING_SETTINGS)
                 );
@@ -147,6 +155,9 @@ public class GoogleVertexAiService extends SenderService {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for parsePersistedConfigWithSecrets]: Describe purpose here.
+     * @return Model: [Description]\n     */
     public Model parsePersistedConfigWithSecrets(
         String inferenceEntityId,
         TaskType taskType,
@@ -158,7 +169,7 @@ public class GoogleVertexAiService extends SenderService {
         Map<String, Object> secretSettingsMap = removeFromMapOrDefaultEmpty(secrets, ModelSecrets.SECRET_SETTINGS);
 
         ChunkingSettings chunkingSettings = null;
-        if (TaskType.TEXT_EMBEDDING.equals(taskType)) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (TaskType.TEXT_EMBEDDING.equals(taskType)) {
             chunkingSettings = ChunkingSettingsBuilder.fromMap(removeFromMap(config, ModelConfigurations.CHUNKING_SETTINGS));
         }
 
@@ -179,7 +190,7 @@ public class GoogleVertexAiService extends SenderService {
         Map<String, Object> taskSettingsMap = removeFromMapOrDefaultEmpty(config, ModelConfigurations.TASK_SETTINGS);
 
         ChunkingSettings chunkingSettings = null;
-        if (TaskType.TEXT_EMBEDDING.equals(taskType)) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (TaskType.TEXT_EMBEDDING.equals(taskType)) {
             chunkingSettings = ChunkingSettingsBuilder.fromMap(removeFromMap(config, ModelConfigurations.CHUNKING_SETTINGS));
         }
 
@@ -210,6 +221,9 @@ public class GoogleVertexAiService extends SenderService {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for doInfer]: Describe purpose here.
+     */
     protected void doInfer(
         Model model,
         InferenceInputs inputs,
@@ -217,7 +231,7 @@ public class GoogleVertexAiService extends SenderService {
         TimeValue timeout,
         ActionListener<InferenceServiceResults> listener
     ) {
-        if (model instanceof GoogleVertexAiModel == false) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (model instanceof GoogleVertexAiModel == false) {
             listener.onFailure(createInvalidModelException(model));
             return;
         }
@@ -236,13 +250,16 @@ public class GoogleVertexAiService extends SenderService {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for doUnifiedCompletionInfer]: Describe purpose here.
+     */
     protected void doUnifiedCompletionInfer(
         Model model,
         UnifiedChatInput inputs,
         TimeValue timeout,
         ActionListener<InferenceServiceResults> listener
     ) {
-        if (model instanceof GoogleVertexAiChatCompletionModel == false) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (model instanceof GoogleVertexAiChatCompletionModel == false) {
             listener.onFailure(createInvalidModelException(model));
             return;
         }
@@ -263,6 +280,9 @@ public class GoogleVertexAiService extends SenderService {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for doChunkedInfer]: Describe purpose here.
+     */
     protected void doChunkedInfer(
         Model model,
         EmbeddingsInput inputs,
@@ -280,7 +300,7 @@ public class GoogleVertexAiService extends SenderService {
             googleVertexAiModel.getConfigurations().getChunkingSettings()
         ).batchRequestsWithListeners(listener);
 
-        for (var request : batchedRequests) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (var request : batchedRequests) {
             var action = googleVertexAiModel.accept(actionCreator, taskSettings);
             action.execute(EmbeddingsInput.fromStrings(request.batch().inputs().get(), inputType), timeout, request.listener());
         }
@@ -288,7 +308,7 @@ public class GoogleVertexAiService extends SenderService {
 
     @Override
     public Model updateModelWithEmbeddingDetails(Model model, int embeddingSize) {
-        if (model instanceof GoogleVertexAiEmbeddingsModel embeddingsModel) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (model instanceof GoogleVertexAiEmbeddingsModel embeddingsModel) {
             var serviceSettings = embeddingsModel.getServiceSettings();
 
             var updatedServiceSettings = new GoogleVertexAiEmbeddingsServiceSettings(
@@ -303,11 +323,14 @@ public class GoogleVertexAiService extends SenderService {
             );
 
             return new GoogleVertexAiEmbeddingsModel(embeddingsModel, updatedServiceSettings);
-        } else {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else {
             throw ServiceUtils.invalidModelTypeForUpdateModelWithEmbeddingDetails(model.getClass());
         }
     }
 
+    /**
+     * @brief [Functional Utility for createModelFromPersistent]: Describe purpose here.
+     * @return GoogleVertexAiModel: [Description]\n     */
     private static GoogleVertexAiModel createModelFromPersistent(
         String inferenceEntityId,
         TaskType taskType,
@@ -329,6 +352,9 @@ public class GoogleVertexAiService extends SenderService {
         );
     }
 
+    /**
+     * @brief [Functional Utility for createModel]: Describe purpose here.
+     * @return GoogleVertexAiModel: [Description]\n     */
     private static GoogleVertexAiModel createModel(
         String inferenceEntityId,
         TaskType taskType,

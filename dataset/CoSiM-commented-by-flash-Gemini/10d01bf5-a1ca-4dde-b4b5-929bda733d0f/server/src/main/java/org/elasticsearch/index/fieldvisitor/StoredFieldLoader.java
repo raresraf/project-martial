@@ -53,6 +53,13 @@ public abstract class StoredFieldLoader {
         return create(spec.requiresSource(), spec.requiredStoredFields());
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param loadSource: [Description]
+     * @param fields: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public static StoredFieldLoader create(boolean loadSource, Set<String> fields) {
         return create(loadSource, fields, false);
     }
@@ -65,15 +72,35 @@ public abstract class StoredFieldLoader {
      * @param forceSequentialReader if {@code true}, forces the use of a sequential leaf reader;
      *                              otherwise, uses the heuristic defined in {@link StoredFieldLoader#reader(LeafReaderContext, int[])}.
      */
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param loadSource: [Description]
+     * @param fields: [Description]
+     * @param forceSequentialReader: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public static StoredFieldLoader create(boolean loadSource, Set<String> fields, boolean forceSequentialReader) {
         List<String> fieldsToLoad = fieldsToLoad(loadSource, fields);
         return new StoredFieldLoader() {
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param ctx: [Description]
+     * @param docs: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public LeafStoredFieldLoader getLoader(LeafReaderContext ctx, int[] docs) throws IOException {
                 return new ReaderStoredFieldLoader(forceSequentialReader ? sequentialReader(ctx) : reader(ctx, docs), loadSource, fields);
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public List<String> fieldsToLoad() {
                 return fieldsToLoad;
             }
@@ -91,11 +118,23 @@ public abstract class StoredFieldLoader {
         List<String> fieldsToLoad = fieldsToLoad(spec.requiresSource(), spec.requiredStoredFields());
         return new StoredFieldLoader() {
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param ctx: [Description]
+     * @param docs: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public LeafStoredFieldLoader getLoader(LeafReaderContext ctx, int[] docs) throws IOException {
                 return new ReaderStoredFieldLoader(sequentialReader(ctx), spec.requiresSource(), spec.requiredStoredFields());
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public List<String> fieldsToLoad() {
                 return fieldsToLoad;
             }
@@ -108,11 +147,23 @@ public abstract class StoredFieldLoader {
     public static StoredFieldLoader sequentialSource() {
         return new StoredFieldLoader() {
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param ctx: [Description]
+     * @param docs: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public LeafStoredFieldLoader getLoader(LeafReaderContext ctx, int[] docs) throws IOException {
                 return new ReaderStoredFieldLoader(sequentialReader(ctx), true, Set.of());
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public List<String> fieldsToLoad() {
                 return List.of();
             }
@@ -125,17 +176,36 @@ public abstract class StoredFieldLoader {
     public static StoredFieldLoader empty() {
         return new StoredFieldLoader() {
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param ctx: [Description]
+     * @param docs: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public LeafStoredFieldLoader getLoader(LeafReaderContext ctx, int[] docs) {
                 return new EmptyStoredFieldLoader();
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public List<String> fieldsToLoad() {
                 return List.of();
             }
         };
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param ctx: [Description]
+     * @param docs: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private static CheckedBiConsumer<Integer, FieldsVisitor, IOException> reader(LeafReaderContext ctx, int[] docs) throws IOException {
         LeafReader leafReader = ctx.reader();
         if (docs != null && docs.length > 10 && hasSequentialDocs(docs)) {
@@ -145,6 +215,12 @@ public abstract class StoredFieldLoader {
         return storedFields::document;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param ctx: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private static CheckedBiConsumer<Integer, FieldsVisitor, IOException> sequentialReader(LeafReaderContext ctx) throws IOException {
         LeafReader leafReader = ctx.reader();
         if (leafReader instanceof SequentialStoredFieldsLeafReader lf) {
@@ -153,6 +229,13 @@ public abstract class StoredFieldLoader {
         return leafReader.storedFields()::document;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param loadSource: [Description]
+     * @param fields: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private static List<String> fieldsToLoad(boolean loadSource, Set<String> fields) {
         Set<String> fieldsToLoad = new HashSet<>();
         fieldsToLoad.add("_id");
@@ -164,6 +247,12 @@ public abstract class StoredFieldLoader {
         return fieldsToLoad.stream().sorted().toList();
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param docs: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private static boolean hasSequentialDocs(int[] docs) {
         return docs.length > 0 && docs[docs.length - 1] - docs[0] == docs.length - 1;
     }
@@ -171,24 +260,50 @@ public abstract class StoredFieldLoader {
     private static class EmptyStoredFieldLoader implements LeafStoredFieldLoader {
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param doc: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public void advanceTo(int doc) throws IOException {}
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public BytesReference source() {
             return null;
         }
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public String id() {
             return null;
         }
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public String routing() {
             return null;
         }
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public Map<String, List<Object>> storedFields() {
             return Collections.emptyMap();
         }
@@ -206,6 +321,12 @@ public abstract class StoredFieldLoader {
         }
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param doc: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public void advanceTo(int doc) throws IOException {
             if (doc != this.doc) {
                 visitor.reset();
@@ -215,21 +336,41 @@ public abstract class StoredFieldLoader {
         }
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public BytesReference source() {
             return visitor.source();
         }
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public String id() {
             return visitor.id();
         }
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public String routing() {
             return visitor.routing();
         }
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public Map<String, List<Object>> storedFields() {
             return visitor.fields();
         }

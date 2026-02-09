@@ -38,16 +38,16 @@ public final class RankFeatureShardPhase {
     private RankFeatureShardPhase() {}
 
     public static void prepareForFetch(SearchContext searchContext, RankFeatureShardRequest request) {
-        if (logger.isTraceEnabled()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (logger.isTraceEnabled()) {
             logger.trace("{}", new SearchContextSourcePrinter(searchContext));
         }
 
-        if (searchContext.isCancelled()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (searchContext.isCancelled()) {
             throw new TaskCancelledException("cancelled");
         }
 
         RankFeaturePhaseRankShardContext rankFeaturePhaseRankShardContext = shardContext(searchContext);
-        if (rankFeaturePhaseRankShardContext != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (rankFeaturePhaseRankShardContext != null) {
             assert rankFeaturePhaseRankShardContext.getField() != null : "field must not be null";
             searchContext.fetchFieldsContext(
                 new FetchFieldsContext(Collections.singletonList(new FieldAndFormat(rankFeaturePhaseRankShardContext.getField(), null)))
@@ -59,24 +59,24 @@ public final class RankFeatureShardPhase {
     }
 
     public static void processFetch(SearchContext searchContext) {
-        if (logger.isTraceEnabled()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (logger.isTraceEnabled()) {
             logger.trace("{}", new SearchContextSourcePrinter(searchContext));
         }
 
-        if (searchContext.isCancelled()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (searchContext.isCancelled()) {
             throw new TaskCancelledException("cancelled");
         }
 
         RankFeaturePhaseRankShardContext rankFeaturePhaseRankShardContext = searchContext.request().source().rankBuilder() != null
             ? searchContext.request().source().rankBuilder().buildRankFeaturePhaseShardContext()
             : null;
-        if (rankFeaturePhaseRankShardContext != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (rankFeaturePhaseRankShardContext != null) {
             // TODO: here we populate the profile part of the fetchResult as well
             // we need to see what info we want to include on the overall profiling section. This is something that is per-shard
             // so most likely we will still care about the `FetchFieldPhase` profiling info as we could potentially
             // operate on `rank_window_size` instead of just `size` results, so this could be much more expensive.
             FetchSearchResult fetchSearchResult = searchContext.fetchResult();
-            if (fetchSearchResult == null || fetchSearchResult.hits() == null) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (fetchSearchResult == null || fetchSearchResult.hits() == null) {
                 return;
             }
             // this cannot be null; as we have either already checked for it, or we would have thrown in
@@ -86,7 +86,7 @@ public final class RankFeatureShardPhase {
                 .buildRankFeatureShardResult(hits, searchContext.request().shardRequestIndex());
             // save the result in the search context
             // need to add profiling info as well available from fetch
-            if (featureRankShardResult != null) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (featureRankShardResult != null) {
                 searchContext.rankFeatureResult().shardResult(featureRankShardResult);
             }
         }

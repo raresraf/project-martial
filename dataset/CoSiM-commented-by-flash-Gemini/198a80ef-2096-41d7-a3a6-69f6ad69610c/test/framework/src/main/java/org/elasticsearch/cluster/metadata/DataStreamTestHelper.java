@@ -92,20 +92,47 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+/**
+ * @brief Functional description of the DataStreamTestHelper class.
+ *        This is a placeholder for detailed semantic documentation.
+ *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+ */
 public final class DataStreamTestHelper {
 
     private static final Settings.Builder SETTINGS = ESTestCase.settings(IndexVersion.current()).put("index.hidden", true);
     private static final int NUMBER_OF_SHARDS = 1;
     private static final int NUMBER_OF_REPLICAS = 1;
 
+    /**
+     * @brief [Functional Utility for newInstance]: Describe purpose here.
+     * @param name: [Description]
+     * @param indices: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static DataStream newInstance(String name, List<Index> indices) {
         return newInstance(name, indices, indices.size(), null);
     }
 
+    /**
+     * @brief [Functional Utility for newInstance]: Describe purpose here.
+     * @param name: [Description]
+     * @param indices: [Description]
+     * @param failureIndices: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static DataStream newInstance(String name, List<Index> indices, List<Index> failureIndices) {
         return newInstance(name, indices, indices.size(), null, false, null, failureIndices);
     }
 
+    /**
+     * @brief [Functional Utility for newInstance]: Describe purpose here.
+     * @param name: [Description]
+     * @param indices: [Description]
+     * @param generation: [Description]
+     * @param Map<String: [Description]
+     * @param metadata: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static DataStream newInstance(String name, List<Index> indices, long generation, Map<String, Object> metadata) {
         return newInstance(name, indices, generation, metadata, false);
     }
@@ -187,6 +214,13 @@ public final class DataStreamTestHelper {
             .build();
     }
 
+    /**
+     * @brief [Functional Utility for getLegacyDefaultBackingIndexName]: Describe purpose here.
+     * @param dataStreamName: [Description]
+     * @param generation: [Description]
+     * @param epochMillis: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static String getLegacyDefaultBackingIndexName(String dataStreamName, long generation, long epochMillis) {
         return String.format(
             Locale.ROOT,
@@ -197,22 +231,52 @@ public final class DataStreamTestHelper {
         );
     }
 
+    /**
+     * @brief [Functional Utility for getLegacyDefaultBackingIndexName]: Describe purpose here.
+     * @param dataStreamName: [Description]
+     * @param generation: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static String getLegacyDefaultBackingIndexName(String dataStreamName, long generation) {
         return String.format(Locale.ROOT, BACKING_INDEX_PREFIX + "%s-%06d", dataStreamName, generation);
     }
 
+    /**
+     * @brief [Functional Utility for createFirstBackingIndex]: Describe purpose here.
+     * @param dataStreamName: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static IndexMetadata.Builder createFirstBackingIndex(String dataStreamName) {
         return createBackingIndex(dataStreamName, 1, System.currentTimeMillis());
     }
 
+    /**
+     * @brief [Functional Utility for createFirstBackingIndex]: Describe purpose here.
+     * @param dataStreamName: [Description]
+     * @param epochMillis: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static IndexMetadata.Builder createFirstBackingIndex(String dataStreamName, long epochMillis) {
         return createBackingIndex(dataStreamName, 1, epochMillis);
     }
 
+    /**
+     * @brief [Functional Utility for createBackingIndex]: Describe purpose here.
+     * @param dataStreamName: [Description]
+     * @param generation: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static IndexMetadata.Builder createBackingIndex(String dataStreamName, int generation) {
         return createBackingIndex(dataStreamName, generation, System.currentTimeMillis());
     }
 
+    /**
+     * @brief [Functional Utility for createBackingIndex]: Describe purpose here.
+     * @param dataStreamName: [Description]
+     * @param generation: [Description]
+     * @param epochMillis: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static IndexMetadata.Builder createBackingIndex(String dataStreamName, int generation, long epochMillis) {
         return IndexMetadata.builder(DataStream.getDefaultBackingIndexName(dataStreamName, generation, epochMillis))
             .settings(SETTINGS)
@@ -220,18 +284,42 @@ public final class DataStreamTestHelper {
             .numberOfReplicas(NUMBER_OF_REPLICAS);
     }
 
+    /**
+     * @brief [Functional Utility for createFirstFailureStore]: Describe purpose here.
+     * @param dataStreamName: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static IndexMetadata.Builder createFirstFailureStore(String dataStreamName) {
         return createFailureStore(dataStreamName, 1, System.currentTimeMillis());
     }
 
+    /**
+     * @brief [Functional Utility for createFirstFailureStore]: Describe purpose here.
+     * @param dataStreamName: [Description]
+     * @param epochMillis: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static IndexMetadata.Builder createFirstFailureStore(String dataStreamName, long epochMillis) {
         return createFailureStore(dataStreamName, 1, epochMillis);
     }
 
+    /**
+     * @brief [Functional Utility for createFailureStore]: Describe purpose here.
+     * @param dataStreamName: [Description]
+     * @param generation: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static IndexMetadata.Builder createFailureStore(String dataStreamName, int generation) {
         return createFailureStore(dataStreamName, generation, System.currentTimeMillis());
     }
 
+    /**
+     * @brief [Functional Utility for createFailureStore]: Describe purpose here.
+     * @param dataStreamName: [Description]
+     * @param generation: [Description]
+     * @param epochMillis: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static IndexMetadata.Builder createFailureStore(String dataStreamName, int generation, long epochMillis) {
         return IndexMetadata.builder(DataStream.getDefaultFailureStoreName(dataStreamName, generation, epochMillis))
             .settings(SETTINGS)
@@ -239,6 +327,11 @@ public final class DataStreamTestHelper {
             .numberOfReplicas(NUMBER_OF_REPLICAS);
     }
 
+    /**
+     * @brief [Functional Utility for getIndexMetadataBuilderForIndex]: Describe purpose here.
+     * @param index: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static IndexMetadata.Builder getIndexMetadataBuilderForIndex(Index index) {
         return IndexMetadata.builder(index.getName())
             .settings(Settings.builder().put(SETTINGS.build()).put(SETTING_INDEX_UUID, index.getUUID()))
@@ -246,6 +339,11 @@ public final class DataStreamTestHelper {
             .numberOfReplicas(NUMBER_OF_REPLICAS);
     }
 
+    /**
+     * @brief [Functional Utility for generateMapping]: Describe purpose here.
+     * @param timestampFieldName: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static String generateMapping(String timestampFieldName) {
         return String.format(Locale.ROOT, """
             {
@@ -259,6 +357,10 @@ public final class DataStreamTestHelper {
             }""", timestampFieldName);
     }
 
+    /**
+     * @brief [Functional Utility for generateTsdbMapping]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public static String generateTsdbMapping() {
         return """
             {
@@ -276,6 +378,12 @@ public final class DataStreamTestHelper {
             }""";
     }
 
+    /**
+     * @brief [Functional Utility for generateMapping]: Describe purpose here.
+     * @param timestampFieldName: [Description]
+     * @param type: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static String generateMapping(String timestampFieldName, String type) {
         return "{\n"
             + "      \""
@@ -303,55 +411,114 @@ public final class DataStreamTestHelper {
         return randomIndexInstances(0, 128);
     }
 
+    /**
+     * @brief [Functional Utility for randomNonEmptyIndexInstances]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public static List<Index> randomNonEmptyIndexInstances() {
         return randomIndexInstances(1, 128);
     }
 
+    /**
+     * @brief [Functional Utility for randomIndexInstances]: Describe purpose here.
+     * @param min: [Description]
+     * @param max: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static List<Index> randomIndexInstances(int min, int max) {
         int numIndices = ESTestCase.randomIntBetween(min, max);
         List<Index> indices = new ArrayList<>(numIndices);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (int i = 0; i < numIndices; i++) {
             indices.add(new Index(randomAlphaOfLength(10).toLowerCase(Locale.ROOT), UUIDs.randomBase64UUID(LuceneTestCase.random())));
         }
+    /**
+     * @brief [Functional description for field indices]: Describe purpose here.
+     */
         return indices;
     }
 
+    /**
+     * @brief [Functional Utility for randomInstance]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public static DataStream randomInstance() {
         return randomInstance(System::currentTimeMillis);
     }
 
+    /**
+     * @brief [Functional Utility for randomInstance]: Describe purpose here.
+     * @param failureStore: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static DataStream randomInstance(boolean failureStore) {
         return randomInstance(System::currentTimeMillis, failureStore);
     }
 
+    /**
+     * @brief [Functional Utility for randomInstance]: Describe purpose here.
+     * @param name: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static DataStream randomInstance(String name) {
         return randomInstance(name, System::currentTimeMillis, randomBoolean());
     }
 
+    /**
+     * @brief [Functional Utility for randomInstance]: Describe purpose here.
+     * @param timeProvider: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static DataStream randomInstance(LongSupplier timeProvider) {
         return randomInstance(timeProvider, randomBoolean());
     }
 
+    /**
+     * @brief [Functional Utility for randomInstance]: Describe purpose here.
+     * @param timeProvider: [Description]
+     * @param failureStore: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static DataStream randomInstance(LongSupplier timeProvider, boolean failureStore) {
         String dataStreamName = randomAlphaOfLength(10).toLowerCase(Locale.ROOT);
         return randomInstance(dataStreamName, timeProvider, failureStore);
     }
 
+    /**
+     * @brief [Functional Utility for randomInstance]: Describe purpose here.
+     * @param dataStreamName: [Description]
+     * @param timeProvider: [Description]
+     * @param failureStore: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static DataStream randomInstance(String dataStreamName, LongSupplier timeProvider, boolean failureStore) {
         // Some tests don't work well with system data streams, since these data streams require special handling
         return randomInstance(dataStreamName, timeProvider, failureStore, false);
     }
 
+    /**
+     * @brief [Functional Utility for randomInstance]: Describe purpose here.
+     * @param dataStreamName: [Description]
+     * @param timeProvider: [Description]
+     * @param failureStore: [Description]
+     * @param system: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static DataStream randomInstance(String dataStreamName, LongSupplier timeProvider, boolean failureStore, boolean system) {
         List<Index> indices = randomIndexInstances();
         long generation = indices.size() + ESTestCase.randomLongBetween(1, 128);
         indices.add(new Index(getDefaultBackingIndexName(dataStreamName, generation), UUIDs.randomBase64UUID(LuceneTestCase.random())));
         Map<String, Object> metadata = null;
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (randomBoolean()) {
             metadata = Map.of("key", "value");
         }
         List<Index> failureIndices = List.of();
         generation = generation + ESTestCase.randomLongBetween(1, 128);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (failureStore) {
             failureIndices = randomNonEmptyIndexInstances();
             failureIndices.add(
@@ -404,15 +571,26 @@ public final class DataStreamTestHelper {
         );
     }
 
+    /**
+     * @brief [Functional Utility for randomMappings]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     private static CompressedXContent randomMappings() {
         try {
             return new CompressedXContent("{\"properties\":{\"" + randomAlphaOfLength(5) + "\":{\"type\":\"keyword\"}}}");
         } catch (IOException e) {
             fail("got an IO exception creating fake mappings: " + e);
+    /**
+     * @brief [Functional description for field null]: Describe purpose here.
+     */
             return null;
         }
     }
 
+    /**
+     * @brief [Functional Utility for randomAliasInstance]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public static DataStreamAlias randomAliasInstance() {
         List<String> dataStreams = List.of(generateRandomStringArray(5, 5, false, false));
         return new DataStreamAlias(
@@ -424,8 +602,17 @@ public final class DataStreamTestHelper {
     }
 
     @Nullable
+    /**
+     * @brief [Functional Utility for randomGlobalRetention]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public static DataStreamGlobalRetention randomGlobalRetention() {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (randomBoolean()) {
+    /**
+     * @brief [Functional description for field null]: Describe purpose here.
+     */
             return null;
         }
         boolean withDefault = randomBoolean();
@@ -443,6 +630,13 @@ public final class DataStreamTestHelper {
      */
     @FixForMultiProject(description = "Don't use default project id")
     @Deprecated(forRemoval = true)
+    /**
+     * @brief [Functional Utility for getClusterStateWithDataStreams]: Describe purpose here.
+     * @param List<Tuple<String: [Description]
+     * @param dataStreams: [Description]
+     * @param indexNames: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static ClusterState getClusterStateWithDataStreams(List<Tuple<String, Integer>> dataStreams, List<String> indexNames) {
         return getClusterStateWithDataStreams(Metadata.DEFAULT_PROJECT_ID, dataStreams, indexNames);
     }
@@ -518,8 +712,12 @@ public final class DataStreamTestHelper {
         );
 
         List<IndexMetadata> allIndices = new ArrayList<>();
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (Tuple<String, Integer> dsTuple : dataStreams) {
             List<IndexMetadata> backingIndices = new ArrayList<>();
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             for (int backingIndexNumber = 1; backingIndexNumber <= dsTuple.v2(); backingIndexNumber++) {
                 backingIndices.add(
                     createIndexMetadata(getDefaultBackingIndexName(dsTuple.v1(), backingIndexNumber, currentTime), true, settings, replicas)
@@ -528,7 +726,11 @@ public final class DataStreamTestHelper {
             allIndices.addAll(backingIndices);
 
             List<IndexMetadata> failureStores = new ArrayList<>();
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (Boolean.TRUE.equals(storeFailures)) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 for (int failureStoreNumber = 1; failureStoreNumber <= dsTuple.v2(); failureStoreNumber++) {
                     failureStores.add(
                         createIndexMetadata(
@@ -554,10 +756,14 @@ public final class DataStreamTestHelper {
             builder.put(ds);
         }
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (String indexName : indexNames) {
             allIndices.add(createIndexMetadata(indexName, false, settings, replicas));
         }
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (IndexMetadata index : allIndices) {
             builder.put(index, false);
         }
@@ -566,6 +772,13 @@ public final class DataStreamTestHelper {
 
     @FixForMultiProject(description = "Don't use default project id")
     @Deprecated(forRemoval = true)
+    /**
+     * @brief [Functional Utility for getClusterStateWithDataStream]: Describe purpose here.
+     * @param dataStream: [Description]
+     * @param List<Tuple<Instant: [Description]
+     * @param timeSlices: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static ClusterState getClusterStateWithDataStream(String dataStream, List<Tuple<Instant, Instant>> timeSlices) {
         return ClusterState.builder(ClusterName.DEFAULT)
             .putProjectMetadata(getProjectWithDataStream(Metadata.DEFAULT_PROJECT_ID, dataStream, timeSlices))
@@ -599,12 +812,18 @@ public final class DataStreamTestHelper {
     ) {
         List<IndexMetadata> backingIndices = new ArrayList<>();
         DataStream existing = builder.dataStream(dataStreamName);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (existing != null) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             for (Index index : existing.getIndices()) {
                 backingIndices.add(builder.getSafe(index));
             }
         }
         long generation = existing != null ? existing.getGeneration() + 1 : 1L;
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (Tuple<Instant, Instant> tuple : timeSlices) {
             Instant start = tuple.v1();
             Instant end = tuple.v2();
@@ -623,6 +842,8 @@ public final class DataStreamTestHelper {
             dataStreamName,
             backingIndices.stream().map(IndexMetadata::getIndex).collect(Collectors.toList())
         ).setGeneration(generation).setIndexMode(IndexMode.TIME_SERIES);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (existing != null) {
             dataStreamBuilder.setMetadata(existing.getMetadata())
                 .setHidden(existing.isHidden())
@@ -633,6 +854,14 @@ public final class DataStreamTestHelper {
         builder.put(dataStreamBuilder.build());
     }
 
+    /**
+     * @brief [Functional Utility for createIndexMetadata]: Describe purpose here.
+     * @param name: [Description]
+     * @param hidden: [Description]
+     * @param settings: [Description]
+     * @param replicas: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static IndexMetadata createIndexMetadata(String name, boolean hidden, Settings settings, int replicas) {
         Settings.Builder b = Settings.builder()
             .put(settings)
@@ -642,6 +871,12 @@ public final class DataStreamTestHelper {
         return IndexMetadata.builder(name).settings(b).numberOfShards(1).numberOfReplicas(replicas).build();
     }
 
+    /**
+     * @brief [Functional Utility for backingIndexPattern]: Describe purpose here.
+     * @param dataStreamName: [Description]
+     * @param generation: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static String backingIndexPattern(String dataStreamName, long generation) {
         return String.format(Locale.ROOT, "\\.ds-%s-(\\d{4}\\.\\d{2}\\.\\d{2}-)?%06d", dataStreamName, generation);
     }
@@ -667,11 +902,24 @@ public final class DataStreamTestHelper {
      */
     public static Matcher<String> dataStreamIndexEqualTo(String dataStreamName, int generation, boolean failureStore) {
         return new TypeSafeMatcher<>() {
+    /**
+     * @brief [Functional description for field prefix]: Describe purpose here.
+     */
             private final String prefix = failureStore ? FAILURE_STORE_PREFIX : BACKING_INDEX_PREFIX;
 
             @Override
+    /**
+     * @brief [Functional Utility for matchesSafely]: Describe purpose here.
+     * @param backingIndexName: [Description]
+     * @return [ReturnType]: [Description]
+     */
             protected boolean matchesSafely(String backingIndexName) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (backingIndexName == null) {
+    /**
+     * @brief [Functional description for field false]: Describe purpose here.
+     */
                     return false;
                 }
                 String actualPrefix = backingIndexName.substring(0, prefix.length());
@@ -682,6 +930,12 @@ public final class DataStreamTestHelper {
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for describeMismatchSafely]: Describe purpose here.
+     * @param backingIndexName: [Description]
+     * @param mismatchDescription: [Description]
+     * @return [ReturnType]: [Description]
+     */
             protected void describeMismatchSafely(String backingIndexName, Description mismatchDescription) {
                 String actualPrefix = backingIndexName.substring(0, prefix.length());
                 int indexOfLastDash = backingIndexName.lastIndexOf('-');
@@ -696,6 +950,11 @@ public final class DataStreamTestHelper {
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for describeTo]: Describe purpose here.
+     * @param description: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public void describeTo(Description description) {
                 description.appendText("expected prefix ")
                     .appendValue(prefix)
@@ -705,10 +964,23 @@ public final class DataStreamTestHelper {
                     .appendValue(generation);
             }
 
+    /**
+     * @brief [Functional Utility for parseDataStreamName]: Describe purpose here.
+     * @param backingIndexName: [Description]
+     * @param prefix: [Description]
+     * @param indexOfLastDash: [Description]
+     * @return [ReturnType]: [Description]
+     */
             private static String parseDataStreamName(String backingIndexName, String prefix, int indexOfLastDash) {
                 return backingIndexName.substring(prefix.length(), backingIndexName.lastIndexOf('-', indexOfLastDash - 1));
             }
 
+    /**
+     * @brief [Functional Utility for parseGeneration]: Describe purpose here.
+     * @param backingIndexName: [Description]
+     * @param indexOfLastDash: [Description]
+     * @return [ReturnType]: [Description]
+     */
             private static int parseGeneration(String backingIndexName, int indexOfLastDash) {
                 return Integer.parseInt(backingIndexName.substring(indexOfLastDash + 1));
             }
@@ -736,7 +1008,12 @@ public final class DataStreamTestHelper {
         AllocationService allocationService = mock(AllocationService.class);
         when(allocationService.reroute(any(ClusterState.class), any(String.class), any())).then(i -> i.getArguments()[0]);
         when(allocationService.getShardRoutingRoleStrategy()).thenReturn(TestShardRoutingRoleStrategies.DEFAULT_ROLE_ONLY);
+    /**
+     * @brief [Functional description for field mappingLookup]: Describe purpose here.
+     */
         MappingLookup mappingLookup = MappingLookup.EMPTY;
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (dataStream != null) {
             RootObjectMapper.Builder root = new RootObjectMapper.Builder("_doc", ObjectMapper.Defaults.SUBOBJECTS);
             root.add(
@@ -772,6 +1049,11 @@ public final class DataStreamTestHelper {
             null,
             EmptySystemIndices.INSTANCE,
             false,
+    /**
+     * @brief [Functional Utility for IndexSettingProviders]: Describe purpose here.
+     * @param providers: [Description]
+     * @return [ReturnType]: [Description]
+     */
             new IndexSettingProviders(providers)
         );
         MetadataIndexAliasesService indexAliasesService = new MetadataIndexAliasesService(clusterService, indicesService, registry);
@@ -786,6 +1068,10 @@ public final class DataStreamTestHelper {
         );
     }
 
+    /**
+     * @brief [Functional Utility for getDataStreamTimestampFieldMapper]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public static MetadataFieldMapper getDataStreamTimestampFieldMapper() {
         Map<String, Object> fieldsMapping = new HashMap<>();
         fieldsMapping.put("enabled", true);
@@ -805,6 +1091,12 @@ public final class DataStreamTestHelper {
     }
 
     @SuppressWarnings({ "rawtypes", "unchecked" })
+    /**
+     * @brief [Functional Utility for mockIndicesServices]: Describe purpose here.
+     * @param mappingLookup: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public static IndicesService mockIndicesServices(MappingLookup mappingLookup) throws Exception {
         /*
          * Throws Exception because Eclipse uses the lower bound for
@@ -840,21 +1132,39 @@ public final class DataStreamTestHelper {
             when(indexService.getIndexSortSupplier()).thenReturn(() -> null);
             return ((CheckedFunction<IndexService, ?, ?>) invocationOnMock.getArguments()[1]).apply(indexService);
         });
+    /**
+     * @brief [Functional description for field indicesService]: Describe purpose here.
+     */
         return indicesService;
     }
 
+    /**
+     * @brief [Functional Utility for createDataStreamOptionsTemplate]: Describe purpose here.
+     * @param failureStoreEnabled: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static DataStreamOptions.Template createDataStreamOptionsTemplate(Boolean failureStoreEnabled) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (failureStoreEnabled == null) {
             return DataStreamOptions.Template.EMPTY;
         }
         return new DataStreamOptions.Template(DataStreamFailureStore.builder().enabled(failureStoreEnabled).buildTemplate());
     }
 
+    /**
+     * @brief [Functional Utility for randomSettings]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     static Settings randomSettings() {
         Settings.Builder builder = Settings.builder();
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (randomBoolean()) {
             return Settings.EMPTY;
         }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (int i = 1; i < randomInt(100); i++) {
             builder.put(randomAlphanumericOfLength(20), randomAlphanumericOfLength(50));
         }

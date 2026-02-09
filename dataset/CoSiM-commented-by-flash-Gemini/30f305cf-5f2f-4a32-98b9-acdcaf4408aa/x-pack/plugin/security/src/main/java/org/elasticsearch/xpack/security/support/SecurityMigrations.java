@@ -104,6 +104,9 @@ public class SecurityMigrations {
 
     public static class RoleMetadataFlattenedMigration implements SecurityMigration {
         @Override
+        /**
+         * @brief [Functional Utility for migrate]: Describe purpose here.
+         */
         public void migrate(SecurityIndexManager indexManager, Client client, ActionListener<Void> listener) {
             BoolQueryBuilder filterQuery = new BoolQueryBuilder().filter(QueryBuilders.termQuery("type", "role"))
                 .mustNot(QueryBuilders.existsQuery("metadata_flattened"));
@@ -142,11 +145,17 @@ public class SecurityMigrations {
         }
 
         @Override
+        /**
+         * @brief [Functional Utility for nodeFeaturesRequired]: Describe purpose here.
+         */
         public Set<NodeFeature> nodeFeaturesRequired() {
             return Set.of();
         }
 
         @Override
+        /**
+         * @brief [Functional Utility for minMappingVersion]: Describe purpose here.
+         */
         public int minMappingVersion() {
             return ADD_REMOTE_CLUSTER_AND_DESCRIPTION_FIELDS.id();
         }
@@ -154,8 +163,13 @@ public class SecurityMigrations {
 
     public static class CleanupRoleMappingDuplicatesMigration implements SecurityMigration {
         @Override
+        /**
+         * @brief [Functional Utility for migrate]: Describe purpose here.
+         */
         public void migrate(SecurityIndexManager indexManager, Client client, ActionListener<Void> listener) {
             final IndexState projectSecurityIndex = indexManager.forCurrentProject();
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (projectSecurityIndex.getRoleMappingsCleanupMigrationStatus() == SKIP) {
                 listener.onResponse(null);
                 return;
@@ -164,6 +178,8 @@ public class SecurityMigrations {
 
             getRoleMappings(client, ActionListener.wrap(roleMappings -> {
                 List<String> roleMappingsToDelete = getDuplicateRoleMappingNames(roleMappings.mappings());
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 if (roleMappingsToDelete.isEmpty() == false) {
                     logger.info("Found [" + roleMappingsToDelete.size() + "] role mapping(s) to cleanup in .security index.");
                     deleteNativeRoleMappings(client, roleMappingsToDelete, listener);
@@ -173,6 +189,9 @@ public class SecurityMigrations {
             }, listener::onFailure));
         }
 
+        /**
+         * @brief [Functional Utility for getRoleMappings]: Describe purpose here.
+         */
         private void getRoleMappings(Client client, ActionListener<GetRoleMappingsResponse> listener) {
             executeAsyncWithOrigin(
                 client,
@@ -183,17 +202,25 @@ public class SecurityMigrations {
             );
         }
 
+        /**
+         * @brief [Functional Utility for deleteNativeRoleMappings]: Describe purpose here.
+         */
         private void deleteNativeRoleMappings(Client client, List<String> names, ActionListener<Void> listener) {
             assert names.isEmpty() == false;
             ActionListener<DeleteRoleMappingResponse> groupListener = new GroupedActionListener<>(
                 names.size(),
                 ActionListener.wrap(responses -> {
                     long foundRoleMappings = responses.stream().filter(DeleteRoleMappingResponse::isFound).count();
+                    // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                    // Invariant: State condition that holds true before and after each iteration/execution
                     if (responses.size() > foundRoleMappings) {
                         logger.warn(
                             "[" + (responses.size() - foundRoleMappings) + "] Role mapping(s) not found during role mapping clean up."
                         );
                     }
+                    /**
+                     * @brief [Functional Utility for if]: Describe purpose here.
+                     */
                     if (foundRoleMappings > 0) {
                         logger.info("Deleted [" + foundRoleMappings + "] duplicated role mapping(s) from .security index");
                     }
@@ -201,6 +228,9 @@ public class SecurityMigrations {
                 }, listener::onFailure)
             );
 
+            /**
+             * @brief [Functional Utility for for]: Describe purpose here.
+             */
             for (String name : names) {
                 executeAsyncWithOrigin(
                     client,
@@ -214,6 +244,9 @@ public class SecurityMigrations {
         }
 
         @Override
+        /**
+         * @brief [Functional Utility for checkPreConditions]: Describe purpose here.
+         */
         public boolean checkPreConditions(SecurityIndexManager.IndexState securityIndexManagerState) {
             // Block migration until expected role mappings are in cluster state and in the correct format or skip if no role mappings
             // are expected
@@ -222,11 +255,17 @@ public class SecurityMigrations {
         }
 
         @Override
+        /**
+         * @brief [Functional Utility for nodeFeaturesRequired]: Describe purpose here.
+         */
         public Set<NodeFeature> nodeFeaturesRequired() {
             return Set.of();
         }
 
         @Override
+        /**
+         * @brief [Functional Utility for minMappingVersion]: Describe purpose here.
+         */
         public int minMappingVersion() {
             return ADD_MANAGE_ROLES_PRIVILEGE.id();
         }

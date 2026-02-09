@@ -188,8 +188,12 @@ static int ina238_read_reg24(const struct i2c_client *client, u8 reg, u32 *val)
 
 	/* 24-bit register read */
 	err = i2c_smbus_read_i2c_block_data(client, reg, 3, data);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (err < 0)
 		return err;
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (err != 3)
 		return -EIO;
 	*val = (data[0] << 16) | (data[1] << 8) | data[2];
@@ -205,8 +209,12 @@ static int ina238_read_reg40(const struct i2c_client *client, u8 reg, u64 *val)
 
 	/* 40-bit register read */
 	err = i2c_smbus_read_i2c_block_data(client, reg, 5, data);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (err < 0)
 		return err;
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (err != 5)
 		return -EIO;
 	low = (data[1] << 24) | (data[2] << 16) | (data[3] << 8) | data[4];
@@ -221,6 +229,8 @@ static int ina238_read_field_s20(const struct i2c_client *client, u8 reg, s32 *v
 	int err;
 
 	err = ina238_read_reg24(client, reg, &regval);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (err)
 		return err;
 
@@ -240,6 +250,8 @@ static int ina228_read_shunt_voltage(struct device *dev, u32 attr, int channel,
 	int err;
 
 	err = ina238_read_field_s20(data->client, INA238_SHUNT_VOLTAGE, &regval);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (err)
 		return err;
 
@@ -261,6 +273,8 @@ static int ina228_read_bus_voltage(struct device *dev, u32 attr, int channel,
 	int err;
 
 	err = ina238_read_field_s20(data->client, INA238_BUS_VOLTAGE, &regval);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (err)
 		return err;
 
@@ -282,10 +296,18 @@ static int ina238_read_in(struct device *dev, u32 attr, int channel,
 	int regval;
 	int err;
 
+	/**
+	 * @brief [Functional Utility for switch]: Describe purpose here.
+	 */
 	switch (channel) {
 	case 0:
+		/**
+		 * @brief [Functional Utility for switch]: Describe purpose here.
+		 */
 		switch (attr) {
 		case hwmon_in_input:
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (data->config->has_20bit_voltage_current)
 				return ina228_read_shunt_voltage(dev, attr, channel, val);
 			reg = INA238_SHUNT_VOLTAGE;
@@ -309,8 +331,13 @@ static int ina238_read_in(struct device *dev, u32 attr, int channel,
 		}
 		break;
 	case 1:
+		/**
+		 * @brief [Functional Utility for switch]: Describe purpose here.
+		 */
 		switch (attr) {
 		case hwmon_in_input:
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (data->config->has_20bit_voltage_current)
 				return ina228_read_bus_voltage(dev, attr, channel, val);
 			reg = INA238_BUS_VOLTAGE;
@@ -338,19 +365,28 @@ static int ina238_read_in(struct device *dev, u32 attr, int channel,
 	}
 
 	err = regmap_read(data->regmap, reg, &regval);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (err < 0)
 		return err;
 
+	/**
+	 * @brief [Functional Utility for switch]: Describe purpose here.
+	 */
 	switch (attr) {
 	case hwmon_in_input:
 	case hwmon_in_max:
 	case hwmon_in_min:
 		/* signed register, value in mV */
 		regval = (s16)regval;
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (channel == 0)
 			/* gain of 1 -> LSB / 4 */
 			*val = (regval * INA238_SHUNT_VOLTAGE_LSB) *
 				data->gain / (1000 * 4);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		else
 			*val = (regval * data->config->bus_voltage_lsb) / 1000;
 		break;
@@ -369,10 +405,15 @@ static int ina238_write_in(struct device *dev, u32 attr, int channel,
 	struct ina238_data *data = dev_get_drvdata(dev);
 	int regval;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (attr != hwmon_in_max && attr != hwmon_in_min)
 		return -EOPNOTSUPP;
 
 	/* convert decimal to register value */
+	/**
+	 * @brief [Functional Utility for switch]: Describe purpose here.
+	 */
 	switch (channel) {
 	case 0:
 		/* signed value, clamp to max range +/-163 mV */
@@ -381,6 +422,9 @@ static int ina238_write_in(struct device *dev, u32 attr, int channel,
 			 (INA238_SHUNT_VOLTAGE_LSB * data->gain);
 		regval = clamp_val(regval, S16_MIN, S16_MAX);
 
+		/**
+		 * @brief [Functional Utility for switch]: Describe purpose here.
+		 */
 		switch (attr) {
 		case hwmon_in_max:
 			return regmap_write(data->regmap,
@@ -397,6 +441,9 @@ static int ina238_write_in(struct device *dev, u32 attr, int channel,
 		regval = (regval * 1000) / data->config->bus_voltage_lsb;
 		regval = clamp_val(regval, 0, S16_MAX);
 
+		/**
+		 * @brief [Functional Utility for switch]: Describe purpose here.
+		 */
 		switch (attr) {
 		case hwmon_in_max:
 			return regmap_write(data->regmap,
@@ -418,14 +465,24 @@ static int ina238_read_current(struct device *dev, u32 attr, long *val)
 	int regval;
 	int err;
 
+	/**
+	 * @brief [Functional Utility for switch]: Describe purpose here.
+	 */
 	switch (attr) {
 	case hwmon_curr_input:
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (data->config->has_20bit_voltage_current) {
 			err = ina238_read_field_s20(data->client, INA238_CURRENT, &regval);
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (err)
 				return err;
 		} else {
 			err = regmap_read(data->regmap, INA238_CURRENT, &regval);
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (err < 0)
 				return err;
 			/* sign-extend */
@@ -454,9 +511,14 @@ static int ina238_read_power(struct device *dev, u32 attr, long *val)
 	int regval;
 	int err;
 
+	/**
+	 * @brief [Functional Utility for switch]: Describe purpose here.
+	 */
 	switch (attr) {
 	case hwmon_power_input:
 		err = ina238_read_reg24(data->client, INA238_POWER, &regval);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (err)
 			return err;
 
@@ -468,6 +530,8 @@ static int ina238_read_power(struct device *dev, u32 attr, long *val)
 		break;
 	case hwmon_power_input_highest:
 		err = ina238_read_reg24(data->client, SQ52206_POWER_PEAK, &regval);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (err)
 			return err;
 
@@ -479,6 +543,8 @@ static int ina238_read_power(struct device *dev, u32 attr, long *val)
 		break;
 	case hwmon_power_max:
 		err = regmap_read(data->regmap, INA238_POWER_LIMIT, &regval);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (err)
 			return err;
 
@@ -493,6 +559,8 @@ static int ina238_read_power(struct device *dev, u32 attr, long *val)
 		break;
 	case hwmon_power_max_alarm:
 		err = regmap_read(data->regmap, INA238_DIAG_ALERT, &regval);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (err)
 			return err;
 
@@ -510,6 +578,8 @@ static int ina238_write_power(struct device *dev, u32 attr, long val)
 	struct ina238_data *data = dev_get_drvdata(dev);
 	long regval;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (attr != hwmon_power_max)
 		return -EOPNOTSUPP;
 
@@ -532,9 +602,14 @@ static int ina238_read_temp(struct device *dev, u32 attr, long *val)
 	int regval;
 	int err;
 
+	/**
+	 * @brief [Functional Utility for switch]: Describe purpose here.
+	 */
 	switch (attr) {
 	case hwmon_temp_input:
 		err = regmap_read(data->regmap, INA238_DIE_TEMP, &regval);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (err)
 			return err;
 		/* Signed, result in mC */
@@ -543,6 +618,8 @@ static int ina238_read_temp(struct device *dev, u32 attr, long *val)
 		break;
 	case hwmon_temp_max:
 		err = regmap_read(data->regmap, INA238_TEMP_LIMIT, &regval);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (err)
 			return err;
 		/* Signed, result in mC */
@@ -551,6 +628,8 @@ static int ina238_read_temp(struct device *dev, u32 attr, long *val)
 		break;
 	case hwmon_temp_max_alarm:
 		err = regmap_read(data->regmap, INA238_DIAG_ALERT, &regval);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (err)
 			return err;
 
@@ -568,6 +647,8 @@ static int ina238_write_temp(struct device *dev, u32 attr, long val)
 	struct ina238_data *data = dev_get_drvdata(dev);
 	int regval;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (attr != hwmon_temp_max)
 		return -EOPNOTSUPP;
 
@@ -588,6 +669,8 @@ static ssize_t energy1_input_show(struct device *dev,
 	u64 energy;
 
 	ret = ina238_read_reg40(data->client, SQ52206_ENERGY, &regval);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret)
 		return ret;
 
@@ -601,6 +684,9 @@ static ssize_t energy1_input_show(struct device *dev,
 static int ina238_read(struct device *dev, enum hwmon_sensor_types type,
 		       u32 attr, int channel, long *val)
 {
+	/**
+	 * @brief [Functional Utility for switch]: Describe purpose here.
+	 */
 	switch (type) {
 	case hwmon_in:
 		return ina238_read_in(dev, attr, channel, val);
@@ -624,6 +710,9 @@ static int ina238_write(struct device *dev, enum hwmon_sensor_types type,
 
 	mutex_lock(&data->config_lock);
 
+	/**
+	 * @brief [Functional Utility for switch]: Describe purpose here.
+	 */
 	switch (type) {
 	case hwmon_in:
 		err = ina238_write_in(dev, attr, channel, val);
@@ -650,8 +739,14 @@ static umode_t ina238_is_visible(const void *drvdata,
 	const struct ina238_data *data = drvdata;
 	bool has_power_highest = data->config->has_power_highest;
 
+	/**
+	 * @brief [Functional Utility for switch]: Describe purpose here.
+	 */
 	switch (type) {
 	case hwmon_in:
+		/**
+		 * @brief [Functional Utility for switch]: Describe purpose here.
+		 */
 		switch (attr) {
 		case hwmon_in_input:
 		case hwmon_in_max_alarm:
@@ -664,6 +759,9 @@ static umode_t ina238_is_visible(const void *drvdata,
 			return 0;
 		}
 	case hwmon_curr:
+		/**
+		 * @brief [Functional Utility for switch]: Describe purpose here.
+		 */
 		switch (attr) {
 		case hwmon_curr_input:
 			return 0444;
@@ -671,6 +769,9 @@ static umode_t ina238_is_visible(const void *drvdata,
 			return 0;
 		}
 	case hwmon_power:
+		/**
+		 * @brief [Functional Utility for switch]: Describe purpose here.
+		 */
 		switch (attr) {
 		case hwmon_power_input:
 		case hwmon_power_max_alarm:
@@ -678,6 +779,8 @@ static umode_t ina238_is_visible(const void *drvdata,
 		case hwmon_power_max:
 			return 0644;
 		case hwmon_power_input_highest:
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (has_power_highest)
 				return 0444;
 			return 0;
@@ -685,6 +788,9 @@ static umode_t ina238_is_visible(const void *drvdata,
 			return 0;
 		}
 	case hwmon_temp:
+		/**
+		 * @brief [Functional Utility for switch]: Describe purpose here.
+		 */
 		switch (attr) {
 		case hwmon_temp_input:
 		case hwmon_temp_max_alarm:
@@ -755,6 +861,8 @@ static int ina238_probe(struct i2c_client *client)
 	chip = (uintptr_t)i2c_get_match_data(client);
 
 	data = devm_kzalloc(dev, sizeof(*data), GFP_KERNEL);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!data)
 		return -ENOMEM;
 
@@ -765,6 +873,8 @@ static int ina238_probe(struct i2c_client *client)
 	mutex_init(&data->config_lock);
 
 	data->regmap = devm_regmap_init_i2c(client, &ina238_regmap_config);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (IS_ERR(data->regmap)) {
 		dev_err(dev, "failed to allocate register map\n");
 		return PTR_ERR(data->regmap);
@@ -772,8 +882,13 @@ static int ina238_probe(struct i2c_client *client)
 
 	/* load shunt value */
 	data->rshunt = INA238_RSHUNT_DEFAULT;
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (device_property_read_u32(dev, "shunt-resistor", &data->rshunt) < 0 && pdata)
 		data->rshunt = pdata->shunt_uohms;
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (data->rshunt == 0) {
 		dev_err(dev, "invalid shunt resister value %u\n", data->rshunt);
 		return -EINVAL;
@@ -782,6 +897,9 @@ static int ina238_probe(struct i2c_client *client)
 	/* load shunt gain value */
 	if (device_property_read_u32(dev, "ti,shunt-gain", &data->gain) < 0)
 		data->gain = 4; /* Default of ADCRANGE = 0 */
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (data->gain != 1 && data->gain != 2 && data->gain != 4) {
 		dev_err(dev, "invalid shunt gain value %u\n", data->gain);
 		return -EINVAL;
@@ -789,15 +907,25 @@ static int ina238_probe(struct i2c_client *client)
 
 	/* Setup CONFIG register */
 	config = data->config->config_default;
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (chip == sq52206) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (data->gain == 1)
 			config |= SQ52206_CONFIG_ADCRANGE_HIGH; /* ADCRANGE = 10/11 is /1 */
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		else if (data->gain == 2)
 			config |= SQ52206_CONFIG_ADCRANGE_LOW; /* ADCRANGE = 01 is /2 */
 	} else if (data->gain == 1) {
 		config |= INA238_CONFIG_ADCRANGE; /* ADCRANGE = 1 is /1 */
 	}
 	ret = regmap_write(data->regmap, INA238_CONFIG, config);
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (ret < 0) {
 		dev_err(dev, "error configuring the device: %d\n", ret);
 		return -ENODEV;
@@ -806,6 +934,9 @@ static int ina238_probe(struct i2c_client *client)
 	/* Setup ADC_CONFIG register */
 	ret = regmap_write(data->regmap, INA238_ADC_CONFIG,
 			   INA238_ADC_CONFIG_DEFAULT);
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (ret < 0) {
 		dev_err(dev, "error configuring the device: %d\n", ret);
 		return -ENODEV;
@@ -814,6 +945,9 @@ static int ina238_probe(struct i2c_client *client)
 	/* Setup SHUNT_CALIBRATION register with fixed value */
 	ret = regmap_write(data->regmap, INA238_SHUNT_CALIBRATION,
 			   INA238_CALIBRATION_VALUE);
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (ret < 0) {
 		dev_err(dev, "error configuring the device: %d\n", ret);
 		return -ENODEV;
@@ -822,6 +956,9 @@ static int ina238_probe(struct i2c_client *client)
 	/* Setup alert/alarm configuration */
 	ret = regmap_write(data->regmap, INA238_DIAG_ALERT,
 			   INA238_DIAG_ALERT_DEFAULT);
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (ret < 0) {
 		dev_err(dev, "error configuring the device: %d\n", ret);
 		return -ENODEV;
@@ -831,6 +968,8 @@ static int ina238_probe(struct i2c_client *client)
 							 &ina238_chip_info,
 							 data->config->has_energy ?
 								ina238_groups : NULL);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (IS_ERR(hwmon_dev))
 		return PTR_ERR(hwmon_dev);
 

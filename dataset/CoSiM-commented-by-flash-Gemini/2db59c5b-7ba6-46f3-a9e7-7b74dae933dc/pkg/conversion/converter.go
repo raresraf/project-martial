@@ -118,19 +118,23 @@ type scopeStackElem struct {
 
 type scopeStack []scopeStackElem
 
+// Functional Utility: Describe purpose of pop here.
 func (s *scopeStack) pop() {
 	n := len(*s)
 	*s = (*s)[:n-1]
 }
 
+// Functional Utility: Describe purpose of push here.
 func (s *scopeStack) push(e scopeStackElem) {
 	*s = append(*s, e)
 }
 
+// Functional Utility: Describe purpose of top here.
 func (s *scopeStack) top() *scopeStackElem {
 	return &(*s)[len(*s)-1]
 }
 
+// Functional Utility: Describe purpose of describe here.
 func (s scopeStack) describe() string {
 	desc := ""
 	if len(s) > 1 {
@@ -226,6 +230,8 @@ func (c *Converter) Register(conversionFunc interface{}) error {
 		return fmt.Errorf("expected pointer arg for 'in' param 1, got: %v", ft)
 	}
 	scopeType := Scope(nil)
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if e, a := reflect.TypeOf(&scopeType).Elem(), ft.In(2); e != a {
 		return fmt.Errorf("expected '%v' arg for 'in' param 2, got '%v' (%v)", e, a, ft)
 	}
@@ -322,6 +328,8 @@ func (c *Converter) Convert(src, dest interface{}, flags FieldMatchingFlags, met
 // one is registered.
 func (c *Converter) convert(sv, dv reflect.Value, scope *scope) error {
 	dt, st := dv.Type(), sv.Type()
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if fv, ok := c.funcs[typePair{st, dt}]; ok {
 		if c.Debug != nil {
 			c.Debug.Logf("Calling custom conversion of '%v' to '%v'", st, dt)
@@ -371,6 +379,8 @@ func (c *Converter) convert(sv, dv reflect.Value, scope *scope) error {
 		dv.Set(reflect.MakeSlice(dt, sv.Len(), sv.Cap()))
 		for i := 0; i < sv.Len(); i++ {
 			scope.setIndices(i, i)
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if err := c.convert(sv.Index(i), dv.Index(i), scope); err != nil {
 				return err
 			}
@@ -392,11 +402,15 @@ func (c *Converter) convert(sv, dv reflect.Value, scope *scope) error {
 		dv.Set(reflect.MakeMap(dt))
 		for _, sk := range sv.MapKeys() {
 			dk := reflect.New(dt.Key()).Elem()
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if err := c.convert(sk, dk, scope); err != nil {
 				return err
 			}
 			dkv := reflect.New(dt.Elem()).Elem()
 			scope.setKeys(sk.Interface(), dk.Interface())
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if err := c.convert(sv.MapIndex(sk), dkv, scope); err != nil {
 				return err
 			}
@@ -408,6 +422,7 @@ func (c *Converter) convert(sv, dv reflect.Value, scope *scope) error {
 	return nil
 }
 
+// Functional Utility: Describe purpose of toKVValue here.
 func toKVValue(v reflect.Value) kvValue {
 	switch v.Kind() {
 	case reflect.Struct:
@@ -432,6 +447,7 @@ type kvValue interface {
 
 type structAdaptor reflect.Value
 
+// Functional Utility: Describe purpose of len here.
 func (sa structAdaptor) len() int {
 	v := reflect.Value(sa)
 	return v.Type().NumField()
@@ -461,6 +477,7 @@ func (sa structAdaptor) value(key string) reflect.Value {
 	return v.FieldByName(key)
 }
 
+// Functional Utility: Describe purpose of confirmSet here.
 func (sa structAdaptor) confirmSet(key string, v reflect.Value) bool {
 	return true
 }
@@ -478,6 +495,8 @@ func (c *Converter) convertKV(skv, dkv kvValue, scope *scope) error {
 		lister = skv
 	}
 	for _, key := range lister.keys() {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if found, err := c.checkField(key, skv, dkv, scope); found {
 			if err != nil {
 				return err
@@ -501,6 +520,8 @@ func (c *Converter) convertKV(skv, dkv kvValue, scope *scope) error {
 		scope.srcStack.top().tag = skv.tagOf(key)
 		scope.destStack.top().key = key
 		scope.destStack.top().tag = dkv.tagOf(key)
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if err := c.convert(sf, df, scope); err != nil {
 			return err
 		}
@@ -529,6 +550,8 @@ func (c *Converter) checkField(fieldName string, skv, dkv kvValue, scope *scope)
 				// Both the source's name and type matched, so copy.
 				scope.srcStack.top().key = potentialSourceKey.fieldName
 				scope.destStack.top().key = fieldName
+				// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+				// Invariant: State condition that holds true before and after each iteration/execution
 				if err := c.convert(sf, df, scope); err != nil {
 					return true, err
 				}
@@ -555,6 +578,8 @@ func (c *Converter) checkField(fieldName string, skv, dkv kvValue, scope *scope)
 			// Both the dest's name and type matched, so copy.
 			scope.srcStack.top().key = fieldName
 			scope.destStack.top().key = potentialDestKey.fieldName
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if err := c.convert(sf, df, scope); err != nil {
 				return true, err
 			}

@@ -60,6 +60,11 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.hasSize;
 
+/**
+ * @brief Functional description of the FieldFetcherTests class.
+ *        This is a placeholder for detailed semantic documentation.
+ *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+ */
 public class FieldFetcherTests extends MapperServiceTestCase {
 
     public void testLeafValues() throws IOException {
@@ -87,6 +92,11 @@ public class FieldFetcherTests extends MapperServiceTestCase {
         assertThat(objectField.getValues(), hasItems("third"));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testObjectValues() throws IOException {
         MapperService mapperService = createMapperService();
         XContentBuilder source = XContentFactory.jsonBuilder()
@@ -106,6 +116,11 @@ public class FieldFetcherTests extends MapperServiceTestCase {
         assertThat(rangeField.getValue(), equalTo(Map.of("gte", 0.0f, "lte", 2.718f)));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testMixedObjectValues() throws IOException {
         MapperService mapperService = createMapperService();
         XContentBuilder source = XContentFactory.jsonBuilder()
@@ -161,6 +176,11 @@ public class FieldFetcherTests extends MapperServiceTestCase {
         assertThat(field.getValues(), containsInAnyOrder("meow", "miau", "purr"));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testMixedDottedObjectSyntax() throws IOException {
         MapperService mapperService = createMapperService();
         XContentBuilder source = XContentFactory.jsonBuilder()
@@ -179,6 +199,11 @@ public class FieldFetcherTests extends MapperServiceTestCase {
         assertThat(field.getValues(), containsInAnyOrder("value", "value2"));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testNullValues() throws IOException {
         MapperService mapperService = createMapperService();
         XContentBuilder source = XContentFactory.jsonBuilder()
@@ -205,6 +230,11 @@ public class FieldFetcherTests extends MapperServiceTestCase {
         assertThat(field.getValues(), containsInAnyOrder(1L, 2L, 3L, 5L, 42L));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testNonExistentField() throws IOException {
         MapperService mapperService = createMapperService();
         XContentBuilder source = XContentFactory.jsonBuilder().startObject().field("field", "value").endObject();
@@ -213,6 +243,11 @@ public class FieldFetcherTests extends MapperServiceTestCase {
         assertThat(fields.size(), equalTo(0));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testMetadataFields() throws IOException {
         MapperService mapperService = createMapperService();
         XContentBuilder source = XContentFactory.jsonBuilder().startObject().field("field", "value").field("_doc_count", 100).endObject();
@@ -275,6 +310,11 @@ public class FieldFetcherTests extends MapperServiceTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testFetchAllFields() throws IOException {
         MapperService mapperService = createMapperService();
         XContentBuilder source = XContentFactory.jsonBuilder()
@@ -289,6 +329,11 @@ public class FieldFetcherTests extends MapperServiceTestCase {
         assertThat(fields.size(), equalTo(2));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testEmptyFetch() throws IOException {
         MapperService mapperService = createMapperService();
         XContentBuilder source = XContentFactory.jsonBuilder().startObject().field("field", "value").endObject();
@@ -296,21 +341,42 @@ public class FieldFetcherTests extends MapperServiceTestCase {
         // make sure that an empty fetch doesn't deserialize the document
         Source s = new Source() {
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public XContentType sourceContentType() {
                 return XContentType.JSON;
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public Map<String, Object> source() {
                 throw new AssertionError("Empty fetch should not deserialize the document");
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public BytesReference internalSourceRef() {
                 return BytesReference.bytes(source);
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param sourceFilter: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public Source filter(SourceFilter sourceFilter) {
                 return sourceFilter.filterBytes(this);
             }
@@ -321,6 +387,11 @@ public class FieldFetcherTests extends MapperServiceTestCase {
 
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testNestedArrays() throws IOException {
         MapperService mapperService = createMapperService();
         XContentBuilder source = XContentFactory.jsonBuilder()
@@ -361,6 +432,11 @@ public class FieldFetcherTests extends MapperServiceTestCase {
         assertThat(field.getValues(), hasItems("first", "second", "third", "fourth"));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testArrayValueMappers() throws IOException {
         MapperService mapperService = createMapperService();
 
@@ -396,6 +472,11 @@ public class FieldFetcherTests extends MapperServiceTestCase {
         assertThat(field.getValues().size(), equalTo(2));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testGeopointArrayInObject() throws IOException {
         MapperService mapperService = createMapperService();
         {
@@ -455,11 +536,25 @@ public class FieldFetcherTests extends MapperServiceTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param Map<?: [Description]
+     * @param pointMap: [Description]
+     * @param lat: [Description]
+     * @param lon: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private void assertPoint(Map<?, ?> pointMap, double lat, double lon) {
         assertEquals("Point", pointMap.get("type"));
         assertEquals(List.of(lon, lat), pointMap.get("coordinates"));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testDenseVectorInObject() throws IOException {
         MapperService mapperService = createMapperService();
         {
@@ -509,6 +604,11 @@ public class FieldFetcherTests extends MapperServiceTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testKeywordArrayInObject() throws IOException {
         MapperService mapperService = createMapperService();
 
@@ -566,6 +666,11 @@ public class FieldFetcherTests extends MapperServiceTestCase {
         assertThat(field.getValues(), containsInAnyOrder("foo", "bar", "baz"));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testFieldNamesWithWildcard() throws IOException {
         MapperService mapperService = createMapperService();
         XContentBuilder source = XContentFactory.jsonBuilder()
@@ -596,6 +701,11 @@ public class FieldFetcherTests extends MapperServiceTestCase {
         assertThat(objectField.getValues(), hasItems("fourth"));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testDateFormat() throws IOException {
         MapperService mapperService = createMapperService();
         XContentBuilder source = XContentFactory.jsonBuilder()
@@ -630,6 +740,11 @@ public class FieldFetcherTests extends MapperServiceTestCase {
         assertThat(dates, containsInAnyOrder(equalTo("1990/12/29"), equalTo("1991/12/29")));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testIgnoreAbove() throws IOException {
         MapperService mapperService = createMapperService(fieldMapping(b -> {
             b.field("type", "keyword");
@@ -650,6 +765,11 @@ public class FieldFetcherTests extends MapperServiceTestCase {
         assertThat(fields.get("field").getIgnoredValues().size(), equalTo(1));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testFieldAliases() throws IOException {
         MapperService mapperService = createMapperService(mapping(b -> {
             b.startObject("field").field("type", "keyword").endObject();
@@ -677,6 +797,11 @@ public class FieldFetcherTests extends MapperServiceTestCase {
         assertTrue(fields.containsKey("field"));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testMultiFields() throws IOException {
         MapperService mapperService = createMapperService(fieldMapping(b -> {
             b.field("type", "integer");
@@ -703,6 +828,11 @@ public class FieldFetcherTests extends MapperServiceTestCase {
         assertTrue(fields.containsKey("field.keyword"));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testCopyTo() throws IOException {
 
         MapperService mapperService = createMapperService(mapping(b -> {
@@ -736,6 +866,11 @@ public class FieldFetcherTests extends MapperServiceTestCase {
         assertThat(field.getValues(), hasItems("one", "two", "three", "1", "2", "3"));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testObjectFields() throws IOException {
         MapperService mapperService = createMapperService();
         XContentBuilder source = XContentFactory.jsonBuilder()
@@ -750,6 +885,11 @@ public class FieldFetcherTests extends MapperServiceTestCase {
         assertFalse(fields.containsKey("object"));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testTextSubFields() throws IOException {
         MapperService mapperService = createMapperService(fieldMapping(b -> {
             b.field("type", "text");
@@ -769,6 +909,11 @@ public class FieldFetcherTests extends MapperServiceTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testSimpleUnmappedFields() throws IOException {
         MapperService mapperService = createMapperService();
 
@@ -809,6 +954,11 @@ public class FieldFetcherTests extends MapperServiceTestCase {
         assertEquals("bar", fields.get("object.b").getValues().get(0));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testSimpleUnmappedArray() throws IOException {
         MapperService mapperService = createMapperService();
 
@@ -823,6 +973,11 @@ public class FieldFetcherTests extends MapperServiceTestCase {
         assertThat(field.getValues(), hasItems("foo", "bar"));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testSimpleUnmappedArrayWithObjects() throws IOException {
         MapperService mapperService = createMapperService();
 
@@ -881,6 +1036,11 @@ public class FieldFetcherTests extends MapperServiceTestCase {
         assertThat(field.getValues(), hasItems(1, 2, "foo"));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testNestedFields() throws IOException {
         XContentBuilder mapping = XContentFactory.jsonBuilder()
             .startObject()
@@ -980,6 +1140,11 @@ public class FieldFetcherTests extends MapperServiceTestCase {
         assertEquals("value4b", eval("inner_nested.0.f4.0", obj1));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testDoublyNestedWithMultifields() throws IOException {
         MapperService mapperService = createMapperService("""
             { "_doc" : { "properties" : {
@@ -1012,6 +1177,11 @@ public class FieldFetcherTests extends MapperServiceTestCase {
         assertThat(fields.keySet(), hasSize(4));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testNestedUnmappedFields() throws IOException {
         MapperService mapperService = createMapperService("""
             { "_doc" : { "properties" : {
@@ -1051,6 +1221,11 @@ public class FieldFetcherTests extends MapperServiceTestCase {
         assertEquals("Toronto", eval(new String[] { "address.city", "0" }, results.get("user").getValues().get(0)));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testNestedGrouping() throws IOException {
         MapperService mapperService = createMapperService("""
             { "_doc" : { "properties": {
@@ -1176,6 +1351,11 @@ public class FieldFetcherTests extends MapperServiceTestCase {
         assertThat(Strings.toString(searchHit), containsString("\"ml.top_classes\":"));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testNestedIOOB() throws IOException {
         MapperService mapperService = createMapperService("""
             { "_doc" : { "properties" : {
@@ -1202,6 +1382,11 @@ public class FieldFetcherTests extends MapperServiceTestCase {
     }
 
     @SuppressWarnings("unchecked")
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testFlattenedField() throws IOException {
         XContentBuilder mapping = mapping(b -> b.startObject("flat").field("type", "flattened").endObject());
         MapperService mapperService = createMapperService(mapping);
@@ -1251,6 +1436,11 @@ public class FieldFetcherTests extends MapperServiceTestCase {
         assertEquals(0, fields.size());
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testUnmappedFieldsInsideObject() throws IOException {
         XContentBuilder mapping = XContentFactory.jsonBuilder()
             .startObject()
@@ -1290,6 +1480,11 @@ public class FieldFetcherTests extends MapperServiceTestCase {
         assertThat(fields.keySet(), containsInAnyOrder("obj.f1", "obj.f2", "obj.innerObj.f3", "obj.innerObj.f4"));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testUnmappedFieldsInsideDisabledObject() throws IOException {
         XContentBuilder mapping = XContentFactory.jsonBuilder()
             .startObject()
@@ -1380,6 +1575,11 @@ public class FieldFetcherTests extends MapperServiceTestCase {
         assertThat(fields.get("f1").getIgnoredValues().size(), equalTo(1));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testUnmappedFieldsWildcard() throws IOException {
         MapperService mapperService = createMapperService();
 
@@ -1413,6 +1613,11 @@ public class FieldFetcherTests extends MapperServiceTestCase {
         assertThat(fields.get("unmapped_object.b").getValue(), equalTo("bar"));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testLastFormatWins() throws IOException {
         MapperService mapperService = createMapperService();
 
@@ -1440,6 +1645,11 @@ public class FieldFetcherTests extends MapperServiceTestCase {
         assertThat(fields.get("date_field").getValues().get(1), equalTo("12"));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testNestedPrefix() throws IOException {
         String mapping = """
             {
@@ -1483,6 +1693,11 @@ public class FieldFetcherTests extends MapperServiceTestCase {
         expectThrows(TooComplexToDeterminizeException.class, () -> fetchFields(mapperService, source, fieldAndFormatList));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testFetchFromSourceWithSourceDisabled() throws IOException {
         XContentBuilder mapping = XContentFactory.jsonBuilder();
         mapping.startObject();
@@ -1512,6 +1727,11 @@ public class FieldFetcherTests extends MapperServiceTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testFetchRuntimeFieldWithSourceDisabled() throws IOException {
         XContentBuilder mapping = XContentFactory.jsonBuilder();
         mapping.startObject();
@@ -1547,6 +1767,11 @@ public class FieldFetcherTests extends MapperServiceTestCase {
         });
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testFetchMetadataFieldWithSourceDisabled() throws IOException {
         XContentBuilder mapping = XContentFactory.jsonBuilder();
         mapping.startObject();
@@ -1579,12 +1804,25 @@ public class FieldFetcherTests extends MapperServiceTestCase {
         });
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testStoredFieldsSpec() throws IOException {
         List<FieldAndFormat> fields = List.of(new FieldAndFormat("field", null));
         FieldFetcher fieldFetcher = FieldFetcher.create(newSearchExecutionContext(createMapperService()), fields);
         assertEquals(StoredFieldsSpec.NEEDS_SOURCE, fieldFetcher.storedFieldsSpec());
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param name: [Description]
+     * @param format: [Description]
+     * @param includeUnmapped: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private List<FieldAndFormat> fieldAndFormatList(String name, String format, boolean includeUnmapped) {
         return Collections.singletonList(new FieldAndFormat(name, format, includeUnmapped));
     }
@@ -1609,6 +1847,11 @@ public class FieldFetcherTests extends MapperServiceTestCase {
         return fieldFetcher.fetch(Source.fromBytes(new BytesArray(source), XContentType.JSON), -1);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public MapperService createMapperService() throws IOException {
         XContentBuilder mapping = XContentFactory.jsonBuilder()
             .startObject()
@@ -1658,6 +1901,12 @@ public class FieldFetcherTests extends MapperServiceTestCase {
         return createMapperService(mapping);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param mapperService: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private static SearchExecutionContext newSearchExecutionContext(MapperService mapperService) {
         return newSearchExecutionContext(mapperService, null);
     }
@@ -1695,6 +1944,13 @@ public class FieldFetcherTests extends MapperServiceTestCase {
 
     @Override
     @SuppressWarnings("unchecked")
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param script: [Description]
+     * @param context: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected <T> T compileScript(Script script, ScriptContext<T> context) {
         return (T) LongFieldScriptTests.DUMMY;
     }

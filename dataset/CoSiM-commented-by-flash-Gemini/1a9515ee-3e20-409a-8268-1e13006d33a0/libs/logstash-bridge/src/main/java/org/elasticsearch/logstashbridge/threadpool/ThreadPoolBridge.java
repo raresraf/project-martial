@@ -21,22 +21,47 @@ import java.util.concurrent.TimeUnit;
  */
 public class ThreadPoolBridge extends StableBridgeAPI.ProxyInternal<ThreadPool> {
 
+    /**
+     * @brief [Functional Utility for ThreadPoolBridge]: Describe purpose here.
+     * @param settingsBridge: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public ThreadPoolBridge(final SettingsBridge settingsBridge) {
         this(new ThreadPool(settingsBridge.toInternal(), MeterRegistry.NOOP, new DefaultBuiltInExecutorBuilders()));
     }
 
+    /**
+     * @brief [Functional Utility for ThreadPoolBridge]: Describe purpose here.
+     * @param delegate: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public ThreadPoolBridge(final ThreadPool delegate) {
         super(delegate);
     }
 
+    /**
+     * @brief [Functional Utility for terminate]: Describe purpose here.
+     * @param pool: [Description]
+     * @param timeout: [Description]
+     * @param timeUnit: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static boolean terminate(final ThreadPoolBridge pool, final long timeout, final TimeUnit timeUnit) {
         return ThreadPool.terminate(pool.toInternal(), timeout, timeUnit);
     }
 
+    /**
+     * @brief [Functional Utility for relativeTimeInMillis]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public long relativeTimeInMillis() {
         return internalDelegate.relativeTimeInMillis();
     }
 
+    /**
+     * @brief [Functional Utility for absoluteTimeInMillis]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public long absoluteTimeInMillis() {
         return internalDelegate.absoluteTimeInMillis();
     }

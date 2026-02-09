@@ -76,6 +76,8 @@ public final class IndexLifecycleTransition {
 
         LifecycleExecutionState lifecycleState = idxMeta.getLifecycleExecutionState();
         Step.StepKey realKey = Step.getCurrentStepKey(lifecycleState);
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (currentStepKey != null && currentStepKey.equals(realKey) == false) {
             throw new IllegalArgumentException(
                 "index [" + indexName + "] is not on current step [" + currentStepKey + "], currently: [" + realKey + "]"
@@ -161,6 +163,9 @@ public final class IndexLifecycleTransition {
         // if an error is encountered while initialising the policy the lifecycle execution state will not yet contain any step information
         // as we haven't yet initialised the policy, so we'll manually set the current step to be the "initialize policy" step so we can
         // record the error (and later retry the init policy step)
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (cause instanceof InitializePolicyException) {
             currentStep = InitializePolicyContextStep.KEY;
         } else {
@@ -186,6 +191,9 @@ public final class IndexLifecycleTransition {
         })));
         Step failedStep = stepLookupFunction.apply(idxMeta, currentStep);
 
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (failedStep != null) {
             // as an initial step we'll mark the failed step as auto retryable without actually looking at the cause to determine
             // if the error is transient/recoverable from
@@ -216,12 +224,17 @@ public final class IndexLifecycleTransition {
         boolean isAutomaticRetry
     ) {
         IndexMetadata indexMetadata = project.index(index);
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (indexMetadata == null) {
             throw new IllegalArgumentException("index [" + index + "] does not exist");
         }
         LifecycleExecutionState lifecycleState = indexMetadata.getLifecycleExecutionState();
         Step.StepKey currentStepKey = Step.getCurrentStepKey(lifecycleState);
         String failedStep = lifecycleState.failedStep();
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (currentStepKey != null && ErrorStep.NAME.equals(currentStepKey.name()) && Strings.isNullOrEmpty(failedStep) == false) {
             Step.StepKey nextStepKey = new Step.StepKey(currentStepKey.phase(), currentStepKey.action(), failedStep);
             validateTransition(indexMetadata, currentStepKey, nextStepKey, stepRegistry);
@@ -249,6 +262,9 @@ public final class IndexLifecycleTransition {
             LifecycleExecutionState.Builder retryStepState = LifecycleExecutionState.builder(nextStepState);
             retryStepState.setIsAutoRetryableError(lifecycleState.isAutoRetryableError());
             Integer currentRetryCount = lifecycleState.failedStepRetryCount();
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (isAutomaticRetry) {
                 retryStepState.setFailedStepRetryCount(currentRetryCount == null ? 1 : ++currentRetryCount);
             } else {
@@ -285,6 +301,8 @@ public final class IndexLifecycleTransition {
 
         // clear any step info or error-related settings from the current step
         updatedState.setFailedStep(null);
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (allowNullPreviousStepInfo || existingState.stepInfo() != null) {
             updatedState.setPreviousStepInfo(existingState.stepInfo());
         }
@@ -292,9 +310,13 @@ public final class IndexLifecycleTransition {
         updatedState.setIsAutoRetryableError(null);
         updatedState.setFailedStepRetryCount(null);
 
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (currentStep == null || currentStep.phase().equals(newStep.phase()) == false || forcePhaseDefinitionRefresh) {
             final String newPhaseDefinition;
             final Phase nextPhase;
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if ("new".equals(newStep.phase()) || TerminalPolicyStep.KEY.equals(newStep)) {
                 nextPhase = null;
             } else {
@@ -317,6 +339,8 @@ public final class IndexLifecycleTransition {
             updatedState.setPhaseTime(nowAsMillis);
         }
 
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (currentStep == null || currentStep.action().equals(newStep.action()) == false) {
             updatedState.setActionTime(nowAsMillis);
         }
@@ -344,6 +368,9 @@ public final class IndexLifecycleTransition {
         String indexName = indexMetadata.getIndex().getName();
         String policyName = indexMetadata.getLifecyclePolicyName();
         Step.StepKey currentStepKey = Step.getCurrentStepKey(existingState);
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (currentStepKey == null) {
             logger.warn(
                 "unable to identify what the current step is for index [{}] as part of policy [{}]. the "
@@ -357,6 +384,8 @@ public final class IndexLifecycleTransition {
         List<Step> policySteps = oldPolicy.toSteps(client, licenseState);
         Optional<Step> currentStep = policySteps.stream().filter(step -> step.getKey().equals(currentStepKey)).findFirst();
 
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (currentStep.isPresent() == false) {
             logger.warn(
                 "unable to find current step [{}] for index [{}] as part of policy [{}]. the cached phase definition will not be "
@@ -408,14 +437,22 @@ public final class IndexLifecycleTransition {
      * built if the step info has changed, otherwise the same old <code>project</code> is
      * returned
      */
+    /**
+     * @brief [Functional Utility for addStepInfoToProject]: Describe purpose here.
+     */
     static ProjectMetadata addStepInfoToProject(Index index, ProjectMetadata project, ToXContentObject stepInfo) {
         IndexMetadata indexMetadata = project.index(index);
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (indexMetadata == null) {
             // This index doesn't exist anymore, we can't do anything
             return project;
         }
         LifecycleExecutionState lifecycleState = indexMetadata.getLifecycleExecutionState();
         final String stepInfoString = Strings.toString(stepInfo);
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (stepInfoString.equals(lifecycleState.stepInfo())) {
             return project;
         }
@@ -434,14 +471,26 @@ public final class IndexLifecycleTransition {
         List<String> failedIndexes
     ) {
         ProjectMetadata.Builder newProject = null;
+        /**
+         * @brief [Functional Utility for for]: Describe purpose here.
+         */
         for (Index index : indices) {
             IndexMetadata indexMetadata = currentProject.index(index);
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (indexMetadata == null) {
                 // Index doesn't exist so fail it
                 failedIndexes.add(index.getName());
             } else {
                 IndexMetadata.Builder newIdxMetadata = removePolicyForIndex(indexMetadata);
+                /**
+                 * @brief [Functional Utility for if]: Describe purpose here.
+                 */
                 if (newIdxMetadata != null) {
+                    /**
+                     * @brief [Functional Utility for if]: Describe purpose here.
+                     */
                     if (newProject == null) {
                         newProject = ProjectMetadata.builder(currentProject);
                     }

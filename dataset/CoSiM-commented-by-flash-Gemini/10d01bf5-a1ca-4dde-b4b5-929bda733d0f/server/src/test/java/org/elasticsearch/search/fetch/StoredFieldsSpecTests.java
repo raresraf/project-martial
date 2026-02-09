@@ -22,6 +22,11 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+/**
+ * @brief Functional description of the StoredFieldsSpecTests class.
+ *        This is a placeholder for detailed semantic documentation.
+ *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+ */
 public class StoredFieldsSpecTests extends ESTestCase {
 
     public void testDefaults() {
@@ -46,6 +51,11 @@ public class StoredFieldsSpecTests extends ESTestCase {
         assertThat(merged.requiredStoredFields(), hasSize(0));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testStoredFieldsDisabled() {
         SearchSourceBuilder search = new SearchSourceBuilder();
         search.storedField("_none_");
@@ -55,6 +65,11 @@ public class StoredFieldsSpecTests extends ESTestCase {
         assertNull(new FetchSourcePhase().getProcessor(fc));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testScriptFieldsEnableMetadata() {
         SearchSourceBuilder search = new SearchSourceBuilder();
         search.scriptField("field", new Script("script"));
@@ -67,6 +82,12 @@ public class StoredFieldsSpecTests extends ESTestCase {
         assertTrue(spec.requiresMetadata());
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param sourceBuilder: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private static SearchContext searchContext(SearchSourceBuilder sourceBuilder) {
         SearchContext sc = mock(SearchContext.class);
         when(sc.fetchSourceContext()).thenReturn(sourceBuilder.fetchSource());

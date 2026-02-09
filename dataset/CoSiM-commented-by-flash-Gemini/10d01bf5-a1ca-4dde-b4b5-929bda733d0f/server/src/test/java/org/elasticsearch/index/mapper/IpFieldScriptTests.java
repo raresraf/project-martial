@@ -32,6 +32,11 @@ import java.util.Map;
 
 import static org.hamcrest.Matchers.equalTo;
 
+/**
+ * @brief Functional description of the IpFieldScriptTests class.
+ *        This is a placeholder for detailed semantic documentation.
+ *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+ */
 public class IpFieldScriptTests extends FieldScriptTestCase<IpFieldScript.Factory> {
     public static final IpFieldScript.Factory DUMMY = (fieldName, params, lookup, onScriptError) -> ctx -> new IpFieldScript(
         fieldName,
@@ -41,26 +46,51 @@ public class IpFieldScriptTests extends FieldScriptTestCase<IpFieldScript.Factor
         ctx
     ) {
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public void execute() {
             emit("192.168.0.1");
         }
     };
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected ScriptContext<IpFieldScript.Factory> context() {
         return IpFieldScript.CONTEXT;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected IpFieldScript.Factory dummyScript() {
         return DUMMY;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected IpFieldScript.Factory fromSource() {
         return IpFieldScript.PARSE_FROM_SOURCE;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testTooManyValues() throws IOException {
         try (Directory directory = newDirectory(); RandomIndexWriter iw = new RandomIndexWriter(random(), directory)) {
             iw.addDocument(List.of(new StoredField("_source", new BytesRef("{}"))));
@@ -73,6 +103,11 @@ public class IpFieldScriptTests extends FieldScriptTestCase<IpFieldScript.Factor
                     reader.leaves().get(0)
                 ) {
                     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
                     public void execute() {
                         for (int i = 0; i <= AbstractFieldScript.MAX_VALUES; i++) {
                             new Emit(this).emit("192.168.0.1");
@@ -88,6 +123,11 @@ public class IpFieldScriptTests extends FieldScriptTestCase<IpFieldScript.Factor
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void testFromSourceDoesNotEnforceValuesLimit() throws IOException {
         try (Directory directory = newDirectory(); RandomIndexWriter iw = new RandomIndexWriter(random(), directory)) {
             int numValues = AbstractFieldScript.MAX_VALUES + randomIntBetween(1, 100);

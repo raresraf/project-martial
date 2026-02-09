@@ -48,13 +48,36 @@ import java.util.function.LongSupplier;
 import static org.elasticsearch.core.Strings.format;
 import static org.elasticsearch.index.IndexSettings.LIFECYCLE_ORIGINATION_DATE;
 
+ /**
+  * @brief Functional description of the IndexLifecycleRunner class.
+  *        This is a placeholder for detailed semantic documentation.
+  *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+  */
 class IndexLifecycleRunner {
     private static final Logger logger = LogManager.getLogger(IndexLifecycleRunner.class);
+     /**
+      * @brief [Functional description for field threadPool]: Describe purpose here.
+      */
     private final ThreadPool threadPool;
+     /**
+      * @brief [Functional description for field clusterService]: Describe purpose here.
+      */
     private final ClusterService clusterService;
+     /**
+      * @brief [Functional description for field stepRegistry]: Describe purpose here.
+      */
     private final PolicyStepsRegistry stepRegistry;
+     /**
+      * @brief [Functional description for field ilmHistoryStore]: Describe purpose here.
+      */
     private final ILMHistoryStore ilmHistoryStore;
+     /**
+      * @brief [Functional description for field nowSupplier]: Describe purpose here.
+      */
     private final LongSupplier nowSupplier;
+     /**
+      * @brief [Functional description for field masterServiceTaskQueue]: Describe purpose here.
+      */
     private final MasterServiceTaskQueue<IndexLifecycleClusterStateUpdateTask> masterServiceTaskQueue;
 
     @SuppressWarnings("Convert2Lambda") // can't SuppressForbidden on a lambda
@@ -63,9 +86,15 @@ class IndexLifecycleRunner {
             @Override
             @SuppressForbidden(reason = "consuming published cluster state for legacy reasons")
             public ClusterState execute(BatchExecutionContext<IndexLifecycleClusterStateUpdateTask> batchExecutionContext) {
+                 /**
+                  * @brief [Functional description for field state]: Describe purpose here.
+                  */
                 ClusterState state = batchExecutionContext.initialState();
-                for (final var taskContext : batchExecutionContext.taskContexts()) {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                for (final var taskContext : batchExecutionContext.taskContexts()) {
                     try {
+                         /**
+                          * @brief [Functional description for field task]: Describe purpose here.
+                          */
                         final var task = taskContext.getTask();
                         try (var ignored = taskContext.captureResponseHeaders()) {
                             state = task.execute(state);
@@ -81,6 +110,9 @@ class IndexLifecycleRunner {
             }
         };
 
+    /**
+     * @brief [Functional Utility for IndexLifecycleRunner]: Describe purpose here.
+     */
     IndexLifecycleRunner(
         PolicyStepsRegistry stepRegistry,
         ILMHistoryStore ilmHistoryStore,
@@ -104,6 +136,9 @@ class IndexLifecycleRunner {
         return getCurrentStep(stepRegistry, policy, indexMetadata, lifecycleState);
     }
 
+    /**
+     * @brief [Functional Utility for getCurrentStep]: Describe purpose here.
+     * @return Step: [Description]\n     */
     static Step getCurrentStep(
         PolicyStepsRegistry stepRegistry,
         String policy,
@@ -112,9 +147,9 @@ class IndexLifecycleRunner {
     ) {
         StepKey currentStepKey = Step.getCurrentStepKey(lifecycleState);
         logger.trace("[{}] retrieved current step key: {}", indexMetadata.getIndex().getName(), currentStepKey);
-        if (currentStepKey == null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (currentStepKey == null) {
             return stepRegistry.getFirstStep(policy);
-        } else {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else {
             return stepRegistry.getStep(indexMetadata, currentStepKey);
         }
     }
@@ -128,7 +163,7 @@ class IndexLifecycleRunner {
     private static Long calculateOriginationMillis(final IndexMetadata indexMetadata) {
         LifecycleExecutionState lifecycleState = indexMetadata.getLifecycleExecutionState();
         Long originationDate = indexMetadata.getSettings().getAsLong(LIFECYCLE_ORIGINATION_DATE, -1L);
-        if (lifecycleState.lifecycleDate() == null && originationDate == -1L) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (lifecycleState.lifecycleDate() == null && originationDate == -1L) {
             return null;
         }
         return originationDate == -1L ? lifecycleState.lifecycleDate() : originationDate;
@@ -139,20 +174,20 @@ class IndexLifecycleRunner {
      */
     boolean isReadyToTransitionToThisPhase(final String policy, final IndexMetadata indexMetadata, final String phase) {
         final Long lifecycleDate = calculateOriginationMillis(indexMetadata);
-        if (lifecycleDate == null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (lifecycleDate == null) {
             logger.trace("[{}] no index creation or origination date has been set yet", indexMetadata.getIndex().getName());
             return true;
         }
         final TimeValue after = stepRegistry.getIndexAgeForPhase(policy, phase);
         final long now = nowSupplier.getAsLong();
-        if (logger.isTraceEnabled()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (logger.isTraceEnabled()) {
             final long ageMillis = now - lifecycleDate;
             final TimeValue age;
-            if (ageMillis >= 0) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (ageMillis >= 0) {
                 age = new TimeValue(ageMillis);
-            } else if (ageMillis == Long.MIN_VALUE) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            } else if (ageMillis == Long.MIN_VALUE) {
                 age = new TimeValue(Long.MAX_VALUE);
-            } else {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            } else {
                 age = new TimeValue(-ageMillis);
             }
             logger.trace(
@@ -177,7 +212,7 @@ class IndexLifecycleRunner {
      */
     void runPeriodicStep(String policy, Metadata metadata, IndexMetadata indexMetadata) {
         String index = indexMetadata.getIndex().getName();
-        if (LifecycleSettings.LIFECYCLE_SKIP_SETTING.get(indexMetadata.getSettings())) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (LifecycleSettings.LIFECYCLE_SKIP_SETTING.get(indexMetadata.getSettings())) {
             logger.info("[{}] skipping policy [{}] because [{}] is true", index, policy, LifecycleSettings.LIFECYCLE_SKIP);
             return;
         }
@@ -190,13 +225,13 @@ class IndexLifecycleRunner {
             return;
         }
 
-        if (currentStep == null) {
-            if (stepRegistry.policyExists(policy) == false) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (currentStep == null) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (stepRegistry.policyExists(policy) == false) {
                 markPolicyDoesNotExist(policy, indexMetadata.getIndex(), lifecycleState);
                 return;
-            } else {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            } else {
                 Step.StepKey currentStepKey = Step.getCurrentStepKey(lifecycleState);
-                if (TerminalPolicyStep.KEY.equals(currentStepKey)) {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                if (TerminalPolicyStep.KEY.equals(currentStepKey)) {
                     // This index is a leftover from before we halted execution on the final phase
                     // instead of going to the completed phase, so it's okay to ignore this index
                     // for now
@@ -207,10 +242,10 @@ class IndexLifecycleRunner {
             }
         }
 
-        if (currentStep instanceof TerminalPolicyStep) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (currentStep instanceof TerminalPolicyStep) {
             logger.debug("policy [{}] for index [{}] complete, skipping execution", policy, index);
             return;
-        } else if (currentStep instanceof ErrorStep) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else if (currentStep instanceof ErrorStep) {
             onErrorMaybeRetryFailedStep(policy, currentStep.getKey(), indexMetadata);
             return;
         }
@@ -222,8 +257,8 @@ class IndexLifecycleRunner {
             currentStep.getKey()
         );
         // Only phase changing and async wait steps should be run through periodic polling
-        if (currentStep instanceof PhaseCompleteStep) {
-            if (currentStep.getNextStepKey() == null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (currentStep instanceof PhaseCompleteStep) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (currentStep.getNextStepKey() == null) {
                 logger.debug(
                     "[{}] stopping in the current phase ({}) as there are no more steps in the policy",
                     index,
@@ -232,19 +267,19 @@ class IndexLifecycleRunner {
                 return;
             }
             // Only proceed to the next step if enough time has elapsed to go into the next phase
-            if (isReadyToTransitionToThisPhase(policy, indexMetadata, currentStep.getNextStepKey().phase())) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (isReadyToTransitionToThisPhase(policy, indexMetadata, currentStep.getNextStepKey().phase())) {
                 moveToStep(indexMetadata.getIndex(), policy, currentStep.getKey(), currentStep.getNextStepKey());
             }
-        } else if (currentStep instanceof AsyncWaitStep) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else if (currentStep instanceof AsyncWaitStep) {
             logger.debug("[{}] running periodic policy with current-step [{}]", index, currentStep.getKey());
             ((AsyncWaitStep) currentStep).evaluateCondition(metadata, indexMetadata.getIndex(), new AsyncWaitStep.Listener() {
 
                 @Override
                 public void onResponse(boolean conditionMet, ToXContentObject stepInfo) {
                     logger.trace("cs-change-async-wait-callback, [{}] current-step: {}", index, currentStep.getKey());
-                    if (conditionMet) {
+                     // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                     // Invariant: [State condition that holds true before and after each iteration/execution]\n                    if (conditionMet) {
                         moveToStep(indexMetadata.getIndex(), policy, currentStep.getKey(), currentStep.getNextStepKey());
-                    } else if (stepInfo != null) {
+                     // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                     // Invariant: [State condition that holds true before and after each iteration/execution]\n                    } else if (stepInfo != null) {
                         setStepInfo(indexMetadata.getIndex(), policy, currentStep.getKey(), stepInfo);
                     }
                 }
@@ -254,7 +289,7 @@ class IndexLifecycleRunner {
                     moveToErrorStep(indexMetadata.getIndex(), policy, currentStep.getKey(), e);
                 }
             }, TimeValue.MAX_VALUE);
-        } else {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else {
             logger.trace("[{}] ignoring non periodic step execution from step transition [{}]", index, currentStep.getKey());
         }
     }
@@ -271,7 +306,7 @@ class IndexLifecycleRunner {
             indexMetadata,
             new StepKey(lifecycleState.phase(), lifecycleState.action(), lifecycleState.failedStep())
         );
-        if (failedStep == null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (failedStep == null) {
             logger.warn(
                 "failed step [{}] for index [{}] is not part of policy [{}] anymore, or it is invalid. skipping execution",
                 lifecycleState.failedStep(),
@@ -281,7 +316,7 @@ class IndexLifecycleRunner {
             return;
         }
 
-        if (lifecycleState.isAutoRetryableError() != null && lifecycleState.isAutoRetryableError()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (lifecycleState.isAutoRetryableError() != null && lifecycleState.isAutoRetryableError()) {
             int currentRetryAttempt = lifecycleState.failedStepRetryCount() == null ? 1 : 1 + lifecycleState.failedStepRetryCount();
             logger.info(
                 "policy [{}] for index [{}] on an error step due to a transient error, moving back to the failed "
@@ -298,7 +333,7 @@ class IndexLifecycleRunner {
                 Strings.format("ilm-retry-failed-step {policy [%s], index [%s], failedStep [%s]}", policy, index, failedStep.getKey()),
                 new MoveToRetryFailedStepUpdateTask(indexMetadata.getIndex(), policy, currentStep, failedStep)
             );
-        } else {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else {
             logger.debug("policy [{}] for index [{}] on an error step after a terminal error, skipping execution", policy, index);
         }
     }
@@ -308,7 +343,7 @@ class IndexLifecycleRunner {
      */
     void maybeRunAsyncAction(ClusterState currentState, IndexMetadata indexMetadata, String policy, StepKey expectedStepKey) {
         String index = indexMetadata.getIndex().getName();
-        if (LifecycleSettings.LIFECYCLE_SKIP_SETTING.get(indexMetadata.getSettings())) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (LifecycleSettings.LIFECYCLE_SKIP_SETTING.get(indexMetadata.getSettings())) {
             logger.info("[{}] skipping policy [{}] because [{}] is true", index, policy, LifecycleSettings.LIFECYCLE_SKIP);
             return;
         }
@@ -320,9 +355,9 @@ class IndexLifecycleRunner {
             markPolicyRetrievalError(policy, indexMetadata.getIndex(), lifecycleState, e);
             return;
         }
-        if (currentStep == null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (currentStep == null) {
             Step.StepKey currentStepKey = Step.getCurrentStepKey(lifecycleState);
-            if (TerminalPolicyStep.KEY.equals(currentStepKey)) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (TerminalPolicyStep.KEY.equals(currentStepKey)) {
                 // This index is a leftover from before we halted execution on the final phase
                 // instead of going to the completed phase, so it's okay to ignore this index
                 // for now
@@ -331,7 +366,7 @@ class IndexLifecycleRunner {
             logger.warn("current step [{}] for index [{}] with policy [{}] is not recognized", currentStepKey, index, policy);
             return;
         }
-        if (expectedStepKey.phase() == null && expectedStepKey.name() == null && expectedStepKey.action() == null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (expectedStepKey.phase() == null && expectedStepKey.name() == null && expectedStepKey.action() == null) {
             // ILM is stopped, so do not try to run async action
             logger.debug("expected step for index [{}] with policy [{}] is [{}], not running async action", index, policy, expectedStepKey);
             return;
@@ -342,7 +377,7 @@ class IndexLifecycleRunner {
             currentStep.getClass().getSimpleName(),
             currentStep.getKey()
         );
-        if (currentStep.getKey().equals(expectedStepKey) == false) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (currentStep.getKey().equals(expectedStepKey) == false) {
             throw new IllegalStateException(
                 "expected index ["
                     + indexMetadata.getIndex().getName()
@@ -354,7 +389,7 @@ class IndexLifecycleRunner {
                     + currentStep.getKey()
             );
         }
-        if (currentStep instanceof AsyncActionStep) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (currentStep instanceof AsyncActionStep) {
             logger.debug("[{}] running policy with async action step [{}]", index, currentStep.getKey());
             ((AsyncActionStep) currentStep).performAction(
                 indexMetadata,
@@ -365,9 +400,9 @@ class IndexLifecycleRunner {
                     @Override
                     public void onResponse(Void unused) {
                         logger.trace("cs-change-async-action-callback, [{}], current-step: {}", index, currentStep.getKey());
-                        if (((AsyncActionStep) currentStep).indexSurvives()) {
+                         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                         // Invariant: [State condition that holds true before and after each iteration/execution]\n                        if (((AsyncActionStep) currentStep).indexSurvives()) {
                             moveToStep(indexMetadata.getIndex(), policy, currentStep.getKey(), currentStep.getNextStepKey());
-                        } else {
+                         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                         // Invariant: [State condition that holds true before and after each iteration/execution]\n                        } else {
                             // Delete needs special handling, because after this step we
                             // will no longer have access to any information about the
                             // index since it will be... deleted.
@@ -381,7 +416,7 @@ class IndexLifecycleRunner {
                     }
                 }
             );
-        } else {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else {
             logger.trace("[{}] ignoring non async action step execution from step transition [{}]", index, currentStep.getKey());
         }
     }
@@ -392,13 +427,13 @@ class IndexLifecycleRunner {
      */
     void runPolicyAfterStateChange(String policy, IndexMetadata indexMetadata) {
         String index = indexMetadata.getIndex().getName();
-        if (LifecycleSettings.LIFECYCLE_SKIP_SETTING.get(indexMetadata.getSettings())) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (LifecycleSettings.LIFECYCLE_SKIP_SETTING.get(indexMetadata.getSettings())) {
             logger.info("[{}] skipping policy [{}] because [{}] is true", index, policy, LifecycleSettings.LIFECYCLE_SKIP);
             return;
         }
         LifecycleExecutionState lifecycleState = indexMetadata.getLifecycleExecutionState();
         final StepKey currentStepKey = Step.getCurrentStepKey(lifecycleState);
-        if (busyIndices.contains(Tuple.tuple(indexMetadata.getIndex(), currentStepKey))) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (busyIndices.contains(Tuple.tuple(indexMetadata.getIndex(), currentStepKey))) {
             // try later again, already doing work for this index at this step, no need to check for more work yet
             return;
         }
@@ -409,12 +444,12 @@ class IndexLifecycleRunner {
             markPolicyRetrievalError(policy, indexMetadata.getIndex(), lifecycleState, e);
             return;
         }
-        if (currentStep == null) {
-            if (stepRegistry.policyExists(policy) == false) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (currentStep == null) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (stepRegistry.policyExists(policy) == false) {
                 markPolicyDoesNotExist(policy, indexMetadata.getIndex(), lifecycleState);
                 return;
-            } else {
-                if (TerminalPolicyStep.KEY.equals(currentStepKey)) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            } else {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                if (TerminalPolicyStep.KEY.equals(currentStepKey)) {
                     // This index is a leftover from before we halted execution on the final phase
                     // instead of going to the completed phase, so it's okay to ignore this index
                     // for now
@@ -425,10 +460,10 @@ class IndexLifecycleRunner {
             }
         }
 
-        if (currentStep instanceof TerminalPolicyStep) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (currentStep instanceof TerminalPolicyStep) {
             logger.debug("policy [{}] for index [{}] complete, skipping execution", policy, index);
             return;
-        } else if (currentStep instanceof ErrorStep) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else if (currentStep instanceof ErrorStep) {
             logger.debug("policy [{}] for index [{}] on an error step, skipping execution", policy, index);
             return;
         }
@@ -439,8 +474,8 @@ class IndexLifecycleRunner {
             currentStep.getClass().getSimpleName(),
             currentStep.getKey()
         );
-        if (currentStep instanceof PhaseCompleteStep) {
-            if (currentStep.getNextStepKey() == null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (currentStep instanceof PhaseCompleteStep) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (currentStep.getNextStepKey() == null) {
                 logger.debug(
                     "[{}] stopping in the current phase ({}) as there are no more steps in the policy",
                     index,
@@ -449,16 +484,16 @@ class IndexLifecycleRunner {
                 return;
             }
             // Only proceed to the next step if enough time has elapsed to go into the next phase
-            if (isReadyToTransitionToThisPhase(policy, indexMetadata, currentStep.getNextStepKey().phase())) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (isReadyToTransitionToThisPhase(policy, indexMetadata, currentStep.getNextStepKey().phase())) {
                 moveToStep(indexMetadata.getIndex(), policy, currentStep.getKey(), currentStep.getNextStepKey());
             }
-        } else if (currentStep instanceof ClusterStateActionStep || currentStep instanceof ClusterStateWaitStep) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else if (currentStep instanceof ClusterStateActionStep || currentStep instanceof ClusterStateWaitStep) {
             logger.debug("[{}] running policy with current-step [{}]", indexMetadata.getIndex().getName(), currentStep.getKey());
             submitUnlessAlreadyQueued(
                 Strings.format("ilm-execute-cluster-state-steps [%s]", currentStep),
                 new ExecuteStepsUpdateTask(policy, indexMetadata.getIndex(), currentStep, stepRegistry, this, nowSupplier)
             );
-        } else {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else {
             logger.trace("[{}] ignoring step execution from cluster state change event [{}]", index, currentStep.getKey());
         }
     }
@@ -480,7 +515,7 @@ class IndexLifecycleRunner {
             new MoveToNextStepUpdateTask(index, policy, currentStepKey, newStepKey, nowSupplier, stepRegistry, clusterState -> {
                 IndexMetadata indexMetadata = clusterState.metadata().getProject().index(index);
                 registerSuccessfulOperation(indexMetadata);
-                if (newStepKey != null && newStepKey != TerminalPolicyStep.KEY && indexMetadata != null) {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                if (newStepKey != null && newStepKey != TerminalPolicyStep.KEY && indexMetadata != null) {
                     maybeRunAsyncAction(clusterState, indexMetadata, policy, newStepKey);
                 }
             })
@@ -550,7 +585,7 @@ class IndexLifecycleRunner {
      * successfully into this new state using the {@link ILMHistoryStore}
      */
     void registerSuccessfulOperation(IndexMetadata indexMetadata) {
-        if (indexMetadata == null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (indexMetadata == null) {
             // This index may have been deleted and has no metadata, so ignore it
             return;
         }
@@ -571,10 +606,11 @@ class IndexLifecycleRunner {
      * has been deleted by ILM using the {@link ILMHistoryStore}
      */
     void registerDeleteOperation(IndexMetadata metadataBeforeDeletion) {
-        if (metadataBeforeDeletion == null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (metadataBeforeDeletion == null) {
             throw new IllegalStateException("cannot register deletion of an index that did not previously exist");
         }
         Long origination = calculateOriginationMillis(metadataBeforeDeletion);
+                    // Register that the delete phase is now "complete"
         ilmHistoryStore.putAsync(
             ILMHistoryItem.success(
                 metadataBeforeDeletion.getIndex().getName(),
@@ -582,7 +618,6 @@ class IndexLifecycleRunner {
                 nowSupplier.getAsLong(),
                 origination == null ? null : (nowSupplier.getAsLong() - origination),
                 LifecycleExecutionState.builder(metadataBeforeDeletion.getLifecycleExecutionState())
-                    // Register that the delete phase is now "complete"
                     .setStep(PhaseCompleteStep.NAME)
                     .build()
             )
@@ -594,7 +629,7 @@ class IndexLifecycleRunner {
      * into the ERROR state using the {@link ILMHistoryStore}
      */
     void registerFailedOperation(IndexMetadata indexMetadata, Exception failure) {
-        if (indexMetadata == null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (indexMetadata == null) {
             // This index may have been deleted and has no metadata, so ignore it
             return;
         }
@@ -629,7 +664,7 @@ class IndexLifecycleRunner {
      * @param task   task to submit unless already tracked in {@link #executingTasks}.
      */
     private void submitUnlessAlreadyQueued(String source, IndexLifecycleClusterStateUpdateTask task) {
-        if (executingTasks.add(task)) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (executingTasks.add(task)) {
             final Tuple<Index, StepKey> dedupKey = Tuple.tuple(task.index, task.currentStepKey);
             // index+step-key combination on a best-effort basis to skip checking for more work for an index on CS application
             busyIndices.add(dedupKey);
@@ -639,7 +674,7 @@ class IndexLifecycleRunner {
                 assert removed : "tried to unregister unknown task [" + task + "]";
             }));
             masterServiceTaskQueue.submitTask(source, task, null);
-        } else {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else {
             logger.trace("skipped redundant execution of [{}]", source);
         }
     }
@@ -669,10 +704,10 @@ class IndexLifecycleRunner {
 
         @Override
         public boolean equals(Object other) {
-            if (this == other) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (this == other) {
                 return true;
             }
-            if (other instanceof MoveToRetryFailedStepUpdateTask == false) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (other instanceof MoveToRetryFailedStepUpdateTask == false) {
                 return false;
             }
             final MoveToRetryFailedStepUpdateTask that = (MoveToRetryFailedStepUpdateTask) other;
@@ -695,17 +730,17 @@ class IndexLifecycleRunner {
         @Override
         protected void onClusterStateProcessed(ClusterState newState) {
             IndexMetadata newIndexMeta = newState.metadata().getProject().index(index);
-            if (newIndexMeta == null) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (newIndexMeta == null) {
                 // index was deleted
                 return;
             }
             Step indexMetaCurrentStep = getCurrentStep(stepRegistry, policy, newIndexMeta);
-            if (indexMetaCurrentStep == null) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (indexMetaCurrentStep == null) {
                 // no step found
                 return;
             }
             StepKey stepKey = indexMetaCurrentStep.getKey();
-            if (stepKey != null && stepKey != TerminalPolicyStep.KEY) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (stepKey != null && stepKey != TerminalPolicyStep.KEY) {
                 logger.trace(
                     "policy [{}] for index [{}] was moved back on the failed step for as part of an automatic "
                         + "retry. Attempting to execute the failed step [{}] if it's an async action",

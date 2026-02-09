@@ -39,8 +39,17 @@ import java.util.List;
 
 import static org.hamcrest.Matchers.containsString;
 
+/**
+ * @brief Functional description of the ScaledFloatFieldTypeTests class.
+ *        This is a placeholder for detailed semantic documentation.
+ *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+ */
 public class ScaledFloatFieldTypeTests extends FieldTypeTestCase {
 
+    /**
+     * @brief [Functional Utility for testTermQuery]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testTermQuery() {
         ScaledFloatFieldMapper.ScaledFloatFieldType ft = new ScaledFloatFieldMapper.ScaledFloatFieldType(
             "scaled_float",
@@ -58,6 +67,10 @@ public class ScaledFloatFieldTypeTests extends FieldTypeTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testTermsQuery]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testTermsQuery() {
         ScaledFloatFieldMapper.ScaledFloatFieldType ft = new ScaledFloatFieldMapper.ScaledFloatFieldType(
             "scaled_float",
@@ -83,6 +96,11 @@ public class ScaledFloatFieldTypeTests extends FieldTypeTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testRangeQuery]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
     public void testRangeQuery() throws IOException {
         // make sure the accuracy loss of scaled floats only occurs at index time
         // this test checks that searching scaled floats yields the same results as
@@ -100,7 +118,12 @@ public class ScaledFloatFieldTypeTests extends FieldTypeTestCase {
         );
         Directory dir = newDirectory();
         IndexWriter w = new IndexWriter(dir, new IndexWriterConfig(null));
+    /**
+     * @brief [Functional description for field numDocs]: Describe purpose here.
+     */
         final int numDocs = 1000;
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (int i = 0; i < numDocs; ++i) {
             Document doc = new Document();
             double value = (randomDouble() * 2 - 1) * 10000;
@@ -115,7 +138,12 @@ public class ScaledFloatFieldTypeTests extends FieldTypeTestCase {
         final DirectoryReader reader = DirectoryReader.open(w);
         w.close();
         IndexSearcher searcher = newSearcher(reader);
+    /**
+     * @brief [Functional description for field numQueries]: Describe purpose here.
+     */
         final int numQueries = 1000;
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (int i = 0; i < numQueries; ++i) {
             Double l = randomBoolean() ? null : (randomDouble() * 2 - 1) * 10000;
             Double u = randomBoolean() ? null : (randomDouble() * 2 - 1) * 10000;
@@ -137,6 +165,10 @@ public class ScaledFloatFieldTypeTests extends FieldTypeTestCase {
         IOUtils.close(reader, dir);
     }
 
+    /**
+     * @brief [Functional Utility for testRoundsUpperBoundCorrectly]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testRoundsUpperBoundCorrectly() {
         ScaledFloatFieldMapper.ScaledFloatFieldType ft = new ScaledFloatFieldMapper.ScaledFloatFieldType("scaled_float", 100);
         Query scaledFloatQ = ft.rangeQuery(null, 0.1, true, false, MOCK_CONTEXT);
@@ -155,6 +187,10 @@ public class ScaledFloatFieldTypeTests extends FieldTypeTestCase {
         assertThat(scaledFloatQ.toString(), containsString("scaled_float:[-9223372036854775808 TO 7999]"));
     }
 
+    /**
+     * @brief [Functional Utility for testRoundsLowerBoundCorrectly]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testRoundsLowerBoundCorrectly() {
         ScaledFloatFieldMapper.ScaledFloatFieldType ft = new ScaledFloatFieldMapper.ScaledFloatFieldType("scaled_float", 100);
         Query scaledFloatQ = ft.rangeQuery(-0.1, null, false, true, MOCK_CONTEXT);
@@ -171,6 +207,10 @@ public class ScaledFloatFieldTypeTests extends FieldTypeTestCase {
         assertThat(scaledFloatQ.toString(), containsString("scaled_float:[-10 TO 9223372036854775807]"));
     }
 
+    /**
+     * @brief [Functional Utility for testValueForSearch]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testValueForSearch() {
         ScaledFloatFieldMapper.ScaledFloatFieldType ft = new ScaledFloatFieldMapper.ScaledFloatFieldType(
             "scaled_float",
@@ -180,6 +220,11 @@ public class ScaledFloatFieldTypeTests extends FieldTypeTestCase {
         assertEquals(10 / ft.getScalingFactor(), ft.valueForDisplay(10L));
     }
 
+    /**
+     * @brief [Functional Utility for testFieldData]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
     public void testFieldData() throws IOException {
         double scalingFactor = 0.1 + randomDouble() * 100;
         Directory dir = newDirectory();
@@ -220,6 +265,11 @@ public class ScaledFloatFieldTypeTests extends FieldTypeTestCase {
         IOUtils.close(w, dir);
     }
 
+    /**
+     * @brief [Functional Utility for testFetchSourceValue]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
     public void testFetchSourceValue() throws IOException {
         MappedFieldType mapper = new ScaledFloatFieldMapper.Builder("field", false, false, null).scalingFactor(100)
             .build(MapperBuilderContext.root(false, false))

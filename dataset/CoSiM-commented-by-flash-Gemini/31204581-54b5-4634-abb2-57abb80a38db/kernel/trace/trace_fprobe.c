@@ -60,6 +60,8 @@ static int tracepoint_user_register(struct tracepoint_user *tuser)
 {
 	struct tracepoint *tpoint = tuser->tpoint;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!tpoint)
 		return 0;
 
@@ -69,6 +71,8 @@ static int tracepoint_user_register(struct tracepoint_user *tuser)
 
 static void tracepoint_user_unregister(struct tracepoint_user *tuser)
 {
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!tuser->tpoint)
 		return;
 
@@ -78,6 +82,8 @@ static void tracepoint_user_unregister(struct tracepoint_user *tuser)
 
 static unsigned long tracepoint_user_ip(struct tracepoint_user *tuser)
 {
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!tuser->tpoint)
 		return 0UL;
 
@@ -86,6 +92,8 @@ static unsigned long tracepoint_user_ip(struct tracepoint_user *tuser)
 
 static void __tracepoint_user_free(struct tracepoint_user *tuser)
 {
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!tuser)
 		return;
 	kfree(tuser->name);
@@ -100,14 +108,23 @@ static struct tracepoint_user *__tracepoint_user_init(const char *name, struct t
 	int ret;
 
 	tuser = kzalloc(sizeof(*tuser), GFP_KERNEL);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!tuser)
 		return NULL;
 	tuser->name = kstrdup(name, GFP_KERNEL);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!tuser->name)
 		return NULL;
 
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (tpoint) {
 		ret = tracepoint_user_register(tuser);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (ret)
 			return ERR_PTR(ret);
 	}
@@ -134,6 +151,8 @@ static struct tracepoint_user *tracepoint_user_find_get(const char *name, struct
 	struct tracepoint_user *tuser;
 	struct tracepoint *tpoint;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!name || !pmod)
 		return ERR_PTR(-EINVAL);
 
@@ -142,7 +161,12 @@ static struct tracepoint_user *tracepoint_user_find_get(const char *name, struct
 
 	guard(mutex)(&tracepoint_user_mutex);
 	/* Search existing tracepoint_user */
+	/**
+	 * @brief [Functional Utility for for_each_tracepoint_user]: Describe purpose here.
+	 */
 	for_each_tracepoint_user(tuser) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!strcmp(tuser->name, name)) {
 			tuser->refcount++;
 			*pmod = no_free_ptr(mod);
@@ -152,6 +176,8 @@ static struct tracepoint_user *tracepoint_user_find_get(const char *name, struct
 
 	/* The corresponding tracepoint_user is not found. */
 	tuser = __tracepoint_user_init(name, tpoint);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!IS_ERR_OR_NULL(tuser))
 		*pmod = no_free_ptr(mod);
 
@@ -160,7 +186,12 @@ static struct tracepoint_user *tracepoint_user_find_get(const char *name, struct
 
 static void tracepoint_user_put(struct tracepoint_user *tuser)
 {
+	/**
+	 * @brief [Functional Utility for scoped_guard]: Describe purpose here.
+	 */
 	scoped_guard(mutex, &tracepoint_user_mutex) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (--tuser->refcount > 0)
 			return;
 
@@ -172,6 +203,8 @@ static void tracepoint_user_put(struct tracepoint_user *tuser)
 }
 
 DEFINE_FREE(tuser_put, struct tracepoint_user *,
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!IS_ERR_OR_NULL(_T))
 		tracepoint_user_put(_T))
 
@@ -210,6 +243,8 @@ static struct trace_fprobe *to_trace_fprobe(struct dyn_event *ev)
  */
 #define for_each_trace_fprobe(pos, dpos)	\
 	for_each_dyn_event(dpos)		\
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (is_trace_fprobe(dpos) && (pos = to_trace_fprobe(dpos)))
 
 static bool trace_fprobe_is_return(struct trace_fprobe *tf)
@@ -239,10 +274,14 @@ static bool trace_fprobe_match_command_head(struct trace_fprobe *tf,
 {
 	char buf[MAX_ARGSTR_LEN + 1];
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!argc)
 		return true;
 
 	snprintf(buf, sizeof(buf), "%s", trace_fprobe_symbol(tf));
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (strcmp(buf, argv[0]))
 		return false;
 	argc--; argv++;
@@ -255,9 +294,13 @@ static bool trace_fprobe_match(const char *system, const char *event,
 {
 	struct trace_fprobe *tf = to_trace_fprobe(ev);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (event[0] != '\0' && strcmp(trace_probe_name(&tf->tp), event))
 		return false;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (system && strcmp(trace_probe_group_name(&tf->tp), system))
 		return false;
 
@@ -283,6 +326,9 @@ process_fetch_insn(struct fetch_insn *code, void *rec, void *edata,
 
 retry:
 	/* 1st stage: get value from context */
+	/**
+	 * @brief [Functional Utility for switch]: Describe purpose here.
+	 */
 	switch (code->op) {
 	case FETCH_OP_STACK:
 		val = ftrace_regs_get_kernel_stack_nth(fregs, code->param);
@@ -306,6 +352,8 @@ retry:
 		goto retry;
 	default:
 		ret = process_common_fetch_insn(code, &val);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (ret < 0)
 			return ret;
 	}
@@ -326,9 +374,13 @@ __fentry_trace_func(struct trace_fprobe *tf, unsigned long entry_ip,
 	struct trace_event_buffer fbuffer;
 	int dsize;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (WARN_ON_ONCE(call != trace_file->event_call))
 		return;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (trace_trigger_soft_disabled(trace_file))
 		return;
 
@@ -336,6 +388,8 @@ __fentry_trace_func(struct trace_fprobe *tf, unsigned long entry_ip,
 
 	entry = trace_event_buffer_reserve(&fbuffer, trace_file,
 					   sizeof(*entry) + tf->tp.size + dsize);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!entry)
 		return;
 
@@ -365,12 +419,20 @@ void store_fprobe_entry_data(void *edata, struct trace_probe *tp, struct ftrace_
 	unsigned long val = 0;
 	int i;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!earg)
 		return;
 
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (i = 0; i < earg->size; i++) {
 		struct fetch_insn *code = &earg->code[i];
 
+		/**
+		 * @brief [Functional Utility for switch]: Describe purpose here.
+		 */
 		switch (code->op) {
 		case FETCH_OP_ARG:
 			val = ftrace_regs_get_argument(fregs, code->param);
@@ -395,6 +457,8 @@ static int trace_fprobe_entry_handler(struct fprobe *fp, unsigned long entry_ip,
 {
 	struct trace_fprobe *tf = container_of(fp, struct trace_fprobe, fp);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (tf->tp.entry_arg)
 		store_fprobe_entry_data(entry_data, &tf->tp, fregs);
 
@@ -412,9 +476,13 @@ __fexit_trace_func(struct trace_fprobe *tf, unsigned long entry_ip,
 	struct trace_event_call *call = trace_probe_event_call(&tf->tp);
 	int dsize;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (WARN_ON_ONCE(call != trace_file->event_call))
 		return;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (trace_trigger_soft_disabled(trace_file))
 		return;
 
@@ -422,6 +490,8 @@ __fexit_trace_func(struct trace_fprobe *tf, unsigned long entry_ip,
 
 	entry = trace_event_buffer_reserve(&fbuffer, trace_file,
 					   sizeof(*entry) + tf->tp.size + dsize);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!entry)
 		return;
 
@@ -458,6 +528,8 @@ static int fentry_perf_func(struct trace_fprobe *tf, unsigned long entry_ip,
 	int rctx;
 
 	head = this_cpu_ptr(call->perf_events);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (hlist_empty(head))
 		return 0;
 
@@ -467,6 +539,8 @@ static int fentry_perf_func(struct trace_fprobe *tf, unsigned long entry_ip,
 	size -= sizeof(u32);
 
 	entry = perf_trace_buf_alloc(size, &regs, &rctx);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!entry)
 		return 0;
 
@@ -494,6 +568,8 @@ fexit_perf_func(struct trace_fprobe *tf, unsigned long entry_ip,
 	int rctx;
 
 	head = this_cpu_ptr(call->perf_events);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (hlist_empty(head))
 		return;
 
@@ -503,6 +579,8 @@ fexit_perf_func(struct trace_fprobe *tf, unsigned long entry_ip,
 	size -= sizeof(u32);
 
 	entry = perf_trace_buf_alloc(size, &regs, &rctx);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!entry)
 		return;
 
@@ -524,6 +602,8 @@ static int fentry_dispatcher(struct fprobe *fp, unsigned long entry_ip,
 	struct trace_fprobe *tf = container_of(fp, struct trace_fprobe, fp);
 	int ret = 0;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (trace_probe_test_flag(&tf->tp, TP_FLAG_TRACE))
 		fentry_trace_func(tf, entry_ip, fregs);
 
@@ -541,6 +621,8 @@ static void fexit_dispatcher(struct fprobe *fp, unsigned long entry_ip,
 {
 	struct trace_fprobe *tf = container_of(fp, struct trace_fprobe, fp);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (trace_probe_test_flag(&tf->tp, TP_FLAG_TRACE))
 		fexit_trace_func(tf, entry_ip, ret_ip, fregs, entry_data);
 #ifdef CONFIG_PERF_EVENTS
@@ -552,8 +634,13 @@ NOKPROBE_SYMBOL(fexit_dispatcher);
 
 static void free_trace_fprobe(struct trace_fprobe *tf)
 {
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (tf) {
 		trace_probe_cleanup(&tf->tp);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (tf->tuser)
 			tracepoint_user_put(tf->tuser);
 		kfree(tf->symbol);
@@ -577,21 +664,31 @@ static struct trace_fprobe *alloc_trace_fprobe(const char *group,
 	int ret = -ENOMEM;
 
 	tf = kzalloc(struct_size(tf, tp.args, nargs), GFP_KERNEL);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!tf)
 		return ERR_PTR(ret);
 
 	tf->symbol = kstrdup(symbol, GFP_KERNEL);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!tf->symbol)
 		return ERR_PTR(-ENOMEM);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (is_return)
 		tf->fp.exit_handler = fexit_dispatcher;
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	else
 		tf->fp.entry_handler = fentry_dispatcher;
 
 	tf->tprobe = is_tracepoint;
 
 	ret = trace_probe_init(&tf->tp, event, group, false, nargs);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret < 0)
 		return ERR_PTR(ret);
 
@@ -606,6 +703,8 @@ static struct trace_fprobe *find_trace_fprobe(const char *event,
 	struct trace_fprobe *tf;
 
 	for_each_trace_fprobe(tf, pos)
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (strcmp(trace_probe_name(&tf->tp), event) == 0 &&
 		    strcmp(trace_probe_group_name(&tf->tp), group) == 0)
 			return tf;
@@ -624,11 +723,15 @@ print_fentry_event(struct trace_iterator *iter, int flags,
 	field = (struct fentry_trace_entry_head *)iter->ent;
 	tp = trace_probe_primary_from_call(
 		container_of(event, struct trace_event_call, event));
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (WARN_ON_ONCE(!tp))
 		goto out;
 
 	trace_seq_printf(s, "%s: (", trace_probe_name(tp));
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!seq_print_ip_sym(s, field->ip, flags | TRACE_ITER_SYM_OFFSET))
 		goto out;
 
@@ -654,16 +757,22 @@ print_fexit_event(struct trace_iterator *iter, int flags,
 	field = (struct fexit_trace_entry_head *)iter->ent;
 	tp = trace_probe_primary_from_call(
 		container_of(event, struct trace_event_call, event));
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (WARN_ON_ONCE(!tp))
 		goto out;
 
 	trace_seq_printf(s, "%s: (", trace_probe_name(tp));
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!seq_print_ip_sym(s, field->ret_ip, flags | TRACE_ITER_SYM_OFFSET))
 		goto out;
 
 	trace_seq_puts(s, " <- ");
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!seq_print_ip_sym(s, field->func, flags & ~TRACE_ITER_SYM_OFFSET))
 		goto out;
 
@@ -686,6 +795,8 @@ static int fentry_event_define_fields(struct trace_event_call *event_call)
 	struct trace_probe *tp;
 
 	tp = trace_probe_primary_from_call(event_call);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (WARN_ON_ONCE(!tp))
 		return -ENOENT;
 
@@ -701,6 +812,8 @@ static int fexit_event_define_fields(struct trace_event_call *event_call)
 	struct trace_probe *tp;
 
 	tp = trace_probe_primary_from_call(event_call);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (WARN_ON_ONCE(!tp))
 		return -ENOENT;
 
@@ -737,6 +850,8 @@ static inline void init_trace_event_call(struct trace_fprobe *tf)
 {
 	struct trace_event_call *call = trace_probe_event_call(&tf->tp);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (trace_fprobe_is_return(tf)) {
 		call->event.funcs = &fexit_funcs;
 		call->class->fields_array = fexit_fields_array;
@@ -768,6 +883,8 @@ static int __regsiter_tracepoint_fprobe(struct trace_fprobe *tf)
 	unsigned long ip;
 	int ret;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (WARN_ON_ONCE(tf->tuser))
 		return -EINVAL;
 
@@ -776,16 +893,25 @@ static int __regsiter_tracepoint_fprobe(struct trace_fprobe *tf)
 	/* This tracepoint is not loaded yet */
 	if (IS_ERR(tuser))
 		return PTR_ERR(tuser);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!tuser)
 		return -ENOMEM;
 
 	/* Register fprobe only if the tracepoint is loaded. */
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (tuser->tpoint) {
 		ip = tracepoint_user_ip(tuser);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (WARN_ON_ONCE(!ip))
 			return -ENOENT;
 
 		ret = register_fprobe_ips(&tf->fp, &ip, 1);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (ret < 0)
 			return ret;
 	}
@@ -818,20 +944,31 @@ static int __register_trace_fprobe(struct trace_fprobe *tf)
 
 	/* Should we need new LOCKDOWN flag for fprobe? */
 	ret = security_locked_down(LOCKDOWN_KPROBES);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret)
 		return ret;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (trace_fprobe_is_registered(tf))
 		return -EINVAL;
 
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (i = 0; i < tf->tp.nr_args; i++) {
 		ret = traceprobe_update_arg(&tf->tp.args[i]);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (ret)
 			return ret;
 	}
 
 	tf->fp.flags &= ~FPROBE_FL_DISABLED;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (trace_fprobe_is_tracepoint(tf))
 		return __regsiter_tracepoint_fprobe(tf);
 
@@ -842,8 +979,13 @@ static int __register_trace_fprobe(struct trace_fprobe *tf)
 /* Internal unregister function - just handle fprobe and flags */
 static void __unregister_trace_fprobe(struct trace_fprobe *tf)
 {
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (trace_fprobe_is_registered(tf))
 		unregister_fprobe(&tf->fp);
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (tf->tuser) {
 		tracepoint_user_put(tf->tuser);
 		tf->tuser = NULL;
@@ -884,7 +1026,12 @@ static bool trace_fprobe_has_same_fprobe(struct trace_fprobe *orig,
 	struct trace_probe_event *tpe = orig->tp.event;
 	int i;
 
+	/**
+	 * @brief [Functional Utility for list_for_each_entry]: Describe purpose here.
+	 */
 	list_for_each_entry(orig, &tpe->probes, tp.list) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (strcmp(trace_fprobe_symbol(orig),
 			   trace_fprobe_symbol(comp)))
 			continue;
@@ -893,12 +1040,17 @@ static bool trace_fprobe_has_same_fprobe(struct trace_fprobe *orig,
 		 * trace_probe_compare_arg_type() ensured that nr_args and
 		 * each argument name and type are same. Let's compare comm.
 		 */
+		/**
+		 * @brief [Functional Utility for for]: Describe purpose here.
+		 */
 		for (i = 0; i < orig->tp.nr_args; i++) {
 			if (strcmp(orig->tp.args[i].comm,
 				   comp->tp.args[i].comm))
 				break;
 		}
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (i == orig->tp.nr_args)
 			return true;
 	}
@@ -910,6 +1062,8 @@ static int append_trace_fprobe_event(struct trace_fprobe *tf, struct trace_fprob
 {
 	int ret;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (trace_fprobe_is_return(tf) != trace_fprobe_is_return(to) ||
 	    trace_fprobe_is_tracepoint(tf) != trace_fprobe_is_tracepoint(to)) {
 		trace_probe_log_set_index(0);
@@ -917,12 +1071,17 @@ static int append_trace_fprobe_event(struct trace_fprobe *tf, struct trace_fprob
 		return -EEXIST;
 	}
 	ret = trace_probe_compare_arg_type(&tf->tp, &to->tp);
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (ret) {
 		/* Note that argument starts index = 2 */
 		trace_probe_log_set_index(ret + 1);
 		trace_probe_log_err(0, DIFF_ARG_TYPE);
 		return -EEXIST;
 	}
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (trace_fprobe_has_same_fprobe(to, tf)) {
 		trace_probe_log_set_index(0);
 		trace_probe_log_err(0, SAME_PROBE);
@@ -931,12 +1090,18 @@ static int append_trace_fprobe_event(struct trace_fprobe *tf, struct trace_fprob
 
 	/* Append to existing event */
 	ret = trace_probe_append(&tf->tp, &to->tp);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret)
 		return ret;
 
 	ret = trace_fprobe_verify_target(tf);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret)
 		trace_probe_unlink(&tf->tp);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	else
 		dyn_event_add(&tf->devent, trace_probe_event_call(&tf->tp));
 
@@ -953,12 +1118,20 @@ static int register_trace_fprobe_event(struct trace_fprobe *tf)
 
 	old_tf = find_trace_fprobe(trace_probe_name(&tf->tp),
 				   trace_probe_group_name(&tf->tp));
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (old_tf)
 		return append_trace_fprobe_event(tf, old_tf);
 
 	/* Register new event */
 	ret = register_fprobe_event(tf);
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (ret) {
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (ret == -EEXIST) {
 			trace_probe_log_set_index(0);
 			trace_probe_log_err(0, EVENT_EXIST);
@@ -969,8 +1142,12 @@ static int register_trace_fprobe_event(struct trace_fprobe *tf)
 
 	/* Verify fprobe is sane. */
 	ret = trace_fprobe_verify_target(tf);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret < 0)
 		unregister_fprobe_event(tf);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	else
 		dyn_event_add(&tf->devent, trace_probe_event_call(&tf->tp));
 
@@ -987,8 +1164,13 @@ static void __find_tracepoint_module_cb(struct tracepoint *tp, struct module *mo
 {
 	struct __find_tracepoint_cb_data *data = priv;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!data->tpoint && !strcmp(data->tp_name, tp->name)) {
 		/* If module is not specified, try getting module refcount. */
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (!data->mod && mod) {
 			/* If failed to get refcount, ignore this tracepoint. */
 			if (!try_module_get(mod))
@@ -1004,6 +1186,8 @@ static void __find_tracepoint_cb(struct tracepoint *tp, void *priv)
 {
 	struct __find_tracepoint_cb_data *data = priv;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!data->tpoint && !strcmp(data->tp_name, tp->name))
 		data->tpoint = tp;
 }
@@ -1023,6 +1207,8 @@ static struct tracepoint *find_tracepoint(const char *tp_name,
 
 	for_each_kernel_tracepoint(__find_tracepoint_cb, &data);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!data.tpoint && IS_ENABLED(CONFIG_MODULES)) {
 		for_each_module_tracepoint(__find_tracepoint_module_cb, &data);
 		*tp_mod = data.mod;
@@ -1076,14 +1262,24 @@ static int __tracepoint_probe_module_cb(struct notifier_block *self,
 	struct tracepoint_user *tuser;
 	struct tracepoint *tpoint;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (val != MODULE_STATE_GOING && val != MODULE_STATE_COMING)
 		return NOTIFY_DONE;
 
 	mutex_lock(&tracepoint_user_mutex);
+	/**
+	 * @brief [Functional Utility for for_each_tracepoint_user]: Describe purpose here.
+	 */
 	for_each_tracepoint_user(tuser) {
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (val == MODULE_STATE_COMING) {
 			/* This is not a tracepoint in this module. Skip it. */
 			tpoint = find_tracepoint_in_module(tp_mod->mod, tuser->name);
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (!tpoint)
 				continue;
 			WARN_ON_ONCE(tracepoint_user_register_again(tuser, tpoint));
@@ -1110,10 +1306,15 @@ static int __tprobe_event_module_cb(struct notifier_block *self,
 	struct dyn_event *pos;
 	struct module *mod = data;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (val != MODULE_STATE_GOING && val != MODULE_STATE_COMING)
 		return NOTIFY_DONE;
 
 	mutex_lock(&event_mutex);
+	/**
+	 * @brief [Functional Utility for for_each_trace_fprobe]: Describe purpose here.
+	 */
 	for_each_trace_fprobe(tf, pos) {
 		/* Skip fprobe and disabled tprobe events. */
 		if (!trace_fprobe_is_tracepoint(tf) || !tf->tuser)
@@ -1158,9 +1359,14 @@ static int parse_symbol_and_return(int argc, const char *argv[],
 	char *tmp = strchr(argv[1], '%');
 	int i;
 
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (tmp) {
 		int len = tmp - argv[1];
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!is_tracepoint && !strcmp(tmp, "%return")) {
 			*is_return = true;
 		} else {
@@ -1170,16 +1376,28 @@ static int parse_symbol_and_return(int argc, const char *argv[],
 		*symbol = kmemdup_nul(argv[1], len, GFP_KERNEL);
 	} else
 		*symbol = kstrdup(argv[1], GFP_KERNEL);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!*symbol)
 		return -ENOMEM;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (*is_return)
 		return 0;
 
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (is_tracepoint) {
 		tmp = *symbol;
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		while (*tmp && (isalnum(*tmp) || *tmp == '_'))
 			tmp++;
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (*tmp) {
 			/* find a wrong character. */
 			trace_probe_log_err(tmp - *symbol, BAD_TP_NAME);
@@ -1190,9 +1408,17 @@ static int parse_symbol_and_return(int argc, const char *argv[],
 	}
 
 	/* If there is $retval, this should be a return fprobe. */
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (i = 2; i < argc; i++) {
 		tmp = strstr(argv[i], "$retval");
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (tmp && !isalnum(tmp[7]) && tmp[7] != '_') {
+			/**
+			 * @brief [Functional Utility for if]: Describe purpose here.
+			 */
 			if (is_tracepoint) {
 				trace_probe_log_set_index(i);
 				trace_probe_log_err(tmp - argv[i], RETVAL_ON_PROBE);
@@ -1248,15 +1474,26 @@ static int trace_fprobe_create_internal(int argc, const char *argv[],
 	bool is_tracepoint = false;
 	bool is_return = false;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if ((argv[0][0] != 'f' && argv[0][0] != 't') || argc < 2)
 		return -ECANCELED;
 
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (argv[0][0] == 't') {
 		is_tracepoint = true;
 		group = TRACEPOINT_EVENT_SYSTEM;
 	}
 
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (argv[0][1] != '\0') {
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (argv[0][1] != ':') {
 			trace_probe_log_set_index(0);
 			trace_probe_log_err(1, BAD_MAXACT);
@@ -1269,28 +1506,44 @@ static int trace_fprobe_create_internal(int argc, const char *argv[],
 
 	/* a symbol(or tracepoint) must be specified */
 	ret = parse_symbol_and_return(argc, argv, &symbol, &is_return, is_tracepoint);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret < 0)
 		return -EINVAL;
 
 	trace_probe_log_set_index(0);
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (event) {
 		gbuf = kmalloc(MAX_EVENT_NAME_LEN, GFP_KERNEL);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!gbuf)
 			return -ENOMEM;
 		ret = traceprobe_parse_event_name(&event, &group, gbuf,
 						  event - argv[0]);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (ret)
 			return -EINVAL;
 	}
 
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (!event) {
 		ebuf = kmalloc(MAX_EVENT_NAME_LEN, GFP_KERNEL);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!ebuf)
 			return -ENOMEM;
 		/* Make a new event name */
 		if (is_tracepoint)
 			snprintf(ebuf, MAX_EVENT_NAME_LEN, "%s%s",
 				 isdigit(*symbol) ? "_" : "", symbol);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		else
 			snprintf(ebuf, MAX_EVENT_NAME_LEN, "%s__%s", symbol,
 				 is_return ? "exit" : "entry");
@@ -1298,12 +1551,19 @@ static int trace_fprobe_create_internal(int argc, const char *argv[],
 		event = ebuf;
 	}
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (is_return)
 		ctx->flags |= TPARG_FL_RETURN;
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	else
 		ctx->flags |= TPARG_FL_FENTRY;
 
 	ctx->funcname = NULL;
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (is_tracepoint) {
 		/* Get tracepoint and lock its module until the end of the registration. */
 		struct tracepoint *tpoint;
@@ -1311,29 +1571,46 @@ static int trace_fprobe_create_internal(int argc, const char *argv[],
 		ctx->flags |= TPARG_FL_TPOINT;
 		mod = NULL;
 		tpoint = find_tracepoint(symbol, &mod);
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (tpoint) {
 			sbuf = kmalloc(KSYM_NAME_LEN, GFP_KERNEL);
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (!sbuf)
 				return -ENOMEM;
 			ctx->funcname = kallsyms_lookup((unsigned long)tpoint->probestub,
 							NULL, NULL, NULL, sbuf);
 		}
 	}
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!ctx->funcname)
 		ctx->funcname = symbol;
 
 	abuf = kmalloc(MAX_BTF_ARGS_LEN, GFP_KERNEL);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!abuf)
 		return -ENOMEM;
 	argc -= 2; argv += 2;
 	new_argv = traceprobe_expand_meta_args(argc, argv, &new_argc,
 					       abuf, MAX_BTF_ARGS_LEN, ctx);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (IS_ERR(new_argv))
 		return PTR_ERR(new_argv);
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (new_argv) {
 		argc = new_argc;
 		argv = new_argv;
 	}
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (argc > MAX_TRACE_ARGS) {
 		trace_probe_log_set_index(2);
 		trace_probe_log_err(0, TOO_MANY_ARGS);
@@ -1341,11 +1618,15 @@ static int trace_fprobe_create_internal(int argc, const char *argv[],
 	}
 
 	ret = traceprobe_expand_dentry_args(argc, argv, &dbuf);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret)
 		return ret;
 
 	/* setup a probe */
 	tf = alloc_trace_fprobe(group, event, symbol, argc, is_return, is_tracepoint);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (IS_ERR(tf)) {
 		ret = PTR_ERR(tf);
 		/* This must return -ENOMEM, else there is a bug */
@@ -1354,17 +1635,27 @@ static int trace_fprobe_create_internal(int argc, const char *argv[],
 	}
 
 	/* parse arguments */
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (i = 0; i < argc; i++) {
 		trace_probe_log_set_index(i + 2);
 		ctx->offset = 0;
 		ret = traceprobe_parse_probe_arg(&tf->tp, i, argv[i], ctx);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (ret)
 			return ret;	/* This can be -ENOMEM */
 	}
 
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (is_return && tf->tp.entry_arg) {
 		tf->fp.entry_handler = trace_fprobe_entry_handler;
 		tf->fp.entry_data_size = traceprobe_get_entry_data_size(&tf->tp);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (ALIGN(tf->fp.entry_data_size, sizeof(long)) > MAX_FPROBE_DATA_SIZE) {
 			trace_probe_log_set_index(2);
 			trace_probe_log_err(0, TOO_MANY_EARGS);
@@ -1374,16 +1665,27 @@ static int trace_fprobe_create_internal(int argc, const char *argv[],
 
 	ret = traceprobe_set_print_fmt(&tf->tp,
 			is_return ? PROBE_PRINT_RETURN : PROBE_PRINT_NORMAL);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret < 0)
 		return ret;
 
 	ret = register_trace_fprobe_event(tf);
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (ret) {
 		trace_probe_log_set_index(1);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (ret == -EILSEQ)
 			trace_probe_log_err(0, BAD_INSN_BNDRY);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		else if (ret == -ENOENT)
 			trace_probe_log_err(0, BAD_PROBE_ADDR);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		else if (ret != -ENOMEM && ret != -EEXIST)
 			trace_probe_log_err(0, FAIL_REG_PROBE);
 		return -EINVAL;
@@ -1401,6 +1703,8 @@ static int trace_fprobe_create_cb(int argc, const char *argv[])
 	int ret;
 
 	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!ctx)
 		return -ENOMEM;
 
@@ -1422,6 +1726,8 @@ static int trace_fprobe_release(struct dyn_event *ev)
 	struct trace_fprobe *tf = to_trace_fprobe(ev);
 	int ret = unregister_trace_fprobe(tf);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!ret)
 		free_trace_fprobe(tf);
 	return ret;
@@ -1432,8 +1738,12 @@ static int trace_fprobe_show(struct seq_file *m, struct dyn_event *ev)
 	struct trace_fprobe *tf = to_trace_fprobe(ev);
 	int i;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (trace_fprobe_is_tracepoint(tf))
 		seq_putc(m, 't');
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	else
 		seq_putc(m, 'f');
 	seq_printf(m, ":%s/%s", trace_probe_group_name(&tf->tp),
@@ -1442,6 +1752,8 @@ static int trace_fprobe_show(struct seq_file *m, struct dyn_event *ev)
 	seq_printf(m, " %s%s", trace_fprobe_symbol(tf),
 			       trace_fprobe_is_return(tf) ? "%return" : "");
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	for (i = 0; i < tf->tp.nr_args; i++)
 		seq_printf(m, " %s=%s", tf->tp.args[i].name, tf->tp.args[i].comm);
 	seq_putc(m, '\n');
@@ -1462,21 +1774,33 @@ static int enable_trace_fprobe(struct trace_event_call *call,
 	int ret = 0;
 
 	tp = trace_probe_primary_from_call(call);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (WARN_ON_ONCE(!tp))
 		return -ENODEV;
 	enabled = trace_probe_is_enabled(tp);
 
 	/* This also changes "enabled" state */
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (file) {
 		ret = trace_probe_add_file(tp, file);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (ret)
 			return ret;
 	} else
 		trace_probe_set_flag(tp, TP_FLAG_PROFILE);
 
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (!enabled) {
 		list_for_each_entry(tf, trace_probe_probe_list(tp), tp.list) {
 			ret = __register_trace_fprobe(tf);
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (ret < 0)
 				return ret;
 		}
@@ -1496,18 +1820,29 @@ static int disable_trace_fprobe(struct trace_event_call *call,
 	struct trace_probe *tp;
 
 	tp = trace_probe_primary_from_call(call);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (WARN_ON_ONCE(!tp))
 		return -ENODEV;
 
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (file) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!trace_probe_get_file_link(tp, file))
 			return -ENOENT;
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!trace_probe_has_single_file(tp))
 			goto out;
 		trace_probe_clear_flag(tp, TP_FLAG_TRACE);
 	} else
 		trace_probe_clear_flag(tp, TP_FLAG_PROFILE);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!trace_probe_is_enabled(tp)) {
 		list_for_each_entry(tf, trace_probe_probe_list(tp), tp.list) {
 			unregister_fprobe(&tf->fp);
@@ -1515,6 +1850,8 @@ static int disable_trace_fprobe(struct trace_event_call *call,
 	}
 
  out:
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (file)
 		/*
 		 * Synchronization is done in below function. For perf event,
@@ -1535,6 +1872,9 @@ static int fprobe_register(struct trace_event_call *event,
 {
 	struct trace_event_file *file = data;
 
+	/**
+	 * @brief [Functional Utility for switch]: Describe purpose here.
+	 */
 	switch (type) {
 	case TRACE_REG_REGISTER:
 		return enable_trace_fprobe(event, file);
@@ -1565,14 +1905,20 @@ static __init int init_fprobe_trace_early(void)
 	int ret;
 
 	ret = dyn_event_register(&trace_fprobe_ops);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret)
 		return ret;
 
 #ifdef CONFIG_MODULES
 	ret = register_tracepoint_module_notifier(&tracepoint_module_nb);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret)
 		return ret;
 	ret = register_module_notifier(&tprobe_event_module_nb);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret)
 		return ret;
 #endif

@@ -63,6 +63,8 @@ export class InlineEditsView extends Disposable {
 		originalDisplayRange: LineRange;
 	} | undefined>(this, reader => {
 		const edit = this._edit.read(reader);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!edit) {
 			return undefined;
 		}
@@ -74,11 +76,15 @@ export class InlineEditsView extends Disposable {
 		let diff = lineRangeMappingFromRangeMappings(mappings, edit.originalText, new StringText(newText));
 
 		const state = this.determineRenderState(edit, reader, diff, new StringText(newText));
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!state) {
 			this._model.get()?.stop();
 			return undefined;
 		}
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (state.kind === 'sideBySide') {
 			const indentationAdjustmentEdit = createReindentEdit(newText, edit.modifiedLineRange);
 			newText = indentationAdjustmentEdit.applyToString(newText);
@@ -96,6 +102,8 @@ export class InlineEditsView extends Disposable {
 		this._previewTextModel.setLanguage(this._editor.getModel()!.getLanguageId());
 
 		const previousNewText = this._previewTextModel.getValue();
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (previousNewText !== newText) {
 			// Only update the model if the text has changed to avoid flickering
 			this._previewTextModel.setValue(newText);
@@ -150,7 +158,11 @@ export class InlineEditsView extends Disposable {
 
 	private readonly _inlineDiffViewState = derived<IOriginalEditorInlineDiffViewState | undefined>(this, reader => {
 		const e = this._uiState.read(reader);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!e || !e.state) { return undefined; }
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (e.state.kind === 'wordReplacements' || e.state.kind === 'lineReplacement' || e.state.kind === 'insertionMultiLine') {
 			return undefined;
 		}
@@ -192,6 +204,8 @@ export class InlineEditsView extends Disposable {
 
 	private readonly _originalDisplayRange = derived(this, reader => {
 		const state = this._uiState.read(reader);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (state?.state?.kind === 'insertionMultiLine') {
 			return this._insertion.originalLines.read(reader);
 		}
@@ -199,6 +213,8 @@ export class InlineEditsView extends Disposable {
 	});
 
 	protected readonly _indicator = this._register(autorunWithStore((reader, store) => {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (this._useGutterIndicator.read(reader)) {
 			store.add(this._instantiationService.createInstance(
 				InlineEditsGutterIndicator,
@@ -215,6 +231,8 @@ export class InlineEditsView extends Disposable {
 				derived<IInlineEditsIndicatorState | undefined>(reader => {
 					const state = this._uiState.read(reader);
 					const range = this._originalDisplayRange.read(reader);
+					// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+					// Invariant: State condition that holds true before and after each iteration/execution
 					if (!state || !state.state || !range) { return undefined; }
 					const top = this._editor.getTopForLineNumber(range.startLineNumber) - this._editorObs.scrollTop.read(reader) + this._gutterIndicatorOffset.read(reader);
 					return { editTop: top, showAlways: state.state.kind !== 'sideBySide' };
@@ -238,12 +256,16 @@ export class InlineEditsView extends Disposable {
 				this._previousView?.view === 'lineReplacement'
 			);
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (canUseCache && !reconsiderViewAfterJump && !reconsiderViewEditorWidthChange) {
 			return this._previousView!.view;
 		}
 
 		// Determine the view based on the edit / diff
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (edit.isCollapsed) {
 			return 'collapsed';
 		}
@@ -262,10 +284,14 @@ export class InlineEditsView extends Disposable {
 		}
 
 		const innerValues = inner.map(m => ({ original: edit.originalText.getValueOfRange(m.originalRange), modified: newText.getValueOfRange(m.modifiedRange) }));
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (innerValues.every(({ original, modified }) => modified.trim() === '' && original.length > 0 && (original.length > modified.length || original.trim() !== ''))) {
 			return 'deletion';
 		}
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (isSingleMultiLineInsertion(diff) && this._useMultiLineGhostText.read(reader) && this._useCodeShifting.read(reader)) {
 			return 'insertionMultiLine';
 		}
@@ -273,6 +299,8 @@ export class InlineEditsView extends Disposable {
 		const numOriginalLines = edit.originalLineRange.length;
 		const numModifiedLines = edit.modifiedLineRange.length;
 		const allInnerChangesNotTooLong = inner.every(m => TextLength.ofRange(m.originalRange).columnCount < WordReplacementView.MAX_LENGTH && TextLength.ofRange(m.modifiedRange).columnCount < WordReplacementView.MAX_LENGTH);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (allInnerChangesNotTooLong && isSingleInnerEdit && numOriginalLines === 1 && numModifiedLines === 1) {
 			// Make sure there is no insertion, even if we grow them
 			if (
@@ -283,7 +311,11 @@ export class InlineEditsView extends Disposable {
 			}
 		}
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (numOriginalLines > 0 && numModifiedLines > 0) {
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (this._renderSideBySide.read(reader) !== 'never' && InlineEditsSideBySideDiff.fitsInsideViewport(this._editor, edit, reader)) {
 				return 'sideBySide';
 			}
@@ -298,6 +330,8 @@ export class InlineEditsView extends Disposable {
 			return 'mixedLines';
 		}
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (this._useInterleavedLinesDiff.read(reader) === 'always' || (edit.userJumpedToIt && this._useInterleavedLinesDiff.read(reader) === 'afterJump')) {
 			return 'interleavedLines';
 		}
@@ -311,6 +345,8 @@ export class InlineEditsView extends Disposable {
 
 		this._previousView = { id: edit.inlineCompletion.id, view, userJumpedToIt: edit.userJumpedToIt, editorWidth: this._editor.getLayoutInfo().width };
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		switch (view) {
 			case 'collapsed': return { kind: 'collapsed' as const };
 			case 'insertionInline': return { kind: 'insertionInline' as const };
@@ -321,6 +357,8 @@ export class InlineEditsView extends Disposable {
 
 		const inner = diff.flatMap(d => d.innerChanges ?? []);
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (view === 'deletion') {
 			return {
 				kind: 'deletion' as const,
@@ -329,6 +367,8 @@ export class InlineEditsView extends Disposable {
 			};
 		}
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (view === 'insertionMultiLine') {
 			const change = inner[0];
 			return {
@@ -340,13 +380,19 @@ export class InlineEditsView extends Disposable {
 		}
 
 		const replacements = inner.map(m => new SingleTextEdit(m.originalRange, newText.getValueOfRange(m.modifiedRange)));
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (replacements.length === 0) {
 			return undefined;
 		}
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (view === 'wordReplacements') {
 			let grownEdits = growEditsToEntireWord(replacements, edit.originalText);
 
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (grownEdits.some(e => e.range.isEmpty())) {
 				grownEdits = growEditsUntilWhitespace(replacements, edit.originalText);
 			}
@@ -357,6 +403,8 @@ export class InlineEditsView extends Disposable {
 			};
 		}
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (view === 'lineReplacement') {
 			return {
 				kind: 'lineReplacement' as const,
@@ -372,6 +420,8 @@ export class InlineEditsView extends Disposable {
 }
 
 function isSingleLineInsertionAfterPosition(diff: DetailedLineRangeMapping[], position: Position | null) {
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!position) {
 		return false;
 	}
@@ -380,17 +430,25 @@ function isSingleLineInsertionAfterPosition(diff: DetailedLineRangeMapping[], po
 	return diff.every(m => m.innerChanges!.every(r => isStableWordInsertion(r)));
 
 	function isStableWordInsertion(r: RangeMapping) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!r.originalRange.isEmpty()) {
 			return false;
 		}
 		const isInsertionWithinLine = r.modifiedRange.startLineNumber === r.modifiedRange.endLineNumber;
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!isInsertionWithinLine) {
 			return false;
 		}
 		const insertPosition = r.originalRange.getStartPosition();
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (pos.isBeforeOrEqual(insertPosition)) {
 			return true;
 		}
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (insertPosition.lineNumber < pos.lineNumber) {
 			return true;
 		}
@@ -400,15 +458,21 @@ function isSingleLineInsertionAfterPosition(diff: DetailedLineRangeMapping[], po
 
 function isSingleMultiLineInsertion(diff: DetailedLineRangeMapping[]) {
 	const inner = diff.flatMap(d => d.innerChanges ?? []);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (inner.length !== 1) {
 		return false;
 	}
 
 	const change = inner[0];
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!change.originalRange.isEmpty()) {
 		return false;
 	}
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (change.modifiedRange.startLineNumber === change.modifiedRange.endLineNumber) {
 		return false;
 	}
@@ -420,10 +484,14 @@ function isSingleLineDeletion(diff: DetailedLineRangeMapping[]): boolean {
 	return diff.every(m => m.innerChanges!.every(r => isDeletion(r)));
 
 	function isDeletion(r: RangeMapping) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!r.modifiedRange.isEmpty()) {
 			return false;
 		}
 		const isDeletionWithinLine = r.originalRange.startLineNumber === r.originalRange.endLineNumber;
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!isDeletionWithinLine) {
 			return false;
 		}
@@ -444,6 +512,8 @@ function _growEdits(replacements: SingleTextEdit[], originalText: AbstractText, 
 
 	replacements.sort((a, b) => Range.compareRangesUsingStarts(a.range, b.range));
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	for (const edit of replacements) {
 		let startIndex = edit.range.startColumn - 1;
 		let endIndex = edit.range.endColumn - 2;
@@ -452,6 +522,8 @@ function _growEdits(replacements: SingleTextEdit[], originalText: AbstractText, 
 		const startLineContent = originalText.getLineAt(edit.range.startLineNumber);
 		const endLineContent = originalText.getLineAt(edit.range.endLineNumber);
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (isIncluded(startLineContent[startIndex])) {
 			// grow to the left
 			while (isIncluded(startLineContent[startIndex - 1])) {
@@ -460,6 +532,8 @@ function _growEdits(replacements: SingleTextEdit[], originalText: AbstractText, 
 			}
 		}
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (isIncluded(endLineContent[endIndex]) || endIndex < startIndex) {
 			// grow to the right
 			while (isIncluded(endLineContent[endIndex + 1])) {
@@ -470,6 +544,8 @@ function _growEdits(replacements: SingleTextEdit[], originalText: AbstractText, 
 
 		// create new edit and merge together if they are touching
 		let newEdit = new SingleTextEdit(new Range(edit.range.startLineNumber, startIndex + 1, edit.range.endLineNumber, endIndex + 2), prefix + edit.text + suffix);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (result.length > 0 && Range.areIntersectingOrTouching(result[result.length - 1].range, newEdit.range)) {
 			newEdit = SingleTextEdit.joinEdits([result.pop()!, newEdit], originalText);
 		}
@@ -478,6 +554,8 @@ function _growEdits(replacements: SingleTextEdit[], originalText: AbstractText, 
 	}
 
 	function isIncluded(c: string | undefined) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (c === undefined) {
 			return false;
 		}

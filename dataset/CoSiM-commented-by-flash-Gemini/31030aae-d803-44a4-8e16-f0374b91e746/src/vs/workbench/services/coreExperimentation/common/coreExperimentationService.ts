@@ -93,12 +93,16 @@ export class CoreExperimentationService extends Disposable implements ICoreExper
 
 		const firstSessionDateString = this.storageService.get(firstSessionDateStorageKey, StorageScope.APPLICATION) || new Date().toUTCString();
 		const daysSinceFirstSession = ((+new Date()) - (+new Date(firstSessionDateString))) / 1000 / 60 / 60 / 24;
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (daysSinceFirstSession > 1) {
 			// not a startup exp candidate.
 			return;
 		}
 
 		const experimentConfig = this.getExperimentConfiguration();
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!experimentConfig) {
 			return;
 		}
@@ -106,11 +110,15 @@ export class CoreExperimentationService extends Disposable implements ICoreExper
 		// also check storage to see if this user has already seen the startup experience
 		const storageKey = `coreExperimentation.${experimentConfig.experimentName}`;
 		const storedExperiment = this.storageService.get(storageKey, StorageScope.APPLICATION);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (storedExperiment) {
 			return;
 		}
 
 		const experiment = this.createStartupExperiment(experimentConfig.experimentName, experimentConfig);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (experiment) {
 			this.experiments.set(experimentConfig.experimentName, experiment);
 			this.sendExperimentTelemetry(experimentConfig.experimentName, experiment);
@@ -135,6 +143,8 @@ export class CoreExperimentationService extends Disposable implements ICoreExper
 	private createStartupExperiment(experimentName: string, experimentConfig: ExperimentConfiguration): IExperiment | undefined {
 		const cohort = Math.random();
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (cohort >= experimentConfig.targetPercentage / 100) {
 			return undefined;
 		}
@@ -144,6 +154,8 @@ export class CoreExperimentationService extends Disposable implements ICoreExper
 
 		// Find which group this user falls into
 		for (const group of experimentConfig.groups) {
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (normalizedCohort >= group.min && normalizedCohort < group.max) {
 				return {
 					cohort,

@@ -150,10 +150,20 @@ public final class RemoteClusterService extends RemoteClusterAware
     private final boolean enabled;
     private final boolean remoteClusterServerEnabled;
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public boolean isEnabled() {
         return enabled;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public boolean isRemoteClusterServerEnabled() {
         return remoteClusterServerEnabled;
     }
@@ -179,6 +189,11 @@ public final class RemoteClusterService extends RemoteClusterAware
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public DiscoveryNode getLocalNode() {
         return transportService.getLocalNode();
     }
@@ -241,19 +256,47 @@ public final class RemoteClusterService extends RemoteClusterAware
      * @param indices Multiple index expressions as string[].
      * @return Map keyed by cluster alias having OriginalIndices as the map value parsed from the String[] indices argument
      */
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param remoteClusterNames: [Description]
+     * @param indicesOptions: [Description]
+     * @param indices: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public Map<String, OriginalIndices> groupIndices(Set<String> remoteClusterNames, IndicesOptions indicesOptions, String[] indices) {
         return groupIndices(remoteClusterNames, indicesOptions, indices, true);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param indicesOptions: [Description]
+     * @param indices: [Description]
+     * @param returnLocalAll: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public Map<String, OriginalIndices> groupIndices(IndicesOptions indicesOptions, String[] indices, boolean returnLocalAll) {
         return groupIndices(getRegisteredRemoteClusterNames(), indicesOptions, indices, returnLocalAll);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param indicesOptions: [Description]
+     * @param indices: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public Map<String, OriginalIndices> groupIndices(IndicesOptions indicesOptions, String[] indices) {
         return groupIndices(getRegisteredRemoteClusterNames(), indicesOptions, indices, true);
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public Set<String> getConfiguredClusters() {
         return getRegisteredRemoteClusterNames();
     }
@@ -297,6 +340,12 @@ public final class RemoteClusterService extends RemoteClusterAware
         return getRemoteClusterConnection(clusterAlias).isSkipUnavailable();
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param cluster: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public Transport.Connection getConnection(String cluster) {
         return getRemoteClusterConnection(cluster).getConnection();
     }
@@ -334,6 +383,12 @@ public final class RemoteClusterService extends RemoteClusterAware
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param cluster: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public RemoteClusterConnection getRemoteClusterConnection(String cluster) {
         if (enabled == false) {
             throw new IllegalArgumentException(
@@ -349,11 +404,24 @@ public final class RemoteClusterService extends RemoteClusterAware
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param clusterSettings: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void listenForUpdates(ClusterSettings clusterSettings) {
         super.listenForUpdates(clusterSettings);
         clusterSettings.addAffixUpdateConsumer(REMOTE_CLUSTER_SKIP_UNAVAILABLE, this::updateSkipUnavailable, (alias, value) -> {});
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param clusterAlias: [Description]
+     * @param skipUnavailable: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private synchronized void updateSkipUnavailable(String clusterAlias, Boolean skipUnavailable) {
         RemoteClusterConnection remote = getConnectionsMapForCurrentProject().get(clusterAlias);
         if (remote != null) {
@@ -362,6 +430,13 @@ public final class RemoteClusterService extends RemoteClusterAware
     }
 
     @FixForMultiProject(description = "Refactor as needed to support project specific changes to linked remotes.")
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param settingsSupplier: [Description]
+     * @param listener: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public synchronized void updateRemoteClusterCredentials(Supplier<Settings> settingsSupplier, ActionListener<Void> listener) {
         final var projectId = projectResolver.getProjectId();
         final Settings settings = settingsSupplier.get();
@@ -405,6 +480,12 @@ public final class RemoteClusterService extends RemoteClusterAware
 
         updateRemoteCluster(projectId, clusterAlias, settings, true, ActionListener.releaseAfter(new ActionListener<>() {
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param status: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public void onResponse(RemoteClusterConnectionStatus status) {
                 logger.info(
                     "project [{}] remote cluster connection [{}] updated after credentials change: [{}]",
@@ -415,6 +496,12 @@ public final class RemoteClusterService extends RemoteClusterAware
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param e: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public void onFailure(Exception e) {
                 // We don't want to return an error to the upstream listener here since a connection rebuild failure
                 // does *not* imply a failure to reload secure settings; however, that's how it would surface in the reload-settings call.
@@ -433,17 +520,36 @@ public final class RemoteClusterService extends RemoteClusterAware
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param clusterAlias: [Description]
+     * @param settings: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected void updateRemoteCluster(String clusterAlias, Settings settings) {
         @FixForMultiProject(description = "ES-12270: Refactor as needed to support project specific changes to linked remotes.")
         final var projectId = projectResolver.getProjectId();
         CountDownLatch latch = new CountDownLatch(1);
         updateRemoteCluster(projectId, clusterAlias, settings, false, ActionListener.runAfter(new ActionListener<>() {
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param status: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public void onResponse(RemoteClusterConnectionStatus status) {
                 logger.info("project [{}] remote cluster connection [{}] updated: {}", projectId, clusterAlias, status);
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param e: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public void onFailure(Exception e) {
                 logger.warn(() -> "project [" + projectId + " failed to update remote cluster connection [" + clusterAlias + "]", e);
             }
@@ -563,16 +669,31 @@ public final class RemoteClusterService extends RemoteClusterAware
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void close() throws IOException {
         IOUtils.close(remoteClusters.values().stream().flatMap(map -> map.values().stream()).collect(Collectors.toList()));
     }
 
     @FixForMultiProject(description = "Analyze use cases, determine possible need for cluster scoped and project scoped versions.")
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public Stream<RemoteConnectionInfo> getRemoteConnectionInfos() {
         return getConnectionsMapForCurrentProject().values().stream().map(RemoteClusterConnection::getConnectionInfo);
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public RemoteClusterServerInfo info() {
         if (remoteClusterServerEnabled) {
             return new RemoteClusterServerInfo(transportService.boundRemoteAccessAddress());
@@ -668,6 +789,12 @@ public final class RemoteClusterService extends RemoteClusterAware
         });
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param transportService: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     static void registerRemoteClusterHandshakeRequestHandler(TransportService transportService) {
         transportService.registerRequestHandler(
             REMOTE_CLUSTER_HANDSHAKE_ACTION_NAME,
@@ -722,15 +849,37 @@ public final class RemoteClusterService extends RemoteClusterAware
         private final String clusterAlias;
         private final String key;
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param clusterAlias: [Description]
+     * @param key: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         private RemoteConnectionEnabled(String clusterAlias, String key) {
             this.clusterAlias = clusterAlias;
             this.key = key;
         }
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param value: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public void validate(T value) {}
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param value: [Description]
+     * @param Map<Setting<?>: [Description]
+     * @param settings: [Description]
+     * @param isPresent: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public void validate(T value, Map<Setting<?>, Object> settings, boolean isPresent) {
             if (isPresent && RemoteConnectionStrategy.isConnectionEnabled(clusterAlias, settings) == false) {
                 throw new IllegalArgumentException("Cannot configure setting [" + key + "] if remote cluster is not enabled.");
@@ -738,6 +887,11 @@ public final class RemoteClusterService extends RemoteClusterAware
         }
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public Iterator<Setting<?>> settings() {
             return Stream.concat(
                 Stream.of(RemoteConnectionStrategy.REMOTE_CONNECTION_MODE.getConcreteSettingForNamespace(clusterAlias)),
@@ -745,6 +899,11 @@ public final class RemoteClusterService extends RemoteClusterAware
             ).iterator();
         }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         private Stream<Setting<?>> settingsStream() {
             return Arrays.stream(RemoteConnectionStrategy.ConnectionStrategy.values())
                 .flatMap(strategy -> strategy.getEnablementSettings().get())

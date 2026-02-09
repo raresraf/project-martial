@@ -21,6 +21,11 @@ import java.util.Map;
 // NB This is written under the assumption that individual segments are accessed by a single
 // thread, even if separate segments may be searched concurrently.  If we ever implement
 // within-segment concurrency this will have to work entirely differently.
+/**
+ * @brief Functional description of the SyntheticSourceProvider class.
+ *        This is a placeholder for detailed semantic documentation.
+ *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+ */
 class SyntheticSourceProvider implements SourceProvider {
 
     private final SourceLoader sourceLoader;
@@ -31,6 +36,13 @@ class SyntheticSourceProvider implements SourceProvider {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param ctx: [Description]
+     * @param doc: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public Source getSource(LeafReaderContext ctx, int doc) throws IOException {
         final Object id = ctx.id();
         var provider = leaves.get(id);

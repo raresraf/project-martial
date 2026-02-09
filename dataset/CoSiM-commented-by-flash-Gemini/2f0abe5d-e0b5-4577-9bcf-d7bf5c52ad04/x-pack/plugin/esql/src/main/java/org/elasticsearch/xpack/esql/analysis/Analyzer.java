@@ -207,18 +207,29 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
 
     private final Verifier verifier;
 
+    /**
+     * @brief [Functional Utility for Analyzer]: Describe purpose here.
+     */
     public Analyzer(AnalyzerContext context, Verifier verifier) {
         super(context);
         this.verifier = verifier;
     }
 
+    /**
+     * @brief [Functional Utility for analyze]: Describe purpose here.
+     */
     public LogicalPlan analyze(LogicalPlan plan) {
         BitSet partialMetrics = new BitSet(FeatureMetric.values().length);
         return verify(execute(plan), gatherPreAnalysisMetrics(plan, partialMetrics));
     }
 
+    /**
+     * @brief [Functional Utility for verify]: Describe purpose here.
+     */
     public LogicalPlan verify(LogicalPlan plan, BitSet partialMetrics) {
         Collection<Failure> failures = verifier.verify(plan, partialMetrics);
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (failures.isEmpty() == false) {
             throw new VerificationException(failures);
         }
@@ -233,6 +244,9 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
     private static class ResolveTable extends ParameterizedAnalyzerRule<UnresolvedRelation, AnalyzerContext> {
 
         @Override
+        /**
+         * @brief [Functional Utility for rule]: Describe purpose here.
+         */
         protected LogicalPlan rule(UnresolvedRelation plan, AnalyzerContext context) {
             return resolveIndex(
                 plan,
@@ -242,7 +256,12 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
             );
         }
 
+        /**
+         * @brief [Functional Utility for resolveIndex]: Describe purpose here.
+         */
         private LogicalPlan resolveIndex(UnresolvedRelation plan, IndexResolution indexResolution) {
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (indexResolution == null || indexResolution.isValid() == false) {
                 String indexResolutionMessage = indexResolution == null ? "[none specified]" : indexResolution.toString();
                 return plan.unresolvedMessage().equals(indexResolutionMessage)
@@ -258,6 +277,8 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
                     );
             }
             IndexPattern table = plan.indexPattern();
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (indexResolution.matches(table.indexPattern()) == false) {
                 // TODO: fix this (and tests), or drop check (seems SQL-inherited, where's also defective)
                 new UnresolvedRelation(
@@ -301,10 +322,15 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
     }
 
     private static void mappingAsAttributes(List<Attribute> list, Source source, String parentName, Map<String, EsField> mapping) {
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         for (Map.Entry<String, EsField> entry : mapping.entrySet()) {
             String name = entry.getKey();
             EsField t = entry.getValue();
 
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (t != null) {
                 name = parentName == null ? name : parentName + "." + name;
                 var fieldProperties = t.getProperties();
@@ -333,13 +359,21 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
     private static class ResolveEnrich extends ParameterizedAnalyzerRule<Enrich, AnalyzerContext> {
 
         @Override
+        /**
+         * @brief [Functional Utility for rule]: Describe purpose here.
+         */
         protected LogicalPlan rule(Enrich plan, AnalyzerContext context) {
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (plan.policyName().resolved() == false) {
                 // the policy does not exist
                 return plan;
             }
             final String policyName = (String) plan.policyName().fold(FoldContext.small() /* TODO remove me */);
             final var resolved = context.enrichResolution().getResolvedPolicy(policyName, plan.mode());
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (resolved != null) {
                 var policy = new EnrichPolicy(resolved.matchType(), null, List.of(), resolved.matchField(), resolved.enrichFields());
                 var matchField = plan.matchField() == null || plan.matchField() instanceof EmptyAttribute
@@ -381,12 +415,17 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
                 .filter(e -> policyEnrichFieldSet.contains(e.name()))
                 .collect(Collectors.toMap(NamedExpression::name, Function.identity()));
             List<NamedExpression> result = new ArrayList<>();
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (enrichFields == null || enrichFields.isEmpty()) {
                 // use the policy to infer the enrich fields
                 for (String enrichFieldName : policy.getEnrichFields()) {
                     result.add(createEnrichFieldExpression(source, policyName, fieldMap, enrichFieldName));
                 }
             } else {
+                /**
+                 * @brief [Functional Utility for for]: Describe purpose here.
+                 */
                 for (NamedExpression enrichField : enrichFields) {
                     String enrichFieldName = Expressions.name(enrichField instanceof Alias a ? a.child() : enrichField);
                     NamedExpression field = createEnrichFieldExpression(source, policyName, fieldMap, enrichFieldName);
@@ -403,9 +442,14 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
             String enrichFieldName
         ) {
             Attribute mappedField = fieldMap.get(enrichFieldName);
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (mappedField == null) {
                 String msg = "Enrich field [" + enrichFieldName + "] not found in enrich policy [" + policyName + "]";
                 List<String> similar = StringUtils.findSimilar(enrichFieldName, fieldMap.keySet());
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 if (CollectionUtils.isEmpty(similar) == false) {
                     msg += ", did you mean " + (similar.size() == 1 ? "[" + similar.get(0) + "]" : "any of " + similar) + "?";
                 }
@@ -419,6 +463,9 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
     private static class ResolveLookupTables extends ParameterizedAnalyzerRule<Lookup, AnalyzerContext> {
 
         @Override
+        /**
+         * @brief [Functional Utility for rule]: Describe purpose here.
+         */
         protected LogicalPlan rule(Lookup lookup, AnalyzerContext context) {
             // the parser passes the string wrapped in a literal
             Source source = lookup.source();
@@ -427,10 +474,14 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
             Map<String, Map<String, Column>> tables = context.configuration().tables();
             LocalRelation localRelation = null;
 
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (tables.containsKey(tableName) == false) {
                 String message = "Unknown table [" + tableName + "]";
                 // typos check
                 List<String> potentialMatches = StringUtils.findSimilar(tableName, tables.keySet());
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 if (CollectionUtils.isEmpty(potentialMatches) == false) {
                     message = UnresolvedAttribute.errorMessage(tableName, potentialMatches).replace("column", "table");
                 }
@@ -445,11 +496,16 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
             return new Lookup(source, lookup.child(), tableNameExpression, lookup.matchFields(), localRelation);
         }
 
+        /**
+         * @brief [Functional Utility for tableMapAsRelation]: Describe purpose here.
+         */
         private LocalRelation tableMapAsRelation(Source source, Map<String, Column> mapTable) {
             Block[] blocks = new Block[mapTable.size()];
 
             List<Attribute> attributes = new ArrayList<>(blocks.length);
             int i = 0;
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             for (Map.Entry<String, Column> entry : mapTable.entrySet()) {
                 String name = entry.getKey();
                 Column column = entry.getValue();
@@ -466,65 +522,111 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
 
     public static class ResolveRefs extends ParameterizedAnalyzerRule<LogicalPlan, AnalyzerContext> {
         @Override
+        /**
+         * @brief [Functional Utility for rule]: Describe purpose here.
+         */
         protected LogicalPlan rule(LogicalPlan plan, AnalyzerContext context) {
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (plan.childrenResolved() == false) {
                 return plan;
             }
             final List<Attribute> childrenOutput = new ArrayList<>();
 
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             for (LogicalPlan child : plan.children()) {
                 var output = child.output();
                 childrenOutput.addAll(output);
             }
 
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (plan instanceof Aggregate aggregate) {
                 return resolveAggregate(aggregate, childrenOutput);
             }
 
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (plan instanceof Drop d) {
                 return resolveDrop(d, childrenOutput);
             }
 
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (plan instanceof Rename r) {
                 return resolveRename(r, childrenOutput);
             }
 
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (plan instanceof Keep p) {
                 return resolveKeep(p, childrenOutput);
             }
 
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (plan instanceof Eval p) {
                 return resolveEval(p, childrenOutput);
             }
 
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (plan instanceof Enrich p) {
                 return resolveEnrich(p, childrenOutput);
             }
 
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (plan instanceof MvExpand p) {
                 return resolveMvExpand(p, childrenOutput);
             }
 
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (plan instanceof Lookup l) {
                 return resolveLookup(l, childrenOutput);
             }
 
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (plan instanceof LookupJoin j) {
                 return resolveLookupJoin(j);
             }
 
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (plan instanceof Insist i) {
                 return resolveInsist(i, childrenOutput, context.indexResolution());
             }
 
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (plan instanceof Fork f) {
                 return resolveFork(f, context);
             }
 
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (plan instanceof Dedup dedup) {
                 return resolveDedup(dedup, childrenOutput);
             }
 
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (plan instanceof RrfScoreEval rrf) {
                 return resolveRrfScoreEval(rrf, childrenOutput);
             }
@@ -532,6 +634,9 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
             return plan.transformExpressionsOnly(UnresolvedAttribute.class, ua -> maybeResolveAttribute(ua, childrenOutput));
         }
 
+        /**
+         * @brief [Functional Utility for resolveAggregate]: Describe purpose here.
+         */
         private Aggregate resolveAggregate(Aggregate aggregate, List<Attribute> childrenOutput) {
             // if the grouping is resolved but the aggs are not, use the former to resolve the latter
             // e.g. STATS a ... GROUP BY a = x + 1
@@ -542,24 +647,39 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
             // trying to globally resolve unresolved attributes will lead to some being marked as unresolvable
             if (Resolvables.resolved(groupings) == false) {
                 List<Expression> newGroupings = new ArrayList<>(groupings.size());
+                /**
+                 * @brief [Functional Utility for for]: Describe purpose here.
+                 */
                 for (Expression g : groupings) {
                     Expression resolved = g.transformUp(UnresolvedAttribute.class, ua -> maybeResolveAttribute(ua, childrenOutput));
+                    /**
+                     * @brief [Functional Utility for if]: Describe purpose here.
+                     */
                     if (resolved != g) {
                         changed.set(true);
                     }
                     newGroupings.add(resolved);
                 }
                 groupings = newGroupings;
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 if (changed.get()) {
                     aggregate = aggregate.with(aggregate.child(), newGroupings, aggregate.aggregates());
                     changed.set(false);
                 }
             }
 
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (Resolvables.resolved(groupings) == false || (Resolvables.resolved(aggregates) == false)) {
                 ArrayList<Attribute> resolved = new ArrayList<>();
+                /**
+                 * @brief [Functional Utility for for]: Describe purpose here.
+                 */
                 for (Expression e : groupings) {
                     Attribute attr = Expressions.attribute(e);
+                    // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                    // Invariant: State condition that holds true before and after each iteration/execution
                     if (attr != null && attr.resolved()) {
                         resolved.add(attr);
                     }
@@ -567,10 +687,15 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
                 List<Attribute> resolvedList = NamedExpressions.mergeOutputAttributes(resolved, childrenOutput);
 
                 List<NamedExpression> newAggregates = new ArrayList<>();
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 for (NamedExpression ag : aggregate.aggregates()) {
                     var agg = (NamedExpression) ag.transformUp(UnresolvedAttribute.class, ua -> {
                         Expression ne = ua;
                         Attribute maybeResolved = maybeResolveAttribute(ua, resolvedList);
+                        /**
+                         * @brief [Functional Utility for if]: Describe purpose here.
+                         */
                         if (maybeResolved != null) {
                             changed.set(true);
                             ne = maybeResolved;
@@ -587,9 +712,17 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
             return aggregate;
         }
 
+        /**
+         * @brief [Functional Utility for resolveMvExpand]: Describe purpose here.
+         */
         private LogicalPlan resolveMvExpand(MvExpand p, List<Attribute> childrenOutput) {
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (p.target() instanceof UnresolvedAttribute ua) {
                 Attribute resolved = maybeResolveAttribute(ua, childrenOutput);
+                /**
+                 * @brief [Functional Utility for if]: Describe purpose here.
+                 */
                 if (resolved == ua) {
                     return p;
                 }
@@ -605,6 +738,9 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
             return p;
         }
 
+        /**
+         * @brief [Functional Utility for resolveLookup]: Describe purpose here.
+         */
         private LogicalPlan resolveLookup(Lookup l, List<Attribute> childrenOutput) {
             // check if the table exists before performing any resolution
             if (l.localRelation() == null) {
@@ -616,12 +752,19 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
             List<Attribute> localOutput = l.localRelation().output();
             boolean modified = false;
 
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             for (Attribute matchField : l.matchFields()) {
                 Attribute matchFieldChildReference = matchField;
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 if (matchField instanceof UnresolvedAttribute ua && ua.customMessage() == false) {
                     modified = true;
                     Attribute joinedAttribute = maybeResolveAttribute(ua, localOutput);
                     // can't find the field inside the local relation
+                    /**
+                     * @brief [Functional Utility for if]: Describe purpose here.
+                     */
                     if (joinedAttribute instanceof UnresolvedAttribute lua) {
                         // adjust message
                         matchFieldChildReference = lua.withUnresolvedMessage(
@@ -631,18 +774,30 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
                         // check also the child output by resolving to it
                         Attribute attr = maybeResolveAttribute(ua, childrenOutput);
                         matchFieldChildReference = attr;
+                        /**
+                         * @brief [Functional Utility for if]: Describe purpose here.
+                         */
                         if (attr instanceof UnresolvedAttribute == false) {
                             /*
                              * If they do, make sure the data types line up. If either is
                              * null it's fine to match it against anything.
                              */
                             boolean dataTypesOk = joinedAttribute.dataType().equals(attr.dataType());
+                            /**
+                             * @brief [Functional Utility for if]: Describe purpose here.
+                             */
                             if (false == dataTypesOk) {
                                 dataTypesOk = joinedAttribute.dataType() == NULL || attr.dataType() == NULL;
                             }
+                            /**
+                             * @brief [Functional Utility for if]: Describe purpose here.
+                             */
                             if (false == dataTypesOk) {
                                 dataTypesOk = joinedAttribute.dataType().equals(KEYWORD) && attr.dataType().equals(TEXT);
                             }
+                            /**
+                             * @brief [Functional Utility for if]: Describe purpose here.
+                             */
                             if (false == dataTypesOk) {
                                 matchFieldChildReference = new UnresolvedAttribute(
                                     attr.source(),
@@ -662,17 +817,26 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
 
                 matchFields.add(matchFieldChildReference);
             }
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (modified) {
                 return new Lookup(l.source(), l.child(), l.tableName(), matchFields, l.localRelation());
             }
             return l;
         }
 
+        /**
+         * @brief [Functional Utility for resolveLookupJoin]: Describe purpose here.
+         */
         private Join resolveLookupJoin(LookupJoin join) {
             JoinConfig config = join.config();
             // for now, support only (LEFT) USING clauses
             JoinType type = config.type();
             // rewrite the join into an equi-join between the field with the same name between left and right
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (type instanceof UsingJoinType using) {
                 List<Attribute> cols = using.columns();
                 // the lookup cannot be resolved, bail out
@@ -682,6 +846,9 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
 
                 JoinType coreJoin = using.coreJoin();
                 // verify the join type
+                /**
+                 * @brief [Functional Utility for if]: Describe purpose here.
+                 */
                 if (coreJoin != JoinTypes.LEFT) {
                     String name = cols.get(0).name();
                     UnresolvedAttribute errorAttribute = new UnresolvedAttribute(
@@ -708,21 +875,39 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
             return join;
         }
 
+        /**
+         * @brief [Functional Utility for resolveFork]: Describe purpose here.
+         */
         private LogicalPlan resolveFork(Fork fork, AnalyzerContext context) {
             List<LogicalPlan> subPlans = fork.subPlans();
 
             List<LogicalPlan> newSubPlans = new ArrayList<>();
+            /**
+             * @brief [Functional Utility for for]: Describe purpose here.
+             */
             for (var logicalPlan : subPlans) {
                 newSubPlans.add(logicalPlan.transformUp(LogicalPlan.class, p -> p.childrenResolved() == false ? p : rule(p, context)));
             }
             return new Fork(fork.source(), fork.child(), newSubPlans);
         }
 
+        /**
+         * @brief [Functional Utility for resolveUsingColumns]: Describe purpose here.
+         */
         private List<Attribute> resolveUsingColumns(List<Attribute> cols, List<Attribute> output, String side) {
             List<Attribute> resolved = new ArrayList<>(cols.size());
+            /**
+             * @brief [Functional Utility for for]: Describe purpose here.
+             */
             for (Attribute col : cols) {
+                /**
+                 * @brief [Functional Utility for if]: Describe purpose here.
+                 */
                 if (col instanceof UnresolvedAttribute ua) {
                     Attribute resolvedField = maybeResolveAttribute(ua, output);
+                    /**
+                     * @brief [Functional Utility for if]: Describe purpose here.
+                     */
                     if (resolvedField instanceof UnresolvedAttribute ucol) {
                         String message = ua.unresolvedMessage();
                         String match = "column [" + ucol.name() + "]";
@@ -738,17 +923,28 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
             return resolved;
         }
 
+        /**
+         * @brief [Functional Utility for resolveInsist]: Describe purpose here.
+         */
         private LogicalPlan resolveInsist(Insist insist, List<Attribute> childrenOutput, IndexResolution indexResolution) {
             List<Attribute> list = new ArrayList<>();
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             for (Attribute a : insist.insistedAttributes()) {
                 list.add(resolveInsistAttribute(a, childrenOutput, indexResolution));
             }
             return insist.withAttributes(list);
         }
 
+        /**
+         * @brief [Functional Utility for resolveInsistAttribute]: Describe purpose here.
+         */
         private Attribute resolveInsistAttribute(Attribute attribute, List<Attribute> childrenOutput, IndexResolution indexResolution) {
             Attribute resolvedCol = maybeResolveAttribute((UnresolvedAttribute) attribute, childrenOutput);
             // Field isn't mapped anywhere.
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (resolvedCol instanceof UnresolvedAttribute) {
                 return insistKeyword(attribute);
             }
@@ -781,16 +977,25 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
             return new FieldAttribute(attribute.source(), attribute.name(), new PotentiallyUnmappedKeywordEsField(attribute.name()));
         }
 
+        /**
+         * @brief [Functional Utility for resolveDedup]: Describe purpose here.
+         */
         private LogicalPlan resolveDedup(Dedup dedup, List<Attribute> childrenOutput) {
             List<NamedExpression> aggregates = dedup.finalAggs();
             List<Attribute> groupings = dedup.groupings();
             List<NamedExpression> newAggs = new ArrayList<>();
             List<Attribute> newGroupings = new ArrayList<>();
 
+            /**
+             * @brief [Functional Utility for for]: Describe purpose here.
+             */
             for (NamedExpression agg : aggregates) {
                 var newAgg = (NamedExpression) agg.transformUp(UnresolvedAttribute.class, ua -> {
                     Expression ne = ua;
                     Attribute maybeResolved = maybeResolveAttribute(ua, childrenOutput);
+                    /**
+                     * @brief [Functional Utility for if]: Describe purpose here.
+                     */
                     if (maybeResolved != null) {
                         ne = maybeResolved;
                     }
@@ -799,7 +1004,13 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
                 newAggs.add(newAgg);
             }
 
+            /**
+             * @brief [Functional Utility for for]: Describe purpose here.
+             */
             for (Attribute attr : groupings) {
+                /**
+                 * @brief [Functional Utility for if]: Describe purpose here.
+                 */
                 if (attr instanceof UnresolvedAttribute ua) {
                     newGroupings.add(resolveAttribute(ua, childrenOutput));
                 } else {
@@ -810,18 +1021,29 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
             return new Dedup(dedup.source(), dedup.child(), newAggs, newGroupings);
         }
 
+        /**
+         * @brief [Functional Utility for resolveRrfScoreEval]: Describe purpose here.
+         */
         private LogicalPlan resolveRrfScoreEval(RrfScoreEval rrf, List<Attribute> childrenOutput) {
             Attribute scoreAttr = rrf.scoreAttribute();
             Attribute forkAttr = rrf.forkAttribute();
 
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (scoreAttr instanceof UnresolvedAttribute ua) {
                 scoreAttr = resolveAttribute(ua, childrenOutput);
             }
 
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (forkAttr instanceof UnresolvedAttribute ua) {
                 forkAttr = resolveAttribute(ua, childrenOutput);
             }
 
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (forkAttr != rrf.forkAttribute() || scoreAttr != rrf.scoreAttribute()) {
                 return new RrfScoreEval(rrf.source(), rrf.child(), scoreAttr, forkAttr);
             }
@@ -829,17 +1051,25 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
             return rrf;
         }
 
+        /**
+         * @brief [Functional Utility for maybeResolveAttribute]: Describe purpose here.
+         */
         private Attribute maybeResolveAttribute(UnresolvedAttribute ua, List<Attribute> childrenOutput) {
             return maybeResolveAttribute(ua, childrenOutput, log);
         }
 
         private static Attribute maybeResolveAttribute(UnresolvedAttribute ua, List<Attribute> childrenOutput, Logger logger) {
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (ua.customMessage()) {
                 return ua;
             }
             return resolveAttribute(ua, childrenOutput, logger);
         }
 
+        /**
+         * @brief [Functional Utility for resolveAttribute]: Describe purpose here.
+         */
         private Attribute resolveAttribute(UnresolvedAttribute ua, List<Attribute> childrenOutput) {
             return resolveAttribute(ua, childrenOutput, log);
         }
@@ -850,10 +1080,14 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
             // if resolved, return it; otherwise keep it in place to be resolved later
             if (named.size() == 1) {
                 resolved = named.get(0);
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 if (logger != null && logger.isTraceEnabled() && resolved.resolved()) {
                     logger.trace("Resolved {} to {}", ua, resolved);
                 }
             } else {
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 if (named.size() > 0) {
                     resolved = ua.withUnresolvedMessage("Resolved [" + ua + "] unexpectedly to multiple attributes " + named);
                 }
@@ -861,22 +1095,32 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
             return resolved;
         }
 
+        /**
+         * @brief [Functional Utility for resolveEval]: Describe purpose here.
+         */
         private LogicalPlan resolveEval(Eval eval, List<Attribute> childOutput) {
             List<Attribute> allResolvedInputs = new ArrayList<>(childOutput);
             List<Alias> newFields = new ArrayList<>();
             boolean changed = false;
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             for (Alias field : eval.fields()) {
                 Alias result = (Alias) field.transformUp(UnresolvedAttribute.class, ua -> resolveAttribute(ua, allResolvedInputs));
 
                 changed |= result != field;
                 newFields.add(result);
 
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 if (result.resolved()) {
                     // for proper resolution, duplicate attribute names are problematic, only last occurrence matters
                     Attribute existing = allResolvedInputs.stream()
                         .filter(attr -> attr.name().equals(result.name()))
                         .findFirst()
                         .orElse(null);
+                    /**
+                     * @brief [Functional Utility for if]: Describe purpose here.
+                     */
                     if (existing != null) {
                         allResolvedInputs.remove(existing);
                     }
@@ -915,6 +1159,9 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
          * row foo = 1, bar = 2 | keep foo, *   ->  foo, bar
          * row foo = 1, bar = 2 | keep bar*, foo, *   ->  bar, foo
          */
+        /**
+         * @brief [Functional Utility for resolveKeep]: Describe purpose here.
+         */
         private LogicalPlan resolveKeep(Project p, List<Attribute> childOutput) {
             List<NamedExpression> resolvedProjections = new ArrayList<>();
             var projections = p.projections();
@@ -927,9 +1174,15 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
             // otherwise resolve them
             else {
                 Map<NamedExpression, Integer> priorities = new LinkedHashMap<>();
+                /**
+                 * @brief [Functional Utility for for]: Describe purpose here.
+                 */
                 for (var proj : projections) {
                     final List<Attribute> resolved;
                     final int priority;
+                    /**
+                     * @brief [Functional Utility for if]: Describe purpose here.
+                     */
                     if (proj instanceof UnresolvedStar) {
                         resolved = childOutput;
                         priority = 2;
@@ -942,8 +1195,14 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
                     } else {
                         throw new EsqlIllegalArgumentException("unexpected projection: " + proj);
                     }
+                    /**
+                     * @brief [Functional Utility for for]: Describe purpose here.
+                     */
                     for (Attribute attr : resolved) {
                         Integer previousPrio = priorities.get(attr);
+                        /**
+                         * @brief [Functional Utility for if]: Describe purpose here.
+                         */
                         if (previousPrio == null || previousPrio >= priority) {
                             priorities.remove(attr);
                             priorities.put(attr, priority);
@@ -956,12 +1215,20 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
             return new EsqlProject(p.source(), p.child(), resolvedProjections);
         }
 
+        /**
+         * @brief [Functional Utility for resolveDrop]: Describe purpose here.
+         */
         private LogicalPlan resolveDrop(Drop drop, List<Attribute> childOutput) {
             List<NamedExpression> resolvedProjections = new ArrayList<>(childOutput);
 
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             for (var ne : drop.removals()) {
                 List<? extends NamedExpression> resolved;
 
+                /**
+                 * @brief [Functional Utility for if]: Describe purpose here.
+                 */
                 if (ne instanceof UnresolvedNamePattern np) {
                     resolved = resolveAgainstList(np, childOutput);
                 } else if (ne instanceof UnresolvedAttribute ua) {
@@ -977,6 +1244,8 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
                 resolvedProjections.removeIf(resolved::contains);
                 // but add non-projected, unresolved extras to later trip the Verifier.
                 resolved.forEach(r -> {
+                    // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                    // Invariant: State condition that holds true before and after each iteration/execution
                     if (r.resolved() == false && r instanceof UnsupportedAttribute == false) {
                         resolvedProjections.add(r);
                     }
@@ -986,6 +1255,9 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
             return new EsqlProject(drop.source(), drop.child(), resolvedProjections);
         }
 
+        /**
+         * @brief [Functional Utility for resolveRename]: Describe purpose here.
+         */
         private LogicalPlan resolveRename(Rename rename, List<Attribute> childrenOutput) {
             List<NamedExpression> projections = projectionsForRename(rename, childrenOutput, log);
 
@@ -1006,6 +1278,8 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
                     projections.removeIf(x -> x.name().equals(alias.name()));
 
                     var resolved = maybeResolveAttribute(ua, childrenOutput, logger);
+                    // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                    // Invariant: State condition that holds true before and after each iteration/execution
                     if (resolved instanceof UnsupportedAttribute || resolved.resolved()) {
                         var realiased = (NamedExpression) alias.replaceChildren(List.of(resolved));
                         projections.replaceAll(x -> x.equals(resolved) ? realiased : x);
@@ -1014,7 +1288,11 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
                     } else { // remained UnresolvedAttribute
                         // is the current alias referencing a previously declared alias?
                         boolean updated = false;
+                        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                        // Invariant: State condition that holds true before and after each iteration/execution
                         if (reverseAliasing.containsValue(resolved.name())) {
+                            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                            // Invariant: State condition that holds true before and after each iteration/execution
                             for (var li = projections.listIterator(); li.hasNext();) {
                                 // does alias still exist? i.e. it hasn't been renamed again (`| rename a as b, b as c, b as d`)
                                 if (li.next() instanceof Alias a && a.name().equals(resolved.name())) {
@@ -1026,9 +1304,15 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
                                 }
                             }
                         }
+                        /**
+                         * @brief [Functional Utility for if]: Describe purpose here.
+                         */
                         if (updated == false) {
                             var u = resolved;
                             var previousAliasName = reverseAliasing.get(resolved.name());
+                            /**
+                             * @brief [Functional Utility for if]: Describe purpose here.
+                             */
                             if (previousAliasName != null) {
                                 String message = format(
                                     null,
@@ -1051,17 +1335,28 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
             return projections;
         }
 
+        /**
+         * @brief [Functional Utility for resolveEnrich]: Describe purpose here.
+         */
         private LogicalPlan resolveEnrich(Enrich enrich, List<Attribute> childrenOutput) {
 
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (enrich.matchField().toAttribute() instanceof UnresolvedAttribute ua) {
                 Attribute resolved = maybeResolveAttribute(ua, childrenOutput);
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 if (resolved.equals(ua)) {
                     return enrich;
                 }
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 if (resolved.resolved() && enrich.policy() != null) {
                     final DataType dataType = resolved.dataType();
                     String matchType = enrich.policy().getType();
                     DataType[] allowed = allowedEnrichTypes(matchType);
+                    // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                    // Invariant: State condition that holds true before and after each iteration/execution
                     if (Arrays.asList(allowed).contains(dataType) == false) {
                         String suffix = "only ["
                             + Arrays.stream(allowed).map(DataType::typeName).collect(Collectors.joining(", "))
@@ -1095,6 +1390,9 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
         private static final DataType[] GEO_TYPES = new DataType[] { GEO_POINT, GEO_SHAPE };
         private static final DataType[] NON_GEO_TYPES = new DataType[] { KEYWORD, TEXT, IP, LONG, INTEGER, FLOAT, DOUBLE, DATETIME };
 
+        /**
+         * @brief [Functional Utility for allowedEnrichTypes]: Describe purpose here.
+         */
         private DataType[] allowedEnrichTypes(String matchType) {
             return matchType.equals(GEO_MATCH_TYPE) ? GEO_TYPES : NON_GEO_TYPES;
         }
@@ -1118,14 +1416,21 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
         Collection<Attribute> attrList,
         java.util.function.Function<List<String>, String> messageProducer
     ) {
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (ua.customMessage()) {
             return List.of();
         }
         // none found - add error message
         if (matches.isEmpty()) {
             Set<String> names = new HashSet<>(attrList.size());
+            /**
+             * @brief [Functional Utility for for]: Describe purpose here.
+             */
             for (var a : attrList) {
                 String nameCandidate = a.name();
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 if (DataType.isPrimitive(a.dataType())) {
                     names.add(nameCandidate);
                 }
@@ -1144,6 +1449,9 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
     private static class ResolveFunctions extends ParameterizedAnalyzerRule<LogicalPlan, AnalyzerContext> {
 
         @Override
+        /**
+         * @brief [Functional Utility for rule]: Describe purpose here.
+         */
         protected LogicalPlan rule(LogicalPlan plan, AnalyzerContext context) {
             // Allow resolving snapshot-only functions, but do not include them in the documentation
             final EsqlFunctionRegistry snapshotRegistry = context.functionRegistry().snapshotRegistry();
@@ -1159,10 +1467,14 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
             EsqlFunctionRegistry functionRegistry
         ) {
             org.elasticsearch.xpack.esql.core.expression.function.Function f = null;
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (uf.analyzed()) {
                 f = uf;
             } else {
                 String functionName = functionRegistry.resolveAlias(uf.name());
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 if (functionRegistry.functionExists(functionName) == false) {
                     f = uf.missing(functionName, functionRegistry.listFunctions());
                 } else {
@@ -1178,12 +1490,20 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
         private final ResolveFunctions resolveFunctions = new ResolveFunctions();
 
         @Override
+        /**
+         * @brief [Functional Utility for rule]: Describe purpose here.
+         */
         protected LogicalPlan rule(LogicalPlan plan, AnalyzerContext context) {
             return plan.transformUp(Fork.class, fork -> resolveFunctionsInForkSubQueries(fork, context));
         }
 
+        /**
+         * @brief [Functional Utility for resolveFunctionsInForkSubQueries]: Describe purpose here.
+         */
         private LogicalPlan resolveFunctionsInForkSubQueries(Fork fork, AnalyzerContext ctx) {
             List<LogicalPlan> newSubPlans = new ArrayList<>();
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             for (var subPlan : fork.subPlans()) {
                 newSubPlans.add(resolveFunctions.apply(subPlan, ctx));
             }
@@ -1193,9 +1513,14 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
 
     private static class AddImplicitLimit extends ParameterizedRule<LogicalPlan, LogicalPlan, AnalyzerContext> {
         @Override
+        /**
+         * @brief [Functional Utility for apply]: Describe purpose here.
+         */
         public LogicalPlan apply(LogicalPlan logicalPlan, AnalyzerContext context) {
             List<LogicalPlan> limits = logicalPlan.collectFirstChildren(Limit.class::isInstance);
             int limit;
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (limits.isEmpty()) {
                 HeaderWarning.addWarning(
                     "No limit defined, adding default limit of [{}]",
@@ -1214,12 +1539,20 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
         private final AddImplicitLimit addImplicitLimit = new AddImplicitLimit();
 
         @Override
+        /**
+         * @brief [Functional Utility for apply]: Describe purpose here.
+         */
         public LogicalPlan apply(LogicalPlan logicalPlan, AnalyzerContext context) {
             return logicalPlan.transformUp(Fork.class, fork -> addImplicitLimitToForkSubQueries(fork, context));
         }
 
+        /**
+         * @brief [Functional Utility for addImplicitLimitToForkSubQueries]: Describe purpose here.
+         */
         private LogicalPlan addImplicitLimitToForkSubQueries(Fork fork, AnalyzerContext ctx) {
             List<LogicalPlan> newSubPlans = new ArrayList<>();
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             for (var subPlan : fork.subPlans()) {
                 newSubPlans.add(addImplicitLimit.apply(subPlan, ctx));
             }
@@ -1227,6 +1560,9 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
         }
     }
 
+    /**
+     * @brief [Functional Utility for gatherPreAnalysisMetrics]: Describe purpose here.
+     */
     private BitSet gatherPreAnalysisMetrics(LogicalPlan plan, BitSet b) {
         // count only the explicit "limit" the user added, otherwise all queries will have a "limit" and telemetry won't reflect reality
         if (plan.collectFirstChildren(Limit.class::isInstance).isEmpty() == false) {
@@ -1260,6 +1596,9 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
      */
     private static class ImplicitCasting extends ParameterizedRule<LogicalPlan, LogicalPlan, AnalyzerContext> {
         @Override
+        /**
+         * @brief [Functional Utility for apply]: Describe purpose here.
+         */
         public LogicalPlan apply(LogicalPlan plan, AnalyzerContext context) {
             // do implicit casting for union typed fields in sort, keep, rename
             LogicalPlan newPlan = plan.transformUp(p -> {
@@ -1285,12 +1624,21 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
             // Add cast functions to InvalidMappedField if there isn't one yet
             f = castInvalidMappedFieldInFunction(f);
 
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (f instanceof In in) {
                 return processIn(in);
             }
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (f instanceof EsqlScalarFunction || f instanceof GroupingFunction) { // exclude AggregateFunction until it is needed
                 return processScalarOrGroupingFunction(f, registry);
             }
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (f instanceof EsqlArithmeticOperation || f instanceof BinaryComparison) {
                 return processBinaryOperator((BinaryOperator) f);
             }
@@ -1300,6 +1648,9 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
         private static org.elasticsearch.xpack.esql.core.expression.function.Function castInvalidMappedFieldInFunction(
             org.elasticsearch.xpack.esql.core.expression.function.Function f
         ) {
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (f instanceof AbstractConvertFunction || f instanceof FullTextFunction) {
                 return f;
             }
@@ -1310,22 +1661,32 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
             argLoop: for (Expression expression : args) {
                 DataType targetType = null;
                 arg = expression;
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 if (arg.resolved()
                     && arg.dataType() == UNSUPPORTED
                     && arg instanceof FieldAttribute fa
                     && fa.field() instanceof InvalidMappedField imf) {
                     // this is an invalid mapped field, find a common data type and cast to it
                     for (DataType type : imf.types()) {
+                        /**
+                         * @brief [Functional Utility for if]: Describe purpose here.
+                         */
                         if (targetType == null) { // initialize the target type to the first type
                             targetType = type;
                         } else {
                             targetType = EsqlDataTypeConverter.commonType(targetType, type);
+                            /**
+                             * @brief [Functional Utility for if]: Describe purpose here.
+                             */
                             if (targetType == null) { // if there is no common type, continue to the next argument
                                 newChildren.add(arg);
                                 continue argLoop;
                             }
                         }
                     }
+                    // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                    // Invariant: State condition that holds true before and after each iteration/execution
                     if (targetType != null && isRepresentable(targetType) && (isMillisOrNanos(targetType) || targetType.isNumeric())) {
                         childrenChanged = true;
                         Expression newChild = castInvalidMappedField(targetType, fa);
@@ -1344,6 +1705,8 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
         ) {
             List<Expression> args = f.arguments();
             List<DataType> targetDataTypes = registry.getDataTypeForStringLiteralConversion(f.getClass());
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (targetDataTypes == null || targetDataTypes.isEmpty()) {
                 return f;
             }
@@ -1353,17 +1716,34 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
             Expression arg;
             DataType targetNumericType = null;
             boolean castNumericArgs = true;
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             for (int i = 0; i < args.size(); i++) {
                 arg = args.get(i);
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 if (arg.resolved()) {
                     var dataType = arg.dataType();
+                    /**
+                     * @brief [Functional Utility for if]: Describe purpose here.
+                     */
                     if (dataType == KEYWORD) {
+                        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                        // Invariant: State condition that holds true before and after each iteration/execution
                         if (arg.foldable() && ((arg instanceof EsqlScalarFunction) == false)) {
+                            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                            // Invariant: State condition that holds true before and after each iteration/execution
                             if (i < targetDataTypes.size()) {
                                 targetDataType = targetDataTypes.get(i);
                             }
+                            /**
+                             * @brief [Functional Utility for if]: Describe purpose here.
+                             */
                             if (targetDataType != NULL && targetDataType != DataType.UNSUPPORTED) {
                                 Expression e = castStringLiteral(arg, targetDataType);
+                                /**
+                                 * @brief [Functional Utility for if]: Describe purpose here.
+                                 */
                                 if (e != arg) {
                                     childrenChanged = true;
                                     newChildren.add(e);
@@ -1372,6 +1752,9 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
                             }
                         }
                     } else if (dataType.isNumeric() && canCastMixedNumericTypes(f) && castNumericArgs) {
+                        /**
+                         * @brief [Functional Utility for if]: Describe purpose here.
+                         */
                         if (targetNumericType == null) {
                             targetNumericType = dataType;  // target data type is the first numeric data type
                         } else if (dataType != targetNumericType) {
@@ -1390,6 +1773,8 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
         private static Expression processBinaryOperator(BinaryOperator<?, ?, ?, ?> o) {
             Expression left = o.left();
             Expression right = o.right();
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (left.resolved() == false || right.resolved() == false) {
                 return o;
             }
@@ -1398,7 +1783,11 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
             DataType targetDataType = NULL;
             Expression from = Literal.NULL;
 
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (left.dataType() == KEYWORD && left.foldable() && (left instanceof EsqlScalarFunction == false)) {
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 if (supportsStringImplicitCasting(right.dataType())) {
                     targetDataType = right.dataType();
                     from = left;
@@ -1407,7 +1796,11 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
                     from = left;
                 }
             }
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (right.dataType() == KEYWORD && right.foldable() && (right instanceof EsqlScalarFunction == false)) {
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 if (supportsStringImplicitCasting(left.dataType())) {
                     targetDataType = left.dataType();
                     from = right;
@@ -1416,6 +1809,9 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
                     from = right;
                 }
             }
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (from != Literal.NULL) {
                 Expression e = castStringLiteral(from, targetDataType);
                 newChildren.add(from == left ? e : left);
@@ -1429,6 +1825,8 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
             Expression left = in.value();
             List<Expression> right = in.list();
 
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (left.resolved() == false || supportsStringImplicitCasting(left.dataType()) == false) {
                 return in;
             }
@@ -1437,7 +1835,12 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
             List<Expression> newChildren = new ArrayList<>(right.size() + 1);
             boolean childrenChanged = false;
 
+            /**
+             * @brief [Functional Utility for for]: Describe purpose here.
+             */
             for (Expression value : right) {
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 if (value.resolved() && value.dataType() == KEYWORD && value.foldable()) {
                     Expression e = castStringLiteral(value, targetDataType);
                     newChildren.add(e);
@@ -1464,9 +1867,15 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
             boolean childrenChanged = false;
             DataType childDataType;
 
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             for (Expression e : f.children()) {
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 if (e.resolved()) {
                     childDataType = e.dataType();
+                    // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                    // Invariant: State condition that holds true before and after each iteration/execution
                     if (childDataType.isNumeric() == false
                         || childDataType == targetNumericType
                         || canCastNumeric(childDataType, targetNumericType) == false) {
@@ -1475,6 +1884,9 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
                     }
                     childrenChanged = true;
                     // add a casting function
+                    /**
+                     * @brief [Functional Utility for switch]: Describe purpose here.
+                     */
                     switch (targetNumericType) {
                         case INTEGER -> newChildren.add(new ToInteger(e.source(), e));
                         case LONG -> newChildren.add(new ToLong(e.source(), e));
@@ -1510,6 +1922,9 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
         private static Expression castStringLiteralToTemporalAmount(Expression from) {
             try {
                 TemporalAmount result = maybeParseTemporalAmount(from.fold(FoldContext.small() /* TODO remove me */).toString().strip());
+                /**
+                 * @brief [Functional Utility for if]: Describe purpose here.
+                 */
                 if (result == null) {
                     return from;
                 }
@@ -1540,12 +1955,20 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
         private final ImplicitCasting implicitCasting = new ImplicitCasting();
 
         @Override
+        /**
+         * @brief [Functional Utility for apply]: Describe purpose here.
+         */
         public LogicalPlan apply(LogicalPlan logicalPlan, AnalyzerContext context) {
             return logicalPlan.transformUp(Fork.class, fork -> implicitCastForkSubQueries(fork, context));
         }
 
+        /**
+         * @brief [Functional Utility for implicitCastForkSubQueries]: Describe purpose here.
+         */
         private LogicalPlan implicitCastForkSubQueries(Fork fork, AnalyzerContext ctx) {
             List<LogicalPlan> newSubPlans = new ArrayList<>();
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             for (var subPlan : fork.subPlans()) {
                 newSubPlans.add(implicitCasting.apply(subPlan, ctx));
             }
@@ -1564,16 +1987,26 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
      */
     private static class ResolveUnionTypes extends Rule<LogicalPlan, LogicalPlan> {
 
+        /**
+         * @brief [Functional Utility for TypeResolutionKey]: Describe purpose here.
+         */
         record TypeResolutionKey(String fieldName, DataType fieldType) {}
 
         private List<FieldAttribute> unionFieldAttributes;
 
         @Override
+        /**
+         * @brief [Functional Utility for apply]: Describe purpose here.
+         */
         public LogicalPlan apply(LogicalPlan plan) {
             unionFieldAttributes = new ArrayList<>();
             // Collect field attributes from previous runs
             plan.forEachUp(EsRelation.class, rel -> {
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 for (Attribute attr : rel.output()) {
+                    // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                    // Invariant: State condition that holds true before and after each iteration/execution
                     if (attr instanceof FieldAttribute fa && fa.field() instanceof MultiTypeEsField) {
                         unionFieldAttributes.add(fa);
                     }
@@ -1583,6 +2016,9 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
             return plan.transformUp(LogicalPlan.class, p -> p.childrenResolved() == false ? p : doRule(p));
         }
 
+        /**
+         * @brief [Functional Utility for doRule]: Describe purpose here.
+         */
         private LogicalPlan doRule(LogicalPlan plan) {
             int alreadyAddedUnionFieldAttributes = unionFieldAttributes.size();
             // See if the eval function has an unresolved MultiTypeEsField field
@@ -1600,6 +2036,9 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
             // and thereby get used in FieldExtractExec
             plan = plan.transformDown(EsRelation.class, esr -> {
                 List<Attribute> missing = new ArrayList<>();
+                /**
+                 * @brief [Functional Utility for for]: Describe purpose here.
+                 */
                 for (FieldAttribute fa : unionFieldAttributes) {
                     // Using outputSet().contains looks by NameId, resp. uses semanticEquals.
                     if (esr.outputSet().contains(fa) == false) {
@@ -1607,6 +2046,8 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
                     }
                 }
 
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 if (missing.isEmpty() == false) {
                     return new EsRelation(
                         esr.source(),
@@ -1621,10 +2062,18 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
             return plan;
         }
 
+        /**
+         * @brief [Functional Utility for resolveConvertFunction]: Describe purpose here.
+         */
         private Expression resolveConvertFunction(AbstractConvertFunction convert, List<FieldAttribute> unionFieldAttributes) {
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (convert.field() instanceof FieldAttribute fa && fa.field() instanceof InvalidMappedField imf) {
                 HashMap<TypeResolutionKey, Expression> typeResolutions = new HashMap<>();
                 Set<DataType> supportedTypes = convert.supportedTypes();
+                /**
+                 * @brief [Functional Utility for if]: Describe purpose here.
+                 */
                 if (convert instanceof FoldablesConvertFunction fcf) {
                     // FoldablesConvertFunction does not accept fields as inputs, they only accept constants
                     String unresolvedMessage = "argument of ["
@@ -1636,6 +2085,8 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
                     return fcf.replaceChildren(Collections.singletonList(ua));
                 }
                 imf.types().forEach(type -> {
+                    // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                    // Invariant: State condition that holds true before and after each iteration/execution
                     if (supportedTypes.contains(type.widenSmallNumeric())) {
                         TypeResolutionKey key = new TypeResolutionKey(fa.name(), type);
                         var concreteConvert = typeSpecificConvert(convert, fa.source(), type, imf);
@@ -1664,6 +2115,9 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
             String unionTypedFieldName = Attribute.rawTemporaryName(fa.name(), "converted_to", resolvedField.getDataType().typeName());
             FieldAttribute unionFieldAttribute = new FieldAttribute(fa.source(), fa.parentName(), unionTypedFieldName, resolvedField, true);
             int existingIndex = unionFieldAttributes.indexOf(unionFieldAttribute);
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (existingIndex >= 0) {
                 // Do not generate multiple name/type combinations with different IDs
                 return unionFieldAttributes.get(existingIndex);
@@ -1673,12 +2127,17 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
             }
         }
 
+        /**
+         * @brief [Functional Utility for resolvedMultiTypeEsField]: Describe purpose here.
+         */
         private MultiTypeEsField resolvedMultiTypeEsField(FieldAttribute fa, HashMap<TypeResolutionKey, Expression> typeResolutions) {
             Map<String, Expression> typesToConversionExpressions = new HashMap<>();
             InvalidMappedField imf = (InvalidMappedField) fa.field();
             imf.getTypesToIndices().forEach((typeName, indexNames) -> {
                 DataType type = DataType.fromTypeName(typeName);
                 TypeResolutionKey key = new TypeResolutionKey(fa.name(), type);
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 if (typeResolutions.containsKey(key)) {
                     typesToConversionExpressions.put(typeName, typeResolutions.get(key));
                 }
@@ -1686,6 +2145,9 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
             return MultiTypeEsField.resolveFrom(imf, typesToConversionExpressions);
         }
 
+        /**
+         * @brief [Functional Utility for typeSpecificConvert]: Describe purpose here.
+         */
         private Expression typeSpecificConvert(AbstractConvertFunction convert, Source source, DataType type, InvalidMappedField mtf) {
             EsField field = new EsField(mtf.getName(), type, mtf.getProperties(), mtf.isAggregatable());
             FieldAttribute originalFieldAttr = (FieldAttribute) convert.field();
@@ -1713,6 +2175,9 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
      * This should not spill into the query output, so we drop such attributes at the end.
      */
     private static class UnionTypesCleanup extends Rule<LogicalPlan, LogicalPlan> {
+        /**
+         * @brief [Functional Utility for apply]: Describe purpose here.
+         */
         public LogicalPlan apply(LogicalPlan plan) {
             LogicalPlan planWithCheckedUnionTypes = plan.transformUp(
                 LogicalPlan.class,
@@ -1726,7 +2191,12 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
                 : planWithCheckedUnionTypes;
         }
 
+        /**
+         * @brief [Functional Utility for checkUnresolved]: Describe purpose here.
+         */
         static Attribute checkUnresolved(FieldAttribute fa) {
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (fa.field() instanceof InvalidMappedField imf) {
                 String unresolvedMessage = "Cannot use field [" + fa.name() + "] due to ambiguities being " + imf.errorMessage();
                 String types = imf.getTypesToIndices().keySet().stream().collect(Collectors.joining(","));
@@ -1745,6 +2215,9 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
             List<Attribute> output = plan.output();
             List<Attribute> newOutput = new ArrayList<>(output.size());
 
+            /**
+             * @brief [Functional Utility for for]: Describe purpose here.
+             */
             for (Attribute attr : output) {
                 // Do not let the synthetic union type field attributes end up in the final output.
                 if (attr.synthetic() && attr instanceof FieldAttribute) {
@@ -1759,7 +2232,12 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
 
     private static class AddImplicitProject extends ParameterizedRule<LogicalPlan, LogicalPlan, AnalyzerContext> {
         @Override
+        /**
+         * @brief [Functional Utility for apply]: Describe purpose here.
+         */
         public LogicalPlan apply(LogicalPlan logicalPlan, AnalyzerContext context) {
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (logicalPlan.resolved() == false) {
                 return logicalPlan;
             }
@@ -1770,6 +2248,9 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
 
     private static LogicalPlan castInvalidMappedFieldInLogicalPlan(LogicalPlan plan, boolean addProject) {
         List<? extends Expression> fields;
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (addProject) {
             fields = plan.output();
         } else {
@@ -1789,29 +2270,44 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
         projectionLoop: for (Expression field : fields) {
             Expression e = field;
             String alias = null;
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (field instanceof Alias a) {
                 e = a.child();
                 alias = a.name();
             } else if (field instanceof Order o) {
                 e = o.child();
             }
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (e.resolved()
                 && e.dataType() == UNSUPPORTED
                 && e instanceof FieldAttribute fa
                 && fa.field() instanceof InvalidMappedField imf) {
                 // this is an invalid mapped field, find a common data type and cast to it
                 DataType targetType = null;
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 for (DataType type : imf.types()) {
+                    /**
+                     * @brief [Functional Utility for if]: Describe purpose here.
+                     */
                     if (targetType == null) { // initialize the target type to the first type
                         targetType = type;
                     } else {
                         targetType = EsqlDataTypeConverter.commonType(targetType, type);
+                        /**
+                         * @brief [Functional Utility for if]: Describe purpose here.
+                         */
                         if (targetType == null) { // if there is no common type, continue to the next argument
                             newProjections.add(field);
                             continue projectionLoop;
                         }
                     }
                 }
+                // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                // Invariant: State condition that holds true before and after each iteration/execution
                 if (targetType != null && isRepresentable(targetType) && (isMillisOrNanos(targetType) || targetType.isNumeric())) {
                     // create an eval to cast union type to a common type
                     String name = alias != null ? alias : fa.name();
@@ -1819,6 +2315,9 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
                     Expression newChild = castInvalidMappedField(targetType, fa);
                     Alias newAlias = new Alias(source, name, newChild);
                     aliases.add(newAlias);
+                    /**
+                     * @brief [Functional Utility for if]: Describe purpose here.
+                     */
                     if (field instanceof Alias a) {
                         newProjections.add(a.replaceChild(newAlias.toAttribute()));
                     } else if (field instanceof Order o) {
@@ -1831,7 +2330,12 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
                 newProjections.add(field);
             }
         }
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (aliases.isEmpty() == false) {
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (addProject) {
                 Eval eval = new Eval(plan.source(), plan, aliases);
                 return new EsqlProject(
@@ -1843,6 +2347,9 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
                         .collect(Collectors.toList())
                 );
             }
+            /**
+             * @brief [Functional Utility for switch]: Describe purpose here.
+             */
             switch (plan) {
                 case EsqlProject p -> {
                     Eval eval = new Eval(plan.source(), p.child(), aliases);
@@ -1869,9 +2376,14 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
                     // create new aggregates according to new groupings
                     List<? extends NamedExpression> origAggs = agg.aggregates();
                     List<NamedExpression> newAggs = new ArrayList<>(origAggs.size());
+                    // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                    // Invariant: State condition that holds true before and after each iteration/execution
                     for (int i = 0; i < origAggs.size() - newProjections.size(); i++) { // add aggregate functions
                         newAggs.add(origAggs.get(i));
                     }
+                    /**
+                     * @brief [Functional Utility for for]: Describe purpose here.
+                     */
                     for (Expression e : newProjections) { // add new groupings
                         newAggs.add(Expressions.attribute(e));
                     }
@@ -1922,6 +2434,9 @@ public class Analyzer extends ParameterizedRuleExecutor<LogicalPlan, AnalyzerCon
 
     private static Expression castInvalidMappedField(DataType targetType, FieldAttribute fa) {
         Source source = fa.source();
+        /**
+         * @brief [Functional Utility for switch]: Describe purpose here.
+         */
         return switch (targetType) {
             case INTEGER -> new ToInteger(source, fa);
             case LONG -> new ToLong(source, fa);

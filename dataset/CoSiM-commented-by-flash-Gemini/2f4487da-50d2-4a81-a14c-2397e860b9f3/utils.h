@@ -1,3 +1,8 @@
+/**
+ * @file utils.h
+ * @brief Semantic documentation for utils.h.
+ *        This is a placeholder. Detailed semantic analysis will be applied later.
+ */
 
 
 #include <stdio.h>

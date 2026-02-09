@@ -49,11 +49,22 @@ import static org.mockito.Mockito.when;
  */
 public class DataStreamLifecycleWithRetentionWarningsTests extends ESTestCase {
     @Override
+    /**
+     * @brief [Functional Utility for enableWarningsCheck]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     protected boolean enableWarningsCheck() {
         // this test expects warnings
+    /**
+     * @brief [Functional description for field false]: Describe purpose here.
+     */
         return false;
     }
 
+    /**
+     * @brief [Functional Utility for testNoHeaderWarning]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testNoHeaderWarning() {
         ThreadContext threadContext = new ThreadContext(Settings.EMPTY);
         HeaderWarning.setThreadContext(threadContext);
@@ -77,6 +88,10 @@ public class DataStreamLifecycleWithRetentionWarningsTests extends ESTestCase {
         assertThat(responseHeaders.isEmpty(), is(true));
     }
 
+    /**
+     * @brief [Functional Utility for testDefaultRetentionHeaderWarning]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testDefaultRetentionHeaderWarning() {
         ThreadContext threadContext = new ThreadContext(Settings.EMPTY);
         HeaderWarning.setThreadContext(threadContext);
@@ -99,6 +114,10 @@ public class DataStreamLifecycleWithRetentionWarningsTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testMaxRetentionHeaderWarning]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testMaxRetentionHeaderWarning() {
         ThreadContext threadContext = new ThreadContext(Settings.EMPTY);
         HeaderWarning.setThreadContext(threadContext);
@@ -124,6 +143,10 @@ public class DataStreamLifecycleWithRetentionWarningsTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testUpdatingLifecycleOnADataStream]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testUpdatingLifecycleOnADataStream() {
         ThreadContext threadContext = new ThreadContext(Settings.EMPTY);
         HeaderWarning.setThreadContext(threadContext);
@@ -165,6 +188,10 @@ public class DataStreamLifecycleWithRetentionWarningsTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testValidateLifecycleIndexTemplateWithWarning]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testValidateLifecycleIndexTemplateWithWarning() {
         ThreadContext threadContext = new ThreadContext(Settings.EMPTY);
         HeaderWarning.setThreadContext(threadContext);
@@ -177,6 +204,12 @@ public class DataStreamLifecycleWithRetentionWarningsTests extends ESTestCase {
                 .dataStreamTemplate(new ComposableIndexTemplate.DataStreamTemplate())
                 .indexPatterns(List.of(randomAlphaOfLength(10)))
                 .build(),
+    /**
+     * @brief [Functional Utility for DataStreamGlobalRetention]: Describe purpose here.
+     * @param defaultRetention: [Description]
+     * @param null: [Description]
+     * @return [ReturnType]: [Description]
+     */
             new DataStreamGlobalRetention(defaultRetention, null)
         );
         Map<String, List<String>> responseHeaders = threadContext.getResponseHeaders();
@@ -191,6 +224,10 @@ public class DataStreamLifecycleWithRetentionWarningsTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testValidateInternalDataStreamRetentionWithoutWarning]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testValidateInternalDataStreamRetentionWithoutWarning() {
         ThreadContext threadContext = new ThreadContext(Settings.EMPTY);
         HeaderWarning.setThreadContext(threadContext);
@@ -203,6 +240,12 @@ public class DataStreamLifecycleWithRetentionWarningsTests extends ESTestCase {
                 .dataStreamTemplate(new ComposableIndexTemplate.DataStreamTemplate())
                 .indexPatterns(List.of("." + randomAlphaOfLength(10)))
                 .build(),
+    /**
+     * @brief [Functional Utility for DataStreamGlobalRetention]: Describe purpose here.
+     * @param defaultRetention: [Description]
+     * @param null: [Description]
+     * @return [ReturnType]: [Description]
+     */
             new DataStreamGlobalRetention(defaultRetention, null)
         );
         Map<String, List<String>> responseHeaders = threadContext.getResponseHeaders();
@@ -238,12 +281,23 @@ public class DataStreamLifecycleWithRetentionWarningsTests extends ESTestCase {
                 .indexPatterns(List.of(randomAlphaOfLength(10)))
                 .componentTemplates(List.of("component-template"))
                 .build(),
+    /**
+     * @brief [Functional Utility for DataStreamGlobalRetention]: Describe purpose here.
+     * @param defaultRetention: [Description]
+     * @param null: [Description]
+     * @return [ReturnType]: [Description]
+     */
             new DataStreamGlobalRetention(defaultRetention, null)
         );
         Map<String, List<String>> responseHeaders = threadContext.getResponseHeaders();
         assertThat(responseHeaders.size(), is(0));
     }
 
+    /**
+     * @brief [Functional Utility for testValidateLifecycleInComponentTemplate]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void testValidateLifecycleInComponentTemplate() throws Exception {
         IndicesService indicesService = mock(IndicesService.class);
         IndexService indexService = mock(IndexService.class);

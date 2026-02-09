@@ -31,6 +31,11 @@ import java.util.Map;
 
 import static org.hamcrest.Matchers.equalTo;
 
+/**
+ * @brief Functional description of the DoubleFieldScriptTests class.
+ *        This is a placeholder for detailed semantic documentation.
+ *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+ */
 public class DoubleFieldScriptTests extends FieldScriptTestCase<DoubleFieldScript.Factory> {
     public static final DoubleFieldScript.Factory DUMMY = (fieldName, params, lookup, onScriptError) -> ctx -> new DoubleFieldScript(
         fieldName,
@@ -40,26 +45,51 @@ public class DoubleFieldScriptTests extends FieldScriptTestCase<DoubleFieldScrip
         ctx
     ) {
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public void execute() {
             emit(1.0);
         }
     };
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected ScriptContext<DoubleFieldScript.Factory> context() {
         return DoubleFieldScript.CONTEXT;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected DoubleFieldScript.Factory dummyScript() {
         return DUMMY;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected DoubleFieldScript.Factory fromSource() {
         return DoubleFieldScript.PARSE_FROM_SOURCE;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testTooManyValues() throws IOException {
         try (Directory directory = newDirectory(); RandomIndexWriter iw = new RandomIndexWriter(random(), directory)) {
             iw.addDocument(List.of(new StoredField("_source", new BytesRef("{}"))));
@@ -72,6 +102,11 @@ public class DoubleFieldScriptTests extends FieldScriptTestCase<DoubleFieldScrip
                     reader.leaves().get(0)
                 ) {
                     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
                     public void execute() {
                         for (int i = 0; i <= AbstractFieldScript.MAX_VALUES; i++) {
                             new Emit(this).emit(1.0);
@@ -87,6 +122,11 @@ public class DoubleFieldScriptTests extends FieldScriptTestCase<DoubleFieldScrip
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void testFromSourceDoesNotEnforceValuesLimit() throws IOException {
         try (Directory directory = newDirectory(); RandomIndexWriter iw = new RandomIndexWriter(random(), directory)) {
             int numValues = AbstractFieldScript.MAX_VALUES + randomIntBetween(1, 100);

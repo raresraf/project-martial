@@ -103,14 +103,31 @@ public final class HighlightBuilder extends AbstractHighlighterBuilder<Highlight
         .phraseLimit(DEFAULT_PHRASE_LIMIT)
         .build();
 
+    /**
+     * @brief [Functional description for field fields]: Describe purpose here.
+     */
     private final List<Field> fields;
 
+    /**
+     * @brief [Functional description for field useExplicitFieldOrder]: Describe purpose here.
+     */
     private boolean useExplicitFieldOrder = false;
 
+    /**
+     * @brief [Functional Utility for HighlightBuilder]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public HighlightBuilder() {
         fields = new ArrayList<>();
     }
 
+    /**
+     * @brief [Functional Utility for HighlightBuilder]: Describe purpose here.
+     * @param template: [Description]
+     * @param highlightQuery: [Description]
+     * @param fields: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public HighlightBuilder(HighlightBuilder template, QueryBuilder highlightQuery, List<Field> fields) {
         super(template, highlightQuery);
         this.useExplicitFieldOrder = template.useExplicitFieldOrder;
@@ -122,6 +139,8 @@ public final class HighlightBuilder extends AbstractHighlighterBuilder<Highlight
      */
     public HighlightBuilder(StreamInput in) throws IOException {
         super(in);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (in.getTransportVersion().before(TransportVersions.V_8_14_0)) {
             encoder(in.readOptionalString());
         }
@@ -131,7 +150,15 @@ public final class HighlightBuilder extends AbstractHighlighterBuilder<Highlight
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for doWriteTo]: Describe purpose here.
+     * @param out: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
     protected void doWriteTo(StreamOutput out) throws IOException {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (out.getTransportVersion().before(TransportVersions.V_8_14_0)) {
             out.writeOptionalString(encoder);
         }
@@ -174,15 +201,32 @@ public final class HighlightBuilder extends AbstractHighlighterBuilder<Highlight
         return field(new Field(name).fragmentSize(fragmentSize).numOfFragments(numberOfFragments).fragmentOffset(fragmentOffset));
     }
 
+    /**
+     * @brief [Functional Utility for field]: Describe purpose here.
+     * @param field: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public HighlightBuilder field(Field field) {
         fields.add(field);
+    /**
+     * @brief [Functional description for field this]: Describe purpose here.
+     */
         return this;
     }
 
+    /**
+     * @brief [Functional Utility for fields]: Describe purpose here.
+     * @param fields: [Description]
+     * @return [ReturnType]: [Description]
+     */
     void fields(List<Field> fields) {
         this.fields.addAll(fields);
     }
 
+    /**
+     * @brief [Functional Utility for fields]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public List<Field> fields() {
         return this.fields;
     }
@@ -193,6 +237,9 @@ public final class HighlightBuilder extends AbstractHighlighterBuilder<Highlight
      */
     public HighlightBuilder useExplicitFieldOrder(boolean useExplicitFieldOrder) {
         this.useExplicitFieldOrder = useExplicitFieldOrder;
+    /**
+     * @brief [Functional description for field this]: Describe purpose here.
+     */
         return this;
     }
 
@@ -204,10 +251,20 @@ public final class HighlightBuilder extends AbstractHighlighterBuilder<Highlight
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for toXContent]: Describe purpose here.
+     * @param builder: [Description]
+     * @param params: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         builder.startObject();
         innerXContent(builder);
         builder.endObject();
+    /**
+     * @brief [Functional description for field builder]: Describe purpose here.
+     */
         return builder;
     }
 
@@ -223,10 +280,21 @@ public final class HighlightBuilder extends AbstractHighlighterBuilder<Highlight
         PARSER = setupParser(parser);
     }
 
+    /**
+     * @brief [Functional Utility for fromXContent]: Describe purpose here.
+     * @param p: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static HighlightBuilder fromXContent(XContentParser p) {
         return PARSER.apply(p, new HighlightBuilder());
     }
 
+    /**
+     * @brief [Functional Utility for build]: Describe purpose here.
+     * @param context: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
     public SearchHighlightContext build(SearchExecutionContext context) throws IOException {
         // create template global options that are later merged with any partial field options
         final SearchHighlightContext.FieldOptions.Builder globalOptionsBuilder = new SearchHighlightContext.FieldOptions.Builder();
@@ -238,9 +306,13 @@ public final class HighlightBuilder extends AbstractHighlighterBuilder<Highlight
 
         // create field options
         Collection<SearchHighlightContext.Field> fieldOptions = new ArrayList<>();
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (Field field : this.fields) {
             final SearchHighlightContext.FieldOptions.Builder fieldOptionsBuilder = new SearchHighlightContext.FieldOptions.Builder();
             fieldOptionsBuilder.fragmentOffset(field.fragmentOffset);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (field.matchedFields != null) {
                 Set<String> matchedFields = Sets.newHashSetWithExpectedSize(field.matchedFields.length);
                 Collections.addAll(matchedFields, field.matchedFields);
@@ -268,87 +340,145 @@ public final class HighlightBuilder extends AbstractHighlighterBuilder<Highlight
         SearchHighlightContext.FieldOptions.Builder targetOptionsBuilder,
         SearchExecutionContext context
     ) throws IOException {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (highlighterBuilder.preTags != null) {
             targetOptionsBuilder.preTags(highlighterBuilder.preTags);
         }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (highlighterBuilder.postTags != null) {
             targetOptionsBuilder.postTags(highlighterBuilder.postTags);
         }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (highlighterBuilder.order != null) {
             targetOptionsBuilder.scoreOrdered(highlighterBuilder.order == Order.SCORE);
         }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (highlighterBuilder.highlightFilter != null) {
             targetOptionsBuilder.highlightFilter(highlighterBuilder.highlightFilter);
         }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (highlighterBuilder.fragmentSize != null) {
             targetOptionsBuilder.fragmentCharSize(highlighterBuilder.fragmentSize);
         }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (highlighterBuilder.numOfFragments != null) {
             targetOptionsBuilder.numberOfFragments(highlighterBuilder.numOfFragments);
         }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (highlighterBuilder.encoder != null) {
             targetOptionsBuilder.encoder(highlighterBuilder.encoder);
         }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (highlighterBuilder.requireFieldMatch != null) {
             targetOptionsBuilder.requireFieldMatch(highlighterBuilder.requireFieldMatch);
         }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (highlighterBuilder.maxAnalyzedOffset != null) {
             targetOptionsBuilder.maxAnalyzedOffset(highlighterBuilder.maxAnalyzedOffset);
         }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (highlighterBuilder.boundaryScannerType != null) {
             targetOptionsBuilder.boundaryScannerType(highlighterBuilder.boundaryScannerType);
         }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (highlighterBuilder.boundaryMaxScan != null) {
             targetOptionsBuilder.boundaryMaxScan(highlighterBuilder.boundaryMaxScan);
         }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (highlighterBuilder.boundaryChars != null) {
             targetOptionsBuilder.boundaryChars(highlighterBuilder.boundaryChars);
         }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (highlighterBuilder.boundaryScannerLocale != null) {
             targetOptionsBuilder.boundaryScannerLocale(highlighterBuilder.boundaryScannerLocale);
         }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (highlighterBuilder.highlighterType != null) {
             targetOptionsBuilder.highlighterType(highlighterBuilder.highlighterType);
         }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (highlighterBuilder.fragmenter != null) {
             targetOptionsBuilder.fragmenter(highlighterBuilder.fragmenter);
         }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (highlighterBuilder.noMatchSize != null) {
             targetOptionsBuilder.noMatchSize(highlighterBuilder.noMatchSize);
         }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (highlighterBuilder.phraseLimit != null) {
             targetOptionsBuilder.phraseLimit(highlighterBuilder.phraseLimit);
         }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (highlighterBuilder.options != null) {
             targetOptionsBuilder.options(highlighterBuilder.options);
         }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (highlighterBuilder.highlightQuery != null) {
             targetOptionsBuilder.highlightQuery(highlighterBuilder.highlightQuery.toQuery(context));
         }
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for innerXContent]: Describe purpose here.
+     * @param builder: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
     public void innerXContent(XContentBuilder builder) throws IOException {
         // first write common options
         commonOptionsToXContent(builder);
         // special options for top-level highlighter
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (fields.size() > 0) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (useExplicitFieldOrder) {
                 builder.startArray(FIELDS_FIELD.getPreferredName());
+        // Block Logic: [Describe purpose of this else/else if block]
             } else {
                 builder.startObject(FIELDS_FIELD.getPreferredName());
             }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             for (Field field : fields) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (useExplicitFieldOrder) {
                     builder.startObject();
                 }
                 field.innerXContent(builder);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (useExplicitFieldOrder) {
                     builder.endObject();
                 }
             }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (useExplicitFieldOrder) {
                 builder.endArray();
+        // Block Logic: [Describe purpose of this else/else if block]
             } else {
                 builder.endObject();
             }
@@ -356,23 +486,48 @@ public final class HighlightBuilder extends AbstractHighlighterBuilder<Highlight
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for doHashCode]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     protected int doHashCode() {
         return Objects.hash(useExplicitFieldOrder, fields);
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for doEquals]: Describe purpose here.
+     * @param other: [Description]
+     * @return [ReturnType]: [Description]
+     */
     protected boolean doEquals(HighlightBuilder other) {
         return Objects.equals(useExplicitFieldOrder, other.useExplicitFieldOrder) && Objects.equals(fields, other.fields);
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for rewrite]: Describe purpose here.
+     * @param ctx: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
     public HighlightBuilder rewrite(QueryRewriteContext ctx) throws IOException {
+    /**
+     * @brief [Functional description for field highlightQuery]: Describe purpose here.
+     */
         QueryBuilder highlightQuery = this.highlightQuery;
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (highlightQuery != null) {
             highlightQuery = this.highlightQuery.rewrite(ctx);
         }
         List<Field> fields = Rewriteable.rewrite(this.fields, ctx);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (highlightQuery == this.highlightQuery && fields == this.fields) {
+    /**
+     * @brief [Functional description for field this]: Describe purpose here.
+     */
             return this;
         }
         return new HighlightBuilder(this, highlightQuery, fields);
@@ -389,12 +544,26 @@ public final class HighlightBuilder extends AbstractHighlighterBuilder<Highlight
             PARSER = (XContentParser p, Void c, String name) -> decoratedParser.apply(p, new Field(name));
         }
 
+    /**
+     * @brief [Functional description for field name]: Describe purpose here.
+     */
         private final String name;
 
+    /**
+     * @brief [Functional description for field fragmentOffset]: Describe purpose here.
+     */
         int fragmentOffset = -1;
 
+    /**
+     * @brief [Functional description for field matchedFields]: Describe purpose here.
+     */
         String[] matchedFields;
 
+    /**
+     * @brief [Functional Utility for Field]: Describe purpose here.
+     * @param name: [Description]
+     * @return [ReturnType]: [Description]
+     */
         public Field(String name) {
             this.name = name;
         }
@@ -418,18 +587,39 @@ public final class HighlightBuilder extends AbstractHighlighterBuilder<Highlight
         }
 
         @Override
+    /**
+     * @brief [Functional Utility for doWriteTo]: Describe purpose here.
+     * @param out: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
         protected void doWriteTo(StreamOutput out) throws IOException {
             out.writeString(name);
             out.writeVInt(fragmentOffset);
             out.writeOptionalStringArray(matchedFields);
         }
 
+    /**
+     * @brief [Functional Utility for name]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
         public String name() {
+    /**
+     * @brief [Functional description for field name]: Describe purpose here.
+     */
             return name;
         }
 
+    /**
+     * @brief [Functional Utility for fragmentOffset]: Describe purpose here.
+     * @param fragmentOffset: [Description]
+     * @return [ReturnType]: [Description]
+     */
         public Field fragmentOffset(int fragmentOffset) {
             this.fragmentOffset = fragmentOffset;
+    /**
+     * @brief [Functional description for field this]: Describe purpose here.
+     */
             return this;
         }
 
@@ -440,18 +630,31 @@ public final class HighlightBuilder extends AbstractHighlighterBuilder<Highlight
          */
         public Field matchedFields(String... matchedFields) {
             this.matchedFields = matchedFields;
+    /**
+     * @brief [Functional description for field this]: Describe purpose here.
+     */
             return this;
         }
 
         @Override
+    /**
+     * @brief [Functional Utility for innerXContent]: Describe purpose here.
+     * @param builder: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
         public void innerXContent(XContentBuilder builder) throws IOException {
             builder.startObject(name);
             // write common options
             commonOptionsToXContent(builder);
             // write special field-highlighter options
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (fragmentOffset != -1) {
                 builder.field(FRAGMENT_OFFSET_FIELD.getPreferredName(), fragmentOffset);
             }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (matchedFields != null) {
                 builder.array(MATCHED_FIELDS_FIELD.getPreferredName(), matchedFields);
             }
@@ -459,11 +662,20 @@ public final class HighlightBuilder extends AbstractHighlighterBuilder<Highlight
         }
 
         @Override
+    /**
+     * @brief [Functional Utility for doHashCode]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
         protected int doHashCode() {
             return Objects.hash(name, fragmentOffset, Arrays.hashCode(matchedFields));
         }
 
         @Override
+    /**
+     * @brief [Functional Utility for doEquals]: Describe purpose here.
+     * @param other: [Description]
+     * @return [ReturnType]: [Description]
+     */
         protected boolean doEquals(Field other) {
             return Objects.equals(name, other.name)
                 && Objects.equals(fragmentOffset, other.fragmentOffset)
@@ -471,13 +683,26 @@ public final class HighlightBuilder extends AbstractHighlighterBuilder<Highlight
         }
 
         @Override
+    /**
+     * @brief [Functional Utility for rewrite]: Describe purpose here.
+     * @param ctx: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
         public Field rewrite(QueryRewriteContext ctx) throws IOException {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (highlightQuery != null) {
                 QueryBuilder rewrite = highlightQuery.rewrite(ctx);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (rewrite != highlightQuery) {
                     return new Field(this, rewrite);
                 }
             }
+    /**
+     * @brief [Functional description for field this]: Describe purpose here.
+     */
             return this;
         }
     }
@@ -486,23 +711,49 @@ public final class HighlightBuilder extends AbstractHighlighterBuilder<Highlight
         NONE,
         SCORE;
 
+    /**
+     * @brief [Functional Utility for readFromStream]: Describe purpose here.
+     * @param in: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
         public static Order readFromStream(StreamInput in) throws IOException {
             return in.readEnum(Order.class);
         }
 
         @Override
+    /**
+     * @brief [Functional Utility for writeTo]: Describe purpose here.
+     * @param out: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
         public void writeTo(StreamOutput out) throws IOException {
             out.writeEnum(this);
         }
 
+    /**
+     * @brief [Functional Utility for fromString]: Describe purpose here.
+     * @param order: [Description]
+     * @return [ReturnType]: [Description]
+     */
         public static Order fromString(String order) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (order.toUpperCase(Locale.ROOT).equals(SCORE.name())) {
                 return Order.SCORE;
             }
+    /**
+     * @brief [Functional description for field NONE]: Describe purpose here.
+     */
             return NONE;
         }
 
         @Override
+    /**
+     * @brief [Functional Utility for toString]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
         public String toString() {
             return name().toLowerCase(Locale.ROOT);
         }
@@ -513,20 +764,41 @@ public final class HighlightBuilder extends AbstractHighlighterBuilder<Highlight
         WORD,
         SENTENCE;
 
+    /**
+     * @brief [Functional Utility for readFromStream]: Describe purpose here.
+     * @param in: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
         public static BoundaryScannerType readFromStream(StreamInput in) throws IOException {
             return in.readEnum(BoundaryScannerType.class);
         }
 
         @Override
+    /**
+     * @brief [Functional Utility for writeTo]: Describe purpose here.
+     * @param out: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
         public void writeTo(StreamOutput out) throws IOException {
             out.writeEnum(this);
         }
 
+    /**
+     * @brief [Functional Utility for fromString]: Describe purpose here.
+     * @param boundaryScannerType: [Description]
+     * @return [ReturnType]: [Description]
+     */
         public static BoundaryScannerType fromString(String boundaryScannerType) {
             return valueOf(boundaryScannerType.toUpperCase(Locale.ROOT));
         }
 
         @Override
+    /**
+     * @brief [Functional Utility for toString]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
         public String toString() {
             return name().toLowerCase(Locale.ROOT);
         }

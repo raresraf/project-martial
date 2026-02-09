@@ -84,6 +84,11 @@ import static org.elasticsearch.index.IndexService.parseRuntimeMappings;
  * This context is used in several components of search execution, including
  * building queries and fetching hits.
  */
+/**
+ * @brief Functional description of the SearchExecutionContext class.
+ *        This is a placeholder for detailed semantic documentation.
+ *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+ */
 public class SearchExecutionContext extends QueryRewriteContext {
 
     private final SimilarityService similarityService;
@@ -207,6 +212,12 @@ public class SearchExecutionContext extends QueryRewriteContext {
         );
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param source: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SearchExecutionContext(SearchExecutionContext source) {
         this(
             source.shardId,
@@ -286,6 +297,11 @@ public class SearchExecutionContext extends QueryRewriteContext {
         this.mapperMetrics = mapperMetrics;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private void reset() {
         setAllowUnmappedFields(indexSettings.isDefaultAllowUnmappedFields());
         this.lookup = null;
@@ -294,10 +310,21 @@ public class SearchExecutionContext extends QueryRewriteContext {
     }
 
     // Set alias filter, so it can be applied for queries that need it (e.g. knn query)
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param aliasFilter: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void setAliasFilter(QueryBuilder aliasFilter) {
         this.aliasFilter = aliasFilter;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public QueryBuilder getAliasFilter() {
         return aliasFilter;
     }
@@ -316,27 +343,60 @@ public class SearchExecutionContext extends QueryRewriteContext {
         return similarityService != null ? similarityService.getDefaultSimilarity() : null;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public List<String> defaultFields() {
         return indexSettings.getDefaultFields();
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public boolean queryStringLenient() {
         return indexSettings.isQueryStringLenient();
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public boolean queryStringAnalyzeWildcard() {
         return indexSettings.isQueryStringAnalyzeWildcard();
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public boolean queryStringAllowLeadingWildcard() {
         return indexSettings.isQueryStringAllowLeadingWildcard();
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param filter: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public BitSetProducer bitsetFilter(Query filter) {
         return bitsetFilterCache.getBitSetProducer(filter);
     }
 
     @SuppressWarnings("unchecked")
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param fieldType: [Description]
+     * @param fielddataOperation: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public <IFD extends IndexFieldData<?>> IFD getForField(MappedFieldType fieldType, FielddataOperation fielddataOperation) {
         return (IFD) indexFieldDataLookup.apply(
             fieldType,
@@ -350,17 +410,34 @@ public class SearchExecutionContext extends QueryRewriteContext {
         );
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param name: [Description]
+     * @param query: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void addNamedQuery(String name, Query query) {
         if (query != null) {
             namedQueries.put(name, query);
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public Map<String, Query> copyNamedQueries() {
         // This might be a good use case for CopyOnWriteHashMap
         return Map.copyOf(namedQueries);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public boolean hasNamedQueries() {
         return (namedQueries.isEmpty() == false);
     }
@@ -372,10 +449,20 @@ public class SearchExecutionContext extends QueryRewriteContext {
         return mapperService.documentParser().parseDocument(source, mappingLookup);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public NestedLookup nestedLookup() {
         return mappingLookup.nestedLookup();
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public boolean hasMappings() {
         return mappingLookup.hasMappings();
     }
@@ -387,10 +474,22 @@ public class SearchExecutionContext extends QueryRewriteContext {
         return fieldType(name) != null;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param field: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public boolean isMetadataField(String field) {
         return mapperService.isMetadataField(field);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param field: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public boolean isMultiField(String field) {
         if (runtimeMappings.containsKey(field)) {
             return false;
@@ -398,6 +497,11 @@ public class SearchExecutionContext extends QueryRewriteContext {
         return mapperService.isMultiField(field);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public Iterable<MappedFieldType> dimensionFields() {
         List<MappedFieldType> dimensionFields = new ArrayList<>();
         for (var mapper : mapperService.mappingLookup().fieldMappers()) {
@@ -411,6 +515,12 @@ public class SearchExecutionContext extends QueryRewriteContext {
         return dimensionFields;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param fullName: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public Set<String> sourcePath(String fullName) {
         return mappingLookup.sourcePaths(fullName);
     }
@@ -475,12 +585,24 @@ public class SearchExecutionContext extends QueryRewriteContext {
     public Analyzer getIndexAnalyzer(Function<String, NamedAnalyzer> unindexedFieldAnalyzer) {
         return new DelegatingAnalyzerWrapper(Analyzer.PER_FIELD_REUSE_STRATEGY) {
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param fieldName: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             protected Analyzer getWrappedAnalyzer(String fieldName) {
                 return mappingLookup.indexAnalyzer(fieldName, unindexedFieldAnalyzer);
             }
         };
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param allowedFields: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void setAllowedFields(Predicate<String> allowedFields) {
         this.allowedFields = allowedFields;
     }
@@ -505,6 +627,11 @@ public class SearchExecutionContext extends QueryRewriteContext {
         return this.lookup;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SourceProvider createSourceProvider() {
         return isSourceSynthetic()
             ? SourceProvider.fromSyntheticSource(mappingLookup.getMapping(), null, mapperMetrics.sourceFieldMetrics())
@@ -541,19 +668,41 @@ public class SearchExecutionContext extends QueryRewriteContext {
         );
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public NestedScope nestedScope() {
         return nestedScope;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public IndexVersion indexVersionCreated() {
         return indexSettings.getIndexVersionCreated();
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param field: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public boolean indexSortedOnField(String field) {
         IndexSortConfig indexSortConfig = indexSettings.getIndexSortConfig();
         return indexSortConfig.hasPrimarySortOnField(field);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param queryBuilder: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public ParsedQuery toQuery(QueryBuilder queryBuilder) {
         reset();
         try {
@@ -571,6 +720,11 @@ public class SearchExecutionContext extends QueryRewriteContext {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public Index index() {
         return indexSettings.getIndex();
     }
@@ -610,6 +764,11 @@ public class SearchExecutionContext extends QueryRewriteContext {
      * class cannot be bypassed. This is important so we can trust when this
      * class says a request can be cached.
      */
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected final void failIfFrozen() {
         this.cacheable = false;
         if (frozen.get() == Boolean.TRUE) {
@@ -620,12 +779,25 @@ public class SearchExecutionContext extends QueryRewriteContext {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param BiConsumer<Client: [Description]
+     * @param asyncAction: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void registerAsyncAction(BiConsumer<Client, ActionListener<?>> asyncAction) {
         failIfFrozen();
         super.registerAsyncAction(asyncAction);
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param listener: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void executeAsyncActions(ActionListener<Void> listener) {
         failIfFrozen();
         super.executeAsyncActions(listener);
@@ -661,12 +833,22 @@ public class SearchExecutionContext extends QueryRewriteContext {
         return nowInMillis.getAsLong();
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public Client getClient() {
         failIfFrozen(); // we somebody uses a terms filter with lookup for instance can't be cached...
         return client;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final SearchExecutionContext convertToSearchExecutionContext() {
         return this;
     }
@@ -685,6 +867,11 @@ public class SearchExecutionContext extends QueryRewriteContext {
         return searcher;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public Integer requestSize() {
         return requestSize;
     }
@@ -715,6 +902,11 @@ public class SearchExecutionContext extends QueryRewriteContext {
         return mappingLookup.cacheKey();
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public NestedDocuments getNestedDocuments() {
         return new NestedDocuments(mappingLookup, bitsetFilterCache::getBitSetProducer, indexVersionCreated());
     }

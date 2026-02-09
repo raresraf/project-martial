@@ -20,6 +20,11 @@ import java.util.function.BiConsumer;
  * An external bridge for {@link Pipeline}
  */
 public class PipelineBridge extends StableBridgeAPI.ProxyInternal<Pipeline> {
+    /**
+     * @brief [Functional Utility for fromInternal]: Describe purpose here.
+     * @param pipeline: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static PipelineBridge fromInternal(final Pipeline pipeline) {
         return new PipelineBridge(pipeline);
     }
@@ -42,14 +47,30 @@ public class PipelineBridge extends StableBridgeAPI.ProxyInternal<Pipeline> {
         );
     }
 
+    /**
+     * @brief [Functional Utility for PipelineBridge]: Describe purpose here.
+     * @param delegate: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public PipelineBridge(final Pipeline delegate) {
         super(delegate);
     }
 
+    /**
+     * @brief [Functional Utility for getId]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public String getId() {
         return internalDelegate.getId();
     }
 
+    /**
+     * @brief [Functional Utility for execute]: Describe purpose here.
+     * @param ingestDocumentBridge: [Description]
+     * @param BiConsumer<IngestDocumentBridge: [Description]
+     * @param handler: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public void execute(final IngestDocumentBridge ingestDocumentBridge, final BiConsumer<IngestDocumentBridge, Exception> handler) {
         this.internalDelegate.execute(
             StableBridgeAPI.toInternalNullable(ingestDocumentBridge),

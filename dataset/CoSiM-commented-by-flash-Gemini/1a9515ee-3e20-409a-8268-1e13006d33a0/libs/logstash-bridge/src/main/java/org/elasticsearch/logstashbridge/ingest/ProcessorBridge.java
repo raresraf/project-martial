@@ -78,7 +78,14 @@ public interface ProcessorBridge extends StableBridgeAPI<Processor> {
 
     void execute(IngestDocumentBridge ingestDocumentBridge, BiConsumer<IngestDocumentBridge, Exception> handler);
 
+    /**
+     * @brief [Functional Utility for fromInternal]: Describe purpose here.
+     * @param internalProcessor: [Description]
+     * @return [ReturnType]: [Description]
+     */
     static ProcessorBridge fromInternal(final Processor internalProcessor) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (internalProcessor instanceof AbstractExternal.ProxyExternal externalProxy) {
             return externalProxy.getProcessorBridge();
         }
@@ -92,43 +99,82 @@ public interface ProcessorBridge extends StableBridgeAPI<Processor> {
      * that proxies calls through the external implementation.
      */
     abstract class AbstractExternal implements ProcessorBridge {
+    /**
+     * @brief [Functional description for field internalProcessor]: Describe purpose here.
+     */
         private ProxyExternal internalProcessor;
 
+    /**
+     * @brief [Functional Utility for toInternal]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
         public Processor toInternal() {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (internalProcessor == null) {
                 internalProcessor = new ProxyExternal();
             }
+    /**
+     * @brief [Functional description for field internalProcessor]: Describe purpose here.
+     */
             return internalProcessor;
         }
 
         private class ProxyExternal implements Processor {
 
             @Override
+    /**
+     * @brief [Functional Utility for getType]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
             public String getType() {
                 return AbstractExternal.this.getType();
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for getTag]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
             public String getTag() {
                 return AbstractExternal.this.getTag();
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for getDescription]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
             public String getDescription() {
                 return AbstractExternal.this.getDescription();
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for execute]: Describe purpose here.
+     * @param ingestDocument: [Description]
+     * @param BiConsumer<IngestDocument: [Description]
+     * @param handler: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public void execute(IngestDocument ingestDocument, BiConsumer<IngestDocument, Exception> handler) {
                 AbstractExternal.this.execute(IngestDocumentBridge.fromInternalNullable(ingestDocument),
                                               (idb, e) -> handler.accept(idb.toInternal(), e));
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for isAsync]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
             public boolean isAsync() {
                 return AbstractExternal.this.isAsync();
             }
 
+    /**
+     * @brief [Functional Utility for getProcessorBridge]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
             private AbstractExternal getProcessorBridge() {
                 return AbstractExternal.this;
             }
@@ -139,31 +185,59 @@ public interface ProcessorBridge extends StableBridgeAPI<Processor> {
      * An implementation of {@link ProcessorBridge} that proxies to an internal {@link Processor}
      */
     class ProxyInternal extends StableBridgeAPI.ProxyInternal<Processor> implements ProcessorBridge {
+    /**
+     * @brief [Functional Utility for ProxyInternal]: Describe purpose here.
+     * @param delegate: [Description]
+     * @return [ReturnType]: [Description]
+     */
         public ProxyInternal(final Processor delegate) {
             super(delegate);
         }
 
         @Override
+    /**
+     * @brief [Functional Utility for getType]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
         public String getType() {
             return toInternal().getType();
         }
 
         @Override
+    /**
+     * @brief [Functional Utility for getTag]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
         public String getTag() {
             return toInternal().getTag();
         }
 
         @Override
+    /**
+     * @brief [Functional Utility for getDescription]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
         public String getDescription() {
             return toInternal().getDescription();
         }
 
         @Override
+    /**
+     * @brief [Functional Utility for isAsync]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
         public boolean isAsync() {
             return toInternal().isAsync();
         }
 
         @Override
+    /**
+     * @brief [Functional Utility for execute]: Describe purpose here.
+     * @param ingestDocumentBridge: [Description]
+     * @param BiConsumer<IngestDocumentBridge: [Description]
+     * @param handler: [Description]
+     * @return [ReturnType]: [Description]
+     */
         public void execute(final IngestDocumentBridge ingestDocumentBridge, final BiConsumer<IngestDocumentBridge, Exception> handler) {
             internalDelegate.execute(
                 StableBridgeAPI.toInternalNullable(ingestDocumentBridge),
@@ -199,11 +273,20 @@ public interface ProcessorBridge extends StableBridgeAPI<Processor> {
             );
         }
 
+    /**
+     * @brief [Functional Utility for Parameters]: Describe purpose here.
+     * @param delegate: [Description]
+     * @return [ReturnType]: [Description]
+     */
         private Parameters(final Processor.Parameters delegate) {
             super(delegate);
         }
 
         @Override
+    /**
+     * @brief [Functional Utility for toInternal]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
         public Processor.Parameters toInternal() {
             return this.internalDelegate;
         }
@@ -220,12 +303,20 @@ public interface ProcessorBridge extends StableBridgeAPI<Processor> {
             Map<String, Object> config
         ) throws Exception;
 
+    /**
+     * @brief [Functional Utility for fromInternal]: Describe purpose here.
+     * @param delegate: [Description]
+     * @return [ReturnType]: [Description]
+     */
         static Factory fromInternal(final Processor.Factory delegate) {
             return new ProxyInternal(delegate);
         }
 
         @Override
         default Processor.Factory toInternal() {
+    /**
+     * @brief [Functional description for field stableAPIFactory]: Describe purpose here.
+     */
             final Factory stableAPIFactory = this;
             return (registry, tag, description, config, projectId) -> stableAPIFactory.create(
                 StableBridgeAPI.fromInternal(registry, Factory::fromInternal),
@@ -239,6 +330,11 @@ public interface ProcessorBridge extends StableBridgeAPI<Processor> {
          * An implementation of {@link ProcessorBridge.Factory} that proxies to an internal {@link Processor.Factory}
          */
         class ProxyInternal extends StableBridgeAPI.ProxyInternal<Processor.Factory> implements Factory {
+    /**
+     * @brief [Functional Utility for ProxyInternal]: Describe purpose here.
+     * @param delegate: [Description]
+     * @return [ReturnType]: [Description]
+     */
             private ProxyInternal(final Processor.Factory delegate) {
                 super(delegate);
             }
@@ -257,6 +353,10 @@ public interface ProcessorBridge extends StableBridgeAPI<Processor> {
             }
 
             @Override
+    /**
+     * @brief [Functional Utility for toInternal]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
             public Processor.Factory toInternal() {
                 return this.internalDelegate;
             }

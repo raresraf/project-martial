@@ -32,13 +32,24 @@ import org.elasticsearch.xpack.core.ilm.action.ILMActions;
 import org.elasticsearch.xpack.core.ilm.action.RetryActionRequest;
 import org.elasticsearch.xpack.ilm.IndexLifecycleService;
 
+ /**
+  * @brief Functional description of the TransportRetryAction class.
+  *        This is a placeholder for detailed semantic documentation.
+  *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+  */
 public class TransportRetryAction extends TransportMasterNodeAction<RetryActionRequest, AcknowledgedResponse> {
 
     private static final Logger logger = LogManager.getLogger(TransportRetryAction.class);
 
+     /**
+      * @brief [Functional description for field indexLifecycleService]: Describe purpose here.
+      */
     IndexLifecycleService indexLifecycleService;
 
     @Inject
+    /**
+     * @brief [Functional Utility for TransportRetryAction]: Describe purpose here.
+     */
     public TransportRetryAction(
         TransportService transportService,
         ClusterService clusterService,
@@ -60,13 +71,16 @@ public class TransportRetryAction extends TransportMasterNodeAction<RetryActionR
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for masterOperation]: Describe purpose here.
+     */
     protected void masterOperation(
         Task task,
         RetryActionRequest request,
         ClusterState state,
         ActionListener<AcknowledgedResponse> listener
     ) {
-        if (request.requireError() == false) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (request.requireError() == false) {
             maybeRunAsyncAction(state, request.indices());
             listener.onResponse(AcknowledgedResponse.TRUE);
             return;
@@ -89,9 +103,9 @@ public class TransportRetryAction extends TransportMasterNodeAction<RetryActionR
     }
 
     private void maybeRunAsyncAction(ClusterState state, String[] indices) {
-        for (String index : indices) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (String index : indices) {
             IndexMetadata idxMeta = state.metadata().getProject().index(index);
-            if (idxMeta == null) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (idxMeta == null) {
                 // The index has somehow been deleted - there shouldn't be any opportunity for this to happen, but just in case.
                 logger.debug("index [" + index + "] has been deleted, skipping async action check");
                 return;

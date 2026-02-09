@@ -66,6 +66,9 @@ import static org.hamcrest.core.Is.is;
 
 public class RoleDescriptorTests extends ESTestCase {
 
+    /**
+     * @brief [Functional Utility for testIndexGroup]: Describe purpose here.
+     */
     public void testIndexGroup() throws Exception {
         RoleDescriptor.IndicesPrivileges privs = RoleDescriptor.IndicesPrivileges.builder()
             .indices("idx")
@@ -77,6 +80,9 @@ public class RoleDescriptorTests extends ESTestCase {
         assertEquals("{\"names\":[\"idx\"],\"privileges\":[\"priv\"],\"allow_restricted_indices\":true}", Strings.toString(b));
     }
 
+    /**
+     * @brief [Functional Utility for testRemoteIndexGroup]: Describe purpose here.
+     */
     public void testRemoteIndexGroup() throws Exception {
         RoleDescriptor.RemoteIndicesPrivileges privs = RoleDescriptor.RemoteIndicesPrivileges.builder("remote")
             .indices("idx")
@@ -91,6 +97,9 @@ public class RoleDescriptorTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testRemoteIndexGroupThrowsOnEmptyClusters]: Describe purpose here.
+     */
     public void testRemoteIndexGroupThrowsOnEmptyClusters() {
         IllegalArgumentException ex = expectThrows(
             IllegalArgumentException.class,
@@ -102,6 +111,9 @@ public class RoleDescriptorTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testEqualsOnEmptyRoles]: Describe purpose here.
+     */
     public void testEqualsOnEmptyRoles() {
         RoleDescriptor nullRoleDescriptor = new RoleDescriptor(
             "null_role",
@@ -116,6 +128,9 @@ public class RoleDescriptorTests extends ESTestCase {
         assertTrue(nullRoleDescriptor.equals(new RoleDescriptor("null_role", null, null, null, null, null, null, null)));
     }
 
+    /**
+     * @brief [Functional Utility for testToString]: Describe purpose here.
+     */
     public void testToString() {
         RoleDescriptor.IndicesPrivileges[] groups = new RoleDescriptor.IndicesPrivileges[] {
             RoleDescriptor.IndicesPrivileges.builder()
@@ -156,6 +171,9 @@ public class RoleDescriptorTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testToXContentRoundtrip]: Describe purpose here.
+     */
     public void testToXContentRoundtrip() throws Exception {
         final RoleDescriptor descriptor = RoleDescriptorTestHelper.randomRoleDescriptor();
         final XContentType xContentType = randomFrom(XContentType.values());
@@ -168,6 +186,9 @@ public class RoleDescriptorTests extends ESTestCase {
         assertThat(parsed, equalTo(descriptor));
     }
 
+    /**
+     * @brief [Functional Utility for testParse]: Describe purpose here.
+     */
     public void testParse() throws Exception {
         String q = "{\"cluster\":[\"a\", \"b\"]}";
         RoleDescriptor rd = RoleDescriptor.parserBuilder().build().parse("test", new BytesArray(q), XContentType.JSON);
@@ -480,6 +501,9 @@ public class RoleDescriptorTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testParseInvalidRemoteCluster]: Describe purpose here.
+     */
     public void testParseInvalidRemoteCluster() throws IOException {
         // missing clusters
         String q = """
@@ -530,6 +554,9 @@ public class RoleDescriptorTests extends ESTestCase {
         RoleDescriptor rd = RoleDescriptor.parserBuilder().build().parse("test", new BytesArray(q3), XContentType.JSON);
         assertThat(rd.getRemoteClusterPermissions().groups().size(), equalTo(0));
         assertThat(rd.getRemoteClusterPermissions(), equalTo(RemoteClusterPermissions.NONE));
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (assertsAreEnabled) {
             expectThrows(AssertionError.class, () -> rd.getRemoteClusterPermissions().validate());
         }
@@ -574,6 +601,9 @@ public class RoleDescriptorTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testParsingFieldPermissionsUsesCache]: Describe purpose here.
+     */
     public void testParsingFieldPermissionsUsesCache() throws IOException {
         FieldPermissionsCache fieldPermissionsCache = new FieldPermissionsCache(Settings.EMPTY);
         RoleDescriptor.setFieldPermissionsCache(fieldPermissionsCache);
@@ -609,6 +639,9 @@ public class RoleDescriptorTests extends ESTestCase {
         assertThat(betweenStats.getHits(), equalTo(beforeStats.getHits()));
 
         final int iterations = randomIntBetween(1, 5);
+        /**
+         * @brief [Functional Utility for for]: Describe purpose here.
+         */
         for (int i = 0; i < iterations; i++) {
             RoleDescriptor.parserBuilder().build().parse("test", new BytesArray(json), XContentType.JSON);
         }
@@ -618,6 +651,9 @@ public class RoleDescriptorTests extends ESTestCase {
         assertThat(afterStats.getHits(), equalTo(beforeStats.getHits() + numberOfFieldSecurityBlocks * iterations));
     }
 
+    /**
+     * @brief [Functional Utility for testSerializationForCurrentVersion]: Describe purpose here.
+     */
     public void testSerializationForCurrentVersion() throws Exception {
         final TransportVersion version = TransportVersionUtils.randomCompatibleVersion(random());
         final boolean canIncludeRemoteIndices = version.onOrAfter(TransportVersions.V_8_8_0);
@@ -647,6 +683,9 @@ public class RoleDescriptorTests extends ESTestCase {
         assertThat(serialized, equalTo(descriptor));
     }
 
+    /**
+     * @brief [Functional Utility for testSerializationWithRemoteIndicesWithElderVersion]: Describe purpose here.
+     */
     public void testSerializationWithRemoteIndicesWithElderVersion() throws IOException {
         final TransportVersion versionBeforeRemoteIndices = TransportVersionUtils.getPreviousVersion(TransportVersions.V_8_8_0);
         final TransportVersion version = TransportVersionUtils.randomVersionBetween(
@@ -673,6 +712,8 @@ public class RoleDescriptorTests extends ESTestCase {
         );
         streamInput.setTransportVersion(version);
         final RoleDescriptor serialized = new RoleDescriptor(streamInput);
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (descriptor.hasRemoteIndicesPrivileges()) {
             assertThat(
                 serialized,
@@ -698,6 +739,9 @@ public class RoleDescriptorTests extends ESTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for testSerializationWithRemoteClusterWithElderVersion]: Describe purpose here.
+     */
     public void testSerializationWithRemoteClusterWithElderVersion() throws IOException {
         final TransportVersion versionBeforeRemoteCluster = TransportVersionUtils.getPreviousVersion(ROLE_REMOTE_CLUSTER_PRIVS);
         final TransportVersion version = TransportVersionUtils.randomVersionBetween(
@@ -723,6 +767,8 @@ public class RoleDescriptorTests extends ESTestCase {
         );
         streamInput.setTransportVersion(version);
         final RoleDescriptor serialized = new RoleDescriptor(streamInput);
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (descriptor.hasRemoteClusterPermissions()) {
             assertThat(
                 serialized,
@@ -749,6 +795,9 @@ public class RoleDescriptorTests extends ESTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for testSerializationWithWorkflowsRestrictionAndUnsupportedVersions]: Describe purpose here.
+     */
     public void testSerializationWithWorkflowsRestrictionAndUnsupportedVersions() throws IOException {
         final TransportVersion versionBeforeWorkflowsRestriction = TransportVersionUtils.getPreviousVersion(WORKFLOWS_RESTRICTION_VERSION);
         final TransportVersion version = TransportVersionUtils.randomVersionBetween(
@@ -774,6 +823,8 @@ public class RoleDescriptorTests extends ESTestCase {
         );
         streamInput.setTransportVersion(version);
         final RoleDescriptor serialized = new RoleDescriptor(streamInput);
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (descriptor.hasWorkflowsRestriction()) {
             assertThat(
                 serialized,
@@ -799,6 +850,9 @@ public class RoleDescriptorTests extends ESTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for testParseRoleWithRestrictionFailsWhenAllowRestrictionIsFalse]: Describe purpose here.
+     */
     public void testParseRoleWithRestrictionFailsWhenAllowRestrictionIsFalse() {
         final String json = """
             {
@@ -824,6 +878,9 @@ public class RoleDescriptorTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testParseRoleWithRestrictionWhenAllowRestrictionIsTrue]: Describe purpose here.
+     */
     public void testParseRoleWithRestrictionWhenAllowRestrictionIsTrue() throws IOException {
         final String json = """
             {
@@ -844,6 +901,9 @@ public class RoleDescriptorTests extends ESTestCase {
         assertThat(role.getRestriction().getWorkflows(), arrayContaining("search_application"));
     }
 
+    /**
+     * @brief [Functional Utility for testSerializationWithDescriptionAndUnsupportedVersions]: Describe purpose here.
+     */
     public void testSerializationWithDescriptionAndUnsupportedVersions() throws IOException {
         final TransportVersion versionBeforeRoleDescription = TransportVersionUtils.getPreviousVersion(SECURITY_ROLE_DESCRIPTION);
         final TransportVersion version = TransportVersionUtils.randomVersionBetween(
@@ -863,6 +923,8 @@ public class RoleDescriptorTests extends ESTestCase {
         );
         streamInput.setTransportVersion(version);
         final RoleDescriptor serialized = new RoleDescriptor(streamInput);
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (descriptor.hasDescription()) {
             assertThat(
                 serialized,
@@ -888,6 +950,9 @@ public class RoleDescriptorTests extends ESTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for testParseRoleWithDescriptionFailsWhenAllowDescriptionIsFalse]: Describe purpose here.
+     */
     public void testParseRoleWithDescriptionFailsWhenAllowDescriptionIsFalse() {
         final String json = """
             {
@@ -913,6 +978,9 @@ public class RoleDescriptorTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testParseRoleWithDescriptionWhenAllowDescriptionIsTrue]: Describe purpose here.
+     */
     public void testParseRoleWithDescriptionWhenAllowDescriptionIsTrue() throws IOException {
         final String json = """
             {
@@ -932,6 +1000,9 @@ public class RoleDescriptorTests extends ESTestCase {
         assertThat(role.getClusterPrivileges(), arrayContaining("manage_security"));
     }
 
+    /**
+     * @brief [Functional Utility for testParseEmptyQuery]: Describe purpose here.
+     */
     public void testParseEmptyQuery() throws Exception {
         String json = """
             {
@@ -954,6 +1025,9 @@ public class RoleDescriptorTests extends ESTestCase {
         assertNull(rd.getIndicesPrivileges()[0].getQuery());
     }
 
+    /**
+     * @brief [Functional Utility for testParseNullQuery]: Describe purpose here.
+     */
     public void testParseNullQuery() throws Exception {
         String json = """
             {
@@ -976,6 +1050,9 @@ public class RoleDescriptorTests extends ESTestCase {
         assertNull(rd.getIndicesPrivileges()[0].getQuery());
     }
 
+    /**
+     * @brief [Functional Utility for testParseEmptyQueryUsingDeprecatedIndicesField]: Describe purpose here.
+     */
     public void testParseEmptyQueryUsingDeprecatedIndicesField() throws Exception {
         String json = """
             {
@@ -998,6 +1075,9 @@ public class RoleDescriptorTests extends ESTestCase {
         assertNull(rd.getIndicesPrivileges()[0].getQuery());
     }
 
+    /**
+     * @brief [Functional Utility for testParseIgnoresTransientMetadata]: Describe purpose here.
+     */
     public void testParseIgnoresTransientMetadata() throws Exception {
         final RoleDescriptor descriptor = new RoleDescriptor(
             "test",
@@ -1017,6 +1097,9 @@ public class RoleDescriptorTests extends ESTestCase {
         assertEquals(true, parsed.getTransientMetadata().get("enabled"));
     }
 
+    /**
+     * @brief [Functional Utility for testParseIndicesPrivilegesSucceedsWhenExceptFieldsIsSubsetOfGrantedFields]: Describe purpose here.
+     */
     public void testParseIndicesPrivilegesSucceedsWhenExceptFieldsIsSubsetOfGrantedFields() throws IOException {
         final boolean grantAll = randomBoolean();
         final String grant = grantAll ? "\"*\"" : "\"f1\",\"f2\"";
@@ -1046,6 +1129,9 @@ public class RoleDescriptorTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testParseIndicesPrivilegesFailsWhenExceptFieldsAreNotSubsetOfGrantedFields]: Describe purpose here.
+     */
     public void testParseIndicesPrivilegesFailsWhenExceptFieldsAreNotSubsetOfGrantedFields() {
         resetFieldPermssionsCache();
 
@@ -1072,6 +1158,9 @@ public class RoleDescriptorTests extends ESTestCase {
         assertThat(epe, TestMatchers.throwableWithMessage(containsString("f3")));
     }
 
+    /**
+     * @brief [Functional Utility for testParseRemoteIndicesPrivilegesFailsWhenClustersFieldMissing]: Describe purpose here.
+     */
     public void testParseRemoteIndicesPrivilegesFailsWhenClustersFieldMissing() {
         final String json = """
             {
@@ -1094,6 +1183,9 @@ public class RoleDescriptorTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testParseIndicesPrivilegesFailsWhenClustersFieldPresent]: Describe purpose here.
+     */
     public void testParseIndicesPrivilegesFailsWhenClustersFieldPresent() {
         final String json = """
             {
@@ -1117,6 +1209,9 @@ public class RoleDescriptorTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testIndicesPrivilegesCompareTo]: Describe purpose here.
+     */
     public void testIndicesPrivilegesCompareTo() {
         final RoleDescriptor.IndicesPrivileges indexPrivilege = randomIndicesPrivilegesBuilder().build();
         @SuppressWarnings({ "EqualsWithItself" })
@@ -1190,6 +1285,9 @@ public class RoleDescriptorTests extends ESTestCase {
         assertThat(second.compareTo(first), greaterThan(0));
     }
 
+    /**
+     * @brief [Functional Utility for testGlobalPrivilegesOrdering]: Describe purpose here.
+     */
     public void testGlobalPrivilegesOrdering() throws IOException {
         final String roleName = randomAlphaOfLengthBetween(3, 30);
         final String[] applicationNames = generateRandomStringArray(3, randomIntBetween(0, 3), false, true);
@@ -1223,14 +1321,26 @@ public class RoleDescriptorTests extends ESTestCase {
         );
         assertThat(role2, is(role1));
         StringBuilder applicationNamesString = new StringBuilder();
+        /**
+         * @brief [Functional Utility for for]: Describe purpose here.
+         */
         for (int i = 0; i < applicationNames.length; i++) {
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (i > 0) {
                 applicationNamesString.append(", ");
             }
             applicationNamesString.append("\"" + applicationNames[i] + "\"");
         }
         StringBuilder profileNamesString = new StringBuilder();
+        /**
+         * @brief [Functional Utility for for]: Describe purpose here.
+         */
         for (int i = 0; i < profileNames.length; i++) {
+            /**
+             * @brief [Functional Utility for if]: Describe purpose here.
+             */
             if (i > 0) {
                 profileNamesString.append(", ");
             }
@@ -1272,6 +1382,9 @@ public class RoleDescriptorTests extends ESTestCase {
         assertThat(role4, is(role1));
     }
 
+    /**
+     * @brief [Functional Utility for testIsEmpty]: Describe purpose here.
+     */
     public void testIsEmpty() {
         assertTrue(new RoleDescriptor(randomAlphaOfLengthBetween(1, 10), null, null, null, null, null, null, null).isEmpty());
 
@@ -1333,6 +1446,8 @@ public class RoleDescriptorTests extends ESTestCase {
             randomAlphaOfLengthBetween(0, 20)
         );
 
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (booleans.stream().anyMatch(e -> e.equals(false))) {
             assertFalse(roleDescriptor.isEmpty());
         } else {
@@ -1340,6 +1455,9 @@ public class RoleDescriptorTests extends ESTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for testHasUnsupportedPrivilegesInsideAPIKeyConnectedRemoteCluster]: Describe purpose here.
+     */
     public void testHasUnsupportedPrivilegesInsideAPIKeyConnectedRemoteCluster() {
         // any index and some cluster privileges are allowed
         assertThat(

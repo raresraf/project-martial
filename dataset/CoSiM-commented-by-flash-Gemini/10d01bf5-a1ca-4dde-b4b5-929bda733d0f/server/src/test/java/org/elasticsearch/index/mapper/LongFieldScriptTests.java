@@ -31,6 +31,11 @@ import java.util.Map;
 
 import static org.hamcrest.Matchers.equalTo;
 
+/**
+ * @brief Functional description of the LongFieldScriptTests class.
+ *        This is a placeholder for detailed semantic documentation.
+ *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+ */
 public class LongFieldScriptTests extends FieldScriptTestCase<LongFieldScript.Factory> {
     public static final LongFieldScript.Factory DUMMY = (fieldName, params, lookup, onScriptError) -> ctx -> new LongFieldScript(
         fieldName,
@@ -40,26 +45,51 @@ public class LongFieldScriptTests extends FieldScriptTestCase<LongFieldScript.Fa
         ctx
     ) {
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public void execute() {
             emit(1);
         }
     };
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected ScriptContext<LongFieldScript.Factory> context() {
         return LongFieldScript.CONTEXT;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected LongFieldScript.Factory dummyScript() {
         return DUMMY;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected LongFieldScript.Factory fromSource() {
         return LongFieldScript.PARSE_FROM_SOURCE;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testTooManyValues() throws IOException {
         try (Directory directory = newDirectory(); RandomIndexWriter iw = new RandomIndexWriter(random(), directory)) {
             iw.addDocument(List.of(new StoredField("_source", new BytesRef("{}"))));
@@ -72,6 +102,11 @@ public class LongFieldScriptTests extends FieldScriptTestCase<LongFieldScript.Fa
                     reader.leaves().get(0)
                 ) {
                     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
                     public void execute() {
                         for (int i = 0; i <= AbstractFieldScript.MAX_VALUES; i++) {
                             new Emit(this).emit(0);
@@ -87,6 +122,11 @@ public class LongFieldScriptTests extends FieldScriptTestCase<LongFieldScript.Fa
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void testFromSourceDoesNotEnforceValuesLimit() throws IOException {
         try (Directory directory = newDirectory(); RandomIndexWriter iw = new RandomIndexWriter(random(), directory)) {
             int numValues = AbstractFieldScript.MAX_VALUES + randomIntBetween(1, 100);

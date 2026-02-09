@@ -38,25 +38,48 @@ import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.equalTo;
 
+/**
+ * @brief Functional description of the DataStreamIndexSettingsProviderTests class.
+ *        This is a placeholder for detailed semantic documentation.
+ *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+ */
 public class DataStreamIndexSettingsProviderTests extends ESTestCase {
 
     private static final TimeValue DEFAULT_LOOK_BACK_TIME = TimeValue.timeValueHours(2); // default
     private static final TimeValue DEFAULT_LOOK_AHEAD_TIME = TimeValue.timeValueMinutes(30); // default
 
+    /**
+     * @brief [Functional description for field provider]: Describe purpose here.
+     */
     DataStreamIndexSettingsProvider provider;
 
     @Before
+    /**
+     * @brief [Functional Utility for setup]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void setup() {
         provider = new DataStreamIndexSettingsProvider(
             im -> MapperTestUtils.newMapperService(xContentRegistry(), createTempDir(), im.getSettings(), im.getIndex().getName())
         );
     }
 
+    /**
+     * @brief [Functional Utility for testGetAdditionalIndexSettings]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void testGetAdditionalIndexSettings() throws Exception {
         ProjectMetadata projectMetadata = emptyProject();
+    /**
+     * @brief [Functional description for field dataStreamName]: Describe purpose here.
+     */
         String dataStreamName = "logs-app1";
 
         Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+    /**
+     * @brief [Functional description for field settings]: Describe purpose here.
+     */
         Settings settings = Settings.EMPTY;
         String mapping = """
             {
@@ -95,8 +118,16 @@ public class DataStreamIndexSettingsProviderTests extends ESTestCase {
         assertThat(IndexMetadata.INDEX_ROUTING_PATH.get(result), contains("field3"));
     }
 
+    /**
+     * @brief [Functional Utility for testGetAdditionalIndexSettingsIndexRoutingPathAlreadyDefined]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void testGetAdditionalIndexSettingsIndexRoutingPathAlreadyDefined() throws Exception {
         ProjectMetadata projectMetadata = emptyProject();
+    /**
+     * @brief [Functional description for field dataStreamName]: Describe purpose here.
+     */
         String dataStreamName = "logs-app1";
 
         Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
@@ -139,11 +170,22 @@ public class DataStreamIndexSettingsProviderTests extends ESTestCase {
         assertThat(IndexSettings.TIME_SERIES_END_TIME.get(result), equalTo(now.plusMillis(DEFAULT_LOOK_AHEAD_TIME.getMillis())));
     }
 
+    /**
+     * @brief [Functional Utility for testGetAdditionalIndexSettingsMappingsMerging]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void testGetAdditionalIndexSettingsMappingsMerging() throws Exception {
         ProjectMetadata projectMetadata = emptyProject();
+    /**
+     * @brief [Functional description for field dataStreamName]: Describe purpose here.
+     */
         String dataStreamName = "logs-app1";
 
         Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+    /**
+     * @brief [Functional description for field settings]: Describe purpose here.
+     */
         Settings settings = Settings.EMPTY;
         String mapping1 = """
             {
@@ -210,11 +252,21 @@ public class DataStreamIndexSettingsProviderTests extends ESTestCase {
         assertThat(IndexMetadata.INDEX_ROUTING_PATH.get(result), containsInAnyOrder("field1", "field3"));
     }
 
+    /**
+     * @brief [Functional Utility for testGetAdditionalIndexSettingsNoMappings]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testGetAdditionalIndexSettingsNoMappings() {
         ProjectMetadata projectMetadata = emptyProject();
+    /**
+     * @brief [Functional description for field dataStreamName]: Describe purpose here.
+     */
         String dataStreamName = "logs-app1";
 
         Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+    /**
+     * @brief [Functional description for field settings]: Describe purpose here.
+     */
         Settings settings = Settings.EMPTY;
         Settings result = provider.getAdditionalIndexSettings(
             DataStream.getDefaultBackingIndexName(dataStreamName, 1),
@@ -234,8 +286,16 @@ public class DataStreamIndexSettingsProviderTests extends ESTestCase {
         assertThat(IndexSettings.TIME_SERIES_END_TIME.get(result), equalTo(now.plusMillis(DEFAULT_LOOK_AHEAD_TIME.getMillis())));
     }
 
+    /**
+     * @brief [Functional Utility for testGetAdditionalIndexSettingsLookAheadTime]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void testGetAdditionalIndexSettingsLookAheadTime() throws Exception {
         ProjectMetadata projectMetadata = emptyProject();
+    /**
+     * @brief [Functional description for field dataStreamName]: Describe purpose here.
+     */
         String dataStreamName = "logs-app1";
 
         Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
@@ -259,8 +319,16 @@ public class DataStreamIndexSettingsProviderTests extends ESTestCase {
         assertThat(IndexSettings.TIME_SERIES_END_TIME.get(result), equalTo(now.plusMillis(lookAheadTime.getMillis())));
     }
 
+    /**
+     * @brief [Functional Utility for testGetAdditionalIndexSettingsLookBackTime]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void testGetAdditionalIndexSettingsLookBackTime() throws Exception {
         ProjectMetadata projectMetadata = emptyProject();
+    /**
+     * @brief [Functional description for field dataStreamName]: Describe purpose here.
+     */
         String dataStreamName = "logs-app1";
 
         Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
@@ -284,7 +352,15 @@ public class DataStreamIndexSettingsProviderTests extends ESTestCase {
         assertThat(IndexSettings.TIME_SERIES_END_TIME.get(result), equalTo(now.plusMillis(DEFAULT_LOOK_AHEAD_TIME.getMillis())));
     }
 
+    /**
+     * @brief [Functional Utility for testGetAdditionalIndexSettingsDataStreamAlreadyCreated]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void testGetAdditionalIndexSettingsDataStreamAlreadyCreated() throws Exception {
+    /**
+     * @brief [Functional description for field dataStreamName]: Describe purpose here.
+     */
         String dataStreamName = "logs-app1";
         TimeValue lookAheadTime = TimeValue.timeValueMinutes(30);
 
@@ -297,6 +373,9 @@ public class DataStreamIndexSettingsProviderTests extends ESTestCase {
         );
 
         Instant now = sixHoursAgo.plus(6, ChronoUnit.HOURS);
+    /**
+     * @brief [Functional description for field settings]: Describe purpose here.
+     */
         Settings settings = Settings.EMPTY;
         var result = provider.getAdditionalIndexSettings(
             DataStream.getDefaultBackingIndexName(dataStreamName, 1),
@@ -315,7 +394,14 @@ public class DataStreamIndexSettingsProviderTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testGetAdditionalIndexSettingsDataStreamAlreadyCreatedTimeSettingsMissing]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testGetAdditionalIndexSettingsDataStreamAlreadyCreatedTimeSettingsMissing() {
+    /**
+     * @brief [Functional description for field dataStreamName]: Describe purpose here.
+     */
         String dataStreamName = "logs-app1";
         Instant twoHoursAgo = Instant.now().minus(4, ChronoUnit.HOURS).truncatedTo(ChronoUnit.MILLIS);
         final var projectId = randomProjectIdOrDefault();
@@ -334,6 +420,9 @@ public class DataStreamIndexSettingsProviderTests extends ESTestCase {
         ProjectMetadata projectMetadata = projectBuilder.build();
 
         Instant now = twoHoursAgo.plus(2, ChronoUnit.HOURS);
+    /**
+     * @brief [Functional description for field settings]: Describe purpose here.
+     */
         Settings settings = Settings.EMPTY;
         Exception e = expectThrows(
             IllegalStateException.class,
@@ -358,10 +447,20 @@ public class DataStreamIndexSettingsProviderTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testGetAdditionalIndexSettingsNonTsdbTemplate]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testGetAdditionalIndexSettingsNonTsdbTemplate() {
         ProjectMetadata projectMetadata = emptyProject();
+    /**
+     * @brief [Functional description for field dataStreamName]: Describe purpose here.
+     */
         String dataStreamName = "logs-app1";
 
+    /**
+     * @brief [Functional description for field settings]: Describe purpose here.
+     */
         Settings settings = Settings.EMPTY;
         Settings result = provider.getAdditionalIndexSettings(
             DataStream.getDefaultBackingIndexName(dataStreamName, 1),
@@ -375,8 +474,15 @@ public class DataStreamIndexSettingsProviderTests extends ESTestCase {
         assertThat(result.size(), equalTo(0));
     }
 
+    /**
+     * @brief [Functional Utility for testGetAdditionalIndexSettingsMigrateToTsdb]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testGetAdditionalIndexSettingsMigrateToTsdb() {
         Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+    /**
+     * @brief [Functional description for field dataStreamName]: Describe purpose here.
+     */
         String dataStreamName = "logs-app1";
         IndexMetadata idx = createFirstBackingIndex(dataStreamName).build();
         DataStream existingDataStream = newInstance(dataStreamName, List.of(idx.getIndex()));
@@ -384,6 +490,9 @@ public class DataStreamIndexSettingsProviderTests extends ESTestCase {
             .dataStreams(Map.of(dataStreamName, existingDataStream), Map.of())
             .build();
 
+    /**
+     * @brief [Functional description for field settings]: Describe purpose here.
+     */
         Settings settings = Settings.EMPTY;
         Settings result = provider.getAdditionalIndexSettings(
             DataStream.getDefaultBackingIndexName(dataStreamName, 2),
@@ -403,7 +512,14 @@ public class DataStreamIndexSettingsProviderTests extends ESTestCase {
         assertThat(IndexSettings.TIME_SERIES_END_TIME.get(result), equalTo(now.plusMillis(DEFAULT_LOOK_AHEAD_TIME.getMillis())));
     }
 
+    /**
+     * @brief [Functional Utility for testGetAdditionalIndexSettingsDowngradeFromTsdb]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testGetAdditionalIndexSettingsDowngradeFromTsdb() {
+    /**
+     * @brief [Functional description for field dataStreamName]: Describe purpose here.
+     */
         String dataStreamName = "logs-app1";
         Instant twoHoursAgo = Instant.now().minus(4, ChronoUnit.HOURS).truncatedTo(ChronoUnit.MILLIS);
         final var projectId = randomProjectIdOrDefault();
@@ -419,6 +535,9 @@ public class DataStreamIndexSettingsProviderTests extends ESTestCase {
         );
         ProjectMetadata projectMetadata = mb.build().getProject(projectId);
 
+    /**
+     * @brief [Functional description for field settings]: Describe purpose here.
+     */
         Settings settings = Settings.EMPTY;
         Settings result = provider.getAdditionalIndexSettings(
             DataStream.getDefaultBackingIndexName(dataStreamName, 2),
@@ -432,6 +551,11 @@ public class DataStreamIndexSettingsProviderTests extends ESTestCase {
         assertThat(result.size(), equalTo(0));
     }
 
+    /**
+     * @brief [Functional Utility for testGenerateRoutingPathFromDynamicTemplate]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void testGenerateRoutingPathFromDynamicTemplate() throws Exception {
         Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
         String mapping = """
@@ -472,6 +596,11 @@ public class DataStreamIndexSettingsProviderTests extends ESTestCase {
         assertThat(IndexMetadata.INDEX_ROUTING_PATH.get(result), containsInAnyOrder("host.id", "prometheus.labels.*"));
     }
 
+    /**
+     * @brief [Functional Utility for testGenerateRoutingPathFromDynamicTemplateWithMultiplePathMatchEntries]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void testGenerateRoutingPathFromDynamicTemplateWithMultiplePathMatchEntries() throws Exception {
         Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
         String mapping = """
@@ -517,6 +646,11 @@ public class DataStreamIndexSettingsProviderTests extends ESTestCase {
         assertEquals(3, routingPathList.size());
     }
 
+    /**
+     * @brief [Functional Utility for testGenerateRoutingPathFromDynamicTemplateWithMultiplePathMatchEntriesMultiFields]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void testGenerateRoutingPathFromDynamicTemplateWithMultiplePathMatchEntriesMultiFields() throws Exception {
         Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
         String mapping = """
@@ -567,6 +701,11 @@ public class DataStreamIndexSettingsProviderTests extends ESTestCase {
         assertEquals(3, routingPathList.size());
     }
 
+    /**
+     * @brief [Functional Utility for testGenerateRoutingPathFromDynamicTemplate_templateWithNoPathMatch]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void testGenerateRoutingPathFromDynamicTemplate_templateWithNoPathMatch() throws Exception {
         Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
         String mapping = """
@@ -616,6 +755,11 @@ public class DataStreamIndexSettingsProviderTests extends ESTestCase {
         assertThat(IndexMetadata.INDEX_ROUTING_PATH.get(result), containsInAnyOrder("host.id", "prometheus.labels.*"));
     }
 
+    /**
+     * @brief [Functional Utility for testGenerateRoutingPathFromDynamicTemplate_nonKeywordTemplate]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void testGenerateRoutingPathFromDynamicTemplate_nonKeywordTemplate() throws Exception {
         Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
         String mapping = """
@@ -664,6 +808,11 @@ public class DataStreamIndexSettingsProviderTests extends ESTestCase {
         assertEquals(2, IndexMetadata.INDEX_ROUTING_PATH.get(result).size());
     }
 
+    /**
+     * @brief [Functional Utility for testGenerateRoutingPathFromPassThroughObject]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void testGenerateRoutingPathFromPassThroughObject() throws Exception {
         Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
         String mapping = """
@@ -694,9 +843,22 @@ public class DataStreamIndexSettingsProviderTests extends ESTestCase {
         assertThat(IndexMetadata.INDEX_ROUTING_PATH.get(result), containsInAnyOrder("labels.*"));
     }
 
+    /**
+     * @brief [Functional Utility for generateTsdbSettings]: Describe purpose here.
+     * @param mapping: [Description]
+     * @param now: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
     private Settings generateTsdbSettings(String mapping, Instant now) throws IOException {
         ProjectMetadata projectMetadata = emptyProject();
+    /**
+     * @brief [Functional description for field dataStreamName]: Describe purpose here.
+     */
         String dataStreamName = "logs-app1";
+    /**
+     * @brief [Functional description for field settings]: Describe purpose here.
+     */
         Settings settings = Settings.EMPTY;
 
         var result = provider.getAdditionalIndexSettings(

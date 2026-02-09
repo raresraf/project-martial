@@ -88,6 +88,9 @@ public interface InferenceService extends Closeable {
      * that are not ready to be used.
      */
     default boolean hideFromConfigurationApi() {
+    /**
+     * @brief [Functional description for field false]: Describe purpose here.
+     */
         return false;
     }
 
@@ -187,6 +190,9 @@ public interface InferenceService extends Closeable {
      * @return The model with updated embedding details
      */
     default Model updateModelWithEmbeddingDetails(Model model, int embeddingSize) {
+    /**
+     * @brief [Functional description for field model]: Describe purpose here.
+     */
         return model;
     }
 
@@ -196,6 +202,9 @@ public interface InferenceService extends Closeable {
      * @return The model with updated chat completion details
      */
     default Model updateModelWithChatCompletionDetails(Model model) {
+    /**
+     * @brief [Functional description for field model]: Describe purpose here.
+     */
         return model;
     }
 
@@ -258,6 +267,9 @@ public interface InferenceService extends Closeable {
      * @return The service integration validator or null if the default should be used
      */
     default ServiceIntegrationValidator getServiceIntegrationValidator(TaskType taskType) {
+    /**
+     * @brief [Functional description for field null]: Describe purpose here.
+     */
         return null;
     }
 }

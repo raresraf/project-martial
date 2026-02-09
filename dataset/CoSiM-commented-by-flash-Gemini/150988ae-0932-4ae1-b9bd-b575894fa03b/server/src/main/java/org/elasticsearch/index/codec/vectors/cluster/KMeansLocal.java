@@ -58,6 +58,13 @@ class KMeansLocal {
      * @return randomly selected centroids that are the min of centroidCount and sampleSize
      * @throws IOException is thrown if vectors is inaccessible
      */
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param vectors: [Description]
+     * @param centroidCount: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     static float[][] pickInitialCentroids(FloatVectorValues vectors, int centroidCount) throws IOException {
         Random random = new Random(42L);
         int centroidsSize = Math.min(vectors.size(), centroidCount);
@@ -124,6 +131,15 @@ class KMeansLocal {
         return changed;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param centroids: [Description]
+     * @param vector: [Description]
+     * @param centroidIdx: [Description]
+     * @param centroidOffsets: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private static int getBestCentroidFromNeighbours(float[][] centroids, float[] vector, int centroidIdx, int[] centroidOffsets) {
         int bestCentroidOffset = centroidIdx;
         assert centroidIdx >= 0 && centroidIdx < centroids.length;
@@ -138,6 +154,13 @@ class KMeansLocal {
         return bestCentroidOffset;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param centroids: [Description]
+     * @param vector: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private static int getBestCentroid(float[][] centroids, float[] vector) {
         int bestCentroidOffset = 0;
         float minDsq = Float.MAX_VALUE;
@@ -151,6 +174,14 @@ class KMeansLocal {
         return bestCentroidOffset;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param centers: [Description]
+     * @param neighborhoods: [Description]
+     * @param clustersPerNeighborhood: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private void computeNeighborhoods(float[][] centers, List<int[]> neighborhoods, int clustersPerNeighborhood) {
         int k = neighborhoods.size();
 
@@ -284,6 +315,14 @@ class KMeansLocal {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param vectors: [Description]
+     * @param kMeansIntermediate: [Description]
+     * @param neighborhoods: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private void cluster(FloatVectorValues vectors, KMeansIntermediate kMeansIntermediate, List<int[]> neighborhoods) throws IOException {
         float[][] centroids = kMeansIntermediate.centroids();
         int k = centroids.length;
@@ -322,6 +361,15 @@ class KMeansLocal {
      * @param centroids the initialized centroids to be shifted using k-means
      * @param sampleSize the subset of vectors to use when shifting centroids
      * @param maxIterations the max iterations to shift centroids
+     */
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param vectors: [Description]
+     * @param centroids: [Description]
+     * @param sampleSize: [Description]
+     * @param maxIterations: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
      */
     public static void cluster(FloatVectorValues vectors, float[][] centroids, int sampleSize, int maxIterations) throws IOException {
         KMeansIntermediate kMeansIntermediate = new KMeansIntermediate(centroids, new int[vectors.size()], vectors::ordToDoc);

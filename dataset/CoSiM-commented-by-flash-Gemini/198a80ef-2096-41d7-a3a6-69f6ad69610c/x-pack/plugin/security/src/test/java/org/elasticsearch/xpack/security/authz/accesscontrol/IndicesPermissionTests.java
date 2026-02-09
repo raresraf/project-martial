@@ -61,8 +61,17 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 
+/**
+ * @brief Functional description of the IndicesPermissionTests class.
+ *        This is a placeholder for detailed semantic documentation.
+ *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+ */
 public class IndicesPermissionTests extends ESTestCase {
 
+    /**
+     * @brief [Functional Utility for testAuthorize]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testAuthorize() {
         IndexMetadata.Builder imbBuilder = IndexMetadata.builder("_index")
             .settings(indexSettings(IndexVersion.current(), 1, 1))
@@ -73,6 +82,9 @@ public class IndicesPermissionTests extends ESTestCase {
 
         // basics:
         Set<BytesReference> query = Collections.singleton(new BytesArray("{}"));
+    /**
+     * @brief [Functional description for field fields]: Describe purpose here.
+     */
         String[] fields = new String[] { "_field" };
         Role role = Role.builder(RESTRICTED_INDICES, "_role")
             .add(new FieldPermissions(fieldPermissionDef(fields, null)), query, IndexPrivilege.ALL, randomBoolean(), "_index")
@@ -188,11 +200,17 @@ public class IndicesPermissionTests extends ESTestCase {
 
     }
 
+    /**
+     * @brief [Functional Utility for testAuthorizeDataStreamAccessWithFailuresSelector]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testAuthorizeDataStreamAccessWithFailuresSelector() {
         Metadata.Builder builder = Metadata.builder();
         String dataStreamName = randomAlphaOfLength(6);
         int numBackingIndices = randomIntBetween(1, 3);
         List<IndexMetadata> backingIndices = new ArrayList<>();
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (int backingIndexNumber = 1; backingIndexNumber <= numBackingIndices; backingIndexNumber++) {
             backingIndices.add(createBackingIndexMetadata(DataStream.getDefaultBackingIndexName(dataStreamName, backingIndexNumber)));
         }
@@ -201,12 +219,16 @@ public class IndicesPermissionTests extends ESTestCase {
             backingIndices.stream().map(IndexMetadata::getIndex).collect(Collectors.toList())
         );
         builder.put(ds);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (IndexMetadata index : backingIndices) {
             builder.put(index, false);
         }
         var metadata = builder.build().getProject();
         FieldPermissionsCache fieldPermissionsCache = new FieldPermissionsCache(Settings.EMPTY);
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (var privilege : List.of(IndexPrivilege.ALL, IndexPrivilege.READ)) {
             Role role = Role.builder(RESTRICTED_INDICES, "_role")
                 .add(
@@ -228,6 +250,8 @@ public class IndicesPermissionTests extends ESTestCase {
             assertThat("for privilege " + privilege, permissions.hasIndexPermissions(dataStreamName), is(true));
         }
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (var privilege : List.of(IndexPrivilege.ALL, IndexPrivilege.READ_FAILURE_STORE)) {
             Role role = Role.builder(RESTRICTED_INDICES, "_role")
                 .add(
@@ -249,6 +273,8 @@ public class IndicesPermissionTests extends ESTestCase {
             assertThat("for privilege " + privilege, permissions.hasIndexPermissions(dataStreamName), is(false));
         }
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (var privilege : List.of(IndexPrivilege.ALL, IndexPrivilege.READ_FAILURE_STORE)) {
             Role role = Role.builder(RESTRICTED_INDICES, "_role")
                 .add(
@@ -366,16 +392,24 @@ public class IndicesPermissionTests extends ESTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for testAuthorizeDataStreamFailureIndices]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testAuthorizeDataStreamFailureIndices() {
         Metadata.Builder builder = Metadata.builder();
         String dataStreamName = randomAlphaOfLength(6);
         int numBackingIndices = randomIntBetween(1, 3);
         List<IndexMetadata> backingIndices = new ArrayList<>();
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (int backingIndexNumber = 1; backingIndexNumber <= numBackingIndices; backingIndexNumber++) {
             backingIndices.add(createBackingIndexMetadata(DataStream.getDefaultBackingIndexName(dataStreamName, backingIndexNumber)));
         }
         List<IndexMetadata> failureIndices = new ArrayList<>();
         int numFailureIndices = randomIntBetween(1, 3);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (int failureIndexNumber = 1; failureIndexNumber <= numFailureIndices; failureIndexNumber++) {
             failureIndices.add(createBackingIndexMetadata(DataStream.getDefaultFailureStoreName(dataStreamName, failureIndexNumber, 1L)));
         }
@@ -385,15 +419,21 @@ public class IndicesPermissionTests extends ESTestCase {
             failureIndices.stream().map(IndexMetadata::getIndex).collect(Collectors.toList())
         );
         builder.put(ds);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (IndexMetadata index : backingIndices) {
             builder.put(index, false);
         }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (IndexMetadata index : failureIndices) {
             builder.put(index, false);
         }
         var metadata = builder.build().getProject();
         FieldPermissionsCache fieldPermissionsCache = new FieldPermissionsCache(Settings.EMPTY);
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (var privilege : List.of(IndexPrivilege.READ)) {
             Role role = Role.builder(RESTRICTED_INDICES, "_role")
                 .add(
@@ -421,6 +461,8 @@ public class IndicesPermissionTests extends ESTestCase {
             assertThat("for privilege " + privilege, permissions.hasIndexPermissions(dataIndex), is(true));
         }
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (var privilege : List.of(IndexPrivilege.READ_FAILURE_STORE)) {
             Role role = Role.builder(RESTRICTED_INDICES, "_role")
                 .add(
@@ -451,6 +493,10 @@ public class IndicesPermissionTests extends ESTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for testAuthorizeMultipleGroupsMixedDls]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testAuthorizeMultipleGroupsMixedDls() {
         IndexMetadata.Builder imbBuilder = IndexMetadata.builder("_index")
             .settings(indexSettings(IndexVersion.current(), 1, 1))
@@ -460,6 +506,9 @@ public class IndicesPermissionTests extends ESTestCase {
         FieldPermissionsCache fieldPermissionsCache = new FieldPermissionsCache(Settings.EMPTY);
 
         Set<BytesReference> query = Collections.singleton(new BytesArray("{}"));
+    /**
+     * @brief [Functional description for field fields]: Describe purpose here.
+     */
         String[] fields = new String[] { "_field" };
         Role role = Role.builder(RESTRICTED_INDICES, "_role")
             .add(new FieldPermissions(fieldPermissionDef(fields, null)), query, IndexPrivilege.ALL, randomBoolean(), "_index")
@@ -477,6 +526,11 @@ public class IndicesPermissionTests extends ESTestCase {
         assertFalse(permissions.getIndexPermissions("_index").getDocumentPermissions().hasDocumentLevelPermissions());
     }
 
+    /**
+     * @brief [Functional Utility for testIndicesPrivilegesStreaming]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
     public void testIndicesPrivilegesStreaming() throws IOException {
         BytesStreamOutput out = new BytesStreamOutput();
         String[] allowed = new String[] { randomAlphaOfLength(5) + "*", randomAlphaOfLength(5) + "*", randomAlphaOfLength(5) + "*" };
@@ -513,6 +567,10 @@ public class IndicesPermissionTests extends ESTestCase {
     }
 
     // tests that field permissions are merged correctly when we authorize with several groups and don't crash when an index has no group
+    /**
+     * @brief [Functional Utility for testCorePermissionAuthorize]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testCorePermissionAuthorize() {
         final Settings indexSettings = Settings.builder().put(IndexMetadata.SETTING_VERSION_CREATED, IndexVersion.current()).build();
         final var metadata = new Metadata.Builder().put(
@@ -599,8 +657,14 @@ public class IndicesPermissionTests extends ESTestCase {
         assertFalse(core.check("unknown"));
     }
 
+    /**
+     * @brief [Functional Utility for testErrorMessageIfIndexPatternIsTooComplex]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testErrorMessageIfIndexPatternIsTooComplex() {
         List<String> indices = new ArrayList<>();
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (int i = 0; i < 10; i++) {
             String prefix = randomAlphaOfLengthBetween(4, 12);
             String suffixBegin = randomAlphaOfLengthBetween(12, 36);
@@ -621,6 +685,10 @@ public class IndicesPermissionTests extends ESTestCase {
         assertThat(e.getMessage(), containsString("too complex to evaluate"));
     }
 
+    /**
+     * @brief [Functional Utility for testSecurityIndicesPermissions]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testSecurityIndicesPermissions() {
         final Settings indexSettings = Settings.builder().put(IndexMetadata.SETTING_VERSION_CREATED, IndexVersion.current()).build();
         final String internalSecurityIndex = randomFrom(
@@ -678,6 +746,10 @@ public class IndicesPermissionTests extends ESTestCase {
         assertThat(iac.getIndexPermissions(SecuritySystemIndices.SECURITY_MAIN_ALIAS), is(notNullValue()));
     }
 
+    /**
+     * @brief [Functional Utility for testAsyncSearchIndicesPermissions]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testAsyncSearchIndicesPermissions() {
         final Settings indexSettings = Settings.builder().put(IndexMetadata.SETTING_VERSION_CREATED, IndexVersion.current()).build();
         final String asyncSearchIndex = XPackPlugin.ASYNC_RESULTS_INDEX + randomAlphaOfLengthBetween(0, 2);
@@ -724,11 +796,17 @@ public class IndicesPermissionTests extends ESTestCase {
         assertThat(iac.getIndexPermissions(asyncSearchIndex), is(notNullValue()));
     }
 
+    /**
+     * @brief [Functional Utility for testAuthorizationForBackingIndices]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testAuthorizationForBackingIndices() {
         Metadata.Builder builder = Metadata.builder();
         String dataStreamName = randomAlphaOfLength(6);
         int numBackingIndices = randomIntBetween(1, 3);
         List<IndexMetadata> backingIndices = new ArrayList<>();
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (int backingIndexNumber = 1; backingIndexNumber <= numBackingIndices; backingIndexNumber++) {
             backingIndices.add(createBackingIndexMetadata(DataStream.getDefaultBackingIndexName(dataStreamName, backingIndexNumber)));
         }
@@ -737,6 +815,8 @@ public class IndicesPermissionTests extends ESTestCase {
             backingIndices.stream().map(IndexMetadata::getIndex).collect(Collectors.toList())
         );
         builder.put(ds);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (IndexMetadata index : backingIndices) {
             builder.put(index, false);
         }
@@ -758,6 +838,8 @@ public class IndicesPermissionTests extends ESTestCase {
         );
 
         assertThat(iac.isGranted(), is(true));
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (IndexMetadata im : backingIndices) {
             assertThat(iac.getIndexPermissions(im.getIndex().getName()), is(notNullValue()));
             assertThat(iac.hasIndexPermissions(im.getIndex().getName()), is(true));
@@ -778,12 +860,18 @@ public class IndicesPermissionTests extends ESTestCase {
         );
 
         assertThat(iac.isGranted(), is(false));
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (IndexMetadata im : backingIndices) {
             assertThat(iac.getIndexPermissions(im.getIndex().getName()), is(nullValue()));
             assertThat(iac.hasIndexPermissions(im.getIndex().getName()), is(false));
         }
     }
 
+    /**
+     * @brief [Functional Utility for testAuthorizationForMappingUpdates]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testAuthorizationForMappingUpdates() {
         final Settings indexSettings = Settings.builder().put(IndexMetadata.SETTING_VERSION_CREATED, IndexVersion.current()).build();
         final Metadata.Builder metadataBuilder = new Metadata.Builder().put(
@@ -793,6 +881,8 @@ public class IndicesPermissionTests extends ESTestCase {
 
         int numBackingIndices = randomIntBetween(1, 3);
         List<IndexMetadata> backingIndices = new ArrayList<>();
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (int backingIndexNumber = 1; backingIndexNumber <= numBackingIndices; backingIndexNumber++) {
             backingIndices.add(createBackingIndexMetadata(DataStream.getDefaultBackingIndexName("test_write2", backingIndexNumber)));
         }
@@ -801,6 +891,8 @@ public class IndicesPermissionTests extends ESTestCase {
             backingIndices.stream().map(IndexMetadata::getIndex).collect(Collectors.toList())
         );
         metadataBuilder.put(ds);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (IndexMetadata index : backingIndices) {
             metadataBuilder.put(index, false);
         }
@@ -884,6 +976,8 @@ public class IndicesPermissionTests extends ESTestCase {
             fieldPermissionsCache
         );
         assertThat(iac.isGranted(), is(true));
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (IndexMetadata im : backingIndices) {
             assertThat(iac.getIndexPermissions(im.getIndex().getName()), is(notNullValue()));
             assertThat(iac.hasIndexPermissions(im.getIndex().getName()), is(true));
@@ -895,20 +989,32 @@ public class IndicesPermissionTests extends ESTestCase {
             fieldPermissionsCache
         );
         assertThat(iac.isGranted(), is(false));
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (IndexMetadata im : backingIndices) {
             assertThat(iac.getIndexPermissions(im.getIndex().getName()), is(nullValue()));
             assertThat(iac.hasIndexPermissions(im.getIndex().getName()), is(false));
         }
     }
 
+    /**
+     * @brief [Functional Utility for testIndicesPermissionHasFieldOrDocumentLevelSecurity]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testIndicesPermissionHasFieldOrDocumentLevelSecurity() {
         // Make sure we have at least one of fieldPermissions and documentPermission
         final FieldPermissions fieldPermissions = randomBoolean()
             ? new FieldPermissions(new FieldPermissionsDefinition(Strings.EMPTY_ARRAY, Strings.EMPTY_ARRAY))
             : FieldPermissions.DEFAULT;
+    /**
+     * @brief [Functional description for field queries]: Describe purpose here.
+     */
         final Set<BytesReference> queries;
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (fieldPermissions == FieldPermissions.DEFAULT) {
             queries = Set.of(new BytesArray("a query"));
+        // Block Logic: [Describe purpose of this else/else if block]
         } else {
             queries = randomBoolean() ? Set.of(new BytesArray("a query")) : null;
         }
@@ -943,7 +1049,14 @@ public class IndicesPermissionTests extends ESTestCase {
         assertThat(indicesPermission3.hasFieldOrDocumentLevelSecurity(), is(false));
     }
 
+    /**
+     * @brief [Functional Utility for testResourceAuthorizedPredicateForDatastreams]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testResourceAuthorizedPredicateForDatastreams() {
+    /**
+     * @brief [Functional description for field dataStreamName]: Describe purpose here.
+     */
         String dataStreamName = "logs-datastream";
         Metadata.Builder mb = Metadata.builder(
             DataStreamTestHelper.getClusterStateWithDataStreams(
@@ -984,6 +1097,10 @@ public class IndicesPermissionTests extends ESTestCase {
         assertThat(predicate.test(alias), is(true));
     }
 
+    /**
+     * @brief [Functional Utility for testResourceAuthorizedPredicateAnd]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testResourceAuthorizedPredicateAnd() {
         IndicesPermission.IsResourceAuthorizedPredicate predicate1 = new IndicesPermission.IsResourceAuthorizedPredicate(
             StringMatcher.of("c", "a"),
@@ -1023,6 +1140,10 @@ public class IndicesPermissionTests extends ESTestCase {
         assertThat(predicate.test(concreteIndexD), is(true));
     }
 
+    /**
+     * @brief [Functional Utility for testResourceAuthorizedPredicateAndWithFailures]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testResourceAuthorizedPredicateAndWithFailures() {
         IndicesPermission.IsResourceAuthorizedPredicate predicate1 = new IndicesPermission.IsResourceAuthorizedPredicate(
             StringMatcher.of("c", "a"),
@@ -1092,6 +1213,10 @@ public class IndicesPermissionTests extends ESTestCase {
         assertThat(predicate.test(concreteIndexF, IndexComponentSelector.FAILURES), is(true));
     }
 
+    /**
+     * @brief [Functional Utility for testCheckResourcePrivilegesWithTooComplexAutomaton]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testCheckResourcePrivilegesWithTooComplexAutomaton() {
         IndicesPermission permission = new IndicesPermission.Builder(RESTRICTED_INDICES).addGroup(
             IndexPrivilege.ALL,
@@ -1109,12 +1234,22 @@ public class IndicesPermissionTests extends ESTestCase {
         assertThat(ex.getCause(), instanceOf(TooComplexToDeterminizeException.class));
     }
 
+    /**
+     * @brief [Functional Utility for concreteIndexAbstraction]: Describe purpose here.
+     * @param name: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private static IndexAbstraction concreteIndexAbstraction(String name) {
         return new IndexAbstraction.ConcreteIndex(
             IndexMetadata.builder(name).settings(indexSettings(IndexVersion.current(), 1, 0)).build()
         );
     }
 
+    /**
+     * @brief [Functional Utility for createBackingIndexMetadata]: Describe purpose here.
+     * @param name: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private static IndexMetadata createBackingIndexMetadata(String name) {
         Settings.Builder settingsBuilder = Settings.builder()
             .put(IndexMetadata.SETTING_VERSION_CREATED, IndexVersion.current())
@@ -1129,6 +1264,12 @@ public class IndicesPermissionTests extends ESTestCase {
         return indexBuilder.build();
     }
 
+    /**
+     * @brief [Functional Utility for fieldPermissionDef]: Describe purpose here.
+     * @param granted: [Description]
+     * @param denied: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private static FieldPermissionsDefinition fieldPermissionDef(String[] granted, String[] denied) {
         return new FieldPermissionsDefinition(granted, denied);
     }

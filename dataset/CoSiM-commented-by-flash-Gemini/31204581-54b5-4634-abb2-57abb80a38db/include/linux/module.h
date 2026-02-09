@@ -368,6 +368,8 @@ enum mod_mem_type {
 
 #define for_class_mod_mem_type(type, class)		\
 	for_each_mod_mem_type(type)			\
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (mod_mem_type_is_##class(type))
 
 struct module_memory {
@@ -645,7 +647,12 @@ static inline bool within_module_mem_type(unsigned long addr,
 static inline bool within_module_core(unsigned long addr,
 				      const struct module *mod)
 {
+	/**
+	 * @brief [Functional Utility for for_class_mod_mem_type]: Describe purpose here.
+	 */
 	for_class_mod_mem_type(type, core) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (within_module_mem_type(addr, mod, type))
 			return true;
 	}
@@ -655,7 +662,12 @@ static inline bool within_module_core(unsigned long addr,
 static inline bool within_module_init(unsigned long addr,
 				      const struct module *mod)
 {
+	/**
+	 * @brief [Functional Utility for for_class_mod_mem_type]: Describe purpose here.
+	 */
 	for_class_mod_mem_type(type, init) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (within_module_mem_type(addr, mod, type))
 			return true;
 	}

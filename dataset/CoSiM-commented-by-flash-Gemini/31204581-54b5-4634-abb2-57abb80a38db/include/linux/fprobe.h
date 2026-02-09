@@ -131,6 +131,8 @@ static inline int fprobe_count_ips_from_filter(const char *filter, const char *n
  */
 static inline void disable_fprobe(struct fprobe *fp)
 {
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (fp)
 		fp->flags |= FPROBE_FL_DISABLED;
 }
@@ -143,6 +145,8 @@ static inline void disable_fprobe(struct fprobe *fp)
  */
 static inline void enable_fprobe(struct fprobe *fp)
 {
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (fp)
 		fp->flags &= ~FPROBE_FL_DISABLED;
 }

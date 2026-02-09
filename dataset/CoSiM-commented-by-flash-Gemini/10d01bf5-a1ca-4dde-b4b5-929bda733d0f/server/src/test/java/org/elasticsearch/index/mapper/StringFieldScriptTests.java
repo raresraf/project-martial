@@ -30,6 +30,11 @@ import java.util.Map;
 
 import static org.hamcrest.Matchers.equalTo;
 
+/**
+ * @brief Functional description of the StringFieldScriptTests class.
+ *        This is a placeholder for detailed semantic documentation.
+ *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+ */
 public class StringFieldScriptTests extends FieldScriptTestCase<StringFieldScript.Factory> {
     public static final StringFieldScript.Factory DUMMY = (fieldName, params, lookup, onScriptError) -> ctx -> new StringFieldScript(
         fieldName,
@@ -39,26 +44,51 @@ public class StringFieldScriptTests extends FieldScriptTestCase<StringFieldScrip
         ctx
     ) {
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public void execute() {
             emit("foo");
         }
     };
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected ScriptContext<StringFieldScript.Factory> context() {
         return StringFieldScript.CONTEXT;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected StringFieldScript.Factory dummyScript() {
         return DUMMY;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected StringFieldScript.Factory fromSource() {
         return StringFieldScript.PARSE_FROM_SOURCE;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testTooManyValues() throws IOException {
         try (Directory directory = newDirectory(); RandomIndexWriter iw = new RandomIndexWriter(random(), directory)) {
             iw.addDocument(List.of(new StoredField("_source", new BytesRef("{}"))));
@@ -71,6 +101,11 @@ public class StringFieldScriptTests extends FieldScriptTestCase<StringFieldScrip
                     reader.leaves().get(0)
                 ) {
                     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
                     public void execute() {
                         for (int i = 0; i <= AbstractFieldScript.MAX_VALUES; i++) {
                             new Emit(this).emit("test");
@@ -86,6 +121,11 @@ public class StringFieldScriptTests extends FieldScriptTestCase<StringFieldScrip
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testTooManyChars() throws IOException {
         try (Directory directory = newDirectory(); RandomIndexWriter iw = new RandomIndexWriter(random(), directory)) {
             iw.addDocument(List.of(new StoredField("_source", new BytesRef("{}"))));
@@ -98,6 +138,11 @@ public class StringFieldScriptTests extends FieldScriptTestCase<StringFieldScrip
                     reader.leaves().get(0)
                 ) {
                     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
                     public void execute() {
                         StringBuilder big = new StringBuilder();
                         while (big.length() < StringFieldScript.MAX_CHARS / 4) {
@@ -118,6 +163,11 @@ public class StringFieldScriptTests extends FieldScriptTestCase<StringFieldScrip
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void testFromSourceDoesNotEnforceValuesLimit() throws IOException {
         try (Directory directory = newDirectory(); RandomIndexWriter iw = new RandomIndexWriter(random(), directory)) {
             int numValues = AbstractFieldScript.MAX_VALUES + randomIntBetween(1, 100);
@@ -144,6 +194,11 @@ public class StringFieldScriptTests extends FieldScriptTestCase<StringFieldScrip
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void testFromSourceDoesNotEnforceCharsLimit() throws IOException {
         try (Directory directory = newDirectory(); RandomIndexWriter iw = new RandomIndexWriter(random(), directory)) {
             StringBuilder big = new StringBuilder();

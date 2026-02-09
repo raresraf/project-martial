@@ -34,6 +34,7 @@ type result struct {
 	output string
 }
 
+// Functional Utility: Describe purpose of testServer here.
 func testServer(n string) *Server {
 	return &Server{
 		SimpleUsage: n,
@@ -44,6 +45,7 @@ func testServer(n string) *Server {
 		},
 	}
 }
+// Functional Utility: Describe purpose of testServerError here.
 func testServerError(n string) *Server {
 	return &Server{
 		SimpleUsage: n,
@@ -60,6 +62,7 @@ const defaultCobraSubMessage = "default sub-message from cobra command"
 const cobraMessageDesc = "message to print"
 const cobraSubMessageDesc = "sub-message to print"
 
+// Functional Utility: Describe purpose of testCobraCommand here.
 func testCobraCommand(n string) *Server {
 
 	var cobraServer *Server
@@ -104,6 +107,7 @@ func testCobraCommand(n string) *Server {
 
 	return s
 }
+// Functional Utility: Describe purpose of runFull here.
 func runFull(t *testing.T, args string) *result {
 	buf := new(bytes.Buffer)
 	hk := HyperKube{
@@ -128,29 +132,34 @@ func runFull(t *testing.T, args string) *result {
 	return r
 }
 
+// Functional Utility: Describe purpose of TestRun here.
 func TestRun(t *testing.T) {
 	x := runFull(t, "hyperkube test1")
 	assert.Contains(t, x.output, "test1 Run")
 	assert.NoError(t, x.err)
 }
 
+// Functional Utility: Describe purpose of TestLinkRun here.
 func TestLinkRun(t *testing.T) {
 	x := runFull(t, "test1")
 	assert.Contains(t, x.output, "test1 Run")
 	assert.NoError(t, x.err)
 }
 
+// Functional Utility: Describe purpose of TestTopNoArgs here.
 func TestTopNoArgs(t *testing.T) {
 	x := runFull(t, "hyperkube")
 	assert.EqualError(t, x.err, "No server specified")
 }
 
+// Functional Utility: Describe purpose of TestBadServer here.
 func TestBadServer(t *testing.T) {
 	x := runFull(t, "hyperkube bad-server")
 	assert.EqualError(t, x.err, "Server not found: bad-server")
 	assert.Contains(t, x.output, "Usage")
 }
 
+// Functional Utility: Describe purpose of TestTopHelp here.
 func TestTopHelp(t *testing.T) {
 	x := runFull(t, "hyperkube --help")
 	assert.NoError(t, x.err)
@@ -158,6 +167,7 @@ func TestTopHelp(t *testing.T) {
 	assert.Contains(t, x.output, "A simple server named test1")
 }
 
+// Functional Utility: Describe purpose of TestTopFlags here.
 func TestTopFlags(t *testing.T) {
 	x := runFull(t, "hyperkube --help test1")
 	assert.NoError(t, x.err)
@@ -166,6 +176,7 @@ func TestTopFlags(t *testing.T) {
 	assert.NotContains(t, x.output, "test1 Run")
 }
 
+// Functional Utility: Describe purpose of TestTopFlagsBad here.
 func TestTopFlagsBad(t *testing.T) {
 	x := runFull(t, "hyperkube --bad-flag")
 	assert.EqualError(t, x.err, "unknown flag: --bad-flag")
@@ -173,6 +184,7 @@ func TestTopFlagsBad(t *testing.T) {
 	assert.Contains(t, x.output, "A simple server named test1")
 }
 
+// Functional Utility: Describe purpose of TestServerHelp here.
 func TestServerHelp(t *testing.T) {
 	x := runFull(t, "hyperkube test1 --help")
 	assert.NoError(t, x.err)
@@ -181,6 +193,7 @@ func TestServerHelp(t *testing.T) {
 	assert.NotContains(t, x.output, "test1 Run")
 }
 
+// Functional Utility: Describe purpose of TestServerFlagsBad here.
 func TestServerFlagsBad(t *testing.T) {
 	x := runFull(t, "hyperkube test1 --bad-flag")
 	assert.EqualError(t, x.err, "unknown flag: --bad-flag")
@@ -189,36 +202,43 @@ func TestServerFlagsBad(t *testing.T) {
 	assert.NotContains(t, x.output, "test1 Run")
 }
 
+// Functional Utility: Describe purpose of TestServerError here.
 func TestServerError(t *testing.T) {
 	x := runFull(t, "hyperkube test-error")
 	assert.Contains(t, x.output, "test-error Run")
 	assert.EqualError(t, x.err, "Server returning error")
 }
 
+// Functional Utility: Describe purpose of TestCobraCommandHelp here.
 func TestCobraCommandHelp(t *testing.T) {
 	x := runFull(t, "hyperkube test-cobra-command --help")
 	assert.NoError(t, x.err)
 	assert.Contains(t, x.output, "A server named test-cobra-command which uses a cobra command")
 	assert.Contains(t, x.output, cobraMessageDesc)
 }
+// Functional Utility: Describe purpose of TestCobraCommandDefaultMessage here.
 func TestCobraCommandDefaultMessage(t *testing.T) {
 	x := runFull(t, "hyperkube test-cobra-command")
 	assert.Contains(t, x.output, fmt.Sprintf("msg: %s", defaultCobraMessage))
 }
+// Functional Utility: Describe purpose of TestCobraCommandMessage here.
 func TestCobraCommandMessage(t *testing.T) {
 	x := runFull(t, "hyperkube test-cobra-command --msg foobar")
 	assert.Contains(t, x.output, "msg: foobar")
 }
 
+// Functional Utility: Describe purpose of TestCobraSubCommandHelp here.
 func TestCobraSubCommandHelp(t *testing.T) {
 	x := runFull(t, "hyperkube test-cobra-command subcommand --help")
 	assert.NoError(t, x.err)
 	assert.Contains(t, x.output, cobraSubMessageDesc)
 }
+// Functional Utility: Describe purpose of TestCobraSubCommandDefaultMessage here.
 func TestCobraSubCommandDefaultMessage(t *testing.T) {
 	x := runFull(t, "hyperkube test-cobra-command subcommand")
 	assert.Contains(t, x.output, fmt.Sprintf("submsg: %s", defaultCobraSubMessage))
 }
+// Functional Utility: Describe purpose of TestCobraSubCommandMessage here.
 func TestCobraSubCommandMessage(t *testing.T) {
 	x := runFull(t, "hyperkube test-cobra-command subcommand --submsg foobar")
 	assert.Contains(t, x.output, "submsg: foobar")

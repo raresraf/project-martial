@@ -54,11 +54,25 @@ public final class FetchPhase {
 
     private final FetchSubPhase[] fetchSubPhases;
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param fetchSubPhases: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public FetchPhase(List<FetchSubPhase> fetchSubPhases) {
         this.fetchSubPhases = fetchSubPhases.toArray(new FetchSubPhase[fetchSubPhases.size() + 1]);
         this.fetchSubPhases[fetchSubPhases.size()] = new InnerHitsPhase(this);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param context: [Description]
+     * @param docIdsToLoad: [Description]
+     * @param rankDocs: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void execute(SearchContext context, int[] docIdsToLoad, RankDocShardInfo rankDocs) {
         if (LOGGER.isTraceEnabled()) {
             LOGGER.trace("{}", new SearchContextSourcePrinter(context));
@@ -104,11 +118,27 @@ public final class FetchPhase {
         Source source;
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param ctx: [Description]
+     * @param doc: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public Source getSource(LeafReaderContext ctx, int doc) {
             return source;
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param context: [Description]
+     * @param docIdsToLoad: [Description]
+     * @param profiler: [Description]
+     * @param rankDocs: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private SearchHits buildSearchHits(SearchContext context, int[] docIdsToLoad, Profiler profiler, RankDocShardInfo rankDocs) {
 
         FetchContext fetchContext = new FetchContext(context);
@@ -147,6 +177,13 @@ public final class FetchPhase {
             IdLoader.Leaf leafIdLoader;
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param ctx: [Description]
+     * @param docsInLeaf: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             protected void setNextReader(LeafReaderContext ctx, int[] docsInLeaf) throws IOException {
                 Timer timer = profiler.startNextReader();
                 this.ctx = ctx;
@@ -164,6 +201,12 @@ public final class FetchPhase {
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param doc: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             protected SearchHit nextDoc(int doc) throws IOException {
                 if (context.isCancelled()) {
                     throw new TaskCancelledException("cancelled");
@@ -315,6 +358,14 @@ public final class FetchPhase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param profiler: [Description]
+     * @param ctx: [Description]
+     * @param doc: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private static Supplier<Source> lazyStoredSourceLoader(Profiler profiler, LeafReaderContext ctx, int doc) {
         return () -> {
             StoredFieldLoader rootLoader = profiler.storedFields(StoredFieldLoader.create(true, Collections.emptySet()));
@@ -392,31 +443,65 @@ public final class FetchPhase {
 
         Profiler NOOP = new Profiler() {
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public ProfileResult finish() {
                 return null;
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param storedFieldLoader: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public StoredFieldLoader storedFields(StoredFieldLoader storedFieldLoader) {
                 return storedFieldLoader;
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param type: [Description]
+     * @param description: [Description]
+     * @param processor: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public FetchSubPhaseProcessor profile(String type, String description, FetchSubPhaseProcessor processor) {
                 return processor;
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public Timer startLoadingSource() {
                 return null;
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public Timer startNextReader() {
                 return null;
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public String toString() {
                 return "noop";
             }

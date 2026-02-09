@@ -78,14 +78,20 @@ static pud_t *get_old_pud(struct mm_struct *mm, unsigned long addr)
 	pud_t *pud;
 
 	pgd = pgd_offset(mm, addr);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (pgd_none_or_clear_bad(pgd))
 		return NULL;
 
 	p4d = p4d_offset(pgd, addr);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (p4d_none_or_clear_bad(p4d))
 		return NULL;
 
 	pud = pud_offset(p4d, addr);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (pud_none_or_clear_bad(pud))
 		return NULL;
 
@@ -98,10 +104,14 @@ static pmd_t *get_old_pmd(struct mm_struct *mm, unsigned long addr)
 	pmd_t *pmd;
 
 	pud = get_old_pud(mm, addr);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!pud)
 		return NULL;
 
 	pmd = pmd_offset(pud, addr);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (pmd_none(*pmd))
 		return NULL;
 
@@ -115,6 +125,8 @@ static pud_t *alloc_new_pud(struct mm_struct *mm, unsigned long addr)
 
 	pgd = pgd_offset(mm, addr);
 	p4d = p4d_alloc(mm, pgd, addr);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!p4d)
 		return NULL;
 
@@ -127,10 +139,14 @@ static pmd_t *alloc_new_pmd(struct mm_struct *mm, unsigned long addr)
 	pmd_t *pmd;
 
 	pud = alloc_new_pud(mm, addr);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!pud)
 		return NULL;
 
 	pmd = pmd_alloc(mm, pud, addr);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!pmd)
 		return NULL;
 
@@ -141,16 +157,24 @@ static pmd_t *alloc_new_pmd(struct mm_struct *mm, unsigned long addr)
 
 static void take_rmap_locks(struct vm_area_struct *vma)
 {
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (vma->vm_file)
 		i_mmap_lock_write(vma->vm_file->f_mapping);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (vma->anon_vma)
 		anon_vma_lock_write(vma->anon_vma);
 }
 
 static void drop_rmap_locks(struct vm_area_struct *vma)
 {
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (vma->anon_vma)
 		anon_vma_unlock_write(vma->anon_vma);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (vma->vm_file)
 		i_mmap_unlock_write(vma->vm_file->f_mapping);
 }
@@ -164,6 +188,8 @@ static pte_t move_soft_dirty_pte(pte_t pte)
 #ifdef CONFIG_MEM_SOFT_DIRTY
 	if (pte_present(pte))
 		pte = pte_mksoft_dirty(pte);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	else if (is_swap_pte(pte))
 		pte = pte_swp_mksoft_dirty(pte);
 #endif
@@ -175,10 +201,14 @@ static int mremap_folio_pte_batch(struct vm_area_struct *vma, unsigned long addr
 {
 	struct folio *folio;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (max_nr == 1)
 		return 1;
 
 	folio = vm_normal_folio(vma, addr, pte);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!folio || !folio_test_large(folio))
 		return 1;
 
@@ -222,6 +252,8 @@ static int move_ptes(struct pagetable_move_control *pmc,
 	 *   serialize access to individual ptes, but only rmap traversal
 	 *   order guarantees that we won't miss both the old and new ptes).
 	 */
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (pmc->need_rmap_locks)
 		take_rmap_locks(vma);
 
@@ -230,6 +262,9 @@ static int move_ptes(struct pagetable_move_control *pmc,
 	 * pte locks because exclusive mmap_lock prevents deadlock.
 	 */
 	old_ptep = pte_offset_map_lock(mm, old_pmd, old_addr, &old_ptl);
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (!old_ptep) {
 		err = -EAGAIN;
 		goto out;
@@ -243,11 +278,16 @@ static int move_ptes(struct pagetable_move_control *pmc,
 	 */
 	new_ptep = pte_offset_map_rw_nolock(mm, new_pmd, new_addr, &dummy_pmdval,
 					   &new_ptl);
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (!new_ptep) {
 		pte_unmap_unlock(old_ptep, old_ptl);
 		err = -EAGAIN;
 		goto out;
 	}
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (new_ptl != old_ptl)
 		spin_lock_nested(new_ptl, SINGLE_DEPTH_NESTING);
 	flush_tlb_batched_pending(vma->vm_mm);
@@ -260,6 +300,8 @@ static int move_ptes(struct pagetable_move_control *pmc,
 		nr_ptes = 1;
 		max_nr_ptes = (old_end - old_addr) >> PAGE_SHIFT;
 		old_pte = ptep_get(old_ptep);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (pte_none(old_pte))
 			continue;
 
@@ -274,6 +316,8 @@ static int move_ptes(struct pagetable_move_control *pmc,
 		 * the TLB entry for the old mapping has been
 		 * flushed.
 		 */
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (pte_present(old_pte)) {
 			nr_ptes = mremap_folio_pte_batch(vma, old_addr, old_ptep,
 							 old_pte, max_nr_ptes);
@@ -283,12 +327,23 @@ static int move_ptes(struct pagetable_move_control *pmc,
 		pte = move_pte(pte, old_addr, new_addr);
 		pte = move_soft_dirty_pte(pte);
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (need_clear_uffd_wp && pte_marker_uffd_wp(pte))
 			pte_clear(mm, new_addr, new_ptep);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		else {
+			/**
+			 * @brief [Functional Utility for if]: Describe purpose here.
+			 */
 			if (need_clear_uffd_wp) {
+				// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+				// Invariant: State condition that holds true before and after each iteration/execution
 				if (pte_present(pte))
 					pte = pte_clear_uffd_wp(pte);
+				// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+				// Invariant: State condition that holds true before and after each iteration/execution
 				else if (is_swap_pte(pte))
 					pte = pte_swp_clear_uffd_wp(pte);
 			}
@@ -297,13 +352,19 @@ static int move_ptes(struct pagetable_move_control *pmc,
 	}
 
 	arch_leave_lazy_mmu_mode();
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (force_flush)
 		flush_tlb_range(vma, old_end - len, old_end);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (new_ptl != old_ptl)
 		spin_unlock(new_ptl);
 	pte_unmap(new_ptep - 1);
 	pte_unmap_unlock(old_ptep - 1, old_ptl);
 out:
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (pmc->need_rmap_locks)
 		drop_rmap_locks(vma);
 	return err;
@@ -328,6 +389,8 @@ static bool move_normal_pmd(struct pagetable_move_control *pmc,
 	bool res = false;
 	pmd_t pmd;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!arch_supports_page_table_move())
 		return false;
 	/*
@@ -353,6 +416,8 @@ static bool move_normal_pmd(struct pagetable_move_control *pmc,
 	 * One alternative might be to just unmap the target pmd at
 	 * this point, and verify that it really is empty. We'll see.
 	 */
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (WARN_ON_ONCE(!pmd_none(*new_pmd)))
 		return false;
 
@@ -362,6 +427,8 @@ static bool move_normal_pmd(struct pagetable_move_control *pmc,
 	 * can reuse the existing code if we simply treat the entry as "not
 	 * moved".
 	 */
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (vma_has_uffd_without_event_remap(vma))
 		return false;
 
@@ -371,6 +438,8 @@ static bool move_normal_pmd(struct pagetable_move_control *pmc,
 	 */
 	old_ptl = pmd_lock(mm, old_pmd);
 	new_ptl = pmd_lockptr(mm, new_pmd);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (new_ptl != old_ptl)
 		spin_lock_nested(new_ptl, SINGLE_DEPTH_NESTING);
 
@@ -388,6 +457,8 @@ static bool move_normal_pmd(struct pagetable_move_control *pmc,
 	pmd_populate(mm, new_pmd, pmd_pgtable(pmd));
 	flush_tlb_range(vma, pmc->old_addr, pmc->old_addr + PMD_SIZE);
 out_unlock:
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (new_ptl != old_ptl)
 		spin_unlock(new_ptl);
 	spin_unlock(old_ptl);
@@ -411,12 +482,16 @@ static bool move_normal_pud(struct pagetable_move_control *pmc,
 	struct mm_struct *mm = vma->vm_mm;
 	pud_t pud;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!arch_supports_page_table_move())
 		return false;
 	/*
 	 * The destination pud shouldn't be established, free_pgtables()
 	 * should have released it.
 	 */
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (WARN_ON_ONCE(!pud_none(*new_pud)))
 		return false;
 
@@ -426,6 +501,8 @@ static bool move_normal_pud(struct pagetable_move_control *pmc,
 	 * can reuse the existing code if we simply treat the entry as "not
 	 * moved".
 	 */
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (vma_has_uffd_without_event_remap(vma))
 		return false;
 
@@ -435,6 +512,8 @@ static bool move_normal_pud(struct pagetable_move_control *pmc,
 	 */
 	old_ptl = pud_lock(mm, old_pud);
 	new_ptl = pud_lockptr(mm, new_pud);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (new_ptl != old_ptl)
 		spin_lock_nested(new_ptl, SINGLE_DEPTH_NESTING);
 
@@ -446,6 +525,8 @@ static bool move_normal_pud(struct pagetable_move_control *pmc,
 
 	pud_populate(mm, new_pud, pud_pgtable(pud));
 	flush_tlb_range(vma, pmc->old_addr, pmc->old_addr + PUD_SIZE);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (new_ptl != old_ptl)
 		spin_unlock(new_ptl);
 	spin_unlock(old_ptl);
@@ -473,6 +554,8 @@ static bool move_huge_pud(struct pagetable_move_control *pmc,
 	 * The destination pud shouldn't be established, free_pgtables()
 	 * should have released it.
 	 */
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (WARN_ON_ONCE(!pud_none(*new_pud)))
 		return false;
 
@@ -482,6 +565,8 @@ static bool move_huge_pud(struct pagetable_move_control *pmc,
 	 */
 	old_ptl = pud_lock(mm, old_pud);
 	new_ptl = pud_lockptr(mm, new_pud);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (new_ptl != old_ptl)
 		spin_lock_nested(new_ptl, SINGLE_DEPTH_NESTING);
 
@@ -495,6 +580,8 @@ static bool move_huge_pud(struct pagetable_move_control *pmc,
 	/* mark soft_ditry when we add pud level soft dirty support */
 	set_pud_at(mm, pmc->new_addr, new_pud, pud);
 	flush_pud_tlb_range(vma, pmc->old_addr, pmc->old_addr + HPAGE_PUD_SIZE);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (new_ptl != old_ptl)
 		spin_unlock(new_ptl);
 	spin_unlock(old_ptl);
@@ -532,6 +619,9 @@ static __always_inline unsigned long get_extent(enum pgt_entry entry,
 	unsigned long old_end = pmc->old_end;
 	unsigned long new_addr = pmc->new_addr;
 
+	/**
+	 * @brief [Functional Utility for switch]: Describe purpose here.
+	 */
 	switch (entry) {
 	case HPAGE_PMD:
 	case NORMAL_PMD:
@@ -551,9 +641,13 @@ static __always_inline unsigned long get_extent(enum pgt_entry entry,
 	next = (old_addr + size) & mask;
 	/* even if next overflowed, extent below will be ok */
 	extent = next - old_addr;
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (extent > old_end - old_addr)
 		extent = old_end - old_addr;
 	next = (new_addr + size) & mask;
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (extent > next - new_addr)
 		extent = next - new_addr;
 	return extent;
@@ -566,6 +660,9 @@ static __always_inline unsigned long get_extent(enum pgt_entry entry,
 static bool should_take_rmap_locks(struct pagetable_move_control *pmc,
 				   enum pgt_entry entry)
 {
+	/**
+	 * @brief [Functional Utility for switch]: Describe purpose here.
+	 */
 	switch (entry) {
 	case NORMAL_PMD:
 	case NORMAL_PUD:
@@ -589,6 +686,9 @@ static bool move_pgt_entry(struct pagetable_move_control *pmc,
 	if (need_rmap_locks)
 		take_rmap_locks(pmc->old);
 
+	/**
+	 * @brief [Functional Utility for switch]: Describe purpose here.
+	 */
 	switch (entry) {
 	case NORMAL_PMD:
 		moved = move_normal_pmd(pmc, old_entry, new_entry);
@@ -611,6 +711,8 @@ static bool move_pgt_entry(struct pagetable_move_control *pmc,
 		break;
 	}
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (need_rmap_locks)
 		drop_rmap_locks(pmc->old);
 
@@ -634,6 +736,8 @@ static bool can_align_down(struct pagetable_move_control *pmc,
 	 * of the corresponding VMA, we can't align down or we will destroy part
 	 * of the current mapping.
 	 */
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!pmc->for_stack && vma->vm_start != addr_to_align)
 		return false;
 
@@ -681,6 +785,8 @@ static bool can_realign_addr(struct pagetable_move_control *pmc,
 	 *    .              <---------------->
 	 *    .                old_align_next .
 	 */
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (pmc->len_in < old_align_next)
 		return false;
 
@@ -735,6 +841,8 @@ static void try_realign_addr(struct pagetable_move_control *pmc,
 			     unsigned long pagetable_mask)
 {
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!can_realign_addr(pmc, pagetable_mask))
 		return;
 
@@ -786,9 +894,13 @@ unsigned long move_page_tables(struct pagetable_move_control *pmc)
 	pud_t *old_pud, *new_pud;
 	struct mm_struct *mm = pmc->old->vm_mm;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!pmc->len_in)
 		return 0;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (is_vm_hugetlb_page(pmc->old))
 		return move_hugetlb_page_tables(pmc->old, pmc->new, pmc->old_addr,
 						pmc->new_addr, pmc->len_in);
@@ -804,6 +916,8 @@ unsigned long move_page_tables(struct pagetable_move_control *pmc)
 				pmc->old_addr, pmc->old_end);
 	mmu_notifier_invalidate_range_start(&range);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	for (; !pmc_done(pmc); pmc_next(pmc, extent)) {
 		cond_resched();
 		/*
@@ -813,30 +927,47 @@ unsigned long move_page_tables(struct pagetable_move_control *pmc)
 		extent = get_extent(NORMAL_PUD, pmc);
 
 		old_pud = get_old_pud(mm, pmc->old_addr);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!old_pud)
 			continue;
 		new_pud = alloc_new_pud(mm, pmc->new_addr);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!new_pud)
 			break;
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (pud_trans_huge(*old_pud)) {
+			/**
+			 * @brief [Functional Utility for if]: Describe purpose here.
+			 */
 			if (extent == HPAGE_PUD_SIZE) {
 				move_pgt_entry(pmc, HPAGE_PUD, old_pud, new_pud);
 				/* We ignore and continue on error? */
 				continue;
 			}
 		} else if (IS_ENABLED(CONFIG_HAVE_MOVE_PUD) && extent == PUD_SIZE) {
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (move_pgt_entry(pmc, NORMAL_PUD, old_pud, new_pud))
 				continue;
 		}
 
 		extent = get_extent(NORMAL_PMD, pmc);
 		old_pmd = get_old_pmd(mm, pmc->old_addr);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!old_pmd)
 			continue;
 		new_pmd = alloc_new_pmd(mm, pmc->new_addr);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!new_pmd)
 			break;
 again:
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (is_swap_pmd(*old_pmd) || pmd_trans_huge(*old_pmd)) {
 			if (extent == HPAGE_PMD_SIZE &&
 			    move_pgt_entry(pmc, HPAGE_PMD, old_pmd, new_pmd))
@@ -848,13 +979,21 @@ again:
 			 * If the extent is PMD-sized, try to speed the move by
 			 * moving at the PMD level if possible.
 			 */
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (move_pgt_entry(pmc, NORMAL_PMD, old_pmd, new_pmd))
 				continue;
 		}
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (pmd_none(*old_pmd))
 			continue;
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (pte_alloc(pmc->new->vm_mm, new_pmd))
 			break;
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (move_ptes(pmc, extent, old_pmd, new_pmd) < 0)
 			goto again;
 	}
@@ -873,9 +1012,13 @@ static void vrm_set_delta(struct vma_remap_struct *vrm)
 /* Determine what kind of remap this is - shrink, expand or no resize at all. */
 static enum mremap_type vrm_remap_type(struct vma_remap_struct *vrm)
 {
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (vrm->delta == 0)
 		return MREMAP_NO_RESIZE;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (vrm->old_len > vrm->new_len)
 		return MREMAP_SHRINK;
 
@@ -903,6 +1046,8 @@ static bool vrm_overlaps(struct vma_remap_struct *vrm)
 	 *             |-------------|
 	 *         start_new      end_new
 	 */
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (end_old > start_new && end_new > start_old)
 		return true;
 
@@ -939,13 +1084,19 @@ static unsigned long vrm_set_new_addr(struct vma_remap_struct *vrm)
 	unsigned long new_addr = vrm_implies_new_addr(vrm) ? vrm->new_addr : 0;
 	unsigned long res;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (vrm->flags & MREMAP_FIXED)
 		map_flags |= MAP_FIXED;
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (vma->vm_flags & VM_MAYSHARE)
 		map_flags |= MAP_SHARED;
 
 	res = get_unmapped_area(vma->vm_file, new_addr, vrm->new_len, pgoff,
 				map_flags);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (IS_ERR_VALUE(res))
 		return res;
 
@@ -963,6 +1114,8 @@ static bool vrm_calc_charge(struct vma_remap_struct *vrm)
 {
 	unsigned long charged;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!(vrm->vma->vm_flags & VM_ACCOUNT))
 		return true;
 
@@ -970,8 +1123,12 @@ static bool vrm_calc_charge(struct vma_remap_struct *vrm)
 	 * If we don't unmap the old mapping, then we account the entirety of
 	 * the length of the new one. Otherwise it's just the delta in size.
 	 */
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (vrm->flags & MREMAP_DONTUNMAP)
 		charged = vrm->new_len >> PAGE_SHIFT;
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	else
 		charged = vrm->delta >> PAGE_SHIFT;
 
@@ -990,6 +1147,8 @@ static bool vrm_calc_charge(struct vma_remap_struct *vrm)
  */
 static void vrm_uncharge(struct vma_remap_struct *vrm)
 {
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!(vrm->vma->vm_flags & VM_ACCOUNT))
 		return;
 
@@ -1010,6 +1169,9 @@ static void vrm_stat_account(struct vma_remap_struct *vrm,
 	struct vm_area_struct *vma = vrm->vma;
 
 	vm_stat_account(mm, vma->vm_flags, pages);
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (vma->vm_flags & VM_LOCKED) {
 		mm->locked_vm += pages;
 		vrm->mlocked = true;
@@ -1032,14 +1194,25 @@ static unsigned long prep_move_vma(struct vma_remap_struct *vrm)
 	 * We'd prefer to avoid failure later on in do_munmap:
 	 * which may split one vma into three before unmapping.
 	 */
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (current->mm->map_count >= sysctl_max_map_count - 3)
 		return -ENOMEM;
 
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (vma->vm_ops && vma->vm_ops->may_split) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (vma->vm_start != old_addr)
 			err = vma->vm_ops->may_split(vma, old_addr);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!err && vma->vm_end != old_addr + old_len)
 			err = vma->vm_ops->may_split(vma, old_addr + old_len);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (err)
 			return err;
 	}
@@ -1053,6 +1226,8 @@ static unsigned long prep_move_vma(struct vma_remap_struct *vrm)
 	 */
 	err = ksm_madvise(vma, old_addr, old_addr + old_len,
 			  MADV_UNMERGEABLE, &dummy);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (err)
 		return err;
 
@@ -1104,6 +1279,9 @@ static void unmap_source_vma(struct vma_remap_struct *vrm)
 	 * To avoid this we temporarily clear this flag, reinstating on any
 	 * portions of the original VMA that remain.
 	 */
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (accountable_move) {
 		vm_flags_clear(vma, VM_ACCOUNT);
 		/* We are about to split vma, so store the start/end. */
@@ -1113,6 +1291,9 @@ static void unmap_source_vma(struct vma_remap_struct *vrm)
 
 	err = do_vmi_munmap(&vmi, mm, addr, len, vrm->uf_unmap, /* unlock= */false);
 	vrm->vma = NULL; /* Invalidated. */
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (err) {
 		/* OOM: unable to split vma, just get accounts right */
 		vm_acct_memory(len >> PAGE_SHIFT);
@@ -1144,15 +1325,24 @@ static void unmap_source_vma(struct vma_remap_struct *vrm)
 	 *
 	 * do_vmi_munmap() will have restored the VMI back to addr.
 	 */
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (accountable_move) {
 		unsigned long end = addr + len;
 
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (vm_start < addr) {
 			struct vm_area_struct *prev = vma_prev(&vmi);
 
 			vm_flags_set(prev, VM_ACCOUNT); /* Acquires VMA lock. */
 		}
 
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (vm_end > end) {
 			struct vm_area_struct *next = vma_next(&vmi);
 
@@ -1183,6 +1373,9 @@ static int copy_vma_and_data(struct vma_remap_struct *vrm,
 
 	new_vma = copy_vma(&vma, vrm->new_addr, vrm->new_len, new_pgoff,
 			   &pmc.need_rmap_locks);
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (!new_vma) {
 		vrm_uncharge(vrm);
 		*new_vma_ptr = NULL;
@@ -1193,11 +1386,17 @@ static int copy_vma_and_data(struct vma_remap_struct *vrm,
 	pmc.new = new_vma;
 
 	moved_len = move_page_tables(&pmc);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (moved_len < vrm->old_len)
 		err = -ENOMEM;
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	else if (vma->vm_ops && vma->vm_ops->mremap)
 		err = vma->vm_ops->mremap(new_vma);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (unlikely(err)) {
 		PAGETABLE_MOVE(pmc_revert, new_vma, vma, vrm->new_addr,
 			       vrm->addr, moved_len);
@@ -1247,6 +1446,8 @@ static void dontunmap_complete(struct vma_remap_struct *vrm,
 	 * anon_vma links of the old vma is no longer needed after its page
 	 * table has been moved.
 	 */
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (new_vma != vrm->vma && start == old_start && end == old_end)
 		unlink_anon_vmas(vrm->vma);
 
@@ -1261,6 +1462,8 @@ static unsigned long move_vma(struct vma_remap_struct *vrm)
 	int err;
 
 	err = prep_move_vma(vrm);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (err)
 		return err;
 
@@ -1268,6 +1471,8 @@ static unsigned long move_vma(struct vma_remap_struct *vrm)
 	 * If accounted, determine the number of bytes the operation will
 	 * charge.
 	 */
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!vrm_calc_charge(vrm))
 		return -ENOMEM;
 
@@ -1281,6 +1486,8 @@ static unsigned long move_vma(struct vma_remap_struct *vrm)
 	 * error by setting the destination VMA to the source VMA and unmapping
 	 * it below.
 	 */
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (err && !new_vma)
 		return err;
 
@@ -1296,8 +1503,12 @@ static unsigned long move_vma(struct vma_remap_struct *vrm)
 	hiwater_vm = mm->hiwater_vm;
 
 	vrm_stat_account(vrm, vrm->new_len);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (unlikely(!err && (vrm->flags & MREMAP_DONTUNMAP)))
 		dontunmap_complete(vrm, new_vma);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	else
 		unmap_source_vma(vrm);
 
@@ -1327,6 +1538,8 @@ static unsigned long shrink_vma(struct vma_remap_struct *vrm,
 	res = do_vmi_munmap(&vmi, mm, unmap_start, unmap_bytes,
 			    vrm->uf_unmap, drop_lock);
 	vrm->vma = NULL; /* Invalidated. */
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (res)
 		return res;
 
@@ -1335,10 +1548,15 @@ static unsigned long shrink_vma(struct vma_remap_struct *vrm,
 	 * replace the invalidated VMA with the one that may have now been
 	 * split.
 	 */
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (drop_lock) {
 		vrm->mmap_locked = false;
 	} else {
 		vrm->vma = vma_lookup(mm, vrm->addr);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!vrm->vma)
 			return -EFAULT;
 	}
@@ -1355,6 +1573,9 @@ static unsigned long mremap_to(struct vma_remap_struct *vrm)
 	struct mm_struct *mm = current->mm;
 	unsigned long err;
 
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (vrm->flags & MREMAP_FIXED) {
 		/*
 		 * In mremap_to().
@@ -1364,6 +1585,8 @@ static unsigned long mremap_to(struct vma_remap_struct *vrm)
 		err = do_munmap(mm, vrm->new_addr, vrm->new_len,
 				vrm->uf_unmap_early);
 		vrm->vma = NULL; /* Invalidated. */
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (err)
 			return err;
 
@@ -1372,12 +1595,19 @@ static unsigned long mremap_to(struct vma_remap_struct *vrm)
 		 * this can invalidate the old VMA. Reset.
 		 */
 		vrm->vma = vma_lookup(mm, vrm->addr);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!vrm->vma)
 			return -EFAULT;
 	}
 
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (vrm->remap_type == MREMAP_SHRINK) {
 		err = shrink_vma(vrm, /* drop_lock= */false);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (err)
 			return err;
 
@@ -1386,15 +1616,22 @@ static unsigned long mremap_to(struct vma_remap_struct *vrm)
 	}
 
 	/* MREMAP_DONTUNMAP expands by old_len since old_len == new_len */
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (vrm->flags & MREMAP_DONTUNMAP) {
 		vm_flags_t vm_flags = vrm->vma->vm_flags;
 		unsigned long pages = vrm->old_len >> PAGE_SHIFT;
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!may_expand_vm(mm, vm_flags, pages))
 			return -ENOMEM;
 	}
 
 	err = vrm_set_new_addr(vrm);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (err)
 		return err;
 
@@ -1405,8 +1642,12 @@ static int vma_expandable(struct vm_area_struct *vma, unsigned long delta)
 {
 	unsigned long end = vma->vm_end + delta;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (end < vma->vm_end) /* overflow */
 		return 0;
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (find_vma_intersection(vma->vm_mm, vma->vm_end, end))
 		return 0;
 	if (get_unmapped_area(NULL, vma->vm_start, end - vma->vm_start,
@@ -1444,6 +1685,8 @@ static unsigned long expand_vma_in_place(struct vma_remap_struct *vrm)
 	struct vm_area_struct *vma = vrm->vma;
 	VMA_ITERATOR(vmi, mm, vma->vm_end);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!vrm_calc_charge(vrm))
 		return -ENOMEM;
 
@@ -1457,6 +1700,9 @@ static unsigned long expand_vma_in_place(struct vma_remap_struct *vrm)
 	 * compatible.
 	 */
 	vma = vma_merge_extend(&vmi, vma, vrm->delta);
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (!vma) {
 		vrm_uncharge(vrm);
 		return -ENOMEM;
@@ -1478,6 +1724,8 @@ static bool align_hugetlb(struct vma_remap_struct *vrm)
 	/* addrs must be huge page aligned */
 	if (vrm->addr & ~huge_page_mask(h))
 		return false;
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (vrm->new_addr & ~huge_page_mask(h))
 		return false;
 
@@ -1485,6 +1733,8 @@ static bool align_hugetlb(struct vma_remap_struct *vrm)
 	 * Don't allow remap expansion, because the underlying hugetlb
 	 * reservation is not yet capable to handle split reservation.
 	 */
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (vrm->new_len > vrm->old_len)
 		return false;
 
@@ -1506,8 +1756,12 @@ static unsigned long expand_vma(struct vma_remap_struct *vrm)
 	 * [addr, old_len) spans precisely to the end of the VMA, so try to
 	 * expand it in-place.
 	 */
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (vrm_can_expand_in_place(vrm)) {
 		err = expand_vma_in_place(vrm);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (err)
 			return err;
 
@@ -1526,6 +1780,8 @@ static unsigned long expand_vma(struct vma_remap_struct *vrm)
 
 	/* Find a new location to move the VMA to. */
 	err = vrm_set_new_addr(vrm);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (err)
 		return err;
 
@@ -1540,6 +1796,9 @@ static unsigned long mremap_at(struct vma_remap_struct *vrm)
 {
 	unsigned long res;
 
+	/**
+	 * @brief [Functional Utility for switch]: Describe purpose here.
+	 */
 	switch (vrm->remap_type) {
 	case MREMAP_INVALID:
 		break;
@@ -1555,6 +1814,8 @@ static unsigned long mremap_at(struct vma_remap_struct *vrm)
 		 * lock should be dropped.
 		 */
 		res = shrink_vma(vrm, /* drop_lock= */true);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (res)
 			return res;
 
@@ -1574,9 +1835,13 @@ static unsigned long mremap_at(struct vma_remap_struct *vrm)
  */
 static bool vrm_will_map_new(struct vma_remap_struct *vrm)
 {
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (vrm->remap_type == MREMAP_EXPAND)
 		return true;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (vrm_implies_new_addr(vrm))
 		return true;
 
@@ -1589,8 +1854,12 @@ static void notify_uffd(struct vma_remap_struct *vrm, bool failed)
 
 	/* Regardless of success/failure, we always notify of any unmaps. */
 	userfaultfd_unmap_complete(mm, vrm->uf_unmap_early);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (failed)
 		mremap_userfaultfd_fail(vrm->uf);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	else
 		mremap_userfaultfd_complete(vrm->uf, vrm->addr,
 			vrm->new_addr, vrm->old_len);
@@ -1604,6 +1873,8 @@ static int check_prep_vma(struct vma_remap_struct *vrm)
 	unsigned long addr = vrm->addr;
 	unsigned long old_len, new_len, pgoff;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!vma)
 		return -EFAULT;
 
@@ -1636,12 +1907,16 @@ static int check_prep_vma(struct vma_remap_struct *vrm)
 	 * based on the original.  There are no known use cases for this
 	 * behavior.  As a result, fail such attempts.
 	 */
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!old_len && !(vma->vm_flags & (VM_SHARED | VM_MAYSHARE))) {
 		pr_warn_once("%s (%d): attempted to duplicate a private mapping with mremap.  This is not supported.\n",
 			     current->comm, current->pid);
 		return -EINVAL;
 	}
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if ((vrm->flags & MREMAP_DONTUNMAP) &&
 			(vma->vm_flags & (VM_DONTEXPAND | VM_PFNMAP)))
 		return -EINVAL;
@@ -1650,6 +1925,8 @@ static int check_prep_vma(struct vma_remap_struct *vrm)
 	 * We permit crossing of boundaries for the range being unmapped due to
 	 * a shrink.
 	 */
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (vrm->remap_type == MREMAP_SHRINK)
 		old_len = new_len;
 
@@ -1657,21 +1934,31 @@ static int check_prep_vma(struct vma_remap_struct *vrm)
 	if (old_len > vma->vm_end - addr)
 		return -EFAULT;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (new_len == old_len)
 		return 0;
 
 	/* Need to be careful about a growing mapping */
 	pgoff = (addr - vma->vm_start) >> PAGE_SHIFT;
 	pgoff += vma->vm_pgoff;
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (pgoff + (new_len >> PAGE_SHIFT) < pgoff)
 		return -EINVAL;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (vma->vm_flags & (VM_DONTEXPAND | VM_PFNMAP))
 		return -EFAULT;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!mlock_future_ok(mm, vma->vm_flags, vrm->delta))
 		return -EAGAIN;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!may_expand_vm(mm, vma->vm_flags, vrm->delta >> PAGE_SHIFT))
 		return -ENOMEM;
 
@@ -1701,6 +1988,8 @@ static unsigned long check_mremap_params(struct vma_remap_struct *vrm)
 	 * for DOS-emu "duplicate shm area" thing. But
 	 * a zero new-len is nonsensical.
 	 */
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!vrm->new_len)
 		return -EINVAL;
 
@@ -1743,6 +2032,8 @@ static unsigned long check_mremap_params(struct vma_remap_struct *vrm)
 	 * Check whether current map count plus 2 still leads us to 4 maps below
 	 * the threshold, otherwise return -ENOMEM here to be more safe.
 	 */
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if ((current->mm->map_count + 2) >= sysctl_max_map_count - 3)
 		return -ENOMEM;
 
@@ -1759,15 +2050,21 @@ static unsigned long do_mremap(struct vma_remap_struct *vrm)
 	vrm->new_len = PAGE_ALIGN(vrm->new_len);
 
 	res = check_mremap_params(vrm);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (res)
 		return res;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (mmap_write_lock_killable(mm))
 		return -EINTR;
 	vrm->mmap_locked = true;
 
 	vrm->vma = vma_lookup(current->mm, vrm->addr);
 	res = check_prep_vma(vrm);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (res)
 		goto out;
 
@@ -1777,9 +2074,13 @@ static unsigned long do_mremap(struct vma_remap_struct *vrm)
 out:
 	failed = IS_ERR_VALUE(res);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (vrm->mmap_locked)
 		mmap_write_unlock(mm);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!failed && vrm->mlocked && vrm->new_len > vrm->old_len)
 		mm_populate(vrm->new_addr + vrm->old_len, vrm->delta);
 

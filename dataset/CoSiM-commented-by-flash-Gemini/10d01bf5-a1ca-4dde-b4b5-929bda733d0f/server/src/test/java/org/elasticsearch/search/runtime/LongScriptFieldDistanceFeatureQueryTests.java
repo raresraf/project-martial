@@ -33,6 +33,11 @@ import java.util.function.Function;
 
 import static org.hamcrest.Matchers.equalTo;
 
+/**
+ * @brief Functional description of the LongScriptFieldDistanceFeatureQueryTests class.
+ *        This is a placeholder for detailed semantic documentation.
+ *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+ */
 public class LongScriptFieldDistanceFeatureQueryTests extends AbstractScriptFieldQueryTestCase<LongScriptFieldDistanceFeatureQuery> {
     private final Function<LeafReaderContext, AbstractLongFieldScript> leafFactory = ctx -> null;
 
@@ -44,11 +49,23 @@ public class LongScriptFieldDistanceFeatureQueryTests extends AbstractScriptFiel
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param orig: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected LongScriptFieldDistanceFeatureQuery copy(LongScriptFieldDistanceFeatureQuery orig) {
         return new LongScriptFieldDistanceFeatureQuery(orig.script(), leafFactory, orig.fieldName(), orig.origin(), orig.pivot());
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param orig: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected LongScriptFieldDistanceFeatureQuery mutate(LongScriptFieldDistanceFeatureQuery orig) {
         Script script = orig.script();
         String fieldName = orig.fieldName();
@@ -65,6 +82,11 @@ public class LongScriptFieldDistanceFeatureQueryTests extends AbstractScriptFiel
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testMatches() throws IOException {
         try (Directory directory = newDirectory(); RandomIndexWriter iw = new RandomIndexWriter(random(), directory)) {
             iw.addDocument(List.of(new StoredField("_source", new BytesRef("{\"timestamp\": [1595432181354]}"))));
@@ -82,6 +104,11 @@ public class LongScriptFieldDistanceFeatureQueryTests extends AbstractScriptFiel
                 ) {
                     @Override
                     @SuppressWarnings("unchecked")
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
                     public void execute() {
                         Map<String, Object> source = (Map<String, Object>) this.getParams().get("_source");
                         for (Object timestamp : (List<?>) source.get("timestamp")) {
@@ -105,6 +132,11 @@ public class LongScriptFieldDistanceFeatureQueryTests extends AbstractScriptFiel
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testMaxScore() throws IOException {
         try (Directory directory = newDirectory(); RandomIndexWriter iw = new RandomIndexWriter(random(), directory)) {
             iw.addDocument(List.of());
@@ -121,6 +153,12 @@ public class LongScriptFieldDistanceFeatureQueryTests extends AbstractScriptFiel
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param query: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected void assertToString(LongScriptFieldDistanceFeatureQuery query) {
         assertThat(
             query.toString(query.fieldName()),
@@ -129,6 +167,11 @@ public class LongScriptFieldDistanceFeatureQueryTests extends AbstractScriptFiel
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void testVisit() {
         assertEmptyVisit();
     }

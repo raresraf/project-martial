@@ -1,3 +1,8 @@
+/**
+ * @file device.py
+ * @brief Semantic documentation for device.py. 
+ *        This is a placeholder. Detailed semantic analysis will be applied later.
+ */
 
 
 import Queue as q

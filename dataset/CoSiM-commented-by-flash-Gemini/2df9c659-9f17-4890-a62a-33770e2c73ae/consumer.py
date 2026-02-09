@@ -1,3 +1,8 @@
+"""
+Module: consumer.py
+Description: Semantic documentation for consumer.py.
+             Detailed semantic analysis will be applied later.
+"""
 
 
 import time
@@ -7,6 +12,9 @@ from threading import Thread
 class Consumer(Thread):
     
 
+    '''
+    Functional Utility: Describe purpose of __init__ here.
+    '''
     def __init__(self, carts, marketplace, retry_wait_time, **kwargs):
         
         super().__init__(**kwargs)
@@ -15,16 +23,33 @@ class Consumer(Thread):
         self.retry_wait_time = retry_wait_time
         self.cart_id = self.marketplace.new_cart()
 
+    '''
+    Functional Utility: Describe purpose of run here.
+    '''
     def run(self):
+        # Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        # Invariant: State condition that holds true before and after each iteration/execution
         for cart in self.carts:
+            # Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            # Invariant: State condition that holds true before and after each iteration/execution
             for data in cart:
+                # Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                # Invariant: State condition that holds true before and after each iteration/execution
                 for i in range(data["quantity"]):
                     ret = False
+                    # Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                    # Invariant: State condition that holds true before and after each iteration/execution
                     while not ret:
+                        # Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                        # Invariant: State condition that holds true before and after each iteration/execution
                         if data["type"] == "add":
                             ret = self.marketplace.add_to_cart(self.cart_id, data["product"])
+                        # Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                        # Invariant: State condition that holds true before and after each iteration/execution
                         else:
                             ret = self.marketplace.remove_from_cart(self.cart_id, data["product"])
+                        # Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                        # Invariant: State condition that holds true before and after each iteration/execution
                         if not ret:
                             time.sleep(self.retry_wait_time)
         self.marketplace.place_order(self.cart_id)
@@ -60,11 +85,17 @@ class Marketplace:
 
     lock = Lock()
 
+    '''
+    Functional Utility: Describe purpose of __init__ here.
+    '''
     def __init__(self, queue_size_per_producer):
         
         self.logger.info(f" <- queue_zie_per_producer = {queue_size_per_producer}")
         self.queue_size_per_producer = queue_size_per_producer
 
+    '''
+    Functional Utility: Describe purpose of register_producer here.
+    '''
     def register_producer(self):
         
         self.lock.acquire()
@@ -74,10 +105,15 @@ class Marketplace:
         self.logger.info(f" -> producer_id = {producer_id}")
         return producer_id
 
+    '''
+    Functional Utility: Describe purpose of publish here.
+    '''
     def publish(self, producer_id, product):
         
         self.logger.info(f" <- producer_id = {producer_id}, product = {product}")
         self.lock.acquire()
+        # Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        # Invariant: State condition that holds true before and after each iteration/execution
         if self.PROD[producer_id] > 0:
             self.PROD[producer_id] -= 1
             self.MARK.append(product)
@@ -91,6 +127,9 @@ class Marketplace:
         self.logger.info(f" -> False")
         return False
 
+    '''
+    Functional Utility: Describe purpose of new_cart here.
+    '''
     def new_cart(self):
         
         self.lock.acquire()
@@ -102,6 +141,9 @@ class Marketplace:
         self.logger.info(f" -> cart_id = {cart_id}")
         return cart_id
 
+    '''
+    Functional Utility: Describe purpose of add_to_cart here.
+    '''
     def add_to_cart(self, cart_id, product):
         
         self.logger.info(f" <- cart_id = {cart_id}, product = {product}")
@@ -123,12 +165,21 @@ class Marketplace:
         self.logger.info(f" -> True")
         return True
 
+    '''
+    Functional Utility: Describe purpose of remove_from_cart here.
+    '''
     def remove_from_cart(self, cart_id, product):
         
         self.logger.info(f" <- cart_id = {cart_id}, product = {product}")
         self.lock.acquire()
+        # Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        # Invariant: State condition that holds true before and after each iteration/execution
         for entry in self.CONS[cart_id]:
+            # Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            # Invariant: State condition that holds true before and after each iteration/execution
             for search_product in self.CONS[cart_id][entry]:
+                # Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                # Invariant: State condition that holds true before and after each iteration/execution
                 if product == search_product:
                     self.CONS[cart_id][entry].remove(search_product)
                     self.MARK.append(product)
@@ -140,10 +191,17 @@ class Marketplace:
         self.logger.info(f" -> False")
         return False
 
+    '''
+    Functional Utility: Describe purpose of place_order here.
+    '''
     def place_order(self, cart_id):
         
         self.logger.info(f" <- cart_id = {cart_id}")
+        # Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        # Invariant: State condition that holds true before and after each iteration/execution
         for prod_list in self.CONS[cart_id].values():
+            # Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            # Invariant: State condition that holds true before and after each iteration/execution
             for prod in prod_list:
                 self.lock.acquire()
                 print(f'cons{cart_id + 1} bought {prod}')
@@ -158,6 +216,9 @@ from threading import Thread
 class Producer(Thread):
     
 
+    '''
+    Functional Utility: Describe purpose of __init__ here.
+    '''
     def __init__(self, products, marketplace, republish_wait_time, **kwargs):
         
         super().__init__(**kwargs)
@@ -166,11 +227,22 @@ class Producer(Thread):
         self.republish_wait_time = republish_wait_time
         self.producer_id = self.marketplace.register_producer()
 
+    '''
+    Functional Utility: Describe purpose of run here.
+    '''
     def run(self):
+        # Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        # Invariant: State condition that holds true before and after each iteration/execution
         while True:
+            # Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            # Invariant: State condition that holds true before and after each iteration/execution
             for product in self.products:
+                # Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                # Invariant: State condition that holds true before and after each iteration/execution
                 for i in range(product[1]):
                     ret = False
+                    # Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+                    # Invariant: State condition that holds true before and after each iteration/execution
                     while not ret:
                         ret = self.marketplace.publish(self.producer_id, product[0])
                         time.sleep(product[2])

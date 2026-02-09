@@ -74,6 +74,11 @@ import static org.elasticsearch.common.lucene.search.Queries.newNonNestedFilter;
 import static org.elasticsearch.compute.lucene.LuceneSourceOperator.NO_LIMIT;
 import static org.elasticsearch.index.mapper.MappedFieldType.FieldExtractPreference.NONE;
 
+/**
+ * @brief Functional description of the EsPhysicalOperationProviders class.
+ *        This is a placeholder for detailed semantic documentation.
+ *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+ */
 public class EsPhysicalOperationProviders extends AbstractPhysicalOperationProviders {
     private static final Logger logger = LogManager.getLogger(EsPhysicalOperationProviders.class);
 
@@ -122,6 +127,13 @@ public class EsPhysicalOperationProviders extends AbstractPhysicalOperationProvi
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param fieldExtractExec: [Description]
+     * @param source: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final PhysicalOperation fieldExtractPhysicalOperation(FieldExtractExec fieldExtractExec, PhysicalOperation source) {
         Layout.Builder layout = source.layout.builder();
         var sourceAttr = fieldExtractExec.sourceAttribute();
@@ -171,6 +183,12 @@ public class EsPhysicalOperationProviders extends AbstractPhysicalOperationProvi
         return blockLoader;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param attr: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private MultiTypeEsField findUnionTypes(Attribute attr) {
         if (attr instanceof FieldAttribute fa && fa.field() instanceof MultiTypeEsField multiTypeEsField) {
             return multiTypeEsField;
@@ -178,12 +196,25 @@ public class EsPhysicalOperationProviders extends AbstractPhysicalOperationProvi
         return null;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param builder: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public Function<org.elasticsearch.compute.lucene.ShardContext, Query> querySupplier(QueryBuilder builder) {
         QueryBuilder qb = builder == null ? QueryBuilders.matchAllQuery().boost(0.0f) : builder;
         return ctx -> shardContexts.get(ctx.index()).toQuery(qb);
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param esQueryExec: [Description]
+     * @param context: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final PhysicalOperation sourcePhysicalOperation(EsQueryExec esQueryExec, LocalExecutionPlannerContext context) {
         final LuceneOperator.Factory luceneFactory;
         logger.trace("Query Exec is {}", esQueryExec);
@@ -292,6 +323,14 @@ public class EsPhysicalOperationProviders extends AbstractPhysicalOperationProvi
         private final AliasFilter aliasFilter;
         private final String shardIdentifier;
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param index: [Description]
+     * @param ctx: [Description]
+     * @param aliasFilter: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public DefaultShardContext(int index, SearchExecutionContext ctx, AliasFilter aliasFilter) {
             this.index = index;
             this.ctx = ctx;
@@ -301,31 +340,63 @@ public class EsPhysicalOperationProviders extends AbstractPhysicalOperationProvi
         }
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public int index() {
             return index;
         }
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public IndexSearcher searcher() {
             return ctx.searcher();
         }
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param sorts: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public Optional<SortAndFormats> buildSort(List<SortBuilder<?>> sorts) throws IOException {
             return SortBuilder.buildSort(sorts, ctx, false);
         }
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public String shardIdentifier() {
             return shardIdentifier;
         }
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public SourceLoader newSourceLoader() {
             return ctx.newSourceLoader(false);
         }
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param queryBuilder: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public Query toQuery(QueryBuilder queryBuilder) {
             Query query = ctx.toQuery(queryBuilder).query();
             NestedLookup nestedLookup = ctx.nestedLookup();
@@ -363,36 +434,73 @@ public class EsPhysicalOperationProviders extends AbstractPhysicalOperationProvi
             }
             BlockLoader loader = fieldType.blockLoader(new MappedFieldType.BlockLoaderContext() {
                 @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
                 public String indexName() {
                     return ctx.getFullyQualifiedIndex().getName();
                 }
 
                 @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
                 public IndexSettings indexSettings() {
                     return ctx.getIndexSettings();
                 }
 
                 @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
                 public MappedFieldType.FieldExtractPreference fieldExtractPreference() {
                     return fieldExtractPreference;
                 }
 
                 @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
                 public SearchLookup lookup() {
                     return ctx.lookup();
                 }
 
                 @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param name: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
                 public Set<String> sourcePaths(String name) {
                     return ctx.sourcePath(name);
                 }
 
                 @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param field: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
                 public String parentField(String field) {
                     return ctx.parentPath(field);
                 }
 
                 @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
                 public FieldNamesFieldMapper.FieldNamesFieldType fieldNames() {
                     return (FieldNamesFieldMapper.FieldNamesFieldType) ctx.lookup().fieldType(FieldNamesFieldMapper.NAME);
                 }
@@ -406,6 +514,11 @@ public class EsPhysicalOperationProviders extends AbstractPhysicalOperationProvi
         }
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public double storedFieldsSequentialProportion() {
             return EsqlPlugin.STORED_FIELDS_SEQUENTIAL_PROPORTION.get(ctx.getIndexSettings().getSettings());
         }
@@ -415,23 +528,49 @@ public class EsPhysicalOperationProviders extends AbstractPhysicalOperationProvi
         private final BlockLoader delegate;
         private final TypeConverter typeConverter;
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param delegate: [Description]
+     * @param convertFunction: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         protected TypeConvertingBlockLoader(BlockLoader delegate, AbstractConvertFunction convertFunction) {
             this.delegate = delegate;
             this.typeConverter = TypeConverter.fromConvertFunction(convertFunction);
         }
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param factory: [Description]
+     * @param expectedCount: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public Builder builder(BlockFactory factory, int expectedCount) {
             // Return the delegates builder, which can build the original mapped type, before conversion
             return delegate.builder(factory, expectedCount);
         }
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param block: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public Block convert(Block block) {
             return typeConverter.convert((org.elasticsearch.compute.data.Block) block);
         }
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param context: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public ColumnAtATimeReader columnAtATimeReader(LeafReaderContext context) throws IOException {
             ColumnAtATimeReader reader = delegate.columnAtATimeReader(context);
             if (reader == null) {
@@ -439,17 +578,35 @@ public class EsPhysicalOperationProviders extends AbstractPhysicalOperationProvi
             }
             return new ColumnAtATimeReader() {
                 @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param factory: [Description]
+     * @param docs: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
                 public Block read(BlockFactory factory, Docs docs) throws IOException {
                     Block block = reader.read(factory, docs);
                     return typeConverter.convert((org.elasticsearch.compute.data.Block) block);
                 }
 
                 @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param startingDocID: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
                 public boolean canReuse(int startingDocID) {
                     return reader.canReuse(startingDocID);
                 }
 
                 @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
                 public String toString() {
                     return reader.toString();
                 }
@@ -457,6 +614,12 @@ public class EsPhysicalOperationProviders extends AbstractPhysicalOperationProvi
         }
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param context: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public RowStrideReader rowStrideReader(LeafReaderContext context) throws IOException {
             // We do no type conversion here, since that will be done in the ValueSourceReaderOperator for row-stride cases
             // Using the BlockLoader.convert(Block) function defined above
@@ -464,22 +627,43 @@ public class EsPhysicalOperationProviders extends AbstractPhysicalOperationProvi
         }
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public StoredFieldsSpec rowStrideStoredFieldSpec() {
             return delegate.rowStrideStoredFieldSpec();
         }
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public boolean supportsOrdinals() {
             // Fields with mismatching types cannot use ordinals for uniqueness determination, but must convert the values first
             return false;
         }
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param context: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public SortedSetDocValues ordinals(LeafReaderContext context) {
             throw new IllegalArgumentException("Ordinals are not supported for type conversion");
         }
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public final String toString() {
             return "TypeConvertingBlockLoader[delegate=" + delegate + ", typeConverter=" + typeConverter + "]";
         }

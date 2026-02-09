@@ -40,12 +40,33 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
+/**
+ * @brief Functional description of the SenderService class.
+ *        This is a placeholder for detailed semantic documentation.
+ *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+ */
 public abstract class SenderService implements InferenceService {
     protected static final Set<TaskType> COMPLETION_ONLY = EnumSet.of(TaskType.COMPLETION);
+    /**
+     * @brief [Functional description for field sender]: Describe purpose here.
+     */
     private final Sender sender;
+    /**
+     * @brief [Functional description for field serviceComponents]: Describe purpose here.
+     */
     private final ServiceComponents serviceComponents;
+    /**
+     * @brief [Functional description for field clusterService]: Describe purpose here.
+     */
     private final ClusterService clusterService;
 
+    /**
+     * @brief [Functional Utility for SenderService]: Describe purpose here.
+     * @param factory: [Description]
+     * @param serviceComponents: [Description]
+     * @param clusterService: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public SenderService(HttpRequestSender.Factory factory, ServiceComponents serviceComponents, ClusterService clusterService) {
         Objects.requireNonNull(factory);
         sender = factory.createSender();
@@ -53,11 +74,25 @@ public abstract class SenderService implements InferenceService {
         this.clusterService = Objects.requireNonNull(clusterService);
     }
 
+    /**
+     * @brief [Functional Utility for getSender]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public Sender getSender() {
+    /**
+     * @brief [Functional description for field sender]: Describe purpose here.
+     */
         return sender;
     }
 
+    /**
+     * @brief [Functional Utility for getServiceComponents]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     protected ServiceComponents getServiceComponents() {
+    /**
+     * @brief [Functional description for field serviceComponents]: Describe purpose here.
+     */
         return serviceComponents;
     }
 
@@ -74,6 +109,8 @@ public abstract class SenderService implements InferenceService {
         @Nullable TimeValue timeout,
         ActionListener<InferenceServiceResults> listener
     ) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (timeout == null) {
             timeout = clusterService.getClusterSettings().get(InferencePlugin.INFERENCE_QUERY_TIMEOUT);
         }
@@ -99,7 +136,12 @@ public abstract class SenderService implements InferenceService {
             case RERANK -> {
                 ValidationException validationException = new ValidationException();
                 service.validateRerankParameters(returnDocuments, topN, validationException);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (validationException.validationErrors().isEmpty() == false) {
+    /**
+     * @brief [Functional description for field validationException]: Describe purpose here.
+     */
                     throw validationException;
                 }
                 yield new QueryAndDocsInputs(query, textInput, returnDocuments, topN, stream);
@@ -107,7 +149,12 @@ public abstract class SenderService implements InferenceService {
             case TEXT_EMBEDDING, SPARSE_EMBEDDING -> {
                 ValidationException validationException = new ValidationException();
                 service.validateInputType(inputType, model, validationException);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (validationException.validationErrors().isEmpty() == false) {
+    /**
+     * @brief [Functional description for field validationException]: Describe purpose here.
+     */
                     throw validationException;
                 }
                 yield new EmbeddingsInput(input, inputType, stream);
@@ -144,7 +191,12 @@ public abstract class SenderService implements InferenceService {
 
         ValidationException validationException = new ValidationException();
         validateInputType(inputType, model, validationException);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (validationException.validationErrors().isEmpty() == false) {
+    /**
+     * @brief [Functional description for field validationException]: Describe purpose here.
+     */
             throw validationException;
         }
 
@@ -180,25 +232,53 @@ public abstract class SenderService implements InferenceService {
         ActionListener<List<ChunkedInference>> listener
     );
 
+    /**
+     * @brief [Functional Utility for start]: Describe purpose here.
+     * @param model: [Description]
+     * @param listener: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public void start(Model model, ActionListener<Boolean> listener) {
         init();
         doStart(model, listener);
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for start]: Describe purpose here.
+     * @param model: [Description]
+     * @param unused: [Description]
+     * @param listener: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public void start(Model model, @Nullable TimeValue unused, ActionListener<Boolean> listener) {
         start(model, listener);
     }
 
+    /**
+     * @brief [Functional Utility for doStart]: Describe purpose here.
+     * @param model: [Description]
+     * @param listener: [Description]
+     * @return [ReturnType]: [Description]
+     */
     protected void doStart(Model model, ActionListener<Boolean> listener) {
         listener.onResponse(true);
     }
 
+    /**
+     * @brief [Functional Utility for init]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     private void init() {
         sender.start();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for close]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
     public void close() throws IOException {
         IOUtils.closeWhileHandlingException(sender);
     }

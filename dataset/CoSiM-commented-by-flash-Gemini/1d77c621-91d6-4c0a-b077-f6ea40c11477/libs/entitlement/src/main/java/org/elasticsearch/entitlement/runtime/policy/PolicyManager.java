@@ -134,7 +134,7 @@ public class PolicyManager {
 
         public <E extends Entitlement> Stream<E> getEntitlements(Class<E> entitlementClass) {
             var entitlements = entitlementsByType.get(entitlementClass);
-            if (entitlements == null) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (entitlements == null) {
                 return Stream.empty();
             }
             return entitlements.stream().map(entitlementClass::cast);
@@ -153,8 +153,8 @@ public class PolicyManager {
     // pkg private for testing
     ModuleEntitlements policyEntitlements(String componentName, Path componentPath, String moduleName, List<Entitlement> entitlements) {
         FilesEntitlement filesEntitlement = FilesEntitlement.EMPTY;
-        for (Entitlement entitlement : entitlements) {
-            if (entitlement instanceof FilesEntitlement) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (Entitlement entitlement : entitlements) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (entitlement instanceof FilesEntitlement) {
                 filesEntitlement = (FilesEntitlement) entitlement;
             }
         }
@@ -212,6 +212,9 @@ public class PolicyManager {
      */
     private final List<ExclusivePath> exclusivePaths;
 
+    /**
+     * @brief [Functional Utility for PolicyManager]: Describe purpose here.
+     */
     public PolicyManager(
         Policy serverPolicy,
         List<Entitlement> apmAgentEntitlements,
@@ -230,12 +233,12 @@ public class PolicyManager {
         this.pathLookup = requireNonNull(pathLookup);
 
         List<ExclusiveFileEntitlement> exclusiveFileEntitlements = new ArrayList<>();
-        for (var e : serverEntitlements.entrySet()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (var e : serverEntitlements.entrySet()) {
             validateEntitlementsPerModule(SERVER.componentName, e.getKey(), e.getValue(), exclusiveFileEntitlements);
         }
         validateEntitlementsPerModule(APM_AGENT.componentName, ALL_UNNAMED, apmAgentEntitlements, exclusiveFileEntitlements);
-        for (var p : pluginsEntitlements.entrySet()) {
-            for (var m : p.getValue().entrySet()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (var p : pluginsEntitlements.entrySet()) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            for (var m : p.getValue().entrySet()) {
                 validateEntitlementsPerModule(p.getKey(), m.getKey(), m.getValue(), exclusiveFileEntitlements);
             }
         }
@@ -252,6 +255,9 @@ public class PolicyManager {
         return policy.scopes().stream().collect(toUnmodifiableMap(Scope::moduleName, Scope::entitlements));
     }
 
+    /**
+     * @brief [Functional Utility for validateEntitlementsPerModule]: Describe purpose here.
+     */
     private static void validateEntitlementsPerModule(
         String componentName,
         String moduleName,
@@ -259,14 +265,14 @@ public class PolicyManager {
         List<ExclusiveFileEntitlement> exclusiveFileEntitlements
     ) {
         Set<Class<? extends Entitlement>> found = new HashSet<>();
-        for (var e : entitlements) {
-            if (found.contains(e.getClass())) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (var e : entitlements) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (found.contains(e.getClass())) {
                 throw new IllegalArgumentException(
                     "[" + componentName + "] using module [" + moduleName + "] found duplicate entitlement [" + e.getClass().getName() + "]"
                 );
             }
             found.add(e.getClass());
-            if (e instanceof FilesEntitlement fe) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (e instanceof FilesEntitlement fe) {
                 exclusiveFileEntitlements.add(new ExclusiveFileEntitlement(componentName, moduleName, fe));
             }
         }
@@ -320,9 +326,9 @@ public class PolicyManager {
             default -> {
                 assert policyScope.kind() == PLUGIN;
                 var pluginEntitlements = pluginsEntitlements.get(componentName);
-                if (pluginEntitlements == null) {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                if (pluginEntitlements == null) {
                     return defaultEntitlements(componentName, sourcePaths.get(componentName), moduleName);
-                } else {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                } else {
                     return getModuleScopeEntitlements(pluginEntitlements, moduleName, componentName, sourcePaths.get(componentName));
                 }
             }
@@ -332,7 +338,7 @@ public class PolicyManager {
     // pkg private for testing
     static Path getComponentPathFromClass(Class<?> requestingClass) {
         var codeSource = requestingClass.getProtectionDomain().getCodeSource();
-        if (codeSource == null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (codeSource == null) {
             return null;
         }
         try {
@@ -348,6 +354,9 @@ public class PolicyManager {
         }
     }
 
+    /**
+     * @brief [Functional Utility for getModuleScopeEntitlements]: Describe purpose here.
+     * @return ModuleEntitlements: [Description]\n     */
     private ModuleEntitlements getModuleScopeEntitlements(
         Map<String, List<Entitlement>> scopeEntitlements,
         String scopeName,
@@ -355,7 +364,7 @@ public class PolicyManager {
         Path componentPath
     ) {
         var entitlements = scopeEntitlements.get(scopeName);
-        if (entitlements == null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (entitlements == null) {
             return defaultEntitlements(componentName, componentPath, scopeName);
         }
         return policyEntitlements(componentName, componentPath, scopeName, entitlements);
@@ -365,18 +374,18 @@ public class PolicyManager {
      * @return true if permission is granted regardless of the entitlement
      */
     boolean isTriviallyAllowed(Class<?> requestingClass) {
-        if (generalLogger.isTraceEnabled()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (generalLogger.isTraceEnabled()) {
             generalLogger.trace("Stack trace for upcoming trivially-allowed check", new Exception());
         }
-        if (requestingClass == null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (requestingClass == null) {
             generalLogger.debug("Entitlement trivially allowed: no caller frames outside the entitlement library");
             return true;
         }
-        if (requestingClass == NO_CLASS) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (requestingClass == NO_CLASS) {
             generalLogger.debug("Entitlement trivially allowed from outermost frame");
             return true;
         }
-        if (isTrustedSystemClass(requestingClass)) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (isTrustedSystemClass(requestingClass)) {
             generalLogger.debug("Entitlement trivially allowed from system module [{}]", requestingClass.getModule().getName());
             return true;
         }

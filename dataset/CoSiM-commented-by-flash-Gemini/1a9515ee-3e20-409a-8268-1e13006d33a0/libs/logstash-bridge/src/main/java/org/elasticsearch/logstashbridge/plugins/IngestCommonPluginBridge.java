@@ -19,8 +19,15 @@ import java.util.Map;
  */
 public class IngestCommonPluginBridge implements IngestPluginBridge {
 
+    /**
+     * @brief [Functional description for field delegate]: Describe purpose here.
+     */
     private final IngestCommonPlugin delegate;
 
+    /**
+     * @brief [Functional Utility for IngestCommonPluginBridge]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public IngestCommonPluginBridge() {
         delegate = new IngestCommonPlugin();
     }

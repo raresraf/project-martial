@@ -59,6 +59,8 @@ static struct fprobe_hlist_node *find_first_fprobe_node(unsigned long ip)
 	head = &fprobe_ip_table[hash_ptr((void *)ip, FPROBE_IP_HASH_BITS)];
 	hlist_for_each_entry_rcu(node, head, hlist,
 				 lockdep_is_held(&fprobe_mutex)) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (node->addr == ip)
 			return node;
 	}
@@ -76,6 +78,9 @@ static void insert_fprobe_node(struct fprobe_hlist_node *node)
 	lockdep_assert_held(&fprobe_mutex);
 
 	next = find_first_fprobe_node(ip);
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (next) {
 		hlist_add_before_rcu(&node->hlist, &next->hlist);
 		return;
@@ -106,6 +111,8 @@ static bool is_fprobe_still_exist(struct fprobe *fp)
 	head = &fprobe_table[hash_ptr(fp, FPROBE_HASH_BITS)];
 	hlist_for_each_entry_rcu(fph, head, hlist,
 				 lockdep_is_held(&fprobe_mutex)) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (fph->fp == fp)
 			return true;
 	}
@@ -120,9 +127,13 @@ static int add_fprobe_hash(struct fprobe *fp)
 
 	lockdep_assert_held(&fprobe_mutex);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (WARN_ON_ONCE(!fph))
 		return -EINVAL;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (is_fprobe_still_exist(fp))
 		return -EEXIST;
 
@@ -137,9 +148,13 @@ static int del_fprobe_hash(struct fprobe *fp)
 
 	lockdep_assert_held(&fprobe_mutex);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (WARN_ON_ONCE(!fph))
 		return -EINVAL;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!is_fprobe_still_exist(fp))
 		return -ENOENT;
 
@@ -186,6 +201,8 @@ static inline bool write_fprobe_header(unsigned long *stack,
 {
 	struct __fprobe_header *fph = (struct __fprobe_header *)stack;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (WARN_ON_ONCE(size_words > MAX_FPROBE_DATA_SIZE_WORD))
 		return false;
 
@@ -218,6 +235,8 @@ static inline int __fprobe_handler(unsigned long ip, unsigned long parent_ip,
 				   struct fprobe *fp, struct ftrace_regs *fregs,
 				   void *data)
 {
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!fp->entry_handler)
 		return 0;
 
@@ -235,6 +254,8 @@ static inline int __fprobe_kprobe_handler(unsigned long ip, unsigned long parent
 	 * exit as kprobe does. See the section 'Share the callbacks with kprobes'
 	 * in Documentation/trace/fprobe.rst for more information.
 	 */
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (unlikely(kprobe_running())) {
 		fp->nmissed++;
 		return 0;
@@ -257,18 +278,29 @@ static int fprobe_entry(struct ftrace_graph_ent *trace, struct fgraph_ops *gops,
 	struct fprobe *fp;
 	int used, ret;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (WARN_ON_ONCE(!fregs))
 		return 0;
 
 	first = node = find_first_fprobe_node(func);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (unlikely(!first))
 		return 0;
 
 	reserved_words = 0;
+	/**
+	 * @brief [Functional Utility for hlist_for_each_entry_from_rcu]: Describe purpose here.
+	 */
 	hlist_for_each_entry_from_rcu(node, hlist) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (node->addr != func)
 			break;
 		fp = READ_ONCE(node->fp);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!fp || !fp->exit_handler)
 			continue;
 		/*
@@ -279,13 +311,25 @@ static int fprobe_entry(struct ftrace_graph_ent *trace, struct fgraph_ops *gops,
 			FPROBE_HEADER_SIZE_IN_LONG + SIZE_IN_LONG(fp->entry_data_size);
 	}
 	node = first;
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (reserved_words) {
 		fgraph_data = fgraph_reserve_data(gops->idx, reserved_words * sizeof(long));
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (unlikely(!fgraph_data)) {
+			/**
+			 * @brief [Functional Utility for hlist_for_each_entry_from_rcu]: Describe purpose here.
+			 */
 			hlist_for_each_entry_from_rcu(node, hlist) {
+				// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+				// Invariant: State condition that holds true before and after each iteration/execution
 				if (node->addr != func)
 					break;
 				fp = READ_ONCE(node->fp);
+				// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+				// Invariant: State condition that holds true before and after each iteration/execution
 				if (fp && !fprobe_disabled(fp))
 					fp->nmissed++;
 			}
@@ -299,35 +343,57 @@ static int fprobe_entry(struct ftrace_graph_ent *trace, struct fgraph_ops *gops,
 	 */
 	ret_ip = ftrace_regs_get_return_address(fregs);
 	used = 0;
+	/**
+	 * @brief [Functional Utility for hlist_for_each_entry_from_rcu]: Describe purpose here.
+	 */
 	hlist_for_each_entry_from_rcu(node, hlist) {
 		int data_size;
 		void *data;
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (node->addr != func)
 			break;
 		fp = READ_ONCE(node->fp);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!fp || fprobe_disabled(fp))
 			continue;
 
 		data_size = fp->entry_data_size;
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (data_size && fp->exit_handler)
 			data = fgraph_data + used + FPROBE_HEADER_SIZE_IN_LONG;
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		else
 			data = NULL;
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (fprobe_shared_with_kprobes(fp))
 			ret = __fprobe_kprobe_handler(func, ret_ip, fp, fregs, data);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		else
 			ret = __fprobe_handler(func, ret_ip, fp, fregs, data);
 
 		/* If entry_handler returns !0, nmissed is not counted but skips exit_handler. */
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (!ret && fp->exit_handler) {
 			int size_words = SIZE_IN_LONG(data_size);
 
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (write_fprobe_header(&fgraph_data[used], fp, size_words))
 				used += FPROBE_HEADER_SIZE_IN_LONG + size_words;
 		}
 	}
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (used < reserved_words)
 		memset(fgraph_data + used, 0, reserved_words - used);
 
@@ -347,6 +413,8 @@ static void fprobe_return(struct ftrace_graph_ret *trace,
 	int size_words;
 
 	fgraph_data = (unsigned long *)fgraph_retrieve_data(gops->idx, &size);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (WARN_ON_ONCE(!fgraph_data))
 		return;
 	size_words = SIZE_IN_LONG(size);
@@ -355,12 +423,21 @@ static void fprobe_return(struct ftrace_graph_ret *trace,
 	preempt_disable_notrace();
 
 	curr = 0;
+	/**
+	 * @brief [Functional Utility for while]: Describe purpose here.
+	 */
 	while (size_words > curr) {
 		read_fprobe_header(&fgraph_data[curr], &fp, &size);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!fp)
 			break;
 		curr += FPROBE_HEADER_SIZE_IN_LONG;
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (is_fprobe_still_exist(fp) && !fprobe_disabled(fp)) {
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (WARN_ON_ONCE(curr + size > size_words))
 				break;
 			fp->exit_handler(fp, trace->func, ret_ip, fregs,
@@ -386,11 +463,18 @@ static int fprobe_graph_add_ips(unsigned long *addrs, int num)
 	lockdep_assert_held(&fprobe_mutex);
 
 	ret = ftrace_set_filter_ips(&fprobe_graph_ops.ops, addrs, num, 0, 0);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret)
 		return ret;
 
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (!fprobe_graph_active) {
 		ret = register_ftrace_graph(&fprobe_graph_ops);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (WARN_ON_ONCE(ret)) {
 			ftrace_free_filter(&fprobe_graph_ops.ops);
 			return ret;
@@ -410,6 +494,8 @@ static void fprobe_graph_remove_ips(unsigned long *addrs, int num)
 	if (!fprobe_graph_active)
 		unregister_ftrace_graph(&fprobe_graph_ops);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (num)
 		ftrace_set_filter_ips(&fprobe_graph_ops.ops, addrs, num, 1, 0);
 }
@@ -428,15 +514,21 @@ static int fprobe_addr_list_add(struct fprobe_addr_list *alist, unsigned long ad
 {
 	unsigned long *addrs;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (alist->index >= alist->size)
 		return -ENOMEM;
 
 	alist->addrs[alist->index++] = addr;
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (alist->index < alist->size)
 		return 0;
 
 	/* Expand the address list */
 	addrs = kcalloc(alist->size * 2, sizeof(*addrs), GFP_KERNEL);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!addrs)
 		return -ENOMEM;
 
@@ -456,14 +548,20 @@ static void fprobe_remove_node_in_module(struct module *mod, struct hlist_head *
 
 	hlist_for_each_entry_rcu(node, head, hlist,
 				 lockdep_is_held(&fprobe_mutex)) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!within_module(node->addr, mod))
 			continue;
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (delete_fprobe_node(node))
 			continue;
 		/*
 		 * If failed to update alist, just continue to update hlist.
 		 * Therefore, at list user handler will not hit anymore.
 		 */
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!ret)
 			ret = fprobe_addr_list_add(alist, node->addr);
 	}
@@ -477,6 +575,8 @@ static int fprobe_module_callback(struct notifier_block *nb,
 	struct module *mod = data;
 	int i;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (val != MODULE_STATE_GOING)
 		return NOTIFY_DONE;
 
@@ -486,9 +586,13 @@ static int fprobe_module_callback(struct notifier_block *nb,
 		return NOTIFY_DONE;
 
 	mutex_lock(&fprobe_mutex);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	for (i = 0; i < FPROBE_IP_TABLE_SIZE; i++)
 		fprobe_remove_node_in_module(mod, &fprobe_ip_table[i], &alist);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (alist.index < alist.size && alist.index > 0)
 		ftrace_set_filter_ips(&fprobe_graph_ops.ops,
 				      alist.addrs, alist.index, 1, 0);
@@ -526,12 +630,16 @@ static unsigned long *get_ftrace_locations(const char **syms, int num)
 
 	/* Convert symbols to symbol address */
 	addrs = kcalloc(num, sizeof(*addrs), GFP_KERNEL);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!addrs)
 		return ERR_PTR(-ENOMEM);
 
 	/* ftrace_lookup_symbols expects sorted symbols */
 	sort(syms, num, sizeof(*syms), symbols_cmp, NULL);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!ftrace_lookup_symbols(syms, num, addrs))
 		return addrs;
 
@@ -552,16 +660,25 @@ static int filter_match_callback(void *data, const char *name, unsigned long add
 {
 	struct filter_match_data *match = data;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!glob_match(match->filter, name) ||
 	    (match->notfilter && glob_match(match->notfilter, name)))
 		return 0;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!ftrace_location(addr))
 		return 0;
 
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (match->addrs) {
 		struct module *mod = __module_text_address(addr);
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (mod && !try_module_get(mod))
 			return 0;
 
@@ -589,14 +706,22 @@ static int get_ips_from_filter(const char *filter, const char *notfilter,
 		.index = 0, .size = size, .addrs = addrs, .mods = mods};
 	int ret;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (addrs && !mods)
 		return -EINVAL;
 
 	ret = kallsyms_on_each_symbol(filter_match_callback, &match);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret < 0)
 		return ret;
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (IS_ENABLED(CONFIG_MODULES)) {
 		ret = module_kallsyms_on_each_symbol(NULL, filter_match_callback, &match);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (ret < 0)
 			return ret;
 	}
@@ -617,15 +742,21 @@ static int fprobe_init(struct fprobe *fp, unsigned long *addrs, int num)
 	unsigned long addr;
 	int size, i;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!fp || !addrs || num <= 0)
 		return -EINVAL;
 
 	size = ALIGN(fp->entry_data_size, sizeof(long));
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (size > MAX_FPROBE_DATA_SIZE)
 		return -E2BIG;
 	fp->entry_data_size = size;
 
 	hlist_array = kzalloc(struct_size(hlist_array, array, num), GFP_KERNEL);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!hlist_array)
 		return -ENOMEM;
 
@@ -634,9 +765,15 @@ static int fprobe_init(struct fprobe *fp, unsigned long *addrs, int num)
 	hlist_array->size = num;
 	fp->hlist_array = hlist_array;
 	hlist_array->fp = fp;
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (i = 0; i < num; i++) {
 		hlist_array->array[i].fp = fp;
 		addr = ftrace_location(addrs[i]);
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (!addr) {
 			fprobe_fail_cleanup(fp);
 			return -ENOENT;
@@ -670,28 +807,43 @@ int register_fprobe(struct fprobe *fp, const char *filter, const char *notfilter
 	struct module **mods __free(kfree) = NULL;
 	int ret, num;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!fp || !filter)
 		return -EINVAL;
 
 	num = get_ips_from_filter(filter, notfilter, NULL, NULL, FPROBE_IPS_MAX);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (num < 0)
 		return num;
 
 	addrs = kcalloc(num, sizeof(*addrs), GFP_KERNEL);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!addrs)
 		return -ENOMEM;
 
 	mods = kcalloc(num, sizeof(*mods), GFP_KERNEL);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!mods)
 		return -ENOMEM;
 
 	ret = get_ips_from_filter(filter, notfilter, addrs, mods, num);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret < 0)
 		return ret;
 
 	ret = register_fprobe_ips(fp, addrs, ret);
 
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (int i = 0; i < num; i++) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (mods[i])
 			module_put(mods[i]);
 	}
@@ -718,6 +870,8 @@ int register_fprobe_ips(struct fprobe *fp, unsigned long *addrs, int num)
 	int ret, i;
 
 	ret = fprobe_init(fp, addrs, num);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret)
 		return ret;
 
@@ -725,13 +879,20 @@ int register_fprobe_ips(struct fprobe *fp, unsigned long *addrs, int num)
 
 	hlist_array = fp->hlist_array;
 	ret = fprobe_graph_add_ips(addrs, num);
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (!ret) {
 		add_fprobe_hash(fp);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		for (i = 0; i < hlist_array->size; i++)
 			insert_fprobe_node(&hlist_array->array[i]);
 	}
 	mutex_unlock(&fprobe_mutex);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret)
 		fprobe_fail_cleanup(fp);
 
@@ -755,10 +916,14 @@ int register_fprobe_syms(struct fprobe *fp, const char **syms, int num)
 	unsigned long *addrs;
 	int ret;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!fp || !syms || num <= 0)
 		return -EINVAL;
 
 	addrs = get_ftrace_locations(syms, num);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (IS_ERR(addrs))
 		return PTR_ERR(addrs);
 
@@ -772,6 +937,8 @@ EXPORT_SYMBOL_GPL(register_fprobe_syms);
 
 bool fprobe_is_registered(struct fprobe *fp)
 {
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!fp || !fp->hlist_array)
 		return false;
 	return true;
@@ -792,6 +959,8 @@ int unregister_fprobe(struct fprobe *fp)
 	int ret = 0, i, count;
 
 	mutex_lock(&fprobe_mutex);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!fp || !is_fprobe_still_exist(fp)) {
 		ret = -EINVAL;
 		goto out;
@@ -799,6 +968,9 @@ int unregister_fprobe(struct fprobe *fp)
 
 	hlist_array = fp->hlist_array;
 	addrs = kcalloc(hlist_array->size, sizeof(unsigned long), GFP_KERNEL);
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (!addrs) {
 		ret = -ENOMEM;	/* TODO: Fallback to one-by-one loop */
 		goto out;
@@ -806,7 +978,12 @@ int unregister_fprobe(struct fprobe *fp)
 
 	/* Remove non-synonim ips from table and hash */
 	count = 0;
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (i = 0; i < hlist_array->size; i++) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!delete_fprobe_node(&hlist_array->array[i]))
 			addrs[count++] = hlist_array->array[i].addr;
 	}

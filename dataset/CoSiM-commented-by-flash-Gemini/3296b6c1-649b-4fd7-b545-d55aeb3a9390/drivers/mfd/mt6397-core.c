@@ -351,6 +351,8 @@ static int mt6397_probe(struct platform_device *pdev)
 	const struct chip_data *pmic_core;
 
 	pmic = devm_kzalloc(&pdev->dev, sizeof(*pmic), GFP_KERNEL);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!pmic)
 		return -ENOMEM;
 
@@ -361,14 +363,21 @@ static int mt6397_probe(struct platform_device *pdev)
 	 * Regmap is set from its parent.
 	 */
 	pmic->regmap = dev_get_regmap(pdev->dev.parent, NULL);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!pmic->regmap)
 		return -ENODEV;
 
 	pmic_core = of_device_get_match_data(&pdev->dev);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!pmic_core)
 		return -ENODEV;
 
 	ret = regmap_read(pmic->regmap, pmic_core->cid_addr, &id);
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to read chip id: %d\n", ret);
 		return ret;
@@ -379,16 +388,23 @@ static int mt6397_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, pmic);
 
 	pmic->irq = platform_get_irq(pdev, 0);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (pmic->irq <= 0)
 		return pmic->irq;
 
 	ret = pmic_core->irq_init(pmic);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret)
 		return ret;
 
 	ret = devm_mfd_add_devices(&pdev->dev, PLATFORM_DEVID_NONE,
 				   pmic_core->cells, pmic_core->cell_size,
 				   NULL, 0, pmic->irq_domain);
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (ret) {
 		irq_domain_remove(pmic->irq_domain);
 		dev_err(&pdev->dev, "failed to add child devices: %d\n", ret);

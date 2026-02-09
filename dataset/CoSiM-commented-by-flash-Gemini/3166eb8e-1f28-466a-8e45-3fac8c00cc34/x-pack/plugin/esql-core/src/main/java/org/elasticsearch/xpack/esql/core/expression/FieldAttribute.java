@@ -43,6 +43,9 @@ public class FieldAttribute extends TypedAttribute {
      * A field name, as found in the mapping. Includes the whole path from the root of the document.
      * Implemented as a wrapper around {@link String} to distinguish from the attribute name (which sometimes differs!) at compile time.
      */
+    /**
+     * @brief [Functional Utility for FieldName]: Describe purpose here.
+     */
     public record FieldName(String string) {};
 
     static final NamedWriteableRegistry.Entry ENTRY = new NamedWriteableRegistry.Entry(
@@ -55,14 +58,23 @@ public class FieldAttribute extends TypedAttribute {
     private final EsField field;
     protected FieldName lazyFieldName;
 
+    /**
+     * @brief [Functional Utility for FieldAttribute]: Describe purpose here.
+     */
     public FieldAttribute(Source source, String name, EsField field) {
         this(source, null, name, field);
     }
 
+    /**
+     * @brief [Functional Utility for FieldAttribute]: Describe purpose here.
+     */
     public FieldAttribute(Source source, @Nullable String parentName, String name, EsField field) {
         this(source, parentName, name, field, Nullability.TRUE, null, false);
     }
 
+    /**
+     * @brief [Functional Utility for FieldAttribute]: Describe purpose here.
+     */
     public FieldAttribute(Source source, @Nullable String parentName, String name, EsField field, boolean synthetic) {
         this(source, parentName, name, field, Nullability.TRUE, null, synthetic);
     }
@@ -93,10 +105,14 @@ public class FieldAttribute extends TypedAttribute {
         Source source = Source.readFrom((StreamInput & PlanStreamInput) in);
         String parentName = ((PlanStreamInput) in).readOptionalCachedString();
         String name = readCachedStringWithVersionCheck(in);
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (in.getTransportVersion().before(ESQL_FIELD_ATTRIBUTE_DROP_TYPE)) {
             DataType.readFrom(in);
         }
         EsField field = EsField.readFrom(in);
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (in.getTransportVersion().before(ESQL_FIELD_ATTRIBUTE_DROP_TYPE)) {
             in.readOptionalString();
         }
@@ -108,14 +124,20 @@ public class FieldAttribute extends TypedAttribute {
 
     @Override
     public void writeTo(StreamOutput out) throws IOException {
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (((PlanStreamOutput) out).writeAttributeCacheHeader(this)) {
             Source.EMPTY.writeTo(out);
             ((PlanStreamOutput) out).writeOptionalCachedString(parentName);
             writeCachedStringWithVersionCheck(out, name());
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (out.getTransportVersion().before(ESQL_FIELD_ATTRIBUTE_DROP_TYPE)) {
                 dataType().writeTo(out);
             }
             field.writeTo(out);
+            // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+            // Invariant: State condition that holds true before and after each iteration/execution
             if (out.getTransportVersion().before(ESQL_FIELD_ATTRIBUTE_DROP_TYPE)) {
                 // We used to write the qualifier here. We can still do if needed in the future.
                 out.writeOptionalString(null);
@@ -131,15 +153,24 @@ public class FieldAttribute extends TypedAttribute {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for getWriteableName]: Describe purpose here.
+     */
     public String getWriteableName() {
         return ENTRY.name;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for info]: Describe purpose here.
+     */
     protected NodeInfo<FieldAttribute> info() {
         return NodeInfo.create(this, FieldAttribute::new, parentName, name(), field, nullable(), id(), synthetic());
     }
 
+    /**
+     * @brief [Functional Utility for parentName]: Describe purpose here.
+     */
     public String parentName() {
         return parentName;
     }
@@ -148,6 +179,9 @@ public class FieldAttribute extends TypedAttribute {
      * The full name of the field in the index, including all parent fields. E.g. {@code parent.subfield.this_field}.
      */
     public FieldName fieldName() {
+        /**
+         * @brief [Functional Utility for if]: Describe purpose here.
+         */
         if (lazyFieldName == null) {
             // Before 8.15, the field name was the same as the attribute's name.
             // On later versions, the attribute can be renamed when creating synthetic attributes.
@@ -166,46 +200,72 @@ public class FieldAttribute extends TypedAttribute {
         return field.getExactInfo();
     }
 
+    /**
+     * @brief [Functional Utility for exactAttribute]: Describe purpose here.
+     */
     public FieldAttribute exactAttribute() {
         EsField exactField = field.getExactField();
+        // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+        // Invariant: State condition that holds true before and after each iteration/execution
         if (exactField.equals(field) == false) {
             return innerField(exactField);
         }
         return this;
     }
 
+    /**
+     * @brief [Functional Utility for innerField]: Describe purpose here.
+     */
     private FieldAttribute innerField(EsField type) {
         return new FieldAttribute(source(), fieldName().string, name() + "." + type.getName(), type, nullable(), id(), synthetic());
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for clone]: Describe purpose here.
+     */
     protected Attribute clone(Source source, String name, DataType type, Nullability nullability, NameId id, boolean synthetic) {
         // Ignore `type`, this must be the same as the field's type.
         return new FieldAttribute(source, parentName, name, field, nullability, id, synthetic);
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for withDataType]: Describe purpose here.
+     */
     public Attribute withDataType(DataType type) {
         throw new UnsupportedOperationException("FieldAttribute obtains its type from the contained EsField.");
     }
 
     @Override
     @SuppressWarnings("checkstyle:EqualsHashCode")// equals is implemented in parent. See innerEquals instead
+    /**
+     * @brief [Functional Utility for hashCode]: Describe purpose here.
+     */
     public int hashCode() {
         return Objects.hash(super.hashCode(), parentName, field);
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for innerEquals]: Describe purpose here.
+     */
     protected boolean innerEquals(Object o) {
         var other = (FieldAttribute) o;
         return super.innerEquals(other) && Objects.equals(parentName, other.parentName) && Objects.equals(field, other.field);
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for label]: Describe purpose here.
+     */
     protected String label() {
         return "f";
     }
 
+    /**
+     * @brief [Functional Utility for field]: Describe purpose here.
+     */
     public EsField field() {
         return field;
     }

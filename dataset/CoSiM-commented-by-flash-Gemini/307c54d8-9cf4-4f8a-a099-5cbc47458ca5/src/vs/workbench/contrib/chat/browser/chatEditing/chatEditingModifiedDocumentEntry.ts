@@ -153,6 +153,8 @@ export class ChatEditingModifiedDocumentEntry extends AbstractChatEditingModifie
 		// Create a reference to this model to avoid it being disposed from under our nose
 		(async () => {
 			const reference = await textModelService.createModelReference(docSnapshot.uri);
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (this._store.isDisposed) {
 				reference.dispose();
 				return;
@@ -170,6 +172,8 @@ export class ChatEditingModifiedDocumentEntry extends AbstractChatEditingModifie
 		const resourceFilter = this._register(new MutableDisposable());
 		this._register(autorun(r => {
 			const inProgress = this._waitsForLastEdits.read(r);
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (inProgress) {
 				const res = this._lastModifyingResponseObs.read(r);
 				const req = res && res.session.getRequests().find(value => value.id === res.requestId);
@@ -210,6 +214,8 @@ export class ChatEditingModifiedDocumentEntry extends AbstractChatEditingModifie
 	restoreFromSnapshot(snapshot: ISnapshotEntry, restoreToDisk = true) {
 		this._stateObs.set(snapshot.state, undefined);
 		this.originalModel.setValue(snapshot.original);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (restoreToDisk) {
 			this._setDocValue(snapshot.current);
 		}
@@ -234,6 +240,8 @@ export class ChatEditingModifiedDocumentEntry extends AbstractChatEditingModifie
 	private _mirrorEdits(event: IModelContentChangedEvent) {
 		const edit = offsetEditFromContentChanges(event.changes);
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (this._isEditFromUs) {
 			const e_sum = this._edit;
 			const e_ai = edit;
@@ -260,6 +268,8 @@ export class ChatEditingModifiedDocumentEntry extends AbstractChatEditingModifie
 
 			const e_user_r = e_user.tryRebase(e_ai.inverse(this.originalModel.getValue()), true);
 
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (e_user_r === undefined) {
 				// user edits overlaps/conflicts with AI edits
 				this._edit = e_ai.compose(e_user);
@@ -275,8 +285,12 @@ export class ChatEditingModifiedDocumentEntry extends AbstractChatEditingModifie
 
 			const didResetToOriginalContent = this.modifiedModel.getValue() === this.initialContent;
 			const currentState = this._stateObs.get();
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			switch (currentState) {
 				case ModifiedFileEntryState.Modified:
+					// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+					// Invariant: State condition that holds true before and after each iteration/execution
 					if (didResetToOriginalContent) {
 						this._stateObs.set(ModifiedFileEntryState.Rejected, undefined);
 						break;
@@ -300,26 +314,38 @@ export class ChatEditingModifiedDocumentEntry extends AbstractChatEditingModifie
 
 		let rewriteRatio = 0;
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (isAtomicEdits) {
 			// EDIT and DONE
 			const minimalEdits = await this._editorWorkerService.computeMoreMinimalEdits(this.modifiedModel.uri, textEdits) ?? textEdits;
 			const ops = minimalEdits.map(TextEdit.asEditOperation);
 			const undoEdits = this._applyEdits(ops);
 
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (undoEdits.length > 0) {
 				let range: Range | undefined;
+				// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+				// Invariant: State condition that holds true before and after each iteration/execution
 				for (let i = 0; i < undoEdits.length; i++) {
 					const op = undoEdits[i];
+					// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+					// Invariant: State condition that holds true before and after each iteration/execution
 					if (!range) {
 						range = Range.lift(op.range);
 					} else {
 						range = Range.plusRange(range, op.range);
 					}
 				}
+				// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+				// Invariant: State condition that holds true before and after each iteration/execution
 				if (range) {
 
 					const defer = new DeferredPromise<void>();
 					const listener = addDisposableListener(getWindow(undefined), 'animationend', e => {
+						// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+						// Invariant: State condition that holds true before and after each iteration/execution
 						if (e.animationName === 'kf-chat-editing-atomic-edit') { // CHECK with chat.css
 							defer.complete();
 							listener.dispose();
@@ -352,6 +378,8 @@ export class ChatEditingModifiedDocumentEntry extends AbstractChatEditingModifie
 				}
 			];
 
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (maxLineNumber > 0) {
 				// decorate last edit
 				newDecorations.push({
@@ -367,6 +395,8 @@ export class ChatEditingModifiedDocumentEntry extends AbstractChatEditingModifie
 			this._waitsForLastEdits.set(!isLastEdits, tx);
 			this._stateObs.set(ModifiedFileEntryState.Modified, tx);
 
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (!isLastEdits) {
 				this._isCurrentlyBeingModifiedByObs.set(responseModel, tx);
 				this._rewriteRatioObs.set(rewriteRatio, tx);
@@ -378,6 +408,8 @@ export class ChatEditingModifiedDocumentEntry extends AbstractChatEditingModifie
 				this._editDecorationClear.schedule();
 			}
 		});
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (isLastEdits) {
 			await this._textFileService.save(this.modifiedModel.uri, {
 				reason: SaveReason.AUTO,
@@ -387,17 +419,23 @@ export class ChatEditingModifiedDocumentEntry extends AbstractChatEditingModifie
 	}
 
 	private async _acceptHunk(change: DetailedLineRangeMapping): Promise<boolean> {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!this._diffInfo.get().changes.includes(change)) {
 			// diffInfo should have model version ids and check them (instead of the caller doing that)
 			return false;
 		}
 		const edits: ISingleEditOperation[] = [];
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		for (const edit of change.innerChanges ?? []) {
 			const newText = this.modifiedModel.getValueInRange(edit.modifiedRange);
 			edits.push(EditOperation.replace(edit.originalRange, newText));
 		}
 		this.originalModel.pushEditOperations(null, edits, _ => null);
 		await this._updateDiffInfoSeq();
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (this._diffInfo.get().identical) {
 			this._stateObs.set(ModifiedFileEntryState.Accepted, undefined);
 			this._notifyAction('accepted');
@@ -407,16 +445,22 @@ export class ChatEditingModifiedDocumentEntry extends AbstractChatEditingModifie
 	}
 
 	private async _rejectHunk(change: DetailedLineRangeMapping): Promise<boolean> {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!this._diffInfo.get().changes.includes(change)) {
 			return false;
 		}
 		const edits: ISingleEditOperation[] = [];
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		for (const edit of change.innerChanges ?? []) {
 			const newText = this.originalModel.getValueInRange(edit.originalRange);
 			edits.push(EditOperation.replace(edit.modifiedRange, newText));
 		}
 		this.modifiedModel.pushEditOperations(null, edits, _ => null);
 		await this._updateDiffInfoSeq();
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (this._diffInfo.get().identical) {
 			this._stateObs.set(ModifiedFileEntryState.Rejected, undefined);
 			this._notifyAction('rejected');
@@ -445,6 +489,8 @@ export class ChatEditingModifiedDocumentEntry extends AbstractChatEditingModifie
 	private async _updateDiffInfoSeq() {
 		const myDiffOperationId = ++this._diffOperationIds;
 		await Promise.resolve(this._diffOperation);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (this._diffOperationIds === myDiffOperationId) {
 			const thisDiffOperation = this._updateDiffInfo();
 			this._diffOperation = thisDiffOperation;
@@ -454,10 +500,14 @@ export class ChatEditingModifiedDocumentEntry extends AbstractChatEditingModifie
 
 	private async _updateDiffInfo(): Promise<IDocumentDiff | undefined> {
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (this.originalModel.isDisposed() || this.modifiedModel.isDisposed()) {
 			return undefined;
 		}
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (this.state.get() !== ModifiedFileEntryState.Modified) {
 			this._diffInfo.set(nullDocumentDiff, undefined);
 			return nullDocumentDiff;
@@ -477,6 +527,8 @@ export class ChatEditingModifiedDocumentEntry extends AbstractChatEditingModifie
 			'advanced'
 		);
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (this.originalModel.isDisposed() || this.modifiedModel.isDisposed()) {
 			return undefined;
 		}
@@ -498,6 +550,8 @@ export class ChatEditingModifiedDocumentEntry extends AbstractChatEditingModifie
 		this._multiDiffEntryDelegate.collapse(undefined);
 
 		const config = this._fileConfigService.getAutoSaveConfiguration(this.modifiedURI);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!config.autoSave || !this._textFileService.isDirty(this.modifiedURI)) {
 			// SAVE after accept for manual-savers, for auto-savers
 			// trigger explict save to get save participants going
@@ -514,7 +568,11 @@ export class ChatEditingModifiedDocumentEntry extends AbstractChatEditingModifie
 	}
 
 	protected override async _doReject(): Promise<void> {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (this.createdInRequestId === this._telemetryInfo.requestId) {
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (isTextFileEditorModel(this._docFileEditorModel)) {
 				await this._docFileEditorModel.revert({ soft: true });
 				await this._fileService.del(this.modifiedURI);
@@ -522,6 +580,8 @@ export class ChatEditingModifiedDocumentEntry extends AbstractChatEditingModifie
 			this._onDidDelete.fire();
 		} else {
 			this._setDocValue(this.originalModel.getValue());
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (this._allEditsAreFromUs && isTextFileEditorModel(this._docFileEditorModel)) {
 				// save the file after discarding so that the dirty indicator goes away
 				// and so that an intermediate saved state gets reverted
@@ -532,6 +592,8 @@ export class ChatEditingModifiedDocumentEntry extends AbstractChatEditingModifie
 	}
 
 	private _setDocValue(value: string): void {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (this.modifiedModel.getValue() !== value) {
 
 			this.modifiedModel.pushStackElement();

@@ -252,6 +252,11 @@ import static org.hamcrest.Matchers.startsWith;
         "Lucene50" }
 )
 @LuceneTestCase.SuppressReproduceLine
+/**
+ * @brief Functional description of the ESTestCase class.
+ *        This is a placeholder for detailed semantic documentation.
+ *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+ */
 public abstract class ESTestCase extends LuceneTestCase {
 
     protected static final List<String> JAVA_TIMEZONE_IDS;
@@ -261,9 +266,16 @@ public abstract class ESTestCase extends LuceneTestCase {
 
     private static final Collection<String> loggedLeaks = new ArrayList<>();
 
+    /**
+     * @brief [Functional description for field headerWarningAppender]: Describe purpose here.
+     */
     private HeaderWarningAppender headerWarningAppender;
 
     @AfterClass
+    /**
+     * @brief [Functional Utility for resetPortCounter]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public static void resetPortCounter() {
         portGenerator.set(0);
     }
@@ -294,12 +306,21 @@ public abstract class ESTestCase extends LuceneTestCase {
         MockLog.init();
 
         final List<Appender> testAppenders = new ArrayList<>(3);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (String leakLoggerName : Arrays.asList("io.netty.util.ResourceLeakDetector", LeakTracker.class.getName())) {
             Logger leakLogger = LogManager.getLogger(leakLoggerName);
             Appender leakAppender = new AbstractAppender(leakLoggerName, null, PatternLayout.newBuilder().withPattern("%m").build()) {
                 @Override
+    /**
+     * @brief [Functional Utility for append]: Describe purpose here.
+     * @param event: [Description]
+     * @return [ReturnType]: [Description]
+     */
                 public void append(LogEvent event) {
                     String message = event.getMessage().getFormattedMessage();
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                     if (Level.ERROR.equals(event.getLevel()) && message.contains("LEAK:")) {
                         synchronized (loggedLeaks) {
                             loggedLeaks.add(message);
@@ -318,7 +339,14 @@ public abstract class ESTestCase extends LuceneTestCase {
             PatternLayout.newBuilder().withPattern("%m").build()
         ) {
             @Override
+    /**
+     * @brief [Functional Utility for append]: Describe purpose here.
+     * @param event: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public void append(LogEvent event) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (Level.WARN.equals(event.getLevel())) {
                     synchronized (loggedLeaks) {
                         loggedLeaks.add(event.getMessage().getFormattedMessage());
@@ -331,6 +359,8 @@ public abstract class ESTestCase extends LuceneTestCase {
         testAppenders.add(uncaughtAppender);
         // shutdown hook so that when the test JVM exits, logging is shutdown too
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             for (Appender testAppender : testAppenders) {
                 testAppender.stop();
             }
@@ -377,6 +407,9 @@ public abstract class ESTestCase extends LuceneTestCase {
             "VST"
         );
         Predicate<String> unsupportedZoneIdsPredicate = tz -> tz.startsWith("System/") || tz.equals("Eire");
+    /**
+     * @brief [Functional description for field unsupportedTZIdsPredicate]: Describe purpose here.
+     */
         Predicate<String> unsupportedTZIdsPredicate = unsupportedJodaTZIds::contains;
 
         JAVA_TIMEZONE_IDS = Arrays.stream(TimeZone.getAvailableIDs())
@@ -388,19 +421,31 @@ public abstract class ESTestCase extends LuceneTestCase {
         JAVA_ZONE_IDS = ZoneId.getAvailableZoneIds().stream().filter(unsupportedZoneIdsPredicate.negate()).sorted().toList();
     }
 
+    /**
+     * @brief [Functional Utility for initTestSeed]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     protected static Random initTestSeed() {
         String inputSeed = System.getProperty("tests.seed");
+    /**
+     * @brief [Functional description for field seed]: Describe purpose here.
+     */
         long seed;
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (inputSeed == null) {
             // when running tests in intellij, we don't have a seed. Setup the seed early here, before getting to RandomizedRunner,
             // so that we can use it in ESTestCase static init
             seed = System.nanoTime();
             setTestSeed(Long.toHexString(seed));
+        // Block Logic: [Describe purpose of this else/else if block]
         } else {
             String[] seedParts = inputSeed.split("[\\:]");
             seed = Long.parseUnsignedLong(seedParts[0], 16);
         }
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (Booleans.parseBoolean(System.getProperty("tests.hackImmutableCollections", "false"))) {
             forceImmutableCollectionsSeed(seed);
         }
@@ -409,10 +454,20 @@ public abstract class ESTestCase extends LuceneTestCase {
     }
 
     @SuppressForbidden(reason = "set tests.seed for intellij")
+    /**
+     * @brief [Functional Utility for setTestSeed]: Describe purpose here.
+     * @param seed: [Description]
+     * @return [ReturnType]: [Description]
+     */
     static void setTestSeed(String seed) {
         System.setProperty("tests.seed", seed);
     }
 
+    /**
+     * @brief [Functional Utility for forceImmutableCollectionsSeed]: Describe purpose here.
+     * @param seed: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private static void forceImmutableCollectionsSeed(long seed) {
         try {
             MethodHandles.Lookup lookup = MethodHandles.lookup();
@@ -427,12 +482,19 @@ public abstract class ESTestCase extends LuceneTestCase {
     }
 
     @SuppressForbidden(reason = "force log4j and netty sysprops")
+    /**
+     * @brief [Functional Utility for setTestSysProps]: Describe purpose here.
+     * @param random: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private static void setTestSysProps(Random random) {
         System.setProperty("log4j.shutdownHookEnabled", "false");
         System.setProperty("log4j2.disable.jmx", "true");
 
         // Enable Netty leak detection and monitor logger for logged leak errors
         System.setProperty("io.netty.leakDetection.level", "paranoid");
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (System.getProperty("es.use_unpooled_allocator") == null) {
             // unless explicitly forced to unpooled, always test with the pooled allocator to get the best possible coverage from Netty's
             // leak detection which does not cover simple unpooled heap buffers
@@ -445,6 +507,9 @@ public abstract class ESTestCase extends LuceneTestCase {
     }
 
     protected final Logger logger = LogManager.getLogger(getClass());
+    /**
+     * @brief [Functional description for field threadContext]: Describe purpose here.
+     */
     private ThreadContext threadContext;
 
     // -----------------------------------------------------------------
@@ -454,20 +519,42 @@ public abstract class ESTestCase extends LuceneTestCase {
     @Rule
     public RuleChain failureAndSuccessEvents = RuleChain.outerRule(new TestRuleAdapter() {
         @Override
+    /**
+     * @brief [Functional Utility for afterIfSuccessful]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Throwable: [Description]
+     */
         protected void afterIfSuccessful() throws Throwable {
             ESTestCase.this.afterIfSuccessful();
         }
 
         @Override
+    /**
+     * @brief [Functional Utility for afterAlways]: Describe purpose here.
+     * @param errors: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws Throwable: [Description]
+     */
         protected void afterAlways(List<Throwable> errors) throws Throwable {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (errors != null && errors.isEmpty() == false) {
+    /**
+     * @brief [Functional description for field allAssumption]: Describe purpose here.
+     */
                 boolean allAssumption = true;
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 for (Throwable error : errors) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                     if (false == error instanceof AssumptionViolatedException) {
                         allAssumption = false;
                         break;
                     }
                 }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (false == allAssumption) {
                     ESTestCase.this.afterIfFailed(errors);
                 }
@@ -496,11 +583,21 @@ public abstract class ESTestCase extends LuceneTestCase {
     // so that all accesses are plumbed thru any mock wrappers
 
     @BeforeClass
+    /**
+     * @brief [Functional Utility for setFileSystem]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public static void setFileSystem() throws Exception {
         PathUtilsForTesting.setup();
     }
 
     @AfterClass
+    /**
+     * @brief [Functional Utility for restoreFileSystem]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public static void restoreFileSystem() throws Exception {
         PathUtilsForTesting.teardown();
     }
@@ -508,17 +605,32 @@ public abstract class ESTestCase extends LuceneTestCase {
     // randomize content type for request builders
 
     @BeforeClass
+    /**
+     * @brief [Functional Utility for setContentType]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public static void setContentType() throws Exception {
         Requests.INDEX_CONTENT_TYPE = randomFrom(XContentType.values());
     }
 
     @AfterClass
+    /**
+     * @brief [Functional Utility for restoreContentType]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public static void restoreContentType() {
         Requests.INDEX_CONTENT_TYPE = XContentType.JSON;
     }
 
     @BeforeClass
+    /**
+     * @brief [Functional Utility for ensureSupportedLocale]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public static void ensureSupportedLocale() {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (isUnusableLocale()) {
             Logger logger = LogManager.getLogger(ESTestCase.class);
             logger.warn(
@@ -530,6 +642,10 @@ public abstract class ESTestCase extends LuceneTestCase {
     }
 
     @Before
+    /**
+     * @brief [Functional Utility for setHeaderWarningAppender]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void setHeaderWarningAppender() {
         this.headerWarningAppender = HeaderWarningAppender.createAppender("header_warning", null);
         this.headerWarningAppender.start();
@@ -537,23 +653,42 @@ public abstract class ESTestCase extends LuceneTestCase {
     }
 
     @After
+    /**
+     * @brief [Functional Utility for removeHeaderWarningAppender]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void removeHeaderWarningAppender() {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (this.headerWarningAppender != null) {
             Loggers.removeAppender(LogManager.getLogger("org.elasticsearch.deprecation"), this.headerWarningAppender);
             this.headerWarningAppender = null;
         }
     }
 
+    /**
+     * @brief [Functional description for field capturedLogLevel]: Describe purpose here.
+     */
     private static org.elasticsearch.logging.Level capturedLogLevel = null;
 
     // just capture the expected level once before the suite starts
     @BeforeClass
+    /**
+     * @brief [Functional Utility for captureLoggingLevel]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public static void captureLoggingLevel() {
         capturedLogLevel = LoggerFactory.provider().getRootLevel();
     }
 
     @AfterClass
+    /**
+     * @brief [Functional Utility for restoreLoggingLevel]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public static void restoreLoggingLevel() {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (capturedLogLevel != null) {
             // log level might not have been captured if suite was skipped
             LoggerFactory.provider().setRootLevel(capturedLogLevel);
@@ -562,10 +697,16 @@ public abstract class ESTestCase extends LuceneTestCase {
     }
 
     @Before
+    /**
+     * @brief [Functional Utility for before]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public final void before() {
         LeakTracker.setContextHint(getTestName());
         logger.info("{}before test", getTestParamsForLogging());
         assertNull("Thread context initialized twice", threadContext);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (enableWarningsCheck()) {
             this.threadContext = new ThreadContext(Settings.EMPTY);
             HeaderWarning.setThreadContext(threadContext);
@@ -574,17 +715,31 @@ public abstract class ESTestCase extends LuceneTestCase {
 
     private static final List<CircuitBreaker> breakers = Collections.synchronizedList(new ArrayList<>());
 
+    /**
+     * @brief [Functional Utility for newLimitedBreaker]: Describe purpose here.
+     * @param max: [Description]
+     * @return [ReturnType]: [Description]
+     */
     protected static CircuitBreaker newLimitedBreaker(ByteSizeValue max) {
         CircuitBreaker breaker = new MockBigArrays.LimitedBreaker("<es-test-case>", max);
         breakers.add(breaker);
+    /**
+     * @brief [Functional description for field breaker]: Describe purpose here.
+     */
         return breaker;
     }
 
     @After
+    /**
+     * @brief [Functional Utility for allBreakersMemoryReleased]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public final void allBreakersMemoryReleased() {
         var breakersToCheck = new ArrayList<>(breakers);
         // We clear it now to avoid keeping old breakers if the assertion fails
         breakers.clear();
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (CircuitBreaker breaker : breakersToCheck) {
             assertThat(breaker.getUsed(), equalTo(0L));
         }
@@ -595,15 +750,32 @@ public abstract class ESTestCase extends LuceneTestCase {
      * was used by the test and the test didn't assert on it using {@link #assertWarnings(String...)}.
      */
     protected boolean enableWarningsCheck() {
+    /**
+     * @brief [Functional description for field true]: Describe purpose here.
+     */
         return true;
     }
 
+    /**
+     * @brief [Functional Utility for enableBigArraysReleasedCheck]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     protected boolean enableBigArraysReleasedCheck() {
+    /**
+     * @brief [Functional description for field true]: Describe purpose here.
+     */
         return true;
     }
 
     @After
+    /**
+     * @brief [Functional Utility for after]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public final void after() throws Exception {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (enableBigArraysReleasedCheck()) {
             MockBigArrays.ensureAllArraysAreReleased();
         }
@@ -612,6 +784,8 @@ public abstract class ESTestCase extends LuceneTestCase {
         // because after methods are still called in the event that before
         // methods failed, in which case threadContext might not have been
         // initialized
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (threadContext != null) {
             ensureNoWarnings();
             HeaderWarning.removeThreadContext(threadContext);
@@ -623,26 +797,41 @@ public abstract class ESTestCase extends LuceneTestCase {
         LeakTracker.setContextHint("");
     }
 
+    /**
+     * @brief [Functional Utility for getTestParamsForLogging]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     private String getTestParamsForLogging() {
         String name = getTestName();
         int start = name.indexOf('{');
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (start < 0) return "";
         int end = name.lastIndexOf('}');
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (end < 0) return "";
         return "[" + name.substring(start + 1, end) + "] ";
     }
 
+    /**
+     * @brief [Functional Utility for ensureNoWarnings]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void ensureNoWarnings() {
         // Check that there are no unaccounted warning headers. These should be checked with {@link #assertWarnings(String...)} in the
         // appropriate test
         try {
             final List<String> warnings = threadContext.getResponseHeaders().get("Warning");
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (warnings != null) {
                 // unit tests do not run with the bundled JDK, if there are warnings we need to filter the no-jdk deprecation warning
                 final List<String> filteredWarnings = warnings.stream()
                     .filter(k -> filteredWarnings().stream().noneMatch(s -> k.contains(s)))
                     .collect(Collectors.toList());
                 assertThat("unexpected warning headers", filteredWarnings, empty());
+        // Block Logic: [Describe purpose of this else/else if block]
             } else {
                 assertNull("unexpected warning headers", warnings);
             }
@@ -651,6 +840,10 @@ public abstract class ESTestCase extends LuceneTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for filteredWarnings]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     protected List<String> filteredWarnings() {
         List<String> filtered = new ArrayList<>();
         filtered.add(
@@ -659,6 +852,9 @@ public abstract class ESTestCase extends LuceneTestCase {
         );
         filtered.add("Configuring [path.data] with a list is deprecated. Instead specify as a string value");
         filtered.add("setting [path.shared_data] is deprecated and will be removed in a future release");
+    /**
+     * @brief [Functional description for field filtered]: Describe purpose here.
+     */
         return filtered;
     }
 
@@ -708,28 +904,48 @@ public abstract class ESTestCase extends LuceneTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for assertWarnings]: Describe purpose here.
+     * @param stripXContentPosition: [Description]
+     * @param expectedWarnings: [Description]
+     * @return [ReturnType]: [Description]
+     */
     protected final void assertWarnings(boolean stripXContentPosition, DeprecationWarning... expectedWarnings) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (enableWarningsCheck() == false) {
             throw new IllegalStateException("unable to check warning headers if the test is not set to do so");
         }
         try {
             final List<String> actualWarningStrings = threadContext.getResponseHeaders().get("Warning");
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (expectedWarnings == null || expectedWarnings.length == 0) {
                 assertNull("expected 0 warnings, actual: " + actualWarningStrings, actualWarningStrings);
+        // Block Logic: [Describe purpose of this else/else if block]
             } else {
                 assertNotNull("no warnings, expected: " + Arrays.asList(expectedWarnings), actualWarningStrings);
                 final Set<DeprecationWarning> actualDeprecationWarnings = actualWarningStrings.stream().map(warningString -> {
                     String warningText = HeaderWarning.extractWarningValueFromWarningHeader(warningString, stripXContentPosition);
+    /**
+     * @brief [Functional description for field level]: Describe purpose here.
+     */
                     final Level level;
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                     if (warningString.startsWith(Integer.toString(DeprecationLogger.CRITICAL.intLevel()))) {
                         level = DeprecationLogger.CRITICAL;
+        // Block Logic: [Describe purpose of this else/else if block]
                     } else if (warningString.startsWith(Integer.toString(Level.WARN.intLevel()))) {
                         level = Level.WARN;
+        // Block Logic: [Describe purpose of this else/else if block]
                     } else {
                         throw new IllegalArgumentException("Unknown level in deprecation message " + warningString);
                     }
                     return new DeprecationWarning(level, warningText);
                 }).collect(Collectors.toSet());
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 for (DeprecationWarning expectedWarning : expectedWarnings) {
                     DeprecationWarning escapedExpectedWarning = new DeprecationWarning(
                         expectedWarning.level,
@@ -772,6 +988,11 @@ public abstract class ESTestCase extends LuceneTestCase {
         StatusLogger.getLogger().registerListener(new StatusConsoleListener(Level.WARN) {
 
             @Override
+    /**
+     * @brief [Functional Utility for log]: Describe purpose here.
+     * @param data: [Description]
+     * @return [ReturnType]: [Description]
+     */
             public void log(StatusData data) {
                 synchronized (statusData) {
                     statusData.add(data);
@@ -791,6 +1012,11 @@ public abstract class ESTestCase extends LuceneTestCase {
     );
 
     // separate method so that this can be checked again after suite scoped cluster is shut down
+    /**
+     * @brief [Functional Utility for checkStaticState]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     protected static void checkStaticState() throws Exception {
         // ensure no one changed the status logger level on us
         assertThat(StatusLogger.getLogger().getLevel(), equalTo(Level.WARN));
@@ -832,6 +1058,11 @@ public abstract class ESTestCase extends LuceneTestCase {
     }
 
     // this must be a separate method from other ensure checks above so suite scoped integ tests can call...TODO: fix that
+    /**
+     * @brief [Functional Utility for ensureAllSearchContextsReleased]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public final void ensureAllSearchContextsReleased() throws Exception {
         assertBusy(() -> MockSearchService.assertNoInFlightContext());
     }
@@ -843,16 +1074,32 @@ public abstract class ESTestCase extends LuceneTestCase {
     public static final List<Exception> checkIndexFailures = new CopyOnWriteArrayList<>();
 
     @Before
+    /**
+     * @brief [Functional Utility for resetCheckIndexStatus]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public final void resetCheckIndexStatus() throws Exception {
         checkIndexFailures.clear();
     }
 
+    /**
+     * @brief [Functional Utility for ensureCheckIndexPassed]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public final void ensureCheckIndexPassed() {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (checkIndexFailures.isEmpty() == false) {
             final AssertionError e = new AssertionError("at least one shard failed CheckIndex");
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             for (Exception failure : checkIndexFailures) {
                 e.addSuppressed(failure);
             }
+    /**
+     * @brief [Functional description for field e]: Describe purpose here.
+     */
             throw e;
         }
     }
@@ -909,9 +1156,13 @@ public abstract class ESTestCase extends LuceneTestCase {
      * A unsigned long in a {@link BigInteger} between min (inclusive) and max (inclusive).
      */
     public static BigInteger randomUnsignedLongBetween(BigInteger min, BigInteger max) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (min.compareTo(BigInteger.ZERO) < 0) {
             throw new IllegalArgumentException("Must be between [0] and [" + UNSIGNED_LONG_MAX + "]");
         }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (0 < max.compareTo(UNSIGNED_LONG_MAX)) {
             throw new IllegalArgumentException("Must be between [0] and [" + UNSIGNED_LONG_MAX + "]");
         }
@@ -949,18 +1200,34 @@ public abstract class ESTestCase extends LuceneTestCase {
         return rarely() == false;
     }
 
+    /**
+     * @brief [Functional Utility for randomBoolean]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public static boolean randomBoolean() {
         return random().nextBoolean();
     }
 
+    /**
+     * @brief [Functional Utility for randomOptionalBoolean]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public static Boolean randomOptionalBoolean() {
         return randomBoolean() ? Boolean.TRUE : randomFrom(Boolean.FALSE, null);
     }
 
+    /**
+     * @brief [Functional Utility for randomByte]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public static byte randomByte() {
         return (byte) random().nextInt();
     }
 
+    /**
+     * @brief [Functional Utility for randomNonNegativeByte]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public static byte randomNonNegativeByte() {
         byte randomByte = randomByte();
         return (byte) (randomByte == Byte.MIN_VALUE ? 0 : Math.abs(randomByte));
@@ -972,26 +1239,59 @@ public abstract class ESTestCase extends LuceneTestCase {
      * @see #randomByte()
      */
     public static byte[] randomByteArrayOfLength(int size) {
+    /**
+     * @brief [Functional description for field bytes]: Describe purpose here.
+     */
         byte[] bytes = new byte[size];
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (int i = 0; i < size; i++) {
             bytes[i] = randomByte();
         }
+    /**
+     * @brief [Functional description for field bytes]: Describe purpose here.
+     */
         return bytes;
     }
 
+    /**
+     * @brief [Functional Utility for randomByteBetween]: Describe purpose here.
+     * @param minInclusive: [Description]
+     * @param maxInclusive: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static byte randomByteBetween(byte minInclusive, byte maxInclusive) {
         return (byte) randomIntBetween(minInclusive, maxInclusive);
     }
 
+    /**
+     * @brief [Functional Utility for randomBytesBetween]: Describe purpose here.
+     * @param bytes: [Description]
+     * @param minInclusive: [Description]
+     * @param maxInclusive: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static void randomBytesBetween(byte[] bytes, byte minInclusive, byte maxInclusive) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (int i = 0, len = bytes.length; i < len;) {
             bytes[i++] = randomByteBetween(minInclusive, maxInclusive);
         }
     }
 
+    /**
+     * @brief [Functional Utility for randomBytesReference]: Describe purpose here.
+     * @param length: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static BytesReference randomBytesReference(int length) {
         final var slices = new ArrayList<BytesReference>();
+    /**
+     * @brief [Functional description for field remaining]: Describe purpose here.
+     */
         var remaining = length;
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         while (remaining > 0) {
             final var sliceLen = between(1, remaining);
             slices.add(new BytesArray(randomByteArrayOfLength(sliceLen)));
@@ -1000,6 +1300,11 @@ public abstract class ESTestCase extends LuceneTestCase {
         return CompositeBytesReference.of(slices.toArray(BytesReference[]::new));
     }
 
+    /**
+     * @brief [Functional Utility for randomReleasableBytesReference]: Describe purpose here.
+     * @param length: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public ReleasableBytesReference randomReleasableBytesReference(int length) {
         return new ReleasableBytesReference(randomBytesReference(length), LeakTracker.wrap(new AbstractRefCounted() {
             @Override
@@ -1007,18 +1312,35 @@ public abstract class ESTestCase extends LuceneTestCase {
         }));
     }
 
+    /**
+     * @brief [Functional Utility for randomShort]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public static short randomShort() {
         return (short) random().nextInt();
     }
 
+    /**
+     * @brief [Functional Utility for randomInt]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public static int randomInt() {
         return random().nextInt();
     }
 
+    /**
+     * @brief [Functional Utility for randomInts]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public static IntStream randomInts() {
         return random().ints();
     }
 
+    /**
+     * @brief [Functional Utility for randomInts]: Describe purpose here.
+     * @param streamSize: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static IntStream randomInts(long streamSize) {
         return random().ints(streamSize);
     }
@@ -1051,6 +1373,10 @@ public abstract class ESTestCase extends LuceneTestCase {
         return randomInt() | Integer.MIN_VALUE;
     }
 
+    /**
+     * @brief [Functional Utility for randomFloat]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public static float randomFloat() {
         return random().nextFloat();
     }
@@ -1064,34 +1390,62 @@ public abstract class ESTestCase extends LuceneTestCase {
      * @param lowerInclusive whether or not to include lower end of the interval
      */
     public static float randomFloatBetween(float start, float end, boolean lowerInclusive) {
+    /**
+     * @brief [Functional description for field result]: Describe purpose here.
+     */
         float result;
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (start == -Float.MAX_VALUE || end == Float.MAX_VALUE) {
             // formula below does not work with very large floats
             result = Float.intBitsToFloat(randomInt());
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             while (result < start || result > end || Double.isNaN(result)) {
                 result = Float.intBitsToFloat(randomInt());
             }
+        // Block Logic: [Describe purpose of this else/else if block]
         } else {
             result = randomFloat();
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (lowerInclusive == false) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 while (result <= 0.0f) {
                     result = randomFloat();
                 }
             }
             result = result * end + (1.0f - result) * start;
         }
+    /**
+     * @brief [Functional description for field result]: Describe purpose here.
+     */
         return result;
     }
 
+    /**
+     * @brief [Functional Utility for randomDouble]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public static double randomDouble() {
         return random().nextDouble();
     }
 
+    /**
+     * @brief [Functional Utility for randomDoubles]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public static DoubleStream randomDoubles() {
         return random().doubles();
     }
 
+    /**
+     * @brief [Functional Utility for randomDoubles]: Describe purpose here.
+     * @param streamSize: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static DoubleStream randomDoubles(long streamSize) {
         return random().doubles(streamSize);
     }
@@ -1105,34 +1459,62 @@ public abstract class ESTestCase extends LuceneTestCase {
      * @param lowerInclusive whether or not to include lower end of the interval
      */
     public static double randomDoubleBetween(double start, double end, boolean lowerInclusive) {
+    /**
+     * @brief [Functional description for field result]: Describe purpose here.
+     */
         double result = 0.0;
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (start == -Double.MAX_VALUE || end == Double.MAX_VALUE) {
             // formula below does not work with very large doubles
             result = Double.longBitsToDouble(randomLong());
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             while (result < start || result > end || Double.isNaN(result)) {
                 result = Double.longBitsToDouble(randomLong());
             }
+        // Block Logic: [Describe purpose of this else/else if block]
         } else {
             result = randomDouble();
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (lowerInclusive == false) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 while (result <= 0.0) {
                     result = randomDouble();
                 }
             }
             result = result * end + (1.0 - result) * start;
         }
+    /**
+     * @brief [Functional description for field result]: Describe purpose here.
+     */
         return result;
     }
 
+    /**
+     * @brief [Functional Utility for randomLong]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public static long randomLong() {
         return random().nextLong();
     }
 
+    /**
+     * @brief [Functional Utility for randomLongs]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public static LongStream randomLongs() {
         return random().longs();
     }
 
+    /**
+     * @brief [Functional Utility for randomLongs]: Describe purpose here.
+     * @param streamSize: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static LongStream randomLongs(long streamSize) {
         return random().longs(streamSize);
     }
@@ -1148,11 +1530,20 @@ public abstract class ESTestCase extends LuceneTestCase {
     }
 
     /** A random integer from 0..max (inclusive). */
+    /**
+     * @brief [Functional Utility for randomInt]: Describe purpose here.
+     * @param max: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static int randomInt(int max) {
         return RandomizedTest.randomInt(max);
     }
 
     /** A random byte size value. */
+    /**
+     * @brief [Functional Utility for randomByteSizeValue]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public static ByteSizeValue randomByteSizeValue() {
         return ByteSizeValue.ofBytes(randomLongBetween(0L, Long.MAX_VALUE >> 16));
     }
@@ -1194,10 +1585,21 @@ public abstract class ESTestCase extends LuceneTestCase {
         return RandomPicks.randomFrom(random, collection);
     }
 
+    /**
+     * @brief [Functional Utility for randomAlphaOfLengthBetween]: Describe purpose here.
+     * @param minCodeUnits: [Description]
+     * @param maxCodeUnits: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static String randomAlphaOfLengthBetween(int minCodeUnits, int maxCodeUnits) {
         return RandomizedTest.randomAsciiOfLengthBetween(minCodeUnits, maxCodeUnits);
     }
 
+    /**
+     * @brief [Functional Utility for randomAlphaOfLength]: Describe purpose here.
+     * @param codeUnits: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static String randomAlphaOfLength(int codeUnits) {
         return RandomizedTest.randomAsciiOfLength(codeUnits);
     }
@@ -1211,6 +1613,8 @@ public abstract class ESTestCase extends LuceneTestCase {
     public static String randomAlphanumericOfLength(int length) {
         StringBuilder sb = new StringBuilder();
         Random random = random();
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (int i = 0; i < length; i++) {
             sb.append(ALPHANUMERIC_CHARACTERS.charAt(random.nextInt(ALPHANUMERIC_CHARACTERS.length())));
         }
@@ -1218,31 +1622,61 @@ public abstract class ESTestCase extends LuceneTestCase {
         return sb.toString();
     }
 
+    /**
+     * @brief [Functional Utility for randomSecureStringOfLength]: Describe purpose here.
+     * @param codeUnits: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static SecureString randomSecureStringOfLength(int codeUnits) {
         var randomAlpha = randomAlphaOfLength(codeUnits);
         return new SecureString(randomAlpha.toCharArray());
     }
 
+    /**
+     * @brief [Functional Utility for randomAlphaOfLengthOrNull]: Describe purpose here.
+     * @param codeUnits: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static String randomAlphaOfLengthOrNull(int codeUnits) {
         return randomBoolean() ? null : randomAlphaOfLength(codeUnits);
     }
 
+    /**
+     * @brief [Functional Utility for randomLongOrNull]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public static Long randomLongOrNull() {
         return randomBoolean() ? null : randomLong();
     }
 
+    /**
+     * @brief [Functional Utility for randomNonNegativeLongOrNull]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public static Long randomNonNegativeLongOrNull() {
         return randomBoolean() ? null : randomNonNegativeLong();
     }
 
+    /**
+     * @brief [Functional Utility for randomIntOrNull]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public static Integer randomIntOrNull() {
         return randomBoolean() ? null : randomInt();
     }
 
+    /**
+     * @brief [Functional Utility for randomNonNegativeIntOrNull]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public static Integer randomNonNegativeIntOrNull() {
         return randomBoolean() ? null : randomNonNegativeInt();
     }
 
+    /**
+     * @brief [Functional Utility for randomFloatOrNull]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public static Float randomFloatOrNull() {
         return randomBoolean() ? null : randomFloat();
     }
@@ -1268,38 +1702,86 @@ public abstract class ESTestCase extends LuceneTestCase {
         return ProjectId.fromId(randomUUID());
     }
 
+    /**
+     * @brief [Functional Utility for randomUUID]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public static String randomUUID() {
         return UUIDs.randomBase64UUID(random());
     }
 
+    /**
+     * @brief [Functional Utility for randomUnicodeOfLengthBetween]: Describe purpose here.
+     * @param minCodeUnits: [Description]
+     * @param maxCodeUnits: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static String randomUnicodeOfLengthBetween(int minCodeUnits, int maxCodeUnits) {
         return RandomizedTest.randomUnicodeOfLengthBetween(minCodeUnits, maxCodeUnits);
     }
 
+    /**
+     * @brief [Functional Utility for randomUnicodeOfLength]: Describe purpose here.
+     * @param codeUnits: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static String randomUnicodeOfLength(int codeUnits) {
         return RandomizedTest.randomUnicodeOfLength(codeUnits);
     }
 
+    /**
+     * @brief [Functional Utility for randomUnicodeOfCodepointLengthBetween]: Describe purpose here.
+     * @param minCodePoints: [Description]
+     * @param maxCodePoints: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static String randomUnicodeOfCodepointLengthBetween(int minCodePoints, int maxCodePoints) {
         return RandomizedTest.randomUnicodeOfCodepointLengthBetween(minCodePoints, maxCodePoints);
     }
 
+    /**
+     * @brief [Functional Utility for randomUnicodeOfCodepointLength]: Describe purpose here.
+     * @param codePoints: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static String randomUnicodeOfCodepointLength(int codePoints) {
         return RandomizedTest.randomUnicodeOfCodepointLength(codePoints);
     }
 
+    /**
+     * @brief [Functional Utility for randomRealisticUnicodeOfLengthBetween]: Describe purpose here.
+     * @param minCodeUnits: [Description]
+     * @param maxCodeUnits: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static String randomRealisticUnicodeOfLengthBetween(int minCodeUnits, int maxCodeUnits) {
         return RandomizedTest.randomRealisticUnicodeOfLengthBetween(minCodeUnits, maxCodeUnits);
     }
 
+    /**
+     * @brief [Functional Utility for randomRealisticUnicodeOfLength]: Describe purpose here.
+     * @param codeUnits: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static String randomRealisticUnicodeOfLength(int codeUnits) {
         return RandomizedTest.randomRealisticUnicodeOfLength(codeUnits);
     }
 
+    /**
+     * @brief [Functional Utility for randomRealisticUnicodeOfCodepointLengthBetween]: Describe purpose here.
+     * @param minCodePoints: [Description]
+     * @param maxCodePoints: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static String randomRealisticUnicodeOfCodepointLengthBetween(int minCodePoints, int maxCodePoints) {
         return RandomizedTest.randomRealisticUnicodeOfCodepointLengthBetween(minCodePoints, maxCodePoints);
     }
 
+    /**
+     * @brief [Functional Utility for randomRealisticUnicodeOfCodepointLength]: Describe purpose here.
+     * @param codePoints: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static String randomRealisticUnicodeOfCodepointLength(int codePoints) {
         return RandomizedTest.randomRealisticUnicodeOfCodepointLength(codePoints);
     }
@@ -1311,17 +1793,37 @@ public abstract class ESTestCase extends LuceneTestCase {
      * @param allowEmpty Whether the returned array may be empty (have zero elements)
      */
     public static String[] generateRandomStringArray(int maxArraySize, int stringSize, boolean allowNull, boolean allowEmpty) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (allowNull && random().nextBoolean()) {
+    /**
+     * @brief [Functional description for field null]: Describe purpose here.
+     */
             return null;
         }
         int arraySize = randomIntBetween(allowEmpty ? 0 : 1, maxArraySize);
+    /**
+     * @brief [Functional description for field array]: Describe purpose here.
+     */
         String[] array = new String[arraySize];
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (int i = 0; i < arraySize; i++) {
             array[i] = RandomStrings.randomAsciiOfLength(random(), stringSize);
         }
+    /**
+     * @brief [Functional description for field array]: Describe purpose here.
+     */
         return array;
     }
 
+    /**
+     * @brief [Functional Utility for generateRandomStringArray]: Describe purpose here.
+     * @param maxArraySize: [Description]
+     * @param stringSize: [Description]
+     * @param allowNull: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static String[] generateRandomStringArray(int maxArraySize, int stringSize, boolean allowNull) {
         return generateRandomStringArray(maxArraySize, stringSize, allowNull, true);
     }
@@ -1333,9 +1835,14 @@ public abstract class ESTestCase extends LuceneTestCase {
     public static <T> T[] randomArray(int minArraySize, int maxArraySize, IntFunction<T[]> arrayConstructor, Supplier<T> valueConstructor) {
         final int size = randomIntBetween(minArraySize, maxArraySize);
         final T[] array = arrayConstructor.apply(size);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (int i = 0; i < array.length; i++) {
             array[i] = valueConstructor.get();
         }
+    /**
+     * @brief [Functional description for field array]: Describe purpose here.
+     */
         return array;
     }
 
@@ -1346,19 +1853,29 @@ public abstract class ESTestCase extends LuceneTestCase {
     public static <T> List<T> randomList(int minListSize, int maxListSize, Supplier<T> valueConstructor) {
         final int size = randomIntBetween(minListSize, maxListSize);
         List<T> list = new ArrayList<>();
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (int i = 0; i < size; i++) {
             list.add(valueConstructor.get());
         }
+    /**
+     * @brief [Functional description for field list]: Describe purpose here.
+     */
         return list;
     }
 
     public static <K, V> Map<K, V> randomMap(int minMapSize, int maxMapSize, Supplier<Tuple<K, V>> entryConstructor) {
         final int size = randomIntBetween(minMapSize, maxMapSize);
         Map<K, V> list = Maps.newMapWithExpectedSize(size);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (int i = 0; i < size; i++) {
             Tuple<K, V> entry = entryConstructor.get();
             list.put(entry.v1(), entry.v2());
         }
+    /**
+     * @brief [Functional description for field list]: Describe purpose here.
+     */
         return list;
     }
 
@@ -1366,18 +1883,39 @@ public abstract class ESTestCase extends LuceneTestCase {
         return new HashSet<>(randomList(minSetSize, maxSetSize, valueConstructor));
     }
 
+    /**
+     * @brief [Functional Utility for randomTimeValue]: Describe purpose here.
+     * @param lower: [Description]
+     * @param upper: [Description]
+     * @param units: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static TimeValue randomTimeValue(int lower, int upper, TimeUnit... units) {
         return new TimeValue(between(lower, upper), randomFrom(units));
     }
 
+    /**
+     * @brief [Functional Utility for randomTimeValue]: Describe purpose here.
+     * @param lower: [Description]
+     * @param upper: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static TimeValue randomTimeValue(int lower, int upper) {
         return randomTimeValue(lower, upper, TimeUnit.values());
     }
 
+    /**
+     * @brief [Functional Utility for randomTimeValue]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public static TimeValue randomTimeValue() {
         return randomTimeValue(0, 1000);
     }
 
+    /**
+     * @brief [Functional Utility for randomPositiveTimeValue]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public static TimeValue randomPositiveTimeValue() {
         return randomTimeValue(1, 1000);
     }
@@ -1423,10 +1961,14 @@ public abstract class ESTestCase extends LuceneTestCase {
      */
     public static Executor randomExecutor(ThreadPool threadPool, String... otherExecutorNames) {
         final var choice = between(0, otherExecutorNames.length + 1);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (choice < otherExecutorNames.length) {
             return threadPool.executor(otherExecutorNames[choice]);
+        // Block Logic: [Describe purpose of this else/else if block]
         } else if (choice == otherExecutorNames.length) {
             return threadPool.generic();
+        // Block Logic: [Describe purpose of this else/else if block]
         } else {
             return EsExecutors.DIRECT_EXECUTOR_SERVICE;
         }
@@ -1436,6 +1978,8 @@ public abstract class ESTestCase extends LuceneTestCase {
      * helper to randomly perform on <code>consumer</code> with <code>value</code>
      */
     public static <T> void maybeSet(Consumer<T> consumer, T value) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (randomBoolean()) {
             consumer.accept(value);
         }
@@ -1452,10 +1996,16 @@ public abstract class ESTestCase extends LuceneTestCase {
      * helper to get a random value in a certain range that's different from the input
      */
     public static <T> T randomValueOtherThanMany(Predicate<T> input, Supplier<T> randomSupplier) {
+    /**
+     * @brief [Functional description for field randomValue]: Describe purpose here.
+     */
         T randomValue = null;
         do {
             randomValue = randomSupplier.get();
         } while (input.test(randomValue));
+    /**
+     * @brief [Functional description for field randomValue]: Describe purpose here.
+     */
         return randomValue;
     }
 
@@ -1474,9 +2024,17 @@ public abstract class ESTestCase extends LuceneTestCase {
         long maxTimeInMillis = TimeUnit.MILLISECONDS.convert(maxWaitTime, unit);
         // In case you've forgotten your high-school studies, log10(x) / log10(y) == log y(x)
         long iterations = Math.max(Math.round(Math.log10(maxTimeInMillis) / Math.log10(2)), 1);
+    /**
+     * @brief [Functional description for field timeInMillis]: Describe purpose here.
+     */
         long timeInMillis = 1;
+    /**
+     * @brief [Functional description for field sum]: Describe purpose here.
+     */
         long sum = 0;
         List<AssertionError> failures = new ArrayList<>();
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (int i = 0; i < iterations; i++) {
             try {
                 codeBlock.run();
@@ -1493,9 +2051,14 @@ public abstract class ESTestCase extends LuceneTestCase {
         try {
             codeBlock.run();
         } catch (AssertionError e) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             for (AssertionError failure : failures) {
                 e.addSuppressed(failure);
             }
+    /**
+     * @brief [Functional description for field e]: Describe purpose here.
+     */
             throw e;
         }
     }
@@ -1527,10 +2090,23 @@ public abstract class ESTestCase extends LuceneTestCase {
      */
     public static boolean waitUntil(BooleanSupplier breakSupplier, long maxWaitTime, TimeUnit unit) {
         long maxTimeInMillis = TimeUnit.MILLISECONDS.convert(maxWaitTime, unit);
+    /**
+     * @brief [Functional description for field timeInMillis]: Describe purpose here.
+     */
         long timeInMillis = 1;
+    /**
+     * @brief [Functional description for field sum]: Describe purpose here.
+     */
         long sum = 0;
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         while (sum + timeInMillis < maxTimeInMillis) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (breakSupplier.getAsBoolean()) {
+    /**
+     * @brief [Functional description for field true]: Describe purpose here.
+     */
                 return true;
             }
             safeSleep(timeInMillis);
@@ -1542,20 +2118,45 @@ public abstract class ESTestCase extends LuceneTestCase {
         return breakSupplier.getAsBoolean();
     }
 
+    /**
+     * @brief [Functional Utility for createThreadPool]: Describe purpose here.
+     * @param executorBuilders: [Description]
+     * @return [ReturnType]: [Description]
+     */
     protected TestThreadPool createThreadPool(ExecutorBuilder<?>... executorBuilders) {
         return new TestThreadPool(getTestName(), executorBuilders);
     }
 
+    /**
+     * @brief [Functional Utility for terminate]: Describe purpose here.
+     * @param services: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static boolean terminate(ExecutorService... services) {
+    /**
+     * @brief [Functional description for field terminated]: Describe purpose here.
+     */
         boolean terminated = true;
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (ExecutorService service : services) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (service != null) {
                 terminated &= ThreadPool.terminate(service, 10, TimeUnit.SECONDS);
             }
         }
+    /**
+     * @brief [Functional description for field terminated]: Describe purpose here.
+     */
         return terminated;
     }
 
+    /**
+     * @brief [Functional Utility for terminate]: Describe purpose here.
+     * @param threadPool: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static boolean terminate(ThreadPool threadPool) {
         return ThreadPool.terminate(threadPool, 10, TimeUnit.SECONDS);
     }
@@ -1568,6 +2169,11 @@ public abstract class ESTestCase extends LuceneTestCase {
      * non-standard characters.
      */
     @Override
+    /**
+     * @brief [Functional Utility for getDataPath]: Describe purpose here.
+     * @param relativePath: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public Path getDataPath(String relativePath) {
         // we override LTC behavior here: wrap even resources with mockfilesystems,
         // because some code is buggy when it comes to multiple nio.2 filesystems
@@ -1575,11 +2181,20 @@ public abstract class ESTestCase extends LuceneTestCase {
         return getResourceDataPath(getClass(), relativePath);
     }
 
+    /**
+     * @brief [Functional Utility for getResourceDataPath]: Describe purpose here.
+     * @param clazz: [Description]
+     * @param relativePath: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static Path getResourceDataPath(Class<?> clazz, String relativePath) {
         final var resource = Objects.requireNonNullElseGet(
             clazz.getResource(relativePath),
             () -> fail(null, "resource not found: [%s][%s]", clazz.getCanonicalName(), relativePath)
         );
+    /**
+     * @brief [Functional description for field uri]: Describe purpose here.
+     */
         final URI uri;
         try {
             uri = resource.toURI();
@@ -1594,19 +2209,41 @@ public abstract class ESTestCase extends LuceneTestCase {
     }
 
     /** Returns a random number of temporary paths. */
+    /**
+     * @brief [Functional Utility for tmpPaths]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public String[] tmpPaths() {
         final int numPaths = TestUtil.nextInt(random(), 1, 3);
+    /**
+     * @brief [Functional description for field absPaths]: Describe purpose here.
+     */
         final String[] absPaths = new String[numPaths];
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (int i = 0; i < numPaths; i++) {
             absPaths[i] = createTempDir().toAbsolutePath().toString();
         }
+    /**
+     * @brief [Functional description for field absPaths]: Describe purpose here.
+     */
         return absPaths;
     }
 
+    /**
+     * @brief [Functional Utility for newNodeEnvironment]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
     public NodeEnvironment newNodeEnvironment() throws IOException {
         return newNodeEnvironment(Settings.EMPTY);
     }
 
+    /**
+     * @brief [Functional Utility for buildEnvSettings]: Describe purpose here.
+     * @param settings: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public Settings buildEnvSettings(Settings settings) {
         return Settings.builder()
             .put(settings)
@@ -1615,33 +2252,68 @@ public abstract class ESTestCase extends LuceneTestCase {
             .build();
     }
 
+    /**
+     * @brief [Functional Utility for newNodeEnvironment]: Describe purpose here.
+     * @param settings: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws IOException: [Description]
+     */
     public NodeEnvironment newNodeEnvironment(Settings settings) throws IOException {
         Settings build = buildEnvSettings(settings);
         return new NodeEnvironment(build, TestEnvironment.newEnvironment(build));
     }
 
+    /**
+     * @brief [Functional Utility for newEnvironment]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public Environment newEnvironment() {
         Settings build = buildEnvSettings(Settings.EMPTY);
         return TestEnvironment.newEnvironment(build);
     }
 
+    /**
+     * @brief [Functional Utility for newEnvironment]: Describe purpose here.
+     * @param settings: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public Environment newEnvironment(Settings settings) {
         Settings build = buildEnvSettings(settings);
         return TestEnvironment.newEnvironment(build);
     }
 
     /** Return consistent index settings for the provided index version. */
+    /**
+     * @brief [Functional Utility for settings]: Describe purpose here.
+     * @param version: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static Settings.Builder settings(IndexVersion version) {
         return Settings.builder().put(IndexMetadata.SETTING_VERSION_CREATED, version);
     }
 
     /** Return consistent index settings for the provided index version, shard- and replica-count. */
+    /**
+     * @brief [Functional Utility for indexSettings]: Describe purpose here.
+     * @param indexVersionCreated: [Description]
+     * @param shards: [Description]
+     * @param replicas: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static Settings.Builder indexSettings(IndexVersion indexVersionCreated, int shards, int replicas) {
         return settings(indexVersionCreated).put(IndexMetadata.SETTING_NUMBER_OF_SHARDS, shards)
             .put(IndexMetadata.SETTING_NUMBER_OF_REPLICAS, replicas);
     }
 
     /** Return consistent index settings for the provided index version, uuid, shard- and replica-count, */
+    /**
+     * @brief [Functional Utility for indexSettings]: Describe purpose here.
+     * @param indexVersionCreated: [Description]
+     * @param uuid: [Description]
+     * @param shards: [Description]
+     * @param replicas: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static Settings.Builder indexSettings(IndexVersion indexVersionCreated, String uuid, int shards, int replicas) {
         return settings(indexVersionCreated).put(IndexMetadata.SETTING_INDEX_UUID, uuid)
             .put(IndexMetadata.SETTING_NUMBER_OF_SHARDS, shards)
@@ -1649,6 +2321,12 @@ public abstract class ESTestCase extends LuceneTestCase {
     }
 
     /** Return consistent index settings for the provided shard- and replica-count. */
+    /**
+     * @brief [Functional Utility for indexSettings]: Describe purpose here.
+     * @param shards: [Description]
+     * @param replicas: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static Settings.Builder indexSettings(int shards, int replicas) {
         return Settings.builder()
             .put(IndexMetadata.SETTING_NUMBER_OF_SHARDS, shards)
@@ -1673,6 +2351,8 @@ public abstract class ESTestCase extends LuceneTestCase {
     }
 
     public static <T> List<T> randomNonEmptySubsetOf(Collection<T> collection) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (collection.isEmpty()) {
             throw new IllegalArgumentException("Can't pick non-empty subset of an empty collection");
         }
@@ -1683,6 +2363,8 @@ public abstract class ESTestCase extends LuceneTestCase {
      * Returns size random values
      */
     public static <T> List<T> randomSubsetOf(int size, Collection<T> collection) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (size > collection.size()) {
             throw new IllegalArgumentException(
                 "Can't pick " + size + " random objects from a collection of " + collection.size() + " objects"
@@ -1703,21 +2385,44 @@ public abstract class ESTestCase extends LuceneTestCase {
      */
     public static <T> Set<T> randomUnique(Supplier<T> supplier, int targetCount) {
         Set<T> things = new HashSet<>();
+    /**
+     * @brief [Functional description for field maxTries]: Describe purpose here.
+     */
         int maxTries = targetCount * 10;
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (int t = 0; t < maxTries; t++) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (things.size() == targetCount) {
+    /**
+     * @brief [Functional description for field things]: Describe purpose here.
+     */
                 return things;
             }
             things.add(supplier.get());
         }
         // Oh well, we didn't get enough unique things. It'll be ok.
+    /**
+     * @brief [Functional description for field things]: Describe purpose here.
+     */
         return things;
     }
 
+    /**
+     * @brief [Functional Utility for randomGeohash]: Describe purpose here.
+     * @param minPrecision: [Description]
+     * @param maxPrecision: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static String randomGeohash(int minPrecision, int maxPrecision) {
         return geohashGenerator.ofStringLength(random(), minPrecision, maxPrecision);
     }
 
+    /**
+     * @brief [Functional Utility for getTestTransportType]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public static String getTestTransportType() {
         return Netty4Plugin.NETTY_TRANSPORT_NAME;
     }
@@ -1728,12 +2433,25 @@ public abstract class ESTestCase extends LuceneTestCase {
 
     private static final GeohashGenerator geohashGenerator = new GeohashGenerator();
 
+    /**
+     * @brief [Functional Utility for randomCompatibleMediaType]: Describe purpose here.
+     * @param version: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public String randomCompatibleMediaType(RestApiVersion version) {
         XContentType type = randomFrom(XContentType.VND_JSON, XContentType.VND_SMILE, XContentType.VND_CBOR, XContentType.VND_YAML);
         return compatibleMediaType(type, version);
     }
 
+    /**
+     * @brief [Functional Utility for compatibleMediaType]: Describe purpose here.
+     * @param type: [Description]
+     * @param version: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public String compatibleMediaType(XContentType type, RestApiVersion version) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (type.canonical().equals(type)) {
             throw new IllegalArgumentException(
                 "Compatible header is only supported for vendor content types."
@@ -1747,6 +2465,10 @@ public abstract class ESTestCase extends LuceneTestCase {
             .responseContentTypeHeader(Map.of(MediaType.COMPATIBLE_WITH_PARAMETER_NAME, String.valueOf(version.major)));
     }
 
+    /**
+     * @brief [Functional Utility for randomVendorType]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public XContentType randomVendorType() {
         return randomFrom(XContentType.VND_JSON, XContentType.VND_SMILE, XContentType.VND_CBOR, XContentType.VND_YAML);
     }
@@ -1754,6 +2476,10 @@ public abstract class ESTestCase extends LuceneTestCase {
     public static class GeohashGenerator extends CodepointSetGenerator {
         private static final char[] ASCII_SET = "0123456789bcdefghjkmnpqrstuvwxyz".toCharArray();
 
+    /**
+     * @brief [Functional Utility for GeohashGenerator]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
         public GeohashGenerator() {
             super(ASCII_SET);
         }
@@ -1816,10 +2542,14 @@ public abstract class ESTestCase extends LuceneTestCase {
     public static XContentBuilder shuffleXContent(XContentParser parser, boolean prettyPrint, String... exceptFieldNames)
         throws IOException {
         XContentBuilder xContentBuilder = XContentFactory.contentBuilder(parser.contentType());
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (prettyPrint) {
             xContentBuilder.prettyPrint();
         }
         Token token = parser.currentToken() == null ? parser.nextToken() : parser.currentToken();
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (token == Token.START_ARRAY) {
             List<Object> shuffledList = shuffleList(parser.listOrderedMap(), new HashSet<>(Arrays.asList(exceptFieldNames)));
             return xContentBuilder.value(shuffledList);
@@ -1834,18 +2564,33 @@ public abstract class ESTestCase extends LuceneTestCase {
 
     // shuffle fields of objects in the list, but not the list itself
     @SuppressWarnings("unchecked")
+    /**
+     * @brief [Functional Utility for shuffleList]: Describe purpose here.
+     * @param list: [Description]
+     * @param exceptFields: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private static List<Object> shuffleList(List<Object> list, Set<String> exceptFields) {
         List<Object> targetList = new ArrayList<>();
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (Object value : list) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (value instanceof Map) {
                 LinkedHashMap<String, Object> valueMap = (LinkedHashMap<String, Object>) value;
                 targetList.add(shuffleMap(valueMap, exceptFields));
+        // Block Logic: [Describe purpose of this else/else if block]
             } else if (value instanceof List) {
                 targetList.add(shuffleList((List) value, exceptFields));
+        // Block Logic: [Describe purpose of this else/else if block]
             } else {
                 targetList.add(value);
             }
         }
+    /**
+     * @brief [Functional description for field targetList]: Describe purpose here.
+     */
         return targetList;
     }
 
@@ -1854,17 +2599,26 @@ public abstract class ESTestCase extends LuceneTestCase {
         List<String> keys = new ArrayList<>(map.keySet());
         LinkedHashMap<String, Object> targetMap = new LinkedHashMap<>();
         Collections.shuffle(keys, random());
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (String key : keys) {
             Object value = map.get(key);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (value instanceof Map && exceptFields.contains(key) == false) {
                 LinkedHashMap<String, Object> valueMap = (LinkedHashMap<String, Object>) value;
                 targetMap.put(key, shuffleMap(valueMap, exceptFields));
+        // Block Logic: [Describe purpose of this else/else if block]
             } else if (value instanceof List && exceptFields.contains(key) == false) {
                 targetMap.put(key, shuffleList((List) value, exceptFields));
+        // Block Logic: [Describe purpose of this else/else if block]
             } else {
                 targetMap.put(key, value);
             }
         }
+    /**
+     * @brief [Functional description for field targetMap]: Describe purpose here.
+     */
         return targetMap;
     }
 
@@ -1938,11 +2692,14 @@ public abstract class ESTestCase extends LuceneTestCase {
         try (BytesStreamOutput output = new BytesStreamOutput()) {
             output.setTransportVersion(version);
             writer.write(output, original);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (randomBoolean()) {
                 try (StreamInput in = new NamedWriteableAwareStreamInput(output.bytes().streamInput(), namedWriteableRegistry)) {
                     in.setTransportVersion(version);
                     return reader.read(in);
                 }
+        // Block Logic: [Describe purpose of this else/else if block]
             } else {
                 BytesReference bytesReference = output.copyBytes();
                 output.reset();
@@ -1955,6 +2712,10 @@ public abstract class ESTestCase extends LuceneTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for parserConfig]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     protected final XContentParserConfiguration parserConfig() {
         XContentParserConfiguration config = XContentParserConfiguration.EMPTY.withRegistry(xContentRegistry())
             .withDeprecationHandler(LoggingDeprecationHandler.INSTANCE);
@@ -2004,6 +2765,13 @@ public abstract class ESTestCase extends LuceneTestCase {
         return XContentHelper.createParserNotCompressed(config, data, xContent.type());
     }
 
+    /**
+     * @brief [Functional Utility for createParserWithCompatibilityFor]: Describe purpose here.
+     * @param xContent: [Description]
+     * @param data: [Description]
+     * @param restApiVersion: [Description]
+     * @return [ReturnType]: [Description]
+     */
     protected final XContentParser createParserWithCompatibilityFor(XContent xContent, String data, RestApiVersion restApiVersion)
         throws IOException {
         return xContent.createParser(parserConfig().withRestApiVersion(restApiVersion), data);
@@ -2017,6 +2785,9 @@ public abstract class ESTestCase extends LuceneTestCase {
      * The {@link NamedXContentRegistry} to use for this test. Subclasses should override and use liberally.
      */
     protected NamedXContentRegistry xContentRegistry() {
+    /**
+     * @brief [Functional description for field DEFAULT_NAMED_X_CONTENT_REGISTRY]: Describe purpose here.
+     */
         return DEFAULT_NAMED_X_CONTENT_REGISTRY;
     }
 
@@ -2036,19 +2807,40 @@ public abstract class ESTestCase extends LuceneTestCase {
     }
 
     /** Returns the suite failure marker: internal use only! */
+    /**
+     * @brief [Functional Utility for getSuiteFailureMarker]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public static TestRuleMarkFailure getSuiteFailureMarker() {
+    /**
+     * @brief [Functional description for field suiteFailureMarker]: Describe purpose here.
+     */
         return suiteFailureMarker;
     }
 
     /** Compares two stack traces, ignoring module (which is not yet serialized) */
+    /**
+     * @brief [Functional Utility for assertArrayEquals]: Describe purpose here.
+     * @param expected[]: [Description]
+     * @param actual[]: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static void assertArrayEquals(StackTraceElement expected[], StackTraceElement actual[]) {
         assertEquals(expected.length, actual.length);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (int i = 0; i < expected.length; i++) {
             assertEquals(expected[i], actual[i]);
         }
     }
 
     /** Compares two stack trace elements, ignoring module (which is not yet serialized) */
+    /**
+     * @brief [Functional Utility for assertEquals]: Describe purpose here.
+     * @param expected: [Description]
+     * @param actual: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static void assertEquals(StackTraceElement expected, StackTraceElement actual) {
         assertEquals(expected.getClassName(), actual.getClassName());
         assertEquals(expected.getMethodName(), actual.getMethodName());
@@ -2057,10 +2849,19 @@ public abstract class ESTestCase extends LuceneTestCase {
         assertEquals(expected.isNativeMethod(), actual.isNativeMethod());
     }
 
+    /**
+     * @brief [Functional Utility for spinForAtLeastOneMillisecond]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     protected static long spinForAtLeastOneMillisecond() {
         return spinForAtLeastNMilliseconds(1);
     }
 
+    /**
+     * @brief [Functional Utility for spinForAtLeastNMilliseconds]: Describe purpose here.
+     * @param ms: [Description]
+     * @return [ReturnType]: [Description]
+     */
     protected static long spinForAtLeastNMilliseconds(final long ms) {
         long nanosecondsInMillisecond = TimeUnit.NANOSECONDS.convert(ms, TimeUnit.MILLISECONDS);
         /*
@@ -2068,10 +2869,18 @@ public abstract class ESTestCase extends LuceneTestCase {
          * observe the passage of time.
          */
         long start = System.nanoTime();
+    /**
+     * @brief [Functional description for field elapsed]: Describe purpose here.
+     */
         long elapsed;
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         while ((elapsed = (System.nanoTime() - start)) < nanosecondsInMillisecond) {
             // busy spin
         }
+    /**
+     * @brief [Functional description for field elapsed]: Describe purpose here.
+     */
         return elapsed;
     }
 
@@ -2080,9 +2889,14 @@ public abstract class ESTestCase extends LuceneTestCase {
      */
     protected IndexAnalyzers createDefaultIndexAnalyzers() {
         return (type, name) -> {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (type == IndexAnalyzers.AnalyzerType.ANALYZER && "default".equals(name)) {
                 return Lucene.STANDARD_ANALYZER;
             }
+    /**
+     * @brief [Functional description for field null]: Describe purpose here.
+     */
             return null;
         };
     }
@@ -2130,6 +2944,9 @@ public abstract class ESTestCase extends LuceneTestCase {
      */
     public static final class TestAnalysis {
 
+    /**
+     * @brief [Functional description for field indexAnalyzers]: Describe purpose here.
+     */
         public final IndexAnalyzers indexAnalyzers;
         public final Map<String, TokenFilterFactory> tokenFilter;
         public final Map<String, TokenizerFactory> tokenizer;
@@ -2148,13 +2965,25 @@ public abstract class ESTestCase extends LuceneTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for isUnusableLocale]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     private static boolean isUnusableLocale() {
+    /**
+     * @brief [Functional Utility for inFipsJvm]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
         return inFipsJvm()
             && (Locale.getDefault().toLanguageTag().equals("th-TH")
                 || Locale.getDefault().toLanguageTag().equals("ja-JP-u-ca-japanese-x-lvariant-JP")
                 || Locale.getDefault().toLanguageTag().equals("th-TH-u-nu-thai-x-lvariant-TH"));
     }
 
+    /**
+     * @brief [Functional Utility for inFipsJvm]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public static boolean inFipsJvm() {
         return Boolean.parseBoolean(System.getProperty(FIPS_SYSPROP));
     }
@@ -2200,6 +3029,9 @@ public abstract class ESTestCase extends LuceneTestCase {
      */
     public static String getPortRange() {
         final var firstPort = getWorkerBasePort();
+    /**
+     * @brief [Functional description for field lastPort]: Describe purpose here.
+     */
         final var lastPort = firstPort + PORTS_PER_WORKER - 1; // upper bound is inclusive
         assert MIN_PRIVATE_PORT <= firstPort && lastPort <= MAX_PRIVATE_PORT;
         return firstPort + "-" + lastPort;
@@ -2210,8 +3042,13 @@ public abstract class ESTestCase extends LuceneTestCase {
      */
     protected static int getWorkerBasePort() {
         final var workerIdStr = System.getProperty(ESTestCase.TEST_WORKER_SYS_PROPERTY);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (workerIdStr == null) {
             // running in IDE
+    /**
+     * @brief [Functional description for field MIN_PRIVATE_PORT]: Describe purpose here.
+     */
             return MIN_PRIVATE_PORT;
         }
 
@@ -2220,19 +3057,38 @@ public abstract class ESTestCase extends LuceneTestCase {
         return getWorkerBasePort(workerId % (MAX_EFFECTIVE_WORKER_ID + 1));
     }
 
+    /**
+     * @brief [Functional Utility for getWorkerBasePort]: Describe purpose here.
+     * @param effectiveWorkerId: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private static int getWorkerBasePort(int effectiveWorkerId) {
         assert 0 <= effectiveWorkerId && effectiveWorkerId <= MAX_EFFECTIVE_WORKER_ID;
         // the range [MIN_PRIVATE_PORT, MIN_PRIVATE_PORT+PORTS_PER_WORKER) is only for running outside of Gradle
         return MIN_PRIVATE_PORT + PORTS_PER_WORKER + effectiveWorkerId * PORTS_PER_WORKER;
     }
 
+    /**
+     * @brief [Functional Utility for randomIp]: Describe purpose here.
+     * @param v4: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static InetAddress randomIp(boolean v4) {
         try {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (v4) {
+    /**
+     * @brief [Functional description for field ipv4]: Describe purpose here.
+     */
                 byte[] ipv4 = new byte[4];
                 random().nextBytes(ipv4);
                 return InetAddress.getByAddress(ipv4);
+        // Block Logic: [Describe purpose of this else/else if block]
             } else {
+    /**
+     * @brief [Functional description for field ipv6]: Describe purpose here.
+     */
                 byte[] ipv6 = new byte[16];
                 random().nextBytes(ipv6);
                 return InetAddress.getByAddress(ipv6);
@@ -2243,28 +3099,57 @@ public abstract class ESTestCase extends LuceneTestCase {
     }
 
     public static final class DeprecationWarning {
+    /**
+     * @brief [Functional description for field level]: Describe purpose here.
+     */
         private final Level level; // Intentionally ignoring level for the sake of equality for now
+    /**
+     * @brief [Functional description for field message]: Describe purpose here.
+     */
         private final String message;
 
+    /**
+     * @brief [Functional Utility for DeprecationWarning]: Describe purpose here.
+     * @param level: [Description]
+     * @param message: [Description]
+     * @return [ReturnType]: [Description]
+     */
         public DeprecationWarning(Level level, String message) {
             this.level = level;
             this.message = message;
         }
 
         @Override
+    /**
+     * @brief [Functional Utility for hashCode]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
         public int hashCode() {
             return Objects.hash(message);
         }
 
         @Override
+    /**
+     * @brief [Functional Utility for equals]: Describe purpose here.
+     * @param o: [Description]
+     * @return [ReturnType]: [Description]
+     */
         public boolean equals(Object o) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (this == o) return true;
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (o == null || getClass() != o.getClass()) return false;
             DeprecationWarning that = (DeprecationWarning) o;
             return Objects.equals(message, that.message);
         }
 
         @Override
+    /**
+     * @brief [Functional Utility for toString]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
         public String toString() {
             return Strings.format("%s: %s", level.name(), message);
         }
@@ -2331,6 +3216,9 @@ public abstract class ESTestCase extends LuceneTestCase {
     protected static SecureRandom secureRandomNonFips(final byte[] seed) throws NoSuchAlgorithmException {
         final SecureRandom secureRandomNonFips = SecureRandom.getInstance("SHA1PRNG"); // SHA1PRNG/SUN
         secureRandomNonFips.setSeed(seed); // SHA1PRNG/SUN setSeed() is deterministic
+    /**
+     * @brief [Functional description for field secureRandomNonFips]: Describe purpose here.
+     */
         return secureRandomNonFips;
     }
 
@@ -2341,6 +3229,8 @@ public abstract class ESTestCase extends LuceneTestCase {
      */
     protected static SecureRandom secureRandomFips(final byte[] seed) throws NoSuchAlgorithmException {
         final SecureRandom secureRandomFips = SecureRandom.getInstance("DEFAULT"); // DEFAULT/BCFIPS
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (WARN_SECURE_RANDOM_FIPS_NOT_DETERMINISTIC.get() == null) {
             WARN_SECURE_RANDOM_FIPS_NOT_DETERMINISTIC.set(Boolean.TRUE);
             final Provider provider = secureRandomFips.getProvider();
@@ -2352,6 +3242,9 @@ public abstract class ESTestCase extends LuceneTestCase {
             );
         }
         secureRandomFips.setSeed(seed); // DEFAULT/BCFIPS setSeed() is non-deterministic
+    /**
+     * @brief [Functional description for field secureRandomFips]: Describe purpose here.
+     */
         return secureRandomFips;
     }
 
@@ -2632,20 +3525,38 @@ public abstract class ESTestCase extends LuceneTestCase {
         final var maxThreads = threadPool.info(executorName).getMax();
         final var barrier = new CyclicBarrier(maxThreads + 1);
         final var executor = threadPool.executor(executorName);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (int i = 0; i < maxThreads; i++) {
             executor.execute(new AbstractRunnable() {
                 @Override
+    /**
+     * @brief [Functional Utility for doRun]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
                 protected void doRun() {
                     safeAwait(barrier);
                 }
 
                 @Override
+    /**
+     * @brief [Functional Utility for onFailure]: Describe purpose here.
+     * @param e: [Description]
+     * @return [ReturnType]: [Description]
+     */
                 public void onFailure(Exception e) {
                     fail(e, "unexpected");
                 }
 
                 @Override
+    /**
+     * @brief [Functional Utility for isForceExecution]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
                 public boolean isForceExecution() {
+    /**
+     * @brief [Functional description for field true]: Describe purpose here.
+     */
                     return true;
                 }
             });
@@ -2653,6 +3564,10 @@ public abstract class ESTestCase extends LuceneTestCase {
         safeAwait(barrier);
     }
 
+    /**
+     * @brief [Functional Utility for isTurkishLocale]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     protected static boolean isTurkishLocale() {
         return Locale.getDefault().getLanguage().equals(new Locale("tr").getLanguage())
             || Locale.getDefault().getLanguage().equals(new Locale("az").getLanguage());
@@ -2706,6 +3621,9 @@ public abstract class ESTestCase extends LuceneTestCase {
     public static <T extends Throwable> T expectThrows(Class<T> expectedType, Matcher<String> messageMatcher, ThrowingRunnable runnable) {
         var e = expectThrows(expectedType, runnable);
         assertThat(e.getMessage(), messageMatcher);
+    /**
+     * @brief [Functional description for field e]: Describe purpose here.
+     */
         return e;
     }
 
@@ -2720,6 +3638,9 @@ public abstract class ESTestCase extends LuceneTestCase {
     ) {
         var e = expectThrows(expectedType, reason, runnable);
         assertThat(reason, e.getMessage(), messageMatcher);
+    /**
+     * @brief [Functional description for field e]: Describe purpose here.
+     */
         return e;
     }
 
@@ -2743,31 +3664,52 @@ public abstract class ESTestCase extends LuceneTestCase {
      */
     public static void runInParallel(int numberOfTasks, IntConsumer taskFactory) {
         final ArrayList<Future<?>> futures = new ArrayList<>(numberOfTasks);
+    /**
+     * @brief [Functional description for field threads]: Describe purpose here.
+     */
         final Thread[] threads = new Thread[numberOfTasks - 1];
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (int i = 0; i < numberOfTasks; i++) {
+    /**
+     * @brief [Functional description for field index]: Describe purpose here.
+     */
             final int index = i;
             var future = new FutureTask<Void>(() -> taskFactory.accept(index), null);
             futures.add(future);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (i == numberOfTasks - 1) {
                 future.run();
+        // Block Logic: [Describe purpose of this else/else if block]
             } else {
                 threads[i] = new Thread(future);
                 threads[i].setName("TEST-runInParallel-T#" + i);
                 threads[i].start();
             }
         }
+    /**
+     * @brief [Functional description for field e]: Describe purpose here.
+     */
         Exception e = null;
         try {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             for (Thread thread : threads) {
                 // no sense in waiting for the rest of the threads, nor any futures, if interrupted, just bail out and fail
                 thread.join();
             }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             for (Future<?> future : futures) {
                 try {
                     future.get();
                 } catch (InterruptedException interruptedException) {
                     // no sense in waiting for the rest of the futures if interrupted, just bail out and fail
                     Thread.currentThread().interrupt();
+    /**
+     * @brief [Functional description for field interruptedException]: Describe purpose here.
+     */
                     throw interruptedException;
                 } catch (Exception executionException) {
                     e = ExceptionsHelper.useOrSuppress(e, executionException);
@@ -2777,11 +3719,18 @@ public abstract class ESTestCase extends LuceneTestCase {
             Thread.currentThread().interrupt();
             e = ExceptionsHelper.useOrSuppress(e, interruptedException);
         }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (e != null) {
             throw new AssertionError(e);
         }
     }
 
+    /**
+     * @brief [Functional Utility for ensureAllContextsReleased]: Describe purpose here.
+     * @param searchService: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static void ensureAllContextsReleased(SearchService searchService) {
         try {
             assertBusy(() -> {
@@ -2826,6 +3775,8 @@ public abstract class ESTestCase extends LuceneTestCase {
      * with the only difference that concurrency will only ever be inter-segment and never intra-segment.
      */
     public static IndexSearcher newSearcher(IndexReader r, boolean maybeWrap, boolean wrapWithAssertions, boolean useThreads) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (useThreads) {
             return newSearcher(r, maybeWrap, wrapWithAssertions, Concurrency.INTER_SEGMENT);
         }

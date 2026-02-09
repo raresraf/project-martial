@@ -37,8 +37,17 @@ import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.equalTo;
 
+/**
+ * @brief Functional description of the TransportGetAliasesActionTests class.
+ *        This is a placeholder for detailed semantic documentation.
+ *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+ */
 public class TransportGetAliasesActionTests extends ESTestCase {
 
+    /**
+     * @brief [Functional Utility for testPostProcess]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testPostProcess() {
         ProjectMetadata.Builder builder = ProjectMetadata.builder(randomProjectIdOrDefault());
         builder.put(IndexMetadata.builder("a").settings(settings(IndexVersion.current())).numberOfShards(1).numberOfReplicas(0));
@@ -94,6 +103,10 @@ public class TransportGetAliasesActionTests extends ESTestCase {
         assertThat(result.get("b").size(), equalTo(1));
     }
 
+    /**
+     * @brief [Functional Utility for testDeprecationWarningEmittedForTotalWildcard]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testDeprecationWarningEmittedForTotalWildcard() {
         ProjectMetadata projectMetadata = systemIndexTestProjectMetadata();
 
@@ -104,6 +117,9 @@ public class TransportGetAliasesActionTests extends ESTestCase {
             "c",
             Collections.singletonList(new AliasMetadata.Builder("d").build())
         );
+    /**
+     * @brief [Functional description for field concreteIndices]: Describe purpose here.
+     */
         final String[] concreteIndices = { "a", ".b", "c" };
         assertEquals(projectMetadata.findAliases(request.aliases(), concreteIndices), aliases);
         Map<String, List<AliasMetadata>> result = TransportGetAliasesAction.postProcess(
@@ -129,12 +145,19 @@ public class TransportGetAliasesActionTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testDeprecationWarningEmittedWhenSystemIndexIsRequested]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testDeprecationWarningEmittedWhenSystemIndexIsRequested() {
         ProjectMetadata projectMetadata = systemIndexTestProjectMetadata();
 
         GetAliasesRequest request = new GetAliasesRequest(TEST_REQUEST_TIMEOUT);
         request.indices(".b");
         Map<String, List<AliasMetadata>> aliases = Map.of(".b", Collections.singletonList(new AliasMetadata.Builder(".y").build()));
+    /**
+     * @brief [Functional description for field concreteIndices]: Describe purpose here.
+     */
         final String[] concreteIndices = { ".b" };
         assertEquals(projectMetadata.findAliases(request.aliases(), concreteIndices), aliases);
         Map<String, List<AliasMetadata>> result = TransportGetAliasesAction.postProcess(
@@ -158,11 +181,18 @@ public class TransportGetAliasesActionTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testDeprecationWarningEmittedWhenSystemIndexIsRequestedByAlias]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testDeprecationWarningEmittedWhenSystemIndexIsRequestedByAlias() {
         ProjectMetadata projectMetadata = systemIndexTestProjectMetadata();
 
         GetAliasesRequest request = new GetAliasesRequest(TEST_REQUEST_TIMEOUT, ".y");
         Map<String, List<AliasMetadata>> aliases = Map.of(".b", Collections.singletonList(new AliasMetadata.Builder(".y").build()));
+    /**
+     * @brief [Functional description for field concreteIndices]: Describe purpose here.
+     */
         final String[] concreteIndices = { "a", ".b", "c" };
         assertEquals(projectMetadata.findAliases(request.aliases(), concreteIndices), aliases);
         Map<String, List<AliasMetadata>> result = TransportGetAliasesAction.postProcess(
@@ -186,11 +216,18 @@ public class TransportGetAliasesActionTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testDeprecationWarningNotEmittedWhenSystemAccessAllowed]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testDeprecationWarningNotEmittedWhenSystemAccessAllowed() {
         ProjectMetadata projectMetadata = systemIndexTestProjectMetadata();
 
         GetAliasesRequest request = new GetAliasesRequest(TEST_REQUEST_TIMEOUT, ".y");
         Map<String, List<AliasMetadata>> aliases = Map.of(".b", Collections.singletonList(new AliasMetadata.Builder(".y").build()));
+    /**
+     * @brief [Functional description for field concreteIndices]: Describe purpose here.
+     */
         final String[] concreteIndices = { "a", ".b", "c" };
         assertEquals(projectMetadata.findAliases(request.aliases(), concreteIndices), aliases);
         Map<String, List<AliasMetadata>> result = TransportGetAliasesAction.postProcess(
@@ -215,6 +252,9 @@ public class TransportGetAliasesActionTests extends ESTestCase {
         GetAliasesRequest request = new GetAliasesRequest(TEST_REQUEST_TIMEOUT);
         request.indices("c");
         Map<String, List<AliasMetadata>> aliases = Map.of("c", Collections.singletonList(new AliasMetadata.Builder("d").build()));
+    /**
+     * @brief [Functional description for field concreteIndices]: Describe purpose here.
+     */
         final String[] concreteIndices = { "c" };
         assertEquals(projectMetadata.findAliases(request.aliases(), concreteIndices), aliases);
         Map<String, List<AliasMetadata>> result = TransportGetAliasesAction.postProcess(
@@ -230,6 +270,10 @@ public class TransportGetAliasesActionTests extends ESTestCase {
         assertThat(result.get("c").size(), equalTo(1));
     }
 
+    /**
+     * @brief [Functional Utility for testPostProcessDataStreamAliases]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testPostProcessDataStreamAliases() {
         var resolver = TestIndexNameExpressionResolver.newInstance();
         var tuples = List.of(new Tuple<>("logs-foo", 1), new Tuple<>("logs-bar", 1), new Tuple<>("logs-baz", 1));
@@ -267,10 +311,17 @@ public class TransportGetAliasesActionTests extends ESTestCase {
         assertThat(result.get("logs-foo"), contains(new DataStreamAlias("logs", List.of("logs-bar", "logs-foo"), null, null)));
     }
 
+    /**
+     * @brief [Functional Utility for testNetNewSystemIndicesDontErrorWhenNotRequested]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testNetNewSystemIndicesDontErrorWhenNotRequested() {
         GetAliasesRequest aliasesRequest = new GetAliasesRequest(TEST_REQUEST_TIMEOUT);
         // `.b` will be the "net new" system index this test case
         ProjectMetadata projectMetadata = systemIndexTestProjectMetadata();
+    /**
+     * @brief [Functional description for field concreteIndices]: Describe purpose here.
+     */
         String[] concreteIndices;
 
         SystemIndexDescriptor netNewDescriptor = SystemIndexDescriptor.builder()
@@ -310,6 +361,10 @@ public class TransportGetAliasesActionTests extends ESTestCase {
         assertFalse(finalResponse.containsKey(".b"));
     }
 
+    /**
+     * @brief [Functional Utility for systemIndexTestProjectMetadata]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public ProjectMetadata systemIndexTestProjectMetadata() {
         return ProjectMetadata.builder(randomProjectIdOrDefault())
             .put(IndexMetadata.builder("a").settings(settings(IndexVersion.current())).numberOfShards(1).numberOfReplicas(0))

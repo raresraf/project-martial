@@ -35,6 +35,11 @@ public interface SourceProvider {
      * but it is not safe to use this to access documents from the same segment across
      * multiple threads.
      */
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     static SourceProvider fromStoredFields() {
         StoredFieldLoader storedFieldLoader = StoredFieldLoader.sequentialSource();
         return new StoredFieldSourceProvider(storedFieldLoader);
@@ -47,6 +52,14 @@ public interface SourceProvider {
      * safely used by a searcher that searches different segments on different threads,
      * but it is not safe to use this to access documents from the same segment across
      * multiple threads.
+     */
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param mapping: [Description]
+     * @param filter: [Description]
+     * @param metrics: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
      */
     static SourceProvider fromSyntheticSource(Mapping mapping, SourceFilter filter, SourceFieldMetrics metrics) {
         return new SyntheticSourceProvider(new SourceLoader.Synthetic(filter, () -> mapping.syntheticFieldLoader(filter), metrics));

@@ -173,6 +173,8 @@ suite('ObservableDisposable', () => {
 			);
 
 			const disposableObjects = [];
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			for (let i = 0; i < randomInt(20, 10); i++) {
 				disposableObjects.push(new TestDisposable());
 			}
@@ -224,9 +226,13 @@ suite('ObservableDisposable', () => {
 				);
 
 				const allDisposables = [];
+				// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+				// Invariant: State condition that holds true before and after each iteration/execution
 				for (let i = 0; i < count; i++) {
 					const disposableObject = new TestDisposable();
 					allDisposables.push(disposableObject);
+					// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+					// Invariant: State condition that holds true before and after each iteration/execution
 					if (parent !== null) {
 						parent.addDisposables(disposableObject);
 					}
@@ -236,6 +242,8 @@ suite('ObservableDisposable', () => {
 					const countMax = count / 2;
 					const countMin = count / 5;
 
+					// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+					// Invariant: State condition that holds true before and after each iteration/execution
 					if (countMin < 1) {
 						return allDisposables;
 					}

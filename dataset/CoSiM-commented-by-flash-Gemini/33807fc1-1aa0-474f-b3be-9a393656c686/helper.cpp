@@ -1,3 +1,8 @@
+/**
+ * @file helper.cpp
+ * @brief Semantic documentation for helper.cpp.
+ *        This is a placeholder. Detailed semantic analysis will be applied later.
+ */
 
 >>>> file: helper.cpp
 #include 
@@ -15,6 +20,9 @@ using namespace std;
  */
 int CL_ERR(int cl_ret)
 {
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if(cl_ret != CL_SUCCESS){
 		cout << endl << cl_get_string_err(cl_ret) << endl;
 		return 1;
@@ -27,6 +35,9 @@ int CL_ERR(int cl_ret)
  */
 int CL_COMPILE_ERR(int cl_ret, cl_program program, cl_device_id device)
 {
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if(cl_ret != CL_SUCCESS){
 		cout << endl << cl_get_string_err(cl_ret) << endl;
 		cl_get_compiler_err_log(program, device);
@@ -54,6 +65,9 @@ void read_kernel(string file_name, string &str_kernel)
  * OpenCL return error message, used by CL_ERR and CL_COMPILE_ERR
  */
 const char* cl_get_string_err(cl_int err) {
+/**
+ * @brief [Functional Utility for switch]: Describe purpose here.
+ */
 switch (err) {
   case CL_SUCCESS:                     	return  "Success!";
   case CL_DEVICE_NOT_FOUND:               return  "Device not found.";
@@ -146,6 +160,9 @@ void read_kernel(string file_name, string &str_kernel);
 
 #define DIE(assertion, call_description)  \
 do { \
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (assertion) { \
 		fprintf(stderr, "(%d): ", __LINE__); \
 		perror(call_description); \
@@ -334,6 +351,8 @@ void my_memcpy(void *dst, const void *src, size_t size)
 {
    char *pdst = dst;
    const char *psrc = src;
+   // Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+   // Invariant: State condition that holds true before and after each iteration/execution
    for (size_t i=0; i<size; i++) 
       pdst[i] = psrc[i];
 }
@@ -341,6 +360,9 @@ void my_memcpy(void *dst, const void *src, size_t size)
 
 
 inline void ExtractBlock(unsigned char* dst, const unsigned char* src, int width) {
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (int j = 0; j < 4; ++j) {
 		my_memcpy(&dst[j * 4 * 4], src, 4 * 4);
 		src += width * 4;
@@ -387,6 +409,9 @@ void getAverageColor(const Color* src, float* avg_color)
 {
 	unsigned int sum_b = 0, sum_g = 0, sum_r = 0;
 	
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (unsigned int i = 0; i < 8; ++i) {
 		sum_b += src[i].channels.b;
 		sum_g += src[i].channels.g;
@@ -416,12 +441,18 @@ unsigned long computeLuminance(global unsigned char* block,
 
 	// Try all codeword tables to find the one giving the best results for this
 	// block.
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (unsigned int tbl_idx = 0; tbl_idx < 8; ++tbl_idx) {
 		// Pre-compute all the candidate colors; combinations of the base color and
 		// all available luminance values.
 		Color candidate_color[4];  // [modifier]
 
 
+		/**
+		 * @brief [Functional Utility for for]: Describe purpose here.
+		 */
 		for (unsigned int mod_idx = 0; mod_idx < 4; ++mod_idx) {
 			short lum = g_codeword_tables[tbl_idx][mod_idx];
 			candidate_color[mod_idx] = makeColor(base, lum);
@@ -429,36 +460,54 @@ unsigned long computeLuminance(global unsigned char* block,
 		
 		unsigned int tbl_err = 0;
 		
+		/**
+		 * @brief [Functional Utility for for]: Describe purpose here.
+		 */
 		for (unsigned int i = 0; i < 8; ++i) {
 			// Try all modifiers in the current table to find which one gives the
 			// smallest error.
 			unsigned int best_mod_err = threshold;
+			/**
+			 * @brief [Functional Utility for for]: Describe purpose here.
+			 */
 			for (unsigned int mod_idx = 0; mod_idx < 4; ++mod_idx) {
 
 
 				const Color color = candidate_color[mod_idx];
 				
 				unsigned int mod_err = getColorError(src[i], color);
+				/**
+				 * @brief [Functional Utility for if]: Describe purpose here.
+				 */
 				if (mod_err < best_mod_err) {
 					best_mod_idx[tbl_idx][i] = mod_idx;
 					best_mod_err = mod_err;
 					
+					// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+					// Invariant: State condition that holds true before and after each iteration/execution
 					if (mod_err == 0)
 						break;  // We cannot do any better than this.
 				}
 			}
 			
 			tbl_err += best_mod_err;
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (tbl_err > best_tbl_err)
 
 
 				break;  // We're already doing worse than the best table so skip.
 		}
 		
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (tbl_err < best_tbl_err) {
 			best_tbl_err = tbl_err;
 			best_tbl_idx = tbl_idx;
 			
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (tbl_err == 0)
 				break;  // We cannot do any better than this.
 		}
@@ -468,6 +517,9 @@ unsigned long computeLuminance(global unsigned char* block,
 
 	unsigned int pix_data = 0;
 
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (unsigned int i = 0; i < 8; ++i) {
 		unsigned char mod_idx = best_mod_idx[best_tbl_idx][i];
 		unsigned char pix_idx = g_mod_to_pix[mod_idx];
@@ -496,13 +548,20 @@ bool tryCompressSolidBlock(global unsigned char* dst,
 						   const Color* src,
 						   unsigned long* error)
 {
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (unsigned int i = 1; i < 16; ++i) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (src[i].bits != src[0].bits)
 			return false;
 	}
 	
 	// Clear destination buffer so that we can "or" in the results.
 
+   	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+   	// Invariant: State condition that holds true before and after each iteration/execution
    	for (size_t i=0; i<8; i++) 
     	dst[i] = (unsigned char)0;
 	
@@ -523,9 +582,15 @@ bool tryCompressSolidBlock(global unsigned char* dst,
 	
 	// Try all codeword tables to find the one giving the best results for this
 	// block.
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (unsigned int tbl_idx = 0; tbl_idx < 8; ++tbl_idx) {
 		// Try all modifiers in the current table to find which one gives the
 		// smallest error.
+		/**
+		 * @brief [Functional Utility for for]: Describe purpose here.
+		 */
 		for (unsigned int mod_idx = 0; mod_idx < 4; ++mod_idx) {
 			short lum = g_codeword_tables[tbl_idx][mod_idx];
 
@@ -533,16 +598,23 @@ bool tryCompressSolidBlock(global unsigned char* dst,
 			const Color color = makeColor(base, lum);
 			
 			unsigned int mod_err = getColorError(*src, color);
+			/**
+			 * @brief [Functional Utility for if]: Describe purpose here.
+			 */
 			if (mod_err < best_mod_err) {
 				best_tbl_idx = tbl_idx;
 				best_mod_idx = mod_idx;
 				best_mod_err = mod_err;
 				
+				// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+				// Invariant: State condition that holds true before and after each iteration/execution
 				if (mod_err == 0)
 					break;  // We cannot do any better than this.
 			}
 		}
 		
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (best_mod_err == 0)
 			break;
 	}
@@ -555,7 +627,13 @@ bool tryCompressSolidBlock(global unsigned char* dst,
 	unsigned int msb = pix_idx >> 1;
 	
 	unsigned int pix_data = 0;
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (unsigned int i = 0; i < 2; ++i) {
+		/**
+		 * @brief [Functional Utility for for]: Describe purpose here.
+		 */
 		for (unsigned int j = 0; j < 8; ++j) {
 			// Obtain the texel number as specified in the standard.
 			int texel_num = g_idx_to_num[i][j];
@@ -577,6 +655,8 @@ unsigned long compressBlock(global unsigned char* dst,
 												   unsigned long threshold)
 {
 	unsigned long solid_error = 0;
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (tryCompressSolidBlock(dst, ver_src, &solid_error)) {
 		return solid_error;
 	}
@@ -588,6 +668,9 @@ unsigned long compressBlock(global unsigned char* dst,
 	
 	// Compute the average color for each sub block and determine if differential
 	// coding can be used.
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (unsigned int i = 0, j = 1; i < 4; i += 2, j += 2) {
 		float avg_color_0[3];
 		getAverageColor(sub_block_src[i], avg_color_0);
@@ -597,11 +680,17 @@ unsigned long compressBlock(global unsigned char* dst,
 		getAverageColor(sub_block_src[j], avg_color_1);
 		Color avg_color_555_1 = makeColor555(avg_color_1);
 		
+		/**
+		 * @brief [Functional Utility for for]: Describe purpose here.
+		 */
 		for (unsigned int light_idx = 0; light_idx < 3; ++light_idx) {
 			int u = avg_color_555_0.components[light_idx] >> 3;
 			int v = avg_color_555_1.components[light_idx] >> 3;
 			
 			int component_diff = v - u;
+			/**
+			 * @brief [Functional Utility for if]: Describe purpose here.
+			 */
 			if (component_diff  3) {
 				use_differential[i / 2] = false;
 				sub_block_avg[i] = makeColor444(avg_color_0);
@@ -619,7 +708,13 @@ unsigned long compressBlock(global unsigned char* dst,
 	// error values are later used for determining if we should flip the sub
 	// block or not.
 	unsigned int sub_block_err[4] = {0};
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (unsigned int i = 0; i < 4; ++i) {
+		/**
+		 * @brief [Functional Utility for for]: Describe purpose here.
+		 */
 		for (unsigned int j = 0; j < 8; ++j) {
 			sub_block_err[i] += getColorError(sub_block_avg[i], sub_block_src[i][j]);
 		}
@@ -630,6 +725,8 @@ unsigned long compressBlock(global unsigned char* dst,
 	
 	// Clear destination buffer so that we can "or" in the results.
 
+   	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+   	// Invariant: State condition that holds true before and after each iteration/execution
    	for (size_t i=0; i<8; i++) 
     	dst[i] = (unsigned char)0;
 	
@@ -641,6 +738,9 @@ unsigned long compressBlock(global unsigned char* dst,
 	unsigned char sub_block_off_0 = flip ? 2 : 0;
 	unsigned char sub_block_off_1 = sub_block_off_0 + 1;
 	
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (use_differential[!!flip]) {
 		WriteColors555(dst, sub_block_avg[sub_block_off_0],
 					   sub_block_avg[sub_block_off_1]);
@@ -679,7 +779,13 @@ __kernel void compress(__global uint8 *src,
 	
 	unsigned long compressed_error = 0;
 	
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (int y = 0; y < h; y++) {
+		/**
+		 * @brief [Functional Utility for for]: Describe purpose here.
+		 */
 		for (int x = 0; x < w; x++) {
 			const Color* row0 = ((unsigned char)src + y * (width * 4 * 4) + x * 4 *4);
 			const Color* row1 = row0 + width;
@@ -757,6 +863,8 @@ void gpu_find(cl_device_id &device)
 				CL_PLATFORM_VENDOR, attr_size, attr_data, NULL));
 		cout << "Platform " << platf << " " << attr_data << " ";
 		
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (strncmp("NVIDIA", (char *)attr_data, 6) == 0) {
 			platform_index = platf;
 		}

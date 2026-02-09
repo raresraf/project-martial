@@ -91,6 +91,9 @@ class Elasticsearch {
      */
     public static void main(final String[] args) {
 
+         /**
+          * @brief [Functional description for field bootstrap]: Describe purpose here.
+          */
         Bootstrap bootstrap = initPhase1();
         assert bootstrap != null;
 
@@ -201,22 +204,22 @@ class Elasticsearch {
         // Log ifconfig output before SecurityManager is installed
         IfConfig.logIfNecessary();
 
-        ensureInitialized(
             // ReleaseVersions does nontrivial static initialization which should always succeed but load it now (before SM) to be sure
-            ReleaseVersions.class,
             // ReferenceDocs class does nontrivial static initialization which should always succeed but load it now (before SM) to be sure
-            ReferenceDocs.class,
             // The following classes use MethodHandles.lookup during initialization, load them now (before SM) to be sure they succeed
+            // We eagerly initialize to work around log4j permissions & JDK-8309727
+            // RequestHandlerRegistry and MethodHandlers classes do nontrivial static initialization which should always succeed but load
+            // it now (before SM) to be sure
+            // Ensure member access and reflection lookup are as expected
+        ensureInitialized(
+            ReleaseVersions.class,
+            ReferenceDocs.class,
             AbstractRefCounted.class,
             SubscribableListener.class,
             RunOnce.class,
-            // We eagerly initialize to work around log4j permissions & JDK-8309727
             VectorUtil.class,
-            // RequestHandlerRegistry and MethodHandlers classes do nontrivial static initialization which should always succeed but load
-            // it now (before SM) to be sure
             RequestHandlerRegistry.class,
             MethodHandlers.class,
-            // Ensure member access and reflection lookup are as expected
             OffHeapReflectionUtils.class
         );
 
@@ -292,7 +295,7 @@ class Elasticsearch {
         logger.info("JVM home [{}], using bundled JDK [{}]", System.getProperty("java.home"), isBundledJdk);
         logger.info("JVM arguments {}", ManagementFactory.getRuntimeMXBean().getInputArguments());
         logger.info("Default Locale [{}]", Locale.getDefault());
-        if (Build.current().isProductionRelease() == false) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (Build.current().isProductionRelease() == false) {
             logger.warn(
                 "version [{}] is a pre-release version of Elasticsearch and is not suitable for production",
                 Build.current().qualifiedVersion()
@@ -320,8 +323,8 @@ class Elasticsearch {
             .map(bundle -> bundle.pluginDescriptor().getName())
             .collect(Collectors.toUnmodifiableSet());
 
-        for (var patchedPluginName : policyPatches.keySet()) {
-            if (pluginNames.contains(patchedPluginName) == false) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (var patchedPluginName : policyPatches.keySet()) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (pluginNames.contains(patchedPluginName) == false) {
                 logger.warn(
                     "Found command-line policy patch for unknown plugin [{}] (available plugins: [{}])",
                     patchedPluginName,
@@ -363,7 +366,7 @@ class Elasticsearch {
     }
 
     private static void ensureInitialized(Class<?>... classes) {
-        for (final var clazz : classes) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (final var clazz : classes) {
             try {
                 MethodHandles.lookup().ensureInitialized(clazz);
             } catch (IllegalAccessException unexpected) {
@@ -395,6 +398,9 @@ class Elasticsearch {
 
         Node node = new Node(bootstrap.environment(), bootstrap.pluginsLoader()) {
             @Override
+            /**
+             * @brief [Functional Utility for validateNodeBeforeAcceptingRequests]: Describe purpose here.
+             * @throws NodeValidationException: [Description]\n             */
             protected void validateNodeBeforeAcceptingRequests(
                 final BootstrapContext context,
                 final BoundTransportAddress boundTransportAddress,
@@ -410,7 +416,7 @@ class Elasticsearch {
 
         INSTANCE.start();
 
-        if (bootstrap.args().daemonize()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (bootstrap.args().daemonize()) {
             LogConfigurator.removeConsoleAppender();
         }
 
@@ -419,9 +425,9 @@ class Elasticsearch {
         // important closing the err stream to the CLI when daemonizing is the last statement since that is the only
         // way to pass errors to the CLI
         bootstrap.sendCliMarker(BootstrapInfo.SERVER_READY_MARKER);
-        if (bootstrap.args().daemonize()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (bootstrap.args().daemonize()) {
             bootstrap.closeStreams();
-        } else {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else {
             startCliMonitorThread(System.in);
         }
     }
@@ -439,11 +445,11 @@ class Elasticsearch {
         var nativeAccess = NativeAccess.instance();
 
         // check if the user is running as root, and bail
-        if (nativeAccess.definitelyRunningAsRoot()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (nativeAccess.definitelyRunningAsRoot()) {
             throw new RuntimeException("can not run elasticsearch as root");
         }
 
-        if (systemCallFilter) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (systemCallFilter) {
             /*
              * Try to install system call filters; if they fail to install; a bootstrap check will fail startup in production mode.
              *
@@ -453,14 +459,14 @@ class Elasticsearch {
         }
 
         // mlockall if requested
-        if (mlockAll) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (mlockAll) {
             nativeAccess.tryLockMemory();
         }
 
         // listener for windows close event
-        if (ctrlHandler) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (ctrlHandler) {
             var windowsFunctions = nativeAccess.getWindowsFunctions();
-            if (windowsFunctions != null) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (windowsFunctions != null) {
                 windowsFunctions.addConsoleCtrlHandler(code -> {
                     if (CTRL_CLOSE_EVENT == code) {
                         logger.info("running graceful exit on windows");
@@ -485,7 +491,7 @@ class Elasticsearch {
     }
 
     static void checkLucene() {
-        if (IndexVersion.current().luceneVersion().equals(org.apache.lucene.util.Version.LATEST) == false) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (IndexVersion.current().luceneVersion().equals(org.apache.lucene.util.Version.LATEST) == false) {
             throw new AssertionError(
                 "Lucene version mismatch this version of Elasticsearch requires lucene version ["
                     + IndexVersion.current().luceneVersion()
@@ -512,9 +518,9 @@ class Elasticsearch {
             } catch (IOException e) {
                 // ignore, whether we cleanly got end of stream (-1) or an error, we will shut down below
             } finally {
-                if (msg == BootstrapInfo.SERVER_SHUTDOWN_MARKER) {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                if (msg == BootstrapInfo.SERVER_SHUTDOWN_MARKER) {
                     Bootstrap.exit(0);
-                } else {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                } else {
                     // parent process died or there was an error reading from it
                     Bootstrap.exit(1);
                 }
@@ -528,7 +534,7 @@ class Elasticsearch {
      * @param pidFile A path to a file, or null of no pidfile should be written
      */
     private static void initPidFile(Path pidFile) throws IOException {
-        if (pidFile == null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (pidFile == null) {
             return;
         }
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
@@ -542,7 +548,7 @@ class Elasticsearch {
         // It has to be an absolute path, otherwise pidFile.getParent() will return null
         assert pidFile.isAbsolute();
 
-        if (Files.exists(pidFile.getParent()) == false) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (Files.exists(pidFile.getParent()) == false) {
             Files.createDirectories(pidFile.getParent());
         }
 
@@ -550,10 +556,10 @@ class Elasticsearch {
     }
 
     private static void initSecurityProperties() {
-        for (final String property : new String[] { "networkaddress.cache.ttl", "networkaddress.cache.negative.ttl" }) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (final String property : new String[] { "networkaddress.cache.ttl", "networkaddress.cache.negative.ttl" }) {
             final String overrideProperty = "es." + property;
             final String overrideValue = System.getProperty(overrideProperty);
-            if (overrideValue != null) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (overrideValue != null) {
                 try {
                     // round-trip the property to an integer and back to a string to ensure that it parses properly
                     Security.setProperty(property, Integer.toString(Integer.valueOf(overrideValue)));
@@ -567,7 +573,7 @@ class Elasticsearch {
     private static Environment createEnvironment(Path configDir, Settings initialSettings, SecureSettings secureSettings) {
         Settings.Builder builder = Settings.builder();
         builder.put(initialSettings);
-        if (secureSettings != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (secureSettings != null) {
             builder.setSecureSettings(secureSettings);
         }
         return new Environment(builder.build(), configDir);
@@ -575,9 +581,9 @@ class Elasticsearch {
 
     static Map<String, Set<String>> findPluginsWithNativeAccess(Map<String, Policy> policies) {
         Map<String, Set<String>> pluginsWithNativeAccess = new HashMap<>();
-        for (var kv : policies.entrySet()) {
-            for (var scope : kv.getValue().scopes()) {
-                if (scope.entitlements().stream().anyMatch(entitlement -> entitlement instanceof LoadNativeLibrariesEntitlement)) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (var kv : policies.entrySet()) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            for (var scope : kv.getValue().scopes()) {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                if (scope.entitlements().stream().anyMatch(entitlement -> entitlement instanceof LoadNativeLibrariesEntitlement)) {
                     var modulesToEnable = pluginsWithNativeAccess.computeIfAbsent(kv.getKey(), k -> new HashSet<>());
                     modulesToEnable.add(scope.moduleName());
                 }
@@ -615,14 +621,14 @@ class Elasticsearch {
     private static void shutdown() {
         ElasticsearchProcess.markStopping();
 
-        if (INSTANCE == null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (INSTANCE == null) {
             return; // never got far enough
         }
         var es = INSTANCE;
         try {
             es.node.prepareForClose();
             IOUtils.close(es.node, es.spawner);
-            if (es.node.awaitClose(10, TimeUnit.SECONDS) == false) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (es.node.awaitClose(10, TimeUnit.SECONDS) == false) {
                 throw new IllegalStateException(
                     "Node didn't stop within 10 seconds. " + "Any outstanding requests or tasks might get killed."
                 );

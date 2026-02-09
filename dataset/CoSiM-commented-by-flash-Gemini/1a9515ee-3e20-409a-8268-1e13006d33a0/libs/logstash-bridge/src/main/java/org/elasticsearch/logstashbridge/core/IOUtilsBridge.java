@@ -16,10 +16,20 @@ import java.io.Closeable;
  * An external bridge for {@link IOUtils}
  */
 public class IOUtilsBridge {
+    /**
+     * @brief [Functional Utility for closeWhileHandlingException]: Describe purpose here.
+     * @param objects: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static void closeWhileHandlingException(final Iterable<? extends Closeable> objects) {
         IOUtils.closeWhileHandlingException(objects);
     }
 
+    /**
+     * @brief [Functional Utility for closeWhileHandlingException]: Describe purpose here.
+     * @param closeable: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public static void closeWhileHandlingException(final Closeable closeable) {
         IOUtils.closeWhileHandlingException(closeable);
     }

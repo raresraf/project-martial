@@ -53,6 +53,12 @@ public class FetchContext {
         this.fetchSourceContext = buildFetchSourceContext(searchContext);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param in: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private static FetchSourceContext buildFetchSourceContext(SearchContext in) {
         FetchSourceContext fsc = in.fetchSourceContext();
         StoredFieldsContext sfc = in.storedFieldsContext();
@@ -79,6 +85,12 @@ public class FetchContext {
         return fsc;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param in: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private static StoredFieldsContext buildStoredFieldsContext(SearchContext in) {
         StoredFieldsContext sfc = in.storedFieldsContext();
         if (sfc == null) {
@@ -88,6 +100,11 @@ public class FetchContext {
         return sfc;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public BitsetFilterCache bitsetFilterCache() {
         return searchContext.bitsetFilterCache();
     }
@@ -169,6 +186,11 @@ public class FetchContext {
         return searchContext.request().source() == null ? null : searchContext.request().source().rankBuilder();
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public List<String> queryNames() {
         return searchContext.request().source() == null
             ? Collections.emptyList()
@@ -259,6 +281,11 @@ public class FetchContext {
         return searchContext.getSearchExt(name);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public SearchExecutionContext getSearchExecutionContext() {
         return searchContext.getSearchExecutionContext();
     }
@@ -276,6 +303,12 @@ public class FetchContext {
      * document's nested inner hits.
      *
      * @param hitContext The context of the hit that's being processed.
+     */
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param hitContext: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
      */
     public Source getRootSource(FetchSubPhase.HitContext hitContext) {
         // Usually the root source simply belongs to the hit we're processing. But if

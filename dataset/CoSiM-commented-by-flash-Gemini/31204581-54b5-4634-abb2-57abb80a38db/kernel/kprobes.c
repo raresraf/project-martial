@@ -150,11 +150,21 @@ kprobe_opcode_t *__get_insn_slot(struct kprobe_insn_cache *c)
 	guard(mutex)(&c->mutex);
 	do {
 		guard(rcu)();
+		/**
+		 * @brief [Functional Utility for list_for_each_entry_rcu]: Describe purpose here.
+		 */
 		list_for_each_entry_rcu(kip, &c->pages, list) {
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (kip->nused < slots_per_page(c)) {
 				int i;
 
+				// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+				// Invariant: State condition that holds true before and after each iteration/execution
 				for (i = 0; i < slots_per_page(c); i++) {
+					/**
+					 * @brief [Functional Utility for if]: Describe purpose here.
+					 */
 					if (kip->slot_used[i] == SLOT_CLEAN) {
 						kip->slot_used[i] = SLOT_USED;
 						kip->nused++;
@@ -171,10 +181,15 @@ kprobe_opcode_t *__get_insn_slot(struct kprobe_insn_cache *c)
 
 	/* All out of space.  Need to allocate a new page. */
 	kip = kmalloc(struct_size(kip, slot_used, slots_per_page(c)), GFP_KERNEL);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!kip)
 		return NULL;
 
 	kip->insns = c->alloc();
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (!kip->insns) {
 		kfree(kip);
 		return NULL;
@@ -199,6 +214,8 @@ static bool collect_one_slot(struct kprobe_insn_page *kip, int idx)
 {
 	kip->slot_used[idx] = SLOT_CLEAN;
 	kip->nused--;
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (kip->nused != 0)
 		return false;
 
@@ -208,6 +225,8 @@ static bool collect_one_slot(struct kprobe_insn_page *kip, int idx)
 	 * so as not to have to set it up again the
 	 * next time somebody inserts a probe.
 	 */
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!list_is_singular(&kip->list)) {
 		/*
 		 * Record perf ksymbol unregister event before removing
@@ -231,13 +250,22 @@ static int collect_garbage_slots(struct kprobe_insn_cache *c)
 	/* Ensure no-one is interrupted on the garbages */
 	synchronize_rcu();
 
+	/**
+	 * @brief [Functional Utility for list_for_each_entry_safe]: Describe purpose here.
+	 */
 	list_for_each_entry_safe(kip, next, &c->pages, list) {
 		int i;
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (kip->ngarbage == 0)
 			continue;
 		kip->ngarbage = 0;	/* we will collect all garbages */
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		for (i = 0; i < slots_per_page(c); i++) {
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (kip->slot_used[i] == SLOT_DIRTY && collect_one_slot(kip, i))
 				break;
 		}
@@ -253,9 +281,14 @@ static long __find_insn_page(struct kprobe_insn_cache *c,
 	long idx;
 
 	guard(rcu)();
+	/**
+	 * @brief [Functional Utility for list_for_each_entry_rcu]: Describe purpose here.
+	 */
 	list_for_each_entry_rcu(kip, &c->pages, list) {
 		idx = ((long)slot - (long)kip->insns) /
 			(c->insn_size * sizeof(kprobe_opcode_t));
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (idx >= 0 && idx < slots_per_page(c)) {
 			*pkip = kip;
 			return idx;
@@ -276,12 +309,20 @@ void __free_insn_slot(struct kprobe_insn_cache *c,
 	guard(mutex)(&c->mutex);
 	idx = __find_insn_page(c, slot, &kip);
 	/* Mark and sweep: this may sleep */
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (kip) {
 		/* Check double free */
 		WARN_ON(kip->slot_used[idx] != SLOT_USED);
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (dirty) {
 			kip->slot_used[idx] = SLOT_DIRTY;
 			kip->ngarbage++;
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (++c->nr_garbage > slots_per_page(c))
 				collect_garbage_slots(c);
 		} else {
@@ -301,7 +342,12 @@ bool __is_insn_slot_addr(struct kprobe_insn_cache *c, unsigned long addr)
 	bool ret = false;
 
 	rcu_read_lock();
+	/**
+	 * @brief [Functional Utility for list_for_each_entry_rcu]: Describe purpose here.
+	 */
 	list_for_each_entry_rcu(kip, &c->pages, list) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (addr >= (unsigned long)kip->insns &&
 		    addr < (unsigned long)kip->insns + PAGE_SIZE) {
 			ret = true;
@@ -320,7 +366,12 @@ int kprobe_cache_get_kallsym(struct kprobe_insn_cache *c, unsigned int *symnum,
 	int ret = -ERANGE;
 
 	rcu_read_lock();
+	/**
+	 * @brief [Functional Utility for list_for_each_entry_rcu]: Describe purpose here.
+	 */
 	list_for_each_entry_rcu(kip, &c->pages, list) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if ((*symnum)--)
 			continue;
 		strscpy(sym, c->sym, KSYM_NAME_LEN);
@@ -383,6 +434,8 @@ struct kprobe *get_kprobe(void *addr)
 	head = &kprobe_table[hash_ptr(addr, KPROBE_HASH_BITS)];
 	hlist_for_each_entry_rcu(p, head, hlist,
 				 lockdep_is_held(&kprobe_mutex)) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (p->addr == addr)
 			return p;
 	}
@@ -425,7 +478,12 @@ void opt_pre_handler(struct kprobe *p, struct pt_regs *regs)
 {
 	struct kprobe *kp;
 
+	/**
+	 * @brief [Functional Utility for list_for_each_entry_rcu]: Describe purpose here.
+	 */
 	list_for_each_entry_rcu(kp, &p->list, list) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (kp->pre_handler && likely(!kprobe_disabled(kp))) {
 			set_kprobe_instance(kp);
 			kp->pre_handler(kp, regs);
@@ -451,6 +509,8 @@ static inline int kprobe_optready(struct kprobe *p)
 {
 	struct optimized_kprobe *op;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (kprobe_aggrprobe(p)) {
 		op = container_of(p, struct optimized_kprobe, kp);
 		return arch_prepared_optinsn(&op->optinsn);
@@ -478,8 +538,12 @@ static bool kprobe_queued(struct kprobe *p)
 {
 	struct optimized_kprobe *op;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (kprobe_aggrprobe(p)) {
 		op = container_of(p, struct optimized_kprobe, kp);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!list_empty(&op->list))
 			return true;
 	}
@@ -500,8 +564,12 @@ static struct kprobe *get_optimized_kprobe(kprobe_opcode_t *addr)
 	for (i = 1; !p && i < MAX_OPTIMIZED_LENGTH / sizeof(kprobe_opcode_t); i++)
 		p = get_kprobe(addr - i);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (p && kprobe_optready(p)) {
 		op = container_of(p, struct optimized_kprobe, kp);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (arch_within_optimized_kprobe(op, addr))
 			return p;
 	}
@@ -557,16 +625,23 @@ static void do_unoptimize_kprobes(void)
 	/* See comment in do_optimize_kprobes() */
 	lockdep_assert_cpus_held();
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!list_empty(&unoptimizing_list))
 		arch_unoptimize_kprobes(&unoptimizing_list, &freeing_list);
 
 	/* Loop on 'freeing_list' for disarming and removing from kprobe hash list */
+	/**
+	 * @brief [Functional Utility for list_for_each_entry_safe]: Describe purpose here.
+	 */
 	list_for_each_entry_safe(op, tmp, &freeing_list, list) {
 		/* Switching from detour code to origin */
 		op->kp.flags &= ~KPROBE_FLAG_OPTIMIZED;
 		/* Disarm probes if marked disabled and not gone */
 		if (kprobe_disabled(&op->kp) && !kprobe_gone(&op->kp))
 			arch_disarm_kprobe(&op->kp);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (kprobe_unused(&op->kp)) {
 			/*
 			 * Remove unused probes from hash list. After waiting
@@ -584,8 +659,13 @@ static void do_free_cleaned_kprobes(void)
 {
 	struct optimized_kprobe *op, *tmp;
 
+	/**
+	 * @brief [Functional Utility for list_for_each_entry_safe]: Describe purpose here.
+	 */
 	list_for_each_entry_safe(op, tmp, &freeing_list, list) {
 		list_del_init(&op->list);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (WARN_ON_ONCE(!kprobe_unused(&op->kp))) {
 			/*
 			 * This must not happen, but if there is a kprobe
@@ -608,6 +688,9 @@ static void kprobe_optimizer(struct work_struct *work)
 {
 	guard(mutex)(&kprobe_mutex);
 
+	/**
+	 * @brief [Functional Utility for scoped_guard]: Describe purpose here.
+	 */
 	scoped_guard(cpus_read_lock) {
 		guard(mutex)(&text_mutex);
 
@@ -644,6 +727,8 @@ static void wait_for_kprobe_optimizer_locked(void)
 {
 	lockdep_assert_held(&kprobe_mutex);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	while (!list_empty(&optimizing_list) || !list_empty(&unoptimizing_list)) {
 		mutex_unlock(&kprobe_mutex);
 
@@ -668,7 +753,12 @@ bool optprobe_queued_unopt(struct optimized_kprobe *op)
 {
 	struct optimized_kprobe *_op;
 
+	/**
+	 * @brief [Functional Utility for list_for_each_entry]: Describe purpose here.
+	 */
 	list_for_each_entry(_op, &unoptimizing_list, list) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (op == _op)
 			return true;
 	}
@@ -697,7 +787,12 @@ static void optimize_kprobe(struct kprobe *p)
 		return;
 
 	/* Check if it is already optimized. */
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (op->kp.flags & KPROBE_FLAG_OPTIMIZED) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (optprobe_queued_unopt(op)) {
 			/* This is under unoptimizing. Just dequeue the probe */
 			list_del_init(&op->list);
@@ -710,6 +805,8 @@ static void optimize_kprobe(struct kprobe *p)
 	 * On the 'unoptimizing_list' and 'optimizing_list',
 	 * 'op' must have OPTIMIZED flag
 	 */
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (WARN_ON_ONCE(!list_empty(&op->list)))
 		return;
 
@@ -730,16 +827,27 @@ static void unoptimize_kprobe(struct kprobe *p, bool force)
 {
 	struct optimized_kprobe *op;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!kprobe_aggrprobe(p) || kprobe_disarmed(p))
 		return; /* This is not an optprobe nor optimized */
 
 	op = container_of(p, struct optimized_kprobe, kp);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!kprobe_optimized(p))
 		return;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!list_empty(&op->list)) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (optprobe_queued_unopt(op)) {
 			/* Queued in unoptimizing queue */
+			/**
+			 * @brief [Functional Utility for if]: Describe purpose here.
+			 */
 			if (force) {
 				/*
 				 * Forcibly unoptimize the kprobe here, and queue it
@@ -757,6 +865,9 @@ static void unoptimize_kprobe(struct kprobe *p, bool force)
 	}
 
 	/* Optimized kprobe case */
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (force) {
 		/* Forcibly update the code: this is a special case */
 		force_unoptimize_kprobe(op);
@@ -793,17 +904,23 @@ static void kill_optimized_kprobe(struct kprobe *p)
 	struct optimized_kprobe *op;
 
 	op = container_of(p, struct optimized_kprobe, kp);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!list_empty(&op->list))
 		/* Dequeue from the (un)optimization queue */
 		list_del_init(&op->list);
 	op->kp.flags &= ~KPROBE_FLAG_OPTIMIZED;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (kprobe_unused(p)) {
 		/*
 		 * Unused kprobe is on unoptimizing or freeing list. We move it
 		 * to freeing_list and let the kprobe_optimizer() remove it from
 		 * the kprobe hash list and free it.
 		 */
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (optprobe_queued_unopt(op))
 			list_move(&op->list, &freeing_list);
 	}
@@ -815,6 +932,8 @@ static void kill_optimized_kprobe(struct kprobe *p)
 static inline
 void __prepare_optimized_kprobe(struct optimized_kprobe *op, struct kprobe *p)
 {
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!kprobe_ftrace(p))
 		arch_prepare_optimized_kprobe(op, p);
 }
@@ -834,6 +953,8 @@ static struct kprobe *alloc_aggr_kprobe(struct kprobe *p)
 	struct optimized_kprobe *op;
 
 	op = kzalloc(sizeof(struct optimized_kprobe), GFP_KERNEL);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!op)
 		return NULL;
 
@@ -865,10 +986,14 @@ static void try_to_optimize_kprobe(struct kprobe *p)
 	guard(mutex)(&text_mutex);
 
 	ap = alloc_aggr_kprobe(p);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!ap)
 		return;
 
 	op = container_of(ap, struct optimized_kprobe, kp);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!arch_prepared_optinsn(&op->optinsn)) {
 		/* If failed to setup optimizing, fallback to kprobe. */
 		arch_remove_optimized_kprobe(op);
@@ -893,9 +1018,14 @@ static void optimize_all_kprobes(void)
 
 	cpus_read_lock();
 	kprobes_allow_optimization = true;
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (i = 0; i < KPROBE_TABLE_SIZE; i++) {
 		head = &kprobe_table[i];
 		hlist_for_each_entry(p, head, hlist)
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (!kprobe_disabled(p))
 				optimize_kprobe(p);
 	}
@@ -917,9 +1047,17 @@ static void unoptimize_all_kprobes(void)
 
 	cpus_read_lock();
 	kprobes_allow_optimization = false;
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (i = 0; i < KPROBE_TABLE_SIZE; i++) {
 		head = &kprobe_table[i];
+		/**
+		 * @brief [Functional Utility for hlist_for_each_entry]: Describe purpose here.
+		 */
 		hlist_for_each_entry(p, head, hlist) {
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (!kprobe_disabled(p))
 				unoptimize_kprobe(p, false);
 		}
@@ -942,8 +1080,12 @@ static int proc_kprobes_optimization_handler(const struct ctl_table *table,
 	sysctl_kprobes_optimization = kprobes_allow_optimization ? 1 : 0;
 	ret = proc_dointvec_minmax(table, write, buffer, length, ppos);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (sysctl_kprobes_optimization)
 		optimize_all_kprobes();
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	else
 		unoptimize_all_kprobes();
 
@@ -977,6 +1119,8 @@ static void __arm_kprobe(struct kprobe *p)
 
 	/* Find the overlapping optimized kprobes. */
 	_p = get_optimized_kprobe(p->addr);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (unlikely(_p))
 		/* Fallback to unoptimized kprobe */
 		unoptimize_kprobe(_p, true);
@@ -995,10 +1139,14 @@ static void __disarm_kprobe(struct kprobe *p, bool reopt)
 	/* Try to unoptimize */
 	unoptimize_kprobe(p, kprobes_all_disarmed);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!kprobe_queued(p)) {
 		arch_disarm_kprobe(p);
 		/* If another kprobe was blocked, re-optimize it. */
 		_p = get_optimized_kprobe(p->addr);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (unlikely(_p) && reopt)
 			optimize_kprobe(_p);
 	}
@@ -1070,11 +1218,18 @@ static int __arm_kprobe_ftrace(struct kprobe *p, struct ftrace_ops *ops,
 	lockdep_assert_held(&kprobe_mutex);
 
 	ret = ftrace_set_filter_ip(ops, (unsigned long)p->addr, 0, 0);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (WARN_ONCE(ret < 0, "Failed to arm kprobe-ftrace at %pS (error %d)\n", p->addr, ret))
 		return ret;
 
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (*cnt == 0) {
 		ret = register_ftrace_function(ops);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (WARN(ret < 0, "Failed to register kprobe-ftrace (error %d)\n", ret)) {
 			/*
 			 * At this point, sinec ops is not registered, we should be sefe from
@@ -1105,8 +1260,13 @@ static int __disarm_kprobe_ftrace(struct kprobe *p, struct ftrace_ops *ops,
 
 	lockdep_assert_held(&kprobe_mutex);
 
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (*cnt == 1) {
 		ret = unregister_ftrace_function(ops);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (WARN(ret < 0, "Failed to unregister kprobe-ftrace (error %d)\n", ret))
 			return ret;
 	}
@@ -1155,6 +1315,8 @@ static int prepare_kprobe(struct kprobe *p)
 
 static int arm_kprobe(struct kprobe *kp)
 {
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (unlikely(kprobe_ftrace(kp)))
 		return arm_kprobe_ftrace(kp);
 
@@ -1166,6 +1328,8 @@ static int arm_kprobe(struct kprobe *kp)
 
 static int disarm_kprobe(struct kprobe *kp, bool reopt)
 {
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (unlikely(kprobe_ftrace(kp)))
 		return disarm_kprobe_ftrace(kp);
 
@@ -1183,9 +1347,16 @@ static int aggr_pre_handler(struct kprobe *p, struct pt_regs *regs)
 {
 	struct kprobe *kp;
 
+	/**
+	 * @brief [Functional Utility for list_for_each_entry_rcu]: Describe purpose here.
+	 */
 	list_for_each_entry_rcu(kp, &p->list, list) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (kp->pre_handler && likely(!kprobe_disabled(kp))) {
 			set_kprobe_instance(kp);
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (kp->pre_handler(kp, regs))
 				return 1;
 		}
@@ -1200,7 +1371,12 @@ static void aggr_post_handler(struct kprobe *p, struct pt_regs *regs,
 {
 	struct kprobe *kp;
 
+	/**
+	 * @brief [Functional Utility for list_for_each_entry_rcu]: Describe purpose here.
+	 */
 	list_for_each_entry_rcu(kp, &p->list, list) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (kp->post_handler && likely(!kprobe_disabled(kp))) {
 			set_kprobe_instance(kp);
 			kp->post_handler(kp, regs, flags);
@@ -1215,6 +1391,8 @@ void kprobes_inc_nmissed_count(struct kprobe *p)
 {
 	struct kprobe *kp;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!kprobe_aggrprobe(p)) {
 		p->nmissed++;
 	} else {
@@ -1247,10 +1425,14 @@ void kprobe_busy_end(void)
 /* Add the new probe to 'ap->list'. */
 static int add_new_kprobe(struct kprobe *ap, struct kprobe *p)
 {
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (p->post_handler)
 		unoptimize_kprobe(ap, true);	/* Fall back to normal kprobe */
 
 	list_add_rcu(&p->list, &ap->list);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (p->post_handler && !ap->post_handler)
 		ap->post_handler = aggr_post_handler;
 
@@ -1288,24 +1470,35 @@ static int register_aggr_kprobe(struct kprobe *orig_p, struct kprobe *p)
 	int ret = 0;
 	struct kprobe *ap = orig_p;
 
+	/**
+	 * @brief [Functional Utility for scoped_guard]: Describe purpose here.
+	 */
 	scoped_guard(cpus_read_lock) {
 		/* For preparing optimization, jump_label_text_reserved() is called */
 		guard(jump_label_lock)();
 		guard(mutex)(&text_mutex);
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!kprobe_aggrprobe(orig_p)) {
 			/* If 'orig_p' is not an 'aggr_kprobe', create new one. */
 			ap = alloc_aggr_kprobe(orig_p);
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (!ap)
 				return -ENOMEM;
 			init_aggr_kprobe(ap, orig_p);
 		} else if (kprobe_unused(ap)) {
 			/* This probe is going to die. Rescue it */
 			ret = reuse_unused_kprobe(ap);
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (ret)
 				return ret;
 		}
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (kprobe_gone(ap)) {
 			/*
 			 * Attempting to insert new probe at the same location that
@@ -1314,6 +1507,8 @@ static int register_aggr_kprobe(struct kprobe *orig_p, struct kprobe *p)
 			 * released. We need a new slot for the new probe.
 			 */
 			ret = arch_prepare_kprobe(ap);
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (ret)
 				/*
 				 * Even if fail to allocate new slot, don't need to
@@ -1338,11 +1533,19 @@ static int register_aggr_kprobe(struct kprobe *orig_p, struct kprobe *p)
 		ret = add_new_kprobe(ap, p);
 	}
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret == 0 && kprobe_disabled(ap) && !kprobe_disabled(p)) {
 		ap->flags &= ~KPROBE_FLAG_DISABLED;
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (!kprobes_all_disarmed) {
 			/* Arm the breakpoint again. */
 			ret = arm_kprobe(ap);
+			/**
+			 * @brief [Functional Utility for if]: Describe purpose here.
+			 */
 			if (ret) {
 				ap->flags |= KPROBE_FLAG_DISABLED;
 				list_del_rcu(&p->list);
@@ -1364,13 +1567,20 @@ static bool __within_kprobe_blacklist(unsigned long addr)
 {
 	struct kprobe_blacklist_entry *ent;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (arch_within_kprobe_blacklist(addr))
 		return true;
 	/*
 	 * If 'kprobe_blacklist' is defined, check the address and
 	 * reject any probe registration in the prohibited area.
 	 */
+	/**
+	 * @brief [Functional Utility for list_for_each_entry]: Describe purpose here.
+	 */
 	list_for_each_entry(ent, &kprobe_blacklist, list) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (addr >= ent->start_addr && addr < ent->end_addr)
 			return true;
 	}
@@ -1381,16 +1591,22 @@ bool within_kprobe_blacklist(unsigned long addr)
 {
 	char symname[KSYM_NAME_LEN], *p;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (__within_kprobe_blacklist(addr))
 		return true;
 
 	/* Check if the address is on a suffixed-symbol */
 	if (!lookup_symbol_name(addr, symname)) {
 		p = strchr(symname, '.');
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!p)
 			return false;
 		*p = '\0';
 		addr = (unsigned long)kprobe_lookup_name(symname, 0);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (addr)
 			return __within_kprobe_blacklist(addr);
 	}
@@ -1429,9 +1645,14 @@ static kprobe_opcode_t *
 _kprobe_addr(kprobe_opcode_t *addr, const char *symbol_name,
 	     unsigned long offset, bool *on_func_entry)
 {
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if ((symbol_name && addr) || (!symbol_name && !addr))
 		return ERR_PTR(-EINVAL);
 
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (symbol_name) {
 		/*
 		 * Input: @sym + @offset
@@ -1441,6 +1662,8 @@ _kprobe_addr(kprobe_opcode_t *addr, const char *symbol_name,
 		 *       argument into it's output!
 		 */
 		addr = kprobe_lookup_name(symbol_name, offset);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!addr)
 			return ERR_PTR(-ENOENT);
 	}
@@ -1450,6 +1673,8 @@ _kprobe_addr(kprobe_opcode_t *addr, const char *symbol_name,
 	 * @addr' + @offset' where @addr' is the symbol start address.
 	 */
 	addr = (void *)addr + offset;
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!kallsyms_lookup_size_offset((unsigned long)addr, NULL, &offset))
 		return ERR_PTR(-ENOENT);
 	addr = (void *)addr - offset;
@@ -1460,6 +1685,8 @@ _kprobe_addr(kprobe_opcode_t *addr, const char *symbol_name,
 	 * at the start of the function.
 	 */
 	addr = arch_adjust_kprobe_addr((unsigned long)addr, offset, on_func_entry);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!addr)
 		return ERR_PTR(-EINVAL);
 
@@ -1484,13 +1711,19 @@ static struct kprobe *__get_valid_kprobe(struct kprobe *p)
 	lockdep_assert_held(&kprobe_mutex);
 
 	ap = get_kprobe(p->addr);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (unlikely(!ap))
 		return NULL;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (p == ap)
 		return ap;
 
 	list_for_each_entry(list_p, &ap->list, list)
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (list_p == p)
 		/* kprobe p is a valid probe */
 			return ap;
@@ -1506,6 +1739,8 @@ static inline int warn_kprobe_rereg(struct kprobe *p)
 {
 	guard(mutex)(&kprobe_mutex);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (WARN_ON_ONCE(__get_valid_kprobe(p)))
 		return -EINVAL;
 
@@ -1516,6 +1751,8 @@ static int check_ftrace_location(struct kprobe *p)
 {
 	unsigned long addr = (unsigned long)p->addr;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ftrace_location(addr) == addr) {
 #ifdef CONFIG_KPROBES_ON_FTRACE
 		p->flags |= KPROBE_FLAG_FTRACE;
@@ -1530,6 +1767,8 @@ static bool is_cfi_preamble_symbol(unsigned long addr)
 {
 	char symbuf[KSYM_NAME_LEN];
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (lookup_symbol_name(addr, symbuf))
 		return false;
 
@@ -1543,6 +1782,8 @@ static int check_kprobe_address_safe(struct kprobe *p,
 	int ret;
 
 	ret = check_ftrace_location(p);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret)
 		return ret;
 
@@ -1550,9 +1791,13 @@ static int check_kprobe_address_safe(struct kprobe *p,
 
 	/* Ensure the address is in a text area, and find a module if exists. */
 	*probed_mod = NULL;
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!core_kernel_text((unsigned long) p->addr)) {
 		guard(rcu)();
 		*probed_mod = __module_text_address((unsigned long) p->addr);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!(*probed_mod))
 			return -EINVAL;
 
@@ -1560,6 +1805,8 @@ static int check_kprobe_address_safe(struct kprobe *p,
 		 * We must hold a refcount of the probed module while updating
 		 * its code to prohibit unexpected unloading.
 		 */
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (unlikely(!try_module_get(*probed_mod)))
 			return -ENOENT;
 	}
@@ -1580,6 +1827,8 @@ static int check_kprobe_address_safe(struct kprobe *p,
 		 * If the module freed '.init.text', we couldn't insert
 		 * kprobes in there.
 		 */
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (within_module_init((unsigned long)p->addr, *probed_mod) &&
 		    !module_is_coming(*probed_mod)) {
 			module_put(*probed_mod);
@@ -1598,14 +1847,21 @@ static int __register_kprobe(struct kprobe *p)
 	guard(mutex)(&kprobe_mutex);
 
 	old_p = get_kprobe(p->addr);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (old_p)
 		/* Since this may unoptimize 'old_p', locking 'text_mutex'. */
 		return register_aggr_kprobe(old_p, p);
 
+	/**
+	 * @brief [Functional Utility for scoped_guard]: Describe purpose here.
+	 */
 	scoped_guard(cpus_read_lock) {
 		/* Prevent text modification */
 		guard(mutex)(&text_mutex);
 		ret = prepare_kprobe(p);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (ret)
 			return ret;
 	}
@@ -1614,8 +1870,13 @@ static int __register_kprobe(struct kprobe *p)
 	hlist_add_head_rcu(&p->hlist,
 		       &kprobe_table[hash_ptr(p->addr, KPROBE_HASH_BITS)]);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!kprobes_all_disarmed && !kprobe_disabled(p)) {
 		ret = arm_kprobe(p);
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (ret) {
 			hlist_del_rcu(&p->hlist);
 			synchronize_rcu();
@@ -1636,27 +1897,37 @@ int register_kprobe(struct kprobe *p)
 
 	/* Canonicalize probe address from symbol */
 	addr = _kprobe_addr(p->addr, p->symbol_name, p->offset, &on_func_entry);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (IS_ERR(addr))
 		return PTR_ERR(addr);
 	p->addr = addr;
 
 	ret = warn_kprobe_rereg(p);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret)
 		return ret;
 
 	/* User can pass only KPROBE_FLAG_DISABLED to register_kprobe */
 	p->flags &= KPROBE_FLAG_DISABLED;
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (on_func_entry)
 		p->flags |= KPROBE_FLAG_ON_FUNC_ENTRY;
 	p->nmissed = 0;
 	INIT_LIST_HEAD(&p->list);
 
 	ret = check_kprobe_address_safe(p, &probed_mod);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret)
 		return ret;
 
 	ret = __register_kprobe(p);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (probed_mod)
 		module_put(probed_mod);
 
@@ -1672,6 +1943,8 @@ static bool aggr_kprobe_disabled(struct kprobe *ap)
 	lockdep_assert_held(&kprobe_mutex);
 
 	list_for_each_entry(kp, &ap->list, list)
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!kprobe_disabled(kp))
 			/*
 			 * Since there is an active probe on the list,
@@ -1691,9 +1964,13 @@ static struct kprobe *__disable_kprobe(struct kprobe *p)
 
 	/* Get an original kprobe for return */
 	orig_p = __get_valid_kprobe(p);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (unlikely(orig_p == NULL))
 		return ERR_PTR(-EINVAL);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (kprobe_disabled(p))
 		return orig_p;
 
@@ -1709,8 +1986,13 @@ static struct kprobe *__disable_kprobe(struct kprobe *p)
 		 * Note arm_all_kprobes() __tries__ to arm all kprobes
 		 * on the best effort basis.
 		 */
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!kprobes_all_disarmed && !kprobe_disabled(orig_p)) {
 			ret = disarm_kprobe(orig_p, true);
+			/**
+			 * @brief [Functional Utility for if]: Describe purpose here.
+			 */
 			if (ret) {
 				p->flags &= ~KPROBE_FLAG_DISABLED;
 				return ERR_PTR(ret);
@@ -1731,6 +2013,8 @@ static int __unregister_kprobe_top(struct kprobe *p)
 
 	/* Disable kprobe. This will disarm it if needed. */
 	ap = __disable_kprobe(p);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (IS_ERR(ap))
 		return PTR_ERR(ap);
 
@@ -1753,7 +2037,12 @@ static int __unregister_kprobe_top(struct kprobe *p)
 
 	/* If disabling probe has special handlers, update aggrprobe */
 	if (p->post_handler && !kprobe_gone(p)) {
+		/**
+		 * @brief [Functional Utility for list_for_each_entry]: Describe purpose here.
+		 */
 		list_for_each_entry(list_p, &ap->list, list) {
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if ((list_p != p) && (list_p->post_handler))
 				break;
 		}
@@ -1764,6 +2053,8 @@ static int __unregister_kprobe_top(struct kprobe *p)
 			 * post_handler setting to identify this aggrprobe
 			 * armed with kprobe_ipmodify_ops.
 			 */
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (!kprobe_ftrace(ap))
 				ap->post_handler = NULL;
 		}
@@ -1774,6 +2065,8 @@ static int __unregister_kprobe_top(struct kprobe *p)
 	 * __unregister_kprobe_bottom().
 	 */
 	list_del_rcu(&p->list);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!kprobe_disabled(ap) && !kprobes_all_disarmed)
 		/*
 		 * Try to optimize this probe again, because post
@@ -1788,9 +2081,13 @@ static void __unregister_kprobe_bottom(struct kprobe *p)
 {
 	struct kprobe *ap;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (list_empty(&p->list))
 		/* This is an independent kprobe */
 		arch_remove_kprobe(p);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	else if (list_is_singular(&p->list)) {
 		/* This is the last child of an aggrprobe */
 		ap = list_entry(p->list.next, struct kprobe, list);
@@ -1804,11 +2101,21 @@ int register_kprobes(struct kprobe **kps, int num)
 {
 	int i, ret = 0;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (num <= 0)
 		return -EINVAL;
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (i = 0; i < num; i++) {
 		ret = register_kprobe(kps[i]);
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (ret < 0) {
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (i > 0)
 				unregister_kprobes(kps, i);
 			break;
@@ -1828,15 +2135,28 @@ void unregister_kprobes(struct kprobe **kps, int num)
 {
 	int i;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (num <= 0)
 		return;
+	/**
+	 * @brief [Functional Utility for scoped_guard]: Describe purpose here.
+	 */
 	scoped_guard(mutex, &kprobe_mutex) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		for (i = 0; i < num; i++)
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (__unregister_kprobe_top(kps[i]) < 0)
 				kps[i]->addr = NULL;
 	}
 	synchronize_rcu();
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	for (i = 0; i < num; i++)
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (kps[i]->addr)
 			__unregister_kprobe_bottom(kps[i]);
 }
@@ -1885,8 +2205,12 @@ static void recycle_rp_inst(struct kretprobe_instance *ri)
 {
 	struct kretprobe *rp = get_kretprobe(ri);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (likely(rp))
 		objpool_push(ri, &rp->rph->pool);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	else
 		call_rcu(&ri->rcu, free_rp_inst_rcu);
 }
@@ -1910,6 +2234,9 @@ void kprobe_flush_task(struct task_struct *tk)
 	kprobe_busy_begin();
 
 	node = __llist_del_all(&tk->kretprobe_instances);
+	/**
+	 * @brief [Functional Utility for while]: Describe purpose here.
+	 */
 	while (node) {
 		ri = container_of(node, struct kretprobe_instance, llist);
 		node = node->next;
@@ -1925,6 +2252,8 @@ static inline void free_rp_inst(struct kretprobe *rp)
 {
 	struct kretprobe_holder *rph = rp->rph;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!rph)
 		return;
 	rp->rph = NULL;
@@ -1938,13 +2267,22 @@ static kprobe_opcode_t *__kretprobe_find_ret_addr(struct task_struct *tsk,
 	struct kretprobe_instance *ri = NULL;
 	struct llist_node *node = *cur;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!node)
 		node = tsk->kretprobe_instances.first;
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	else
 		node = node->next;
 
+	/**
+	 * @brief [Functional Utility for while]: Describe purpose here.
+	 */
 	while (node) {
 		ri = container_of(node, struct kretprobe_instance, llist);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (ri->ret_addr != kretprobe_trampoline_addr()) {
 			*cur = node;
 			return ri->ret_addr;
@@ -1976,11 +2314,15 @@ unsigned long kretprobe_find_ret_addr(struct task_struct *tsk, void *fp,
 	struct kretprobe_instance *ri;
 	kprobe_opcode_t *ret;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (WARN_ON_ONCE(!cur))
 		return 0;
 
 	do {
 		ret = __kretprobe_find_ret_addr(tsk, cur);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!ret)
 			break;
 		ri = container_of(*cur, struct kretprobe_instance, llist);
@@ -2009,6 +2351,9 @@ unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
 
 	/* Find correct address and all nodes for this frame. */
 	correct_ret_addr = __kretprobe_find_ret_addr(current, &node);
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (!correct_ret_addr) {
 		pr_err("kretprobe: Return address not found, not execute handler. Maybe there is a bug in the kernel.\n");
 		BUG_ON(1);
@@ -2023,13 +2368,21 @@ unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
 
 	/* Run the user handler of the nodes. */
 	first = current->kretprobe_instances.first;
+	/**
+	 * @brief [Functional Utility for while]: Describe purpose here.
+	 */
 	while (first) {
 		ri = container_of(first, struct kretprobe_instance, llist);
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (WARN_ON_ONCE(ri->fp != frame_pointer))
 			break;
 
 		rp = get_kretprobe(ri);
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (rp && rp->handler) {
 			struct kprobe *prev = kprobe_running();
 
@@ -2038,6 +2391,8 @@ unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
 			rp->handler(ri, regs);
 			__this_cpu_write(current_kprobe, prev);
 		}
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (first == node)
 			break;
 
@@ -2052,6 +2407,9 @@ unsigned long __kretprobe_trampoline_handler(struct pt_regs *regs,
 	node->next = NULL;
 
 	/* Recycle free instances. */
+	/**
+	 * @brief [Functional Utility for while]: Describe purpose here.
+	 */
 	while (first) {
 		ri = container_of(first, struct kretprobe_instance, llist);
 		first = first->next;
@@ -2074,11 +2432,16 @@ static int pre_handler_kretprobe(struct kprobe *p, struct pt_regs *regs)
 	struct kretprobe_instance *ri;
 
 	ri = objpool_pop(&rph->pool);
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (!ri) {
 		rp->nmissed++;
 		return 0;
 	}
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (rp->entry_handler && rp->entry_handler(ri, regs)) {
 		objpool_push(ri, &rph->pool);
 		return 0;
@@ -2103,6 +2466,9 @@ static int pre_handler_kretprobe(struct kprobe *p, struct pt_regs *regs)
 	struct rethook_node *rhn;
 
 	rhn = rethook_try_get(rp->rh);
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (!rhn) {
 		rp->nmissed++;
 		return 0;
@@ -2110,8 +2476,12 @@ static int pre_handler_kretprobe(struct kprobe *p, struct pt_regs *regs)
 
 	ri = container_of(rhn, struct kretprobe_instance, node);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (rp->entry_handler && rp->entry_handler(ri, regs))
 		rethook_recycle(rhn);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	else
 		rethook_hook(rhn, regs, kprobe_ftrace(p));
 
@@ -2162,9 +2532,13 @@ int kprobe_on_func_entry(kprobe_opcode_t *addr, const char *sym, unsigned long o
 	bool on_func_entry;
 	kprobe_opcode_t *kp_addr = _kprobe_addr(addr, sym, offset, &on_func_entry);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (IS_ERR(kp_addr))
 		return PTR_ERR(kp_addr);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!on_func_entry)
 		return -EINVAL;
 
@@ -2178,6 +2552,8 @@ int register_kretprobe(struct kretprobe *rp)
 	void *addr;
 
 	ret = kprobe_on_func_entry(rp->kp.addr, rp->kp.symbol_name, rp->kp.offset);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret)
 		return ret;
 
@@ -2185,17 +2561,29 @@ int register_kretprobe(struct kretprobe *rp)
 	if (rp->kp.addr && warn_kprobe_rereg(&rp->kp))
 		return -EINVAL;
 
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (kretprobe_blacklist_size) {
 		addr = kprobe_addr(&rp->kp);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (IS_ERR(addr))
 			return PTR_ERR(addr);
 
+		/**
+		 * @brief [Functional Utility for for]: Describe purpose here.
+		 */
 		for (i = 0; kretprobe_blacklist[i].name != NULL; i++) {
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (kretprobe_blacklist[i].addr == addr)
 				return -EINVAL;
 		}
 	}
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (rp->data_size > KRETPROBE_MAX_DATA_SIZE)
 		return -E2BIG;
 
@@ -2210,18 +2598,25 @@ int register_kretprobe(struct kretprobe *rp)
 	rp->rh = rethook_alloc((void *)rp, kretprobe_rethook_handler,
 				sizeof(struct kretprobe_instance) +
 				rp->data_size, rp->maxactive);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (IS_ERR(rp->rh))
 		return PTR_ERR(rp->rh);
 
 	rp->nmissed = 0;
 	/* Establish function entry probe point */
 	ret = register_kprobe(&rp->kp);
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (ret != 0) {
 		rethook_free(rp->rh);
 		rp->rh = NULL;
 	}
 #else	/* !CONFIG_KRETPROBE_ON_RETHOOK */
 	rp->rph = kzalloc(sizeof(struct kretprobe_holder), GFP_KERNEL);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!rp->rph)
 		return -ENOMEM;
 
@@ -2236,6 +2631,8 @@ int register_kretprobe(struct kretprobe *rp)
 	rp->nmissed = 0;
 	/* Establish function entry probe point */
 	ret = register_kprobe(&rp->kp);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret != 0)
 		free_rp_inst(rp);
 #endif
@@ -2247,11 +2644,21 @@ int register_kretprobes(struct kretprobe **rps, int num)
 {
 	int ret = 0, i;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (num <= 0)
 		return -EINVAL;
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (i = 0; i < num; i++) {
 		ret = register_kretprobe(rps[i]);
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (ret < 0) {
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (i > 0)
 				unregister_kretprobes(rps, i);
 			break;
@@ -2271,11 +2678,18 @@ void unregister_kretprobes(struct kretprobe **rps, int num)
 {
 	int i;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (num <= 0)
 		return;
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (i = 0; i < num; i++) {
 		guard(mutex)(&kprobe_mutex);
 
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (__unregister_kprobe_top(&rps[i]->kp) < 0)
 			rps[i]->kp.addr = NULL;
 #ifdef CONFIG_KRETPROBE_ON_RETHOOK
@@ -2286,7 +2700,13 @@ void unregister_kretprobes(struct kretprobe **rps, int num)
 	}
 
 	synchronize_rcu();
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (i = 0; i < num; i++) {
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (rps[i]->kp.addr) {
 			__unregister_kprobe_bottom(&rps[i]->kp);
 #ifndef CONFIG_KRETPROBE_ON_RETHOOK
@@ -2340,10 +2760,14 @@ static void kill_kprobe(struct kprobe *p)
 	 * is using ftrace, because ftrace framework is still available at
 	 * 'MODULE_STATE_GOING' notification.
 	 */
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (kprobe_ftrace(p) && !kprobe_disabled(p) && !kprobes_all_disarmed)
 		disarm_kprobe_ftrace(p);
 
 	p->flags |= KPROBE_FLAG_GONE;
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (kprobe_aggrprobe(p)) {
 		/*
 		 * If this is an aggr_kprobe, we have to list all the
@@ -2385,21 +2809,34 @@ int enable_kprobe(struct kprobe *kp)
 
 	/* Check whether specified probe is valid. */
 	p = __get_valid_kprobe(kp);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (unlikely(p == NULL))
 		return -EINVAL;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (kprobe_gone(kp))
 		/* This kprobe has gone, we couldn't enable it. */
 		return -EINVAL;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (p != kp)
 		kp->flags &= ~KPROBE_FLAG_DISABLED;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!kprobes_all_disarmed && kprobe_disabled(p)) {
 		p->flags &= ~KPROBE_FLAG_DISABLED;
 		ret = arm_kprobe(p);
+		/**
+		 * @brief [Functional Utility for if]: Describe purpose here.
+		 */
 		if (ret) {
 			p->flags |= KPROBE_FLAG_DISABLED;
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (p != kp)
 				kp->flags |= KPROBE_FLAG_DISABLED;
 		}
@@ -2421,11 +2858,15 @@ int kprobe_add_ksym_blacklist(unsigned long entry)
 	struct kprobe_blacklist_entry *ent;
 	unsigned long offset = 0, size = 0;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!kernel_text_address(entry) ||
 	    !kallsyms_lookup_size_offset(entry, &size, &offset))
 		return -EINVAL;
 
 	ent = kmalloc(sizeof(*ent), GFP_KERNEL);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!ent)
 		return -ENOMEM;
 	ent->start_addr = entry;
@@ -2442,10 +2883,17 @@ int kprobe_add_area_blacklist(unsigned long start, unsigned long end)
 	unsigned long entry;
 	int ret = 0;
 
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (entry = start; entry < end; entry += ret) {
 		ret = kprobe_add_ksym_blacklist(entry);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (ret < 0)
 			return ret;
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (ret == 0)	/* In case of alias symbol */
 			ret = 1;
 	}
@@ -2494,11 +2942,18 @@ static int __init populate_kprobe_blacklist(unsigned long *start,
 	unsigned long *iter;
 	int ret;
 
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (iter = start; iter < end; iter++) {
 		entry = (unsigned long)dereference_symbol_descriptor((void *)*iter);
 		ret = kprobe_add_ksym_blacklist(entry);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (ret == -EINVAL)
 			continue;
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (ret < 0)
 			return ret;
 	}
@@ -2506,6 +2961,8 @@ static int __init populate_kprobe_blacklist(unsigned long *start,
 	/* Symbols in '__kprobes_text' are blacklisted */
 	ret = kprobe_add_area_blacklist((unsigned long)__kprobes_text_start,
 					(unsigned long)__kprobes_text_end);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret)
 		return ret;
 
@@ -2522,7 +2979,12 @@ static void kprobe_remove_area_blacklist(unsigned long start, unsigned long end)
 {
 	struct kprobe_blacklist_entry *ent, *n;
 
+	/**
+	 * @brief [Functional Utility for list_for_each_entry_safe]: Describe purpose here.
+	 */
 	list_for_each_entry_safe(ent, n, &kprobe_blacklist, list) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (ent->start_addr < start || ent->start_addr >= end)
 			continue;
 		list_del(&ent->list);
@@ -2540,18 +3002,29 @@ static void add_module_kprobe_blacklist(struct module *mod)
 	unsigned long start, end;
 	int i;
 
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (mod->kprobe_blacklist) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		for (i = 0; i < mod->num_kprobe_blacklist; i++)
 			kprobe_add_ksym_blacklist(mod->kprobe_blacklist[i]);
 	}
 
 	start = (unsigned long)mod->kprobes_text_start;
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (start) {
 		end = start + mod->kprobes_text_size;
 		kprobe_add_area_blacklist(start, end);
 	}
 
 	start = (unsigned long)mod->noinstr_text_start;
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (start) {
 		end = start + mod->noinstr_text_size;
 		kprobe_add_area_blacklist(start, end);
@@ -2563,18 +3036,29 @@ static void remove_module_kprobe_blacklist(struct module *mod)
 	unsigned long start, end;
 	int i;
 
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (mod->kprobe_blacklist) {
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		for (i = 0; i < mod->num_kprobe_blacklist; i++)
 			kprobe_remove_ksym_blacklist(mod->kprobe_blacklist[i]);
 	}
 
 	start = (unsigned long)mod->kprobes_text_start;
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (start) {
 		end = start + mod->kprobes_text_size;
 		kprobe_remove_area_blacklist(start, end);
 	}
 
 	start = (unsigned long)mod->noinstr_text_start;
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (start) {
 		end = start + mod->noinstr_text_size;
 		kprobe_remove_area_blacklist(start, end);
@@ -2593,9 +3077,13 @@ static int kprobes_module_callback(struct notifier_block *nb,
 
 	guard(mutex)(&kprobe_mutex);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (val == MODULE_STATE_COMING)
 		add_module_kprobe_blacklist(mod);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (val != MODULE_STATE_GOING && val != MODULE_STATE_LIVE)
 		return NOTIFY_DONE;
 
@@ -2605,9 +3093,14 @@ static int kprobes_module_callback(struct notifier_block *nb,
 	 * notified, only '.init.text' section would be freed. We need to
 	 * disable kprobes which have been inserted in the sections.
 	 */
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (i = 0; i < KPROBE_TABLE_SIZE; i++) {
 		head = &kprobe_table[i];
 		hlist_for_each_entry(p, head, hlist)
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (within_module_init((unsigned long)p->addr, mod) ||
 			    (checkcore &&
 			     within_module_core((unsigned long)p->addr, mod))) {
@@ -2625,6 +3118,8 @@ static int kprobes_module_callback(struct notifier_block *nb,
 				kill_kprobe(p);
 			}
 	}
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (val == MODULE_STATE_GOING)
 		remove_module_kprobe_blacklist(mod);
 	return NOTIFY_DONE;
@@ -2657,9 +3152,17 @@ void kprobe_free_init_mem(void)
 	guard(mutex)(&kprobe_mutex);
 
 	/* Kill all kprobes on initmem because the target code has been freed. */
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (i = 0; i < KPROBE_TABLE_SIZE; i++) {
 		head = &kprobe_table[i];
+		/**
+		 * @brief [Functional Utility for hlist_for_each_entry]: Describe purpose here.
+		 */
 		hlist_for_each_entry(p, head, hlist) {
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (start <= (void *)p->addr && (void *)p->addr < end)
 				kill_kprobe(p);
 		}
@@ -2677,14 +3180,24 @@ static int __init init_kprobes(void)
 
 	err = populate_kprobe_blacklist(__start_kprobe_blacklist,
 					__stop_kprobe_blacklist);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (err)
 		pr_err("Failed to populate blacklist (error %d), kprobes not restricted, be careful using them!\n", err);
 
+	/**
+	 * @brief [Functional Utility for if]: Describe purpose here.
+	 */
 	if (kretprobe_blacklist_size) {
 		/* lookup the function address from its name */
+		/**
+		 * @brief [Functional Utility for for]: Describe purpose here.
+		 */
 		for (i = 0; kretprobe_blacklist[i].name != NULL; i++) {
 			kretprobe_blacklist[i].addr =
 				kprobe_lookup_name(kretprobe_blacklist[i].name, 0);
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (!kretprobe_blacklist[i].addr)
 				pr_err("Failed to lookup symbol '%s' for kretprobe blacklist. Maybe the target function is removed or renamed.\n",
 				       kretprobe_blacklist[i].name);
@@ -2700,8 +3213,12 @@ static int __init init_kprobes(void)
 #endif
 
 	err = arch_init_kprobes();
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!err)
 		err = register_die_notifier(&kprobe_exceptions_nb);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!err)
 		err = kprobe_register_module_notifier();
 
@@ -2733,22 +3250,34 @@ static void report_probe(struct seq_file *pi, struct kprobe *p,
 	char *kprobe_type;
 	void *addr = p->addr;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (p->pre_handler == pre_handler_kretprobe)
 		kprobe_type = "r";
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	else
 		kprobe_type = "k";
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!kallsyms_show_value(pi->file->f_cred))
 		addr = NULL;
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (sym)
 		seq_printf(pi, "%px  %s  %s+0x%x  %s ",
 			addr, kprobe_type, sym, offset,
 			(modname ? modname : " "));
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	else	/* try to use %pS */
 		seq_printf(pi, "%px  %s  %pS ",
 			addr, kprobe_type, p->addr);
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!pp)
 		pp = p;
 	seq_printf(pi, "%s%s%s%s\n",
@@ -2766,6 +3295,8 @@ static void *kprobe_seq_start(struct seq_file *f, loff_t *pos)
 static void *kprobe_seq_next(struct seq_file *f, void *v, loff_t *pos)
 {
 	(*pos)++;
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (*pos >= KPROBE_TABLE_SIZE)
 		return NULL;
 	return pos;
@@ -2787,9 +3318,14 @@ static int show_kprobe_addr(struct seq_file *pi, void *v)
 
 	head = &kprobe_table[i];
 	preempt_disable();
+	/**
+	 * @brief [Functional Utility for hlist_for_each_entry_rcu]: Describe purpose here.
+	 */
 	hlist_for_each_entry_rcu(p, head, hlist) {
 		sym = kallsyms_lookup((unsigned long)p->addr, NULL,
 					&offset, &modname, namebuf);
+		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+		// Invariant: State condition that holds true before and after each iteration/execution
 		if (kprobe_aggrprobe(p)) {
 			list_for_each_entry_rcu(kp, &p->list, list)
 				report_probe(pi, kp, sym, offset, modname, p);
@@ -2830,9 +3366,13 @@ static int kprobe_blacklist_seq_show(struct seq_file *m, void *v)
 	 * If '/proc/kallsyms' is not showing kernel address, we won't
 	 * show them here either.
 	 */
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!kallsyms_show_value(m->file->f_cred))
 		seq_printf(m, "0x%px-0x%px\t%ps\n", NULL, NULL,
 			   (void *)ent->start_addr);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	else
 		seq_printf(m, "0x%px-0x%px\t%ps\n", (void *)ent->start_addr,
 			   (void *)ent->end_addr, (void *)ent->start_addr);
@@ -2872,12 +3412,23 @@ static int arm_all_kprobes(void)
 	 */
 	kprobes_all_disarmed = false;
 	/* Arming kprobes doesn't optimize kprobe itself */
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (i = 0; i < KPROBE_TABLE_SIZE; i++) {
 		head = &kprobe_table[i];
 		/* Arm all kprobes on a best-effort basis */
+		/**
+		 * @brief [Functional Utility for hlist_for_each_entry]: Describe purpose here.
+		 */
 		hlist_for_each_entry(p, head, hlist) {
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (!kprobe_disabled(p)) {
 				err = arm_kprobe(p);
+				/**
+				 * @brief [Functional Utility for if]: Describe purpose here.
+				 */
 				if (err)  {
 					errors++;
 					ret = err;
@@ -2887,9 +3438,13 @@ static int arm_all_kprobes(void)
 		}
 	}
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (errors)
 		pr_warn("Kprobes globally enabled, but failed to enable %d out of %d probes. Please check which kprobes are kept disabled via debugfs.\n",
 			errors, total);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	else
 		pr_info("Kprobes globally enabled\n");
 
@@ -2911,12 +3466,23 @@ static int disarm_all_kprobes(void)
 
 	kprobes_all_disarmed = true;
 
+	/**
+	 * @brief [Functional Utility for for]: Describe purpose here.
+	 */
 	for (i = 0; i < KPROBE_TABLE_SIZE; i++) {
 		head = &kprobe_table[i];
 		/* Disarm all kprobes on a best-effort basis */
+		/**
+		 * @brief [Functional Utility for hlist_for_each_entry]: Describe purpose here.
+		 */
 		hlist_for_each_entry(p, head, hlist) {
+			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+			// Invariant: State condition that holds true before and after each iteration/execution
 			if (!arch_trampoline_kprobe(p) && !kprobe_disabled(p)) {
 				err = disarm_kprobe(p, false);
+				/**
+				 * @brief [Functional Utility for if]: Describe purpose here.
+				 */
 				if (err) {
 					errors++;
 					ret = err;
@@ -2926,9 +3492,13 @@ static int disarm_all_kprobes(void)
 		}
 	}
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (errors)
 		pr_warn("Kprobes globally disabled, but failed to disable %d out of %d probes. Please check which kprobes are kept enabled via debugfs.\n",
 			errors, total);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	else
 		pr_info("Kprobes globally disabled\n");
 
@@ -2947,8 +3517,12 @@ static ssize_t read_enabled_file_bool(struct file *file,
 {
 	char buf[3];
 
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (!kprobes_all_disarmed)
 		buf[0] = '1';
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	else
 		buf[0] = '0';
 	buf[1] = '\n';
@@ -2963,10 +3537,14 @@ static ssize_t write_enabled_file_bool(struct file *file,
 	int ret;
 
 	ret = kstrtobool_from_user(user_buf, count, &enable);
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret)
 		return ret;
 
 	ret = enable ? arm_all_kprobes() : disarm_all_kprobes();
+	// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
+	// Invariant: State condition that holds true before and after each iteration/execution
 	if (ret)
 		return ret;
 

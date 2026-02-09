@@ -40,11 +40,20 @@ public class EntitlementInitialization {
 
     private static final Module ENTITLEMENTS_MODULE = PolicyManager.class.getModule();
 
+     /**
+      * @brief [Functional description for field initializeArgs]: Describe purpose here.
+      */
     public static InitializeArgs initializeArgs;
+     /**
+      * @brief [Functional description for field checker]: Describe purpose here.
+      */
     private static ElasticsearchEntitlementChecker checker;
 
     // Note: referenced by bridge reflectively
     public static EntitlementChecker checker() {
+         /**
+          * @brief [Functional description for field checker]: Describe purpose here.
+          */
         return checker;
     }
 
@@ -139,7 +148,7 @@ public class EntitlementInitialization {
             "sun.nio.ch.DatagramChannelImpl",
             "sun.nio.ch.ServerSocketChannelImpl"
         );
-        for (String className : classesToInitialize) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (String className : classesToInitialize) {
             try {
                 Class.forName(className);
             } catch (ClassNotFoundException unexpected) {
@@ -174,7 +183,7 @@ public class EntitlementInitialization {
 
     static void initInstrumentation(Instrumentation instrumentation) throws Exception {
         var verifyBytecode = Booleans.parseBoolean(System.getProperty("es.entitlements.verify_bytecode", "false"));
-        if (verifyBytecode) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (verifyBytecode) {
             ensureClassesSensitiveToVerificationAreInitialized();
         }
 

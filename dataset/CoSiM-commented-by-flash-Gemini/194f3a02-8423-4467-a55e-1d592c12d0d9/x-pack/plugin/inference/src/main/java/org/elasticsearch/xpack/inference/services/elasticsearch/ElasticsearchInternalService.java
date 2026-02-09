@@ -84,6 +84,11 @@ import static org.elasticsearch.xpack.inference.services.elasticsearch.Elasticse
 import static org.elasticsearch.xpack.inference.services.elasticsearch.ElserModels.ELSER_V2_MODEL;
 import static org.elasticsearch.xpack.inference.services.elasticsearch.ElserModels.ELSER_V2_MODEL_LINUX_X86;
 
+/**
+ * @brief Functional description of the ElasticsearchInternalService class.
+ *        This is a placeholder for detailed semantic documentation.
+ *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+ */
 public class ElasticsearchInternalService extends BaseElasticsearchInternalService {
 
     public static final String NAME = "elasticsearch";
@@ -120,8 +125,16 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
      */
     private static final String OLD_MODEL_ID_FIELD_NAME = "model_version";
 
+    /**
+     * @brief [Functional description for field settings]: Describe purpose here.
+     */
     private final Settings settings;
 
+    /**
+     * @brief [Functional Utility for ElasticsearchInternalService]: Describe purpose here.
+     * @param context: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public ElasticsearchInternalService(InferenceServiceExtension.InferenceServiceFactoryContext context) {
         super(context);
         this.settings = context.settings();
@@ -137,7 +150,14 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for supportedTaskTypes]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public EnumSet<TaskType> supportedTaskTypes() {
+    /**
+     * @brief [Functional description for field supportedTaskTypes]: Describe purpose here.
+     */
         return supportedTaskTypes;
     }
 
@@ -148,6 +168,8 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
         Map<String, Object> config,
         ActionListener<Model> modelListener
     ) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (isDefaultId(inferenceEntityId)) {
             modelListener.onFailure(
                 new ElasticsearchStatusException(
@@ -164,11 +186,17 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
             Map<String, Object> taskSettingsMap = removeFromMapOrDefaultEmpty(config, ModelConfigurations.TASK_SETTINGS);
             String serviceName = (String) config.remove(ModelConfigurations.SERVICE); // required for elser service in elasticsearch service
 
+    /**
+     * @brief [Functional description for field chunkingSettings]: Describe purpose here.
+     */
             ChunkingSettings chunkingSettings;
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (TaskType.TEXT_EMBEDDING.equals(taskType) || TaskType.SPARSE_EMBEDDING.equals(taskType)) {
                 chunkingSettings = ChunkingSettingsBuilder.fromMap(
                     removeFromMapOrDefaultEmpty(config, ModelConfigurations.CHUNKING_SETTINGS)
                 );
+        // Block Logic: [Describe purpose of this else/else if block]
             } else {
                 chunkingSettings = null;
             }
@@ -177,11 +205,16 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
 
             String modelId = (String) serviceSettingsMap.get(MODEL_ID);
             String deploymentId = (String) serviceSettingsMap.get(ElasticsearchInternalServiceSettings.DEPLOYMENT_ID);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (deploymentId != null) {
                 validateAgainstDeployment(modelId, deploymentId, taskType, modelListener.delegateFailureAndWrap((l, settings) -> {
                     l.onResponse(new ElasticDeployedModel(inferenceEntityId, taskType, NAME, settings.build(), chunkingSettings));
                 }));
+        // Block Logic: [Describe purpose of this else/else if block]
             } else if (modelId == null) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (OLD_ELSER_SERVICE_NAME.equals(serviceName)) {
                     // TODO complete deprecation of null model ID
                     // throw new ValidationException().addValidationError("Error parsing request config, model id is missing");
@@ -205,9 +238,11 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
                             )
                         )
                     );
+        // Block Logic: [Describe purpose of this else/else if block]
                 } else {
                     throw new IllegalArgumentException("Error parsing service settings, model_id must be provided");
                 }
+        // Block Logic: [Describe purpose of this else/else if block]
             } else if (MULTILINGUAL_E5_SMALL_VALID_IDS.contains(modelId)) {
                 preferredModelVariantFn.accept(
                     modelListener.delegateFailureAndWrap(
@@ -222,6 +257,7 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
                         )
                     )
                 );
+        // Block Logic: [Describe purpose of this else/else if block]
             } else if (ElserModels.isValidModel(modelId)) {
                 preferredModelVariantFn.accept(
                     modelListener.delegateFailureAndWrap(
@@ -237,8 +273,10 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
                         )
                     )
                 );
+        // Block Logic: [Describe purpose of this else/else if block]
             } else if (RERANKER_ID.equals(modelId)) {
                 rerankerCase(inferenceEntityId, taskType, config, serviceSettingsMap, taskSettingsMap, modelListener);
+        // Block Logic: [Describe purpose of this else/else if block]
             } else {
                 customElandCase(inferenceEntityId, taskType, serviceSettingsMap, taskSettingsMap, chunkingSettings, modelListener);
             }
@@ -248,6 +286,10 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for getConfiguration]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public InferenceServiceConfiguration getConfiguration() {
         return Configuration.get();
     }
@@ -264,12 +306,15 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
         var request = new GetTrainedModelsAction.Request(modelId);
 
         var getModelsListener = modelListener.<GetTrainedModelsAction.Response>delegateFailureAndWrap((delegate, response) -> {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (response.getResources().count() < 1) {
                 throw new IllegalArgumentException(
                     "Error parsing request config, model id does not match any models available on this platform. Was ["
                         + modelId
                         + "]. You may need to load it into the cluster using eland."
                 );
+        // Block Logic: [Describe purpose of this else/else if block]
             } else {
                 throwIfUnsupportedTaskType(modelId, taskType, response.getResources().results().get(0).getInferenceConfig());
 
@@ -301,6 +346,11 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
         ConfigurationParseContext context
     ) {
 
+    /**
+     * @brief [Functional Utility for switch]: Describe purpose here.
+     * @param taskType: [Description]
+     * @return [ReturnType]: [Description]
+     */
         return switch (taskType) {
             case TEXT_EMBEDDING -> new CustomElandEmbeddingModel(
                 inferenceEntityId,
@@ -331,6 +381,11 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
         Map<String, Object> settingsMap,
         ConfigurationParseContext context
     ) {
+    /**
+     * @brief [Functional Utility for switch]: Describe purpose here.
+     * @param context: [Description]
+     * @return [ReturnType]: [Description]
+     */
         return switch (context) {
             case REQUEST -> new CustomElandInternalServiceSettings(
                 ElasticsearchInternalServiceSettings.fromRequestMap(settingsMap).build()
@@ -375,6 +430,8 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
     ) {
         var esServiceSettingsBuilder = ElasticsearchInternalServiceSettings.fromRequestMap(serviceSettingsMap);
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (esServiceSettingsBuilder.getModelId() == null) {
             esServiceSettingsBuilder.setModelId(
                 selectDefaultModelVariantBasedOnClusterArchitecture(
@@ -383,6 +440,7 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
                     MULTILINGUAL_E5_SMALL_MODEL_ID
                 )
             );
+        // Block Logic: [Describe purpose of this else/else if block]
         } else if (modelVariantValidForArchitecture(preferredModelVariant, esServiceSettingsBuilder.getModelId()) == false) {
             throw new IllegalArgumentException(
                 "Error parsing request config, model id does not match any models available on this platform. Was ["
@@ -405,9 +463,20 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
         );
     }
 
+    /**
+     * @brief [Functional Utility for modelVariantValidForArchitecture]: Describe purpose here.
+     * @param modelVariant: [Description]
+     * @param modelId: [Description]
+     * @return [ReturnType]: [Description]
+     */
     static boolean modelVariantValidForArchitecture(PreferredModelVariant modelVariant, String modelId) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (modelId.equals(MULTILINGUAL_E5_SMALL_MODEL_ID)) {
             // platform agnostic model is always compatible
+    /**
+     * @brief [Functional description for field true]: Describe purpose here.
+     */
             return true;
         }
         return modelId.equals(
@@ -435,11 +504,16 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
             ELSER_V2_MODEL_LINUX_X86,
             ELSER_V2_MODEL
         );
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (false == defaultModelId.equals(esServiceSettingsBuilder.getModelId())) {
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (esServiceSettingsBuilder.getModelId() == null) {
                 // TODO remove this case once we remove the option to not pass model ID
                 esServiceSettingsBuilder.setModelId(defaultModelId);
+        // Block Logic: [Describe purpose of this else/else if block]
             } else if (esServiceSettingsBuilder.getModelId().equals(ELSER_V2_MODEL)) {
                 logger.warn(
                     "The platform agnostic model [{}] was requested on Linux x86_64. "
@@ -447,6 +521,7 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
                     ELSER_V2_MODEL,
                     ELSER_V2_MODEL_LINUX_X86
                 );
+        // Block Logic: [Describe purpose of this else/else if block]
             } else {
                 throw new IllegalArgumentException(
                     "Error parsing request config, model id does not match any models available on this platform. Was ["
@@ -456,6 +531,8 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
             }
         }
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (isElserService) {
             DEPRECATION_LOGGER.warn(
                 DeprecationCategory.API,
@@ -494,24 +571,41 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for parsePersistedConfig]: Describe purpose here.
+     * @param inferenceEntityId: [Description]
+     * @param taskType: [Description]
+     * @param Map<String: [Description]
+     * @param config: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public Model parsePersistedConfig(String inferenceEntityId, TaskType taskType, Map<String, Object> config) {
         Map<String, Object> serviceSettingsMap = removeFromMapOrThrowIfNull(config, ModelConfigurations.SERVICE_SETTINGS);
         Map<String, Object> taskSettingsMap = removeFromMapOrDefaultEmpty(config, ModelConfigurations.TASK_SETTINGS);
 
         migrateModelVersionToModelId(serviceSettingsMap);
 
+    /**
+     * @brief [Functional description for field chunkingSettings]: Describe purpose here.
+     */
         ChunkingSettings chunkingSettings = null;
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (TaskType.TEXT_EMBEDDING.equals(taskType) || TaskType.SPARSE_EMBEDDING.equals(taskType)) {
             chunkingSettings = ChunkingSettingsBuilder.fromMap(removeFromMap(config, ModelConfigurations.CHUNKING_SETTINGS));
         }
 
         String modelId = (String) serviceSettingsMap.get(MODEL_ID);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (modelId == null) {
             throw new IllegalArgumentException(
                 Strings.format("Error parsing request config, model id is missing for inference id: %s", inferenceEntityId)
             );
         }
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (MULTILINGUAL_E5_SMALL_VALID_IDS.contains(modelId)) {
             return new MultilingualE5SmallModel(
                 inferenceEntityId,
@@ -520,6 +614,7 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
                 new MultilingualE5SmallInternalServiceSettings(ElasticsearchInternalServiceSettings.fromPersistedMap(serviceSettingsMap)),
                 chunkingSettings
             );
+        // Block Logic: [Describe purpose of this else/else if block]
         } else if (ElserModels.isValidModel(modelId)) {
             return new ElserInternalModel(
                 inferenceEntityId,
@@ -529,6 +624,7 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
                 ElserMlNodeTaskSettings.DEFAULT,
                 chunkingSettings
             );
+        // Block Logic: [Describe purpose of this else/else if block]
         } else if (modelId.equals(RERANKER_ID)) {
             return new ElasticRerankerModel(
                 inferenceEntityId,
@@ -537,6 +633,7 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
                 new ElasticRerankerServiceSettings(ElasticsearchInternalServiceSettings.fromPersistedMap(serviceSettingsMap)),
                 RerankTaskSettings.fromMap(taskSettingsMap)
             );
+        // Block Logic: [Describe purpose of this else/else if block]
         } else {
             return createCustomElandModel(
                 inferenceEntityId,
@@ -555,6 +652,8 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
      * service_settings.model_version. We need to look for that key and migrate it to model_id.
      */
     private void migrateModelVersionToModelId(Map<String, Object> serviceSettingsMap) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (serviceSettingsMap.containsKey(OLD_MODEL_ID_FIELD_NAME)) {
             String modelId = ServiceUtils.removeAsType(serviceSettingsMap, OLD_MODEL_ID_FIELD_NAME, String.class);
             serviceSettingsMap.put(ElserInternalServiceSettings.MODEL_ID, modelId);
@@ -562,7 +661,15 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for updateModelWithEmbeddingDetails]: Describe purpose here.
+     * @param model: [Description]
+     * @param embeddingSize: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public Model updateModelWithEmbeddingDetails(Model model, int embeddingSize) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (model instanceof CustomElandEmbeddingModel customElandEmbeddingModel && model.getTaskType() == TaskType.TEXT_EMBEDDING) {
             CustomElandInternalTextEmbeddingServiceSettings serviceSettings = new CustomElandInternalTextEmbeddingServiceSettings(
                 customElandEmbeddingModel.getServiceSettings().getNumAllocations(),
@@ -582,8 +689,13 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
                 serviceSettings,
                 customElandEmbeddingModel.getConfigurations().getChunkingSettings()
             );
+        // Block Logic: [Describe purpose of this else/else if block]
         } else if (model instanceof ElasticsearchInternalModel) {
+    /**
+     * @brief [Functional description for field model]: Describe purpose here.
+     */
             return model;
+        // Block Logic: [Describe purpose of this else/else if block]
         } else {
             throw ServiceUtils.invalidModelTypeForUpdateModelWithEmbeddingDetails(model.getClass());
         }
@@ -613,20 +725,30 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
         @Nullable TimeValue timeout,
         ActionListener<InferenceServiceResults> listener
     ) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (timeout == null) {
             timeout = getConfiguredInferenceTimeout();
         }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (model instanceof ElasticsearchInternalModel esModel) {
             var taskType = model.getConfigurations().getTaskType();
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (TaskType.TEXT_EMBEDDING.equals(taskType)) {
                 inferTextEmbedding(esModel, input, inputType, timeout, listener);
+        // Block Logic: [Describe purpose of this else/else if block]
             } else if (TaskType.RERANK.equals(taskType)) {
                 inferRerank(esModel, query, input, returnDocuments, topN, inputType, timeout, taskSettings, listener);
+        // Block Logic: [Describe purpose of this else/else if block]
             } else if (TaskType.SPARSE_EMBEDDING.equals(taskType)) {
                 inferSparseEmbedding(esModel, input, inputType, timeout, listener);
+        // Block Logic: [Describe purpose of this else/else if block]
             } else {
                 throw new ElasticsearchStatusException(TaskType.unsupportedTaskTypeErrorMsg(taskType, NAME), RestStatus.BAD_REQUEST);
             }
+        // Block Logic: [Describe purpose of this else/else if block]
         } else {
             listener.onFailure(notElasticsearchModelException(model));
         }
@@ -691,9 +813,15 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
     ) {
         var request = buildInferenceRequest(model.mlNodeDeploymentId(), new TextSimilarityConfigUpdate(query), inputs, inputType, timeout);
 
+    /**
+     * @brief [Functional description for field returnDocs]: Describe purpose here.
+     */
         var returnDocs = Boolean.TRUE;
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (returnDocuments != null) {
             returnDocs = returnDocuments;
+        // Block Logic: [Describe purpose of this else/else if block]
         } else if (model.getTaskSettings() instanceof RerankTaskSettings modelSettings) {
             var requestSettings = RerankTaskSettings.fromMap(requestTaskSettings);
             returnDocs = RerankTaskSettings.of(modelSettings, requestSettings).returnDocuments();
@@ -724,6 +852,8 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
         TimeValue timeout,
         ActionListener<List<ChunkedInference>> listener
     ) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if ((TaskType.TEXT_EMBEDDING.equals(model.getTaskType()) || TaskType.SPARSE_EMBEDDING.equals(model.getTaskType())) == false) {
             listener.onFailure(
                 new ElasticsearchStatusException(TaskType.unsupportedTaskTypeErrorMsg(model.getTaskType(), NAME), RestStatus.BAD_REQUEST)
@@ -731,6 +861,8 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
             return;
         }
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (model instanceof ElasticsearchInternalModel esModel) {
 
             List<EmbeddingRequestChunker.BatchRequestAndListener> batchedRequests = new EmbeddingRequestChunker<>(
@@ -739,14 +871,18 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
                 esModel.getConfigurations().getChunkingSettings()
             ).batchRequestsWithListeners(listener);
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (batchedRequests.isEmpty()) {
                 listener.onResponse(List.of());
+        // Block Logic: [Describe purpose of this else/else if block]
             } else {
                 // Avoid filling the inference queue by executing the batches in series
                 // Each batch contains up to EMBEDDING_MAX_BATCH_SIZE inference request
                 var sequentialRunner = new BatchIterator(esModel, inputType, timeout, batchedRequests);
                 sequentialRunner.run();
             }
+        // Block Logic: [Describe purpose of this else/else if block]
         } else {
             listener.onFailure(notElasticsearchModelException(model));
         }
@@ -757,15 +893,23 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
         List<InferenceResults> inferenceResults,
         ActionListener<InferenceServiceResults> chunkPartListener
     ) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (taskType == TaskType.TEXT_EMBEDDING) {
             var translated = new ArrayList<TextEmbeddingFloatResults.Embedding>();
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             for (var inferenceResult : inferenceResults) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (inferenceResult instanceof MlTextEmbeddingResults mlTextEmbeddingResult) {
                     translated.add(new TextEmbeddingFloatResults.Embedding(mlTextEmbeddingResult.getInferenceAsFloat()));
+        // Block Logic: [Describe purpose of this else/else if block]
                 } else if (inferenceResult instanceof ErrorInferenceResults error) {
                     chunkPartListener.onFailure(error.getException());
                     return;
+        // Block Logic: [Describe purpose of this else/else if block]
                 } else {
                     chunkPartListener.onFailure(
                         createInvalidChunkedResultException(MlTextEmbeddingResults.NAME, inferenceResult.getWriteableName())
@@ -774,17 +918,24 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
                 }
             }
             chunkPartListener.onResponse(new TextEmbeddingFloatResults(translated));
+        // Block Logic: [Describe purpose of this else/else if block]
         } else { // sparse
             var translated = new ArrayList<SparseEmbeddingResults.Embedding>();
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             for (var inferenceResult : inferenceResults) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (inferenceResult instanceof TextExpansionResults textExpansionResult) {
                     translated.add(
                         new SparseEmbeddingResults.Embedding(textExpansionResult.getWeightedTokens(), textExpansionResult.isTruncated())
                     );
+        // Block Logic: [Describe purpose of this else/else if block]
                 } else if (inferenceResult instanceof ErrorInferenceResults error) {
                     chunkPartListener.onFailure(error.getException());
                     return;
+        // Block Logic: [Describe purpose of this else/else if block]
                 } else {
                     chunkPartListener.onFailure(
                         createInvalidChunkedResultException(TextExpansionResults.NAME, inferenceResult.getWriteableName())
@@ -797,16 +948,31 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for getMinimalSupportedVersion]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public TransportVersion getMinimalSupportedVersion() {
         return TransportVersions.V_8_14_0;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for name]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public String name() {
+    /**
+     * @brief [Functional description for field NAME]: Describe purpose here.
+     */
         return NAME;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for aliases]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public List<String> aliases() {
         return List.of(OLD_ELSER_SERVICE_NAME);
     }
@@ -817,13 +983,24 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
         @Nullable Integer topN
     ) {
         List<RankedDocsResults.RankedDoc> rankings = new ArrayList<>(results.size());
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (int i = 0; i < results.size(); i++) {
             var result = results.get(i);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (result instanceof org.elasticsearch.xpack.core.ml.inference.results.TextSimilarityInferenceResults similarity) {
                 rankings.add(new RankedDocsResults.RankedDoc(i, (float) similarity.score(), inputSupplier.apply(i)));
+        // Block Logic: [Describe purpose of this else/else if block]
             } else if (result instanceof org.elasticsearch.xpack.core.ml.inference.results.ErrorInferenceResults errorResult) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (errorResult.getException() instanceof ElasticsearchStatusException statusException) {
+    /**
+     * @brief [Functional description for field statusException]: Describe purpose here.
+     */
                     throw statusException;
+        // Block Logic: [Describe purpose of this else/else if block]
                 } else {
                     throw new ElasticsearchStatusException(
                         "Received error inference result.",
@@ -831,6 +1008,7 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
                         errorResult.getException()
                     );
                 }
+        // Block Logic: [Describe purpose of this else/else if block]
             } else {
                 throw new IllegalArgumentException(
                     "Received invalid inference result, of type "
@@ -844,6 +1022,10 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
         return new RankedDocsResults(topN != null ? rankings.subList(0, topN) : rankings);
     }
 
+    /**
+     * @brief [Functional Utility for defaultConfigIds]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public List<DefaultConfigId> defaultConfigIds() {
         return List.of(
             new DefaultConfigId(DEFAULT_ELSER_ID, ElserInternalServiceSettings.minimalServiceSettings(), this),
@@ -853,27 +1035,45 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for updateModelsWithDynamicFields]: Describe purpose here.
+     * @param models: [Description]
+     * @param listener: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public void updateModelsWithDynamicFields(List<Model> models, ActionListener<List<Model>> listener) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (models.isEmpty()) {
             listener.onResponse(models);
             return;
         }
 
         // if ML is disabled, do not update Deployment Stats (there won't be changes)
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (XPackSettings.MACHINE_LEARNING_ENABLED.get(settings) == false) {
             listener.onResponse(models);
             return;
         }
 
         var modelsByDeploymentIds = new HashMap<String, List<ElasticsearchInternalModel>>();
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (var model : models) {
             assert model instanceof ElasticsearchInternalModel;
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (model instanceof ElasticsearchInternalModel esModel) {
                 modelsByDeploymentIds.merge(esModel.mlNodeDeploymentId(), new ArrayList<>(List.of(esModel)), (a, b) -> {
                     a.addAll(b);
+    /**
+     * @brief [Functional description for field a]: Describe purpose here.
+     */
                     return a;
                 });
+        // Block Logic: [Describe purpose of this else/else if block]
             } else {
                 listener.onFailure(
                     new ElasticsearchStatusException(
@@ -891,6 +1091,8 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
             GetDeploymentStatsAction.INSTANCE,
             new GetDeploymentStatsAction.Request(deploymentIds),
             ActionListener.wrap(stats -> {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 for (var deploymentStats : stats.getStats().results()) {
                     var modelsForDeploymentId = modelsByDeploymentIds.get(deploymentStats.getDeploymentId());
                     modelsForDeploymentId.forEach(model -> model.updateServiceSettings(deploymentStats));
@@ -908,24 +1110,45 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for defaultConfigs]: Describe purpose here.
+     * @param defaultsListener: [Description]
+     * @return [ReturnType]: [Description]
+     */
     public void defaultConfigs(ActionListener<List<Model>> defaultsListener) {
         preferredModelVariantFn.accept(defaultsListener.delegateFailureAndWrap((delegate, preferredModelVariant) -> {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (PreferredModelVariant.LINUX_X86_OPTIMIZED.equals(preferredModelVariant)) {
                 defaultsListener.onResponse(defaultConfigsLinuxOptimized());
+        // Block Logic: [Describe purpose of this else/else if block]
             } else {
                 defaultsListener.onResponse(defaultConfigsPlatfromAgnostic());
             }
         }));
     }
 
+    /**
+     * @brief [Functional Utility for defaultConfigsLinuxOptimized]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     private List<Model> defaultConfigsLinuxOptimized() {
         return defaultConfigs(true);
     }
 
+    /**
+     * @brief [Functional Utility for defaultConfigsPlatfromAgnostic]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     private List<Model> defaultConfigsPlatfromAgnostic() {
         return defaultConfigs(false);
     }
 
+    /**
+     * @brief [Functional Utility for defaultConfigs]: Describe purpose here.
+     * @param useLinuxOptimizedModel: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private List<Model> defaultConfigs(boolean useLinuxOptimizedModel) {
         var defaultElser = new ElserInternalModel(
             DEFAULT_ELSER_ID,
@@ -953,6 +1176,11 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
     }
 
     @Override
+    /**
+     * @brief [Functional Utility for isDefaultId]: Describe purpose here.
+     * @param inferenceId: [Description]
+     * @return [ReturnType]: [Description]
+     */
     boolean isDefaultId(String inferenceId) {
         return DEFAULT_ELSER_ID.equals(inferenceId) || DEFAULT_E5_ID.equals(inferenceId) || DEFAULT_RERANK_ID.equals(inferenceId);
     }
@@ -964,7 +1192,11 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
         ActionListener<ElasticsearchInternalServiceSettings.Builder> listener
     ) {
         getDeployment(deploymentId, listener.delegateFailureAndWrap((l, response) -> {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (response.isPresent()) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (modelId != null && modelId.equals(response.get().getModelId()) == false) {
                     listener.onFailure(
                         new ElasticsearchStatusException(
@@ -989,12 +1221,19 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
                 checkTaskTypeForMlNodeModel(response.get().getModelId(), taskType, l.delegateFailureAndWrap((l2, compatibleTaskType) -> {
                     l2.onResponse(updatedSettings);
                 }));
+        // Block Logic: [Describe purpose of this else/else if block]
             } else {
                 listener.onFailure(new ElasticsearchStatusException("Cannot find deployment [{}]", RestStatus.NOT_FOUND, deploymentId));
             }
         }));
     }
 
+    /**
+     * @brief [Functional Utility for getDeployment]: Describe purpose here.
+     * @param deploymentId: [Description]
+     * @param listener: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private void getDeployment(String deploymentId, ActionListener<Optional<AssignmentStats>> listener) {
         client.execute(
             GetDeploymentStatsAction.INSTANCE,
@@ -1011,11 +1250,20 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
         );
     }
 
+    /**
+     * @brief [Functional Utility for checkTaskTypeForMlNodeModel]: Describe purpose here.
+     * @param modelId: [Description]
+     * @param taskType: [Description]
+     * @param listener: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private void checkTaskTypeForMlNodeModel(String modelId, TaskType taskType, ActionListener<Boolean> listener) {
         client.execute(
             GetTrainedModelsAction.INSTANCE,
             new GetTrainedModelsAction.Request(modelId),
             listener.delegateFailureAndWrap((l, response) -> {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (response.getResources().results().isEmpty()) {
                     l.onFailure(new IllegalStateException("this shouldn't happen"));
                     return;
@@ -1028,8 +1276,17 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
         );
     }
 
+    /**
+     * @brief [Functional Utility for throwIfUnsupportedTaskType]: Describe purpose here.
+     * @param modelId: [Description]
+     * @param taskType: [Description]
+     * @param inferenceConfig: [Description]
+     * @return [ReturnType]: [Description]
+     */
     static void throwIfUnsupportedTaskType(String modelId, TaskType taskType, InferenceConfig inferenceConfig) {
         var deploymentTaskType = inferenceConfigToTaskType(inferenceConfig);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (deploymentTaskType == null) {
             throw new ElasticsearchStatusException(
                 "Deployed model [{}] has type [{}] which does not map to any supported task types",
@@ -1038,6 +1295,8 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
                 inferenceConfig.getWriteableName()
             );
         }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (deploymentTaskType != taskType) {
             throw new ElasticsearchStatusException(
                 "Deployed model [{}] with type [{}] does not match the requested task type [{}]",
@@ -1050,14 +1309,27 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
 
     }
 
+    /**
+     * @brief [Functional Utility for inferenceConfigToTaskType]: Describe purpose here.
+     * @param config: [Description]
+     * @return [ReturnType]: [Description]
+     */
     static TaskType inferenceConfigToTaskType(InferenceConfig config) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (config instanceof TextExpansionConfig) {
             return TaskType.SPARSE_EMBEDDING;
+        // Block Logic: [Describe purpose of this else/else if block]
         } else if (config instanceof TextEmbeddingConfig) {
             return TaskType.TEXT_EMBEDDING;
+        // Block Logic: [Describe purpose of this else/else if block]
         } else if (config instanceof TextSimilarityConfig) {
             return TaskType.RERANK;
+        // Block Logic: [Describe purpose of this else/else if block]
         } else {
+    /**
+     * @brief [Functional description for field null]: Describe purpose here.
+     */
             return null;
         }
     }
@@ -1076,9 +1348,21 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
         private static final int NUM_REQUESTS_INFLIGHT = 20; // * batch size = 200
 
         private final AtomicInteger index = new AtomicInteger();
+    /**
+     * @brief [Functional description for field esModel]: Describe purpose here.
+     */
         private final ElasticsearchInternalModel esModel;
+    /**
+     * @brief [Functional description for field requestAndListeners]: Describe purpose here.
+     */
         private final List<EmbeddingRequestChunker.BatchRequestAndListener> requestAndListeners;
+    /**
+     * @brief [Functional description for field inputType]: Describe purpose here.
+     */
         private final InputType inputType;
+    /**
+     * @brief [Functional description for field timeout]: Describe purpose here.
+     */
         private final TimeValue timeout;
 
         BatchIterator(
@@ -1093,18 +1377,32 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
             this.timeout = timeout;
         }
 
+    /**
+     * @brief [Functional Utility for run]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
         void run() {
             // The first request may deploy the model, and upon completion runs
             // NUM_REQUESTS_INFLIGHT in parallel.
             inferenceExecutor.execute(() -> inferBatch(NUM_REQUESTS_INFLIGHT, true));
         }
 
+    /**
+     * @brief [Functional Utility for inferBatch]: Describe purpose here.
+     * @param runAfterCount: [Description]
+     * @param maybeDeploy: [Description]
+     * @return [ReturnType]: [Description]
+     */
         private void inferBatch(int runAfterCount, boolean maybeDeploy) {
             int batchIndex = index.getAndIncrement();
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (batchIndex >= requestAndListeners.size()) {
                 return;
             }
             executeRequest(batchIndex, maybeDeploy, () -> {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 for (int i = 0; i < runAfterCount; i++) {
                     // Subsequent requests may not deploy the model, because the first request
                     // already did so. Upon completion, it runs one more request.
@@ -1113,6 +1411,13 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
             });
         }
 
+    /**
+     * @brief [Functional Utility for executeRequest]: Describe purpose here.
+     * @param batchIndex: [Description]
+     * @param maybeDeploy: [Description]
+     * @param runAfter: [Description]
+     * @return [ReturnType]: [Description]
+     */
         private void executeRequest(int batchIndex, boolean maybeDeploy, Runnable runAfter) {
             EmbeddingRequestChunker.BatchRequestAndListener batch = requestAndListeners.get(batchIndex);
             var inferenceRequest = buildInferenceRequest(
@@ -1128,9 +1433,13 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
                 .delegateFailureAndWrap(
                     (l, inferenceResult) -> translateToChunkedResult(esModel.getTaskType(), inferenceResult.getInferenceResults(), l)
                 );
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (runAfter != null) {
                 listener = ActionListener.runAfter(listener, runAfter);
             }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (maybeDeploy) {
                 listener = listener.delegateResponse((l, exception) -> maybeStartDeployment(esModel, exception, inferenceRequest, l));
             }
@@ -1139,6 +1448,10 @@ public class ElasticsearchInternalService extends BaseElasticsearchInternalServi
     }
 
     public static class Configuration {
+    /**
+     * @brief [Functional Utility for get]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
         public static InferenceServiceConfiguration get() {
             return configuration.getOrCompute();
         }

@@ -43,6 +43,11 @@ import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
 
+ /**
+  * @brief Functional description of the PolicyManagerTests class.
+  *        This is a placeholder for detailed semantic documentation.
+  *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+  */
 public class PolicyManagerTests extends ESTestCase {
 
     /**
@@ -56,6 +61,9 @@ public class PolicyManagerTests extends ESTestCase {
      */
     static Module NO_ENTITLEMENTS_MODULE;
 
+     /**
+      * @brief [Functional description for field TEST_PATH_LOOKUP]: Describe purpose here.
+      */
     static PathLookup TEST_PATH_LOOKUP;
 
     @BeforeClass
@@ -64,6 +72,9 @@ public class PolicyManagerTests extends ESTestCase {
             // Any old module will do for tests using NO_ENTITLEMENTS_MODULE
             NO_ENTITLEMENTS_MODULE = makeClassInItsOwnModule().getModule();
 
+             /**
+              * @brief [Functional description for field baseDir]: Describe purpose here.
+              */
             Path baseDir = createTempDir().toAbsolutePath();
             TEST_PATH_LOOKUP = new PathLookupImpl(
                 baseDir.resolve("/user/home"),
@@ -139,6 +150,9 @@ public class PolicyManagerTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for resetAndCheckEntitlements]: Describe purpose here.
+     */
     private void resetAndCheckEntitlements(
         String message,
         Class<?> requestingClass,

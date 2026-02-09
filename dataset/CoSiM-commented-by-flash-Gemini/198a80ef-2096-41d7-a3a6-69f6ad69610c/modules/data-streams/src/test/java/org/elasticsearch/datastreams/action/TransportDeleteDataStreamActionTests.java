@@ -36,13 +36,25 @@ import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.sameInstance;
 
+/**
+ * @brief Functional description of the TransportDeleteDataStreamActionTests class.
+ *        This is a placeholder for detailed semantic documentation.
+ *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+ */
 public class TransportDeleteDataStreamActionTests extends ESTestCase {
 
     private final IndexNameExpressionResolver iner = TestIndexNameExpressionResolver.newInstance();
     private final ThreadContext threadContext = new ThreadContext(Settings.EMPTY);
     private final Consumer<String> validator = s -> EmptySystemIndices.INSTANCE.validateDataStreamAccess(s, threadContext);
 
+    /**
+     * @brief [Functional Utility for testDeleteDataStream]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testDeleteDataStream() {
+    /**
+     * @brief [Functional description for field dataStreamName]: Describe purpose here.
+     */
         final String dataStreamName = "my-data-stream";
         final List<String> otherIndices = randomSubsetOf(List.of("foo", "bar", "baz"));
 
@@ -62,12 +74,21 @@ public class TransportDeleteDataStreamActionTests extends ESTestCase {
         );
         assertThat(newState.metadata().getProject(projectId).dataStreams().size(), equalTo(0));
         assertThat(newState.metadata().getProject(projectId).indices().size(), equalTo(otherIndices.size()));
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (String indexName : otherIndices) {
             assertThat(newState.metadata().getProject(projectId).indices().get(indexName).getIndex().getName(), equalTo(indexName));
         }
     }
 
+    /**
+     * @brief [Functional Utility for testDeleteDataStreamWithFailureStore]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testDeleteDataStreamWithFailureStore() {
+    /**
+     * @brief [Functional description for field dataStreamName]: Describe purpose here.
+     */
         final String dataStreamName = "my-data-stream";
         final List<String> otherIndices = randomSubsetOf(List.of("foo", "bar", "baz"));
 
@@ -91,12 +112,21 @@ public class TransportDeleteDataStreamActionTests extends ESTestCase {
         );
         assertThat(newState.metadata().getProject(projectId).dataStreams().size(), equalTo(0));
         assertThat(newState.metadata().getProject(projectId).indices().size(), equalTo(otherIndices.size()));
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (String indexName : otherIndices) {
             assertThat(newState.metadata().getProject(projectId).indices().get(indexName).getIndex().getName(), equalTo(indexName));
         }
     }
 
+    /**
+     * @brief [Functional Utility for testDeleteMultipleDataStreams]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testDeleteMultipleDataStreams() {
+    /**
+     * @brief [Functional description for field dataStreamNames]: Describe purpose here.
+     */
         String[] dataStreamNames = { "foo", "bar", "baz", "eggplant" };
         final var projectId = randomProjectIdOrDefault();
         ClusterState cs = DataStreamTestHelper.getClusterStateWithDataStreams(
@@ -122,13 +152,25 @@ public class TransportDeleteDataStreamActionTests extends ESTestCase {
         DataStream remainingDataStream = newState.metadata().getProject(projectId).dataStreams().get(dataStreamNames[0]);
         assertNotNull(remainingDataStream);
         assertThat(newState.metadata().getProject(projectId).indices().size(), equalTo(remainingDataStream.getIndices().size()));
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (Index i : remainingDataStream.getIndices()) {
             assertThat(newState.metadata().getProject(projectId).indices().get(i.getName()).getIndex(), equalTo(i));
         }
     }
 
+    /**
+     * @brief [Functional Utility for testDeleteSnapshottingDataStream]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testDeleteSnapshottingDataStream() {
+    /**
+     * @brief [Functional description for field dataStreamName]: Describe purpose here.
+     */
         final String dataStreamName = "my-data-stream1";
+    /**
+     * @brief [Functional description for field dataStreamName2]: Describe purpose here.
+     */
         final String dataStreamName2 = "my-data-stream2";
         final List<String> otherIndices = randomSubsetOf(List.of("foo", "bar", "baz"));
 
@@ -157,6 +199,13 @@ public class TransportDeleteDataStreamActionTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for createEntry]: Describe purpose here.
+     * @param dataStreamName: [Description]
+     * @param repo: [Description]
+     * @param partial: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private SnapshotsInProgress.Entry createEntry(String dataStreamName, String repo, boolean partial) {
         return SnapshotsInProgress.Entry.snapshot(
             new Snapshot(repo, new SnapshotId("", "")),
@@ -175,8 +224,18 @@ public class TransportDeleteDataStreamActionTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testDeleteNonexistentDataStream]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testDeleteNonexistentDataStream() {
+    /**
+     * @brief [Functional description for field dataStreamName]: Describe purpose here.
+     */
         final String dataStreamName = "my-data-stream";
+    /**
+     * @brief [Functional description for field dataStreamNames]: Describe purpose here.
+     */
         String[] dataStreamNames = { "foo", "bar", "baz", "eggplant" };
         final var projectId = randomProjectIdOrDefault();
         ClusterState cs = DataStreamTestHelper.getClusterStateWithDataStreams(

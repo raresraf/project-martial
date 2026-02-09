@@ -75,6 +75,11 @@ import static org.hamcrest.Matchers.nullValue;
  * and assert that the result exists and is equal to "value".
  */
 @ClusterScope(scope = SUITE, numClientNodes = 1, numDataNodes = 1)
+/**
+ * @brief Functional description of the LookupJoinTypesIT class.
+ *        This is a placeholder for detailed semantic documentation.
+ *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+ */
 public class LookupJoinTypesIT extends ESIntegTestCase {
     private static final String MAIN_INDEX_PREFIX = "main_";
     private static final String MAIN_INDEX = MAIN_INDEX_PREFIX + "index";
@@ -104,7 +109,11 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
         var integerTypes = List.of(BYTE, SHORT, INTEGER, LONG);
         {
             TestConfigs configs = testConfigurations.computeIfAbsent("integers", TestConfigs::new);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             for (DataType mainType : integerTypes) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 for (DataType lookupType : integerTypes) {
                     configs.addPasses(mainType, lookupType);
                 }
@@ -115,7 +124,11 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
         var floatTypes = List.of(HALF_FLOAT, FLOAT, DOUBLE, SCALED_FLOAT);
         {
             TestConfigs configs = testConfigurations.computeIfAbsent("floats", TestConfigs::new);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             for (DataType mainType : floatTypes) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 for (DataType lookupType : floatTypes) {
                     configs.addPasses(mainType, lookupType);
                 }
@@ -125,7 +138,11 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
         // Tests for mixed-numerical types
         {
             TestConfigs configs = testConfigurations.computeIfAbsent("mixed-numerical", TestConfigs::new);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             for (DataType mainType : integerTypes) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 for (DataType lookupType : floatTypes) {
                     configs.addPasses(mainType, lookupType);
                     configs.addPasses(lookupType, mainType);
@@ -137,8 +154,14 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
         var dateTypes = List.of(DATETIME, DATE_NANOS);
         {
             TestConfigs configs = testConfigurations.computeIfAbsent("mixed-temporal", TestConfigs::new);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             for (DataType mainType : dateTypes) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 for (DataType lookupType : dateTypes) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                     if (mainType != lookupType) {
                         configs.addFails(mainType, lookupType);
                     }
@@ -147,11 +170,18 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
         }
 
         // Tests for all unsupported types
+    /**
+     * @brief [Functional description for field unsupported]: Describe purpose here.
+     */
         DataType[] unsupported = Join.UNSUPPORTED_TYPES;
         {
             Collection<TestConfigs> existing = testConfigurations.values();
             TestConfigs configs = testConfigurations.computeIfAbsent("unsupported", TestConfigs::new);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             for (DataType type : unsupported) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (type == NULL
                     || type == DOC_DATA_TYPE
                     || type == TSID_DATA_TYPE
@@ -162,6 +192,8 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
                     // Skip unmappable types, or types not supported in ES|QL in general
                     continue;
                 }
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (existingIndex(existing, type, type)) {
                     // Skip existing configurations
                     continue;
@@ -188,8 +220,12 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
         {
             Collection<TestConfigs> existing = testConfigurations.values();
             TestConfigs configs = testConfigurations.computeIfAbsent("same", TestConfigs::new);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             for (DataType type : supported) {
                 assertThat("Claiming supported for unsupported type: " + type, List.of(unsupported).contains(type), is(false));
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (existingIndex(existing, type, type) == false) {
                     // Only add the configuration if it doesn't already exist
                     configs.addPasses(type, type);
@@ -198,15 +234,21 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
         }
 
         // Assert that unsupported types are not in the supported list
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (DataType type : unsupported) {
             assertThat("Claiming supported for unsupported type: " + type, List.of(supported).contains(type), is(false));
         }
 
         // Assert that unsupported+supported covers all types:
         List<DataType> missing = new ArrayList<>();
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (DataType type : DataType.values()) {
             boolean isUnsupported = List.of(unsupported).contains(type);
             boolean isSupported = List.of(supported).contains(type);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (isUnsupported == false && isSupported == false) {
                 missing.add(type);
             }
@@ -217,8 +259,14 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
         {
             Collection<TestConfigs> existing = testConfigurations.values();
             TestConfigs configs = testConfigurations.computeIfAbsent("others", TestConfigs::new);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             for (DataType mainType : supported) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 for (DataType lookupType : supported) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                     if (existingIndex(existing, mainType, lookupType) == false) {
                         // Only add the configuration if it doesn't already exist
                         configs.addFails(mainType, lookupType);
@@ -229,8 +277,14 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
 
         // Make sure we have never added two configurations with the same index name
         Set<String> knownTypes = new HashSet<>();
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (TestConfigs configs : testConfigurations.values()) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             for (TestConfig config : configs.configs.values()) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (knownTypes.contains(config.lookupIndexName())) {
                     throw new IllegalArgumentException("Duplicate index name: " + config.lookupIndexName());
                 }
@@ -239,48 +293,96 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for existingIndex]: Describe purpose here.
+     * @param existing: [Description]
+     * @param mainType: [Description]
+     * @param lookupType: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private static boolean existingIndex(Collection<TestConfigs> existing, DataType mainType, DataType lookupType) {
         String indexName = LOOKUP_INDEX_PREFIX + mainType.esType() + "_" + lookupType.esType();
         return existing.stream().anyMatch(c -> c.exists(indexName));
     }
 
+    /**
+     * @brief [Functional Utility for testLookupJoinStrings]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testLookupJoinStrings() {
         testLookupJoinTypes("strings");
     }
 
+    /**
+     * @brief [Functional Utility for testLookupJoinIntegers]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testLookupJoinIntegers() {
         testLookupJoinTypes("integers");
     }
 
+    /**
+     * @brief [Functional Utility for testLookupJoinFloats]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testLookupJoinFloats() {
         testLookupJoinTypes("floats");
     }
 
+    /**
+     * @brief [Functional Utility for testLookupJoinMixedNumerical]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testLookupJoinMixedNumerical() {
         testLookupJoinTypes("mixed-numerical");
     }
 
+    /**
+     * @brief [Functional Utility for testLookupJoinMixedTemporal]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testLookupJoinMixedTemporal() {
         testLookupJoinTypes("mixed-temporal");
     }
 
+    /**
+     * @brief [Functional Utility for testLookupJoinSame]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testLookupJoinSame() {
         testLookupJoinTypes("same");
     }
 
+    /**
+     * @brief [Functional Utility for testLookupJoinUnsupported]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testLookupJoinUnsupported() {
         testLookupJoinTypes("unsupported");
     }
 
+    /**
+     * @brief [Functional Utility for testLookupJoinOthers]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testLookupJoinOthers() {
         testLookupJoinTypes("others");
     }
 
+    /**
+     * @brief [Functional Utility for testLookupJoinTypes]: Describe purpose here.
+     * @param group: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private void testLookupJoinTypes(String group) {
         TestConfigs configs = testConfigurations.get(group);
         initIndexes(configs);
         initData(configs);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (TestConfig config : configs.values()) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if ((isValidDataType(config.mainType()) && isValidDataType(config.lookupType())) == false) {
                 continue;
             }
@@ -291,9 +393,18 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for initIndexes]: Describe purpose here.
+     * @param configs: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private void initIndexes(TestConfigs configs) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (TestMapping mapping : configs.indices()) {
             CreateIndexRequestBuilder builder = prepareCreate(mapping.indexName).setMapping(mapping.properties);
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (mapping.settings != null) {
                 builder = builder.setSettings(mapping.settings);
             }
@@ -301,28 +412,58 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for initData]: Describe purpose here.
+     * @param configs: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private void initData(TestConfigs configs) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (TestDocument doc : configs.docs()) {
             index(doc.indexName, doc.id, doc.source);
             refresh(doc.indexName);
         }
     }
 
+    /**
+     * @brief [Functional Utility for lookupPropertyFor]: Describe purpose here.
+     * @param config: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private static String lookupPropertyFor(TestConfig config) {
         return String.format(Locale.ROOT, "\"%s\": %s", config.lookupFieldName(), sampleDataTextFor(config.lookupType()));
     }
 
+    /**
+     * @brief [Functional Utility for mainPropertyFor]: Describe purpose here.
+     * @param config: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private static String mainPropertyFor(TestConfig config) {
         return String.format(Locale.ROOT, "\"%s\": %s", config.mainFieldName(), sampleDataTextFor(config.mainType()));
     }
 
+    /**
+     * @brief [Functional Utility for sampleDataTextFor]: Describe purpose here.
+     * @param type: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private static String sampleDataTextFor(DataType type) {
         return sampleDataForValue(sampleDataFor(type));
     }
 
+    /**
+     * @brief [Functional Utility for sampleDataForValue]: Describe purpose here.
+     * @param value: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private static String sampleDataForValue(Object value) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (value instanceof String) {
             return "\"" + value + "\"";
+        // Block Logic: [Describe purpose of this else/else if block]
         } else if (value instanceof List<?> list) {
             return "[" + list.stream().map(LookupJoinTypesIT::sampleDataForValue).collect(Collectors.joining(", ")) + "]";
         }
@@ -331,7 +472,17 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
 
     private static final double SCALING_FACTOR = 10.0;
 
+    /**
+     * @brief [Functional Utility for sampleDataFor]: Describe purpose here.
+     * @param type: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private static Object sampleDataFor(DataType type) {
+    /**
+     * @brief [Functional Utility for switch]: Describe purpose here.
+     * @param type: [Description]
+     * @return [ReturnType]: [Description]
+     */
         return switch (type) {
             case BOOLEAN -> true;
             case DATETIME, DATE_NANOS -> "2025-04-02T12:00:00.000Z";
@@ -353,6 +504,9 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
     private record TestDocument(String indexName, String id, String source) {};
 
     private static class TestConfigs {
+    /**
+     * @brief [Functional description for field group]: Describe purpose here.
+     */
         final String group;
         final Map<String, TestConfig> configs;
 
@@ -361,10 +515,20 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
             this.configs = new LinkedHashMap<>();
         }
 
+    /**
+     * @brief [Functional Utility for indices]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
         protected List<TestMapping> indices() {
             List<TestMapping> results = new ArrayList<>();
 
+    /**
+     * @brief [Functional description for field propertyPrefix]: Describe purpose here.
+     */
             String propertyPrefix = "{\n  \"properties\" : {\n";
+    /**
+     * @brief [Functional description for field propertySuffix]: Describe purpose here.
+     */
             String propertySuffix = "  }\n}\n";
             // The main index will have many fields, one of each type to use in later type specific joins
             String mainFields = propertyPrefix + configs.values()
@@ -387,13 +551,25 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
                     )
                 );
 
+    /**
+     * @brief [Functional description for field results]: Describe purpose here.
+     */
             return results;
         }
 
+    /**
+     * @brief [Functional Utility for docs]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
         protected List<TestDocument> docs() {
             List<TestDocument> results = new ArrayList<>();
 
+    /**
+     * @brief [Functional description for field docId]: Describe purpose here.
+     */
             int docId = 0;
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             for (TestConfig config : configs.values()) {
                 String doc = String.format(Locale.ROOT, """
                     {
@@ -414,28 +590,59 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
                 }
                 """, String.join(",\n  ", mainProperties))));
 
+    /**
+     * @brief [Functional description for field results]: Describe purpose here.
+     */
             return results;
         }
 
+    /**
+     * @brief [Functional Utility for values]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
         private Collection<TestConfig> values() {
             return configs.values();
         }
 
+    /**
+     * @brief [Functional Utility for exists]: Describe purpose here.
+     * @param indexName: [Description]
+     * @return [ReturnType]: [Description]
+     */
         private boolean exists(String indexName) {
             return configs.containsKey(indexName);
         }
 
+    /**
+     * @brief [Functional Utility for add]: Describe purpose here.
+     * @param config: [Description]
+     * @return [ReturnType]: [Description]
+     */
         private void add(TestConfig config) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
             if (configs.containsKey(config.lookupIndexName())) {
                 throw new IllegalArgumentException("Duplicate index name: " + config.lookupIndexName());
             }
             configs.put(config.lookupIndexName(), config);
         }
 
+    /**
+     * @brief [Functional Utility for addPasses]: Describe purpose here.
+     * @param mainType: [Description]
+     * @param lookupType: [Description]
+     * @return [ReturnType]: [Description]
+     */
         private void addPasses(DataType mainType, DataType lookupType) {
             add(new TestConfigPasses(mainType, lookupType, true));
         }
 
+    /**
+     * @brief [Functional Utility for addFails]: Describe purpose here.
+     * @param mainType: [Description]
+     * @param lookupType: [Description]
+     * @return [ReturnType]: [Description]
+     */
         private void addFails(DataType mainType, DataType lookupType) {
             String fieldName = LOOKUP_INDEX_PREFIX + lookupType.esType();
             String errorMessage = String.format(
@@ -456,6 +663,12 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
             );
         }
 
+    /**
+     * @brief [Functional Utility for addFailsUnsupported]: Describe purpose here.
+     * @param mainType: [Description]
+     * @param lookupType: [Description]
+     * @return [ReturnType]: [Description]
+     */
         private void addFailsUnsupported(DataType mainType, DataType lookupType) {
             String fieldName = "lookup_" + lookupType.esType();
             String errorMessage = String.format(
@@ -536,7 +749,16 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
         void doTest();
     }
 
+    /**
+     * @brief [Functional Utility for propertySpecFor]: Describe purpose here.
+     * @param fieldName: [Description]
+     * @param type: [Description]
+     * @param extra: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private static String propertySpecFor(String fieldName, DataType type, String extra) {
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         if (type == SCALED_FLOAT) {
             return String.format(
                 Locale.ROOT,
@@ -549,6 +771,13 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
         return String.format(Locale.ROOT, "\"%s\": { \"type\" : \"%s\" }", fieldName, type.esType().replaceAll("cartesian_", "")) + extra;
     }
 
+    /**
+     * @brief [Functional Utility for validateIndex]: Describe purpose here.
+     * @param indexName: [Description]
+     * @param fieldName: [Description]
+     * @param expectedValue: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private static void validateIndex(String indexName, String fieldName, Object expectedValue) {
         String query = String.format(Locale.ROOT, "FROM %s | KEEP %s", indexName, fieldName);
         try (var response = EsqlQueryRequestBuilder.newRequestBuilder(client()).query(query).get()) {
@@ -563,14 +792,21 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
 
     private record TestConfigPasses(DataType mainType, DataType lookupType, boolean hasResults) implements TestConfig {
         @Override
+    /**
+     * @brief [Functional Utility for doTest]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
         public void doTest() {
             String query = testQuery();
             try (var response = EsqlQueryRequestBuilder.newRequestBuilder(client()).query(query).get()) {
                 Iterator<Object> results = response.response().column(0).iterator();
                 assertTrue("Expected at least one result for query: " + query, results.hasNext());
                 Object indexedResult = response.response().column(0).iterator().next();
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
                 if (hasResults) {
                     assertThat("Expected valid result: " + query, indexedResult, equalTo("value"));
+        // Block Logic: [Describe purpose of this else/else if block]
                 } else {
                     assertThat("Expected empty results for query: " + query, indexedResult, is(nullValue()));
                 }
@@ -582,6 +818,10 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
         implements
             TestConfig {
         @Override
+    /**
+     * @brief [Functional Utility for doTest]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
         public void doTest() {
             String query = testQuery();
             E e = expectThrows(
@@ -598,6 +838,11 @@ public class LookupJoinTypesIT extends ESIntegTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for isValidDataType]: Describe purpose here.
+     * @param dataType: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private boolean isValidDataType(DataType dataType) {
         return UNDER_CONSTRUCTION.get(dataType) == null || UNDER_CONSTRUCTION.get(dataType).isEnabled();
     }

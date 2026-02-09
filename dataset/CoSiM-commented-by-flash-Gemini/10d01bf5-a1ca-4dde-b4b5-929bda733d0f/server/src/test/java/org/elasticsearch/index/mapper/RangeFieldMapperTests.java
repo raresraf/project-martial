@@ -36,20 +36,40 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.endsWith;
 import static org.hamcrest.Matchers.startsWith;
 
+/**
+ * @brief Functional description of the RangeFieldMapperTests class.
+ *        This is a placeholder for detailed semantic documentation.
+ *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+ */
 public abstract class RangeFieldMapperTests extends MapperTestCase {
 
     protected static final String DATE_FORMAT = "uuuu-MM-dd HH:mm:ss.SSS||yyyy-MM-dd HH:mm:ss||yyyy-MM-dd||epoch_millis";
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected boolean supportsSearchLookup() {
         return false;
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected boolean supportsIgnoreMalformed() {
         return false;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testExistsQueryDocValuesDisabled() throws IOException {
         MapperService mapperService = createMapperService(fieldMapping(b -> {
             minimalMapping(b);
@@ -59,6 +79,11 @@ public abstract class RangeFieldMapperTests extends MapperTestCase {
         assertParseMinimalWarnings();
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testAggregationsDocValuesDisabled() throws IOException {
         MapperService mapperService = createMapperService(fieldMapping(b -> {
             minimalMapping(b);
@@ -68,6 +93,12 @@ public abstract class RangeFieldMapperTests extends MapperTestCase {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param checker: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected void registerParameters(ParameterChecker checker) throws IOException {
         checker.registerConflictCheck("doc_values", b -> b.field("doc_values", false));
         checker.registerConflictCheck("index", b -> b.field("index", false));
@@ -75,35 +106,73 @@ public abstract class RangeFieldMapperTests extends MapperTestCase {
         checker.registerUpdateCheck(b -> b.field("coerce", false), m -> assertFalse(((RangeFieldMapper) m).coerce()));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private String getFromField() {
         return random().nextBoolean() ? GT_FIELD.getPreferredName() : GTE_FIELD.getPreferredName();
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private String getToField() {
         return random().nextBoolean() ? LT_FIELD.getPreferredName() : LTE_FIELD.getPreferredName();
     }
 
     protected abstract XContentBuilder rangeSource(XContentBuilder in) throws IOException;
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param in: [Description]
+     * @param lower: [Description]
+     * @param upper: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected final XContentBuilder rangeSource(XContentBuilder in, String lower, String upper) throws IOException {
         return in.startObject("field").field(getFromField(), lower).field(getToField(), upper).endObject();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected final Object getSampleValueForDocument() {
         return Collections.emptyMap();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected final Object getSampleObjectForDocument() {
         return getSampleValueForDocument();
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected Object getSampleValueForQuery() {
         return rangeValue();
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void testDefaults() throws Exception {
 
         DocumentMapper mapper = createDocumentMapper(fieldMapping(this::minimalMapping));
@@ -120,6 +189,11 @@ public abstract class RangeFieldMapperTests extends MapperTestCase {
         assertFalse(pointField.fieldType().stored());
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void testNotIndexed() throws Exception {
         DocumentMapper mapper = createDocumentMapper(fieldMapping(b -> {
             minimalMapping(b);
@@ -130,6 +204,11 @@ public abstract class RangeFieldMapperTests extends MapperTestCase {
         assertEquals(1, fields.size());
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void testNoDocValues() throws Exception {
         DocumentMapper mapper = createDocumentMapper(fieldMapping(b -> {
             minimalMapping(b);
@@ -145,6 +224,11 @@ public abstract class RangeFieldMapperTests extends MapperTestCase {
 
     protected abstract String storedValue();
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void testStore() throws Exception {
         DocumentMapper mapper = createDocumentMapper(fieldMapping(b -> {
             minimalMapping(b);
@@ -162,10 +246,20 @@ public abstract class RangeFieldMapperTests extends MapperTestCase {
         assertThat(storedField.stringValue(), containsString(storedValue()));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected boolean supportsCoerce() {
         return true;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void testCoerce() throws IOException {
         assumeTrue("Type does not support coerce", supportsCoerce());
 
@@ -181,10 +275,20 @@ public abstract class RangeFieldMapperTests extends MapperTestCase {
         assertThat(e.getCause().getMessage(), containsString("passed as String"));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected boolean supportsDecimalCoerce() {
         return true;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void testDecimalCoerce() throws IOException {
         assumeTrue("Type does not support decimal coerce", supportsDecimalCoerce());
         DocumentMapper mapper = createDocumentMapper(fieldMapping(this::minimalMapping));
@@ -210,6 +314,11 @@ public abstract class RangeFieldMapperTests extends MapperTestCase {
 
     protected abstract Object rangeValue();
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void testNullField() throws IOException {
         DocumentMapper mapper = createDocumentMapper(fieldMapping(this::minimalMapping));
         ParsedDocument doc = mapper.parse(source(b -> b.nullField("field")));
@@ -235,6 +344,12 @@ public abstract class RangeFieldMapperTests extends MapperTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param doc: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private static String storedValue(ParsedDocument doc) {
         assertEquals(3, doc.rootDoc().getFields("field").size());
         List<IndexableField> fields = doc.rootDoc().getFields("field");
@@ -242,6 +357,11 @@ public abstract class RangeFieldMapperTests extends MapperTestCase {
         return storedField.stringValue();
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void testNullBounds() throws IOException {
 
         // null, null => min, max
@@ -256,11 +376,23 @@ public abstract class RangeFieldMapperTests extends MapperTestCase {
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param ignoreMalformed: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected SyntheticSourceSupport syntheticSourceSupport(boolean ignoreMalformed) {
         assumeTrue("test setup only supports numeric ranges", rangeType().isNumeric());
 
         return new SyntheticSourceSupport() {
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param maxValues: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public SyntheticSourceExample example(int maxValues) throws IOException {
                 if (randomBoolean()) {
                     var range = randomRangeForSyntheticSourceTest();
@@ -275,6 +407,12 @@ public abstract class RangeFieldMapperTests extends MapperTestCase {
                 return new SyntheticSourceExample(in, out, this::mapping);
             }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param b: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             private void mapping(XContentBuilder b) throws IOException {
                 b.field("type", rangeType().name);
                 if (rarely()) {
@@ -289,6 +427,11 @@ public abstract class RangeFieldMapperTests extends MapperTestCase {
             }
 
             @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
             public List<SyntheticSourceInvalidExample> invalidExample() throws IOException {
                 return List.of();
             }
@@ -310,6 +453,16 @@ public abstract class RangeFieldMapperTests extends MapperTestCase {
         private final boolean skipDefaultFrom = randomBoolean();
         private final boolean skipDefaultTo = randomBoolean();
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param type: [Description]
+     * @param from: [Description]
+     * @param to: [Description]
+     * @param includeFrom: [Description]
+     * @param includeTo: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public TestRange(RangeType type, T from, T to, boolean includeFrom, boolean includeTo) {
             this.type = type;
             this.from = from;
@@ -371,6 +524,12 @@ public abstract class RangeFieldMapperTests extends MapperTestCase {
         }
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param o: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public int compareTo(TestRange<T> o) {
             return Comparator.comparing((TestRange<T> r) -> r.from, Comparator.nullsFirst(Comparator.naturalOrder()))
                 // `> a` is converted into `>= a + 1` and so included range end will be smaller in resulting source
@@ -382,10 +541,23 @@ public abstract class RangeFieldMapperTests extends MapperTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected TestRange<?> randomRangeForSyntheticSourceTest() {
         throw new AssumptionViolatedException("Should only be called for specific range types");
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param CheckedConsumer<XContentBuilder: [Description]
+     * @param mapping: [Description]
+     * @param inputValues: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected Source getSourceFor(CheckedConsumer<XContentBuilder, IOException> mapping, List<?> inputValues) throws IOException {
         DocumentMapper mapper = createSytheticSourceMapperService(mapping(mapping)).documentMapper();
 
@@ -419,6 +591,12 @@ public abstract class RangeFieldMapperTests extends MapperTestCase {
     protected abstract RangeType rangeType();
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param ft: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected Object generateRandomInputValue(MappedFieldType ft) {
         // Doc value fetching crashes.
         // https://github.com/elastic/elasticsearch/issues/70269

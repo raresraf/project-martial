@@ -63,13 +63,30 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.matchesRegex;
 
 //@TestLogging(value = "org.elasticsearch.xpack.esql:TRACE,org.elasticsearch.compute:TRACE", reason = "debug")
+ /**
+  * @brief Functional description of the VerifierTests class.
+  *        This is a placeholder for detailed semantic documentation.
+  *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+  */
 public class VerifierTests extends ESTestCase {
 
     private static final EsqlParser parser = new EsqlParser();
+     /**
+      * @brief [Functional description for field defaultAnalyzer]: Describe purpose here.
+      */
     private final Analyzer defaultAnalyzer = AnalyzerTestUtils.expandedDefaultAnalyzer();
+     /**
+      * @brief [Functional description for field tsdb]: Describe purpose here.
+      */
     private final Analyzer tsdb = AnalyzerTestUtils.analyzer(AnalyzerTestUtils.tsdbIndexResolution());
 
+     /**
+      * @brief [Functional description for field TIME_DURATIONS]: Describe purpose here.
+      */
     private final List<String> TIME_DURATIONS = List.of("millisecond", "second", "minute", "hour");
+     /**
+      * @brief [Functional description for field DATE_PERIODS]: Describe purpose here.
+      */
     private final List<String> DATE_PERIODS = List.of("day", "week", "month", "year");
 
     public void testIncompatibleTypesInMathOperation() {
@@ -110,20 +127,32 @@ public class VerifierTests extends ESTestCase {
         );
         Analyzer analyzer = AnalyzerTestUtils.analyzer(indexWithUnsupportedAndMultiTypedField);
 
+        /**
+         * @brief [Functional Utility for assertEquals]: Describe purpose here.
+         * @return [ReturnType]: [Description]\n         */
         assertEquals(
             "1:22: Cannot use field [unsupported] with unsupported type [flattened]",
             error("from test* | dissect unsupported \"%{foo}\"", analyzer)
         );
+        /**
+         * @brief [Functional Utility for assertEquals]: Describe purpose here.
+         * @return [ReturnType]: [Description]\n         */
         assertEquals(
             "1:22: Cannot use field [multi_typed] due to ambiguities being mapped as [2] incompatible types:"
                 + " [ip] in [test1, test2, test3] and [2] other indices, [keyword] in [test6]",
             error("from test* | dissect multi_typed \"%{foo}\"", analyzer)
         );
 
+        /**
+         * @brief [Functional Utility for assertEquals]: Describe purpose here.
+         * @return [ReturnType]: [Description]\n         */
         assertEquals(
             "1:19: Cannot use field [unsupported] with unsupported type [flattened]",
             error("from test* | grok unsupported \"%{WORD:foo}\"", analyzer)
         );
+        /**
+         * @brief [Functional Utility for assertEquals]: Describe purpose here.
+         * @return [ReturnType]: [Description]\n         */
         assertEquals(
             "1:19: Cannot use field [multi_typed] due to ambiguities being mapped as [2] incompatible types:"
                 + " [ip] in [test1, test2, test3] and [2] other indices, [keyword] in [test6]",
@@ -169,7 +198,7 @@ public class VerifierTests extends ESTestCase {
                 + " [ip] in [test1, test2, test3] and [2] other indices, [keyword] in [test6]",
             error("from test* | stats count(1) by multi_typed", analyzer)
         );
-        if (EsqlCapabilities.Cap.INLINESTATS.isEnabled()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (EsqlCapabilities.Cap.INLINESTATS.isEnabled()) {
             assertEquals(
                 "1:38: Cannot use field [unsupported] with unsupported type [flattened]",
                 error("from test* | inlinestats count(1) by unsupported", analyzer)
@@ -190,7 +219,7 @@ public class VerifierTests extends ESTestCase {
                 + " [ip] in [test1, test2, test3] and [2] other indices, [keyword] in [test6]",
             error("from test* | stats values(multi_typed)", analyzer)
         );
-        if (EsqlCapabilities.Cap.INLINESTATS.isEnabled()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (EsqlCapabilities.Cap.INLINESTATS.isEnabled()) {
             assertEquals(
                 "1:33: Cannot use field [unsupported] with unsupported type [flattened]",
                 error("from test* | inlinestats values(unsupported)", analyzer)
@@ -212,7 +241,7 @@ public class VerifierTests extends ESTestCase {
             error("from test* | stats values(multi_typed)", analyzer)
         );
 
-        if (EsqlCapabilities.Cap.LOOKUP_V4.isEnabled()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (EsqlCapabilities.Cap.LOOKUP_V4.isEnabled()) {
             // LOOKUP with unsupported type
             assertEquals(
                 "1:43: column type mismatch, table column was [integer] and original column was [unsupported]",
@@ -265,7 +294,7 @@ public class VerifierTests extends ESTestCase {
             error("from test* | where multi_typed is not null", analyzer)
         );
 
-        for (String functionName : List.of("to_timeduration", "to_dateperiod")) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (String functionName : List.of("to_timeduration", "to_dateperiod")) {
             String lineNumber = functionName.equalsIgnoreCase("to_timeduration") ? "47" : "45";
             String errorType = functionName.equalsIgnoreCase("to_timeduration") ? "time_duration" : "date_period";
             assertEquals(
@@ -447,10 +476,10 @@ public class VerifierTests extends ESTestCase {
     }
 
     public void testAggWithNonBooleanFilter() {
-        for (String filter : List.of("\"true\"", "1", "1 + 0", "concat(\"a\", \"b\")")) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (String filter : List.of("\"true\"", "1", "1 + 0", "concat(\"a\", \"b\")")) {
             String type = (filter.equals("1") || filter.equals("1 + 0")) ? "INTEGER" : "KEYWORD";
             assertEquals("1:19: Condition expression needs to be boolean, found [" + type + "]", error("from test | where " + filter));
-            for (String by : List.of("", " by languages", " by bucket(salary, 10)")) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            for (String by : List.of("", " by languages", " by bucket(salary, 10)")) {
                 assertEquals(
                     "1:34: Condition expression needs to be boolean, found [" + type + "]",
                     error("from test | stats count(*) where " + filter + by)
@@ -668,6 +697,9 @@ public class VerifierTests extends ESTestCase {
     }
 
     public void testNonStringFieldsInDissect() {
+        /**
+         * @brief [Functional Utility for assertEquals]: Describe purpose here.
+         * @return [ReturnType]: [Description]\n         */
         assertEquals(
             "1:21: Dissect only supports KEYWORD or TEXT values, found expression [emp_no] type [INTEGER]",
             error("from test | dissect emp_no \"%{foo}\"")
@@ -675,6 +707,9 @@ public class VerifierTests extends ESTestCase {
     }
 
     public void testNonStringFieldsInGrok() {
+        /**
+         * @brief [Functional Utility for assertEquals]: Describe purpose here.
+         * @return [ReturnType]: [Description]\n         */
         assertEquals(
             "1:18: Grok only supports KEYWORD or TEXT values, found expression [emp_no] type [INTEGER]",
             error("from test | grok emp_no \"%{WORD:foo}\"")
@@ -705,15 +740,15 @@ public class VerifierTests extends ESTestCase {
             .filter(dt -> dt.isNumeric() && DataType.isRepresentable(dt) && dt != UNSIGNED_LONG)
             .map(DataType::typeName)
             .toList();
-        for (var type : types) {
-            for (var comp : List.of("==", "!=", ">", ">=", "<=", "<")) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (var type : types) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            for (var comp : List.of("==", "!=", ">", ">=", "<=", "<")) {
                 String left, right, leftType, rightType;
-                if (randomBoolean()) {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                if (randomBoolean()) {
                     left = "ul";
                     leftType = "unsigned_long";
                     right = "n";
                     rightType = type;
-                } else {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                } else {
                     left = "n";
                     leftType = type;
                     right = "ul";
@@ -743,15 +778,15 @@ public class VerifierTests extends ESTestCase {
             .filter(dt -> dt.isNumeric() && DataType.isRepresentable(dt) && dt != UNSIGNED_LONG)
             .map(DataType::typeName)
             .toList();
-        for (var type : types) {
-            for (var operation : List.of("+", "-", "*", "/", "%")) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (var type : types) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            for (var operation : List.of("+", "-", "*", "/", "%")) {
                 String left, right, leftType, rightType;
-                if (randomBoolean()) {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                if (randomBoolean()) {
                     left = "ul";
                     leftType = "unsigned_long";
                     right = "n";
                     rightType = type;
-                } else {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                } else {
                     left = "n";
                     leftType = type;
                     right = "ul";
@@ -787,6 +822,9 @@ public class VerifierTests extends ESTestCase {
             error("from test | where emp_no == ?", "foo")
         );
 
+        /**
+         * @brief [Functional Utility for assertEquals]: Describe purpose here.
+         * @return [ReturnType]: [Description]\n         */
         assertEquals(
             "1:19: first argument of [emp_no == ?] is [numeric] so second argument must also be [numeric] but was [null]",
             error("from test | where emp_no == ?", new Object[] { null })
@@ -794,7 +832,7 @@ public class VerifierTests extends ESTestCase {
     }
 
     public void testPeriodAndDurationInRowAssignment() {
-        for (var unit : TIME_DURATIONS) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (var unit : TIME_DURATIONS) {
             assertEquals("1:9: cannot use [1 " + unit + "] directly in a row assignment", error("row a = 1 " + unit));
             assertEquals(
                 "1:9: cannot use [1 " + unit + "::time_duration] directly in a row assignment",
@@ -813,7 +851,7 @@ public class VerifierTests extends ESTestCase {
                 error("row a = to_timeduration(\"1 " + unit + "\")")
             );
         }
-        for (var unit : DATE_PERIODS) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (var unit : DATE_PERIODS) {
             assertEquals("1:9: cannot use [1 " + unit + "] directly in a row assignment", error("row a = 1 " + unit));
             assertEquals(
                 "1:9: cannot use [1 " + unit + "::date_period] directly in a row assignment",
@@ -835,7 +873,7 @@ public class VerifierTests extends ESTestCase {
     }
 
     public void testSubtractDateTimeFromTemporal() {
-        for (var unit : TIME_DURATIONS) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (var unit : TIME_DURATIONS) {
             assertEquals(
                 "1:5: [-] arguments are in unsupported order: cannot subtract a [DATETIME] value [now()] "
                     + "from a [TIME_DURATION] amount [1 "
@@ -872,7 +910,7 @@ public class VerifierTests extends ESTestCase {
                 error("row to_timeduration(\"1 " + unit + "\") - now() ")
             );
         }
-        for (var unit : DATE_PERIODS) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (var unit : DATE_PERIODS) {
             assertEquals(
                 "1:5: [-] arguments are in unsupported order: cannot subtract a [DATETIME] value [now()] "
                     + "from a [DATE_PERIOD] amount [1 "
@@ -912,7 +950,7 @@ public class VerifierTests extends ESTestCase {
     }
 
     public void testPeriodAndDurationInEval() {
-        for (var unit : TIME_DURATIONS) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (var unit : TIME_DURATIONS) {
             assertEquals(
                 "1:18: EVAL does not support type [time_duration] as the return data type of expression [1 " + unit + "]",
                 error("row x = 1 | eval y = 1 " + unit)
@@ -938,7 +976,7 @@ public class VerifierTests extends ESTestCase {
                 error("row x = 1 | eval y = to_timeduration(\"1 " + unit + "\")")
             );
         }
-        for (var unit : DATE_PERIODS) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (var unit : DATE_PERIODS) {
             assertEquals(
                 "1:18: EVAL does not support type [date_period] as the return data type of expression [1 " + unit + "]",
                 error("row x = 1 | eval y = 1 " + unit)
@@ -1062,7 +1100,7 @@ public class VerifierTests extends ESTestCase {
             COUNTER_LONG,
             "network.bytes_out"
         );
-        for (DataType counterDT : counterDataTypes.keySet()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (DataType counterDT : counterDataTypes.keySet()) {
             var fieldName = counterDataTypes.get(counterDT);
             assertEquals("1:18: cannot sort on " + counterDT.name().toLowerCase(Locale.ROOT), error("from test | sort " + fieldName, tsdb));
         }
@@ -1526,7 +1564,7 @@ public class VerifierTests extends ESTestCase {
     }
 
     private void checkFullTextFunctionsWithNonBooleanFunctions(String functionName, String functionInvocation, String functionType) {
-        if (functionType.equals("operator") == false) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (functionType.equals("operator") == false) {
             // The following tests are only possible for functions from a parsing perspective
             assertEquals(
                 "1:19: Invalid condition ["
@@ -1661,7 +1699,7 @@ public class VerifierTests extends ESTestCase {
     }
 
     public void testConditionalFunctionsWithMixedNumericTypes() {
-        for (String functionName : List.of("coalesce", "greatest", "least")) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (String functionName : List.of("coalesce", "greatest", "least")) {
             assertEquals(
                 "1:22: second argument of [" + functionName + "(languages, height)] must be [integer], found value [height] type [double]",
                 error("from test | eval x = " + functionName + "(languages, height)")
@@ -1909,7 +1947,7 @@ public class VerifierTests extends ESTestCase {
 
     public void testIntervalAsString() {
         // DateTrunc
-        for (String interval : List.of("1 minu", "1 dy", "1.5 minutes", "0.5 days", "minutes 1", "day 5")) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (String interval : List.of("1 minu", "1 dy", "1.5 minutes", "0.5 days", "minutes 1", "day 5")) {
             assertThat(
                 error("from types  | EVAL x = date_trunc(\"" + interval + "\", \"1991-06-26T00:00:00.000Z\")"),
                 containsString("1:35: Cannot convert string [" + interval + "] to [DATE_PERIOD or TIME_DURATION]")
@@ -1919,7 +1957,7 @@ public class VerifierTests extends ESTestCase {
                 containsString("1:67: Cannot convert string [" + interval + "] to [DATE_PERIOD or TIME_DURATION]")
             );
         }
-        for (String interval : List.of("1", "0.5", "invalid")) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (String interval : List.of("1", "0.5", "invalid")) {
             assertThat(
                 error("from types  | EVAL x = date_trunc(\"" + interval + "\", \"1991-06-26T00:00:00.000Z\")"),
                 containsString(
@@ -2073,10 +2111,10 @@ public class VerifierTests extends ESTestCase {
         assumeTrue("change_point must be enabled", EsqlCapabilities.Cap.CHANGE_POINT.isEnabled());
         List<DataType> sortableTypes = List.of(BOOLEAN, DOUBLE, DATE_NANOS, DATETIME, INTEGER, IP, KEYWORD, LONG, UNSIGNED_LONG, VERSION);
         List<DataType> unsortableTypes = List.of(CARTESIAN_POINT, CARTESIAN_SHAPE, GEO_POINT, GEO_SHAPE);
-        for (DataType type : sortableTypes) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (DataType type : sortableTypes) {
             query(Strings.format("ROW key=NULL::%s, value=0\n | CHANGE_POINT value ON key", type));
         }
-        for (DataType type : unsortableTypes) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (DataType type : unsortableTypes) {
             assertEquals(
                 "2:4: change point key [key] must be sortable",
                 error(Strings.format("ROW key=NULL::%s, value=0\n | CHANGE_POINT value ON key", type))
@@ -2099,10 +2137,10 @@ public class VerifierTests extends ESTestCase {
             KEYWORD,
             VERSION
         );
-        for (DataType type : numericTypes) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (DataType type : numericTypes) {
             query(Strings.format("ROW key=0, value=NULL::%s\n | CHANGE_POINT value ON key", type));
         }
-        for (DataType type : nonNumericTypes) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (DataType type : nonNumericTypes) {
             assertEquals(
                 "2:4: change point value [value] must be numeric",
                 error(Strings.format("ROW key=0, value=NULL::%s\n | CHANGE_POINT value ON key", type))
@@ -2188,11 +2226,11 @@ public class VerifierTests extends ESTestCase {
 
         // Check all data types for available options
         DataType[] optionTypes = new DataType[] { INTEGER, LONG, FLOAT, DOUBLE, KEYWORD, BOOLEAN };
-        for (Map.Entry<String, DataType> allowedOptions : Match.ALLOWED_OPTIONS.entrySet()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (Map.Entry<String, DataType> allowedOptions : Match.ALLOWED_OPTIONS.entrySet()) {
             String optionName = allowedOptions.getKey();
             DataType optionType = allowedOptions.getValue();
             // Check every possible type for the option - we'll try to convert it to the expected type
-            for (DataType currentType : optionTypes) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            for (DataType currentType : optionTypes) {
                 String optionValue = switch (currentType) {
                     case BOOLEAN -> String.valueOf(randomBoolean());
                     case INTEGER -> String.valueOf(randomIntBetween(0, 100000));
@@ -2203,7 +2241,7 @@ public class VerifierTests extends ESTestCase {
                     default -> throw new IllegalArgumentException("Unsupported option type: " + currentType);
                 };
                 String queryOptionValue = optionValue;
-                if (currentType == KEYWORD) {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                if (currentType == KEYWORD) {
                     queryOptionValue = "\"" + optionValue + "\"";
                 }
 
@@ -2266,11 +2304,11 @@ public class VerifierTests extends ESTestCase {
 
         // Check all data types for available options
         DataType[] optionTypes = new DataType[] { INTEGER, LONG, FLOAT, DOUBLE, KEYWORD, BOOLEAN };
-        for (Map.Entry<String, DataType> allowedOptions : QueryString.ALLOWED_OPTIONS.entrySet()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (Map.Entry<String, DataType> allowedOptions : QueryString.ALLOWED_OPTIONS.entrySet()) {
             String optionName = allowedOptions.getKey();
             DataType optionType = allowedOptions.getValue();
             // Check every possible type for the option - we'll try to convert it to the expected type
-            for (DataType currentType : optionTypes) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            for (DataType currentType : optionTypes) {
                 String optionValue = switch (currentType) {
                     case BOOLEAN -> String.valueOf(randomBoolean());
                     case INTEGER -> String.valueOf(randomIntBetween(0, 100000));
@@ -2281,7 +2319,7 @@ public class VerifierTests extends ESTestCase {
                     default -> throw new IllegalArgumentException("Unsupported option type: " + currentType);
                 };
                 String queryOptionValue = optionValue;
-                if (currentType == KEYWORD) {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                if (currentType == KEYWORD) {
                     queryOptionValue = "\"" + optionValue + "\"";
                 }
 
@@ -2338,11 +2376,11 @@ public class VerifierTests extends ESTestCase {
 
         // Check all data types for available options
         DataType[] optionTypes = new DataType[] { INTEGER, LONG, FLOAT, DOUBLE, KEYWORD, BOOLEAN };
-        for (Map.Entry<String, DataType> allowedOptions : MultiMatch.OPTIONS.entrySet()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (Map.Entry<String, DataType> allowedOptions : MultiMatch.OPTIONS.entrySet()) {
             String optionName = allowedOptions.getKey();
             DataType optionType = allowedOptions.getValue();
             // Check every possible type for the option - we'll try to convert it to the expected type
-            for (DataType currentType : optionTypes) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            for (DataType currentType : optionTypes) {
                 String optionValue = switch (currentType) {
                     case BOOLEAN -> String.valueOf(randomBoolean());
                     case INTEGER -> String.valueOf(randomIntBetween(0, 100000));
@@ -2353,7 +2391,7 @@ public class VerifierTests extends ESTestCase {
                     default -> throw new IllegalArgumentException("Unsupported option type: " + currentType);
                 };
                 String queryOptionValue = optionValue;
-                if (currentType == KEYWORD) {
+                 // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n                 // Invariant: [State condition that holds true before and after each iteration/execution]\n                if (currentType == KEYWORD) {
                     queryOptionValue = "\"" + optionValue + "\"";
                 }
 
@@ -2536,14 +2574,14 @@ public class VerifierTests extends ESTestCase {
 
     private String error(String query, Analyzer analyzer, Class<? extends Exception> exception, Object... params) {
         List<QueryParam> parameters = new ArrayList<>();
-        for (Object param : params) {
-            if (param == null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (Object param : params) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (param == null) {
                 parameters.add(paramAsConstant(null, null));
-            } else if (param instanceof String) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            } else if (param instanceof String) {
                 parameters.add(paramAsConstant(null, param));
-            } else if (param instanceof Number) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            } else if (param instanceof Number) {
                 parameters.add(paramAsConstant(null, param));
-            } else {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            } else {
                 throw new IllegalArgumentException("VerifierTests don't support params of type " + param.getClass());
             }
         }
@@ -2555,7 +2593,7 @@ public class VerifierTests extends ESTestCase {
         assertThat(e, instanceOf(exception));
 
         String message = e.getMessage();
-        if (e instanceof VerificationException) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (e instanceof VerificationException) {
             assertTrue(message.startsWith("Found "));
         }
         String pattern = "\nline ";

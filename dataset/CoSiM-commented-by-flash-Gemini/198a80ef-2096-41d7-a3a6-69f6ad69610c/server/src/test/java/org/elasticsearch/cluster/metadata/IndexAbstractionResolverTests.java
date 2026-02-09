@@ -38,18 +38,43 @@ import static org.hamcrest.Matchers.either;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 
+/**
+ * @brief Functional description of the IndexAbstractionResolverTests class.
+ *        This is a placeholder for detailed semantic documentation.
+ *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+ */
 public class IndexAbstractionResolverTests extends ESTestCase {
 
+    /**
+     * @brief [Functional description for field indexNameExpressionResolver]: Describe purpose here.
+     */
     private IndexNameExpressionResolver indexNameExpressionResolver;
+    /**
+     * @brief [Functional description for field indexAbstractionResolver]: Describe purpose here.
+     */
     private IndexAbstractionResolver indexAbstractionResolver;
+    /**
+     * @brief [Functional description for field projectMetadata]: Describe purpose here.
+     */
     private ProjectMetadata projectMetadata;
+    /**
+     * @brief [Functional description for field dateTimeIndexToday]: Describe purpose here.
+     */
     private String dateTimeIndexToday;
+    /**
+     * @brief [Functional description for field dateTimeIndexTomorrow]: Describe purpose here.
+     */
     private String dateTimeIndexTomorrow;
 
     // Only used when resolving wildcard expressions
     private final Set<String> defaultMask = Set.of("index1", "index2", "data-stream1");
 
     @Override
+    /**
+     * @brief [Functional Utility for setUp]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     * @throws Exception: [Description]
+     */
     public void setUp() throws Exception {
         super.setUp();
         final var projectId = randomProjectIdOrDefault();
@@ -79,6 +104,10 @@ public class IndexAbstractionResolverTests extends ESTestCase {
         ).metadata().getProject(projectId);
     }
 
+    /**
+     * @brief [Functional Utility for testResolveIndexAbstractions]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testResolveIndexAbstractions() {
         // == Single Concrete Index ==
 
@@ -212,6 +241,10 @@ public class IndexAbstractionResolverTests extends ESTestCase {
         expectThrows(InvalidIndexNameException.class, () -> resolveAbstractionsSelectorAllowed(List.of("*", "-*::custom")));
     }
 
+    /**
+     * @brief [Functional Utility for testIsIndexVisible]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testIsIndexVisible() {
         assertThat(isIndexVisible("index1", null), is(true));
         assertThat(isIndexVisible("index1", "data"), is(true));
@@ -223,6 +256,10 @@ public class IndexAbstractionResolverTests extends ESTestCase {
         assertThat(isIndexVisible("data-stream1", "failures"), is(true));
     }
 
+    /**
+     * @brief [Functional Utility for testIsNetNewSystemIndexVisible]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testIsNetNewSystemIndexVisible() {
         final Settings settings = Settings.builder()
             .put("index.number_of_replicas", 0)
@@ -341,6 +378,10 @@ public class IndexAbstractionResolverTests extends ESTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for mappings]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     private static XContentBuilder mappings() {
         try (XContentBuilder builder = jsonBuilder()) {
             return builder.startObject()
@@ -355,14 +396,31 @@ public class IndexAbstractionResolverTests extends ESTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility for resolveAbstractionsSelectorNotAllowed]: Describe purpose here.
+     * @param expressions: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private List<String> resolveAbstractionsSelectorNotAllowed(List<String> expressions) {
         return resolveAbstractions(expressions, IndicesOptions.strictExpandHiddenNoSelectors(), defaultMask);
     }
 
+    /**
+     * @brief [Functional Utility for resolveAbstractionsSelectorAllowed]: Describe purpose here.
+     * @param expressions: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private List<String> resolveAbstractionsSelectorAllowed(List<String> expressions) {
         return resolveAbstractions(expressions, IndicesOptions.strictExpandOpen(), defaultMask);
     }
 
+    /**
+     * @brief [Functional Utility for resolveAbstractions]: Describe purpose here.
+     * @param expressions: [Description]
+     * @param indicesOptions: [Description]
+     * @param mask: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private List<String> resolveAbstractions(List<String> expressions, IndicesOptions indicesOptions, Set<String> mask) {
         return indexAbstractionResolver.resolveIndexAbstractions(
             expressions,
@@ -374,10 +432,23 @@ public class IndexAbstractionResolverTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for isIndexVisible]: Describe purpose here.
+     * @param index: [Description]
+     * @param selector: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private boolean isIndexVisible(String index, String selector) {
         return isIndexVisible(index, selector, IndicesOptions.strictExpandHidden());
     }
 
+    /**
+     * @brief [Functional Utility for isIndexVisible]: Describe purpose here.
+     * @param index: [Description]
+     * @param selector: [Description]
+     * @param indicesOptions: [Description]
+     * @return [ReturnType]: [Description]
+     */
     private boolean isIndexVisible(String index, String selector, IndicesOptions indicesOptions) {
         return IndexAbstractionResolver.isIndexVisible(
             "*",

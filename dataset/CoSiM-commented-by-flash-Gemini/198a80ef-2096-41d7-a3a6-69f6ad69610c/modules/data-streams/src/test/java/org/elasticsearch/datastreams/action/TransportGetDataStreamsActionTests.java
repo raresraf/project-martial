@@ -59,6 +59,11 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
 
+/**
+ * @brief Functional description of the TransportGetDataStreamsActionTests class.
+ *        This is a placeholder for detailed semantic documentation.
+ *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+ */
 public class TransportGetDataStreamsActionTests extends ESTestCase {
 
     private final IndexNameExpressionResolver resolver = TestIndexNameExpressionResolver.newInstance();
@@ -70,7 +75,14 @@ public class TransportGetDataStreamsActionTests extends ESTestCase {
         ClusterSettings.createBuiltInClusterSettings()
     );
 
+    /**
+     * @brief [Functional Utility for testGetDataStream]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testGetDataStream() {
+    /**
+     * @brief [Functional description for field dataStreamName]: Describe purpose here.
+     */
         final String dataStreamName = "my-data-stream";
         final var projectId = randomProjectIdOrDefault();
         ClusterState cs = getClusterStateWithDataStreams(projectId, List.of(new Tuple<>(dataStreamName, 1)), List.of());
@@ -79,7 +91,14 @@ public class TransportGetDataStreamsActionTests extends ESTestCase {
         assertThat(dataStreams, transformedItemsMatch(DataStream::getName, contains(dataStreamName)));
     }
 
+    /**
+     * @brief [Functional Utility for testGetDataStreamsWithWildcards]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testGetDataStreamsWithWildcards() {
+    /**
+     * @brief [Functional description for field dataStreamNames]: Describe purpose here.
+     */
         final String[] dataStreamNames = { "my-data-stream", "another-data-stream" };
         final var projectId = randomProjectIdOrDefault();
         ClusterState cs = getClusterStateWithDataStreams(
@@ -108,7 +127,14 @@ public class TransportGetDataStreamsActionTests extends ESTestCase {
         assertThat(dataStreams, empty());
     }
 
+    /**
+     * @brief [Functional Utility for testGetDataStreamsWithoutWildcards]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testGetDataStreamsWithoutWildcards() {
+    /**
+     * @brief [Functional description for field dataStreamNames]: Describe purpose here.
+     */
         final String[] dataStreamNames = { "my-data-stream", "another-data-stream" };
         final var projectId = randomProjectIdOrDefault();
         ClusterState cs = getClusterStateWithDataStreams(
@@ -140,7 +166,14 @@ public class TransportGetDataStreamsActionTests extends ESTestCase {
         assertThat(e.getMessage(), containsString("no such index [foo]"));
     }
 
+    /**
+     * @brief [Functional Utility for testGetNonexistentDataStream]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testGetNonexistentDataStream() {
+    /**
+     * @brief [Functional description for field dataStreamName]: Describe purpose here.
+     */
         final String dataStreamName = "my-data-stream";
         final var projectId = randomProjectIdOrDefault();
         ClusterState cs = ClusterState.builder(ClusterName.DEFAULT).putProjectMetadata(ProjectMetadata.builder(projectId).build()).build();
@@ -152,9 +185,19 @@ public class TransportGetDataStreamsActionTests extends ESTestCase {
         assertThat(e.getMessage(), containsString("no such index [" + dataStreamName + "]"));
     }
 
+    /**
+     * @brief [Functional Utility for testGetTimeSeriesDataStream]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testGetTimeSeriesDataStream() {
         Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+    /**
+     * @brief [Functional description for field dataStream1]: Describe purpose here.
+     */
         String dataStream1 = "ds-1";
+    /**
+     * @brief [Functional description for field dataStream2]: Describe purpose here.
+     */
         String dataStream2 = "ds-2";
         Instant sixHoursAgo = now.minus(6, ChronoUnit.HOURS);
         Instant fourHoursAgo = now.minus(4, ChronoUnit.HOURS);
@@ -162,6 +205,9 @@ public class TransportGetDataStreamsActionTests extends ESTestCase {
         Instant twoHoursAhead = now.plus(2, ChronoUnit.HOURS);
 
         var projectId = randomProjectIdOrDefault();
+    /**
+     * @brief [Functional description for field state]: Describe purpose here.
+     */
         ClusterState state;
         {
             var mBuilder = ProjectMetadata.builder(projectId);
@@ -249,8 +295,15 @@ public class TransportGetDataStreamsActionTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testGetTimeSeriesDataStreamWithOutOfOrderIndices]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testGetTimeSeriesDataStreamWithOutOfOrderIndices() {
         Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+    /**
+     * @brief [Functional description for field dataStream]: Describe purpose here.
+     */
         String dataStream = "ds-1";
         Instant sixHoursAgo = now.minus(6, ChronoUnit.HOURS);
         Instant fourHoursAgo = now.minus(4, ChronoUnit.HOURS);
@@ -258,6 +311,9 @@ public class TransportGetDataStreamsActionTests extends ESTestCase {
         Instant twoHoursAhead = now.plus(2, ChronoUnit.HOURS);
 
         var projectId = randomProjectIdOrDefault();
+    /**
+     * @brief [Functional description for field state]: Describe purpose here.
+     */
         ClusterState state;
         {
             var mBuilder = ProjectMetadata.builder(projectId);
@@ -296,8 +352,15 @@ public class TransportGetDataStreamsActionTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testGetTimeSeriesMixedDataStream]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testGetTimeSeriesMixedDataStream() {
         Instant instant = Instant.parse("2023-06-06T14:00:00.000Z").truncatedTo(ChronoUnit.SECONDS);
+    /**
+     * @brief [Functional description for field dataStream1]: Describe purpose here.
+     */
         String dataStream1 = "ds-1";
         Instant twoHoursAgo = instant.minus(2, ChronoUnit.HOURS);
         Instant twoHoursAhead = instant.plus(2, ChronoUnit.HOURS);
@@ -346,6 +409,10 @@ public class TransportGetDataStreamsActionTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testPassingGlobalRetention]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testPassingGlobalRetention() {
         var projectId = randomProjectIdOrDefault();
         ClusterState state = getClusterStateWithDataStreams(projectId, List.of(Tuple.tuple("data-stream-1", 2)), List.of());
@@ -394,6 +461,10 @@ public class TransportGetDataStreamsActionTests extends ESTestCase {
         assertThat(response.getFailuresGlobalRetention(), equalTo(new DataStreamGlobalRetention(null, dataGlobalRetention.maxRetention())));
     }
 
+    /**
+     * @brief [Functional Utility for testDataStreamIsFailureStoreEffectivelyEnabled_disabled]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testDataStreamIsFailureStoreEffectivelyEnabled_disabled() {
         var projectId = randomProjectIdOrDefault();
         ClusterState state = DataStreamTestHelper.getClusterStateWithDataStreams(
@@ -423,6 +494,10 @@ public class TransportGetDataStreamsActionTests extends ESTestCase {
         assertThat(response.getDataStreams().getFirst().isFailureStoreEffectivelyEnabled(), is(false));
     }
 
+    /**
+     * @brief [Functional Utility for testDataStreamIsFailureStoreEffectivelyEnabled_enabledExplicitly]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testDataStreamIsFailureStoreEffectivelyEnabled_enabledExplicitly() {
         var projectId = randomProjectIdOrDefault();
         var metadata = new Metadata.Builder();
@@ -453,6 +528,10 @@ public class TransportGetDataStreamsActionTests extends ESTestCase {
         assertThat(response.getDataStreams().getFirst().isFailureStoreEffectivelyEnabled(), is(true));
     }
 
+    /**
+     * @brief [Functional Utility for testDataStreamIsFailureStoreEffectivelyEnabled_enabledByClusterSetting]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testDataStreamIsFailureStoreEffectivelyEnabled_enabledByClusterSetting() {
         var projectId = randomProjectIdOrDefault();
         ClusterState state = DataStreamTestHelper.getClusterStateWithDataStreams(
@@ -488,7 +567,14 @@ public class TransportGetDataStreamsActionTests extends ESTestCase {
         assertThat(response.getDataStreams().getFirst().isFailureStoreEffectivelyEnabled(), is(true));
     }
 
+    /**
+     * @brief [Functional Utility for testProvidersAffectMode]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testProvidersAffectMode() {
+    /**
+     * @brief [Functional description for field state]: Describe purpose here.
+     */
         ClusterState state;
         var projectId = randomProjectIdOrDefault();
         {
@@ -541,10 +627,17 @@ public class TransportGetDataStreamsActionTests extends ESTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility for testGetEffectiveSettingsTemplateOnlySettings]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testGetEffectiveSettingsTemplateOnlySettings() {
         // Set a lifecycle only in the template, and make sure that is in the response:
         ProjectId projectId = randomProjectIdOrDefault();
         GetDataStreamAction.Request req = new GetDataStreamAction.Request(TEST_REQUEST_TIMEOUT, new String[] {});
+    /**
+     * @brief [Functional description for field templatePolicy]: Describe purpose here.
+     */
         final String templatePolicy = "templatePolicy";
         final String templateIndexMode = IndexMode.LOOKUP.getName();
 
@@ -575,10 +668,17 @@ public class TransportGetDataStreamsActionTests extends ESTestCase {
         assertThat(response.getDataStreams().get(0).getIndexModeName(), equalTo(templateIndexMode));
     }
 
+    /**
+     * @brief [Functional Utility for testGetEffectiveSettingsComponentTemplateOnlySettings]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testGetEffectiveSettingsComponentTemplateOnlySettings() {
         // Set a lifecycle only in the template, and make sure that is in the response:
         ProjectId projectId = randomProjectIdOrDefault();
         GetDataStreamAction.Request req = new GetDataStreamAction.Request(TEST_REQUEST_TIMEOUT, new String[] {});
+    /**
+     * @brief [Functional description for field templatePolicy]: Describe purpose here.
+     */
         final String templatePolicy = "templatePolicy";
         final String templateIndexMode = IndexMode.LOOKUP.getName();
 
@@ -609,11 +709,21 @@ public class TransportGetDataStreamsActionTests extends ESTestCase {
         assertThat(response.getDataStreams().get(0).getIndexModeName(), equalTo(templateIndexMode));
     }
 
+    /**
+     * @brief [Functional Utility for testGetEffectiveSettings]: Describe purpose here.
+     * @return [ReturnType]: [Description]
+     */
     public void testGetEffectiveSettings() {
         ProjectId projectId = randomProjectIdOrDefault();
         GetDataStreamAction.Request req = new GetDataStreamAction.Request(TEST_REQUEST_TIMEOUT, new String[] {});
+    /**
+     * @brief [Functional description for field templatePolicy]: Describe purpose here.
+     */
         final String templatePolicy = "templatePolicy";
         final String templateIndexMode = IndexMode.LOOKUP.getName();
+    /**
+     * @brief [Functional description for field dataStreamPolicy]: Describe purpose here.
+     */
         final String dataStreamPolicy = "dataStreamPolicy";
         final String dataStreamIndexMode = IndexMode.LOGSDB.getName();
         // Now set a lifecycle in both the template and the data stream, and make sure the response has the data stream one:
@@ -655,10 +765,19 @@ public class TransportGetDataStreamsActionTests extends ESTestCase {
         Settings componentTemplateSettings,
         Settings dataStreamSettings
     ) {
+    /**
+     * @brief [Functional description for field dataStreamName]: Describe purpose here.
+     */
         String dataStreamName = "data-stream-1";
         int numberOfBackingIndices = randomIntBetween(1, 5);
         long currentTime = System.currentTimeMillis();
+    /**
+     * @brief [Functional description for field replicas]: Describe purpose here.
+     */
         int replicas = 0;
+    /**
+     * @brief [Functional description for field replicated]: Describe purpose here.
+     */
         boolean replicated = false;
         ProjectMetadata.Builder builder = ProjectMetadata.builder(projectId);
         builder.put(
@@ -679,6 +798,8 @@ public class TransportGetDataStreamsActionTests extends ESTestCase {
         builder.componentTemplates(Map.of("component_template_1", componentTemplate));
 
         List<IndexMetadata> backingIndices = new ArrayList<>();
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (int backingIndexNumber = 1; backingIndexNumber <= numberOfBackingIndices; backingIndexNumber++) {
             backingIndices.add(
                 createIndexMetadata(
@@ -697,6 +818,8 @@ public class TransportGetDataStreamsActionTests extends ESTestCase {
         ).setGeneration(numberOfBackingIndices).setSettings(dataStreamSettings).setReplicated(replicated).build();
         builder.put(ds);
 
+        // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]
+        // Invariant: [State condition that holds true before and after each iteration/execution]
         for (IndexMetadata index : allIndices) {
             builder.put(index, false);
         }

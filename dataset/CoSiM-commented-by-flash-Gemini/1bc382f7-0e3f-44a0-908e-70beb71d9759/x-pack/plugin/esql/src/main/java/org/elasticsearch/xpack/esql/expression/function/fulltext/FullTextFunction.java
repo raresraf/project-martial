@@ -93,7 +93,7 @@ public abstract class FullTextFunction extends Function
 
     @Override
     protected final TypeResolution resolveType() {
-        if (childrenResolved() == false) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (childrenResolved() == false) {
             return new TypeResolution("Unresolved children");
         }
 
@@ -153,7 +153,7 @@ public abstract class FullTextFunction extends Function
 
     @Override
     public boolean equals(Object obj) {
-        if (false == super.equals(obj)) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (false == super.equals(obj)) {
             return false;
         }
 
@@ -191,7 +191,7 @@ public abstract class FullTextFunction extends Function
      * @param failures failures found
      */
     private static void checkFullTextQueryFunctions(LogicalPlan plan, Failures failures) {
-        if (plan instanceof Filter f) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (plan instanceof Filter f) {
             Expression condition = f.condition();
 
             List.of(QueryString.class, Kql.class).forEach(functionClass -> {
@@ -215,9 +215,9 @@ public abstract class FullTextFunction extends Function
                 failures
             );
             checkFullTextFunctionsParents(condition, failures);
-        } else if (plan instanceof Aggregate agg) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else if (plan instanceof Aggregate agg) {
             checkFullTextFunctionsInAggs(agg, failures);
-        } else {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        } else {
             plan.forEachExpression(FullTextFunction.class, ftf -> {
                 failures.add(fail(ftf, "[{}] {} is only supported in WHERE and STATS commands", ftf.functionName(), ftf.functionType()));
             });
@@ -278,7 +278,7 @@ public abstract class FullTextFunction extends Function
      */
     private static void checkFullTextFunctionsParents(Expression condition, Failures failures) {
         forEachFullTextFunctionParent(condition, (ftf, parent) -> {
-            if ((parent instanceof FullTextFunction == false)
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if ((parent instanceof FullTextFunction == false)
                 && (parent instanceof BinaryLogic == false)
                 && (parent instanceof Not == false)) {
                 failures.add(
@@ -301,12 +301,12 @@ public abstract class FullTextFunction extends Function
      * @param action the action to execute for each parent of a FullTextFunction
      */
     private static FullTextFunction forEachFullTextFunctionParent(Expression condition, BiConsumer<FullTextFunction, Expression> action) {
-        if (condition instanceof FullTextFunction ftf) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (condition instanceof FullTextFunction ftf) {
             return ftf;
         }
-        for (Expression child : condition.children()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (Expression child : condition.children()) {
             FullTextFunction foundMatchingChild = forEachFullTextFunctionParent(child, action);
-            if (foundMatchingChild != null) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (foundMatchingChild != null) {
                 action.accept(foundMatchingChild, condition);
                 return foundMatchingChild;
             }
@@ -319,7 +319,7 @@ public abstract class FullTextFunction extends Function
         List<EsPhysicalOperationProviders.ShardContext> shardContexts = toEvaluator.shardContexts();
         ShardConfig[] shardConfigs = new ShardConfig[shardContexts.size()];
         int i = 0;
-        for (EsPhysicalOperationProviders.ShardContext shardContext : shardContexts) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (EsPhysicalOperationProviders.ShardContext shardContext : shardContexts) {
             shardConfigs[i++] = new ShardConfig(shardContext.toQuery(queryBuilder()), shardContext.searcher());
         }
         return new LuceneQueryExpressionEvaluator.Factory(shardConfigs);
@@ -330,12 +330,15 @@ public abstract class FullTextFunction extends Function
         List<EsPhysicalOperationProviders.ShardContext> shardContexts = toScorer.shardContexts();
         ShardConfig[] shardConfigs = new ShardConfig[shardContexts.size()];
         int i = 0;
-        for (EsPhysicalOperationProviders.ShardContext shardContext : shardContexts) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (EsPhysicalOperationProviders.ShardContext shardContext : shardContexts) {
             shardConfigs[i++] = new ShardConfig(shardContext.toQuery(queryBuilder()), shardContext.searcher());
         }
         return new LuceneQueryScoreEvaluator.Factory(shardConfigs);
     }
 
+    /**
+     * @brief [Functional Utility for populateOptionsMap]: Describe purpose here.
+     * @throws InvalidArgumentException: [Description]\n     */
     protected static void populateOptionsMap(
         final MapExpression options,
         final Map<String, Object> optionsMap,
@@ -343,13 +346,13 @@ public abstract class FullTextFunction extends Function
         final String sourceText,
         final Map<String, DataType> allowedOptions
     ) throws InvalidArgumentException {
-        for (EntryExpression entry : options.entryExpressions()) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        for (EntryExpression entry : options.entryExpressions()) {
             Expression optionExpr = entry.key();
             Expression valueExpr = entry.value();
             TypeResolution resolution = isFoldable(optionExpr, sourceText, paramOrdinal).and(
                 isFoldable(valueExpr, sourceText, paramOrdinal)
             );
-            if (resolution.unresolved()) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (resolution.unresolved()) {
                 throw new InvalidArgumentException(resolution.message());
             }
             Object optionExprLiteral = ((Literal) optionExpr).value();
@@ -358,7 +361,7 @@ public abstract class FullTextFunction extends Function
             String optionValue = valueExprLiteral instanceof BytesRef br ? br.utf8ToString() : valueExprLiteral.toString();
             // validate the optionExpr is supported
             DataType dataType = allowedOptions.get(optionName);
-            if (dataType == null) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (dataType == null) {
                 throw new InvalidArgumentException(
                     format(null, "Invalid option [{}] in [{}], expected one of {}", optionName, sourceText, allowedOptions.keySet())
                 );
@@ -372,14 +375,14 @@ public abstract class FullTextFunction extends Function
     }
 
     protected TypeResolution resolveOptions(Expression options, TypeResolutions.ParamOrdinal paramOrdinal) {
-        if (options != null) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (options != null) {
             TypeResolution resolution = isNotNull(options, sourceText(), paramOrdinal);
-            if (resolution.unresolved()) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (resolution.unresolved()) {
                 return resolution;
             }
             // MapExpression does not have a DataType associated with it
             resolution = isMapExpression(options, sourceText(), paramOrdinal);
-            if (resolution.unresolved()) {
+             // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n             // Invariant: [State condition that holds true before and after each iteration/execution]\n            if (resolution.unresolved()) {
                 return resolution;
             }
 
@@ -400,7 +403,7 @@ public abstract class FullTextFunction extends Function
     // wrong if `fieldAttribute` is a subfield, e.g. `parent.child` - multiTypeEsField#getName will just return `child`.
     public static String getNameFromFieldAttribute(FieldAttribute fieldAttribute) {
         String fieldName = fieldAttribute.name();
-        if (fieldAttribute.field() instanceof MultiTypeEsField multiTypeEsField) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (fieldAttribute.field() instanceof MultiTypeEsField multiTypeEsField) {
             // If we have multiple field types, we allow the query to be done, but getting the underlying field name
             fieldName = multiTypeEsField.getName();
         }
@@ -410,7 +413,7 @@ public abstract class FullTextFunction extends Function
     public static FieldAttribute fieldAsFieldAttribute(Expression field) {
         Expression fieldExpression = field;
         // Field may be converted to other data type (field_name :: data_type), so we need to check the original field
-        if (fieldExpression instanceof AbstractConvertFunction convertFunction) {
+         // Block Logic: [Describe purpose of this block, e.g., iteration, conditional execution]\n         // Invariant: [State condition that holds true before and after each iteration/execution]\n        if (fieldExpression instanceof AbstractConvertFunction convertFunction) {
             fieldExpression = convertFunction.field();
         }
         return fieldExpression instanceof FieldAttribute fieldAttribute ? fieldAttribute : null;

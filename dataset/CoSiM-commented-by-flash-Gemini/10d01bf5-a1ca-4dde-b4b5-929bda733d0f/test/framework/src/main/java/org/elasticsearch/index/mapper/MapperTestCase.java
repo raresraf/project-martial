@@ -111,6 +111,13 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
      * @param indexVersion index version the mapping should be created for
      * @throws IOException
      */
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param b: [Description]
+     * @param indexVersion: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected void minimalMapping(XContentBuilder b, IndexVersion indexVersion) throws IOException {
         minimalMapping(b);
     }
@@ -152,6 +159,11 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
      * Field types that allow configurable doc_values or norms should write their own tests that creates the different
      * mappings combinations and invoke {@link #assertExistsQuery(MapperService)} to verify the behaviour.
      */
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void testExistsQueryMinimalMapping() throws IOException {
         MapperService mapperService = createMapperService(fieldMapping(this::minimalMapping));
         assertExistsQuery(mapperService);
@@ -159,12 +171,23 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
     }
 
     // TODO make this final once we've worked out what is happening with DenseVector
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testAggregatableConsistency() throws IOException {
         MapperService mapperService = createMapperService(fieldMapping(this::minimalMapping));
         assertAggregatableConsistency(mapperService.fieldType("field"));
         assertParseMinimalWarnings();
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param ft: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected void assertAggregatableConsistency(MappedFieldType ft) {
         if (ft.isAggregatable()) {
             try {
@@ -245,12 +268,22 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
         return List.of();
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void testIgnoreMalformedFalseByDefault() throws IOException {
         for (ExampleMalformedValue example : exampleMalformedValues()) {
             assertIgnoreMalformedFalse(example.mapping, example.value, example.exceptionMessageMatcher);
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void testIgnoreMalformedExplicitlyFalse() throws IOException {
         if (false == supportsIgnoreMalformed()) {
             Exception e = expectThrows(MapperParsingException.class, () -> createMapperService(fieldMapping(b -> {
@@ -292,6 +325,11 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void testIgnoreMalformedTrue() throws IOException {
         if (false == supportsIgnoreMalformed()) {
             Exception e = expectThrows(MapperParsingException.class, () -> createMapperService(fieldMapping(b -> {
@@ -319,6 +357,12 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param mapperService: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected void assertExistsQuery(MapperService mapperService) throws IOException {
         LuceneDocument fields = mapperService.documentMapper().parse(source(this::writeField)).rootDoc();
         SearchExecutionContext searchExecutionContext = createSearchExecutionContext(mapperService);
@@ -327,6 +371,14 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
         assertExistsQuery(fieldType, query, fields);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param fieldType: [Description]
+     * @param query: [Description]
+     * @param fields: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected void assertExistsQuery(MappedFieldType fieldType, Query query, LuceneDocument fields) {
         if (fieldType.hasDocValues() || fieldType.getTextSearchInfo().hasNorms()) {
             assertThat(query, instanceOf(FieldExistsQuery.class));
@@ -349,10 +401,23 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param fields: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected static void assertNoFieldNamesField(LuceneDocument fields) {
         assertNull(fields.getField(FieldNamesFieldMapper.NAME));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param doc: [Description]
+     * @param field: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected static void assertHasNorms(LuceneDocument doc, String field) {
         List<IndexableField> fields = doc.getFields(field);
         for (IndexableField indexableField : fields) {
@@ -365,6 +430,13 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
         fail("field [" + field + "] should be indexed but it isn't");
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param doc: [Description]
+     * @param field: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected static void assertNoDocValuesField(LuceneDocument doc, String field) {
         List<IndexableField> fields = doc.getFields(field);
         for (IndexableField indexableField : fields) {
@@ -372,6 +444,14 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param isDimension: [Description]
+     * @param Function<T: [Description]
+     * @param checker: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected <T> void assertDimension(boolean isDimension, Function<T, Boolean> checker) throws IOException {
         MapperService mapperService = createMapperService(fieldMapping(b -> {
             minimalMapping(b);
@@ -383,6 +463,14 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
         assertThat(checker.apply(fieldType), equalTo(isDimension));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param metricType: [Description]
+     * @param Function<T: [Description]
+     * @param checker: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected <T> void assertMetricType(String metricType, Function<T, Enum<TimeSeriesParams.MetricType>> checker) throws IOException {
         MapperService mapperService = createMapperService(fieldMapping(b -> {
             minimalMapping(b);
@@ -394,6 +482,11 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
         assertThat(checker.apply(fieldType).toString(), equalTo(metricType));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void testEmptyName() {
         MapperParsingException e = expectThrows(MapperParsingException.class, () -> createMapperService(mapping(b -> {
             b.startObject("");
@@ -403,6 +496,11 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
         assertThat(e.getMessage(), containsString("field name cannot be an empty string"));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void testBlankName() {
         IndexVersion version = getVersion();
         assumeTrue("blank field names are rejected from 8.6.0 onwards", version.onOrAfter(IndexVersions.V_8_6_0));
@@ -414,6 +512,11 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
         assertThat(e.getMessage(), containsString("field name cannot contain only whitespaces"));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void testMinimalSerializesToItself() throws IOException {
         XContentBuilder orig = JsonXContent.contentBuilder().startObject();
         createMapperService(fieldMapping(this::minimalMapping)).documentMapper().mapping().toXContent(orig, ToXContent.EMPTY_PARAMS);
@@ -425,6 +528,11 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
         assertParseMinimalWarnings();
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void testMinimalToMaximal() throws IOException {
         XContentBuilder orig = JsonXContent.contentBuilder().startObject();
         createMapperService(fieldMapping(this::minimalMapping)).documentMapper().mapping().toXContent(orig, INCLUDE_DEFAULTS);
@@ -436,11 +544,21 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
         assertParseMaximalWarnings();
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testTotalFieldsCount() throws IOException {
         MapperService mapperService = createMapperService(fieldMapping(this::minimalMapping));
         assertEquals(1, mapperService.documentMapper().mapping().getRoot().getTotalFieldsCount());
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected final void assertParseMinimalWarnings() {
         String[] warnings = getParseMinimalWarnings();
         if (warnings.length > 0) {
@@ -448,6 +566,11 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected final void assertParseMaximalWarnings() {
         String[] warnings = getParseMaximalWarnings();
         if (warnings.length > 0) {
@@ -455,15 +578,31 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected String[] getParseMinimalWarnings() {
         // Most mappers don't emit any warnings
         return Strings.EMPTY_ARRAY;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param indexVersion: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected String[] getParseMinimalWarnings(IndexVersion indexVersion) {
         return getParseMinimalWarnings();
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected String[] getParseMaximalWarnings() {
         // Most mappers don't emit any warnings
         return Strings.EMPTY_ARRAY;
@@ -483,10 +622,21 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
         return true;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param b: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected void metaMapping(XContentBuilder b) throws IOException {
         minimalMapping(b);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void testMeta() throws IOException {
         assumeTrue("Field doesn't support meta", supportsMeta());
         XContentBuilder mapping = fieldMapping(b -> {
@@ -517,6 +667,11 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
         );
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void testDeprecatedBoostWarning() throws IOException {
         try {
             createMapperService(DEPRECATED_BOOST_INDEX_VERSION, fieldMapping(b -> {
@@ -533,6 +688,11 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testBoostNotAllowed() throws IOException {
         MapperParsingException e = expectThrows(
             MapperParsingException.class,
@@ -546,6 +706,11 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
         assertParseMinimalWarnings();
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected IndexVersion boostNotAllowedIndexVersion() {
         return IndexVersions.V_8_0_0;
     }
@@ -607,6 +772,14 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
         final XContentBuilder update;
         final Consumer<FieldMapper> check;
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param CheckedConsumer<XContentBuilder: [Description]
+     * @param update: [Description]
+     * @param check: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         private UpdateCheck(CheckedConsumer<XContentBuilder, IOException> update, Consumer<FieldMapper> check) throws IOException {
             this.init = fieldMapping(MapperTestCase.this::minimalMapping);
             this.update = fieldMapping(b -> {
@@ -627,6 +800,13 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param init: [Description]
+     * @param update: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private record ConflictCheck(XContentBuilder init, XContentBuilder update) {}
 
     public class ParameterChecker {
@@ -666,6 +846,14 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
          * @param param  the parameter name, expected to appear in the error message
          * @param update a field builder applied on top of the minimal mapping
          */
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param param: [Description]
+     * @param CheckedConsumer<XContentBuilder: [Description]
+     * @param update: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public void registerConflictCheck(String param, CheckedConsumer<XContentBuilder, IOException> update) throws IOException {
             conflictChecks.put(param, new ConflictCheck(fieldMapping(MapperTestCase.this::minimalMapping), fieldMapping(b -> {
                 minimalMapping(b);
@@ -680,6 +868,14 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
          * @param init   the initial mapping
          * @param update the updated mapping
          */
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param param: [Description]
+     * @param init: [Description]
+     * @param update: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public void registerConflictCheck(String param, XContentBuilder init, XContentBuilder update) {
             conflictChecks.put(param, new ConflictCheck(init, update));
         }
@@ -687,6 +883,11 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
 
     protected abstract void registerParameters(ParameterChecker checker) throws IOException;
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testUpdates() throws IOException {
         ParameterChecker checker = new ParameterChecker();
         registerParameters(checker);
@@ -737,6 +938,11 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
         assertParseMaximalWarnings();
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void testTextSearchInfoConsistency() throws IOException {
         MapperService mapperService = createMapperService(fieldMapping(this::minimalMapping));
         MappedFieldType fieldType = mapperService.fieldType("field");
@@ -750,6 +956,12 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
         assertParseMinimalWarnings();
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param fieldType: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected void assertSearchable(MappedFieldType fieldType) {
         assertEquals(fieldType.isIndexed(), fieldType.getTextSearchInfo() != TextSearchInfo.NONE);
     }
@@ -763,6 +975,11 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
      * parameters into a new method so we can be sure we consistently test
      * any unique and interesting failure case. See the tests for
      * {@link DateFieldMapper} for some examples.
+     */
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
      */
     public final void testFetch() throws IOException {
         MapperService mapperService = randomFetchTestMapper();
@@ -784,6 +1001,11 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
      * any unique and interesting failure case. See the tests for
      * {@link DateFieldMapper} for some examples.
      */
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void testFetchMany() throws IOException {
         MapperService mapperService = randomFetchTestMapper();
         try {
@@ -799,6 +1021,11 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected final MapperService randomFetchTestMapper() throws IOException {
         return createMapperService(mapping(b -> {
             b.startObject("field");
@@ -968,10 +1195,21 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
         });
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected boolean supportsStoredFields() {
         return true;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param b: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected void minimalStoreMapping(XContentBuilder b) throws IOException {
         minimalMapping(b);
         b.field("store", true);
@@ -1013,6 +1251,11 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
         });
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void testNullInput() throws Exception {
         DocumentMapper mapper = createDocumentMapper(fieldMapping(this::minimalMapping));
         if (allowsNullValues()) {
@@ -1026,10 +1269,20 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
         assertWarnings(getParseMinimalWarnings());
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected boolean allowsNullValues() {
         return true;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void testMinimalIsInvalidInRoutingPath() throws IOException {
         MapperService mapper = createMapperService(fieldMapping(this::minimalMapping));
         try {
@@ -1049,6 +1302,12 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param mapper: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected String minimalIsInvalidRoutingPathErrorMessage(Mapper mapper) {
         if (mapper instanceof FieldMapper fieldMapper && fieldMapper.fieldType().isDimension() == false) {
             return "All fields that match routing_path must be configured with [time_series_dimension: true] "
@@ -1071,15 +1330,37 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
         CheckedConsumer<XContentBuilder, IOException> expectedForSyntheticSource,
         CheckedConsumer<XContentBuilder, IOException> mapping
     ) {
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param inputValue: [Description]
+     * @param result: [Description]
+     * @param CheckedConsumer<XContentBuilder: [Description]
+     * @param mapping: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public SyntheticSourceExample(Object inputValue, Object result, CheckedConsumer<XContentBuilder, IOException> mapping) {
             this(b -> b.value(inputValue), b -> b.value(result), mapping);
         }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param b: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public void buildInput(XContentBuilder b) throws IOException {
             b.field("field");
             inputValue.accept(b);
         }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param b: [Description]
+     * @param elementCount: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public void buildInputArray(XContentBuilder b, int elementCount) throws IOException {
             b.startArray("field");
             for (int i = 0; i < elementCount; i++) {
@@ -1088,6 +1369,11 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
             b.endArray();
         }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         private String expected() throws IOException {
             XContentBuilder b = JsonXContent.contentBuilder().startObject().field("field");
             expectedForSyntheticSource.accept(b);
@@ -1095,6 +1381,14 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param error: [Description]
+     * @param CheckedConsumer<XContentBuilder: [Description]
+     * @param mapping: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public record SyntheticSourceInvalidExample(Matcher<String> error, CheckedConsumer<XContentBuilder, IOException> mapping) {}
 
     public interface SyntheticSourceSupport {
@@ -1124,19 +1418,41 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
 
     protected abstract SyntheticSourceSupport syntheticSourceSupport(boolean ignoreMalformed);
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param ignoreMalformed: [Description]
+     * @param columnReader: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected SyntheticSourceSupport syntheticSourceSupport(boolean ignoreMalformed, boolean columnReader) {
         return syntheticSourceSupport(ignoreMalformed);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void testSyntheticSource() throws IOException {
         assertSyntheticSource(syntheticSourceSupport(shouldUseIgnoreMalformed()).example(5));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void testSyntheticSourceWithTranslogSnapshot() throws IOException {
         assertSyntheticSourceWithTranslogSnapshot(syntheticSourceSupport(shouldUseIgnoreMalformed()), true);
         assertSyntheticSourceWithTranslogSnapshot(syntheticSourceSupport(shouldUseIgnoreMalformed()), false);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testSyntheticSourceIgnoreMalformedExamples() throws IOException {
         assumeTrue("type doesn't support ignore_malformed", supportsIgnoreMalformed());
         // We need to call this in order to hit the assumption inside so that
@@ -1153,6 +1469,12 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param example: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private void assertSyntheticSource(SyntheticSourceExample example) throws IOException {
         DocumentMapper mapper = createSytheticSourceMapperService(mapping(b -> {
             b.startObject("field");
@@ -1167,6 +1489,13 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
         assertThat(syntheticSource(mapper, new SourceFilter(null, new String[] { "field" }), example::buildInput), equalTo("{}"));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param support: [Description]
+     * @param doIndexSort: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private void assertSyntheticSourceWithTranslogSnapshot(SyntheticSourceSupport support, boolean doIndexSort) throws IOException {
         var firstExample = support.example(1);
         int maxDocs = randomIntBetween(20, 50);
@@ -1232,10 +1561,20 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected boolean supportsEmptyInputArray() {
         return true;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testSupportsParsingObject() throws IOException {
         DocumentMapper mapper = createMapperService(fieldMapping(this::minimalMapping)).documentMapper();
         FieldMapper fieldMapper = (FieldMapper) mapper.mappers().getMapper("field");
@@ -1256,6 +1595,11 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void testSyntheticSourceMany() throws IOException {
         boolean ignoreMalformed = shouldUseIgnoreMalformed();
         int maxValues = randomBoolean() ? 1 : 5;
@@ -1306,6 +1650,11 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void testNoSyntheticSourceForScript() throws IOException {
         // Fetch the ingest script support to eagerly assumeFalse if the mapper doesn't support ingest scripts
         ingestScriptSupport();
@@ -1318,6 +1667,11 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
         assertThat(syntheticSource(mapper, b -> {}), equalTo("{}"));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void testSyntheticSourceInObject() throws IOException {
         boolean ignoreMalformed = shouldUseIgnoreMalformed();
         SyntheticSourceExample syntheticSourceExample = syntheticSourceSupport(ignoreMalformed).example(5);
@@ -1345,6 +1699,11 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
         }), equalTo("{}"));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void testSyntheticEmptyList() throws IOException {
         assumeTrue("Field does not support [] as input", supportsEmptyInputArray());
         boolean ignoreMalformed = shouldUseIgnoreMalformed();
@@ -1360,25 +1719,52 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
         assertThat(syntheticSource(mapper, b -> b.startArray("field").endArray()), equalTo(expected));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected boolean shouldUseIgnoreMalformed() {
         // 5% of test runs use ignore_malformed
         return supportsIgnoreMalformed() && randomDouble() <= 0.05;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void testSyntheticEmptyListNoDocValuesLoader() throws IOException {
         assumeTrue("Field does not support [] as input", supportsEmptyInputArray());
         assertNoDocValueLoader(b -> b.startArray("field").endArray());
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void testEmptyDocumentNoDocValueLoader() throws IOException {
         assumeFalse("Field will add values even if no fields are supplied", addsValueWhenNotSupplied());
         assertNoDocValueLoader(b -> {});
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected boolean addsValueWhenNotSupplied() {
         return false;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param CheckedConsumer<XContentBuilder: [Description]
+     * @param doc: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private void assertNoDocValueLoader(CheckedConsumer<XContentBuilder, IOException> doc) throws IOException {
         boolean ignoreMalformed = supportsIgnoreMalformed() ? rarely() : false;
         SyntheticSourceExample syntheticSourceExample = syntheticSourceSupport(ignoreMalformed).example(5);
@@ -1405,6 +1791,11 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void testSyntheticSourceInvalid() throws IOException {
         boolean ignoreMalformed = shouldUseIgnoreMalformed();
         List<SyntheticSourceInvalidExample> examples = new ArrayList<>(syntheticSourceSupport(ignoreMalformed).invalidExample());
@@ -1422,6 +1813,11 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
         }
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public final void testSyntheticSourceInNestedObject() throws IOException {
         boolean ignoreMalformed = shouldUseIgnoreMalformed();
         SyntheticSourceExample syntheticSourceExample = syntheticSourceSupport(ignoreMalformed).example(5);
@@ -1455,10 +1851,22 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
         }), equalTo("{}"));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param ignoreMalformed: [Description]
+     * @param keepMode: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected SyntheticSourceSupport syntheticSourceSupportForKeepTests(boolean ignoreMalformed, Mapper.SourceKeepMode keepMode) {
         return syntheticSourceSupport(ignoreMalformed);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testSyntheticSourceKeepNone() throws IOException {
         SyntheticSourceExample example = syntheticSourceSupportForKeepTests(shouldUseIgnoreMalformed(), Mapper.SourceKeepMode.NONE).example(
             1
@@ -1472,6 +1880,11 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
         assertThat(syntheticSource(mapper, example::buildInput), equalTo(example.expected()));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testSyntheticSourceKeepAll() throws IOException {
         SyntheticSourceExample example = syntheticSourceSupportForKeepTests(shouldUseIgnoreMalformed(), Mapper.SourceKeepMode.ALL).example(
             1
@@ -1491,6 +1904,11 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
         assertThat(syntheticSource(mapperAll, example::buildInput), equalTo(expected));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     public void testSyntheticSourceKeepArrays() throws IOException {
         SyntheticSourceExample example = syntheticSourceSupportForKeepTests(shouldUseIgnoreMalformed(), Mapper.SourceKeepMode.ARRAYS)
             .example(1);
@@ -1515,11 +1933,23 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
         assertThat(actual, equalTo(expected));
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected String randomSyntheticSourceKeep() {
         return randomFrom("all", "arrays");
     }
 
     @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param script: [Description]
+     * @param context: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     protected final <T> T compileScript(Script script, ScriptContext<T> context) {
         return ingestScriptSupport().compileScript(script, context);
     }
@@ -1527,6 +1957,13 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
     protected abstract IngestScriptSupport ingestScriptSupport();
 
     protected abstract class IngestScriptSupport {
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param script: [Description]
+     * @param context: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         private <T> T compileScript(Script script, ScriptContext<T> context) {
             switch (script.getIdOrCode()) {
                 case "empty":
@@ -1538,6 +1975,13 @@ public abstract class MapperTestCase extends MapperServiceTestCase {
             }
         }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param script: [Description]
+     * @param context: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         protected <T> T compileOtherScript(Script script, ScriptContext<T> context) {
             throw new UnsupportedOperationException("Unknown script " + script.getIdOrCode());
         }

@@ -42,6 +42,11 @@ import java.util.stream.Collectors;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+/**
+ * @brief Functional description of the HighlighterTestCase class.
+ *        This is a placeholder for detailed semantic documentation.
+ *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+ */
 public class HighlighterTestCase extends MapperServiceTestCase {
 
     protected Map<String, Highlighter> getHighlighters() {
@@ -87,6 +92,13 @@ public class HighlighterTestCase extends MapperServiceTestCase {
         return highlights;
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param spec: [Description]
+     * @param doc: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private static Map<String, List<Object>> storedFields(StoredFieldsSpec spec, ParsedDocument doc) {
         Map<String, List<Object>> storedFields = new HashMap<>();
         for (String field : spec.requiredStoredFields()) {
@@ -109,6 +121,13 @@ public class HighlighterTestCase extends MapperServiceTestCase {
         assertEquals(expectedFragments, actualFragments);
     }
 
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param context: [Description]
+     * @param search: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
     private static FetchContext fetchContext(SearchExecutionContext context, SearchSourceBuilder search) throws IOException {
         FetchContext fetchContext = mock(FetchContext.class);
         when(fetchContext.highlight()).thenReturn(search.highlighter().build(context));
@@ -126,20 +145,41 @@ public class HighlighterTestCase extends MapperServiceTestCase {
         NoStoredFieldsFilterDirectoryReader(DirectoryReader in) throws IOException {
             super(in, new SubReaderWrapper() {
                 @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param reader: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
                 public LeafReader wrap(LeafReader reader) {
                     return new FilterLeafReader(reader) {
 
                         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
                         public StoredFields storedFields() throws IOException {
                             throw new AssertionError("Called Stored Fields!");
                         }
 
                         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
                         public CacheHelper getCoreCacheHelper() {
                             return in.getCoreCacheHelper();
                         }
 
                         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
                         public CacheHelper getReaderCacheHelper() {
                             return in.getReaderCacheHelper();
                         }
@@ -149,11 +189,22 @@ public class HighlighterTestCase extends MapperServiceTestCase {
         }
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @param in: [Description]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         protected DirectoryReader doWrapDirectoryReader(DirectoryReader in) throws IOException {
             return new NoStoredFieldsFilterDirectoryReader(in);
         }
 
         @Override
+    /**
+     * @brief [Functional Utility: Describe purpose here]
+     * @return [ReturnType]: [Description]
+     * @throws [ExceptionType]: [Description]
+     */
         public CacheHelper getReaderCacheHelper() {
             return in.getReaderCacheHelper();
         }

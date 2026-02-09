@@ -20,9 +20,29 @@ import static org.elasticsearch.test.LambdaMatchers.transformedItemsMatch;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.is;
 
+/**
+ * Unit tests for the {@link TestBuildInfoParser} class, ensuring that build
+ * information for test components is parsed correctly from its JSON representation.
+ */
 public class TestBuildInfoParserTests extends ESTestCase {
+    /**
+     * Verifies that a standard JSON object representing a test component's build
+     * information is parsed correctly.
+     * <p>
+     * This test checks the following:
+     * <ul>
+     *     <li>The top-level "component" name is parsed accurately.</li>
+     *     <li>The list of "locations" is deserialized into a collection of
+     *     {@link TestBuildInfoLocation} objects.</li>
+     *     <li>The module names and representative class paths within each location
+     *     are correctly extracted and match the expected values.</li>
+     * </ul>
+     *
+     * @throws IOException if there is an error creating the JSON parser.
+     */
     public void testSimpleParsing() throws IOException {
 
+        // A JSON string representing the build metadata for a test component.
         var input = """
             {
                 "component": "lang-painless",
@@ -47,9 +67,14 @@ public class TestBuildInfoParserTests extends ESTestCase {
             }
             """;
 
+        // Block Logic: Parse the JSON input and deserialize it into a TestBuildInfo object.
         try (var parser = XContentFactory.xContent(XContentType.JSON).createParser(XContentParserConfiguration.EMPTY, input)) {
             var testInfo = TestBuildInfoParser.fromXContent(parser);
+
+            // Assertion: Verify that the component name is correctly parsed.
             assertThat(testInfo.component(), is("lang-painless"));
+
+            // Assertion: Verify that all module names are correctly extracted from the locations list.
             assertThat(
                 testInfo.locations(),
                 transformedItemsMatch(
@@ -58,6 +83,7 @@ public class TestBuildInfoParserTests extends ESTestCase {
                 )
             );
 
+            // Assertion: Verify that all representative class paths are correctly extracted.
             assertThat(
                 testInfo.locations(),
                 transformedItemsMatch(

@@ -5,7 +5,20 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import org.elasticsearch.gradle.fixtures.AbstractGradleFuncTest
 import org.gradle.testkit.runner.TaskOutcome
 
+/**
+ * Functional test for the {@code elasticsearch.test-build-info} plugin.
+ * This test verifies that the {@code generateTestBuildInfo} task correctly
+ * generates a JSON file containing build information about the project and its
+ * dependencies. It uses the Gradle TestKit to run a real Gradle build and
+
+ * asserts the output of the task.
+ */
 class TestBuildInfoPluginFuncTest extends AbstractGradleFuncTest {
+    /**
+     * Tests the basic functionality of the plugin with a simple project that has no dependencies.
+     * It checks if the generated JSON file contains the correct component name and location
+     * information for the project's own module.
+     */
     def "basic functionality"() {
         given:
         file("src/main/java/com/example/Example.java") << """
@@ -60,6 +73,13 @@ class TestBuildInfoPluginFuncTest extends AbstractGradleFuncTest {
         new ObjectMapper().readValue(output, Map.class) == expectedOutput
     }
 
+    /**
+     * Tests how the plugin handles project dependencies. It verifies that the generated
+     * JSON file correctly identifies the module information for dependencies that have:
+     * 1. A {@code module-info.class} (JPMS module).
+     * 2. An {@code Automatic-Module-Name} in their manifest.
+     * 3. Neither of the above (in which case the module name is derived from the JAR file name).
+     */
     def "dependencies"() {
         buildFile << """
         import org.elasticsearch.gradle.plugin.GenerateTestBuildInfoTask;

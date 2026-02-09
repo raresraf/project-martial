@@ -22,10 +22,25 @@ import java.util.ArrayList;
 
 import static org.elasticsearch.xpack.inference.services.mistral.completion.MistralChatCompletionModelTests.createCompletionModel;
 
+
+/**
+ * Tests the JSON serialization of {@link MistralChatCompletionRequestEntity}.
+ * This class ensures that the request entity for Mistral chat completions
+ * is correctly formatted as a JSON payload, adhering to the expected structure
+ * for the external Mistral service.
+ */
 public class MistralChatCompletionRequestEntityTests extends ESTestCase {
 
     private static final String ROLE = "user";
 
+    /**
+     * Verifies that a {@link UnifiedChatInput} object containing a simple user message
+     * is correctly serialized into the JSON format expected by the Mistral API.
+     * This test checks for the presence and correctness of key fields such as 'messages',
+     * 'model', 'n', and 'stream' to ensure API compatibility.
+     *
+     * @throws IOException If an error occurs during JSON serialization.
+     */
     public void testModelUserFieldsSerialization() throws IOException {
         UnifiedCompletionRequest.Message message = new UnifiedCompletionRequest.Message(
             new UnifiedCompletionRequest.ContentString("Hello, world!"),

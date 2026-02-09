@@ -1,3 +1,11 @@
+/**
+ * @file TestBuildInfoPluginFuncTest.groovy
+ * @brief Functional tests for the `elasticsearch.test-build-info` Gradle plugin.
+ *
+ * This file contains functional tests written in Groovy using the Spock framework
+ * to verify the behavior of the `generateTestBuildInfo` task provided by the
+ * custom Gradle plugin.
+ */
 package org.elasticsearch.gradle.test
 
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -7,9 +15,23 @@ import org.gradle.testkit.runner.TaskOutcome
 
 import java.nio.file.Path
 
+/**
+ * A functional test class for the TestBuildInfoPlugin.
+ * It uses a Gradle test harness (`AbstractGradleFuncTest`) to execute Gradle builds
+ * in temporary project directories and assert the outcomes.
+ */
 class TestBuildInfoPluginFuncTest extends AbstractGradleFuncTest {
+    /**
+     * Tests the basic functionality of the `generateTestBuildInfo` task.
+     *
+     * This test case sets up a simple Java project with a `module-info.java` file.
+     * It then runs the `generateTestBuildInfo` task and verifies that the generated
+     * JSON output correctly identifies the component name and the module location
+     * based on the project's own source code.
+     */
     def "basic functionality"() {
         given:
+        // Setup a simple Java source file and a corresponding JPMS module descriptor.
         file("src/main/java/com/example/Example.java") << """
             package com.example;
 
@@ -23,6 +45,7 @@ class TestBuildInfoPluginFuncTest extends AbstractGradleFuncTest {
             }
         """
 
+        // Configure the Gradle build to apply the necessary plugins and configure the task.
         buildFile << """
         import org.elasticsearch.gradle.plugin.GenerateTestBuildInfoTask;
 
@@ -42,16 +65,19 @@ class TestBuildInfoPluginFuncTest extends AbstractGradleFuncTest {
         """
 
         when:
+        // Execute the Gradle task.
         def result = gradleRunner('generateTestBuildInfo').build()
         def task = result.task(":generateTestBuildInfo")
 
 
         then:
+        // Assert that the task executed successfully.
         task.outcome == TaskOutcome.SUCCESS
 
         def output = file("build/generated-build-info/plugin-test-build-info.json")
         output.exists() == true
 
+        // Assert that the content of the generated JSON file matches the expected structure and data.
         def location = Map.of(
             "module", "com.example",
             "representative_class", "com/example/Example.class"
@@ -63,6 +89,18 @@ class TestBuildInfoPluginFuncTest extends AbstractGradleFuncTest {
         new ObjectMapper().readValue(output, Map.class) == expectedOutput
     }
 
+    /**
+     * Tests the plugin's ability to derive module information from project dependencies.
+     *
+     * This test case configures a project with several dependencies that provide module
+     * information in different ways:
+     * 1. A fully modular JAR with `module-info.class` (asm).
+     * 2. A JAR with an `Automatic-Module-Name` entry in its manifest (junit).
+     * 3. A traditional JAR with no module information, forcing a fallback to the JAR filename (hamcrest-core).
+     *
+     * It verifies that the `generateTestBuildInfo` task correctly identifies the module name
+     * and a representative class for each of these cases.
+     */
     def "dependencies"() {
         buildFile << """
         import org.elasticsearch.gradle.plugin.GenerateTestBuildInfoTask;
@@ -100,6 +138,7 @@ class TestBuildInfoPluginFuncTest extends AbstractGradleFuncTest {
         def output = file("build/generated-build-info/plugin-test-build-info.json")
         output.exists() == true
 
+        // Define the expected module location data for each dependency type.
         def locationFromModuleInfo = Map.of(
             "module", "org.objectweb.asm",
             "representative_class", Path.of('org', 'objectweb', 'asm', 'AnnotationVisitor.class').toString()
@@ -116,7 +155,8 @@ class TestBuildInfoPluginFuncTest extends AbstractGradleFuncTest {
             "component", "example-component",
             "locations", List.of(locationFromModuleInfo, locationFromManifest, locationFromJarFileName)
         )
-
+        
+        // Assert that the generated JSON content matches the expected output.
         def value = new ObjectMapper().readValue(output, Map.class)
         value == expectedOutput
     }

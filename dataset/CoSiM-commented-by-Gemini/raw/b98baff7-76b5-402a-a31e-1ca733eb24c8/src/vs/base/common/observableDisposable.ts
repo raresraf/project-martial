@@ -7,27 +7,35 @@ import { Emitter } from './event.js';
 import { Disposable, IDisposable } from './lifecycle.js';
 
 /**
- * Disposable object that tracks its {@linkcode disposed} state
- * as a public attribute and provides the {@linkcode onDispose}
- * event to subscribe to.
+ * A disposable object that enhances the standard Disposable pattern by making its
+ * lifecycle observable.
+ *
+ * Architectural Role: In a system with complex object relationships, this class
+ * allows objects to be safely garbage-collected by managing resource ownership,
+ * while also allowing other components to react to an object's disposal without
+ * being tightly coupled to it. The public `disposed` property and `onDispose`
+ * event provide a standardized way to query and subscribe to an object's lifecycle.
  */
 export abstract class ObservableDisposable extends Disposable {
 	/**
-	 * Private emitter for the `onDispose` event.
+	 * An internal event emitter that fires when the object is disposed.
 	 */
 	private readonly _onDispose = this._register(new Emitter<void>());
 
 	/**
-	 * The event is fired when this object is disposed.
-	 * Note! Executes the callback immediately if already disposed.
+	 * An event that fires once when this object has been disposed.
 	 *
-	 * @param callback The callback function to be called on updates.
+	 * Functional Utility: This allows other objects to subscribe to the disposal
+	 * event. A key feature is that if a listener is attached *after* the object
+	 * has already been disposed, the listener is executed immediately.
+	 *
+	 * @param callback The callback function to be executed on disposal.
 	 */
 	public onDispose(callback: () => void): IDisposable {
-		// if already disposed, execute the callback immediately
+		// Pre-condition: If the object is already disposed, we must honor the
+		// contract and execute the callback immediately.
 		if (this.disposed) {
 			callback();
-
 			return this;
 		}
 
@@ -35,48 +43,59 @@ export abstract class ObservableDisposable extends Disposable {
 	}
 
 	/**
-	 * Adds a disposable object to the list of disposables
-	 * that will be disposed with this object.
+	 * A convenience method for adding disposable objects that will be disposed
+	 * along with this object. Supports a fluent, chainable programming style.
+	 * @param disposables The disposable objects to add.
 	 */
 	public addDisposable(...disposables: IDisposable[]): this {
 		for (const disposable of disposables) {
 			this._register(disposable);
 		}
-
 		return this;
 	}
 
 	/**
-	 * Tracks 'disposed' state of this object.
+	 * The internal flag tracking the disposed state of this object.
 	 */
 	private _disposed = false;
 
 	/**
-	 * Gets current 'disposed' state of this object.
+	 * Public getter for the disposed state of this object.
+	 * @returns `true` if the object has been disposed, `false` otherwise.
 	 */
 	public get disposed(): boolean {
 		return this._disposed;
 	}
 
 	/**
-	 * Dispose current object if not already disposed.
-	 * @returns
+	 * Disposes of this object and all registered disposables.
+	 *
+	 * This method is idempotent; subsequent calls will have no effect.
 	 */
 	public override dispose(): void {
+		// Invariant: Ensure disposal logic runs only once.
 		if (this.disposed) {
 			return;
 		}
 		this._disposed = true;
 
+		// Block Logic: The disposal sequence is critical.
+		// 1. Fire the `onDispose` event to notify all listeners.
 		this._onDispose.fire();
+		// 2. Call `super.dispose()` to dispose all registered IDisposable objects.
 		super.dispose();
 	}
 
 	/**
-	 * Assert that the current object was not yet disposed.
+	 * Throws an error if the object has already been disposed.
 	 *
-	 * @throws If the current object was already disposed.
-	 * @param error Error message or error object to throw if assertion fails.
+	 * Functional Utility: This is a defensive programming tool to prevent "use-after-free"
+	 * bugs by asserting that an object is still valid before performing an operation.
+	 * The `asserts this is TNotDisposed<this>` signature provides a hint to the
+	 * TypeScript compiler for type narrowing.
+	 *
+	 * @throws If the object has been disposed.
+	 * @param error The error message or Error object to throw.
 	 */
 	public assertNotDisposed(
 		error: string | Error,
@@ -86,16 +105,23 @@ export abstract class ObservableDisposable extends Disposable {
 }
 
 /**
- * Type for a non-disposed object `TObject`.
+ * A mapped type that represents a non-disposed version of an object `TObject`,
+ * effectively narrowing its `disposed` property to `false`.
  */
 type TNotDisposed<TObject extends { disposed: boolean }> = TObject & { disposed: false };
 
 /**
- * Asserts that a provided `object` is not `disposed` yet,
- * e.g., its `disposed` property is `false`.
+ * Asserts that the provided `object` has not been disposed.
  *
- * @throws if the provided `object.disposed` equal to `false`.
- * @param error Error message or error object to throw if assertion fails.
+ * Functional Utility: This function uses a TypeScript `asserts` clause. If this
+ * function is called and does not throw an error, the TypeScript compiler will
+ * "narrow" the type of the `object` in the calling scope to `TNotDisposed<TObject>`,
+ * confirming to the type system that `object.disposed` is `false`. This improves
+ * static analysis and helps catch potential bugs at compile time.
+ *
+ * @throws If `object.disposed` is `true`.
+ * @param object The object to check.
+ * @param error The error message or Error object to throw.
  */
 export function assertNotDisposed<TObject extends { disposed: boolean }>(
 	object: TObject,

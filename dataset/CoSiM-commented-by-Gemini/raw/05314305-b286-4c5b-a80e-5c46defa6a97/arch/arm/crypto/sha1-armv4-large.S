@@ -1,3 +1,29 @@
+/**
+ * @file sha1-armv4-large.S
+ * @brief Performance-optimized SHA-1 compression function for ARMv4+.
+ *
+ * @details This file provides sha1_block_data_order, an assembly implementation
+ * of the SHA-1 compression function, heavily optimized for ARMv4 and later
+ * architectures.
+ *
+ * Optimization Strategies:
+ * - 5x Loop Unrolling: The main loop processes 5 rounds of the SHA-1
+ *   algorithm per iteration to reduce loop overhead and improve instruction
+ *   pipelining.
+ * - Instruction Scheduling: Instructions are carefully ordered to maximize
+ *   throughput on dual-issue ARM cores (e.g., Cortex-A8) by minimizing
+ *   pipeline stalls and maximizing instruction-level parallelism.
+ * - Interleaved Load/Update: The message schedule calculation (W[t] for t >= 16)
+ *   is interleaved with the round updates. This hides the latency of loading
+ *   previous words from the stack and performing the XOR/rotate operations
+ *   required to generate the next word.
+ * - Register-based State: The five SHA-1 state variables (A, B, C, D, E)
+ *   are maintained in core registers (r3-r7) throughout the compression
+ *   of a block, ensuring the fastest possible access.
+ * - Endian-aware Loading: The implementation handles both little-endian
+ *   (ARMEL) and big-endian systems, performing byte-swapping on loads where
+ *   necessary to correctly interpret the input data stream.
+ */
 #define __ARM_ARCH__ __LINUX_ARM_ARCH__
 @ SPDX-License-Identifier: GPL-2.0
 
@@ -82,32 +108,44 @@
 .text
 
 .align	2
-@ sha1_block_data_order (struct sha1_state *digest, const u8 *data,
-@                        int blocks)
-@ r0: pointer to sha1_state structure (A,B,C,D,E)
-@ r1: pointer to input data
-@ r2: number of 64-byte blocks to process
+/**
+ * @brief Performs the SHA-1 compression function on one or more data blocks.
+ * @param r0 (digest): Pointer to the sha1_state structure containing the current
+ *                     hash state (H0-H4). The state is updated in place.
+ * @param r1 (data):   Pointer to the input data, which must be a multiple of
+ *                     64 bytes.
+ * @param r2 (blocks): The number of 64-byte blocks to process.
+ *
+ * @details This function is the core of the SHA-1 implementation. It iteratively
+ * processes each 64-byte block, updating the intermediate hash state according
+ * to the SHA-1 specification.
+ */
 ENTRY(sha1_block_data_order)
-	@ Function Prologue: Save callee-saved registers.
+	@ Function Prologue: Save callee-saved registers (r4-r12, lr) to the stack
+	@ to preserve the caller's context.
 	stmdb	sp!,{r4-r12,lr}
-	add	r2,r1,r2,lsl#6	@ r2 to point at the end of r1
-	@ Load initial hash state (A,B,C,D,E) into registers.
+	@ Calculate the end address of the input data.
+	add	r2,r1,r2,lsl#6		@ r2 to point at the end of r1
+	@ Load initial hash state (A,B,C,D,E) into working registers.
 	ldmia	r0,{r3,r4,r5,r6,r7}
 .Lloop:
-	@ This is the main loop that processes each 64-byte input block.
+	@ Block Logic: This is the main loop that processes each 64-byte input block.
+	@ Pre-condition: r1 points to the start of the current block. r3-r7 hold
+	@ the current hash state (A,B,C,D,E).
 	ldr	r8,.LK_00_19
 	mov	r14,sp
+	@ Allocate space on the stack for the message schedule array W (16 words).
 	sub	sp,sp,#15*4
-	@ Rotate state variables B, C, D in preparation for the rounds.
-	@ B, C, D are rotated left by 30 bits (ror #2).
+	@ Pre-rotate state variables for the first round. B and C are rotated left
+	@ by 30 bits, which is equivalent to a right rotate by 2 for a 32-bit word.
 	mov	r5,r5,ror#30
 	mov	r6,r6,ror#30
 	mov	r7,r7,ror#30		@ [6]
 .L_00_15:
 @
-@ SHA1 Rounds 0-15
+@ Block Logic: SHA-1 Rounds 0-15
 @
-@ This section implements the first 16 rounds of the SHA1 compression.
+@ This section implements the first 16 rounds of the SHA-1 compression.
 @ The logical function F(B,C,D) = (B & C) | (~B & D) is used.
 @ The round constant K_00_19 (0x5a827999) is loaded into r8.
 @ Message words W[0]-W[15] are loaded directly from the input buffer.
@@ -244,12 +282,15 @@ ENTRY(sha1_block_data_order)
 	bne	.L_00_15
 	sub	sp,sp,#25*4
 
-@
-@ SHA1 Rounds 16-19
-@
-@ This part continues the first 20 rounds, but now interleaves the
-@ message schedule calculation: W[i] = ROL((W[i-3]^W[i-8]^W[i-14]^W[i-16]), 1)
-@
+/**
+ * @brief SHA-1 Rounds 16-19
+ *
+ * This part continues the first 20 rounds, but now interleaves the
+ * message schedule calculation:
+ * W[i] = ROL((W[i-3] ^ W[i-8] ^ W[i-14] ^ W[i-16]), 1)
+ * This avoids a separate loop for message expansion and improves performance
+ * by hiding memory access latency.
+ */
 #if __ARM_ARCH__<7
 	ldrb	r10,[r1,#2]
 	ldrb	r9,[r1,#3]
@@ -346,13 +387,15 @@ ENTRY(sha1_block_data_order)
 	ldr	r8,.LK_20_39		@ [+15+16*4]
 	cmn	sp,#0			@ [+3], clear carry to denote 20_39
 .L_20_39_or_60_79:
-@
-@ SHA1 Rounds 20-39 and 60-79
-@
-@ This section implements rounds where the logical function is
-@ F(B,C,D) = B ^ C ^ D.
-@ The round constant K_20_39 (0x6ed9eba1) or K_60_79 (0xca62c1d6) is in r8.
-@
+/**
+ * @brief SHA-1 Rounds 20-39 and 60-79
+ *
+ * This section implements rounds where the logical function is a simple XOR:
+ * F(B,C,D) = B ^ C ^ D.
+ * The same code is reused for both round groups by loading the appropriate
+ * round constant into r8 (K_20_39 or K_60_79). The carry flag is used to
+ * distinguish between the two groups and branch to the correct next state.
+ */
 	ldr	r9,[r14,#15*4]
 	ldr	r10,[r14,#13*4]
 	ldr	r11,[r14,#7*4]
@@ -437,13 +480,15 @@ ENTRY(sha1_block_data_order)
 	ldr	r8,.LK_40_59
 	sub	sp,sp,#20*4		@ [+2]
 .L_40_59:
-@
-@ SHA1 Rounds 40-59
-@
-@ This section implements rounds where the logical function is the majority
-@ function: F(B,C,D) = (B & C) | (B & D) | (C & D).
-@ The round constant K_40_59 (0x8f1bbcdc) is in r8.
-@
+/**
+ * @brief SHA-1 Rounds 40-59
+ *
+ * This section implements rounds where the logical function is the majority
+ * function: F(B,C,D) = (B & C) | (B & D) | (C & D).
+ * The round constant K_40_59 (0x8f1bbcdc) is loaded into r8.
+ * The message schedule calculation W[i] continues to be interleaved with
+ * the round logic.
+ */
 	ldr	r9,[r14,#15*4]
 	ldr	r10,[r14,#13*4]
 	ldr	r11,[r14,#7*4]
@@ -537,11 +582,14 @@ ENTRY(sha1_block_data_order)
 	cmp	sp,#0			@ set carry to denote 60_79
 	b	.L_20_39_or_60_79	@ Re-use logic for rounds 20-39
 .L_done:
-@
-@ Epilogue
-@
-@ Update the final hash state and prepare for the next block or return.
-@
+/**
+ * @brief Epilogue: Update hash state and loop or return.
+ *
+ * After 80 rounds, the resulting A,B,C,D,E values are added to the
+ * intermediate hash state (H0-H4). If there are more blocks to process,
+ * the function loops back to .Lloop. Otherwise, it restores the saved
+ * registers and returns.
+ */
 	add	sp,sp,#80*4		@ "deallocate" stack frame
 	@ Load original hash values.
 	ldmia	r0,{r8,r9,r10,r11,r12}

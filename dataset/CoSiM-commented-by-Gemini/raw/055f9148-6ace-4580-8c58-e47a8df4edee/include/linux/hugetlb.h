@@ -1,4 +1,33 @@
 /* SPDX-License-Identifier: GPL-2.0 */
+/**
+ * @file include/linux/hugetlb.h
+ * @brief Core Linux kernel header for HugeTLB page support.
+ *
+ * @details This header file defines the central data structures, functions,
+ * and macros for managing HugeTLB pages in the Linux kernel. HugeTLB pages
+ * are large, non-swappable pages (e.g., 2MB, 1GB) that can improve performance
+ * for applications with large memory footprints by reducing TLB pressure and
+ * page table overhead.
+ *
+ * Key components defined here include:
+ * - struct hstate: Represents a specific huge page size and its associated
+ *   pool of pages.
+ * - struct hugepage_subpool: Manages a portion of a huge page pool, often
+ *   used for accounting or resource control (e.g., for shared memory).
+ * - struct resv_map: Tracks reservations and instantiated pages within a
+ *   file-backed huge page mapping.
+ * - Page Table Handling: Functions for allocating, mapping, and unmapping
+ *   huge pages in process page tables (e.g., `huge_pte_alloc`,
+ *   `hugetlb_fault`).
+ * - Cgroup Integration: Structures and functions for accounting and limiting
+ *   HugeTLB usage on a per-cgroup basis.
+ * - Flags and Macros: Definitions for huge page-specific state flags
+ *   (e.g., HPG_migratable) and helper macros for accessing them.
+ *
+ * This file uses extensive preprocessor conditionals (`#ifdef CONFIG_HUGETLB_PAGE`)
+ * to compile out HugeTLB support when the feature is disabled in the kernel
+ * configuration, ensuring minimal overhead.
+ */
 #ifndef _LINUX_HUGETLB_H
 #define _LINUX_HUGETLB_H
 

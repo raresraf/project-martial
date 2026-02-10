@@ -1,3 +1,17 @@
+/**
+ * @file This file is the central hub for all Git-related commands exposed by the
+ * VS Code Git extension. It defines the `CommandCenter` class, which is responsible
+ * for registering and implementing the logic for a wide array of user-facing
+ * commands, from simple actions like `git.refresh` to more complex workflows
+ * like `git.clone` and `git.commit`.
+ *
+ * @see ScmCommand - The interface that defines the structure for each command.
+ * @see command - A decorator used to register methods as VS Code commands.
+ *
+ * The file handles user interactions (e.g., quick picks, input boxes),
+ * orchestrates calls to the underlying `git` library, and manages the state
+ * of the repository `Model`.
+ */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -760,11 +774,32 @@ async function evaluateDiagnosticsCommitHook(repository: Repository, options: Co
 	return false;
 }
 
+/**
+ * @class CommandCenter
+ * @brief Main hub for registering and executing all Git commands for the extension.
+ *
+ * This class discovers all methods decorated with the `@command` decorator and
+ * registers them as VS Code commands. It serves as the primary dispatcher for
+ * user-initiated Git actions, interacting with the Git model, repository, and
+ * the VS Code windowing and workspace APIs.
+ */
 export class CommandCenter {
 
 	private disposables: Disposable[];
 	private commandErrors = new CommandErrorOutputTextDocumentContentProvider();
 
+	/**
+	 * @brief Constructs the CommandCenter.
+	 * @param git The core Git API implementation.
+	 * @param model The data model representing the state of all Git repositories.
+	 * @param globalState A memento for storing global extension state.
+	 * @param logger A dedicated output channel for logging Git commands and output.
+	 * @param telemetryReporter A reporter for sending usage and error telemetry.
+	 *
+	 * The constructor iterates through all discovered commands, creates a
+	 * command handler for each, and registers it with VS Code's command registry.
+	 * It also sets up a content provider for displaying error outputs.
+	 */
 	constructor(
 		private git: Git,
 		private model: Model,
@@ -931,6 +966,19 @@ export class CommandCenter {
 		}
 	}
 
+	/**
+	 * @command git.clone
+	 * @brief Clones a Git repository from a URL.
+	 *
+	 * @details This command orchestrates the entire cloning process. It prompts the
+	 * user for a repository URL (if not provided), a local directory to clone into,
+	 * and then executes the `git clone` command. After a successful clone, it
+	 * provides options to open the newly cloned repository.
+	 *
+	 * @param url The URL of the repository to clone.
+	 * @param parentPath The local directory path to clone the repository into.
+	 * @param options Optional settings for the clone operation, such as recursive clone.
+	 */
 	async cloneRepository(url?: string, parentPath?: string, options: { recursive?: boolean; ref?: string } = {}): Promise<void> {
 		if (!url || typeof url !== 'string') {
 			url = await pickRemoteSource({
@@ -1488,6 +1536,18 @@ export class CommandCenter {
 		await commands.executeCommand('vscode.open', Uri.file(path.join(repository.root, to)), { viewColumn: ViewColumn.Active });
 	}
 
+	/**
+	 * @command git.stage
+	 * @brief Stages changes for commit.
+	 *
+	 * This command can operate on a single file, multiple files, or selected
+	 * lines within a file. It handles various scenarios, including merge
+	 * conflicts, by prompting the user for confirmation when necessary.
+	 *
+	 * @param ...resourceStates A variable number of SourceControlResourceState
+	 * objects representing the files or changes to be staged. If none are
+	 * provided, the command attempts to use the currently active SCM resource.
+	 */
 	@command('git.stage')
 	async stage(...resourceStates: SourceControlResourceState[]): Promise<void> {
 		this.logger.debug(`[CommandCenter][stage] git.stage ${resourceStates.length} `);
@@ -1765,6 +1825,158 @@ export class CommandCenter {
 		}
 
 		await repository.add(resources);
+	}
+
+	/**
+	 * @command git.commit
+	 * @brief Creates a Git commit.
+	 *
+	 * @details This is a key command that orchestrates the commit process. It
+	 * handles various commit scenarios, including:
+	 * - Standard commit with a message from the SCM input box.
+	 * - Committing all changes (`-a`).
+	 * - Committing all staged changes, including untracked files (`-A`).
+	 * - Amending the previous commit.
+	 * - Signing off on the commit.
+	 *
+	 * It also integrates with pre-commit hooks and diagnostics checks,
+	 * prompting the user if issues are found.
+	 *
+	 * @param repository The repository in which to create the commit.
+	 * @param message The commit message. If not provided, the message from the
+	 * SCM input box is used.
+	 * @param opts A set of {@link CommitOptions} to control the commit behavior.
+	 */
+	@command('git.commit', { repository: true })
+	async commit(repository: Repository, message?: string | (() => string), opts: CommitOptions = {}): Promise<void> {
+		if (this.model.isCommitInProgress) {
+			window.showInformationMessage(l10n.t('A commit is already in progress.'));
+			return;
+		}
+
+		this.model.isCommitInProgress = true;
+		try {
+			// Pre-commit hook
+			if (!(await evaluateDiagnosticsCommitHook(repository, opts))) {
+				return;
+			}
+		} finally {
+			this.model.isCommitInProgress = false;
+		}
+
+		const isgitEditor = await this.isGitEditor();
+		if (!message) {
+			if (opts.all === 'tracked' && repository.workingTreeGroup.resourceStates.length === 0) {
+				opts.all = undefined;
+				opts.empty = true;
+			} else if (opts.all && repository.workingTreeGroup.resourceStates.length === 0 && repository.untrackedGroup.resourceStates.length === 0) {
+				opts.all = undefined;
+				opts.empty = true;
+			} else if (repository.indexGroup.resourceStates.length === 0 && !opts.all && !opts.empty) {
+				await this.stageAll(repository);
+			}
+
+			if (repository.indexGroup.resourceStates.length === 0 && !opts.all && !opts.empty && repository.mergeGroup.resourceStates.length === 0) {
+				window.showInformationMessage(l10n.t('There are no changes to commit.'));
+				return;
+			}
+
+			if (isgitEditor) {
+				// With a git editor, we don't need to do anything.
+				return;
+			} else if (opts.amend) {
+				message = await repository.getCommit('HEAD');
+			}
+		}
+
+		if (isgitEditor) {
+			// With a git editor, we don't need to do anything.
+			return;
+		} else if (message) {
+			if (typeof message === 'function') {
+				message = message();
+			}
+
+			if (!message && !opts.empty) {
+				return;
+			}
+		} else {
+			return;
+		}
+
+		if (opts.all && repository.indexGroup.resourceStates.length > 0) {
+			const yes = l10n.t('Yes');
+			const shouldStageAllAndCommit = await window.showWarningMessage(
+				l10n.t('The following staged changes will be also included in the commit:\n\n{0}', repository.indexGroup.resourceStates.map(r => r.resourceUri.fsPath).join('\n')),
+				yes
+			);
+
+			if (shouldStageAllAndCommit !== yes) {
+				return;
+			}
+		}
+
+		await repository.commit(message, opts);
+	}
+
+	@command('git.commitWithInput', { repository: true })
+	async commitWithInput(repository: Repository, opts?: CommitOptions): Promise<void> {
+		const message = repository.inputBox.value;
+		const root = Uri.file(repository.root);
+		const config = workspace.getConfiguration('git', root);
+		const getCommitMessage = async () => {
+			if (config.get<boolean>('useEditorAsCommitInput') && !opts?.amend) {
+				return undefined;
+			}
+
+			let _message: string | undefined = message;
+
+			if (!_message && !opts?.empty) {
+				let value: string | undefined = undefined;
+
+				if (opts?.amend) {
+					const commit = await repository.getCommit('HEAD');
+					value = commit.message;
+				}
+
+				const quickInput = window.createQuickInput();
+				quickInput.title = opts?.amend ? l10n.t('Amend Commit Message') : l10n.t('Commit Message');
+				quickInput.value = value ?? '';
+				quickInput.placeholder = l10n.t('Commit message');
+				quickInput.buttons = [
+					{ iconPath: new ThemeIcon('check'), tooltip: l10n.t('Commit') }
+				];
+
+				let shouldShowConfirmation = true;
+				const quickInputPromise = new Promise<string | undefined>(resolve => {
+					quickInput.onDidAccept(() => resolve(quickInput.value));
+					quickInput.onDidHide(() => {
+						if (shouldShowConfirmation) {
+							resolve(undefined);
+						}
+					});
+					quickInput.onDidTriggerButton(async () => {
+						const value = quickInput.value;
+						if (value === '' && !opts?.empty) {
+							const ok = l10n.t('OK');
+							await window.showWarningMessage(l10n.t('Please provide a commit message'), ok);
+							return;
+						}
+
+						shouldShowConfirmation = false;
+						resolve(value);
+					});
+				});
+
+				quickInput.show();
+				_message = await quickInputPromise;
+				quickInput.dispose();
+			}
+
+			return _message;
+		};
+
+		await this.commit(repository, getCommitMessage, opts);
 	}
 
 	@command('git.acceptMerge')

@@ -1,6 +1,27 @@
 #!/usr/bin/env perl
 # SPDX-License-Identifier: GPL-2.0
 
+/**
+ * @file sha512-armv4.pl
+ * @brief Perl script to generate optimized ARM assembly for SHA-512.
+ *
+ * @details This script is a meta-program that auto-generates a highly
+ * optimized assembly file (sha512-core.S) for the SHA-512 compression
+ * function, targeting the ARM architecture.
+ *
+ * Dual-Target Generation:
+ * The script produces a single assembly file containing two distinct
+ * implementations, selected at runtime based on CPU capabilities:
+ * 1. A baseline, scalar version optimized for the ARMv4 instruction set and
+ *    later, suitable for a wide range of processors.
+ * 2. A significantly faster version accelerated with the NEON SIMD instruction
+ *    set for ARMv7 and later architectures.
+ *
+ * The generated assembly includes a runtime CPU feature check that allows the
+ * kernel to dynamically select the most performant code path available on the
+ * host CPU. This approach combines broad compatibility with high performance
+ * on modern hardware.
+ */
 # This code is taken from the OpenSSL project but the author (Andy Polyakov)
 # has relicensed it under the GPLv2. Therefore this program is free software;
 # you can redistribute it and/or modify it under the terms of the GNU General
@@ -8,27 +29,6 @@
 #
 # The original headers, including the original license headers, are
 # included below for completeness.
-
-#
-# This Perl script is a meta-program that generates highly optimized ARM
-# assembly code for the SHA-512 compression function (sha512_block_data_order).
-#
-# Dual-Target Generation:
-# The script produces a single assembly file containing two distinct
-# implementations:
-# 1. A baseline, optimized version for the ARMv4 instruction set.
-# 2. A significantly faster version accelerated with the NEON SIMD instruction
-#    set for ARMv7 and later architectures.
-# The final assembly includes a runtime CPU feature check to select the
-# appropriate code path.
-#
-
-# ====================================================================
-# Written by Andy Polyakov <appro@openssl.org> for the OpenSSL
-# project. The module is, however, dual licensed under OpenSSL and
-# CRYPTOGAMS licenses depending on where you obtain it. For further
-# details see https://www.openssl.org/~appro/cryptogams/.
-# ====================================================================
 
 # SHA512 block procedure for ARMv4. September 2007.
 
@@ -108,7 +108,7 @@ $Hoff=8*7;
 $Xoff=8*8;
 
 #
-# BODY_00_15 - Generates the assembly for a single SHA-512 round.
+# BODY_00_15 - Generates assembly for a single scalar SHA-512 round.
 #
 # This subroutine is the core building block for the scalar (non-NEON)
 # implementation. It produces the assembly instructions that perform the
@@ -117,8 +117,9 @@ $Xoff=8*8;
 # Algorithmic Steps Generated:
 # - Calculates `T1 = h + Sigma1(e) + Ch(e,f,g) + K[i] + W[i]`
 # - Calculates `T2 = Sigma0(a) + Maj(a,b,c)`
-# - Updates state variables: `h=g`, `g=f`, `f=e`, `e=d+T1`, `d=c`, `c=b`, `b=a`, `a=T1+T2`
-#   (These updates are done by rotating the register assignments in the calling loop)
+# - Updates state variables: `h=g`, `g=f`, `f=e`, `e=d+T1`, `d=c`, `c=b`, `b=a`,
+#   and finally `a=T1+T2`. The assignments are handled by the calling loop
+#   by rotating the register mappings passed to this function.
 #
 sub BODY_00_15() {
 my $magic = shift;
@@ -312,15 +313,20 @@ sha512_block_data_order:
 	adr	r3,.Lsha512_block_data_order
 #endif
 #if __ARM_MAX_ARCH__>=7 && !defined(__KERNEL__)
-	@ Runtime check for NEON support. If available, branch to the
-	@ NEON-accelerated implementation.
+	@ Block Logic: Runtime CPU feature detection.
+	@ On ARMv7+ capable toolchains (and not in kernel mode, which handles
+	@ this differently), this check determines if the NEON unit is present.
+	@ If so, it branches to the highly optimized NEON implementation.
+	@ Otherwise, it falls through to the baseline scalar ARM code.
 	ldr	r12,.LOPENSSL_armcap
 	ldr	r12,[r3,r12]		@ OPENSSL_armcap_P
 	tst	r12,#1
 	bne	.LNEON
 #endif
 @
-@ This section generates the standard ARMv4 implementation.
+@ Block Logic: Scalar ARMv4 Implementation Fallback.
+@ This is the entry point for the baseline implementation. It sets up the stack
+@ frame and loads the initial hash state.
 @
 	add	$len,$inp,$len,lsl#7	@ len to point at the end of inp
 	stmdb	sp!,{r4-r12,lr}
@@ -334,7 +340,8 @@ sha512_block_data_order:
 	ldr	$t2, [$ctx,#$Hoff+$lo]
 	ldr	$t3, [$ctx,#$Hoff+$hi]
 .Loop:
-@ Main loop for the scalar ARMv4 implementation. Processes one block per iteration.
+@ Block Logic: Main loop for the scalar ARMv4 implementation.
+@ Processes one 64-byte block per iteration.
 	str	$t0, [sp,#$Goff+0]
 	str	$t1, [sp,#$Goff+4]
 	str	$t2, [sp,#$Hoff+0]
@@ -359,7 +366,7 @@ sha512_block_data_order:
 	str	$Thi,[sp,#$Foff+4]
 
 .L00_15:
-@ Code generation for rounds 0-15.
+@ Block Logic: Code generation for rounds 0-15 (scalar).
 @ Message words W[0]-W[15] are loaded directly from the input buffer.
 #if __ARM_ARCH__<7
 	ldrb	$Tlo,[$inp,#7]
@@ -393,7 +400,7 @@ $code.=<<___;
 	ldr	$t1,[sp,#`$Xoff+8*(16-1)`+4]
 	bic	$Ktbl,$Ktbl,#1
 .L16_79:
-@ Code generation for rounds 16-79.
+@ Block Logic: Code generation for rounds 16-79 (scalar).
 @ This section implements the message schedule expansion:
 @ W[i] = sigma1(W[i-2]) + W[i-7] + sigma0(W[i-15]) + W[i-16]
 	@ sigma0(x)	(ROTR((x),1)  ^ ROTR((x),8)  ^ ((x)>>7))
@@ -545,18 +552,19 @@ my @X=map("d$_",(0..15));
 my @V=($A,$B,$C,$D,$E,$F,$G,$H)=map("d$_",(16..23));
 
 #
-# NEON_00_15 - Generates NEON assembly for the first 16 rounds.
+# NEON_00_15 - Generates NEON assembly for rounds 0-15.
 #
 # This subroutine generates vector instructions to process data using 128-bit
 # registers, effectively operating on two 64-bit words in parallel. It handles
-# loading data and constants into NEON registers.
+# loading data and constants directly into NEON registers, as the message
+# schedule for the first 16 rounds is just the input data itself.
 #
 sub NEON_00_15() {
 my $i=shift;
 my ($a,$b,$c,$d,$e,$f,$g,$h)=@_;
 my ($t0,$t1,$t2,$T1,$K,$Ch,$Maj)=map("d$_",(24..31));	# temps
 
-$code.=<<___ if ($i<16 || $i&1);
+$code.=<<___;
 	vshr.u64	$t0,$e,#@Sigma1[0]	@ $i
 #if $i<16
 	vld1.64		{@X[$i%16]},[$inp]!	@ handles unaligned
@@ -602,9 +610,11 @@ ___
 #
 # NEON_16_79 - Generates NEON assembly for rounds 16-79.
 #
-# This subroutine produces vectorized assembly for the later rounds, including
-# the critical message schedule calculation, which is interleaved with the
-# round updates for optimal performance.
+# This subroutine produces vectorized assembly for the later rounds. Its main
+# purpose is to generate the instructions for the critical message schedule
+# expansion: W[i] = sigma1(W[i-2]) + W[i-7] + sigma0(W[i-15]) + W[i-16].
+# This calculation is heavily interleaved with the round logic in NEON_00_15
+# for optimal instruction pipeline usage.
 #
 sub NEON_16_79() {
 my $i=shift;
@@ -651,7 +661,7 @@ $code.=<<___;
 .fpu	neon
 
 #
-# This section generates the NEON-accelerated implementation.
+# Block Logic: NEON Implementation
 #
 .global	sha512_block_data_order_neon
 .type	sha512_block_data_order_neon,%function
@@ -665,8 +675,9 @@ sha512_block_data_order_neon:
 	sub	$Ktbl,$Ktbl,.Lsha512_block_data_order-K512
 	vldmia	$ctx,{$A-$H}		@ load context
 .Loop_neon:
-@ Main loop for the NEON implementation. It uses the NEON_* subroutines
-@ to generate highly pipelined and vectorized code for all 80 rounds.
+@ Block Logic: Main loop for the NEON implementation.
+@ It uses the NEON_* subroutines to generate highly pipelined and
+@ vectorized code for all 80 rounds.
 ___
 for($i=0;$i<16;$i++)	{ &NEON_00_15($i,@V); unshift(@V,pop(@V)); }
 $code.=<<___;
@@ -678,6 +689,9 @@ for(;$i<32;$i++)	{ &NEON_16_79($i,@V); unshift(@V,pop(@V)); }
 $code.=<<___;
 	bne		.L16_79_neon
 
+@ Epilogue for the NEON implementation.
+@ The final hash state is updated, and the loop continues if more
+@ blocks are available.
 	 vadd.i64	$A,d30		@ h+=Maj from the past
 	vldmia		$ctx,{d24-d31}	@ load context to temp
 	vadd.i64	q8,q12		@ vectorized accumulate

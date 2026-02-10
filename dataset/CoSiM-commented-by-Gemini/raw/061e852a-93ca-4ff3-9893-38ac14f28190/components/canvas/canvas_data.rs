@@ -106,25 +106,27 @@ fn to_path<B: Backend>(path: &[PathSegment], mut builder: B::PathBuilder) -> B::
     builder.finish()
 }
 
-/// The canvas data stores a state machine for the current status of
-/// the path data and any relevant transformations that are
-/// applied to it. The Azure drawing API expects the path to be in
-/// userspace. However, when a path is being built but the canvas'
-/// transform changes, we choose to transform the path and perform
-/// further operations to it in device space. When it's time to
-/// draw the path, we convert it back to userspace and draw it
-/// with the correct transform applied.
-/// TODO: De-abstract now that Azure is removed?
+/**
+ * @enum PathState
+ * @brief Manages the state of a 2D path during its construction and transformation.
+ *
+ * This enum acts as a state machine to track whether a path is currently being
+ * built or is a finalized object. It also manages the coordinate space
+ * (user-space vs. device-space) of the path data. This is crucial for handling
+ * transformations correctly: when the canvas transform changes, existing path
+ * data is moved to device-space to ensure subsequent operations are applied
+ * correctly. When the path needs to be drawn, it's converted back to user-space.
+ */
 enum PathState<B: Backend> {
-    /// Path builder in user-space. If a transform has been applied
-    /// but no further path operations have occurred, it is stored
-    /// in the optional field.
+    /// The path is being constructed in user-space coordinates. An optional
+    /// transform is stored if the canvas transform was changed while the path
+    /// was active, flagging it for conversion to device-space.
     UserSpacePathBuilder(B::PathBuilder, Option<Transform2D<f32>>),
-    /// Path builder in device-space.
+    /// The path is being constructed in device-space coordinates, after having
+    /// a transform applied.
     DeviceSpacePathBuilder(B::PathBuilder),
-    /// Path in user-space. If a transform has been applied but
-    /// but no further path operations have occurred, it is stored
-    /// in the optional field.
+    /// The path is a finalized object in user-space coordinates. It may also
+    /// hold a pending transform.
     UserSpacePath(B::Path, Option<Transform2D<f32>>),
 }
 
@@ -397,6 +399,15 @@ pub(crate) enum Filter {
     Nearest,
 }
 
+/**
+ * @struct CanvasData
+ * @brief Encapsulates all data and state for a canvas instance.
+ *
+ * This is the main struct for the canvas component. It holds the rendering
+ * backend, the drawing surface (`drawtarget`), the current path state, the
+ * stack of saved paint states, and the connection to the compositor for
+ * displaying the final image.
+ */
 pub(crate) struct CanvasData<'a, B: Backend> {
     backend: B,
     drawtarget: B::DrawTarget,

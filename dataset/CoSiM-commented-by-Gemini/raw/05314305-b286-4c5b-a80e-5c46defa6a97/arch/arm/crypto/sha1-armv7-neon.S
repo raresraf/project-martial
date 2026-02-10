@@ -1,33 +1,34 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
-/* sha1-armv7-neon.S - ARM/NEON accelerated SHA-1 transform function
+/**
+ * @file sha1-armv7-neon.S
+ * @brief ARM/NEON accelerated SHA-1 transform function.
  *
- * Copyright © 2013-2014 Jussi Kivilinna <jussi.kivilinna@iki.fi>
+ * @details This file provides sha1_transform_neon, a high-performance
+ * implementation of the SHA-1 compression function for ARMv7 and later
+ * architectures, accelerated using NEON SIMD instructions.
+ *
+ * SIMD Strategy:
+ * The core optimization is the use of NEON's 128-bit vector registers to
+ * perform operations on multiple 32-bit words simultaneously. While the overall
+ * structure processes one 64-byte block at a time, the computations within
+ * each of the 80 rounds are heavily vectorized.
+ *
+ * Optimization Techniques:
+ * - Vectorization: The SHA-1 state (A,B,C,D,E) is processed using scalar ARM
+ *   instructions, but the message schedule (W words) and the round logic
+ *   leverage NEON registers (q0-q15) for parallel computations.
+ * - Instruction Scheduling & Pipelining: The round computations (_R_F* macros)
+ *   are deeply pipelined. The calculation of the message schedule for future
+ *   rounds (WPRECALC_* macros) is interleaved with the execution of current
+ *   rounds to hide memory and computational latencies, maximizing the use of
+ *   the ARM/NEON execution units.
+ * - Pipelined Main Loop: When processing multiple blocks, the epilogue of the
+ *   current block (rounds 64-79) is overlapped with the prologue of the next
+ *   block (calculating W[0]-W[15]), further enhancing throughput.
  */
 
 #include <linux/linkage.h>
 #include <asm/assembler.h>
-
-@
-@ This file provides sha1_transform_neon, a high-performance implementation of
-@ the SHA1 compression function for ARMv7 and later architectures, accelerated
-@ using NEON SIMD instructions.
-@
-@ SIMD Strategy:
-@ The core optimization is the use of NEON's 128-bit vector registers to
-@ perform operations on multiple 32-bit words simultaneously. While the overall
-@ structure processes one 64-byte block at a time, the computations within
-@ each of the 80 rounds are heavily vectorized.
-@
-@ Optimization Techniques:
-@ - Vectorization: The SHA1 state (A,B,C,D,E) is processed using scalar ARM
-@   instructions, but the message schedule (W words) and the round logic
-@   leverage NEON registers (q0-q15) for parallel computations.
-@ - Instruction Scheduling & Pipelining: The round computations (_R_F* macros)
-@   are deeply pipelined. The calculation of the message schedule for future
-@   rounds (WPRECALC_* macros) is interleaved with the execution of current
-@   rounds to hide memory and computational latencies, maximizing the use of
-@   the ARM/NEON execution units.
-@
 
 .syntax unified
 .fpu neon
@@ -335,20 +336,22 @@
 	vst1.32 {tmp0}, [RWK];
 
 
-@
-@ sha1_transform_neon(void *ctx, const u8 *data, unsigned int nblks)
-@
-@ Entry point for the NEON SHA-1 block transform.
-@ r0 (RSTATE): Pointer to sha1_state context.
-@ r1 (RDATA):  Pointer to input data.
-@ r2 (RNBLKS): Number of 64-byte blocks to process.
-@
+/**
+ * @brief Performs the SHA-1 compression function using ARM NEON instructions.
+ * @param r0 (RSTATE): Pointer to the sha1_state context (H0-H4).
+ * @param r1 (RDATA):  Pointer to the input data blocks.
+ * @param r2 (RNBLKS): Number of 64-byte blocks to process.
+ */
 .align 3
 ENTRY(sha1_transform_neon)
   cmp RNBLKS, #0;
   beq .Ldo_nothing;
 
-  @ Prologue: save registers, align stack, load initial state and constants.
+  @ Function Prologue:
+  @ - Save callee-saved registers.
+  @ - Align stack to 16 bytes for NEON.
+  @ - Load initial hash state (A,B,C,D,E) into scalar registers.
+  @ - Load round constants (K1-K4) into NEON vector registers.
   push {r4-r12, lr};
   adr RT3, .LK_VEC;
   mov ROLDSTACK, sp;
@@ -365,11 +368,15 @@ ENTRY(sha1_transform_neon)
   W_PRECALC_00_15();
 
 .Loop:
-@
-@ Main processing loop for a single 64-byte block.
-@ The structure is a deep pipeline where message schedule calculation for
-@ future rounds is performed concurrently with the current round's computation.
-@
+/**
+ * @brief Main processing loop for a single 64-byte block.
+ *
+ * @details The structure is a deep pipeline where the message schedule
+ * calculation for future rounds is performed concurrently with the current
+ * round's computation. This is achieved by passing the WPRECALC_* macros
+ * as arguments to the _R_F* round macros, which interleave the instructions.
+ * The state variables (a,b,c,d,e) are cyclically permuted in each round.
+ */
   /* Rounds 0-15 (F1) / Pre-calculate W[16-31] */
   _R( _a, _b, _c, _d, _e, F1,  0,
       WPRECALC_16_31_0, WPRECALC_16_31_1, WPRECALC_16_31_2, 16,
@@ -590,8 +597,16 @@ ENTRY(sha1_transform_neon)
 
   beq .Lend;
 
-  /* Pipelined Epilogue: Process rounds 64-79 of the current block while
-   * pre-calculating W[0]-W[15] for the *next* block. */
+  /**
+   * @brief Pipelined Main Loop and Epilogue.
+   *
+   * This section executes rounds 64-79 of the *current* block while
+   * simultaneously pre-calculating the message schedule (W[0]-W[15]) for the
+   * *next* block. This overlapping of the epilogue of one block with the
+   * prologue of the next is a key performance optimization that maximizes
+   * hardware utilization. After these rounds, the hash state for the just-
+   * finished block is updated.
+   */
 #undef curK
 #define curK qK1
   _R( _b, _c, _d, _e, _a, F4, 64,
@@ -630,7 +645,7 @@ ENTRY(sha1_transform_neon)
   _R( _b, _c, _d, _e, _a, F4, 79,
       WPRECALC_00_15_11, dummy, WPRECALC_00_15_12, _, _, _, _, _, _, _, _, _ );
 
-  /* Update the chaining variables with the results of the completed block. */
+  @ Block Update: Add the result of the compression to the intermediate hash state.
   ldm RSTATE, {RT0-RT3};
   add _a, RT0;
   ldr RT0, [RSTATE, #state_h4];
@@ -643,7 +658,7 @@ ENTRY(sha1_transform_neon)
   b .Loop;
 
 .Lend:
-  /* Final rounds for the last block (not pipelined). */
+  @ Final rounds for the last block (not pipelined).
   R( _b, _c, _d, _e, _a, F4, 64 );
   R( _a, _b, _c, _d, _e, F4, 65 );
   R( _e, _a, _b, _c, _d, F4, 66 );
@@ -663,7 +678,8 @@ ENTRY(sha1_transform_neon)
 
   mov sp, ROLDSTACK;
 
-  /* Final state update for the last block. */
+  @ Final State Update: Add the results of the final block's compression
+  @ to the chaining variables (H0-H4).
   ldm RSTATE, {RT0-RT3};
   add _a, RT0;
   ldr RT0, [RSTATE, #state_h4];
@@ -673,7 +689,7 @@ ENTRY(sha1_transform_neon)
   add _e, RT0;
   stm RSTATE, {_a-_e};
 
-  @ Epilogue: Restore saved registers and return.
+  @ Function Epilogue: Restore saved registers from the stack and return.
   pop {r4-r12, pc};
 
 .Ldo_nothing:

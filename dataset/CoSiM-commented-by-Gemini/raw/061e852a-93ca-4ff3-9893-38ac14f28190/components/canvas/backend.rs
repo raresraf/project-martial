@@ -1,3 +1,12 @@
+/**
+ * @file backend.rs
+ * @brief Defines the core traits for a generic 2D graphics backend.
+ *
+ * This file specifies a set of traits that abstract the underlying drawing
+ * library (e.g., Raqote, Skia, etc.). The goal is to provide a common
+ * interface that the canvas component can use, allowing the rendering engine
+ * to be swapped without changing the canvas logic.
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -14,6 +23,14 @@ use style::color::AbsoluteColor;
 
 use crate::canvas_data::{CanvasPaintState, Filter, TextRun};
 
+/**
+ * @trait Backend
+ * @brief The central trait defining a 2D graphics backend.
+ *
+ * This trait consolidates all the necessary types and functionalities that a
+ * concrete backend must implement. It includes types for patterns, stroke
+ * options, colors, drawing targets, paths, and more.
+ */
 pub(crate) trait Backend: Clone + Sized {
     type Pattern<'a>: PatternHelpers + Clone;
     type StrokeOptions: StrokeOptionsHelpers + Clone;
@@ -51,6 +68,14 @@ pub(crate) trait Backend: Clone + Sized {
     fn new_paint_state<'a>(&self) -> CanvasPaintState<'a, Self>;
 }
 
+/**
+ * @trait GenericDrawTarget
+ * @brief An abstraction for a 2D drawing surface.
+ *
+ * This trait defines the fundamental drawing operations that can be performed on
+ * a canvas, such as filling paths, stroking lines, drawing images (surfaces),
+ * and managing clipping regions and transformations.
+ */
 // This defines required methods for a DrawTarget (currently only implemented for raqote).  The
 // prototypes are derived from the now-removed Azure backend's methods.
 pub(crate) trait GenericDrawTarget<B: Backend> {
@@ -126,6 +151,15 @@ pub(crate) trait GenericDrawTarget<B: Backend> {
     fn bytes(&self) -> Cow<[u8]>;
 }
 
+/**
+ * @trait GenericPathBuilder
+ * @brief An interface for constructing 2D geometric paths.
+ *
+ * This trait provides a fluent API for building complex shapes made of lines,
+ * arcs, and curves. The default implementation for `arc` and `ellipse` uses
+ * the `lyon_geom` library to approximate elliptical arcs with quadratic Bézier
+ * curves, ensuring a consistent representation across different backends.
+ */
 /// A generic PathBuilder that abstracts the interface for azure's and raqote's PathBuilder.
 pub(crate) trait GenericPathBuilder<B: Backend> {
     fn arc(
@@ -244,11 +278,19 @@ pub(crate) trait GenericPathBuilder<B: Backend> {
     fn finish(&mut self) -> B::Path;
 }
 
+/**
+ * @trait PatternHelpers
+ * @brief Defines helper methods for fill/stroke patterns (e.g., gradients).
+ */
 pub(crate) trait PatternHelpers {
     fn is_zero_size_gradient(&self) -> bool;
     fn draw_rect(&self, rect: &Rect<f32>) -> Rect<f32>;
 }
 
+/**
+ * @trait StrokeOptionsHelpers
+ * @brief Defines methods for configuring the properties of stroked lines.
+ */
 pub(crate) trait StrokeOptionsHelpers {
     fn set_line_width(&mut self, _val: f32);
     fn set_miter_limit(&mut self, _val: f32);
@@ -258,10 +300,18 @@ pub(crate) trait StrokeOptionsHelpers {
     fn set_line_dash_offset(&mut self, offset: f32);
 }
 
+/**
+ * @trait DrawOptionsHelpers
+ * @brief Defines helper methods for general drawing options, like opacity.
+ */
 pub(crate) trait DrawOptionsHelpers {
     fn set_alpha(&mut self, val: f32);
 }
 
+/**
+ * @trait PathHelpers
+ * @brief Defines helper methods for manipulating and querying `Path` objects.
+ */
 pub(crate) trait PathHelpers<B: Backend> {
     fn transformed_copy_to_builder(&self, transform: &Transform2D<f32>) -> B::PathBuilder;
 

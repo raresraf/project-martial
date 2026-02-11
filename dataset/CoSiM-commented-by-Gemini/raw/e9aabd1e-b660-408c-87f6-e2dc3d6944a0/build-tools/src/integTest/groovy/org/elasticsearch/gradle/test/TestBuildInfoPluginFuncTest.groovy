@@ -1,3 +1,9 @@
+/**
+ * This file contains functional tests for the `elasticsearch.test-build-info` Gradle plugin.
+ *
+ * These tests use the Gradle TestKit (`GradleRunner`) to execute real Gradle builds
+ * in temporary projects and verify the output of the plugin.
+ */
 package org.elasticsearch.gradle.test
 
 import com.fasterxml.jackson.databind.ObjectMapper
@@ -6,6 +12,13 @@ import org.elasticsearch.gradle.fixtures.AbstractGradleFuncTest
 import org.gradle.testkit.runner.TaskOutcome
 
 class TestBuildInfoPluginFuncTest extends AbstractGradleFuncTest {
+    /**
+     * Tests the basic functionality of the plugin with a simple local Java module.
+     *
+     * This test verifies that the `generateTestBuildInfo` task correctly identifies
+     * the module name and a representative class from a project's own source code
+     * when a `module-info.java` file is present.
+     */
     def "basic functionality"() {
         given:
         file("src/main/java/com/example/Example.java") << """
@@ -61,6 +74,16 @@ class TestBuildInfoPluginFuncTest extends AbstractGradleFuncTest {
         new ObjectMapper().readValue(output, Map.class) == expectedOutput
     }
 
+    /**
+     * Tests the plugin's ability to resolve module information from external dependencies
+     * with different Java Platform Module System (JPMS) characteristics.
+     *
+     * This test ensures the plugin can correctly identify module names from:
+     * 1. A JAR with an explicit `module-info.class` (org.ow2.asm:asm).
+     * 2. A JAR with an `Automatic-Module-Name` entry in its manifest (junit:junit).
+     * 3. A traditional JAR with no module information, where the name must be
+     *    inferred from the JAR filename (hamcrest-core).
+     */
     def "dependencies"() {
         buildFile << """
         import org.elasticsearch.gradle.plugin.GenerateTestBuildInfoTask;

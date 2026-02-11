@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package validation contains the validation logic for the scheduler API.
 package validation
 
 import (
@@ -24,11 +25,17 @@ import (
 	"k8s.io/kubernetes/pkg/scheduler/api"
 )
 
+// TestValidatePolicy tests the validation logic for the Policy API object.
+// It uses a table-driven approach to cover various valid and invalid policy
+// configurations, ensuring that the validation rules for priorities and
+// extenders are correctly enforced.
 func TestValidatePolicy(t *testing.T) {
 	tests := []struct {
 		policy   api.Policy
 		expected error
 	}{
+		// --- Priority Weight Validation ---
+		// Block Logic: Verifies that priorities must have a positive weight.
 		{
 			policy:   api.Policy{Priorities: []api.PriorityPolicy{{Name: "NoWeightPriority"}}},
 			expected: errors.New("Priority NoWeightPriority should have a positive weight applied to it or it has overflown"),
@@ -45,10 +52,14 @@ func TestValidatePolicy(t *testing.T) {
 			policy:   api.Policy{Priorities: []api.PriorityPolicy{{Name: "WeightPriority", Weight: -2}}},
 			expected: errors.New("Priority WeightPriority should have a positive weight applied to it or it has overflown"),
 		},
+		// Block Logic: Verifies that priority weights do not exceed the maximum allowed value.
 		{
 			policy:   api.Policy{Priorities: []api.PriorityPolicy{{Name: "WeightPriority", Weight: api.MaxWeight}}},
 			expected: errors.New("Priority WeightPriority should have a positive weight applied to it or it has overflown"),
 		},
+
+		// --- Extender Configuration Validation ---
+		// Block Logic: Verifies that extender weights must be positive.
 		{
 			policy:   api.Policy{ExtenderConfigs: []api.ExtenderConfig{{URLPrefix: "http://127.0.0.1:8081/extender", PrioritizeVerb: "prioritize", Weight: 2}}},
 			expected: nil,
@@ -65,6 +76,7 @@ func TestValidatePolicy(t *testing.T) {
 			policy:   api.Policy{ExtenderConfigs: []api.ExtenderConfig{{URLPrefix: "http://127.0.0.1:8081/extender", PreemptVerb: "preempt"}}},
 			expected: nil,
 		},
+		// Block Logic: Ensures that only one extender can implement the "bind" verb.
 		{
 			policy: api.Policy{
 				ExtenderConfigs: []api.ExtenderConfig{
@@ -73,6 +85,9 @@ func TestValidatePolicy(t *testing.T) {
 				}},
 			expected: errors.New("Only one extender can implement bind, found 2"),
 		},
+
+		// --- Extender Resource Name Validation ---
+		// Block Logic: Ensures that extender managed resource names are unique.
 		{
 			policy: api.Policy{
 				ExtenderConfigs: []api.ExtenderConfig{
@@ -81,6 +96,7 @@ func TestValidatePolicy(t *testing.T) {
 				}},
 			expected: errors.New("Duplicate extender managed resource name foo.com/bar"),
 		},
+		// Block Logic: Ensures that extender resource names do not use the reserved "kubernetes.io" domain.
 		{
 			policy: api.Policy{
 				ExtenderConfigs: []api.ExtenderConfig{

@@ -1,15 +1,39 @@
+/**
+ * @file solver_neopt.c
+ * @brief This file implements a non-optimized matrix solver, featuring basic matrix operations
+ * such as addition, and specialized multiplications for normal-transpose and upper-triangular matrices.
+ * This implementation serves as a baseline for performance comparisons, contrasting with optimized
+ * versions like those utilizing BLAS.
+ *
+ * Algorithm: Naive matrix operations (addition, multiplication), no advanced optimizations (e.g., tiling, Strassen).
+ * Time Complexity: Predominantly O(N^3) for matrix multiplications, and O(N^2) for addition, where N is matrix dimension.
+ * Space Complexity: O(N^2) for storing intermediate matrices.
+ */
 
 #include "utils.h"
 
 
 
 
+/**
+ * @brief Performs element-wise addition of two matrices.
+ * This function computes C = A + B for N x N matrices stored in row-major order.
+ *
+ * @param N The dimension of the square matrices.
+ * @param a Pointer to the first input matrix A.
+ * @param b Pointer to the second input matrix B.
+ * @param c Pointer to the output matrix C, where the result will be stored.
+ */
 void add(int N, double *a, double *b, double *c) {
 	int i;
+	// Block Logic: Iterate through all elements of the matrices.
+	// Precondition: Matrices a, b, and c are allocated for N*N doubles.
+	// Invariant: After each iteration, c[i] contains the sum of a[i] and b[i].
 	for (i = 0; i < N * N; i++) {
 		c[i] = a[i] + b[i];
 	}
 }
+
 
 
 void normal_x_normal_transpose(int N, double *a, double *c) {

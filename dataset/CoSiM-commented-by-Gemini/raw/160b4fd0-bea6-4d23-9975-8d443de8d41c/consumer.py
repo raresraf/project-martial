@@ -1,12 +1,27 @@
+"""
+This module simulates a marketplace with producers and consumers running in
+concurrent threads. It defines the central marketplace logic, as well as the
+behavior for producer and consumer threads. It also includes a suite of unit
+tests for the marketplace functionality.
 
+Note: The implementation uses a mix of English and Romanian variable names.
+The file structure is unconventional, with class definitions and imports
+interspersed. The Marketplace class has improved but still incomplete thread
+safety.
+"""
 from threading import Thread
 import time
 
 
 class Consumer(Thread):
+    """
+    Represents a consumer that buys products from the marketplace.
 
+    Each consumer thread processes a list of shopping orders ("carts"), where
+    each order contains instructions to add or remove products.
+    """
     def __init__(self, carts, marketplace, retry_wait_time, **kwargs):
-        
+        """Initializes the Consumer thread."""
         Thread.__init__(self, **kwargs)
         self.carts = carts
         self.marketplace = marketplace
@@ -15,16 +30,19 @@ class Consumer(Thread):
         pass
 
     def run(self):
-        id_cos = self.marketplace.new_cart()  
-        for lista in self.carts:
-            for dictionar in lista:  
+        """The main execution loop for the consumer thread."""
+        id_cos = self.marketplace.new_cart()  # 'cos' is Romanian for 'cart'.
+        for lista in self.carts: # 'lista' is Romanian for 'list'.
+            for dictionar in lista:  # 'dictionar' is Romanian for 'dictionary'.
                 for _ in range(dictionar.get("quantity")):  
                     if dictionar.get("type") == "add":  
+                        # Busy-wait until the product can be added to the cart.
                         while not self.marketplace.add_to_cart(id_cos, dictionar.get("product")):
                             time.sleep(self.retry_wait_time)  
                     elif dictionar.get("type") == "remove":  
                         self.marketplace.remove_from_cart(id_cos, dictionar.get("product"))
 
+        # 'lista_comanda' is Romanian for 'order list'.
         lista_comanda = self.marketplace.place_order(id_cos)  
         for value in lista_comanda:
             print(self.name, "bought", value)
@@ -34,9 +52,14 @@ import unittest
 
 
 class Marketplace:
+    """
+    The central marketplace, managing producers, products, and carts.
 
+    This version attempts to manage thread safety with locks, but some
+    operations remain vulnerable to race conditions.
+    """
     def __init__(self, queue_size_per_producer):
-        
+        """Initializes the marketplace."""
         self.queue_size_per_producer = queue_size_per_producer
         self.id_producer = 0  
         self.dictionar_producers = {}  
@@ -49,7 +72,12 @@ class Marketplace:
         pass
 
     def register_producer(self):
-        
+        """
+        Registers a new producer.
+
+        Warning: This method is not thread-safe. Concurrent calls could result
+        in producers getting the same ID due to a race condition on `id_producer`.
+        """
         self.id_producer = self.id_producer + 1  
 
 
@@ -58,7 +86,10 @@ class Marketplace:
         pass
 
     def publish(self, producer_id, product):
-        
+        """
+        Thread-safely publishes a product for a given producer.
+        Returns False if the producer's queue is full.
+        """
         with self.publish_lock:  
             
             if len(self.dictionar_producers.get(producer_id)) < self.queue_size_per_producer:
@@ -69,7 +100,12 @@ class Marketplace:
         pass
 
     def new_cart(self):
-        
+        """
+        Creates a new cart for a consumer.
+
+        Warning: This method is not thread-safe. Concurrent calls could result
+        in consumers getting the same cart ID.
+        """
         self.id_consumer = self.id_consumer + 1  
 
 
@@ -78,7 +114,9 @@ class Marketplace:
         pass
 
     def add_to_cart(self, cart_id, product):
-        
+        """
+        Thread-safely adds a product to a cart by moving it from a producer's inventory.
+        """
         ok = False
         key_aux = None
         with self.add_to_cart_lock:  
@@ -97,7 +135,12 @@ class Marketplace:
         pass
 
     def remove_from_cart(self, cart_id, product):
-        
+        """
+        Removes a product from a cart and returns it to the producer.
+
+        Warning: This method is not thread-safe. It modifies shared lists
+        without a lock, which can lead to race conditions.
+        """
         for value, id_value in self.dictionar_cos.get(cart_id):  
             if product == value:  
                 self.dictionar_cos.get(cart_id).remove([value, id_value])  
@@ -106,7 +149,7 @@ class Marketplace:
         pass
 
     def place_order(self, cart_id):
-        
+        """Returns a list of products in the cart for the final order."""
         lista_comanda = []  
         for value, id_value in self.dictionar_cos.get(cart_id):
             lista_comanda.append(value)
@@ -115,7 +158,13 @@ class Marketplace:
 
 
 class TestMarketplace(unittest.TestCase):  
+    """
+    Unit tests for the Marketplace class.
 
+    Note: The test setup has a dependency on a 'product' module which is not
+    provided, though the dataclasses are defined in this file. This may
+    indicate a broken or incomplete test suite.
+    """
     def setUp(self):
         from product import Tea, Coffee
         self.marketplace = Marketplace(15)  
@@ -185,10 +234,11 @@ import time
 
 
 class Producer(Thread):
-    
-
+    """
+    Represents a producer thread that publishes products to the marketplace.
+    """
     def __init__(self, products, marketplace, republish_wait_time, **kwargs):
-        
+        """Initializes the Producer thread."""
         Thread.__init__(self, **kwargs)
         self.products = products
         self.marketplace = marketplace
@@ -197,6 +247,7 @@ class Producer(Thread):
         pass
 
     def run(self):
+        """The main execution loop for the producer."""
         id_producer = self.marketplace.register_producer()  
         while True:
             
@@ -214,19 +265,19 @@ from dataclasses import dataclass
 
 @dataclass(init=True, repr=True, order=False, frozen=True)
 class Product:
-    
+    """A base dataclass for products in the marketplace."""
     name: str
     price: int
 
 
 @dataclass(init=True, repr=True, order=False, frozen=True)
 class Tea(Product):
-    
+    """A dataclass for Tea products, inheriting from Product."""
     type: str
 
 
 @dataclass(init=True, repr=True, order=False, frozen=True)
 class Coffee(Product):
-    
+    """A dataclass for Coffee products, inheriting from Product."""
     acidity: str
     roast_level: str

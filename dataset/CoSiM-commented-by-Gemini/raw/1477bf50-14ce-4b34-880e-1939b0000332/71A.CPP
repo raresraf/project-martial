@@ -1,3 +1,26 @@
+/**
+ * @file 71A.CPP
+ * @brief Solution for the "Way Too Long Words" problem.
+ * @details This program processes a list of words. If a word's length is greater than 10 characters,
+ * it is abbreviated. The abbreviation consists of the first character, the number of characters
+ * between the first and last (i.e., length - 2), and the last character. Words with 10 or fewer
+ * characters are printed as is. This file includes a large boilerplate template common in
+ * competitive programming.
+ *
+ * @section algorithm Algorithm
+ * 1. Read the number of test cases.
+ * 2. Loop for each test case:
+ *    a. Read the entire line containing the word into a C-style string.
+ *    b. Calculate the length of the string.
+ *    c. If the length is greater than 10:
+ *       - Print the first character, the length minus 2, and the last character, followed by a newline.
+ *    d. Else (if the length is 10 or less):
+ *       - Print the string as is, followed by a newline.
+ *
+ * @section complexity Complexity Analysis
+ * - Time Complexity: O(T * L), where T is the number of test cases and L is the maximum length of a word. The complexity is dominated by input/output operations.
+ * - Space Complexity: O(L), for the character array used to store the word.
+ */
 // Codeforces 71A - Way Too Long Words.cpp
 #include <cstdio>
 #include <iostream>
@@ -33,6 +56,8 @@
 #define NL '\n'
 using namespace std;
 
+// NOTE: The following is a standard template of helper functions and type definitions
+// often used in competitive programming to accelerate development.
 // BEGINTEMPLATE_BY_ZAYED
 const double PI = 2 * acos(0.0);
 const double EPS = 1e-11;
@@ -106,13 +131,18 @@ int main() {
   // std::ios_base::sync_with_stdio(0);
   int cases, caseno = 0, n, I, K;
   char iFalse;
+  // Read the number of test cases. The '%c' is used to consume the newline character
+  // left by scanf, which is important for the subsequent getline call.
   scanf("%d%c", &cases, &iFalse);
   while (cases--) {
+    // Read the entire line into the character array 's'.
     cin.getline(s, 110);
     int len = strlen(s);
+
+    // If the word's length is 10 or less, print it as is.
     if (len <= 10)
       printf("%s\n", s);
-
+    // Otherwise, print the abbreviated version.
     else
       printf("%c%d%c\n", s[0], len - 2, s[len - 1]);
   }

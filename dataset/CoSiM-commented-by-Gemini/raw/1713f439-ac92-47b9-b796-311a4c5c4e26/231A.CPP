@@ -1,9 +1,30 @@
-/*
-        written by Pankaj Kumar.
-        country:-INDIA
-*/
+/**
+ * @file 231A.CPP
+ * @brief Solution for the "Team" problem.
+ * @author Pankaj Kumar (INDIA)
+ *
+ * @details This program calculates the number of problems a team will solve, based on
+ * the rule that at least two of the three members must be confident. The code is
+ * built upon a large template of macros and typedefs common in competitive programming.
+ *
+ * @section algorithm Algorithm
+ * 1. Fast I/O is enabled using a macro `pan`.
+ * 2. The number of problems, `n`, is read from standard input.
+ * 3. A `count` variable is initialized to zero to store the number of solvable problems.
+ * 4. The code iterates `n` times, once for each problem.
+ *    a. A temporary counter `temp` is reset to zero.
+ *    b. An inner loop runs three times to read the decisions of the three team members.
+ *    c. Inside the inner loop, each decision is read. If it is 1, `temp` is incremented.
+ *    d. After reading the three decisions, if `temp` is 2 or more, the main `count` is incremented.
+ * 5. Finally, the total `count` is printed.
+ *
+ * @section complexity Complexity Analysis
+ * - Time Complexity: O(N), where N is the number of problems, as the code iterates through each problem once.
+ * - Space Complexity: O(1), as data is processed on the fly without being stored in a large data structure.
+ */
 #include <bits/stdc++.h>
 using namespace std;
+// NOTE: The following is a standard template for competitive programming.
 typedef long long ll;
 typedef set<pair<int, int>> spi;
 typedef set<pair<ll, ll>> spl;
@@ -58,17 +79,21 @@ A=65,Z=90,a=97,z=122
 /*  -----------------------------------------------------------------------------------*/
 
 int main() {
-  pan;
+  pan; // Macro for fast I/O settings.
   int n, no;
   cin >> n;
   int count = 0, temp = 0;
+  // Loop through each of the n problems.
   for (int i = 0; i < n; i++) {
-    temp = 0;
+    temp = 0; // Reset confidence counter for the current problem.
+    // Inner loop to read decisions from the three members.
     for (int j = 1; j <= 3; j++) {
       cin >> no;
+      // If a member is sure (inputs a 1), increment the counter for this problem.
       if (no == 1)
         temp++;
     }
+    // If at least two members are sure, the team will solve the problem.
     if (temp >= 2)
       count++;
   }

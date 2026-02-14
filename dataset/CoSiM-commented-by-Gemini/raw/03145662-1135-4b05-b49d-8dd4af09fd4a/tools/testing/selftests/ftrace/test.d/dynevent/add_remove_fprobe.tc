@@ -10,12 +10,15 @@
 # This script tests the functionality of adding and removing fprobe events
 # through the dynamic_events interface in tracefs. It verifies that fprobe
 # events can be created for both function entry and function return, and that
-# they can be removed correctly.
+# they can be removed correctly, ensuring the underlying ftrace mechanisms
+# are working as expected.
 #
 
+# Reset and disable event tracing to ensure a clean state before the test.
 echo 0 > events/enable
 echo > dynamic_events
 
+# Define kernel functions to be used as probing points.
 PLACE=$FUNCTION_FORK
 PLACE2="kmem_cache_free"
 PLACE3="schedule_timeout"
@@ -24,6 +27,9 @@ PLACE3="schedule_timeout"
 # count already enabled_functions before tests start
 ocnt=`cat enabled_functions | wc -l`
 
+# Test Case: Add a single fprobe event for function entry.
+# Block Logic: This section verifies that a single fprobe can be attached to a
+# function and that the 'enabled_functions' count is correctly incremented.
 echo "f:myevent1 $PLACE" >> dynamic_events
 
 # Make sure the event is attached and is the only one
@@ -33,6 +39,10 @@ if [ $cnt -ne $((ocnt + 1)) ]; then
 	exit_fail
 fi
 
+# Test Case: Add a return probe to the same function.
+# Block Logic: This verifies that adding a return probe ('%return') to a function
+# that already has an entry probe does not increment the enabled_functions count,
+# as it attaches to the same underlying probe point.
 echo "f:myevent2 $PLACE%return" >> dynamic_events
 
 # It should till be the only attached function
@@ -41,7 +51,9 @@ if [ $cnt -ne $((ocnt + 1)) ]; then
 	exit_fail
 fi
 
-# add another event
+# Test Case: Add a probe to a different function.
+# Block Logic: This ensures that adding a probe to a second, distinct function
+# correctly increments the enabled_functions count.
 echo "f:myevent3 $PLACE2" >> dynamic_events
 
 grep -q $PLACE2 enabled_functions
@@ -50,23 +62,34 @@ if [ $cnt -ne $((ocnt + 2)) ]; then
 	exit_fail
 fi
 
+# Verification: Check that all events were created successfully.
+# Block Logic: This confirms that the event names are listed in the 'dynamic_events'
+# file and that corresponding directories have been created in the tracefs events
+# directory.
 grep -q myevent1 dynamic_events
 grep -q myevent2 dynamic_events
 grep -q myevent3 dynamic_events
 test -d events/fprobes/myevent1
 test -d events/fprobes/myevent2
 
+# Test Case: Remove a single event.
+# Block Logic: This tests the removal of a specific dynamic event. Even though the
+# event is removed, the function might remain in 'enabled_functions' if another
+# event is still attached to it.
 echo "-:myevent2" >> dynamic_events
 
 grep -q myevent1 dynamic_events
 ! grep -q myevent2 dynamic_events
 
-# should still have 2 left
+# should still have 2 left because myevent1 and myevent3 are attached to 2 functions
 cnt=`cat enabled_functions | wc -l`
 if [ $cnt -ne $((ocnt + 2)) ]; then
 	exit_fail
 fi
 
+# Test Case: Clear all dynamic events.
+# Block Logic: Writing an empty line to 'dynamic_events' should remove all
+# currently defined dynamic events and clear the 'enabled_functions' list.
 echo > dynamic_events
 
 # Should have none left
@@ -75,6 +98,9 @@ if [ $cnt -ne $ocnt ]; then
 	exit_fail
 fi
 
+# Test Case: Add a new event after clearing.
+# Block Logic: Verifies that a new event can be added after a full clear,
+# ensuring the system is in a clean state.
 echo "f:myevent4 $PLACE" >> dynamic_events
 
 # Should only have one enabled
@@ -91,4 +117,5 @@ if [ $cnt -ne $ocnt ]; then
 	exit_fail
 fi
 
+# Final cleanup.
 clear_trace

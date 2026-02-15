@@ -1,11 +1,32 @@
-/*
-Codeforces Beta Round #63 (Div. 2) - A. Young Physicist
-https://codeforces.com/problemset/problem/69/A
-*/
+/**
+ * @file 69A.CPP
+ * @brief Solution to the "Young Physicist" problem using a standard competitive programming template.
+ * @details The problem is to determine if a body is in equilibrium, which occurs if the
+ * vector sum of all forces acting on it is the zero vector (0, 0, 0).
+ *
+ * @section algorithm Algorithm
+ * This program calculates the net force by summing the components of all force vectors.
+ * 1. Global variables `a`, `b`, and `c` are used to maintain the running sum of forces
+ *    along the X, Y, and Z axes, respectively.
+ * 2. The main function reads the number of force vectors, `tc`.
+ * 3. It then loops `tc` times, calling a `solve()` function in each iteration.
+ * 4. The `solve()` function is responsible for reading the three components of a single
+ *    force vector and adding them to the global sums.
+ * 5. After the loop, the main function checks if the global sums `a`, `b`, and `c` are
+ *    all zero.
+ * 6. It prints "YES" if the net force is zero, indicating equilibrium, and "NO" otherwise.
+ *
+ * @section complexity Complexity Analysis
+ * - Time Complexity: O(N), where N is the number of force vectors, as each vector is processed once.
+ * - Space Complexity: O(1), as a fixed number of variables are used for the sums.
+ */
 
 #include <bits/stdc++.h>
 using namespace std;
 
+// This section contains a typical competitive programming template with type aliases
+// and macros to speed up coding. For example, `ll` is `long long`, `vi` is `vector<int>`,
+// and `FOR` is a loop macro.
 typedef long long ll;
 typedef pair<int, int> pii;
 typedef pair<ll, ll> pll;
@@ -60,11 +81,19 @@ const ll MOD = 1000000007;
   ios_base::sync_with_stdio(false);                                            \
   cin.tie(NULL)
 
-int a = 0, b = 0, c = 0, x, y, z;
+// Global variables to store the sum of forces along each axis (X, Y, Z).
+int a = 0, b = 0, c = 0;
+// Global variables used to read the components of a single vector.
+int x, y, z;
 
+/**
+ * @brief Reads one force vector from input and adds its components to the global sums.
+ */
 void solve() {
   cin >> x >> y >> z;
-  a += x, b += y, c += z;
+  a += x;
+  b += y;
+  c += z;
 }
 
 int main() {
@@ -74,10 +103,13 @@ int main() {
   freopen("output.txt", "w", stdout);
 #endif
 
-  int tc;
+  int tc; // 'tc' (test cases) is used here to mean the number of vectors.
   cin >> tc;
+  // The TC macro expands to `while(tc--)`, processing one vector per loop.
   TC(tc) solve();
-  // check if it is in equilibrium
+  
+  // After all vectors are processed, check if the total force is zero.
+  // The OUT macro expands to `cout << ... << endl`.
   OUT((a == 0 && b == 0 && c == 0 ? "YES" : "NO"));
   return 0;
 }

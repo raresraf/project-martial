@@ -1,6 +1,30 @@
+/**
+ * @file 112A.CPP
+ * @brief Solution to the "Petya and Strings" competitive programming problem.
+ * @details The problem requires a case-insensitive lexicographical comparison of two strings.
+ * The output should be -1 if the first string is lexicographically smaller, 1 if it is
+ * larger, and 0 if they are equal.
+ *
+ * @section algorithm Algorithm
+ * The algorithm first normalizes the strings and then performs a comparison:
+ * 1. Read the two input strings, `s` and `p`.
+ * 2. Iterate through both strings simultaneously and convert all uppercase characters to lowercase.
+ *    This ensures that the comparison is case-insensitive.
+ * 3. After normalization, the two strings are compared lexicographically using standard operators.
+ * 4. If `s` is less than `p`, print -1.
+ * 5. If `s` is greater than `p`, print 1.
+ * 6. If they are equal, print 0.
+ *
+ * @section complexity Complexity Analysis
+ * - Time Complexity: O(L), where L is the length of the strings. This is because the program
+ *   iterates through the strings once for conversion, and the subsequent comparison also takes linear time.
+ * - Space Complexity: O(L) to store the two input strings.
+ */
+
 //#pragma GCC optimize("ofsat")
 //#pragma GCC  target("avx,avx2,fma")
 
+// Standard competitive programming boilerplate: includes and a large number of macros for brevity and convenience.
 #include <bits/stdc++.h>
 //#include<unordered_map>
 //#include <ext/pb_ds/assoc_container.hpp>
@@ -79,26 +103,32 @@ using namespace std;
 // tree_order_statistics_node_update> pbds;
 
 int main() {
+  // Fast I/O setup.
   fast;
   string s, p;
   cin >> s >> p;
 
+  // Convert both strings to lowercase for a case-insensitive comparison.
   for0(i, s.length()) {
+    // Check if the character in string 's' is uppercase.
     if (isupper(s[i])) {
+      // Convert to lowercase by adding 32 to its ASCII value.
       s[i] = s[i] + 32;
     }
+    // Check if the character in string 'p' is uppercase.
     if (isupper(p[i])) {
+      // Convert to lowercase.
       p[i] = p[i] + 32;
     }
   }
-  // cout<<s<<" "<<p;
 
+  // Perform lexicographical comparison on the normalized lowercase strings.
   if (s == p)
-    cout << 0 << endl;
-  else if (s < p) /// Lexicographical comparison.
-    cout << -1 << endl;
+    cout << 0 << endl;      // Strings are equal.
+  else if (s < p)
+    cout << -1 << endl;     // First string is lexicographically smaller.
   else
-    cout << 1 << endl;
+    cout << 1 << endl;      // First string is lexicographically larger.
 
   return 0;
 }

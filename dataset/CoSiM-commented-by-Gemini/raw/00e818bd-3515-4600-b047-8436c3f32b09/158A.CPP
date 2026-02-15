@@ -46,15 +46,13 @@ int main() {
       // Contestants in the top k with a score of 0 do not advance.
       if (temp == 0) {
         pass--;
-      } else {
-        continue;
       }
+    } else { // This else block was missing in the original search string, causing a mismatch.
+      // Block Logic: This section processes contestants after the k-th position.
+      // An extra contestant passes if their score is positive and meets or exceeds the threshold.
+      if (temp > 0 && temp >= base)
+        pass++;
     }
-
-    // Block Logic: This section processes contestants after the k-th position.
-    // An extra contestant passes if their score is positive and meets or exceeds the threshold.
-    if (temp > 0 && temp >= base)
-      pass++;
   }
 
   cout << pass << endl;

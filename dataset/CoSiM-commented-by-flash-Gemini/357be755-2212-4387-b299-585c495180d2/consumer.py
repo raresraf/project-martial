@@ -1,22 +1,47 @@
 
 
+"""
+@05314305-b286-4c5b-a80e-5c46defa6a97/arch/arm/crypto/Makefile consumer.py
+@brief Implements a simulated e-commerce system with producers, a marketplace, and consumers, demonstrating concurrent operations.
+This module integrates several components: `Consumer` threads for purchasing products from the marketplace,
+the `Marketplace` itself for managing product inventory and carts, `Producer` threads for supplying products,
+and `Product` dataclasses (Coffee, Tea) for defining product types.
+It utilizes threading and synchronization primitives to simulate a concurrent environment.
+"""
+
 from threading import Thread
 from time import sleep
 
 class Consumer(Thread):
+    """
+    @brief Represents a consumer thread in the e-commerce simulation.
+    Each consumer attempts to purchase products defined in its shopping carts
+    from the marketplace, handling retries if products are not immediately available.
+    """
     
 
     def __init__(self, carts, marketplace, retry_wait_time, **kwargs):
-        
+        """
+        @brief Initializes a Consumer thread.
+        @param carts A list of shopping cart definitions, where each cart is a list of operations (add/remove product).
+        @param marketplace The `Marketplace` instance from which to buy products.
+        @param retry_wait_time The time in seconds to wait before retrying an add-to-cart operation if it fails.
+        @param kwargs Arbitrary keyword arguments, including a "name" for the consumer.
+        """
         Thread.__init__(self, **kwargs)
         self.carts = carts
         self.marketplace = marketplace
         self.retry_wait_time = retry_wait_time
-        self.id = kwargs["name"]
+        self.id = kwargs["name"] # Unique identifier for the consumer, typically its thread name.
 
     def run(self):
-
+        """
+        @brief The main execution loop for the consumer thread.
+        Iterates through its assigned carts, performs add/remove operations on products,
+        and finally places an order, retrying add operations if products are unavailable.
+        """
         for cart in self.carts:
+            # Block Logic: Acquire marketplace lock to safely create a new cart.
             self.marketplace.lock.acquire()
             cart_id = self.marketplace.new_cart()
             self.marketplace.lock.release()
@@ -27,18 +52,23 @@ class Consumer(Thread):
                 product = operation['product']
                 quantity = operation['quantity']
                 for i in range(quantity):
-                    self.marketplace.lock.acquire()
+                    self.marketplace.lock.acquire() # Acquire marketplace lock for cart modification.
                     if type == "add":
+                        # Block Logic: Continuously try to add product to cart until successful.
+                        # Releases lock, sleeps, and re-acquires lock if product is unavailable.
                         while not self.marketplace.add_to_cart(cart_id, product):
                             self.marketplace.lock.release()
                             sleep(self.retry_wait_time)
                             self.marketplace.lock.acquire()
                     else:
+                        # Block Logic: Remove product from cart.
                         self.marketplace.remove_from_cart(cart_id, product)
-                    self.marketplace.lock.release()
+                    self.marketplace.lock.release() # Release marketplace lock after cart modification.
 
+            # Place the final order for the current cart.
             products = self.marketplace.place_order(cart_id)
 
+            # Print purchased products.
             for product in products:
                 print(self.id + " bought " + str(product))
 

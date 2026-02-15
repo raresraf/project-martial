@@ -19,6 +19,16 @@
 #include <unistd.h>
 #include <math.h>
 
+/**
+ * @brief Utility macro to compare two double-precision floating-point numbers within a given error tolerance.
+ * Functional Utility: Facilitates fuzzy comparison of floating-point values to account for potential
+ * precision differences inherent in floating-point arithmetic.
+ *
+ * @param a The first floating-point number.
+ * @param b The second floating-point number.
+ * @param err The maximum allowed absolute difference for `a` and `b` to be considered equal.
+ * @return 0 if the absolute difference between `a` and `b` is less than or equal to `err`, otherwise -1.
+ */
 #define check_err(a,b,err) ((fabs((a) - (b)) <= (err)) ? 0 : -1)
 
 

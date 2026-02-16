@@ -1,4 +1,12 @@
 # SPDX-License-Identifier: GPL-2.0
+#
+# @brief Main Makefile for the Linux kernel build system.
+# @description This Makefile orchestrates the entire kernel compilation process,
+#              handling versioning, configuration parsing, toolchain
+#              integration, and managing build targets for the kernel image
+#              (vmlinux) and modules. It supports recursive builds and
+#              cross-compilation.
+#
 VERSION = 6
 PATCHLEVEL = 16
 SUBLEVEL = 0
@@ -11,17 +19,32 @@ NAME = Baby Opossum Posse
 # Comments in this file are targeted only to the developer, do not
 # expect to learn how to build the kernel reading this file.
 
+# Block Logic: Enforces a minimum GNU Make version requirement.
+# Pre-condition: Invocation of GNU Make.
+# Invariant: Build halts if Make version is less than 4.0, ensuring compatibility with required features.
 ifeq ($(filter output-sync,$(.FEATURES)),)
 $(error GNU Make >= 4.0 is required. Your Make version is $(MAKE_VERSION))
 endif
 
+# Block Logic: Prevents accidental invocation of internal targets.
+# Pre-condition: Make targets provided on the command line.
+# Invariant: Any target prefixed with '__' will cause a build error.
 $(if $(filter __%, $(MAKECMDGOALS)), \
 	$(error targets prefixed with '__' are only for internal use))
 
-# That's our default target when none is given on the command line
+# Defines the default target when no explicit target is specified on the command line.
 PHONY := __all
 __all:
 
+# Block Logic: Manages the recursive build system.
+# Description: Sub-Makefiles are restricted to modifying files within their own directories.
+#              Dependencies on files in other directories trigger a sub-make call to that directory,
+#              ensuring all dependencies are up-to-date. Global effect modifications are handled
+#              by the 'prepare' rule before recursive descent.
+#
+# Invariant: Each sub-directory's build process remains isolated, and global build prerequisites
+#            are met prior to localized compilation.
+#
 # We are using a recursive build, so we need to do a little thinking
 # to get the ordering right.
 #
@@ -44,21 +67,27 @@ abs_output := $(CURDIR)
 
 ifneq ($(sub_make_done),1)
 
-# Do not use make's built-in rules and variables
-# (this increases performance and avoids hard-to-debug behaviour)
+# Block Logic: Configures GNU Make behavior for consistency and performance.
+# Functional Utility: Disables built-in rules and variables to prevent unexpected behavior
+#                     and improve build speed.
 MAKEFLAGS += -rR
 
-# Avoid funny character set dependencies
+# Block Logic: Standardizes locale settings for predictable build output.
+# Functional Utility: Ensures consistent collation and numeric formatting across different
+#                     build environments, preventing locale-dependent build issues.
 unexport LC_ALL
 LC_COLLATE=C
 LC_NUMERIC=C
 export LC_COLLATE LC_NUMERIC
 
-# Avoid interference with shell env settings
+# Block Logic: Prevents interference from user-defined environment variables.
+# Functional Utility: Unsets GREP_OPTIONS to ensure that `grep` commands behave consistently
+#                     during the build process, regardless of the user's shell environment.
 unexport GREP_OPTIONS
 
-# Beautify output
-# ---------------------------------------------------------------------------
+# Block Logic: Controls the verbosity of build output.
+# Functional Utility: Allows users to choose between quiet (default), verbose (V=1),
+#                     or very verbose (V=2) output, aiding in debugging and build analysis.
 #
 # Most of build commands in Kbuild start with "cmd_". You can optionally define
 # "quiet_cmd_*". If defined, the short log is printed. Otherwise, no log from
@@ -110,6 +139,12 @@ export quiet Q KBUILD_VERBOSE
 # See the file "Documentation/dev-tools/sparse.rst" for more details,
 # including where to get the "sparse" utility.
 
+# Block Logic: Configures the Sparse static analysis checker.
+# Functional Utility: Enables static analysis of C source files to detect potential coding errors and adherence to coding standards.
+#                     Allows selective checking of re-compiled or all source files.
+#
+# Pre-condition: 'C' variable is set on the command line.
+# Invariant: KBUILD_CHECKSRC is set to the value of 'C' or defaults to 0 (disabled).
 ifeq ("$(origin C)", "command line")
   KBUILD_CHECKSRC = $(C)
 endif
@@ -119,17 +154,24 @@ endif
 
 export KBUILD_CHECKSRC
 
-# Enable "clippy" (a linter) as part of the Rust compilation.
+# Block Logic: Configures the Clippy linter for Rust code.
+# Functional Utility: Activates the Clippy linter to enforce Rust coding conventions and identify common pitfalls.
 #
-# Use 'make CLIPPY=1' to enable it.
+# Pre-condition: 'CLIPPY' variable is set on the command line.
+# Invariant: KBUILD_CLIPPY is set to the value of 'CLIPPY'.
 ifeq ("$(origin CLIPPY)", "command line")
   KBUILD_CLIPPY := $(CLIPPY)
 endif
 
 export KBUILD_CLIPPY
 
-# Use make M=dir or set the environment variable KBUILD_EXTMOD to specify the
-# directory of external module to build. Setting M= takes precedence.
+# Block Logic: Specifies the directory for external kernel modules.
+# Functional Utility: Directs the build system to the source directory of external modules, allowing
+#                     their compilation alongside or independently of the main kernel.
+#
+# Pre-condition: 'M' variable is set on the command line or KBUILD_EXTMOD is set in the environment.
+# Invariant: KBUILD_EXTMOD contains the path to the external module source, and multiple external
+#            modules cannot be built simultaneously. Path validation ensures no problematic characters.
 ifeq ("$(origin M)", "command line")
   KBUILD_EXTMOD := $(M)
 endif
@@ -151,32 +193,23 @@ endif
 
 export KBUILD_EXTMOD
 
+# Block Logic: Configures additional compiler warning levels.
+# Functional Utility: Enables more stringent warning checks during compilation, promoting code quality and identifying potential issues.
+#
+# Pre-condition: 'W' variable is set on the command line.
+# Invariant: KBUILD_EXTRA_WARN is set to the value of 'W'.
 ifeq ("$(origin W)", "command line")
   KBUILD_EXTRA_WARN := $(W)
 endif
 
 export KBUILD_EXTRA_WARN
 
-# Kbuild will save output files in the current working directory.
-# This does not need to match to the root of the kernel source tree.
+# Block Logic: Defines the output directory for build artifacts.
+# Functional Utility: Allows users to specify a separate directory for all generated build files,
+#                     keeping the source tree clean. Prioritizes command-line 'O=' over environment 'KBUILD_OUTPUT'.
 #
-# For example, you can do this:
-#
-#  cd /dir/to/store/output/files; make -f /dir/to/kernel/source/Makefile
-#
-# If you want to save output files in a different location, there are
-# two syntaxes to specify it.
-#
-# 1) O=
-# Use "make O=dir/to/store/output/files/"
-#
-# 2) Set KBUILD_OUTPUT
-# Set the environment variable KBUILD_OUTPUT to point to the output directory.
-# export KBUILD_OUTPUT=dir/to/store/output/files/; make
-#
-# The O= assignment takes precedence over the KBUILD_OUTPUT environment
-# variable.
-
+# Pre-condition: 'O' variable is set on the command line or KBUILD_OUTPUT is set in the environment.
+# Invariant: Build artifacts are placed in the specified output directory; defaults to current directory if not set.
 ifeq ("$(origin O)", "command line")
   KBUILD_OUTPUT := $(O)
 endif
@@ -205,6 +238,14 @@ endif
 export objtree srcroot
 
 # Do we want to change the working directory?
+# Block Logic: Manages recursive Make invocations to support out-of-tree builds.
+# Functional Utility: Ensures that if an output directory is specified, `make` is re-invoked
+#                     within that directory. This mechanism facilitates building the kernel
+#                     in a separate location from the source tree.
+#
+# Pre-condition: `abs_output` (absolute path of the output directory) is defined.
+# Invariant: If `abs_output` differs from `CURDIR`, a recursive call to make will occur,
+#            with `no-print-directory` set for the final invocation to suppress redundant messages.
 ifneq ($(output),)
 # $(realpath ...) gets empty if the path does not exist. Run 'mkdir -p' first.
 $(shell mkdir -p "$(output)")
@@ -213,14 +254,21 @@ abs_output := $(realpath $(output))
 $(if $(abs_output),,$(error failed to create output directory "$(output)"))
 endif
 
+# Block Logic: Validates the source tree path for problematic characters.
+# Pre-condition: `abs_srctree` (absolute path of the source tree) is defined.
+# Invariant: The source directory path must not contain spaces or colons to prevent build failures.
 ifneq ($(words $(subst :, ,$(abs_srctree))), 1)
 $(error source directory cannot contain spaces or colons)
 endif
 
+# Marks that the initial, non-recursive part of the Makefile has been processed.
 export sub_make_done := 1
 
 endif # sub_make_done
 
+# Block Logic: Determines whether to suppress "Entering directory ..." messages during recursive builds.
+# Functional Utility: Optimizes build output by preventing redundant directory entry messages when the
+#                     current directory is the final build directory.
 ifeq ($(abs_output),$(CURDIR))
 # Suppress "Entering directory ..." if we are at the final work directory.
 no-print-directory := --no-print-directory
@@ -229,6 +277,10 @@ else
 need-sub-make := 1
 endif
 
+# Block Logic: Ensures `--no-print-directory` is consistently applied across Make versions.
+# Functional Utility: Addresses GNU Make 4.4.1 behavior changes regarding `--no-print-directory`
+#                     by potentially re-invoking `make` if the flag is unset, guaranteeing consistent
+#                     output suppression.
 ifeq ($(filter --no-print-directory, $(MAKEFLAGS)),)
 # If --no-print-directory is unset, recurse once again to set it.
 # You may end up recursing into __sub-make twice. This is needed due to the
@@ -238,8 +290,15 @@ endif
 
 ifeq ($(need-sub-make),1)
 
+# Declares targets that can be called recursively as phony.
 PHONY += $(MAKECMDGOALS) __sub-make
 
+# Block Logic: Handles the recursive invocation of Make in the output directory.
+# Functional Utility: Transfers control to a sub-make process in the designated output directory,
+#                     passing all command-line goals for continued compilation.
+# Pre-condition: `need-sub-make` is set to 1.
+# Invariant: The `make` command is executed with `--no-print-directory` and the correct
+#            Makefile path, ensuring the build continues in the desired output location.
 $(filter-out $(this-makefile), $(MAKECMDGOALS)) __all: __sub-make
 	@:
 
@@ -250,6 +309,13 @@ __sub-make:
 
 else # need-sub-make
 
+# Block Logic: Finalizes source and build directory paths after potential recursive invocations.
+# Functional Utility: Sets `srcroot` and `VPATH` based on whether the build is in-tree or out-of-tree,
+#                     and adjusts `srctree` accordingly for external modules.
+#
+# Pre-condition: This is the final, non-recursive invocation of Make.
+# Invariant: `srctree` accurately points to the kernel source, and `VPATH` is correctly configured
+#            for file lookup.
 # We process the rest of the Makefile if this is the final invocation of make
 
 ifndef KBUILD_EXTMOD
@@ -280,6 +346,13 @@ else
 VPATH :=
 endif
 
+# Block Logic: Controls the inclusion of the .config file based on target types.
+# Functional Utility: Optimizes the build process by selectively excluding .config for targets
+#                     that do not require it (e.g., clean, documentation, utility targets),
+#                     and handles mixed target invocations by performing separate make calls.
+#
+# Invariant: .config is only included when necessary for actual kernel compilation,
+#            preventing unnecessary configuration processing for non-build targets.
 # To make sure we do not include .config for any of the *config targets
 # catch them early, and hand them over to scripts/kconfig/Makefile
 # It is allowed to specify more targets when calling make, including
@@ -333,6 +406,10 @@ ifeq ($(KBUILD_EXTMOD),)
     endif
 endif
 
+# Block Logic: Detects and flags attempts to build multiple types of targets simultaneously.
+# Pre-condition: Multiple targets specified on the command line.
+# Invariant: `mixed-build` is set if incompatible targets (e.g., single-file build and generic targets)
+#            or multiple cleaning/installation targets are provided, leading to serialized execution.
 # We cannot build single targets and the others at the same time
 ifneq ($(filter $(single-targets), $(MAKECMDGOALS)),)
     single-build := 1
@@ -356,6 +433,12 @@ ifneq ($(filter install,$(MAKECMDGOALS)),)
 endif
 
 ifdef mixed-build
+# Block Logic: Serializes the execution of mixed build targets.
+# Functional Utility: Iterates through each specified target and invokes a separate `make` command,
+#                     ensuring that complex or conflicting target combinations are processed sequentially.
+#
+# Pre-condition: `mixed-build` flag is set due to incompatible targets.
+# Invariant: Each target in `MAKECMDGOALS` is built individually, preventing parallel execution issues.
 # ===========================================================================
 # We're called with mixed targets (*config and build targets).
 # Handle them one by one.
@@ -375,6 +458,12 @@ else # !mixed-build
 
 include $(srctree)/scripts/Kbuild.include
 
+# Block Logic: Retrieves and sets kernel release and version information.
+# Functional Utility: Reads the KERNELRELEASE from a generated file or constructs it from
+#                     VERSION, PATCHLEVEL, SUBLEVEL, and EXTRAVERSION. This ensures that
+#                     the build uses the correct version identifiers.
+#
+# Invariant: KERNELRELEASE and KERNELVERSION are accurately set based on source or generated data.
 # Read KERNELRELEASE from include/config/kernel.release (if it exists)
 KERNELRELEASE = $(call read-file, $(objtree)/include/config/kernel.release)
 KERNELVERSION = $(VERSION)$(if $(PATCHLEVEL),.$(PATCHLEVEL)$(if $(SUBLEVEL),.$(SUBLEVEL)))$(EXTRAVERSION)
@@ -382,6 +471,14 @@ export VERSION PATCHLEVEL SUBLEVEL KERNELRELEASE KERNELVERSION
 
 include $(srctree)/scripts/subarch.include
 
+# Block Logic: Configures cross-compilation environment variables.
+# Functional Utility: Allows building the kernel for a different architecture than the host
+#                     by defining `ARCH` and `CROSS_COMPILE` prefix for toolchain executables.
+#                     It handles architecture-specific overrides for `SRCARCH`.
+#
+# Pre-condition: `ARCH` or `CROSS_COMPILE` may be set via command line or environment.
+# Invariant: `ARCH` and `SRCARCH` correctly identify the target architecture, and `CROSS_COMPILE`
+#            provides the necessary toolchain prefix for cross-compilation.
 # Cross compiling and selecting different set of gcc/bin-utils
 # ---------------------------------------------------------------------------
 #
@@ -435,13 +532,21 @@ endif
 KCONFIG_CONFIG	?= .config
 export KCONFIG_CONFIG
 
-# SHELL used by kbuild
+# Block Logic: Defines the shell used by Kbuild.
+# Functional Utility: Ensures that shell commands executed within the Makefile
+#                     use `sh` for consistency and portability across build environments.
 CONFIG_SHELL := sh
 
 HOST_LFS_CFLAGS := $(shell getconf LFS_CFLAGS 2>/dev/null)
 HOST_LFS_LDFLAGS := $(shell getconf LFS_LDFLAGS 2>/dev/null)
 HOST_LFS_LIBS := $(shell getconf LFS_LIBS 2>/dev/null)
 
+# Block Logic: Selects the host compiler (C/C++) based on LLVM configuration.
+# Functional Utility: Determines whether to use Clang (if LLVM is specified) or GCC/G++
+#                     for compiling host programs, supporting different development toolchains.
+#
+# Pre-condition: `LLVM` variable may be set to specify LLVM toolchain.
+# Invariant: `HOSTCC` and `HOSTCXX` are correctly set to the chosen host compilers.
 ifneq ($(LLVM),)
 ifneq ($(filter %/,$(LLVM)),)
 LLVM_PREFIX := $(LLVM)
@@ -458,18 +563,25 @@ endif
 HOSTRUSTC = rustc
 HOSTPKG_CONFIG	= pkg-config
 
-# the KERNELDOC macro needs to be exported, as scripts/Makefile.build
-# has a logic to call it
+# Block Logic: Defines the path to the kernel-doc script.
+# Functional Utility: Exports the path to `kernel-doc.py`, which is used for extracting
+#                     documentation from source code, ensuring it's accessible during the build.
 KERNELDOC       = $(srctree)/scripts/kernel-doc.py
 export KERNELDOC
 
+# Block Logic: Defines default CFLAGS for host programs.
+# Functional Utility: Sets standard compiler flags for host tools built during the kernel compilation process,
+#                     ensuring warnings, optimizations, and C standard compliance.
 KBUILD_USERHOSTCFLAGS := -Wall -Wmissing-prototypes -Wstrict-prototypes \
 			 -O2 -fomit-frame-pointer -std=gnu11
 KBUILD_USERCFLAGS  := $(KBUILD_USERHOSTCFLAGS) $(USERCFLAGS)
 KBUILD_USERLDFLAGS := $(USERLDFLAGS)
 
-# These flags apply to all Rust code in the tree, including the kernel and
-# host programs.
+# Block Logic: Defines common Rust compiler flags for kernel and host programs.
+# Functional Utility: Establishes a baseline set of flags for all Rust compilation,
+#                     enforcing edition, linting, and documentation standards.
+#
+# Invariant: `rust_common_flags` ensures consistent Rust compilation settings across the project.
 export rust_common_flags := --edition=2021 \
 			    -Zbinary_dep_depinfo=y \
 			    -Astable_features \
@@ -490,6 +602,9 @@ export rust_common_flags := --edition=2021 \
 			    -Wrustdoc::missing_crate_level_docs \
 			    -Wrustdoc::unescaped_backticks
 
+# Block Logic: Defines host-specific compiler and linker flags.
+# Functional Utility: Combines standard and user-defined flags for host C, C++, and Rust
+#                     compilation, and linking, including paths to host include directories.
 KBUILD_HOSTCFLAGS   := $(KBUILD_USERHOSTCFLAGS) $(HOST_LFS_CFLAGS) \
 		       $(HOSTCFLAGS) -I $(srctree)/scripts/include
 KBUILD_HOSTCXXFLAGS := -Wall -O2 $(HOST_LFS_CFLAGS) $(HOSTCXXFLAGS) \
@@ -500,6 +615,14 @@ KBUILD_HOSTLDFLAGS  := $(HOST_LFS_LDFLAGS) $(HOSTLDFLAGS)
 KBUILD_HOSTLDLIBS   := $(HOST_LFS_LIBS) $(HOSTLDLIBS)
 KBUILD_PROCMACROLDFLAGS := $(or $(PROCMACROLDFLAGS),$(KBUILD_HOSTLDFLAGS))
 
+# Block Logic: Defines the primary toolchain executables for kernel compilation.
+# Functional Utility: Sets the `CC`, `LD`, `AR`, `NM`, `OBJCOPY`, `OBJDUMP`, `READELF`, and `STRIP`
+#                     variables to either LLVM-based tools (if LLVM is configured) or
+#                     GCC/Binutils prefixed with `CROSS_COMPILE`. Other essential tools like `RUSTC`,
+#                     `BINDGEN`, `PERL`, `PYTHON3`, etc., are also defined here.
+#
+# Pre-condition: `LLVM` and `CROSS_COMPILE` variables determine the specific toolchain.
+# Invariant: All core build tool executables are correctly identified and configured for the target architecture.
 # Make variables (CC, etc...)
 CPP		= $(CC) -E
 ifneq ($(LLVM),)
@@ -544,6 +667,9 @@ LZ4		= lz4
 XZ		= xz
 ZSTD		= zstd
 
+# Block Logic: Defines compiler flags for the Sparse checker.
+# Functional Utility: Provides the necessary preprocessor definitions and warning flags for `sparse`
+#                     to correctly analyze kernel source code.
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void -Wno-unknown-attribute $(CF)
 NOSTDINC_FLAGS :=
@@ -556,7 +682,9 @@ RUSTFLAGS_KERNEL =
 AFLAGS_KERNEL	=
 LDFLAGS_vmlinux =
 
-# Use USERINCLUDE when you must reference the UAPI directories only.
+# Block Logic: Defines include paths for user-space API (UAPI) headers.
+# Functional Utility: Specifies directories where user-space programs can find kernel UAPI headers,
+#                     ensuring compatibility between user applications and the kernel.
 USERINCLUDE    := \
 		-I$(srctree)/arch/$(SRCARCH)/include/uapi \
 		-I$(objtree)/arch/$(SRCARCH)/include/generated/uapi \
@@ -565,8 +693,10 @@ USERINCLUDE    := \
                 -include $(srctree)/include/linux/compiler-version.h \
                 -include $(srctree)/include/linux/kconfig.h
 
-# Use LINUXINCLUDE when you must reference the include/ directory.
-# Needed to be compatible with the O= option
+# Block Logic: Defines general include paths for kernel compilation.
+# Functional Utility: Provides the primary include directories for the kernel source,
+#                     including architecture-specific, generic, and generated headers,
+#                     essential for successful compilation.
 LINUXINCLUDE    := \
 		-I$(srctree)/arch/$(SRCARCH)/include \
 		-I$(objtree)/arch/$(SRCARCH)/include/generated \
@@ -574,8 +704,14 @@ LINUXINCLUDE    := \
 		-I$(objtree)/include \
 		$(USERINCLUDE)
 
+# Block Logic: Defines assembler flags for kernel compilation.
+# Functional Utility: Sets core assembler flags, including `-D__ASSEMBLY__` to indicate
+#                     assembly context and `-fno-PIE` for position-independent executable handling.
 KBUILD_AFLAGS   := -D__ASSEMBLY__ -fno-PIE
 
+# Block Logic: Defines C compiler flags for kernel compilation.
+# Functional Utility: Specifies standard C compiler flags for the kernel, enforcing C11 standard,
+#                     character types, and disabling position-independent executables.
 KBUILD_CFLAGS :=
 KBUILD_CFLAGS += -std=gnu11
 KBUILD_CFLAGS += -fshort-wchar
@@ -584,7 +720,13 @@ KBUILD_CFLAGS += -fno-common
 KBUILD_CFLAGS += -fno-PIE
 KBUILD_CFLAGS += -fno-strict-aliasing
 
+# Block Logic: Defines C preprocessor flags for kernel compilation.
+# Functional Utility: Sets the `__KERNEL__` macro, indicating that code is being compiled
+#                     for the kernel environment.
 KBUILD_CPPFLAGS := -D__KERNEL__
+# Block Logic: Defines Rust compiler flags for kernel modules.
+# Functional Utility: Configures Rust compilation for kernel modules, including panic behavior,
+#                     bitcode embedding, LTO, and symbol mangling.
 KBUILD_RUSTFLAGS := $(rust_common_flags) \
 		    -Cpanic=abort -Cembed-bitcode=n -Clto=n \
 		    -Cforce-unwind-tables=n -Ccodegen-units=1 \
@@ -603,6 +745,9 @@ KBUILD_LDFLAGS_MODULE :=
 KBUILD_LDFLAGS :=
 CLANG_FLAGS :=
 
+# Block Logic: Selects between Rust compiler (`rustc`) and Clippy linter.
+# Functional Utility: Determines which tool (`rustc` or `clippy-driver`) is used for Rust
+#                     compilation based on the `KBUILD_CLIPPY` flag.
 ifeq ($(KBUILD_CLIPPY),1)
 	RUSTC_OR_CLIPPY_QUIET := CLIPPY
 	RUSTC_OR_CLIPPY = $(CLIPPY_DRIVER)
@@ -611,12 +756,20 @@ else
 	RUSTC_OR_CLIPPY = $(RUSTC)
 endif
 
-# Allows the usage of unstable features in stable compilers.
+# Block Logic: Enables unstable Rust features for kernel compilation.
+# Functional Utility: Sets `RUSTC_BOOTSTRAP=1` to allow the use of experimental or unstable
+#                     features in Rust code during the kernel build process.
 export RUSTC_BOOTSTRAP := 1
 
-# Allows finding `.clippy.toml` in out-of-srctree builds.
+# Block Logic: Configures Clippy for out-of-source tree builds.
+# Functional Utility: Specifies the location of `.clippy.toml` for Clippy when building
+#                     Rust code outside the kernel source tree, ensuring consistent linting.
 export CLIPPY_CONF_DIR := $(srctree)
 
+# Block Logic: Exports key build variables to sub-Makefiles.
+# Functional Utility: Makes essential variables like `ARCH`, `CROSS_COMPILE`, `CC`, `LD`,
+#                     and various flag definitions available to nested Make processes,
+#                     ensuring a consistent build environment.
 export ARCH SRCARCH CONFIG_SHELL BASH HOSTCC KBUILD_HOSTCFLAGS CROSS_COMPILE LD CC HOSTPKG_CONFIG
 export RUSTC RUSTDOC RUSTFMT RUSTC_OR_CLIPPY_QUIET RUSTC_OR_CLIPPY BINDGEN
 export HOSTRUSTC KBUILD_HOSTRUSTFLAGS
@@ -633,8 +786,9 @@ export KBUILD_AFLAGS AFLAGS_KERNEL AFLAGS_MODULE
 export KBUILD_AFLAGS_MODULE KBUILD_CFLAGS_MODULE KBUILD_RUSTFLAGS_MODULE KBUILD_LDFLAGS_MODULE
 export KBUILD_AFLAGS_KERNEL KBUILD_CFLAGS_KERNEL KBUILD_RUSTFLAGS_KERNEL
 
-# Files to ignore in find ... statements
-
+# Block Logic: Defines patterns for files and directories to be ignored by `find` commands.
+# Functional Utility: Prevents `find` operations from traversing version control directories
+#                     or other irrelevant paths, improving performance and accuracy of file searches.
 export RCS_FIND_IGNORE := \( -name SCCS -o -name BitKeeper -o -name .svn -o    \
 			  -name CVS -o -name .pc -o -name .hg -o -name .git \) \
 			  -prune -o
@@ -1177,6 +1331,13 @@ export MODLIB
 
 PHONY += prepare0
 
+# Block Logic: Initializes the build environment for either in-tree or external module compilation.
+# Functional Utility: Sets up internal variables like `build-dir`, `clean-dirs`, `ARCH_CORE`, `ARCH_LIB`, `ARCH_DRIVERS`,
+#                     `KBUILD_VMLINUX_OBJS`, `KBUILD_VMLINUX_LIBS`, and `KBUILD_LDS` based on whether external
+#                     modules are being built. It orchestrates the preparation steps for the main kernel build.
+#
+# Pre-condition: `KBUILD_EXTMOD` is not set, indicating an in-tree kernel build.
+# Invariant: Core build directories and object lists are correctly defined for subsequent linking steps.
 ifeq ($(KBUILD_EXTMOD),)
 
 build-dir	:= .
@@ -1196,11 +1357,19 @@ export KBUILD_VMLINUX_LIBS
 export KBUILD_LDS          := arch/$(SRCARCH)/kernel/vmlinux.lds
 
 ifdef CONFIG_TRIM_UNUSED_KSYMS
-# For the kernel to actually contain only the needed exported symbols,
-# we have to build modules as well to determine what those symbols are.
+# Block Logic: Ensures all modules are built to accurately determine exported symbols.
+# Functional Utility: When `CONFIG_TRIM_UNUSED_KSYMS` is enabled, this forces `KBUILD_MODULES` to 'y'
+#                     so that all modules are processed. This allows the linker to correctly identify
+#                     and remove unused kernel symbols (KSYMs) from the final vmlinux image.
 KBUILD_MODULES := y
 endif
 
+# Block Logic: Creates the `vmlinux.a` archive from compiled object files.
+# Functional Utility: Collects all compiled C and assembly object files into a single archive
+#                     `vmlinux.a`, which serves as input for the final `vmlinux` linking step.
+#                     Includes a workaround for `llvm-ar` bugs.
+#
+# Invariant: `vmlinux.a` is a valid archive containing all necessary intermediate objects.
 # '$(AR) mPi' needs 'T' to workaround the bug of llvm-ar <= 14
 quiet_cmd_ar_vmlinux.a = AR      $@
       cmd_ar_vmlinux.a = \
@@ -1212,6 +1381,8 @@ targets += vmlinux.a
 vmlinux.a: $(KBUILD_VMLINUX_OBJS) scripts/head-object-list.txt FORCE
 	$(call if_changed,ar_vmlinux.a)
 
+# Block Logic: Orchestrates the linking of `vmlinux.o`.
+# Functional Utility: Invokes a sub-make to create `vmlinux.o` from `vmlinux.a` and linked libraries.
 PHONY += vmlinux_o
 vmlinux_o: vmlinux.a $(KBUILD_VMLINUX_LIBS)
 	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.vmlinux_o
@@ -1220,6 +1391,11 @@ vmlinux.o modules.builtin.modinfo modules.builtin: vmlinux_o
 	@:
 
 PHONY += vmlinux
+# Block Logic: Links the final `vmlinux` kernel image.
+# Functional Utility: Consolidates `vmlinux.o`, the kernel linker script (`KBUILD_LDS`), and module post-processing
+#                     information to produce the executable `vmlinux` image.
+#
+# Invariant: A complete and executable `vmlinux` image is generated.
 # LDFLAGS_vmlinux in the top Makefile defines linker flags for the top vmlinux,
 # not for decompressors. LDFLAGS_vmlinux in arch/*/boot/compressed/Makefile is
 # unrelated; the decompressors just happen to have the same base name,
@@ -1235,6 +1411,10 @@ vmlinux: export LDFLAGS_vmlinux = $(_LDFLAGS_vmlinux)
 vmlinux: vmlinux.o $(KBUILD_LDS) modpost
 	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.vmlinux
 
+# Block Logic: Prevents implicit rules from interfering with explicit object generation.
+# Functional Utility: Declares that the listed files (`KBUILD_LDS`, `KBUILD_VMLINUX_OBJS`, `KBUILD_VMLINUX_LIBS`)
+#                     are generated through explicit rules, ensuring Make does not attempt to
+#                     build them using its default inference rules.
 # The actual objects are generated when descending,
 # make sure no implicit rule kicks in
 $(sort $(KBUILD_LDS) $(KBUILD_VMLINUX_OBJS) $(KBUILD_VMLINUX_LIBS)): . ;
@@ -1245,10 +1425,16 @@ else
 filechk_kernel.release = echo $(KERNELRELEASE)
 endif
 
-# Store (new) KERNELRELEASE string in include/config/kernel.release
+# Block Logic: Updates `include/config/kernel.release` with the current kernel release string.
+# Functional Utility: Ensures that the `KERNELRELEASE` string, which identifies the kernel version,
+#                     is consistently stored in a configuration file for use by other build components.
 include/config/kernel.release: FORCE
 	$(call filechk,kernel.release)
 
+# Block Logic: Builds additional helper scripts.
+# Functional Utility: Compiles utility scripts located in the `scripts/` directory,
+#                     including those for device tree compiler (`dtc`), which are
+#                     essential for various build stages.
 # Additional helpers built in scripts/
 # Carefully list dependencies so we do not try to build scripts twice
 # in parallel
@@ -1256,14 +1442,22 @@ PHONY += scripts
 scripts: scripts_basic scripts_dtc
 	$(Q)$(MAKE) $(build)=$(@)
 
-# Things we need to do before we recursively start building the kernel
-# or the modules are listed in "prepare".
+# Block Logic: Orchestrates early preparation steps before recursive kernel or module builds.
+# Functional Utility: Defines a multi-level `prepare` sequence that ensures architecture-specific
+#                     setup (`archprepare`), module infrastructure (`scripts/mod`), and
+#                     other early build prerequisites are met.
+#
 # A multi level approach is used. prepareN is processed before prepareN-1.
 # archprepare is used in arch Makefiles and when processed asm symlink,
 # version.h and scripts_basic is processed / created.
 
 PHONY += prepare archprepare
 
+# Block Logic: Performs architecture-specific and generated header preparation.
+# Functional Utility: Ensures that architecture-specific headers, generated UAPI headers,
+#                     version information (`utsrelease.h`, `compile.h`), and
+#                     configuration data (`autoconf.h`, `rustc_cfg`) are in place
+#                     before the main build process begins. It also handles removal of stale files.
 archprepare: outputmakefile archheaders archscripts scripts include/config/kernel.release \
 	asm-generic $(version_h) include/generated/utsrelease.h \
 	include/generated/compile.h include/generated/autoconf.h \
@@ -1276,6 +1470,9 @@ prepare0: archprepare
 # All the preparing..
 prepare: prepare0
 ifdef CONFIG_RUST
+# Block Logic: Checks for Rust toolchain availability and builds Rust-related components.
+# Functional Utility: If Rust support is configured, it verifies the presence of the Rust
+#                     toolchain and then initiates the build process for Rust components.
 	+$(Q)$(CONFIG_SHELL) $(srctree)/scripts/rust_is_available.sh
 	$(Q)$(MAKE) $(build)=rust
 endif
@@ -1284,6 +1481,10 @@ PHONY += remove-stale-files
 remove-stale-files:
 	$(Q)$(srctree)/scripts/remove-stale-files
 
+# Block Logic: Provides generic header support for assembly files.
+# Functional Utility: Uses a specialized Makefile (`Makefile.asm-headers`) to generate
+#                     architecture-specific assembly headers from generic templates,
+#                     promoting code reuse and simplifying architecture ports.
 # Support for using generic headers in asm-generic
 asm-generic := -f $(srctree)/scripts/Makefile.asm-headers obj
 
@@ -1295,6 +1496,13 @@ uapi-asm-generic:
 	$(Q)$(MAKE) $(asm-generic)=arch/$(SRCARCH)/include/generated/uapi/asm \
 	generic=include/uapi/asm-generic
 
+# Block Logic: Generates various version and compilation-related header files.
+# Functional Utility: Creates `version.h`, `utsrelease.h`, and `compile.h` containing
+#                     kernel version information, UTS release string, and compiler details,
+#                     respectively. These files are essential for internal kernel consistency
+#                     and for external tools to identify the kernel build.
+#
+# Invariant: Generated header files accurately reflect the current kernel version and build environment.
 # Generate some files
 # ---------------------------------------------------------------------------
 
@@ -1345,6 +1553,9 @@ headerdep:
 	$(srctree)/scripts/headerdep.pl -I$(srctree)/include
 
 # ---------------------------------------------------------------------------
+# Block Logic: Manages kernel header installation.
+# Functional Utility: Defines the installation path for sanitized kernel headers and provides
+#                     targets to build and install them, making kernel API available to userspace.
 # Kernel headers
 
 #Default location for installed headers
@@ -1386,6 +1597,12 @@ scripts_gen_packed_field_checks: scripts_basic
 	$(Q)$(MAKE) $(build)=scripts scripts/gen_packed_field_checks
 
 # ---------------------------------------------------------------------------
+# Block Logic: Manages the installation of the kernel and its components.
+# Functional Utility: Provides a target (`install`) to place the compiled kernel
+#                     image and related files into the system's boot directory.
+#
+# Pre-condition: Kernel build targets (e.g., vmlinux) are completed.
+# Invariant: The kernel is correctly installed in the specified `INSTALL_PATH`.
 # Install
 
 # Many distributions have the custom install script, /sbin/installkernel.
@@ -1397,6 +1614,9 @@ quiet_cmd_install = INSTALL $(INSTALL_PATH)
       cmd_install = unset sub_make_done; $(srctree)/scripts/install.sh
 
 # ---------------------------------------------------------------------------
+# Block Logic: Manages vDSO installation.
+# Functional Utility: Installs the unstripped vDSO (virtual Dynamic Shared Object) to the
+#                     specified installation path, providing a mechanism for fast system calls.
 # vDSO install
 
 PHONY += vdso_install
@@ -1405,6 +1625,10 @@ vdso_install:
 	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.vdsoinst
 
 # ---------------------------------------------------------------------------
+# Block Logic: Integrates external tools into the kernel build process.
+# Functional Utility: Provides targets to build and manage various kernel-related tools
+#                     (e.g., `objtool`, BPF tools), ensuring they are available for use
+#                     during development and analysis.
 # Tools
 
 ifdef CONFIG_OBJTOOL
@@ -1427,6 +1651,9 @@ PHONY += resolve_btfids_clean
 
 resolve_btfids_O = $(abspath $(objtree))/tools/bpf/resolve_btfids
 
+# Block Logic: Cleans BPF `resolve_btfids` tool artifacts.
+# Functional Utility: Provides a clean target specifically for the BPF `resolve_btfids` tool,
+#                     removing its generated files if the tool's build directory exists.
 # tools/bpf/resolve_btfids directory might not exist
 # in output directory, skip its clean in that case
 resolve_btfids_clean:
@@ -1443,6 +1670,9 @@ tools/%: FORCE
 	$(Q)$(MAKE) LDFLAGS= O=$(abspath $(objtree)) subdir=tools -C $(srctree)/tools/ $*
 
 # ---------------------------------------------------------------------------
+# Block Logic: Manages kernel self-tests.
+# Functional Utility: Provides targets to build, run, install, and merge configurations for
+#                     kernel self-tests, enabling developers to verify kernel functionality.
 # Kernel selftest
 
 PHONY += kselftest
@@ -1460,6 +1690,10 @@ kselftest-merge:
 	$(Q)$(MAKE) -f $(srctree)/Makefile olddefconfig
 
 # ---------------------------------------------------------------------------
+# Block Logic: Handles Device Tree (DT) files.
+# Functional Utility: Provides targets for compiling, installing, and checking Device Tree
+#                     Blobs (DTBs) and their associated binding schemas, crucial for
+#                     hardware description and initialization on many embedded systems.
 # Devicetree files
 
 ifneq ($(wildcard $(srctree)/arch/$(SRCARCH)/boot/dts/),)
@@ -1526,6 +1760,11 @@ dt_compatible_check: dt_binding_schemas
 	$(Q)$(MAKE) $(build)=Documentation/devicetree/bindings $@
 
 # ---------------------------------------------------------------------------
+# Block Logic: Manages the compilation and installation of kernel modules.
+# Functional Utility: Provides targets to build, install, and sign loadable kernel modules,
+#                     allowing for modular extension of kernel functionality.
+#
+# Invariant: Modules are built with correct versioning and installed to the appropriate system path.
 # Modules
 
 ifdef CONFIG_MODULES
@@ -1534,6 +1773,10 @@ ifdef CONFIG_MODULES
 
 all: modules
 
+# Block Logic: Ensures built-in objects are considered when building modules with modversions.
+# Functional Utility: If `CONFIG_MODVERSIONS` is enabled, `KBUILD_BUILTIN` is set to 'y' to force
+#                     the build system to process built-in objects. This is necessary to
+#                     ensure that module version checksums are correctly generated and up-to-date.
 # When we're building modules with modversions, we need to consider
 # the built-in objects during the descend as well, in order to
 # make sure the checksums are up to date before we record them.
@@ -1544,6 +1787,10 @@ endif
 # Build modules
 #
 
+# Block Logic: Integrates BTF debug info for modules into the kernel build.
+# Functional Utility: If `CONFIG_DEBUG_INFO_BTF_MODULES` is enabled, this ensures that
+#                     `KBUILD_BUILTIN` is set and modules depend on `vmlinux`, indicating
+#                     that type information from the core kernel is used for module debugging.
 # *.ko are usually independent of vmlinux, but CONFIG_DEBUG_INFO_BTF_MODULES
 # is an exception.
 ifdef CONFIG_DEBUG_INFO_BTF_MODULES
@@ -1553,6 +1800,10 @@ endif
 
 modules: modules_prepare
 
+# Block Logic: Prepares the environment for building external modules.
+# Functional Utility: Ensures that essential build scripts (like `scripts/module.lds`)
+#                     are generated or compiled, which are required before compiling
+#                     external kernel modules.
 # Target to prepare building external modules
 modules_prepare: prepare
 	$(Q)$(MAKE) $(build)=scripts scripts/module.lds
@@ -1566,6 +1817,10 @@ endif # CONFIG_MODULES
 # make mrproper  Delete the current configuration, and all generated files
 # make distclean Remove editor backup files, patch leftover files and the like
 
+# Block Logic: Defines files and directories to be removed by `make clean`.
+# Functional Utility: Lists the generated files and build artifacts that should be
+#                     deleted by the `clean` target, while preserving enough to
+#                     build external modules.
 # Directories & files removed with 'make clean'
 CLEAN_FILES += vmlinux.symvers modules-only.symvers \
 	       modules.builtin modules.builtin.modinfo modules.nsdeps \
@@ -1574,6 +1829,10 @@ CLEAN_FILES += vmlinux.symvers modules-only.symvers \
 	       rust-project.json .vmlinux.objs .vmlinux.export.c \
                .builtin-dtbs-list .builtin-dtb.S
 
+# Block Logic: Defines files and directories to be removed by `make mrproper`.
+# Functional Utility: Lists all generated files, including configuration files,
+#                     that should be deleted by the `mrproper` target, providing
+#                     a clean state for a new kernel build.
 # Directories & files removed with 'make mrproper'
 MRPROPER_FILES += include/config include/generated          \
 		  arch/$(SRCARCH)/include/generated .objdiff \
@@ -1586,6 +1845,12 @@ MRPROPER_FILES += include/config include/generated          \
 		  rpmbuild \
 		  rust/libmacros.so rust/libmacros.dylib
 
+# Block Logic: Implements the `clean` target.
+# Functional Utility: Removes most generated build artifacts, leaving configuration
+#                     and support files necessary for building external modules.
+#
+# Pre-condition: The `CLEAN_FILES` variable is populated.
+# Invariant: The build directory is cleared of temporary files without affecting core configuration.
 # clean - Delete most, but leave enough to build external modules
 #
 clean: private rm-files := $(CLEAN_FILES)
@@ -1598,6 +1863,12 @@ vmlinuxclean:
 
 clean: archclean vmlinuxclean resolve_btfids_clean
 
+# Block Logic: Implements the `mrproper` target.
+# Functional Utility: Removes all generated files, including configuration and
+#                     backup files, returning the source tree to a pristine state.
+#
+# Pre-condition: `MRPROPER_FILES` and `mrproper-dirs` are populated.
+# Invariant: The source tree is completely cleaned of all build and configuration artifacts.
 # mrproper - Delete all generated files, including .config
 #
 mrproper: private rm-files := $(MRPROPER_FILES)
@@ -1613,6 +1884,13 @@ mrproper: clean $(mrproper-dirs)
 		\( -name '*.rmeta' \) \
 		-type f -print | xargs rm -f
 
+# Block Logic: Implements the `distclean` target.
+# Functional Utility: Extends `mrproper` by also removing editor backup files,
+#                     patch leftovers, and other temporary files not directly
+#                     generated by the build system, for a deeper clean.
+#
+# Pre-condition: `mrproper` is executed.
+# Invariant: The source tree is free of all transient and editor-generated files.
 # distclean
 #
 PHONY += distclean
@@ -1629,6 +1907,9 @@ distclean: mrproper
 # Packaging of the kernel to various formats
 # ---------------------------------------------------------------------------
 
+# Block Logic: Provides targets for packaging the kernel source and build artifacts.
+# Functional Utility: Enables the creation of source and binary kernel packages
+#                     in various formats, facilitating distribution and installation.
 %src-pkg: FORCE
 	$(Q)$(MAKE) -f $(srctree)/scripts/Makefile.package $@
 %pkg: include/config/kernel.release FORCE
@@ -1637,6 +1918,10 @@ distclean: mrproper
 # Brief documentation of the typical targets used
 # ---------------------------------------------------------------------------
 
+# Block Logic: Discovers and lists available kernel board configurations.
+# Functional Utility: Populates `boards` and `board-dirs` with the names of `_defconfig`
+#                     files, enabling dynamic generation of architecture-specific help
+#                     messages and simplifying configuration selection.
 boards := $(wildcard $(srctree)/arch/$(SRCARCH)/configs/*_defconfig)
 boards := $(sort $(notdir $(boards)))
 board-dirs := $(dir $(wildcard $(srctree)/arch/$(SRCARCH)/configs/*/*_defconfig))
@@ -1781,6 +2066,9 @@ help-boards: $(help-board-dirs)
 
 boards-per-dir = $(sort $(notdir $(wildcard $(srctree)/arch/$(SRCARCH)/configs/$*/*_defconfig)))
 
+# Block Logic: Generates architecture-specific help messages for board configurations.
+# Functional Utility: Provides detailed help output for specific board directories,
+#                     listing available `_defconfig` options for the current architecture.
 $(help-board-dirs): help-%:
 	@echo  'Architecture-specific targets ($(SRCARCH) $*):'
 	@$(if $(boards-per-dir), \
@@ -1791,6 +2079,10 @@ $(help-board-dirs): help-%:
 
 # Documentation targets
 # ---------------------------------------------------------------------------
+# Block Logic: Defines targets for generating various forms of kernel documentation.
+# Functional Utility: Provides targets (`xmldocs`, `latexdocs`, `pdfdocs`, `htmldocs`, etc.)
+#                     to build and process kernel documentation in multiple formats,
+#                     aiding in comprehensive project understanding.
 DOC_TARGETS := xmldocs latexdocs pdfdocs htmldocs epubdocs cleandocs \
 	       linkcheckdocs dochelp refcheckdocs texinfodocs infodocs
 PHONY += $(DOC_TARGETS)
@@ -1801,11 +2093,19 @@ $(DOC_TARGETS):
 # Rust targets
 # ---------------------------------------------------------------------------
 
+# Block Logic: Checks for Rust toolchain availability.
+# Functional Utility: Verifies if the necessary Rust toolchain components are installed and accessible,
+#                     providing feedback to the user regarding Rust development environment readiness.
 # "Is Rust available?" target
 PHONY += rustavailable
 rustavailable:
 	+$(Q)$(CONFIG_SHELL) $(srctree)/scripts/rust_is_available.sh && echo "Rust is available!"
 
+# Block Logic: Generates Rust documentation for the kernel.
+# Functional Utility: Invokes the Rust documentation generation process, creating API
+#                     documentation for Rust code integrated into the kernel.
+#
+# Pre-condition: Kernel configuration (`.config`) must exist.
 # Documentation target
 #
 # Using the singular to avoid running afoul of `no-dot-config-targets`.
@@ -1813,11 +2113,19 @@ PHONY += rustdoc
 rustdoc: prepare
 	$(Q)$(MAKE) $(build)=rust $@
 
+# Block Logic: Runs Rust tests for the kernel.
+# Functional Utility: Executes unit and integration tests for Rust code within the kernel,
+#                     ensuring correctness and stability of Rust components.
+#
+# Pre-condition: Kernel configuration (`.config`) must exist; may require external repositories.
 # Testing target
 PHONY += rusttest
 rusttest: prepare
 	$(Q)$(MAKE) $(build)=rust $@
 
+# Block Logic: Formats Rust code according to project style guidelines.
+# Functional Utility: Uses `rustfmt` to automatically reformat all Rust source files
+#                     in the kernel tree, enforcing consistent code style.
 # Formatting targets
 PHONY += rustfmt rustfmtcheck
 
@@ -1832,12 +2140,20 @@ rustfmtcheck: rustfmt
 # Misc
 # ---------------------------------------------------------------------------
 
+# Block Logic: Performs miscellaneous checks on the kernel source.
+# Functional Utility: Invokes `scripts/misc-check` to perform various sanity checks and
+#                     diagnostics on the kernel source tree, helping to identify potential issues.
 PHONY += misc-check
 misc-check:
 	$(Q)$(srctree)/scripts/misc-check
 
 all: misc-check
 
+# Block Logic: Builds and links GDB scripts for kernel debugging.
+# Functional Utility: Compiles GDB-related scripts and creates a symlink to `vmlinux-gdb.py`,
+#                     enhancing kernel debugging capabilities with GDB.
+#
+# Pre-condition: `prepare0` target is completed.
 PHONY += scripts_gdb
 scripts_gdb: prepare0
 	$(Q)$(MAKE) $(build)=scripts/gdb
@@ -1849,6 +2165,9 @@ endif
 
 else # KBUILD_EXTMOD
 
+# Block Logic: Defines the kernel release for external module builds.
+# Functional Utility: Provides the `KERNELRELEASE` string, which is crucial for
+#                     external modules to ensure compatibility with the running kernel.
 filechk_kernel.release = echo $(KERNELRELEASE)
 
 ###
@@ -1858,6 +2177,8 @@ filechk_kernel.release = echo $(KERNELRELEASE)
 # system is not used on the basis kernel. If updates are required
 # in the basis kernel ordinary make commands (without M=...) must be used.
 
+# Functional Utility: Disables built-in object compilation and enables module compilation
+#                     when building external modules, focusing the build on loadable components.
 # We are always building only modules.
 KBUILD_BUILTIN :=
 KBUILD_MODULES := y
@@ -1868,6 +2189,11 @@ clean-dirs := .
 clean: private rm-files := Module.symvers modules.nsdeps compile_commands.json
 
 PHONY += prepare
+# Block Logic: Compares the compiler version used for external modules with the kernel's.
+# Functional Utility: Warns the user if the compiler used to build external modules differs
+#                     from the one that built the kernel, preventing potential ABI mismatches.
+#
+# Invariant: A warning is issued if compiler versions are inconsistent.
 # now expand this into a simple variable to reduce the cost of shell evaluations
 prepare: CC_VERSION_TEXT := $(CC_VERSION_TEXT)
 prepare:
@@ -1888,6 +2214,11 @@ help:
 	@echo  '  rust-analyzer	  - generate rust-project.json rust-analyzer support file'
 	@echo  ''
 
+# Block Logic: Prevents external module build if `CONFIG_MODULES` is disabled in the kernel.
+# Functional Utility: Checks if the kernel is configured with module support and issues
+#                     an error if an attempt is made to build external modules without it.
+#
+# Invariant: External module compilation only proceeds if `CONFIG_MODULES` is enabled.
 ifndef CONFIG_MODULES
 modules modules_install: __external_modules_error
 __external_modules_error:
@@ -1901,6 +2232,10 @@ endif
 endif # KBUILD_EXTMOD
 
 # ---------------------------------------------------------------------------
+# Block Logic: Manages overall kernel module build, installation, and signing processes.
+# Functional Utility: Provides targets (`modules`, `modules_install`, `modules_sign`)
+#                     to compile, place, and cryptographically sign kernel modules,
+#                     ensuring integrity and proper integration with the kernel.
 # Modules
 
 PHONY += modules modules_install modules_sign modules_prepare
@@ -1910,11 +2245,17 @@ modules_install:
 	sign-only=$(if $(filter modules_install,$(MAKECMDGOALS)),,y)
 
 ifeq ($(CONFIG_MODULE_SIG),y)
+# Block Logic: Enables module signing if configured.
+# Functional Utility: If `CONFIG_MODULE_SIG` is enabled, this target ensures that
+#                     kernel modules are cryptographically signed during installation.
 # modules_sign is a subset of modules_install.
 # 'make modules_install modules_sign' is equivalent to 'make modules_install'.
 modules_sign: modules_install
 	@:
 else
+# Block Logic: Prevents module signing if not configured.
+# Functional Utility: Issues an error if module signing is attempted when `CONFIG_MODULE_SIG`
+#                     is disabled in the kernel configuration.
 modules_sign:
 	@echo >&2 '***'
 	@echo >&2 '*** CONFIG_MODULE_SIG is disabled. You cannot sign modules.'
@@ -1927,6 +2268,9 @@ ifdef CONFIG_MODULES
 modules.order: $(build-dir)
 	@:
 
+# Block Logic: Controls whether the final linking of modules is skipped.
+# Functional Utility: `KBUILD_MODPOST_NOFINAL` can be set to accelerate test compiles
+#                     by skipping the final linking step for modules.
 # KBUILD_MODPOST_NOFINAL can be set to skip the final link of modules.
 # This is solely useful to speed up test compiles.
 modules: modpost
@@ -1940,6 +2284,9 @@ modules_check: modules.order
 
 else # CONFIG_MODULES
 
+# Block Logic: Provides a no-op `modules` target when module support is disabled.
+# Functional Utility: Ensures that `make modules` gracefully does nothing if `CONFIG_MODULES`
+#                     is not enabled in the kernel configuration.
 modules:
 	@:
 
@@ -1954,6 +2301,10 @@ modpost: $(if $(single-build),, $(if $(KBUILD_BUILTIN), vmlinux.o)) \
 
 # Single targets
 # ---------------------------------------------------------------------------
+# Block Logic: Enables building of individual files or subdirectories.
+# Functional Utility: Allows fine-grained compilation by specifying individual `.o`, `.ko`,
+#                     or `.s` files, or entire subdirectories, providing flexibility
+#                     for development and debugging.
 # To build individual files in subdirectories, you can do like this:
 #
 #   make foo/bar/baz.s
@@ -1966,6 +2317,9 @@ modpost: $(if $(single-build),, $(if $(KBUILD_BUILTIN), vmlinux.o)) \
 
 ifdef single-build
 
+# Block Logic: Handles single module compilation, including `modpost` for `.ko` files.
+# Functional Utility: Processes individual kernel module targets, ensuring that `modpost`
+#                     (module post-processing) is correctly applied for loadable kernel objects.
 # .ko is special because modpost is needed
 single-ko := $(sort $(filter %.ko, $(MAKECMDGOALS)))
 single-no-ko := $(filter-out $(single-ko), $(MAKECMDGOALS)) \
@@ -1976,6 +2330,10 @@ $(single-ko): single_modules
 $(single-no-ko): $(build-dir)
 	@:
 
+# Block Logic: Orchestrates single module compilation and linking.
+# Functional Utility: Creates a temporary `modules.order` file for single module builds,
+#                     runs `modpost`, and performs final linking to produce the module,
+#                     then cleans up the temporary file.
 # Remove modules.order when done because it is not the real one.
 PHONY += single_modules
 single_modules: $(single-no-ko) modules_prepare
@@ -1994,6 +2352,14 @@ endif
 
 prepare: outputmakefile
 
+# Block Logic: Sets locale variables to optimize build speed and prevent localization issues.
+# Functional Utility: Explicitly sets `LC_ALL`, `LC_COLLATE`, and `LC_NUMERIC` to C,
+#                     standardizing locale behavior during the build process to avoid
+#                     inconsistent output or errors from localized settings.
+# Block Logic: Sets locale variables to optimize build speed and prevent localization issues.
+# Functional Utility: Explicitly sets `LC_ALL`, `LC_COLLATE`, and `LC_NUMERIC` to C,
+#                     standardizing locale behavior during the build process to avoid
+#                     inconsistent output or errors from localized settings.
 # Preset locale variables to speed up the build process. Limit locale
 # tweaks to this spot to avoid wrong language settings when running
 # make menuconfig etc.

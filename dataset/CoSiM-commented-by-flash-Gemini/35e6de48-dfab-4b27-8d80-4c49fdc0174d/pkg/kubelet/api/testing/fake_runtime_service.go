@@ -14,6 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+/**
+ * @file fake_runtime_service.go
+ * @brief Implements a fake container runtime service for testing purposes.
+ *
+ * This file provides a mock implementation of the Kubernetes Container Runtime Interface (CRI)
+ * `RuntimeService`. It allows for testing Kubelet components without requiring a real
+ * container runtime. The `FakeRuntimeService` simulates operations like managing pod sandboxes
+ * and containers, recording calls made to it, and providing configurable responses.
+ * This is invaluable for unit and integration testing of the Kubelet's interaction with
+ * container runtimes.
+ */
+
 package testing
 
 import (
@@ -27,17 +39,46 @@ import (
 )
 
 var (
+	/**
+	 * @brief The simulated version string for the fake runtime service.
+	 */
 	version = "0.1.0"
 
+	/**
+	 * @brief The simulated name for the fake container runtime.
+	 */
 	FakeRuntimeName  = "fakeRuntime"
+	/**
+	 * @brief The simulated IP address assigned to fake pod sandboxes.
+	 */
 	FakePodSandboxIP = "192.168.192.168"
 )
 
+/**
+ * @brief FakePodSandbox is a mock representation of a pod sandbox.
+ *
+ * This struct embeds `runtimeApi.PodSandboxStatus` to simulate the status
+ * information of a pod sandbox as returned by a container runtime. It is used
+ * within `FakeRuntimeService` for testing purposes.
+ *
+ * @field PodSandboxStatus runtimeApi.PodSandboxStatus: Contains the runtime information for a simulated pod sandbox.
+ */
 type FakePodSandbox struct {
 	// PodSandboxStatus contains the runtime information for a sandbox.
 	runtimeApi.PodSandboxStatus
 }
 
+/**
+ * @brief FakeContainer is a mock representation of a container.
+ *
+ * This struct embeds `runtimeApi.ContainerStatus` to simulate the status
+ * information of a container. It also includes the `SandboxID` to link
+ * it to a parent `FakePodSandbox`. It is used within `FakeRuntimeService`
+ * for testing purposes.
+ *
+ * @field ContainerStatus runtimeApi.ContainerStatus: Contains the runtime information for a simulated container.
+ * @field SandboxID string: The ID of the pod sandbox this container belongs to.
+ */
 type FakeContainer struct {
 	// ContainerStatus contains the runtime information for a container.
 	runtimeApi.ContainerStatus
@@ -46,6 +87,20 @@ type FakeContainer struct {
 	SandboxID string
 }
 
+/**
+ * @brief FakeRuntimeService is a mock implementation of the `RuntimeService` interface.
+ *
+ * This struct provides a controlled environment for testing components that
+ * interact with the Kubernetes Container Runtime Interface (CRI). It simulates
+ * the behavior of a container runtime, allowing test cases to set up predefined
+ * states for containers and pod sandboxes, and to verify the sequence of API
+ * calls made by the tested component.
+ *
+ * @field Mutex sync.Mutex: A mutex to protect concurrent access to the fake service's internal state.
+ * @field Called []string: A slice of strings recording the names of the methods called on this fake service, in order.
+ * @field Containers map[string]*FakeContainer: A map storing fake container objects, keyed by container ID.
+ * @field Sandboxes map[string]*FakePodSandbox: A map storing fake pod sandbox objects, keyed by sandbox ID.
+ */
 type FakeRuntimeService struct {
 	sync.Mutex
 
@@ -55,6 +110,16 @@ type FakeRuntimeService struct {
 	Sandboxes  map[string]*FakePodSandbox
 }
 
+/**
+ * @brief SetFakeSandboxes populates the fake runtime with a list of sandboxes.
+ *
+ * This method is used by test cases to pre-configure the `FakeRuntimeService`
+ * with a specific set of `FakePodSandbox` instances. It locks the service's
+ * state, clears any existing sandboxes, and then populates the `Sandboxes` map
+ * with the provided fake sandboxes.
+ *
+ * @param sandboxes []*FakePodSandbox: A slice of `FakePodSandbox` objects to set in the fake runtime.
+ */
 func (r *FakeRuntimeService) SetFakeSandboxes(sandboxes []*FakePodSandbox) {
 	r.Lock()
 	defer r.Unlock()
@@ -66,6 +131,16 @@ func (r *FakeRuntimeService) SetFakeSandboxes(sandboxes []*FakePodSandbox) {
 	}
 }
 
+/**
+ * @brief SetFakeContainers populates the fake runtime with a list of containers.
+ *
+ * This method is used by test cases to pre-configure the `FakeRuntimeService`
+ * with a specific set of `FakeContainer` instances. It locks the service's
+ * state, clears any existing containers, and then populates the `Containers` map
+ * with the provided fake containers.
+ *
+ * @param containers []*FakeContainer: A slice of `FakeContainer` objects to set in the fake runtime.
+ */
 func (r *FakeRuntimeService) SetFakeContainers(containers []*FakeContainer) {
 	r.Lock()
 	defer r.Unlock()
@@ -78,6 +153,16 @@ func (r *FakeRuntimeService) SetFakeContainers(containers []*FakeContainer) {
 
 }
 
+/**
+ * @brief AssertCalls verifies the sequence of method calls made to the fake service.
+ *
+ * This method is used in test cases to assert that the `FakeRuntimeService`
+ * received a specific sequence of method calls. It compares the provided `calls`
+ * slice with the `Called` history of the fake service.
+ *
+ * @param calls []string: The expected sequence of method call names.
+ * @return error: An error if the actual calls do not match the expected calls, nil otherwise.
+ */
 func (r *FakeRuntimeService) AssertCalls(calls []string) error {
 	r.Lock()
 	defer r.Unlock()
@@ -88,6 +173,15 @@ func (r *FakeRuntimeService) AssertCalls(calls []string) error {
 	return nil
 }
 
+/**
+ * @brief NewFakeRuntimeService creates and initializes a new `FakeRuntimeService`.
+ *
+ * This function returns a pointer to a newly created `FakeRuntimeService` instance.
+ * The service is initialized with empty lists for `Called` methods, `Containers`,
+ * and `Sandboxes`, ready for test case configuration.
+ *
+ * @return *FakeRuntimeService: A pointer to the new `FakeRuntimeService` instance.
+ */
 func NewFakeRuntimeService() *FakeRuntimeService {
 	return &FakeRuntimeService{
 		Called:     make([]string, 0),
@@ -96,6 +190,15 @@ func NewFakeRuntimeService() *FakeRuntimeService {
 	}
 }
 
+/**
+ * @brief Version simulates the `Version` API call of the runtime service.
+ *
+ * This method records that it has been called and returns a predefined
+ * `runtimeApi.VersionResponse` with fake version information.
+ *
+ * @param apiVersion string: The API version requested by the caller.
+ * @return (*runtimeApi.VersionResponse, error): A fake version response and nil error.
+ */
 func (r *FakeRuntimeService) Version(apiVersion string) (*runtimeApi.VersionResponse, error) {
 	r.Lock()
 	defer r.Unlock()
@@ -110,6 +213,16 @@ func (r *FakeRuntimeService) Version(apiVersion string) (*runtimeApi.VersionResp
 	}, nil
 }
 
+/**
+ * @brief RunPodSandbox simulates the `RunPodSandbox` API call.
+ *
+ * This method records the call, creates a fake pod sandbox based on the
+ * provided configuration, assigns it a fixed ID (derived from `BuildSandboxName`),
+ * and stores it in the `Sandboxes` map.
+ *
+ * @param config *runtimeApi.PodSandboxConfig: The configuration for the pod sandbox to run.
+ * @return (string, error): The ID of the fake pod sandbox and nil error.
+ */
 func (r *FakeRuntimeService) RunPodSandbox(config *runtimeApi.PodSandboxConfig) (string, error) {
 	r.Lock()
 	defer r.Unlock()
@@ -135,6 +248,15 @@ func (r *FakeRuntimeService) RunPodSandbox(config *runtimeApi.PodSandboxConfig) 
 	return podSandboxID, nil
 }
 
+/**
+ * @brief StopPodSandbox simulates the `StopPodSandbox` API call.
+ *
+ * This method records the call and sets the state of the specified pod sandbox
+ * to `NOTREADY`. If the sandbox is not found, it returns an error.
+ *
+ * @param podSandboxID string: The ID of the pod sandbox to stop.
+ * @return error: An error if the pod sandbox is not found, nil otherwise.
+ */
 func (r *FakeRuntimeService) StopPodSandbox(podSandboxID string) error {
 	r.Lock()
 	defer r.Unlock()
@@ -151,6 +273,15 @@ func (r *FakeRuntimeService) StopPodSandbox(podSandboxID string) error {
 	return nil
 }
 
+/**
+ * @brief RemovePodSandbox simulates the `RemovePodSandbox` API call.
+ *
+ * This method records the call and removes the specified pod sandbox from the
+ * `Sandboxes` map.
+ *
+ * @param podSandboxID string: The ID of the pod sandbox to remove.
+ * @return error: Nil error (or an error if sandbox removal logic were more complex).
+ */
 func (r *FakeRuntimeService) RemovePodSandbox(podSandboxID string) error {
 	r.Lock()
 	defer r.Unlock()
@@ -163,6 +294,15 @@ func (r *FakeRuntimeService) RemovePodSandbox(podSandboxID string) error {
 	return nil
 }
 
+/**
+ * @brief PodSandboxStatus simulates the `PodSandboxStatus` API call.
+ *
+ * This method records the call and returns the status of the specified pod sandbox
+ * from the `Sandboxes` map. It includes fake network information.
+ *
+ * @param podSandboxID string: The ID of the pod sandbox to retrieve status for.
+ * @return (*runtimeApi.PodSandboxStatus, error): The status of the fake pod sandbox, or an error if not found.
+ */
 func (r *FakeRuntimeService) PodSandboxStatus(podSandboxID string) (*runtimeApi.PodSandboxStatus, error) {
 	r.Lock()
 	defer r.Unlock()
@@ -187,6 +327,16 @@ func (r *FakeRuntimeService) PodSandboxStatus(podSandboxID string) (*runtimeApi.
 	}, nil
 }
 
+/**
+ * @brief ListPodSandbox simulates the `ListPodSandbox` API call.
+ *
+ * This method records the call and returns a list of fake pod sandboxes
+ * that match the provided `filter`. The filter can specify an ID, state,
+ * or label selectors.
+ *
+ * @param filter *runtimeApi.PodSandboxFilter: Criteria to filter the list of sandboxes.
+ * @return ([]*runtimeApi.PodSandbox, error): A slice of matching fake pod sandboxes and nil error.
+ */
 func (r *FakeRuntimeService) ListPodSandbox(filter *runtimeApi.PodSandboxFilter) ([]*runtimeApi.PodSandbox, error) {
 	r.Lock()
 	defer r.Unlock()
@@ -220,6 +370,19 @@ func (r *FakeRuntimeService) ListPodSandbox(filter *runtimeApi.PodSandboxFilter)
 	return result, nil
 }
 
+/**
+ * @brief CreateContainer simulates the `CreateContainer` API call.
+ *
+ * This method records the call, creates a fake container based on the
+ * provided configuration, assigns it a fixed ID (derived from `BuildContainerName`),
+ * and stores it in the `Containers` map. It links the container to its parent
+ * pod sandbox via `podSandboxID`.
+ *
+ * @param podSandboxID string: The ID of the pod sandbox to which this container belongs.
+ * @param config *runtimeApi.ContainerConfig: The configuration for the container to create.
+ * @param sandboxConfig *runtimeApi.PodSandboxConfig: The configuration of the sandbox (used for naming).
+ * @return (string, error): The ID of the fake container and nil error.
+ */
 func (r *FakeRuntimeService) CreateContainer(podSandboxID string, config *runtimeApi.ContainerConfig, sandboxConfig *runtimeApi.PodSandboxConfig) (string, error) {
 	r.Lock()
 	defer r.Unlock()
@@ -249,6 +412,16 @@ func (r *FakeRuntimeService) CreateContainer(podSandboxID string, config *runtim
 	return containerID, nil
 }
 
+/**
+ * @brief StartContainer simulates the `StartContainer` API call.
+ *
+ * This method records the call, sets the state of the specified container to
+ * `RUNNING`, and updates its `StartedAt` timestamp. If the container is not
+ * found, it returns an error.
+ *
+ * @param containerID string: The ID of the container to start.
+ * @return error: An error if the container is not found, nil otherwise.
+ */
 func (r *FakeRuntimeService) StartContainer(containerID string) error {
 	r.Lock()
 	defer r.Unlock()
@@ -269,6 +442,17 @@ func (r *FakeRuntimeService) StartContainer(containerID string) error {
 	return nil
 }
 
+/**
+ * @brief StopContainer simulates the `StopContainer` API call.
+ *
+ * This method records the call, sets the state of the specified container to
+ * `EXITED`, and updates its `FinishedAt` timestamp. If the container is not
+ * found, it returns an error.
+ *
+ * @param containerID string: The ID of the container to stop.
+ * @param timeout int64: The grace period (in seconds) to wait before forcibly stopping the container.
+ * @return error: An error if the container is not found, nil otherwise.
+ */
 func (r *FakeRuntimeService) StopContainer(containerID string, timeout int64) error {
 	r.Lock()
 	defer r.Unlock()
@@ -289,6 +473,15 @@ func (r *FakeRuntimeService) StopContainer(containerID string, timeout int64) er
 	return nil
 }
 
+/**
+ * @brief RemoveContainer simulates the `RemoveContainer` API call.
+ *
+ * This method records the call and removes the specified container from the
+ * `Containers` map.
+ *
+ * @param containerID string: The ID of the container to remove.
+ * @return error: Nil error (or an error if container removal logic were more complex).
+ */
 func (r *FakeRuntimeService) RemoveContainer(containerID string) error {
 	r.Lock()
 	defer r.Unlock()
@@ -301,6 +494,16 @@ func (r *FakeRuntimeService) RemoveContainer(containerID string) error {
 	return nil
 }
 
+/**
+ * @brief ListContainers simulates the `ListContainers` API call.
+ *
+ * This method records the call and returns a list of fake containers
+ * that match the provided `filter`. The filter can specify an ID, pod sandbox ID,
+ * state, or label selectors.
+ *
+ * @param filter *runtimeApi.ContainerFilter: Criteria to filter the list of containers.
+ * @return ([]*runtimeApi.Container, error): A slice of matching fake containers and nil error.
+ */
 func (r *FakeRuntimeService) ListContainers(filter *runtimeApi.ContainerFilter) ([]*runtimeApi.Container, error) {
 	r.Lock()
 	defer r.Unlock()
@@ -340,6 +543,15 @@ func (r *FakeRuntimeService) ListContainers(filter *runtimeApi.ContainerFilter) 
 	return result, nil
 }
 
+/**
+ * @brief ContainerStatus simulates the `ContainerStatus` API call.
+ *
+ * This method records the call and returns the status of the specified container
+ * from the `Containers` map.
+ *
+ * @param containerID string: The ID of the container to retrieve status for.
+ * @return (*runtimeApi.ContainerStatus, error): The status of the fake container, or an error if not found.
+ */
 func (r *FakeRuntimeService) ContainerStatus(containerID string) (*runtimeApi.ContainerStatus, error) {
 	r.Lock()
 	defer r.Unlock()
@@ -368,6 +580,20 @@ func (r *FakeRuntimeService) ContainerStatus(containerID string) (*runtimeApi.Co
 	}, nil
 }
 
+/**
+ * @brief Exec simulates the `Exec` API call for executing a command in a container.
+ *
+ * This method records the call but does not perform any actual command execution.
+ * It is a no-op implementation for testing purposes.
+ *
+ * @param containerID string: The ID of the container in which to execute the command.
+ * @param cmd []string: The command to execute, including arguments.
+ * @param tty bool: Whether to allocate a TTY for the command.
+ * @param stdin io.Reader: A reader for the command's standard input.
+ * @param stdout io.WriteCloser: A writer for the command's standard output.
+ * @param stderr io.WriteCloser: A writer for the command's standard error.
+ * @return error: Always returns nil.
+ */
 func (r *FakeRuntimeService) Exec(containerID string, cmd []string, tty bool, stdin io.Reader, stdout, stderr io.WriteCloser) error {
 	r.Lock()
 	defer r.Unlock()
@@ -376,6 +602,15 @@ func (r *FakeRuntimeService) Exec(containerID string, cmd []string, tty bool, st
 	return nil
 }
 
+/**
+ * @brief UpdateRuntimeConfig simulates the `UpdateRuntimeConfig` API call.
+ *
+ * This method is a no-op implementation for testing purposes, as updating
+ * runtime configuration is not simulated by this fake service.
+ *
+ * @param runtimeCOnfig *runtimeApi.RuntimeConfig: The runtime configuration to update.
+ * @return error: Always returns nil.
+ */
 func (r *FakeRuntimeService) UpdateRuntimeConfig(runtimeCOnfig *runtimeApi.RuntimeConfig) error {
 	return nil
 }

@@ -14,6 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+/**
+ * @file image_puller.go
+ * @brief Implements the image pulling logic for Kubernetes Kubelet.
+ *
+ * This file defines the `imagePuller` struct and its associated methods,
+ * responsible for orchestrating the pulling of container images from registries.
+ * It integrates with the container runtime, handles image pull policies,
+ * reports events, and implements back-off strategies for failed pulls.
+ * The primary goal is to ensure that required container images are available
+ * on the node for Pods to start.
+ */
+
 package container
 
 import (
@@ -26,9 +38,18 @@ import (
 	"k8s.io/kubernetes/pkg/util/flowcontrol"
 )
 
-// imagePuller pulls the image using Runtime.PullImage().
-// It will check the presence of the image, and report the 'image pulling',
-// 'image pulled' events correspondingly.
+/**
+ * @brief imagePuller is an implementation of the ImagePuller interface.
+ *
+ * This struct is responsible for pulling container images using the underlying
+ * container runtime. It wraps the `Runtime.PullImage()` method and provides
+ * additional functionality such as image presence checks, event reporting,
+ * and back-off handling for failed image pulls.
+ *
+ * @field recorder record.EventRecorder: Used for recording events related to image pulling (e.g., "image pulling", "image pulled").
+ * @field runtime Runtime: The interface to the container runtime, used to perform actual image pull operations.
+ * @field backOff *flowcontrol.Backoff: Manages back-off delays for image pull operations to prevent hammering the registry on repeated failures.
+ */
 type imagePuller struct {
 	recorder record.EventRecorder
 	runtime  Runtime
@@ -38,8 +59,19 @@ type imagePuller struct {
 // enforce compatibility.
 var _ ImagePuller = &imagePuller{}
 
-// NewImagePuller takes an event recorder and container runtime to create a
-// image puller that wraps the container runtime's PullImage interface.
+/**
+ * @brief NewImagePuller creates a new ImagePuller instance.
+ *
+ * This function constructs an `imagePuller` that implements the `ImagePuller`
+ * interface. It initializes the `imagePuller` with an event recorder for
+ * reporting pull-related events, a container runtime for executing image pull
+ * operations, and a back-off manager for handling retries.
+ *
+ * @param recorder record.EventRecorder: The event recorder to use for publishing events.
+ * @param runtime Runtime: The container runtime interface to interact with.
+ * @param imageBackOff *flowcontrol.Backoff: The back-off manager for image pull operations.
+ * @return ImagePuller: A new instance of the ImagePuller.
+ */
 func NewImagePuller(recorder record.EventRecorder, runtime Runtime, imageBackOff *flowcontrol.Backoff) ImagePuller {
 	return &imagePuller{
 		recorder: recorder,
@@ -48,8 +80,18 @@ func NewImagePuller(recorder record.EventRecorder, runtime Runtime, imageBackOff
 	}
 }
 
-// shouldPullImage returns whether we should pull an image according to
-// the presence and pull policy of the image.
+/**
+ * @brief shouldPullImage determines if an image pull is required.
+ *
+ * This function evaluates whether an image should be pulled based on the
+ * container's `ImagePullPolicy` and whether the image is already present
+ * on the machine. It implements the logic for `PullAlways`, `PullNever`,
+ * and `PullIfNotPresent` policies.
+ *
+ * @param container *api.Container: The container definition with its image pull policy.
+ * @param imagePresent bool: A boolean indicating if the image is already available locally.
+ * @return bool: True if the image should be pulled, false otherwise.
+ */
 func shouldPullImage(container *api.Container, imagePresent bool) bool {
 	if container.ImagePullPolicy == api.PullNever {
 		return false
@@ -63,7 +105,20 @@ func shouldPullImage(container *api.Container, imagePresent bool) bool {
 	return false
 }
 
-// records an event using ref, event msg.  log to glog using prefix, msg, logFn
+/**
+ * @brief logIt records an event and logs a message.
+ * Functional Utility: This helper method centralizes event recording and
+ *                     logging for image pull operations. If a `ref` (ObjectReference)
+ *                     is provided, it records an event using the `puller.recorder`.
+ *                     Otherwise, it logs the message directly using `glog`.
+ *
+ * @param ref *api.ObjectReference: A reference to the API object associated with the event.
+ * @param eventtype string: The type of the event (e.g., api.EventTypeNormal, api.EventTypeWarning).
+ * @param event string: A short, machine-readable description of the event.
+ * @param prefix string: A prefix for the log message (e.g., podName/containerImage).
+ * @param msg string: The human-readable message describing the event or action.
+ * @param logFn func(args ...interface{}): The glog function to use for logging if no ref is provided.
+ */
 func (puller *imagePuller) logIt(ref *api.ObjectReference, eventtype, event, prefix, msg string, logFn func(args ...interface{})) {
 	if ref != nil {
 		puller.recorder.Event(ref, eventtype, event, msg)
@@ -72,7 +127,20 @@ func (puller *imagePuller) logIt(ref *api.ObjectReference, eventtype, event, pre
 	}
 }
 
-// PullImage pulls the image for the specified pod and container.
+/**
+ * @brief PullImage pulls the image for the specified pod and container.
+ * Functional Utility: This method orchestrates the entire image pulling process.
+ *                     It first checks if the image needs to be pulled based on
+ *                     the `ImagePullPolicy`. It handles back-off for failed
+ *                     pulls, records events (e.g., "Pulling image", "Pulled image"),
+ *                     and interacts with the underlying container runtime to
+ *                     perform the actual image pull.
+ *
+ * @param pod *api.Pod: The Pod for which the image is being pulled.
+ * @param container *api.Container: The container for which the image is being pulled.
+ * @param pullSecrets []api.Secret: A slice of secrets used for authenticating with the image registry.
+ * @return (error, string): An error if the image pull fails, and a descriptive message.
+ */
 func (puller *imagePuller) PullImage(pod *api.Pod, container *api.Container, pullSecrets []api.Secret) (error, string) {
 	logPrefix := fmt.Sprintf("%s/%s", pod.Name, container.Image)
 	ref, err := GenerateContainerRef(pod, container)

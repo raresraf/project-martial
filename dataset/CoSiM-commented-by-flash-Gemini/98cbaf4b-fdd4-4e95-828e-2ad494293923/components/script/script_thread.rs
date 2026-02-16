@@ -17,6 +17,10 @@
 //! a page runs its course and the script thread returns to processing events in the main event
 //! loop.
 
+// Block Logic: Standard library imports for common data structures, concurrency, and time management.
+// Functional Utility: Provides fundamental building blocks for thread synchronization, atomic operations,
+//                     collections (HashMap, HashSet), and time-related functionalities crucial for
+//                     event loop management and performance monitoring.
 use std::borrow::Cow;
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
@@ -29,6 +33,16 @@ use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant, SystemTime};
 
+// Block Logic: Imports for core browser functionalities and inter-process communication (IPC).
+// Functional Utility: Provides definitions for background hang monitoring, browsing context
+//                     and pipeline identifiers, WebGL pipelines, time management (chrono),
+//                     cross-thread channels (crossbeam_channel), DevTools communication,
+//                     embedder-specific messages (InputEvent, Theme), Euclidean geometry (euclid),
+//                     font services, HTTP headers, HTML5 parsing primitives, IPC channels and router,
+//                     JavaScript runtime bindings (js), media context, performance metrics,
+//                     image caching, network request/response handling, memory/time profiling,
+//                     layout interface, WebDriver commands, and various script thread behaviors.
+//                     Also includes WebGPU and Webrender APIs.
 use background_hang_monitor_api::{
     BackgroundHangMonitor, BackgroundHangMonitorExitSignal, HangAnnotation, MonitoredComponentId,
     MonitoredComponentType,
@@ -97,6 +111,13 @@ use webgpu::{WebGPUDevice, WebGPUMsg};
 use webrender_api::DocumentId;
 use webrender_traits::{CompositorHitTestResult, CrossProcessCompositorApi};
 
+// Block Logic: Internal crate imports for DOM manipulation, scripting, and browser engine components.
+// Functional Utility: Provides access to core DOM structures (`Document`, `Element`, `Window`),
+//                     JavaScript bindings (`DomRefCell`, `JSTraceable`), custom element handling,
+//                     mutation observers, HTML elements (`HTMLAnchorElement`, `HTMLIFrameElement`),
+//                     performance monitoring, parsing, WebGPU integration, worklet management,
+//                     fetch cancellation, inter-thread messaging, microtask queuing, navigation,
+//                     script module options, and JavaScript runtime context.
 use crate::document_collection::DocumentCollection;
 use crate::document_loader::DocumentLoader;
 use crate::dom::bindings::cell::DomRefCell;
@@ -155,8 +176,15 @@ use crate::task_queue::TaskQueue;
 use crate::task_source::{SendableTaskSource, TaskSourceName};
 use crate::{devtools, webdriver_handlers};
 
+// Block Logic: Thread-local storage for the current `ScriptThread` instance.
+// Functional Utility: Provides a mechanism to access the `ScriptThread` instance associated
+//                     with the current thread, essential for thread-specific operations
+//                     and ensuring correct context.
 thread_local!(static SCRIPT_THREAD_ROOT: Cell<Option<*const ScriptThread>> = const { Cell::new(None) });
 
+// Functional Utility: Safely retrieves an optional reference to the current `ScriptThread` instance
+//                     from thread-local storage, allowing operations that may or may not require
+//                     the script thread context.
 fn with_optional_script_thread<R>(f: impl FnOnce(Option<&ScriptThread>) -> R) -> R {
     SCRIPT_THREAD_ROOT.with(|root| {
         f(root
@@ -165,6 +193,8 @@ fn with_optional_script_thread<R>(f: impl FnOnce(Option<&ScriptThread>) -> R) ->
     })
 }
 
+// Functional Utility: Retrieves a mandatory reference to the current `ScriptThread` instance
+//                     from thread-local storage, providing a default value if not found.
 pub(crate) fn with_script_thread<R: Default>(f: impl FnOnce(&ScriptThread) -> R) -> R {
     with_optional_script_thread(|script_thread| script_thread.map(f).unwrap_or_default())
 }
@@ -174,6 +204,12 @@ pub(crate) fn with_script_thread<R: Default>(f: impl FnOnce(&ScriptThread) -> R)
 /// The `JSTracer` argument must point to a valid `JSTracer` in memory. In addition,
 /// implementors of this method must ensure that all active objects are properly traced
 /// or else the garbage collector may end up collecting objects that are still reachable.
+// Block Logic: Implements garbage collector tracing for the `ScriptThread`.
+// Functional Utility: Ensures that all reachable objects within the `ScriptThread`'s memory
+//                     are correctly identified by the JavaScript garbage collector, preventing
+//                     premature deallocation and memory corruption.
+//
+// Pre-condition: `JSTracer` points to a valid tracer; implementors must ensure proper tracing of active objects.
 pub(crate) unsafe fn trace_thread(tr: *mut JSTracer) {
     with_script_thread(|script_thread| {
         trace!("tracing fields of ScriptThread");
@@ -338,12 +374,17 @@ pub struct ScriptThread {
     layout_factory: Arc<dyn LayoutFactory>,
 }
 
+// Block Logic: Represents an exit signal for the Background Hang Monitor (BHM).
+// Functional Utility: Allows the BHM to signal the script thread to initiate an exit process,
+//                     setting a closing flag and requesting a JavaScript interrupt callback.
 struct BHMExitSignal {
     closing: Arc<AtomicBool>,
     js_context: ThreadSafeJSContext,
 }
 
 impl BackgroundHangMonitorExitSignal for BHMExitSignal {
+    // Functional Utility: Sets the `closing` flag to true and requests an interrupt callback
+    //                     from the JavaScript context, gracefully initiating thread shutdown.
     fn signal_to_exit(&self) {
         self.closing.store(true, Ordering::SeqCst);
         self.js_context.request_interrupt_callback();
@@ -351,6 +392,14 @@ impl BackgroundHangMonitorExitSignal for BHMExitSignal {
 }
 
 #[allow(unsafe_code)]
+// Block Logic: Interrupt callback for the JavaScript engine.
+// Functional Utility: Provides a mechanism to interrupt ongoing JavaScript execution,
+//                     allowing the script thread to respond to external signals like
+//                     shutdown requests.
+//
+// Pre-condition: JavaScript context (`_cx`) is valid.
+// Invariant: Returns `true` if JavaScript execution should continue, `false` otherwise,
+//            triggering `prepare_for_shutdown` if execution is to be halted.
 unsafe extern "C" fn interrupt_callback(_cx: *mut UnsafeJSContext) -> bool {
     let res = ScriptThread::can_continue_running();
     if !res {
@@ -363,15 +412,22 @@ unsafe extern "C" fn interrupt_callback(_cx: *mut UnsafeJSContext) -> bool {
 /// are no reachable, owning pointers to the DOM memory, so it never gets freed by default
 /// when the script thread fails. The ScriptMemoryFailsafe uses the destructor bomb pattern
 /// to forcibly tear down the JS realms for pages associated with the failing ScriptThread.
+// Block Logic: Ensures proper cleanup of JavaScript realms during script thread panics.
+// Functional Utility: Implements a "destructor bomb" pattern to forcefully deallocate
+//                     JavaScript realms associated with a `ScriptThread` if the thread
+//                     panics, preventing memory leaks and ensuring resource release.
 struct ScriptMemoryFailsafe<'a> {
     owner: Option<&'a ScriptThread>,
 }
 
 impl<'a> ScriptMemoryFailsafe<'a> {
+    // Functional Utility: Disarms the failsafe, preventing cleanup actions upon drop.
     fn neuter(&mut self) {
         self.owner = None;
     }
 
+    // Functional Utility: Creates a new `ScriptMemoryFailsafe` instance,
+    //                     associating it with the given `ScriptThread`.
     fn new(owner: &'a ScriptThread) -> ScriptMemoryFailsafe<'a> {
         ScriptMemoryFailsafe { owner: Some(owner) }
     }
@@ -379,6 +435,8 @@ impl<'a> ScriptMemoryFailsafe<'a> {
 
 impl Drop for ScriptMemoryFailsafe<'_> {
     #[cfg_attr(crown, allow(crown::unrooted_must_root))]
+    // Functional Utility: Cleans up JavaScript realms associated with the `ScriptThread`
+    //                     if the failsafe is still active when dropped (e.g., on thread panic).
     fn drop(&mut self) {
         if let Some(owner) = self.owner {
             for (_, document) in owner.documents.borrow().iter() {
@@ -389,6 +447,14 @@ impl Drop for ScriptMemoryFailsafe<'_> {
 }
 
 impl ScriptThreadFactory for ScriptThread {
+    // Block Logic: Creates and initializes a new script thread.
+    // Functional Utility: Spawns a new thread, sets up its environment (thread state, namespaces, roots),
+    //                     constructs a `ScriptThread` instance, performs initial page loading,
+    //                     and starts the script thread's event loop with memory reporting.
+    //
+    // Pre-condition: Valid `InitialScriptState`, `LayoutFactory`, `SystemFontServiceProxy`,
+    //                `LoadData`, and `user_agent` are provided.
+    // Invariant: A new script thread is successfully created and initialized, or a panic occurs.
     fn create(
         state: InitialScriptState,
         layout_factory: Arc<dyn LayoutFactory>,
@@ -455,32 +521,44 @@ impl ScriptThreadFactory for ScriptThread {
 }
 
 impl ScriptThread {
+    // Functional Utility: Provides a handle to the parent JavaScript runtime,
+    //                     enabling the creation of new child runtimes or contexts.
     pub(crate) fn runtime_handle() -> ParentRuntime {
         with_optional_script_thread(|script_thread| {
             script_thread.unwrap().js_runtime.prepare_for_new_child()
         })
     }
 
+    // Functional Utility: Checks if the script thread is in a state to continue running,
+    //                     primarily by checking the `closing` flag.
     pub(crate) fn can_continue_running() -> bool {
         with_script_thread(|script_thread| script_thread.can_continue_running_inner())
     }
 
+    // Functional Utility: Initiates the shutdown process for the script thread,
+    //                     preparing it for termination.
     pub(crate) fn prepare_for_shutdown() {
         with_script_thread(|script_thread| {
             script_thread.prepare_for_shutdown_inner();
         })
     }
 
+    // Functional Utility: Sets the flag indicating whether a mutation observer microtask
+    //                     has been queued for processing.
     pub(crate) fn set_mutation_observer_microtask_queued(value: bool) {
         with_script_thread(|script_thread| {
             script_thread.mutation_observer_microtask_queued.set(value);
         })
     }
 
+    // Functional Utility: Returns `true` if a mutation observer microtask is currently
+    //                     queued, `false` otherwise.
     pub(crate) fn is_mutation_observer_microtask_queued() -> bool {
         with_script_thread(|script_thread| script_thread.mutation_observer_microtask_queued.get())
     }
 
+    // Functional Utility: Adds a `MutationObserver` to the list of observers managed
+    //                     by this script thread.
     pub(crate) fn add_mutation_observer(observer: &MutationObserver) {
         with_script_thread(|script_thread| {
             script_thread
@@ -490,6 +568,8 @@ impl ScriptThread {
         })
     }
 
+    // Functional Utility: Retrieves a vector of all `MutationObserver` objects currently
+    //                     managed by this script thread.
     pub(crate) fn get_mutation_observers() -> Vec<DomRoot<MutationObserver>> {
         with_script_thread(|script_thread| {
             script_thread
@@ -501,6 +581,8 @@ impl ScriptThread {
         })
     }
 
+    // Functional Utility: Adds an `HTMLSlotElement` to the list of signal slots
+    //                     managed by this script thread.
     pub(crate) fn add_signal_slot(observer: &HTMLSlotElement) {
         with_script_thread(|script_thread| {
             script_thread
@@ -510,6 +592,8 @@ impl ScriptThread {
         })
     }
 
+    // Functional Utility: Takes ownership of and returns all `HTMLSlotElement` objects
+    //                     from the signal slots, also removing them from the internal list.
     pub(crate) fn take_signal_slots() -> Vec<DomRoot<HTMLSlotElement>> {
         with_script_thread(|script_thread| {
             script_thread
@@ -524,6 +608,8 @@ impl ScriptThread {
         })
     }
 
+    // Functional Utility: Marks a document as having no blocked loads, indicating it has
+    //                     finished loading all its blocking resources.
     pub(crate) fn mark_document_with_no_blocked_loads(doc: &Document) {
         with_script_thread(|script_thread| {
             script_thread
@@ -533,6 +619,8 @@ impl ScriptThread {
         })
     }
 
+    // Functional Utility: Notifies the script thread that page headers are available,
+    //                     potentially returning a `ServoParser` for further processing.
     pub(crate) fn page_headers_available(
         id: &PipelineId,
         metadata: Option<Metadata>,

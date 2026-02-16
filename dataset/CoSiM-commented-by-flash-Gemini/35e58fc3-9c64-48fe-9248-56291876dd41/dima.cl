@@ -1,18 +1,61 @@
 
+/**
+ * @file dima.cl
+ * @brief OpenCL kernel for texture compression using ETC1-like algorithms.
+ *
+ * This kernel implements various helper functions and the main compression
+ * logic for image blocks, focusing on color manipulation, error calculation,
+ * and data packing into a compressed format. It includes functions for
+ * clamping, color conversion (e.g., to 4-bit or 5-bit color), memory
+ * operations, and core compression routines like `compressBlock` and
+ * `tryCompressSolidBlock`.
+ */
+
+/**
+ * @brief Macro for specifying data alignment.
+ *
+ * This macro is a GCC/Clang specific extension (`__attribute__((aligned(X)))`)
+ * used to enforce a minimum alignment for a variable or structure to X bytes.
+ * This can be crucial for performance, especially when dealing with vectorized
+ * operations or specific hardware requirements in OpenCL kernels.
+ *
+ * @param X The alignment boundary in bytes.
+ */
 #define ALIGNAS(X)	__attribute__((aligned(X)))
 
+/**
+ * @union Color
+ * @brief Represents a color value, allowing access by channels, components, or as a single integer.
+ *
+ * This union provides flexible ways to interpret a 32-bit color value.
+ * It can be accessed as individual BGRA (Blue, Green, Red, Alpha) channels,
+ * as an array of 4 unsigned characters (components), or as a single 32-bit
+ * unsigned integer (bits). This is particularly useful in graphics programming
+ * for efficient manipulation and interpretation of pixel data.
+ */
 union Color {
     struct BgraColorType {
-        uchar b;
-        uchar g;
-        uchar r;
-        uchar a;
-    } channels;
-    uchar components[4];
-    uint bits;
+        uchar b; ///< @brief Blue channel component.
+        uchar g; ///< @brief Green channel component.
+        uchar r; ///< @brief Red channel component.
+        uchar a; ///< @brief Alpha channel component (transparency).
+    } channels; ///< @brief Access color components individually by name.
+    uchar components[4]; ///< @brief Access color components as an array of unsigned characters.
+    uint bits; ///< @brief Access the entire color as a single 32-bit unsigned integer.
 };
 
 
+/**
+ * @brief Copies a block of `Color` union data from global to local/private memory.
+ *
+ * This function provides a basic memory copy operation specifically for arrays
+ * of `union Color`. It is used to transfer `len` number of `Color` elements
+ * from a source in global memory to a destination in local or private memory.
+ *
+ * @param dest union Color *: Pointer to the destination memory.
+ * @param src __global union Color *: Pointer to the source memory in global address space.
+ * @param len int: The number of `Color` elements to copy.
+ */
 void my_memcpy(union Color *dest, __global union Color *src, int len)
 
 {
@@ -22,6 +65,17 @@ void my_memcpy(union Color *dest, __global union Color *src, int len)
 }
 
 
+/**
+ * @brief Copies a block of `uchar` data from one memory location to another.
+ *
+ * This function performs a byte-by-byte copy of `len` unsigned characters
+ * from a source memory address to a destination memory address. It is a
+ * generic memory copy utility for `uchar` arrays.
+ *
+ * @param dest uchar *: Pointer to the destination memory.
+ * @param src uchar *: Pointer to the source memory.
+ * @param len int: The number of `uchar` elements (bytes) to copy.
+ */
 void my_memcpy2(uchar *dest, uchar *src, int len)
 
 {
@@ -31,6 +85,17 @@ void my_memcpy2(uchar *dest, uchar *src, int len)
 }
 
 
+/**
+ * @brief Fills a block of global memory with a specified byte value.
+ *
+ * This function sets `len` bytes of memory at the `dest` address in the
+ * global address space to the value `val`. It's a basic memory initialization
+ * routine.
+ *
+ * @param dest __global uchar *: Pointer to the destination memory in global address space.
+ * @param val uchar: The byte value to fill the memory with.
+ * @param len int: The number of bytes to set.
+ */
 void my_memset(__global uchar *dest, uchar val, int len) {
     for (int i = 0; i < len; i++) {
         dest[i] = val;
@@ -38,27 +103,79 @@ void my_memset(__global uchar *dest, uchar val, int len) {
 }
 
 
+/**
+ * @brief Clamps an integer value within a specified range.
+ *
+ * This function ensures that an integer `val` stays within the inclusive
+ * range defined by `min` and `max`. If `val` is less than `min`, it returns `min`.
+ * If `val` is greater than `max`, it returns `max`. Otherwise, it returns `val`.
+ *
+ * @param val int: The input integer value to clamp.
+ * @param min int: The minimum allowed value.
+ * @param max int: The maximum allowed value.
+ * @return uchar: The clamped value, cast to `uchar`.
+ */
 uchar clamp3(int val, int min, int max) {
     return val  max ? max : val);
 }
 
 
+/**
+ * @brief Clamps an unsigned char value within a specified range.
+ *
+ * This function ensures that an unsigned char `val` stays within the inclusive
+ * range defined by `min` and `max`. If `val` is less than `min`, it returns `min`.
+ * If `val` is greater than `max`, it returns `max`. Otherwise, it returns `val`.
+ *
+ * @param val uchar: The input unsigned char value to clamp.
+ * @param min uchar: The minimum allowed value.
+ * @param max uchar: The maximum allowed value.
+ * @return uchar: The clamped value.
+ */
 uchar clamp2(uchar val, uchar min, uchar max) {
     return val  max ? max : val);
 }
 
+/**
+ * @brief Rounds a float color component value to a 5-bit representation.
+ *
+ * This function scales a float value (assumed to be in the 0-255 range)
+ * to a 5-bit integer range (0-31), applies rounding, and then clamps the
+ * result to ensure it stays within the valid 5-bit range.
+ *
+ * @param val float: The input float value (color component).
+ * @return uchar: The rounded and clamped 5-bit representation as an unsigned char.
+ */
 uchar round_to_5_bits(float val) {
     return (uchar)clamp2(val * 31.0f / 255.0f + 0.5f, 0, 31);
 }
 
+/**
+ * @brief Rounds a float color component value to a 4-bit representation.
+ *
+ * This function scales a float value (assumed to be in the 0-255 range)
+ * to a 4-bit integer range (0-15), applies rounding, and then clamps the
+ * result to ensure it stays within the valid 4-bit range.
+ *
+ * @param val float: The input float value (color component).
+ * @return uchar: The rounded and clamped 4-bit representation as an unsigned char.
+ */
 uchar round_to_4_bits(float val) {
-
-
     return (uchar)clamp2(val * 15.0f / 255.0f + 0.5f, 0, 15);
 }
 
 
 
+/**
+ * @brief Global constant array of codeword tables for ETC1 texture compression.
+ *
+ * This 2D array stores pre-defined luminance (or color difference) values
+ * used in the ETC1 texture compression algorithm. Each sub-array represents
+ * a codeword table, and the values within are modifiers applied to base colors
+ * to generate a palette of colors for a block. These tables are crucial for
+ * achieving different shades and tones during compression.
+ * See: ETC1 specification, Table 3.17.2
+ */
 ALIGNAS(16) __constant short g_codeword_tables[8][4] = {
         {-8, -2, 2, 8},
         {-17, -5, 5, 17},
@@ -71,6 +188,14 @@ ALIGNAS(16) __constant short g_codeword_tables[8][4] = {
 
 
 
+/**
+ * @brief Global constant array mapping modifier indices to pixel index values.
+ *
+ * This array is used in the ETC1 compression algorithm to map the selected
+ * modifier index (from `g_codeword_tables`) to a specific 2-bit pixel index
+ * value that is then packed into the compressed texture block.
+ * See: ETC1 specification, Table 3.17.3
+ */
 __constant uchar g_mod_to_pix[4] = {3, 2, 0, 1};
 
 
@@ -93,16 +218,49 @@ __constant uchar g_mod_to_pix[4] = {3, 2, 0, 1};
 
 
 
+/**
+ * @brief Global constant array for translating sub-block indices to texel numbers.
+ *
+ * This 2D array helps in mapping the natural array indexing order of texels
+ * within a 4x4 image block (when split into 2x4 vertical or 4x2 horizontal sub-blocks)
+ * to the specific texel numbers defined by the ETC1 specification. This is essential
+ * for correctly packing pixel data into the compressed texture format.
+ * The ETC1 specification indexes texels as follows:
+ * [a][e][i][m]     [ 0][ 4][ 8][12]
+ * [b][f][j][n]  [ 1][ 5][ 9][13]
+ * [c][g][k][o]     [ 2][ 6][10][14]
+ * [d][h][l][p]     [ 3][ 7][11][15]
+ *
+ * However, when extracting sub blocks from BGRA data the natural array
+ * indexing order ends up different:
+ * vertical0: [a][e][b][f]  horizontal0: [a][e][i][m]
+ *            [c][g][d][h]               [b][f][j][n]
+ * vertical1: [i][m][j][n]  horizontal1: [c][g][k][o]
+ *            [k][o][l][p]               [d][h][l][p]
+ *
+ * This table translates from the natural array indices in a sub block
+ * to the indices (number) used by specification and hardware.
+ */
 __constant uchar g_idx_to_num[4][8] = {
-{0, 4, 1, 5, 2, 6, 3, 7},        
-{8, 12, 9, 13, 10, 14, 11, 15},  
-
-
-{0, 4, 8, 12, 1, 5, 9, 13},      
-{2, 6, 10, 14, 3, 7, 11, 15}     
+{0, 4, 1, 5, 2, 6, 3, 7},        ///< @brief Vertical block 0 mapping.
+{8, 12, 9, 13, 10, 14, 11, 15},  ///< @brief Vertical block 1 mapping.
+{0, 4, 8, 12, 1, 5, 9, 13},      ///< @brief Horizontal block 0 mapping.
+{2, 6, 10, 14, 3, 7, 11, 15}     ///< @brief Horizontal block 1 mapping.
 };
 
 
+/**
+ * @brief Constructs a new color by applying a luminance adjustment to a base color.
+ *
+ * This function takes a base `Color` and a `lum` (luminance) value. It adds
+ * the luminance to each of the Red, Green, and Blue channels of the base color,
+ * and then clamps the resulting channel values to the valid 0-255 range.
+ * The alpha channel of the base color is preserved.
+ *
+ * @param base union Color *: Pointer to the base color to which luminance will be applied.
+ * @param lum short: The luminance value to add to the R, G, B channels.
+ * @return union Color: A new `Color` union with the adjusted R, G, B channels.
+ */
 union Color makeColor(union Color *base, short lum) {
 	int b = (int)(base->channels.b) + lum;
 	int g = (int)(base->channels.g) + lum;
@@ -116,6 +274,19 @@ union Color makeColor(union Color *base, short lum) {
 
 
 
+/**
+ * @brief Calculates an error metric between two colors.
+ *
+ * This function quantifies the difference between two `Color` unions (`u` and `v`).
+ * A small error value indicates that the colors are perceptually similar,
+ * while a large value suggests a significant difference. The calculation
+ * can optionally use a perceived error metric (ifdef USE_PERCEIVED_ERROR_METRIC)
+ * or a simpler sum of squared differences for RGB channels.
+ *
+ * @param u union Color *: Pointer to the first color.
+ * @param v union Color *: Pointer to the second color.
+ * @return uint: The calculated error metric as an unsigned integer.
+ */
 uint getColorError(union Color *u, union Color *v) {
 #ifdef USE_PERCEIVED_ERROR_METRIC
 	float delta_b = (float)(u->channels.b) - v->channels.b;
@@ -132,6 +303,19 @@ uint getColorError(union Color *u, union Color *v) {
 #endif
 }
 
+/**
+ * @brief Writes two 4-bit per channel colors into a compressed block.
+ *
+ * This function takes two `Color` unions, extracts their red, green, and blue
+ * components (assuming they are already in a 4-bit representation or will be
+ * truncated), and packs them into the first three bytes of a compressed texture
+ * block. This is typically used for BGRA textures where color components are
+ * rounded to 4 bits (e.g., in ETC1 differential mode).
+ *
+ * @param block __global uchar*: Pointer to the global memory location of the compressed block.
+ * @param color0 const union Color *: Pointer to the first color (e.g., base color).
+ * @param color1 const union Color *: Pointer to the second color (e.g., differential color).
+ */
 void WriteColors444(__global uchar* block, const union Color *color0, const union Color *color1) {
 
 	block[0] = (color0->channels.r & 0xf0) | (color1->channels.r >> 4);
@@ -139,17 +323,29 @@ void WriteColors444(__global uchar* block, const union Color *color0, const unio
 	block[2] = (color0->channels.b & 0xf0) | (color1->channels.b >> 4);
 }
 
+/**
+ * @brief Writes two 5-bit per channel colors (or their differential) into a compressed block.
+ *
+ * This function is used in ETC1 compression for encoding base colors or their
+ * differential values when a 5-bit per channel representation is used.
+ * It also uses a `two_compl_trans_table` for converting delta values into
+ * a 3-bit two's complement format as required by the ETC1 specification.
+ *
+ * @param block __global uchar*: Pointer to the global memory location of the compressed block.
+ * @param color0 const union Color *: Pointer to the first color (e.g., base color).
+ * @param color1 const union Color *: Pointer to the second color (e.g., differential color).
+ */
 void WriteColors555(__global uchar* block, const union Color *color0, const union Color *color1) {
 
 	const uchar two_compl_trans_table[8] = {
-		4,  
-		5,  
-		6,  
-		7,  
-		0,  
-		1,  
-		2,  
-		3,  
+		4,  ///< @brief Maps -4 (100b)
+		5,  ///< @brief Maps -3 (101b)
+		6,  ///< @brief Maps -2 (110b)
+		7,  ///< @brief Maps -1 (111b)
+		0,  ///< @brief Maps 0 (000b)
+		1,  ///< @brief Maps 1 (001b)
+		2,  ///< @brief Maps 2 (010b)
+		3,  ///< @brief Maps 3 (011b)
 		};
 
 	short delta_r = (short)(color1->channels.r >> 3) - (color0->channels.r >> 3);
@@ -162,12 +358,33 @@ void WriteColors555(__global uchar* block, const union Color *color0, const unio
 	block[2] = (color0->channels.b & 0xf8) | two_compl_trans_table[delta_b + 4];
 }
 
+/**
+ * @brief Writes the selected codeword table index into a compressed block.
+ *
+ * This function packs the `table` index (indicating which of `g_codeword_tables`
+ * was chosen for a sub-block) into the third byte of the compressed block.
+ * The `sub_block_id` determines the exact bit position within that byte.
+ *
+ * @param block __global uchar*: Pointer to the global memory location of the compressed block.
+ * @param sub_block_id uchar: Identifier for the sub-block (0 or 1), used to determine bit shift.
+ * @param table uchar: The index of the chosen codeword table (0-7).
+ */
 void WriteCodewordTable(__global uchar* block, uchar sub_block_id, uchar table) {
     uchar shift = (2 + (3 - sub_block_id * 3));
     block[3] &= ~(0x07 << shift);
     block[3] |= table << shift;
 }
 
+/**
+ * @brief Writes pixel index data into a compressed block.
+ *
+ * This function packs the 16-bit pixel index data (which determines which
+ * color from the derived palette is used for each pixel in a 4x4 block)
+ * into bytes 4-7 of the compressed texture block.
+ *
+ * @param block __global uchar*: Pointer to the global memory location of the compressed block.
+ * @param pixel_data int: The 16-bit pixel index data, potentially spread across multiple bytes.
+ */
 void WritePixelData(__global uchar* block, int pixel_data) {
     block[4] |= pixel_data >> 24;
     block[5] |= (pixel_data >> 16) & 0xff;
@@ -175,11 +392,31 @@ void WritePixelData(__global uchar* block, int pixel_data) {
     block[7] |= pixel_data & 0xff;
 }
 
+/**
+ * @brief Writes the flip bit into a compressed block.
+ *
+ * This function sets a specific bit in the third byte of the compressed block
+ * to indicate whether the 4x4 pixel block has been 'flipped' (e.g., to select
+ * between vertical or horizontal sub-blocks for color definition in ETC1).
+ *
+ * @param block __global uchar*: Pointer to the global memory location of the compressed block.
+ * @param flip int: A non-zero value to set the flip bit, zero to clear it.
+ */
 void WriteFlip(__global uchar* block, int flip) {
     block[3] &= ~0x01;
     block[3] |= (uchar)(flip);
 }
 
+/**
+ * @brief Writes the differential flag into a compressed block.
+ *
+ * This function sets a specific bit in the third byte of the compressed block
+ * to indicate whether the block is using differential color encoding (e.g.,
+ * 5-bit base colors with 3-bit differentials) or absolute color encoding (4-bit colors).
+ *
+ * @param block __global uchar*: Pointer to the global memory location of the compressed block.
+ * @param diff int: A non-zero value to set the differential flag, zero to clear it.
+ */
 void WriteDiff(__global uchar* block, int diff) {
 
 
@@ -187,6 +424,18 @@ void WriteDiff(__global uchar* block, int diff) {
     block[3] |= (uchar)(diff) << 1;
 }
 
+/**
+ * @brief Extracts a 4x4 pixel block from a source image into a destination buffer.
+ *
+ * This function copies a 4x4 block of pixel data from a wider source image
+ * (`src`) into a contiguous destination buffer (`dst`). It assumes 4 bytes per
+ * pixel (e.g., RGBA or BGRA) and iterates through rows and columns to extract
+ * the block.
+ *
+ * @param dst uchar*: Pointer to the destination buffer for the 4x4 block.
+ * @param src uchar*: Pointer to the starting pixel of the 4x4 block within the wider source image.
+ * @param width int: The width of the full source image in pixels.
+ */
 void ExtractBlock(uchar* dst, uchar* src, int width) {
 	for (int j = 0; j < 4; ++j) {
 		my_memcpy2(&dst[j * 4 * 4], src, 4 * 4);
@@ -200,6 +449,17 @@ void ExtractBlock(uchar* dst, uchar* src, int width) {
 
 
 
+/**
+ * @brief Converts a BGR (float) color into a 4-bit per channel (BGR444) `Color` union.
+ *
+ * This function takes a BGR color represented by an array of floats,
+ * rounds each component to a 4-bit value, and then expands it back to an 8-bit
+ * representation (e.g., 0xAB becomes 0xAABB) to simulate how hardware would
+ * decompress it. The alpha channel is set to `0x44` to distinguish it from 555 colors.
+ *
+ * @param bgr float*: Pointer to an array of floats representing the Blue, Green, and Red color components.
+ * @return union Color: A `Color` union representing the BGR444 color.
+ */
 union Color makeColor444(float* bgr) {
     uchar b4 = round_to_4_bits(bgr[0]);
     uchar g4 = round_to_4_bits(bgr[1]);
@@ -219,6 +479,17 @@ union Color makeColor444(float* bgr) {
 
 
 
+/**
+ * @brief Converts a BGR (float) color into a 5-bit per channel (BGR555) `Color` union.
+ *
+ * This function takes a BGR color represented by an array of floats,
+ * rounds each component to a 5-bit value, and then expands it back to an 8-bit
+ * representation to simulate how hardware would decompress it. The alpha channel
+ * is set to `0x55` to distinguish it from 444 colors.
+ *
+ * @param bgr float*: Pointer to an array of floats representing the Blue, Green, and Red color components.
+ * @return union Color: A `Color` union representing the BGR555 color.
+ */
 union Color makeColor555(float* bgr) {
     uchar b5 = round_to_5_bits(bgr[0]);
     uchar g5 = round_to_5_bits(bgr[1]);
@@ -234,6 +505,17 @@ union Color makeColor555(float* bgr) {
     return bgr555;
 }
 
+/**
+ * @brief Calculates the average color from an array of `Color` unions.
+ *
+ * This function iterates through the first 8 `Color` unions in the `src` array,
+ * sums their individual Blue, Green, and Red channel components, and then
+ * computes the average for each channel. The result is stored in the `avg_color`
+ * float array.
+ *
+ * @param src union Color*: Pointer to an array of `Color` unions.
+ * @param avg_color float*: Pointer to a float array of size 3 to store the average BGR components.
+ */
 void getAverageColor(union Color* src, float* avg_color)
 {
 uint sum_b = 0, sum_g = 0, sum_r = 0;
@@ -250,6 +532,23 @@ uint sum_b = 0, sum_g = 0, sum_r = 0;
 	avg_color[2] = (float)(sum_r) * kInv8;
 }
 
+/**
+ * @brief Computes the best luminance table and pixel modifiers for a color block.
+ *
+ * This function iterates through all available codeword tables (`g_codeword_tables`)
+ * to find the one that minimizes the error when applied to the `src` colors
+ * with respect to a `base` color. It also determines the best modifier for
+ * each pixel and writes the chosen codeword table and packed pixel data into
+ * the `block`.
+ *
+ * @param block __global uchar*: Pointer to the global memory location of the compressed block.
+ * @param src union Color*: Pointer to an array of source colors (e.g., from a sub-block).
+ * @param base union Color*: Pointer to the base color for luminance adjustments.
+ * @param sub_block_id int: Identifier for the sub-block being processed.
+ * @param idx_to_num_tab __constant uchar*: Pointer to the `g_idx_to_num` table for texel mapping.
+ * @param threshold ulong: An initial error threshold for optimization.
+ * @return ulong: The best (minimum) total error achieved for the sub-block.
+ */
 ulong computeLuminance(__global uchar* block, union Color* src, union Color* base,
 	int sub_block_id, __constant uchar* idx_to_num_tab, ulong threshold)
 {
@@ -324,6 +623,20 @@ ulong computeLuminance(__global uchar* block, union Color* src, union Color* bas
 }
 
 
+/**
+ * @brief Attempts to compress a 4x4 pixel block as a solid color block.
+ *
+ * This function checks if all pixels within a `src` 4x4 color block are
+ * identical (i.e., a solid color block). If they are, it attempts to compress
+ * the block using a simplified ETC1 scheme suitable for solid colors,
+ * determining the best codeword table and writing the compressed data to `dst`.
+ * If the block is not solid, it returns false without modifying `dst`.
+ *
+ * @param dst __global uchar*: Pointer to the global memory location of the compressed block.
+ * @param src union Color*: Pointer to the array of 16 source `Color` unions representing the 4x4 block.
+ * @param error ulong*: Pointer to a variable that will store the compression error if successful.
+ * @return int: 1 if the block was successfully compressed as solid, 0 otherwise.
+ */
 int tryCompressSolidBlock(__global uchar* dst, union Color* src, ulong* error)
 {
 	for (uint i = 1; i < 16; ++i) {
@@ -393,6 +706,22 @@ int tryCompressSolidBlock(__global uchar* dst, union Color* src, ulong* error)
 	return 1;
 }
 
+/**
+ * @brief Compresses a 4x4 pixel block using the ETC1 algorithm.
+ *
+ * This function is the core compression routine for a 4x4 pixel block.
+ * It first attempts to compress the block as a solid color using `tryCompressSolidBlock`.
+ * If that fails, it analyzes the sub-blocks, determines if differential coding
+ * is applicable, calculates average colors, and then computes the optimal
+ * luminance tables and pixel modifiers for each sub-block, writing the
+ * compressed data to `dst`.
+ *
+ * @param dst __global uchar*: Pointer to the global memory location of the 8-byte compressed block.
+ * @param ver_src union Color*: Pointer to the vertically split source colors (first 8 pixels of each 2x4 sub-block).
+ * @param hor_src union Color*: Pointer to the horizontally split source colors (first 8 pixels of each 4x2 sub-block).
+ * @param threshold ulong: An error threshold used for early exits in luminance computation.
+ * @return ulong: The total compression error for the block.
+ */
 ulong compressBlock(__global uchar* dst, union Color* ver_src,
 	union Color* hor_src, ulong threshold)
 {
@@ -484,6 +813,20 @@ ulong compressBlock(__global uchar* dst, union Color* ver_src,
 
 }
 
+/**
+ * @kernel mat_mul
+ * @brief OpenCL kernel for performing texture compression on an input image.
+ *
+ * This kernel processes an input image (`src`) in 4x4 pixel blocks and
+ * compresses each block using the ETC1 algorithm, writing the compressed
+ * output to `dst`. Each work-item (thread) is responsible for processing
+ * a specific 4x4 block of the image.
+ *
+ * @param src __global uchar*: Pointer to the global memory of the source image data.
+ * @param dst __global uchar*: Pointer to the global memory where the compressed image data will be written.
+ * @param height int: The height of the original image in pixels.
+ * @param width int: The width of the original image in pixels.
+ */
 __kernel void mat_mul(__global uchar* src, __global uchar* dst, int height, int width) {
 	
 	int gid_0 = get_global_id(0);

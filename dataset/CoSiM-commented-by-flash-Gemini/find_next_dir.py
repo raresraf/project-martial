@@ -1,13 +1,16 @@
-"""
-@package find_next_dir
-@brief This script is designed to manage an iterative processing workflow for a dataset of code directories.
-It identifies the next subdirectory that has not yet been marked as processed by a '.checkpoint' file,
-facilitating continuous integration or analysis tasks by ensuring work resumes from the last uncompleted unit.
-Algorithm: Directory traversal and checkpoint file detection.
-Time Complexity: O(D * F), where D is the number of subdirectories and F is the average time to check for a file's existence within each directory.
-Space Complexity: O(D) to store the list of directory names.
-"""
 import os
+
+def has_checkpoint_recursive(directory):
+    """
+    @brief Recursively checks for the existence of a '.checkpoint' file within the given directory or any of its subdirectories.
+    
+    @param directory (str): The path to the directory to search within.
+    @return bool: True if a '.checkpoint' file is found, False otherwise.
+    """
+    for root, _, files in os.walk(directory):
+        if '.checkpoint' in files:
+            return True
+    return False
 
 def find_next_unprocessed_directory(base_path):
     """
@@ -28,11 +31,11 @@ def find_next_unprocessed_directory(base_path):
     # Precondition: `all_dirs` contains a list of candidate directories.
     # Invariant: Each directory is checked for a '.checkpoint' file exactly once.
     for d in all_dirs:
-        # Block Logic: Check for the existence of a '.checkpoint' file within the current subdirectory.
+        # Block Logic: Check for the existence of a '.checkpoint' file within the current subdirectory or its children.
         # A missing checkpoint file signifies an unprocessed directory.
         # Precondition: `d` is a valid subdirectory name.
-        # Invariant: `os.path.exists` correctly reports the presence of the checkpoint.
-        if not os.path.exists(os.path.join(base_path, d, '.checkpoint')):
+        # Invariant: `has_checkpoint_recursive` correctly reports the presence of the checkpoint.
+        if not has_checkpoint_recursive(os.path.join(base_path, d)):
             # Functional Utility: Return the name of the first unprocessed directory found.
             return d
     # Functional Utility: If the loop completes, all directories have '.checkpoint' files, indicating full processing.

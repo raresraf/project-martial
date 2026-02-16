@@ -2,6 +2,18 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
+/**
+ * @file layout.rs
+ * @brief Implements the Flexbox layout algorithm for rendering UI components.
+ *
+ * This file contains the core logic for laying out flex containers and flex items
+ * according to the CSS Flexible Box Layout Module Level 1 specification.
+ * It defines data structures and functions for calculating main and cross sizes,
+ * resolving flexible lengths, distributing free space, and handling alignment
+ * within flex lines. The implementation aims for spec compliance and efficient
+ * parallel processing where applicable.
+ */
+
 use std::cell::{Cell, LazyCell};
 use std::cmp::Ordering;
 
@@ -46,8 +58,18 @@ use crate::{
     SizeConstraint,
 };
 
-/// Layout parameters and intermediate results about a flex container,
-/// grouped to avoid passing around many parameters
+/**
+ * @brief FlexContext holds layout parameters and intermediate results for a flex container.
+ *
+ * This struct groups together various configuration and context-specific data
+ * required during the flex layout process. It is passed around to avoid
+ * an excessive number of individual parameters in function signatures.
+ *
+ * @field config FlexContainerConfig: Configuration properties of the flex container.
+ * @field layout_context &'a LayoutContext<'a>: The current layout context, providing access to styling and other global layout information.
+ * @field containing_block &'a ContainingBlock<'a>: The containing block for the flex items, used for resolving percentages and other relative sizes.
+ * @field container_inner_size_constraint FlexRelativeVec2<SizeConstraint>: The size constraints on the inner dimensions of the flex container, resolved to the flex item's relative axes.
+ */
 struct FlexContext<'a> {
     config: FlexContainerConfig,
     layout_context: &'a LayoutContext<'a>,
@@ -55,52 +77,61 @@ struct FlexContext<'a> {
     container_inner_size_constraint: FlexRelativeVec2<SizeConstraint>,
 }
 
-/// A flex item with some intermediate results
+/**
+ * @brief FlexItem represents a flex item with its computed properties and intermediate layout results.
+ *
+ * This struct holds all the necessary information about a flex item during the
+ * flex layout algorithm, including its intrinsic sizes, padding, border, margin,
+ * and how it should align within the flex container.
+ */
 struct FlexItem<'a> {
-    box_: &'a FlexItemBox,
+    box_: &'a FlexItemBox, ///< @brief Reference to the underlying FlexItemBox.
 
-    /// The preferred, min and max inner cross sizes. If the flex container is single-line
-    /// and [`Self::cross_size_stretches_to_line`] is true, then the preferred cross size
-    /// is set to [`Size::Stretch`].
+    /// @brief The preferred, min, and max inner cross sizes.
+    /// If the flex container is single-line and [`Self::cross_size_stretches_to_line`] is true,
+    /// then the preferred cross size is set to [`Size::Stretch`].
     content_cross_sizes: Sizes,
 
-    padding: FlexRelativeSides<Au>,
-    border: FlexRelativeSides<Au>,
-    margin: FlexRelativeSides<AuOrAuto>,
+    padding: FlexRelativeSides<Au>, ///< @brief The computed padding of the flex item in flex-relative directions.
+    border: FlexRelativeSides<Au>,  ///< @brief The computed border of the flex item in flex-relative directions.
+    margin: FlexRelativeSides<AuOrAuto>, ///< @brief The computed margin of the flex item in flex-relative directions, including `auto` values.
 
-    /// Sum of padding, border, and margin (with `auto` assumed to be zero) in each axis.
+    /// @brief Sum of padding, border, and margin (with `auto` assumed to be zero) in each axis.
     /// This is the difference between an outer and inner size.
     pbm_auto_is_zero: FlexRelativeVec2<Au>,
 
-    /// <https://drafts.csswg.org/css-flexbox/#algo-main-item>
+    /// @brief <https://drafts.csswg.org/css-flexbox/#algo-main-item>
+    /// The flex base size of the item, determined from its `flex-basis` property.
     flex_base_size: Au,
 
-    /// Whether the [`Self::flex_base_size`] comes from a definite `flex-basis`.
+    /// @brief Whether the [`Self::flex_base_size`] comes from a definite `flex-basis`.
     /// If false and the container main size is also indefinite, percentages in the item's
     /// content that resolve against its main size should be indefinite.
     flex_base_size_is_definite: bool,
 
-    /// <https://drafts.csswg.org/css-flexbox/#algo-main-item>
+    /// @brief <https://drafts.csswg.org/css-flexbox/#algo-main-item>
+    /// The hypothetical main size of the item before flex factor distribution.
     hypothetical_main_size: Au,
 
-    /// The used min main size of the flex item.
+    /// @brief The used min main size of the flex item.
     /// <https://drafts.csswg.org/css-flexbox/#min-main-size-property>
     content_min_main_size: Au,
 
-    /// The used max main size of the flex item.
+    /// @brief The used max main size of the flex item.
     /// <https://drafts.csswg.org/css-flexbox/#max-main-size-property>
     content_max_main_size: Option<Au>,
 
-    /// This is `align-self`, defaulting to `align-items` if `auto`
+    /// @brief This is `align-self`, defaulting to `align-items` if `auto`.
     align_self: AlignItems,
 
-    /// Whether or not the size of this [`FlexItem`] depends on its block constraints.
+    /// @brief Whether or not the size of this [`FlexItem`] depends on its block constraints.
     depends_on_block_constraints: bool,
 
-    /// <https://drafts.csswg.org/css-sizing-4/#preferred-aspect-ratio>
+    /// @brief <https://drafts.csswg.org/css-sizing-4/#preferred-aspect-ratio>
+    /// The preferred aspect ratio of the item, if specified.
     preferred_aspect_ratio: Option<AspectRatio>,
 
-    /// Whether the preferred cross size of the item stretches to fill the flex line.
+    /// @brief Whether the preferred cross size of the item stretches to fill the flex line.
     /// This happens when the size computes to `auto`, the used value of `align-self`
     /// is `stretch`, and neither of the cross-axis margins are `auto`.
     /// <https://drafts.csswg.org/css-flexbox-1/#stretched>
@@ -113,43 +144,65 @@ struct FlexItem<'a> {
     cross_size_stretches_to_line: bool,
 }
 
-/// Child of a FlexContainer. Can either be absolutely positioned, or not. If not,
-/// a placeholder is used and flex content is stored outside of this enum.
+/**
+ * @brief FlexContent represents a child of a FlexContainer, which can be absolutely positioned or a flex item.
+ *
+ * This enum distinguishes between two types of children within a flex container:
+ * those that are absolutely positioned (and thus laid out independently of the flex flow)
+ * and those that are regular flex items (represented by a placeholder here, with actual
+ * flex item data stored separately).
+ */
 enum FlexContent {
-    AbsolutelyPositionedBox(ArcRefCell<AbsolutelyPositionedBox>),
-    FlexItemPlaceholder,
+    AbsolutelyPositionedBox(ArcRefCell<AbsolutelyPositionedBox>), ///< @brief An absolutely positioned child box.
+    FlexItemPlaceholder, ///< @brief A placeholder for a regular flex item within the flex flow.
 }
 
-/// Return type of `FlexItem::layout`
+/**
+ * @brief FlexItemLayoutResult encapsulates the results of laying out a flex item.
+ *
+ * This struct stores various outcomes from the layout process of an individual
+ * flex item, including its hypothetical cross size, generated fragments,
+ * positioning context, baseline information, and content sizing.
+ */
 struct FlexItemLayoutResult {
-    hypothetical_cross_size: Au,
-    fragments: Vec<Fragment>,
-    positioning_context: PositioningContext,
+    hypothetical_cross_size: Au, ///< @brief The hypothetical cross size of the item.
+    fragments: Vec<Fragment>, ///< @brief The generated fragments for this flex item.
+    positioning_context: PositioningContext, ///< @brief The positioning context for descendants of this flex item.
 
-    // Either the first or the last baseline, depending on ‘align-self’.
+    /// @brief Either the first or the last baseline, depending on `align-self`, relative to the margin box.
     baseline_relative_to_margin_box: Option<Au>,
 
-    // The content size of this layout. For replaced elements this is known before layout,
-    // but for non-replaced it's only known after layout.
+    /// @brief The content size of this layout. For replaced elements this is known before layout,
+    /// but for non-replaced it's only known after layout.
     content_size: LogicalVec2<Au>,
 
-    // The containing block inline size used to generate this layout.
+    /// @brief The containing block inline size used to generate this layout.
     containing_block_inline_size: Au,
 
-    // The containing block block size used to generate this layout.
+    /// @brief The containing block block size used to generate this layout.
     containing_block_block_size: SizeConstraint,
 
-    // Whether or not this layout depended on block constraints.
+    /// @brief Whether or not this layout depended on block constraints.
     depends_on_block_constraints: bool,
 
-    // Whether or not this layout had a child that dependeded on block constraints.
+    /// @brief Whether or not this layout had a child that depended on block constraints.
     has_child_which_depends_on_block_constraints: bool,
 
-    // The specific layout info that this flex item had.
+    /// @brief The specific layout info that this flex item had.
     specific_layout_info: Option<SpecificLayoutInfo>,
 }
 
 impl FlexItemLayoutResult {
+    /**
+     * @brief Checks if the layout result is compatible with the given containing block size.
+     *
+     * This method verifies if the cached layout result's containing block dimensions
+     * match the provided `containing_block`. It's used for cache invalidation or reuse.
+     * Block constraints are handled specially if `depends_on_block_constraints` is false.
+     *
+     * @param containing_block &ContainingBlock: The containing block to check compatibility against.
+     * @return bool: True if the layout result's containing block size is compatible, false otherwise.
+     */
     fn compatible_with_containing_block_size(&self, containing_block: &ContainingBlock) -> bool {
         if containing_block.size.inline == self.containing_block_inline_size &&
             (containing_block.size.block == self.containing_block_block_size ||
@@ -173,6 +226,17 @@ impl FlexItemLayoutResult {
         false
     }
 
+    /**
+     * @brief Checks if the layout result is compatible with both the containing block and content size.
+     *
+     * This method combines a check for containing block size compatibility with an
+     * additional check to ensure the content size of the cached layout matches the
+     * provided `size`.
+     *
+     * @param containing_block &ContainingBlock: The containing block to check compatibility against.
+     * @param size LogicalVec2<Au>: The content size to check compatibility against.
+     * @return bool: True if both containing block and content sizes are compatible, false otherwise.
+     */
     fn compatible_with_containing_block_size_and_content_size(
         &self,
         containing_block: &ContainingBlock,
@@ -182,21 +246,36 @@ impl FlexItemLayoutResult {
     }
 }
 
-/// A data structure to hold all of the information about a flex item that has been placed
-/// into a flex line. This happens once the item is laid out and its line has been determined.
+/**
+ * @brief FlexLineItem holds information about a flex item placed within a flex line.
+ *
+ * This struct stores details about a flex item after it has been laid out and
+ * assigned to a specific flex line. It includes the item's layout results
+ * and its final used main size within that line.
+ */
 struct FlexLineItem<'a> {
-    /// The items that are placed in this line.
+    /// @brief The original FlexItem that is placed in this line.
     item: FlexItem<'a>,
 
-    /// The layout results of the initial layout pass for a flex line. These may be replaced
+    /// @brief The layout results of the initial layout pass for a flex line. These may be replaced
     /// if necessary due to the use of `align-content: stretch` or `align-self: stretch`.
     layout_result: FlexItemLayoutResult,
 
-    /// The used main size of this item in its line.
+    /// @brief The used main size of this item in its line.
     used_main_size: Au,
 }
 
 impl FlexLineItem<'_> {
+    /**
+     * @brief Gets or synthesizes the baseline relative to the margin box with a given cross size.
+     *
+     * If the item's layout result already has a baseline, it's returned. Otherwise,
+     * a baseline is synthesized based on the provided `cross_size` and the item's
+     * padding, border, and margin properties.
+     *
+     * @param cross_size Au: The cross size to use if a baseline needs to be synthesized.
+     * @return Au: The baseline coordinate relative to the margin box.
+     */
     fn get_or_synthesize_baseline_with_cross_size(&self, cross_size: Au) -> Au {
         self.layout_result
             .baseline_relative_to_margin_box
@@ -206,6 +285,24 @@ impl FlexLineItem<'_> {
             })
     }
 
+    /**
+     * @brief Collects the fragment for the flex item after final positioning.
+     *
+     * This method calculates the final position of the flex item within its line,
+     * considering main-axis and cross-axis alignment, margins, borders, and padding.
+     * It then creates a `BoxFragment` for the item and updates the positioning context.
+     *
+     * @param initial_flex_layout &InitialFlexLineLayout: The initial layout information for the flex line.
+     * @param item_used_size FlexRelativeVec2<Au>: The final used size of the item.
+     * @param item_margin FlexRelativeSides<Au>: The resolved margins of the item.
+     * @param item_main_interval Au: The space distributed between items along the main axis.
+     * @param final_line_cross_size Au: The final cross size of the flex line.
+     * @param shared_alignment_baseline &Option<Au>: The shared baseline for baseline-aligned items in the line.
+     * @param flex_context &mut FlexContext: The current flex layout context.
+     * @param all_baselines &mut Baselines: Accumulator for all baselines in the flex container.
+     * @param main_position_cursor &mut Au: The current position cursor along the main axis of the line.
+     * @return (ArcRefCell<BoxFragment>, PositioningContext): The generated box fragment and its positioning context.
+     */
     #[allow(clippy::too_many_arguments)]
     fn collect_fragment(
         mut self,
@@ -327,18 +424,23 @@ impl FlexLineItem<'_> {
     }
 }
 
-/// Once the final cross size of a line is known, the line can go through their final
-/// layout and this the return value. See [`InitialFlexLineLayout::finish_with_final_cross_size`].
+/**
+ * @brief FinalFlexLineLayout represents the final layout results for a flex line.
+ *
+ * This struct holds the complete layout information for a flex line after all
+ * stretching, alignment, and positioning adjustments have been made. It includes
+ * the line's final cross size, the fragments of its items, and baseline information.
+ */
 struct FinalFlexLineLayout {
-    /// The final cross size of this flex line.
+    /// @brief The final cross size of this flex line.
     cross_size: Au,
-    /// The [`BoxFragment`]s and [`PositioningContext`]s of all flex items,
+    /// @brief The [`BoxFragment`]s and [`PositioningContext`]s of all flex items,
     /// one per flex item in "order-modified document order."
     item_fragments: Vec<(ArcRefCell<BoxFragment>, PositioningContext)>,
-    /// The 'shared alignment baseline' of this flex line. This is the baseline used for
+    /// @brief The 'shared alignment baseline' of this flex line. This is the baseline used for
     /// baseline-aligned items if there are any, otherwise `None`.
     shared_alignment_baseline: Option<Au>,
-    /// This is the baseline of the first and last items with compatible writing mode, regardless of
+    /// @brief This is the baseline of the first and last items with compatible writing mode, regardless of
     /// whether they particpate in baseline alignement. This is used as a fallback baseline for the
     /// container, if there are no items participating in baseline alignment in the first or last
     /// flex lines.
@@ -346,6 +448,18 @@ struct FinalFlexLineLayout {
 }
 
 impl FlexContainerConfig {
+    /**
+     * @brief Resolves reversible flex alignment flags based on reversal state.
+     *
+     * This function adjusts alignment flags (`AlignFlags`) based on whether
+     * the flex container or item's direction is reversed. For `FLEX_START` and
+     * `FLEX_END`, it swaps them to `START` and `END` respectively if `reversed` is true,
+     * maintaining the logical direction.
+     *
+     * @param align_flags AlignFlags: The original alignment flags.
+     * @param reversed bool: True if the direction is reversed, false otherwise.
+     * @return AlignFlags: The resolved alignment flags.
+     */
     fn resolve_reversable_flex_alignment(
         &self,
         align_flags: AlignFlags,
@@ -360,6 +474,17 @@ impl FlexContainerConfig {
         }
     }
 
+    /**
+     * @brief Resolves the `align-self` property for a child item.
+     *
+     * This method determines the effective `align-self` value for a flex item,
+     * taking into account the container's `align-items` property and the item's
+     * own `align-self` (with `auto` resolving to `stretch`). It also accounts
+     * for `flex-wrap` reversal.
+     *
+     * @param child_style &ComputedValues: The computed style of the child flex item.
+     * @return AlignFlags: The resolved `align-self` flags for the child.
+     */
     fn resolve_align_self_for_child(&self, child_style: &ComputedValues) -> AlignFlags {
         self.resolve_reversable_flex_alignment(
             child_style
@@ -369,6 +494,14 @@ impl FlexContainerConfig {
         )
     }
 
+    /**
+     * @brief Resolves the `justify-content` property for the container.
+     *
+     * This method determines the effective `justify-content` value, accounting
+     * for `flex-direction` reversal to ensure correct main-axis alignment.
+     *
+     * @return AlignFlags: The resolved `justify-content` flags.
+     */
     fn resolve_justify_content_for_child(&self) -> AlignFlags {
         self.resolve_reversable_flex_alignment(
             self.justify_content.0.primary(),
@@ -376,11 +509,29 @@ impl FlexContainerConfig {
         )
     }
 
+    /**
+     * @brief Converts logical sides to flex-relative sides.
+     *
+     * Transforms `LogicalSides` (inline/block start/end) into `FlexRelativeSides`
+     * (main/cross start/end) based on the flex container's axis and writing mode.
+     *
+     * @param sides LogicalSides<T>: The logical sides to convert.
+     * @return FlexRelativeSides<T>: The converted flex-relative sides.
+     */
     fn sides_to_flex_relative<T>(&self, sides: LogicalSides<T>) -> FlexRelativeSides<T> {
         self.main_start_cross_start_sides_are
             .sides_to_flex_relative(sides)
     }
 
+    /**
+     * @brief Converts flex-relative sides to flow-relative (logical) sides.
+     *
+     * Transforms `FlexRelativeSides` (main/cross start/end) into `LogicalSides`
+     * (inline/block start/end) based on the flex container's axis and writing mode.
+     *
+     * @param sides FlexRelativeSides<T>: The flex-relative sides to convert.
+     * @return LogicalSides<T>: The converted logical sides.
+     */
     fn sides_to_flow_relative<T>(&self, sides: FlexRelativeSides<T>) -> LogicalSides<T> {
         self.main_start_cross_start_sides_are
             .sides_to_flow_relative(sides)
@@ -388,11 +539,30 @@ impl FlexContainerConfig {
 }
 
 impl FlexContext<'_> {
+    /**
+     * @brief Converts flex-relative sides to flow-relative (logical) sides.
+     *
+     * This is a convenience method that delegates to the `FlexContainerConfig`'s
+     * `sides_to_flow_relative` method, using the `FlexContext`'s internal configuration.
+     *
+     * @param x FlexRelativeSides<T>: The flex-relative sides to convert.
+     * @return LogicalSides<T>: The converted logical sides.
+     */
     #[inline]
     fn sides_to_flow_relative<T>(&self, x: FlexRelativeSides<T>) -> LogicalSides<T> {
         self.config.sides_to_flow_relative(x)
     }
 
+    /**
+     * @brief Converts a flex-relative rectangle to a flow-relative (logical) rectangle.
+     *
+     * This method translates a rectangle defined in the flex container's main and cross
+     * axes into a rectangle defined in the document's inline and block axes.
+     *
+     * @param base_rect_size FlexRelativeVec2<Au>: The size of the base rectangle in flex-relative coordinates.
+     * @param rect FlexRelativeRect<Au>: The rectangle to convert, in flex-relative coordinates.
+     * @return LogicalRect<Au>: The converted logical rectangle.
+     */
     #[inline]
     fn rect_to_flow_relative(
         &self,
@@ -408,24 +578,53 @@ impl FlexContext<'_> {
     }
 }
 
+/**
+ * @brief DesiredFlexFractionAndGrowOrShrinkFactor holds calculated flex factors.
+ *
+ * This struct stores the desired flex fraction and the corresponding flex grow
+ * or shrink factor for a flex item, used in resolving flexible lengths along
+ * the main axis according to the Flexbox layout algorithm.
+ *
+ * @field desired_flex_fraction f32: The calculated desired flex fraction for the item.
+ * @field flex_grow_or_shrink_factor f32: The flex grow or scaled flex shrink factor to apply.
+ */
 #[derive(Debug, Default)]
 struct DesiredFlexFractionAndGrowOrShrinkFactor {
     desired_flex_fraction: f32,
     flex_grow_or_shrink_factor: f32,
 }
 
+/**
+ * @brief FlexItemBoxInlineContentSizesInfo stores various sizing information for a flex item.
+ *
+ * This struct aggregates pre-calculated sizing properties of a flex item,
+ * including its flex base size, minimum and maximum main sizes, and flex factors,
+ * which are crucial for the flex layout algorithm's intrinsic sizing and flexible length resolution.
+ */
 #[derive(Default)]
 struct FlexItemBoxInlineContentSizesInfo {
-    outer_flex_base_size: Au,
-    outer_min_main_size: Au,
-    outer_max_main_size: Option<Au>,
-    min_flex_factors: DesiredFlexFractionAndGrowOrShrinkFactor,
-    max_flex_factors: DesiredFlexFractionAndGrowOrShrinkFactor,
-    min_content_main_size_for_multiline_container: Au,
-    depends_on_block_constraints: bool,
+    outer_flex_base_size: Au, ///< @brief The flex base size including padding, border, and zeroed auto margins.
+    outer_min_main_size: Au,  ///< @brief The minimum main size including padding, border, and zeroed auto margins.
+    outer_max_main_size: Option<Au>, ///< @brief The maximum main size including padding, border, and zeroed auto margins.
+    min_flex_factors: DesiredFlexFractionAndGrowOrShrinkFactor, ///< @brief Flex factors used for min-content main size calculations.
+    max_flex_factors: DesiredFlexFractionAndGrowOrShrinkFactor, ///< @brief Flex factors used for max-content main size calculations.
+    min_content_main_size_for_multiline_container: Au, ///< @brief The min-content main size specifically for multi-line flex containers.
+    depends_on_block_constraints: bool, ///< @brief Indicates if the item's size depends on block-axis constraints.
 }
 
 impl ComputeInlineContentSizes for FlexContainer {
+    /**
+     * @brief Computes the inline content sizes for the FlexContainer.
+     *
+     * This method determines the intrinsic inline sizes (min-content and max-content)
+     * of the flex container. The computation depends on whether the flex container's
+     * main axis is `Row` (inline) or `Column` (block), delegating to `main_content_sizes`
+     * or `cross_content_sizes` accordingly.
+     *
+     * @param layout_context &LayoutContext: The current layout context.
+     * @param constraint_space &ConstraintSpace: The constraint space for the layout.
+     * @return InlineContentSizesResult: The computed inline content sizes and whether they depend on block constraints.
+     */
     #[cfg_attr(
         feature = "tracing",
         tracing::instrument(
@@ -454,6 +653,18 @@ impl ComputeInlineContentSizes for FlexContainer {
 }
 
 impl FlexContainer {
+    /**
+     * @brief Computes the cross-axis intrinsic content sizes for a column flex container.
+     *
+     * This method is called when the flex container's main axis is `Column`
+     * (meaning the cross axis is `Inline`). It iterates through flex items,
+     * computes their outer inline content sizes, and aggregates them to determine
+     * the container's overall cross-axis sizes.
+     *
+     * @param layout_context &LayoutContext: The current layout context.
+     * @param containing_block_for_children &IndefiniteContainingBlock: The indefinite containing block for children.
+     * @return InlineContentSizesResult: The computed cross-axis content sizes and whether they depend on block constraints.
+     */
     fn cross_content_sizes(
         &self,
         layout_context: &LayoutContext,
@@ -493,6 +704,19 @@ impl FlexContainer {
         }
     }
 
+    /**
+     * @brief Computes the main-axis intrinsic content sizes for the flex container.
+     *
+     * This method calculates the min-content and max-content sizes along the
+     * main axis of the flex container, following the intrinsic sizing rules
+     * for flexbox. It considers the flex items' contributions, flex factors,
+     * and gaps between items.
+     *
+     * @param layout_context &LayoutContext: The current layout context.
+     * @param containing_block_for_children &IndefiniteContainingBlock: The indefinite containing block for children.
+     * @param flex_context_getter impl Fn() -> &'a FlexContext<'a>: A closure to get the flex context.
+     * @return InlineContentSizesResult: The computed main-axis content sizes and whether they depend on block constraints.
+     */
     fn main_content_sizes<'a>(
         &self,
         layout_context: &LayoutContext,
@@ -634,7 +858,21 @@ impl FlexContainer {
         }
     }
 
-    /// <https://drafts.csswg.org/css-flexbox/#layout-algorithm>
+    /**
+     * @brief Lays out the flex container and its items.
+     *
+     * This is the main entry point for the Flexbox layout algorithm. It orchestrates
+     * the entire process of laying out flex items into lines, resolving their flexible
+     * lengths, distributing free space, and aligning items and lines according to the
+     * CSS Flexbox specification. It also handles absolutely-positioned children.
+     *
+     * @param layout_context &LayoutContext: The current layout context.
+     * @param positioning_context &mut PositioningContext: The positioning context for managing absolute and fixed positioned elements.
+     * @param containing_block &ContainingBlock: The containing block of the flex container.
+     * @param depends_on_block_constraints bool: True if the flex container's size depends on its block constraints.
+     * @param lazy_block_size &LazySize: A lazy resolver for the block size of the flex container.
+     * @return CacheableLayoutResult: The layout result for the flex container, including fragments and baselines.
+     */
     #[cfg_attr(
         feature = "tracing",
         tracing::instrument(
@@ -989,21 +1227,20 @@ impl FlexContainer {
         }
     }
 
-    /// Create a absolutely positioned flex child fragment, using the rules the
-    /// specification dictates. This should take into account the alignment and
-    /// justification values of the container and the child to position it within a
-    /// "inset-modified containing block," which may be either the "static-position
-    /// rectangle" that's calculated below or a modified version of the absolute's
-    /// containing block adjusted by the insets specified in the item's style.
-    ///
-    /// From <https://drafts.csswg.org/css-flexbox/#abspos-items>:
-    /// > The cross-axis edges of the static-position rectangle of an
-    /// > absolutely-positioned child of a flex container are the content edges of the
-    /// > flex container The main-axis edges of the static-position rectangle are where
-    /// > the margin edges of the child would be positioned if it were the sole flex item
-    /// > in the flex container, assuming both the child and the flex container were
-    /// > fixed-size boxes of their used size. (For this purpose, auto margins are
-    /// > treated as zero.)
+    /**
+     * @brief Creates a fragment for an absolutely positioned flex child.
+     *
+     * This method handles the layout of absolutely positioned children within a
+     * flex container. It calculates the static-position rectangle based on flex
+     * container rules, resolves alignment values, and hoists the absolutely
+     * positioned box into the positioning context.
+     *
+     * @param absolutely_positioned_box ArcRefCell<AbsolutelyPositionedBox>: The absolutely positioned box to process.
+     * @param containing_block &ContainingBlock: The containing block of the flex container.
+     * @param container_size FlexRelativeVec2<Au>: The size of the flex container in flex-relative coordinates.
+     * @param positioning_context &mut PositioningContext: The positioning context to which the hoisted box will be added.
+     * @return Fragment: The fragment representing the absolutely positioned child.
+     */
     fn create_absolutely_positioned_flex_child_fragment(
         &self,
         absolutely_positioned_box: ArcRefCell<AbsolutelyPositionedBox>,
@@ -1054,15 +1291,33 @@ impl FlexContainer {
         Fragment::AbsoluteOrFixedPositioned(hoisted_fragment)
     }
 
+    /**
+     * @brief Returns the layout style of the flex container.
+     *
+     * This method provides access to the computed layout style properties of
+     * the flex container, wrapped in a `LayoutStyle::Default` variant.
+     *
+     * @return LayoutStyle: The layout style of the flex container.
+     */
     #[inline]
     pub(crate) fn layout_style(&self) -> LayoutStyle {
         LayoutStyle::Default(&self.style)
     }
 }
 
-/// Align all flex lines per `align-content` according to
-/// <https://drafts.csswg.org/css-flexbox/#algo-line-align>. Returns the space to add to
-/// each line or the space to add after each line.
+/**
+ * @brief Allocates free space along the cross axis for a flex line.
+ *
+ * This function distributes any remaining free space along the cross axis
+ * among flex lines, based on the `align-content` property. It returns
+ * the amount of space to add to the line itself and the space to add
+ * after the line.
+ *
+ * @param resolved_align_content AlignFlags: The resolved `align-content` property.
+ * @param remaining_free_cross_space Au: The total remaining free space in the cross axis.
+ * @param remaining_line_count i32: The number of remaining flex lines to distribute space among.
+ * @return (Au, Au): A tuple containing the space to add to the line and the space to add after the line.
+ */
 fn allocate_free_cross_space_for_flex_line(
     resolved_align_content: AlignFlags,
     remaining_free_cross_space: Au,
@@ -1107,6 +1362,18 @@ fn allocate_free_cross_space_for_flex_line(
 }
 
 impl<'a> FlexItem<'a> {
+    /**
+     * @brief Creates a new `FlexItem` instance from a `FlexItemBox`.
+     *
+     * This constructor gathers and computes various properties for a flex item
+     * from its associated `FlexItemBox` and the current `FlexContext`. It
+     * resolves padding, border, and margin values, determines flex base size,
+     * and initializes other fields necessary for the flex layout algorithm.
+     *
+     * @param flex_context &FlexContext: The current flex layout context.
+     * @param box_ &'a FlexItemBox: The underlying box model of the flex item.
+     * @return Self: A new `FlexItem` instance.
+     */
     fn new(flex_context: &FlexContext, box_: &'a FlexItemBox) -> Self {
         let containing_block = IndefiniteContainingBlock::from(flex_context.containing_block);
         let content_box_sizes_and_pbm = box_
@@ -1123,6 +1390,18 @@ impl<'a> FlexItem<'a> {
     }
 }
 
+/**
+ * @brief Determines if the cross axis of the flex container is the block axis of the flex item.
+ *
+ * This function is used to check for orthogonality between the flex container's
+ * axes and the flex item's writing mode. It helps in correctly identifying
+ * which of the item's axes corresponds to the container's cross axis.
+ *
+ * @param container_is_horizontal bool: True if the flex container's writing mode is horizontal.
+ * @param item_is_horizontal bool: True if the flex item's writing mode is horizontal.
+ * @param flex_axis FlexAxis: The main axis of the flex container (Row or Column).
+ * @return bool: True if the flex container's cross axis aligns with the flex item's block axis.
+ */
 fn cross_axis_is_item_block_axis(
     container_is_horizontal: bool,
     item_is_horizontal: bool,
@@ -1134,9 +1413,19 @@ fn cross_axis_is_item_block_axis(
     container_is_row ^ item_is_orthogonal
 }
 
-/// Whether an item with a computed preferred cross size of `auto` will stretch
-/// to fill the cross size of its flex line.
-/// <https://drafts.csswg.org/css-flexbox/#stretched>
+/**
+ * @brief Determines if an item with an auto cross size stretches to fill the flex line.
+ *
+ * This function implements the logic described in the CSS Flexbox specification
+ * regarding when a flex item with a computed preferred cross size of `auto`
+ * will stretch to fill the cross size of its flex line. This occurs if
+ * `align-self` is `stretch` and neither cross-axis margin is `auto`.
+ * <https://drafts.csswg.org/css-flexbox/#stretched>
+ *
+ * @param align_self AlignItems: The resolved `align-self` property of the flex item.
+ * @param margin &FlexRelativeSides<AuOrAuto>: The resolved flex-relative margins of the flex item.
+ * @return bool: True if the item should stretch its cross size to the line size, false otherwise.
+ */
 fn item_with_auto_cross_size_stretches_to_line_size(
     align_self: AlignItems,
     margin: &FlexRelativeSides<AuOrAuto>,
@@ -1146,8 +1435,22 @@ fn item_with_auto_cross_size_stretches_to_line_size(
         !margin.cross_end.is_auto()
 }
 
-/// “Collect flex items into flex lines”
-/// <https://drafts.csswg.org/css-flexbox/#algo-line-break>
+
+/**
+ * @brief Collects flex items into flex lines and performs initial layout.
+ *
+ * This function implements the "Collect flex items into flex lines" step of
+ * the Flexbox layout algorithm (<https://drafts.csswg.org/css-flexbox/#algo-line-break>).
+ * It groups flex items into lines based on the container's main size and `flex-wrap`
+ * property, and then performs an initial layout pass for each line to resolve
+ * flexible lengths and determine initial line sizes.
+ *
+ * @param flex_context &mut FlexContext: The current flex layout context.
+ * @param container_main_size Au: The main size of the flex container.
+ * @param items Vec<FlexItem<'items>>: A vector of flex items to be laid out.
+ * @param main_gap Au: The gap between items along the main axis.
+ * @return Vec<InitialFlexLineLayout<'items>>: A vector of `InitialFlexLineLayout`s, one for each flex line.
+ */
 fn do_initial_flex_line_layout<'items>(
     flex_context: &mut FlexContext,
     container_main_size: Au,
@@ -1207,21 +1510,41 @@ fn do_initial_flex_line_layout<'items>(
     lines.par_drain(..).map(construct_line).collect()
 }
 
-/// The result of splitting the flex items into lines using their intrinsic sizes and doing an
-/// initial layout of each item. A final layout still needs to happen after this is produced to
-/// handle stretching.
+/**
+ * @brief InitialFlexLineLayout stores the initial layout results for a flex line.
+ *
+ * This struct holds the outcome of the initial layout pass for a flex line,
+ * including the flex items belonging to it, the line's calculated size based
+ * on intrinsic item sizes, and any remaining free space in the main axis.
+ * A final layout pass is typically needed to handle stretching and alignment.
+ */
 struct InitialFlexLineLayout<'a> {
-    /// The items that are placed in this line.
+    /// @brief The items that are placed in this line.
     items: Vec<FlexLineItem<'a>>,
 
-    /// The initial size of this flex line, not taking into account `align-content: stretch`.
+    /// @brief The initial size of this flex line, not taking into account `align-content: stretch`.
     line_size: FlexRelativeVec2<Au>,
 
-    /// The free space available to this line after the initial layout.
+    /// @brief The free space available to this line after the initial layout.
     free_space_in_main_axis: Au,
 }
 
 impl InitialFlexLineLayout<'_> {
+    /**
+     * @brief Creates a new `InitialFlexLineLayout` instance.
+     *
+     * This constructor performs the initial layout pass for a flex line. It resolves
+     * the flexible lengths of the items within the line, calculates the free space
+     * in the main axis, and performs an initial layout for each item to determine
+     * its hypothetical cross size.
+     *
+     * @param flex_context &FlexContext: The current flex layout context.
+     * @param items Vec<FlexItem<'items>>: The flex items belonging to this line.
+     * @param outer_hypothetical_main_sizes_sum Au: The sum of the outer hypothetical main sizes of all items in the line.
+     * @param container_main_size Au: The main size of the flex container.
+     * @param main_gap Au: The gap between items along the main axis.
+     * @return InitialFlexLineLayout<'items>: A new `InitialFlexLineLayout` instance.
+     */
     fn new<'items>(
         flex_context: &FlexContext,
         items: Vec<FlexItem<'items>>,
@@ -1272,8 +1595,20 @@ impl InitialFlexLineLayout<'_> {
         }
     }
 
-    /// Return the *main size* of each item, and the line’s remainaing free space
-    /// <https://drafts.csswg.org/css-flexbox/#resolve-flexible-lengths>
+    /**
+     * @brief Resolves the flexible lengths of all flex items in a line.
+     *
+     * This method implements the "Resolve the flexible lengths" algorithm from
+     * the CSS Flexbox specification (<https://drafts.csswg.org/css-flexbox/#resolve-flexible-lengths>).
+     * It determines the final main size of each flex item in the line by distributing
+     * free space (or absorbing negative space) based on flex grow/shrink factors,
+     * and clamping sizes by min/max constraints.
+     *
+     * @param items &[FlexItem<'items>]: A slice of flex items in the current line.
+     * @param outer_hypothetical_main_sizes_sum Au: The sum of the outer hypothetical main sizes of all items in the line.
+     * @param container_main_size Au: The main size of the flex container.
+     * @return (Vec<Au>, Au): A tuple containing a vector of the used main sizes for each item, and the remaining free space in the main axis.
+     */
     fn resolve_flexible_lengths<'items>(
         items: &'items [FlexItem<'items>],
         outer_hypothetical_main_sizes_sum: Au,
@@ -1491,7 +1826,18 @@ impl InitialFlexLineLayout<'_> {
         }
     }
 
-    /// <https://drafts.csswg.org/css-flexbox/#algo-cross-line>
+    /**
+     * @brief Calculates the cross size of a flex line.
+     *
+     * This method determines the cross-axis size of a flex line based on the
+     * hypothetical cross sizes of its items, accounting for baseline alignment
+     * and potential stretching.
+     * <https://drafts.csswg.org/css-flexbox/#algo-cross-line>
+     *
+     * @param items &[FlexLineItem<'items>]: The flex items within the current line.
+     * @param flex_context &FlexContext: The current flex layout context.
+     * @return Au: The calculated cross-axis size of the flex line.
+     */
     fn cross_size<'items>(items: &'items [FlexLineItem<'items>], flex_context: &FlexContext) -> Au {
         if flex_context.config.container_is_single_line {
             if let SizeConstraint::Definite(size) =
@@ -1534,6 +1880,20 @@ impl InitialFlexLineLayout<'_> {
         }
     }
 
+    /**
+     * @brief Completes the flex line layout with the final cross size.
+     *
+     * This method performs the final adjustments for a flex line after its
+     * ultimate cross size has been determined. It distributes remaining free
+     * space to auto margins, resolves stretched item cross sizes, and aligns
+     * items along the main axis.
+     *
+     * @param self InitialFlexLineLayout: The `InitialFlexLineLayout` instance to finalize.
+     * @param flex_context &mut FlexContext: The current flex layout context.
+     * @param main_gap Au: The gap between items along the main axis.
+     * @param final_line_cross_size Au: The determined final cross size of the flex line.
+     * @return FinalFlexLineLayout: The complete `FinalFlexLineLayout` for the line.
+     */
     fn finish_with_final_cross_size(
         mut self,
         flex_context: &mut FlexContext,
@@ -1739,10 +2099,22 @@ impl InitialFlexLineLayout<'_> {
 }
 
 impl FlexItem<'_> {
-    /// Return the hypothetical cross size together with laid out contents of the fragment.
-    /// From <https://drafts.csswg.org/css-flexbox/#algo-cross-item>:
-    /// > performing layout as if it were an in-flow block-level box with the used main
-    /// > size and the given available space, treating `auto` as `fit-content`.
+
+    /**
+     * @brief Lays out an individual flex item.
+     *
+     * This method performs the layout for a single flex item, treating it as
+     * an in-flow block-level box with its determined main and cross sizes.
+     * It handles the resolution of sizes, aspect ratios, and the generation
+     * of fragments and positioning contexts for the item's contents.
+     * <https://drafts.csswg.org/css-flexbox/#algo-cross-item>
+     *
+     * @param used_main_size Au: The used main size of the flex item.
+     * @param flex_context &FlexContext: The current flex layout context.
+     * @param used_cross_size_override Option<Au>: An optional override for the used cross size, used for stretching.
+     * @param non_stretch_layout_result Option<&mut FlexItemLayoutResult>: Optional mutable reference to a non-stretched layout result for caching.
+     * @return Option<FlexItemLayoutResult>: The layout result for the flex item, or None if a compatible cached result is found.
+     */
     #[cfg_attr(
         feature = "tracing",
         tracing::instrument(
@@ -2021,6 +2393,17 @@ impl FlexItem<'_> {
         }
     }
 
+    /**
+     * @brief Synthesizes a baseline for the flex item relative to its margin box.
+     *
+     * If a flex item does not have a natural baseline in the necessary axis,
+     * this function synthesizes one from the flex item’s border box, as
+     * specified in the CSS Flexbox module.
+     * <https://drafts.csswg.org/css-flexbox/#valdef-align-items-baseline>
+     *
+     * @param content_size Au: The content cross size of the flex item.
+     * @return Au: The synthesized baseline coordinate relative to the margin box.
+     */
     fn synthesized_baseline_relative_to_margin_box(&self, content_size: Au) -> Au {
         // If the item does not have a baseline in the necessary axis,
         // then one is synthesized from the flex item’s border box.
@@ -2033,11 +2416,22 @@ impl FlexItem<'_> {
             self.padding.cross_end
     }
 
-    /// Return the cross-start, cross-end, main-start, and main-end margins, with `auto` values resolved.
-    /// See:
-    ///
-    /// - <https://drafts.csswg.org/css-flexbox/#algo-cross-margins>
-    /// - <https://drafts.csswg.org/css-flexbox/#algo-main-align>
+    /**
+     * @brief Resolves auto margins for a flex item.
+     *
+     * This method calculates the used values for `auto` margins of a flex item
+     * along both the main and cross axes. It distributes available free space
+     * or absorbs negative space according to the Flexbox specification rules.
+     * See:
+     * - <https://drafts.csswg.org/css-flexbox/#algo-cross-margins>
+     * - <https://drafts.csswg.org/css-flexbox/#algo-main-align>
+     *
+     * @param flex_context &FlexContext: The current flex layout context.
+     * @param line_cross_size Au: The cross size of the flex line the item belongs to.
+     * @param item_cross_content_size Au: The content cross size of the flex item.
+     * @param space_distributed_to_auto_main_margins Au: The amount of free space distributed to `auto` margins along the main axis.
+     * @return FlexRelativeSides<Au>: The resolved margins (with `auto` values converted to `Au`) in flex-relative directions.
+     */
     fn resolve_auto_margins(
         &self,
         flex_context: &FlexContext,
@@ -2112,7 +2506,22 @@ impl FlexItem<'_> {
         }
     }
 
-    /// Return the coordinate of the cross-start side of the content area
+    /**
+     * @brief Aligns the flex item along the cross axis within its flex line.
+     *
+     * This method calculates the cross-start coordinate of the flex item's
+     * content area, taking into account its `align-self` property, margins,
+     * padding, border, and the available space within the flex line.
+     * It implements the "Align the items along the cross-axis" step.
+     *
+     * @param margin &FlexRelativeSides<Au>: The resolved margins of the flex item.
+     * @param used_cross_size &Au: The used cross size of the flex item.
+     * @param line_cross_size Au: The cross size of the flex line.
+     * @param propagated_baseline Au: The baseline of the current item, if participating in baseline alignment.
+     * @param max_propagated_baseline Au: The maximum baseline among all baseline-aligned items in the line.
+     * @param wrap_reverse bool: True if `flex-wrap` is `wrap-reverse`, false otherwise.
+     * @return Au: The cross-start coordinate of the item's content area.
+     */
     fn align_along_cross_axis(
         &self,
         margin: &FlexRelativeSides<Au>,
@@ -2153,6 +2562,14 @@ impl FlexItem<'_> {
         outer_cross_start + margin.cross_start + self.border.cross_start + self.padding.cross_start
     }
 
+    /**
+     * @brief Checks if the flex item is a table element.
+     *
+     * This method delegates to the underlying `FlexItemBox` to determine if
+     * the current flex item represents a table element.
+     *
+     * @return bool: True if the flex item is a table, false otherwise.
+     */
     #[inline]
     fn is_table(&self) -> bool {
         self.box_.is_table()
@@ -2160,6 +2577,22 @@ impl FlexItem<'_> {
 }
 
 impl FlexItemBox {
+    /**
+     * @brief Converts a `FlexItemBox` into a `FlexItem`.
+     *
+     * This method is a crucial step in preparing a box for flex layout. It
+     * extracts relevant styling and sizing information from the `FlexItemBox`
+     * and computes various flex-specific properties, such as resolved margins,
+     * padding, borders, and flex base size, encapsulating them into a `FlexItem`
+     * struct for further processing in the flex algorithm.
+     *
+     * @param layout_context &LayoutContext: The current layout context.
+     * @param containing_block &IndefiniteContainingBlock: The containing block for the flex item.
+     * @param content_box_sizes_and_pbm &ContentBoxSizesAndPBM: Pre-computed content box sizes and PBM (padding, border, margin).
+     * @param config &FlexContainerConfig: The configuration of the parent flex container.
+     * @param flex_context_getter &impl Fn() -> &'a FlexContext<'a>: A closure to get the flex context.
+     * @return FlexItem: The newly created `FlexItem` instance.
+     */
     fn to_flex_item<'a>(
         &self,
         layout_context: &LayoutContext,
@@ -2386,6 +2819,21 @@ impl FlexItemBox {
         }
     }
 
+    /**
+     * @brief Computes main-axis content size information for a flex item box.
+     *
+     * This method calculates various sizing-related information for a `FlexItemBox`
+     * that is relevant to the main axis of its flex container. This includes
+     * flex base sizes, min/max main sizes, flex factors, and dependencies on
+     * block constraints, adhering to the CSS Flexbox intrinsic sizing rules.
+     * <https://drafts.csswg.org/css-flexbox/#intrinsic-item-contributions>
+     *
+     * @param layout_context &LayoutContext: The current layout context.
+     * @param containing_block &IndefiniteContainingBlock: The indefinite containing block for the flex item.
+     * @param config &FlexContainerConfig: The configuration of the parent flex container.
+     * @param flex_context_getter &impl Fn() -> &'a FlexContext<'a>: A closure to get the flex context.
+     * @return FlexItemBoxInlineContentSizesInfo: A struct containing computed sizing information.
+     */
     fn main_content_size_info<'a>(
         &self,
         layout_context: &LayoutContext,
@@ -2498,6 +2946,19 @@ impl FlexItemBox {
         }
     }
 
+    /**
+     * @brief Computes the desired flex fraction and grow/shrink factors for a flex item.
+     *
+     * This method calculates the `desired_flex_fraction` and the effective
+     * `flex_grow_or_shrink_factor` based on the item's preferred width, its
+     * flex base size, and its outer flex base size. This is a key step in
+     * resolving flexible lengths according to the Flexbox algorithm.
+     *
+     * @param preferred_width Au: The preferred width of the flex item.
+     * @param flex_base_size Au: The flex base size of the flex item.
+     * @param outer_flex_base_size Au: The outer flex base size of the flex item.
+     * @return DesiredFlexFractionAndGrowOrShrinkFactor: A struct containing the calculated flex factors.
+     */
     fn desired_flex_factors_for_preferred_width(
         &self,
         preferred_width: Au,
@@ -2544,11 +3005,20 @@ impl FlexItemBox {
         }
     }
 
-    /// <https://drafts.csswg.org/css-flexbox-1/#flex-basis-property>
-    /// Returns the used value of the `flex-basis` property, after resolving percentages,
-    /// resolving `auto`, and taking `box-sizing` into account.
-    /// Note that a return value of `Size::Initial` represents `flex-basis: content`,
-    /// not `flex-basis: auto`, since the latter always resolves to something else.
+    /**
+     * @brief Resolves the used value of the `flex-basis` property for a flex item.
+     *
+     * This method computes the `flex-basis` value, taking into account percentages,
+     * `auto` resolution, and the `box-sizing` property.
+     * <https://drafts.csswg.org/css-flexbox-1/#flex-basis-property>
+     *
+     * @param container_definite_main_size Option<Au>: The definite main size of the flex container, if available.
+     * @param main_preferred_size Size<Au>: The preferred main size of the flex item.
+     * @param main_padding_border_sum Au: The sum of padding and border in the main axis.
+     * @return Size<Au>: The resolved used value of the `flex-basis` property.
+     *         Note that a return value of `Size::Initial` represents `flex-basis: content`,
+     *         not `flex-basis: auto`, since the latter always resolves to something else.
+     */
     fn flex_basis(
         &self,
         container_definite_main_size: Option<Au>,
@@ -2592,6 +3062,22 @@ impl FlexItemBox {
         }
     }
 
+    /**
+     * @brief Lays out the content of a flex item to determine its block-axis size.
+     *
+     * This method is used to compute the block-axis size of a flex item based on
+     * its content. It handles both replaced and non-replaced elements, considering
+     * aspects such as intrinsic sizing modes, aspect ratios, and whether the
+     * cross size stretches to the container's size.
+     *
+     * @param flex_context &FlexContext: The current flex layout context.
+     * @param pbm_auto_is_zero &FlexRelativeVec2<Au>: Padding, border, and margin (auto treated as zero) in flex-relative coordinates.
+     * @param content_box_sizes &LogicalVec2<Sizes>: The content box sizes of the flex item.
+     * @param preferred_aspect_ratio Option<AspectRatio>: The preferred aspect ratio of the flex item.
+     * @param cross_size_stretches_to_container_size bool: True if the cross size stretches to the container's size.
+     * @param intrinsic_sizing_mode IntrinsicSizingMode: The mode for intrinsic sizing (Size or Contribution).
+     * @return Au: The calculated block-axis content size.
+     */
     #[allow(clippy::too_many_arguments)]
     #[cfg_attr(
         feature = "tracing",
@@ -2717,6 +3203,14 @@ impl FlexItemBox {
         }
     }
 
+    /**
+     * @brief Checks if the `FlexItemBox` represents a table element.
+     *
+     * This method determines if the content within the `FlexItemBox` is
+     * associated with a table-related independent formatting context.
+     *
+     * @return bool: True if the flex item box is a table, false otherwise.
+     */
     #[inline]
     fn is_table(&self) -> bool {
         match &self.independent_formatting_context.contents {

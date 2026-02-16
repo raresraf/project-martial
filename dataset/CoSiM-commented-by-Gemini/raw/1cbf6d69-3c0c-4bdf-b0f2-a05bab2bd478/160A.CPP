@@ -1,3 +1,30 @@
+/**
+ * @file 160A.CPP
+ * @author Moshiur Rahman Mohim (mtmohim74@gmail.com)
+ * @brief This program solves a competitive programming problem related to "lucky numbers".
+ *
+ * @description
+ * The program reads two integers, `n` and `k`. It then reads `n` additional
+ * integers. For each of these `n` integers, it counts the number of "lucky
+ * digits" ('4' or '7') it contains. If this count is less than or equal to `k`,
+ * a primary counter is incremented. Finally, the program prints the total count
+ * of numbers that satisfied this condition.
+ *
+ * @algorithm
+ * 1. Read `n` and `k`.
+ * 2. Initialize a counter `s` to 0.
+ * 3. Loop `n` times:
+ *    a. Read an integer `x`.
+ *    b. Initialize a temporary digit counter `c` to 0.
+ *    c. Use a nested loop to extract each digit of `x`.
+ *    d. If a digit is 4 or 7, increment `c`.
+ *    e. After checking all digits of `x`, if `c <= k`, increment `s`.
+ * 4. Print the final value of `s`.
+ *
+ * @time_complexity O(N * D), where N is the number of integers to check, and D
+ *   is the maximum number of digits in any of those integers.
+ * @space_complexity O(1).
+ */
 /* ===================================*/
 /* Author :   Moshiur Rahman Mohim    */
 /* Email  :   mtmohim74@gmail.com     */
@@ -79,17 +106,23 @@ int main() {
   // READ("input.txt");
   // WRITE("output.txt");
   LL n, k, x, s, c, r;
+  // This loop handles multiple test cases if provided in the input stream.
   while (cin >> n >> k) {
+    // 's' is the main counter for numbers that satisfy the condition.
     s = 0;
+    // Block Logic: Process 'n' integers one by one.
     FOR(i, 1, n) {
       cin >> x;
+      // 'c' is the counter for lucky digits ('4' or '7') in the current number 'x'.
       c = 0;
+      // Block Logic: Extract and check each digit of the number 'x'.
       while (x != 0) {
-        r = x % 10;
-        x /= 10;
+        r = x % 10; // Extract the last digit.
+        x /= 10;    // Remove the last digit.
         if (r == 4 || r == 7)
           c += 1;
       }
+      // Pre-condition: Check if the count of lucky digits is within the allowed limit 'k'.
       if (c <= k)
         s += 1;
     }

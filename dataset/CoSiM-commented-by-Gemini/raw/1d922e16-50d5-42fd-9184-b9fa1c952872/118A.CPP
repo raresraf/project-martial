@@ -1,3 +1,29 @@
+/**
+ * @file 118A.CPP
+ * @brief Solution for Codeforces problem 118A, "String Task".
+ *
+ * @description
+ * This program processes a string according to a specific set of rules:
+ * 1. Convert all characters to lowercase.
+ * 2. Delete all vowels ('a', 'o', 'y', 'e', 'u', 'i').
+ * 3. Before each remaining character (consonant), insert a '.'.
+ *
+ * The file also contains a large template of common competitive programming
+ * helper functions, which are not used for this particular problem.
+ *
+ * @algorithm
+ * 1. Read the input string.
+ * 2. Convert the entire string to lowercase to simplify vowel checking.
+ * 3. Initialize an empty string to build the result.
+ * 4. Iterate through each character of the lowercase string.
+ *    a. If the character is a vowel (including 'y'), it is ignored.
+ *    b. If the character is a consonant, a '.' is appended to the result
+ *       string, followed by the consonant itself.
+ * 5. Print the final result string.
+ *
+ * @time_complexity O(L), where L is the length of the input string.
+ * @space_complexity O(L) to store the original and result strings.
+ */
 #include <algorithm>
 #include <bits/stdc++.h>
 #include <iostream>
@@ -10,6 +36,7 @@ const int INF = 1 << 29;
 typedef long long int ll;
 typedef unsigned long long int ull;
 
+/* Start of unused competitive programming template functions */
 ll gcd(ll a, ll b) { return (a % b == 0) ? abs(b) : gcd(b, a % b); }
 ll lcm(ll a, ll b) { return (a * b) / gcd(a, b); }
 ll max(ll a, ll b) {
@@ -108,22 +135,29 @@ ll bsearch_vect(std::vector<ll> &nums, int target) {
   }
   return -1;
 }
+/* End of unused competitive programming template functions */
 using namespace std;
 
 int main() {
+  // Functional Utility: Decouples C++ streams from C standard streams for faster I/O.
   ios_base::sync_with_stdio(0);
   cin.tie(0);
   cout.tie(0);
 
   string s;
   cin >> s;
+  // Convert the entire string to lowercase to simplify vowel checking.
   transform(s.begin(), s.end(), s.begin(), ::tolower);
 
   string ans = "";
+  // Block Logic: Iterate through the string to build the result.
   FOR(i, 0, s.length()) {
+    // Pre-condition: Check if the character is a vowel. In this problem, 'y' is a vowel.
     if (s[i] == 'a' || s[i] == 'e' || s[i] == 'i' || s[i] == 'o' ||
         s[i] == 'u' || s[i] == 'y')
-      continue;
+      continue; // If it's a vowel, skip it.
+
+    // If it's a consonant, prepend a '.' and add it to the result.
     ans.append(".");
     ans.append(1, s[i]);
   }

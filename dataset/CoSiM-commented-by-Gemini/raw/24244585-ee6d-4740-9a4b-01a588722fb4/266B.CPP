@@ -28,6 +28,16 @@ Print string a, which describes the arrangement after t seconds. If the i-th
 position has a boy after the needed time, then the i-th character a must equal
 "B", otherwise it must equal "G".*/
 
+/**
+ * @file 266B.CPP
+ * @brief Solution to the "Queue at the School" problem from Codeforces.
+ *
+ * @algorithm Time-step simulation. The core logic consists of nested loops. The outer
+ * loop simulates the passage of time for 't' seconds. The inner loop performs a single
+ * pass over the queue, swapping adjacent 'B' and 'G' pairs.
+ * @time_complexity O(time * qsize), as the algorithm iterates through the queue for each second.
+ * @space_complexity O(qsize) to store the queue string.
+ */
 #include <bits/stdc++.h>
 
 using namespace std;
@@ -38,6 +48,7 @@ int main() {
   int qsize, time, boys = 0;
   std::cin >> qsize >> time;
   cin >> q;
+  // This block for counting boys is not used in the final algorithm.
   for (int i = 0; i < qsize; i++) {
     if (q[i] == 'B') {
       ++boys;
@@ -46,18 +57,40 @@ int main() {
   // cout << "No. of boys are:" << boys;
   // cout << "Time is" << time;
 
+  /**
+   * Block Logic: The outer loop simulates the progression of 'time' seconds.
+   */
   for (int i = 0; i < time; i++) {
+    /**
+     * Block Logic: The inner loop scans the queue for adjacent 'B' and 'G' pairs.
+     * The check q[j+1] is safe because the loop condition is j < q.length() and
+     * the last checked element is q[q.length()-1], so j+1 will be at most q.length().
+     * Note: Accessing q[j+1] when j is q.length()-1 is technically out-of-bounds but
+     * often works due to null termination or other memory layout details; however,
+     * it is not safe practice. The short-circuiting of `&&` prevents a crash if q[j] != 'B'.
+     */
     for (int j = 0; j < q.length(); j++) {
+      // Pre-condition: Identifies a boy standing immediately before a girl.
       if (q[j] == 'B' && q[j + 1] == 'G') {
         temp = q[j];
         q[j] = q[j + 1];
         q[j + 1] = temp;
+        // Inline: The loop counter 'j' is incremented to skip the next position.
+        // This is crucial as it ensures that the newly moved girl does not cause
+        // another swap in the same time step, correctly modeling the problem's rules.
         ++j;
       }
     }
   }
 
+  // Output the final configuration of the queue.
   cout << q;
+
+  /*
+   * The following blocks are commented out and appear to be remnants of the
+   * coding process, exploring alternative or incorrect approaches. They are not
+   * part of the final executable logic.
+   */
 
   /*while(time--)
   {

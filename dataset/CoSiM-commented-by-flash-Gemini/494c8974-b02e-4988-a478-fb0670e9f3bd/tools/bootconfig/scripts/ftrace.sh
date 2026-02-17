@@ -1,30 +1,46 @@
 #!/bin/sh
+# @494c8974-b02e-4988-a478-fb0670e9f3bd/tools/bootconfig/scripts/ftrace.sh
+# @brief Manages the Linux ftrace tracing utility, providing functions to clear, enable, disable, and reset various ftrace components.
+# This script is designed to bring the ftrace system to a clean, initial state,
+# often used for debugging kernel boot processes or setting up specific tracing scenarios.
+#
 # SPDX-License-Identifier: GPL-2.0-only
 
-clear_trace() { # reset trace output
+clear_trace() {
+    # Functional Utility: Resets the content of the trace buffer.
+    # This effectively clears all previously recorded trace events.
     echo > trace
 }
 
-disable_tracing() { # stop trace recording
+disable_tracing() {
+    # Functional Utility: Stops the ftrace recording mechanism.
+    # When tracing is disabled, no new events are written to the trace buffer.
     echo 0 > tracing_on
 }
 
-enable_tracing() { # start trace recording
+enable_tracing() {
+    # Functional Utility: Starts the ftrace recording mechanism.
+    # When tracing is enabled, events are written to the trace buffer.
     echo 1 > tracing_on
 }
 
-reset_tracer() { # reset the current tracer
+reset_tracer() {
+    # Functional Utility: Resets the currently active ftrace tracer to the default 'nop' (no operation) tracer.
     echo nop > current_tracer
 }
 
 reset_trigger_file() {
-    # remove action triggers first
+    # Functional Utility: Resets event triggers within specified trigger files.
+    # This function is used internally to clear all active triggers for ftrace events.
+    # @param $@: List of trigger files to process.
+    # Block Logic: Removes 'on' action triggers by prepending '!' to the command and writing to the file.
     grep -H ':on[^:]*(' $@ |
     while read line; do
         cmd=`echo $line | cut -f2- -d: | cut -f1 -d"["`
 	file=`echo $line | cut -f1 -d:`
 	echo "!$cmd" >> $file
     done
+    # Block Logic: Resets all other triggers (excluding comments) by prepending '!' to the command.
     grep -Hv ^# $@ |
     while read line; do
         cmd=`echo $line | cut -f2- -d: | cut -f1 -d"["`
@@ -33,25 +49,35 @@ reset_trigger_file() {
     done
 }
 
-reset_trigger() { # reset all current setting triggers
+reset_trigger() {
+    # Functional Utility: Resets all current event triggers, including synthetic and regular event triggers.
     if [ -d events/synthetic ]; then
         reset_trigger_file events/synthetic/*/trigger
     fi
     reset_trigger_file events/*/*/trigger
 }
 
-reset_events_filter() { # reset all current setting filters
+reset_events_filter() {
+    # Functional Utility: Resets all active filters for ftrace events.
+    # This sets all event filters to '0' (disabled), effectively allowing all events to pass if enabled.
+    # Block Logic: Iterates through event filter files that are not already set to 'none' and disables them.
     grep -v ^none events/*/*/filter |
     while read line; do
 	echo 0 > `echo $line | cut -f1 -d:`
     done
 }
 
-reset_ftrace_filter() { # reset all triggers in set_ftrace_filter
+reset_ftrace_filter() {
+    # Functional Utility: Resets all filters defined in `set_ftrace_filter`.
+    # This clears function-specific filters applied to the function tracer.
+    # Precondition: `set_ftrace_filter` file must exist.
     if [ ! -f set_ftrace_filter ]; then
       return 0
     fi
+    # Block Logic: Clears the existing `set_ftrace_filter` content.
     echo > set_ftrace_filter
+    # Block Logic: Iterates through previously set ftrace filters (excluding comments)
+    # and disables them by prepending '!' to the filter command.
     grep -v '^#' set_ftrace_filter | while read t; do
 	tr=`echo $t | cut -d: -f2`
 	if [ "$tr" = "" ]; then
@@ -76,17 +102,22 @@ reset_ftrace_filter() { # reset all triggers in set_ftrace_filter
 }
 
 disable_events() {
+    # Functional Utility: Disables all ftrace events globally.
     echo 0 > events/enable
 }
 
-clear_synthetic_events() { # reset all current synthetic events
+clear_synthetic_events() {
+    # Functional Utility: Clears all currently defined synthetic events.
     grep -v ^# synthetic_events |
     while read line; do
         echo "!$line" >> synthetic_events
     done
 }
 
-initialize_ftrace() { # Reset ftrace to initial-state
+initialize_ftrace() {
+# Functional Utility: Resets the entire ftrace system to an initial, clean state.
+# This function is a comprehensive reset, ensuring no tracers, events, triggers,
+# or filters are active.
 # As the initial state, ftrace will be set to nop tracer,
 # no events, no triggers, no filters, no function filters,
 # no probes, and tracing on.
@@ -96,6 +127,7 @@ initialize_ftrace() { # Reset ftrace to initial-state
     reset_events_filter
     reset_ftrace_filter
     disable_events
+    # Block Logic: Clears various ftrace configuration files if they exist.
     [ -f set_event_pid ] && echo > set_event_pid
     [ -f set_ftrace_pid ] && echo > set_ftrace_pid
     [ -f set_ftrace_notrace ] && echo > set_ftrace_notrace

@@ -3,6 +3,15 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/**
+ * @file extHostChatAgents2.ts
+ * @brief Implements the extension host side of the `vscode.chat` API.
+ * @details This file manages the lifecycle and communication for chat agents (participants)
+ * provided by extensions. It orchestrates the request/response flow between the chat UI
+ * in the main VS Code window and the extension's request handler. This includes key
+ * features like streaming responses, handling follow-up actions, and managing agent metadata.
+ */
+
 import type * as vscode from 'vscode';
 import { coalesce } from '../../../base/common/arrays.js';
 import { raceCancellation } from '../../../base/common/async.js';
@@ -33,6 +42,14 @@ import * as extHostTypes from './extHostTypes.js';
 import { isChatViewTitleActionContext } from '../../contrib/chat/common/chatActions.js';
 import { IChatRelatedFile, IChatRequestDraft } from '../../contrib/chat/common/chatEditingService.js';
 
+/**
+ * @class ChatAgentResponseStream
+ * @brief Manages the streaming of response data from a chat agent to the UI.
+ * @details This class provides the `vscode.ChatResponseStream` object to extensions,
+ * allowing them to send response fragments (like markdown, code blocks, etc.)
+ * incrementally. Each call on the stream object sends a message to the main thread
+ * to render the content in the chat view.
+ */
 class ChatAgentResponseStream {
 
 	private _stopWatch = StopWatch.create(false);
@@ -62,7 +79,13 @@ class ChatAgentResponseStream {
 	get apiObject() {
 
 		if (!this._apiObject) {
-
+			/**
+			 * This block lazily creates and freezes the `vscode.ChatResponseStream` object
+			 * that is exposed to the extension. Each method on this object, like `markdown()`
+			 * or `button()`, sends a corresponding data transfer object (DTO) to the main
+			 * thread via an RPC proxy to be rendered in the UI. This enables a streaming
+			 * user experience.
+			 */
 			const that = this;
 			this._stopWatch.reset();
 
@@ -301,6 +324,13 @@ interface InFlightChatRequest {
 	extRequest: vscode.ChatRequest;
 }
 
+/**
+ * @class ExtHostChatAgents2
+ * @brief The central manager for all chat agents running in the extension host.
+ * @details This class is the singleton that tracks all registered chat agents,
+ * handles incoming requests from the main thread, and dispatches them to the
+ * appropriate extension's agent handler.
+ */
 export class ExtHostChatAgents2 extends Disposable implements ExtHostChatAgentsShape2 {
 
 	private static _idPool = 0;
@@ -464,6 +494,14 @@ export class ExtHostChatAgents2 extends Disposable implements ExtHostChatAgentsS
 		agent.setChatRequestPauseState({ request: inFlight.extRequest, isPaused });
 	}
 
+	/**
+	 * @fn $invokeAgent
+	 * @brief Handles an incoming chat request from the main thread.
+	 * @description This is the primary entry point for a user's chat request to be processed
+	 * by an extension. It finds the correct agent, prepares the request context and a
+	 * response stream, and calls the extension's registered request handler.
+	 * @returns A promise that resolves to the result of the agent's execution.
+	 */
 	async $invokeAgent(handle: number, requestDto: Dto<IChatAgentRequest>, context: { history: IChatAgentHistoryEntryDto[] }, token: CancellationToken): Promise<IChatAgentResult | undefined> {
 		const agent = this._agents.get(handle);
 		if (!agent) {
@@ -483,6 +521,7 @@ export class ExtHostChatAgents2 extends Disposable implements ExtHostChatAgentsS
 				this._sessionDisposables.set(request.sessionId, sessionDisposables);
 			}
 
+			// Create the response stream for this request.
 			stream = new ChatAgentResponseStream(agent.extension, request, this._proxy, this._commands.converter, sessionDisposables);
 
 			const model = await this.getModelForRequest(request, agent.extension);
@@ -490,6 +529,7 @@ export class ExtHostChatAgents2 extends Disposable implements ExtHostChatAgentsS
 			inFlightRequest = { requestId: requestDto.requestId, extRequest };
 			this._inFlightRequests.add(inFlightRequest);
 
+			// Invoke the extension's request handler with the prepared context and stream.
 			const task = agent.invoke(
 				extRequest,
 				{ history },
@@ -497,6 +537,7 @@ export class ExtHostChatAgents2 extends Disposable implements ExtHostChatAgentsS
 				token
 			);
 
+			// Race the extension's promise against the cancellation token.
 			return await raceCancellation(Promise.resolve(task).then((result) => {
 				if (result?.metadata) {
 					try {
@@ -699,6 +740,13 @@ class ExtHostRelatedFilesProvider {
 	) { }
 }
 
+/**
+ * @class ExtHostChatAgent
+ * @brief A wrapper around an extension's chat agent implementation.
+ * @details This class manages the state and metadata for a single chat agent,
+ * exposing a stable API object (`vscode.ChatParticipant`) to the extension
+ * while handling the internal logic of communication and state updates.
+ */
 class ExtHostChatAgent {
 
 	private _followupProvider: vscode.ChatFollowupProvider | undefined;
@@ -799,6 +847,13 @@ class ExtHostChatAgent {
 		return content;
 	}
 
+	/**
+	 * @property apiAgent
+	 * @description This getter constructs and returns the public-facing `vscode.ChatParticipant`
+	 * object. This is a facade that provides a clean API to the extension developer
+	 * while hiding the underlying implementation details and communication logic.
+	 * The setters on this object trigger metadata updates to the main thread.
+	 */
 	get apiAgent(): vscode.ChatParticipant {
 		let disposed = false;
 		let updateScheduled = false;

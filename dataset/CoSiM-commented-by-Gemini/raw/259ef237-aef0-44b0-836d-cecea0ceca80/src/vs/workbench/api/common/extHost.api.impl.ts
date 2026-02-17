@@ -3,6 +3,16 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/**
+ * @file extHost.api.impl.ts
+ * @brief The central factory for creating the `vscode` extension API surface.
+ * @details This file is responsible for instantiating all the extension host services
+ * and composing them into the `vscode` object that is exposed to every extension.
+ * It acts as the primary bridge between an extension's code and the core VS Code
+ * services running in the main process. It also incorporates crucial safety and
+ * API-guarding mechanisms to ensure extension stability and provide developer feedback.
+ */
+
 import { CancellationTokenSource } from '../../../base/common/cancellation.js';
 import * as errors from '../../../base/common/errors.js';
 import { Emitter, Event } from '../../../base/common/event.js';
@@ -121,6 +131,11 @@ export interface IExtensionApiFactory {
 
 /**
  * This method instantiates and returns the extension API surface
+ * @param accessor The dependency injection service accessor.
+ * @returns An API factory function that can create the `vscode` API object for a specific extension.
+ * @description This is the main setup function for the extension host. It accesses all necessary
+ * singleton services, registers them for RPC communication with the main process, and returns
+ * a factory function to create the API for each individual extension.
  */
 export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): IExtensionApiFactory {
 
@@ -234,6 +249,14 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 	// Register API-ish commands
 	ExtHostApiCommands.register(extHostCommands);
 
+	/**
+	 * This factory function is called for each individual extension and returns
+	 * a sandboxed, tailored version of the `vscode` API.
+	 * @param extension The descriptor for the extension that is being activated.
+	 * @param extensionInfo Access to information about other extensions.
+	 * @param configProvider The configuration provider for this extension.
+	 * @returns The `vscode` API surface for the given extension.
+	 */
 	return function (extension: IExtensionDescription, extensionInfo: IExtensionRegistries, configProvider: ExtHostConfigProvider): typeof vscode {
 
 		// Wraps an event with error handling and telemetry so that we know what extension fails
@@ -284,6 +307,11 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 				return selector;
 			};
 		})();
+
+		// --- API Service Creation ---
+		// Each of the following blocks constructs a specific namespace of the `vscode` API,
+		// such as `vscode.authentication`, `vscode.commands`, etc. These namespaces are
+		// facades that delegate their calls to the underlying ExtHost services.
 
 		const authentication: typeof vscode.authentication = {
 			getSession(providerId: string, scopes: readonly string[], options?: vscode.AuthenticationGetSessionOptions) {
@@ -929,7 +957,6 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 		};
 
 		// namespace: workspace
-
 		const workspace: typeof vscode.workspace = {
 			get rootPath() {
 				extHostApiDeprecation.report('workspace.rootPath', extension,
@@ -1521,6 +1548,10 @@ export function createApiFactoryAndRegisterActors(accessor: ServicesAccessor): I
 			}
 		};
 
+		/**
+		 * This is the literal API object that an extension will get when it calls `require('vscode')`.
+		 * It is a composition of all the namespaces defined above.
+		 */
 		// eslint-disable-next-line local/code-no-dangerous-type-assertions
 		return <typeof vscode>{
 			version: initData.version,

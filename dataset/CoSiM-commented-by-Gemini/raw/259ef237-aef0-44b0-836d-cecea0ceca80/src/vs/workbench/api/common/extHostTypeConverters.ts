@@ -1,8 +1,27 @@
+/**
+ * @file extHostTypeConverters.ts
+ * @brief The data marshalling layer for the extension host API.
+ * @details This file is the "boundary layer" between the extension host and the main
+ * VS Code process. It contains a collection of namespaces, each dedicated to converting
+ * a specific `vscode` API object type into a serializable Data Transfer Object (DTO)
+ * for RPC communication, and vice-versa. This is essential for inter-process
+ * communication in VS Code's architecture.
+ */
+
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/**
+ * @module
+ * @description This module defines the general pattern for type conversion.
+ * Each namespace corresponds to a type in the `vscode` API.
+ * - The `from()` function typically converts from the public `vscode` API type
+ *   (used by extensions) to an internal, serializable DTO for RPC.
+ * - The `to()` function converts from the internal DTO (received from the main
+ *   process) back into a rich `vscode` API object.
+ */
 import type * as vscode from 'vscode';
 import { asArray, coalesce, isNonEmptyArray } from '../../../base/common/arrays.js';
 import { VSBuffer, encodeBase64 } from '../../../base/common/buffer.js';
@@ -100,6 +119,13 @@ export namespace Selection {
 		};
 	}
 }
+/**
+ * @namespace Range
+ * @description A representative example of a type converter. It handles the transformation
+ * between the public `vscode.Range` (which is 0-indexed for lines and characters) and
+ * the internal `editorRange.IRange` (which is 1-indexed). This is a fundamental
+ * translation required for any editor-related API feature.
+ */
 export namespace Range {
 
 	export function from(range: undefined): undefined;
@@ -322,7 +348,8 @@ export namespace ViewColumn {
 			return position + 1; // adjust to index (ViewColumn.ONE => 1)
 		}
 
-		throw new Error(`invalid 'EditorGroupColumn'`);
+		throw new Error(`invalid 'EditorGroupColumn'
+`);
 	}
 }
 
@@ -337,6 +364,13 @@ export function isDecorationOptionsArr(something: vscode.Range[] | vscode.Decora
 	return isDecorationOptions(something[0]) ? true : false;
 }
 
+/**
+ * @namespace MarkdownString
+ * @description Handles the complex conversion of Markdown strings. It not only marshals
+ * the text content but also parses the markdown to identify and serialize URIs. 
+ * This allows the main process to handle URI resolution and apply security measures,
+ * such as controlling which commands can be executed from a link.
+ */
 export namespace MarkdownString {
 
 	export function fromMany(markup: (vscode.MarkdownString | vscode.MarkedString)[]): htmlContent.IMarkdownString[] {
@@ -451,7 +485,7 @@ export function fromRangeOrRangeWithMessage(ranges: vscode.Range[] | vscode.Deco
 				hoverMessage: Array.isArray(r.hoverMessage)
 					? MarkdownString.fromMany(r.hoverMessage)
 					: (r.hoverMessage ? MarkdownString.from(r.hoverMessage) : undefined),
-				renderOptions: <any> /* URI vs Uri */r.renderOptions
+			renderOptions: <any> /* URI vs Uri */r.renderOptions
 			};
 		});
 	} else {
@@ -600,6 +634,14 @@ export namespace TextEdit {
 	}
 }
 
+/**
+ * @namespace WorkspaceEdit
+ * @description Handles the conversion of a composite `WorkspaceEdit` object. This is a
+ * complex operation as a single edit can contain multiple types of changes (text edits,
+ * file creations, renames, deletions) across multiple files. This converter ensures
+ * all these operations are serialized into a DTO that can be atomically processed
+ * by the main thread, including version information to prevent conflicts.
+ */
 export namespace WorkspaceEdit {
 
 	export interface IVersionInformationProvider {
@@ -1181,6 +1223,12 @@ export namespace CompletionItemKind {
 	}
 }
 
+/**
+ * @namespace CompletionItem
+ * @description Converts a `CompletionItem` between the API and internal formats. This is a
+ * rich object that includes not just text, but also things like documentation, commands,
+ * and additional text edits, all of which must be correctly marshalled.
+ */
 export namespace CompletionItem {
 
 	export function to(suggestion: languages.CompletionItem, converter?: Command.ICommandsConverter): types.CompletionItem {
@@ -1246,7 +1294,7 @@ export namespace SignatureInformation {
 			label: info.label,
 			documentation: MarkdownString.fromStrict(info.documentation),
 			parameters: Array.isArray(info.parameters) ? info.parameters.map(ParameterInformation.from) : [],
-			activeParameter: info.activeParameter,
+			acti veParameter: info.activeParameter,
 		};
 	}
 
@@ -1255,7 +1303,7 @@ export namespace SignatureInformation {
 			label: info.label,
 			documentation: htmlContent.isMarkdownString(info.documentation) ? MarkdownString.to(info.documentation) : info.documentation,
 			parameters: Array.isArray(info.parameters) ? info.parameters.map(ParameterInformation.to) : [],
-			activeParameter: info.activeParameter,
+			acti veParameter: info.activeParameter,
 		};
 	}
 }
@@ -1264,16 +1312,16 @@ export namespace SignatureHelp {
 
 	export function from(help: types.SignatureHelp): languages.SignatureHelp {
 		return {
-			activeSignature: help.activeSignature,
-			activeParameter: help.activeParameter,
+			acti veSignature: help.activeSignature,
+			acti veParameter: help.activeParameter,
 			signatures: Array.isArray(help.signatures) ? help.signatures.map(SignatureInformation.from) : [],
 		};
 	}
 
 	export function to(help: languages.SignatureHelp): types.SignatureHelp {
 		return {
-			activeSignature: help.activeSignature,
-			activeParameter: help.activeParameter,
+			acti veSignature: help.activeSignature,
+			acti veParameter: help.activeParameter,
 			signatures: Array.isArray(help.signatures) ? help.signatures.map(SignatureInformation.to) : [],
 		};
 	}
@@ -1463,7 +1511,8 @@ export namespace ProgressLocation {
 			case types.ProgressLocation.Window: return MainProgressLocation.Window;
 			case types.ProgressLocation.Notification: return MainProgressLocation.Notification;
 		}
-		throw new Error(`Unknown 'ProgressLocation'`);
+		throw new Error(`Unknown 'ProgressLocation'
+`);
 	}
 }
 
@@ -1869,7 +1918,7 @@ export namespace TestMessage {
 				label: s.label,
 				position: s.position && Position.from(s.position),
 				uri: s.uri && URI.revive(s.uri).toJSON(),
-			})),
+			}))
 		};
 	}
 

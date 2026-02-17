@@ -1,3 +1,12 @@
+/**
+ * @file extHostTypes.ts
+ * @brief Implements the public data model classes and enumerations for the `vscode` extension API.
+ * @details This file defines the concrete implementations of the core types that extensions
+ * interact with, such as `Position`, `Range`, `Selection`, `TextEdit`, etc. These classes
+ * provide the public-facing API surface, including methods and properties, and often include
+ * validation and immutability patterns. This file works in tandem with `extHostTypeConverters.ts`
+ * to enable communication between the extension host and the main VS Code process.
+ */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -26,10 +35,13 @@ import { TextEditorSelectionSource } from '../../../platform/editor/common/edito
 
 /**
  * @deprecated
- *
- * This utility ensures that old JS code that uses functions for classes still works. Existing usages cannot be removed
- * but new ones must not be added
- * */
+ * @function es5ClassCompat
+ * @description A compatibility utility to ensure that older JavaScript code, which might use functions as classes, 
+ * continues to work. It intercepts `apply` and `call` to allow class constructors to be invoked
+ * without the `new` keyword, maintaining backward compatibility for legacy extensions. New usages of
+ * 
+ * this pattern are discouraged.
+ */
 function es5ClassCompat(target: Function): any {
 	const interceptFunctions = {
 		apply: function (...args: any[]): any {
@@ -63,6 +75,13 @@ export enum TerminalQuickFixType {
 	Command = 3
 }
 
+/**
+ * @class Disposable
+ * @description A fundamental utility class for managing resources that need to be cleaned up.
+ * It follows the RAII (Resource Acquisition Is Initialization) pattern, where the constructor
+ * takes a function that is called when the `dispose` method is invoked. This is a core
+ * concept in VS Code for preventing memory leaks and ensuring resources are properly released.
+ */
 @es5ClassCompat
 export class Disposable {
 
@@ -94,6 +113,13 @@ export class Disposable {
 	}
 }
 
+/**
+ * @class Position
+ * @description Represents a line and character-based position in a text document. It is an
+ * immutable value object, meaning methods like `translate` or `with` return a new `Position`
+ * instance rather than modifying the current one. This design ensures predictable and safe
+ * handling of document locations.
+ */
 @es5ClassCompat
 export class Position {
 
@@ -279,6 +305,13 @@ export class Position {
 	}
 }
 
+/**
+ * @class Range
+ * @description A foundational data structure representing a continuous span of text in a
+ * document, defined by a start and end `Position`. Like `Position`, it is an immutable
+ * value object. It includes logic for comparisons (`contains`, `isEqual`), and for
+ * calculating intersections and unions with other ranges.
+ */
 @es5ClassCompat
 export class Range {
 
@@ -833,6 +866,13 @@ export interface ICellEdit {
 
 type WorkspaceEditEntry = IFileOperation | IFileTextEdit | IFileSnippetTextEdit | IFileCellEdit | ICellEdit;
 
+/**
+ * @class WorkspaceEdit
+ * @description A complex object that represents a collection of changes to be applied atomically
+ * to the workspace. It can contain text edits, file operations (create, rename, delete), and
+ * notebook edits. This class acts as a builder to construct a set of edits that are then
+- * sent to the main process for execution.
+ */
 @es5ClassCompat
 export class WorkspaceEdit implements vscode.WorkspaceEdit {
 
@@ -998,7 +1038,7 @@ export class SnippetString {
 	}
 
 	private static _escape(value: string): string {
-		return value.replace(/\$|}|\\/g, '\\$&');
+		return value.replace(/\$|\}|\\/g, '\\$&');
 	}
 
 	private _tabstop: number = 1;
@@ -1672,7 +1712,8 @@ export class SignatureInformation {
 export class SignatureHelp {
 
 	signatures: SignatureInformation[];
-	activeSignature: number = 0;
+	activesignature: number = 0;
+	activesignature: number = 0;
 	activeParameter: number = 0;
 
 	constructor() {
@@ -1774,6 +1815,13 @@ export interface CompletionItemLabel {
 	description?: string;
 }
 
+/**
+ * @class CompletionItem
+ * @description A rich data object that represents a suggestion in the auto-completion list.
+ * It includes not just the text to be inserted, but also metadata such as its kind (function,
+ * variable, etc.), documentation, and associated commands. This class is central to providing
+ * intelligent code completion in language extensions.
+ */
 @es5ClassCompat
 export class CompletionItem implements vscode.CompletionItem {
 
@@ -1816,7 +1864,7 @@ export class CompletionItem implements vscode.CompletionItem {
 @es5ClassCompat
 export class CompletionList {
 
-	isIncomplete?: boolean;
+	incomplete?: boolean;
 	items: vscode.CompletionItem[];
 
 	constructor(items: vscode.CompletionItem[] = [], isIncomplete: boolean = false) {
@@ -1998,7 +2046,6 @@ export class DocumentLink {
 		this.target = target;
 	}
 }
-
 @es5ClassCompat
 export class Color {
 	readonly red: number;
@@ -3249,7 +3296,7 @@ export class DebugThread implements vscode.DebugThread {
 @es5ClassCompat
 export class EvaluatableExpression implements vscode.EvaluatableExpression {
 	readonly range: vscode.Range;
-	readonly expression?: string;
+	expression?: string;
 
 	constructor(range: vscode.Range, expression?: string) {
 		this.range = range;
@@ -3289,7 +3336,7 @@ export class InlineValueVariableLookup implements vscode.InlineValueVariableLook
 @es5ClassCompat
 export class InlineValueEvaluatableExpression implements vscode.InlineValueEvaluatableExpression {
 	readonly range: Range;
-	readonly expression?: string;
+	expression?: string;
 
 	constructor(range: Range, expression?: string) {
 		this.range = range;
@@ -3948,1021 +3995,4 @@ export class NotebookCellOutputItem {
 	) {
 		const mimeNormalized = normalizeMimeType(mime, true);
 		if (!mimeNormalized) {
-			throw new Error(`INVALID mime type: ${mime}. Must be in the format "type/subtype[;optionalparameter]"`);
-		}
-		this.mime = mimeNormalized;
-	}
-}
-
-export class NotebookCellOutput {
-
-	static isNotebookCellOutput(candidate: any): candidate is vscode.NotebookCellOutput {
-		if (candidate instanceof NotebookCellOutput) {
-			return true;
-		}
-		if (!candidate || typeof candidate !== 'object') {
-			return false;
-		}
-		return typeof (<NotebookCellOutput>candidate).id === 'string' && Array.isArray((<NotebookCellOutput>candidate).items);
-	}
-
-	static ensureUniqueMimeTypes(items: NotebookCellOutputItem[], warn: boolean = false): NotebookCellOutputItem[] {
-		const seen = new Set<string>();
-		const removeIdx = new Set<number>();
-		for (let i = 0; i < items.length; i++) {
-			const item = items[i];
-			const normalMime = normalizeMimeType(item.mime);
-			// We can have multiple text stream mime types in the same output.
-			if (!seen.has(normalMime) || isTextStreamMime(normalMime)) {
-				seen.add(normalMime);
-				continue;
-			}
-			// duplicated mime types... first has won
-			removeIdx.add(i);
-			if (warn) {
-				console.warn(`DUPLICATED mime type '${item.mime}' will be dropped`);
-			}
-		}
-		if (removeIdx.size === 0) {
-			return items;
-		}
-		return items.filter((_item, index) => !removeIdx.has(index));
-	}
-
-	id: string;
-	items: NotebookCellOutputItem[];
-	metadata?: Record<string, any>;
-
-	constructor(
-		items: NotebookCellOutputItem[],
-		idOrMetadata?: string | Record<string, any>,
-		metadata?: Record<string, any>
-	) {
-		this.items = NotebookCellOutput.ensureUniqueMimeTypes(items, true);
-		if (typeof idOrMetadata === 'string') {
-			this.id = idOrMetadata;
-			this.metadata = metadata;
-		} else {
-			this.id = generateUuid();
-			this.metadata = idOrMetadata ?? metadata;
-		}
-	}
-}
-
-export class CellErrorStackFrame {
-	/**
-	 * @param label The name of the stack frame
-	 * @param file The file URI of the stack frame
-	 * @param position The position of the stack frame within the file
-	 */
-	constructor(
-		public label: string,
-		public uri?: vscode.Uri,
-		public position?: Position,
-	) { }
-}
-
-export enum NotebookCellKind {
-	Markup = 1,
-	Code = 2
-}
-
-export enum NotebookCellExecutionState {
-	Idle = 1,
-	Pending = 2,
-	Executing = 3,
-}
-
-export enum NotebookCellStatusBarAlignment {
-	Left = 1,
-	Right = 2
-}
-
-export enum NotebookEditorRevealType {
-	Default = 0,
-	InCenter = 1,
-	InCenterIfOutsideViewport = 2,
-	AtTop = 3
-}
-
-export class NotebookCellStatusBarItem {
-	constructor(
-		public text: string,
-		public alignment: NotebookCellStatusBarAlignment) { }
-}
-
-
-export enum NotebookControllerAffinity {
-	Default = 1,
-	Preferred = 2
-}
-
-export enum NotebookControllerAffinity2 {
-	Default = 1,
-	Preferred = 2,
-	Hidden = -1
-}
-
-export class NotebookRendererScript {
-
-	public provides: readonly string[];
-
-	constructor(
-		public uri: vscode.Uri,
-		provides: string | readonly string[] = []
-	) {
-		this.provides = asArray(provides);
-	}
-}
-
-export class NotebookKernelSourceAction {
-	description?: string;
-	detail?: string;
-	command?: vscode.Command;
-	constructor(
-		public label: string
-	) { }
-}
-
-export enum NotebookVariablesRequestKind {
-	Named = 1,
-	Indexed = 2
-}
-
-//#endregion
-
-//#region Timeline
-
-@es5ClassCompat
-export class TimelineItem implements vscode.TimelineItem {
-	constructor(public label: string, public timestamp: number) { }
-}
-
-//#endregion Timeline
-
-//#region ExtensionContext
-
-export enum ExtensionMode {
-	/**
-	 * The extension is installed normally (for example, from the marketplace
-	 * or VSIX) in VS Code.
-	 */
-	Production = 1,
-
-	/**
-	 * The extension is running from an `--extensionDevelopmentPath` provided
-	 * when launching VS Code.
-	 */
-	Development = 2,
-
-	/**
-	 * The extension is running from an `--extensionDevelopmentPath` and
-	 * the extension host is running unit tests.
-	 */
-	Test = 3,
-}
-
-export enum ExtensionRuntime {
-	/**
-	 * The extension is running in a NodeJS extension host. Runtime access to NodeJS APIs is available.
-	 */
-	Node = 1,
-	/**
-	 * The extension is running in a Webworker extension host. Runtime access is limited to Webworker APIs.
-	 */
-	Webworker = 2
-}
-
-//#endregion ExtensionContext
-
-export enum StandardTokenType {
-	Other = 0,
-	Comment = 1,
-	String = 2,
-	RegEx = 3
-}
-
-
-export class LinkedEditingRanges {
-	constructor(public readonly ranges: Range[], public readonly wordPattern?: RegExp) {
-	}
-}
-
-//#region ports
-export class PortAttributes {
-	private _autoForwardAction: PortAutoForwardAction;
-
-	constructor(autoForwardAction: PortAutoForwardAction) {
-		this._autoForwardAction = autoForwardAction;
-	}
-
-	get autoForwardAction(): PortAutoForwardAction {
-		return this._autoForwardAction;
-	}
-}
-//#endregion ports
-
-//#region Testing
-export enum TestResultState {
-	Queued = 1,
-	Running = 2,
-	Passed = 3,
-	Failed = 4,
-	Skipped = 5,
-	Errored = 6
-}
-
-export enum TestRunProfileKind {
-	Run = 1,
-	Debug = 2,
-	Coverage = 3,
-}
-
-export class TestRunProfileBase {
-	constructor(
-		public readonly controllerId: string,
-		public readonly profileId: number,
-		public readonly kind: vscode.TestRunProfileKind,
-	) { }
-}
-
-@es5ClassCompat
-export class TestRunRequest implements vscode.TestRunRequest {
-	constructor(
-		public readonly include: vscode.TestItem[] | undefined = undefined,
-		public readonly exclude: vscode.TestItem[] | undefined = undefined,
-		public readonly profile: vscode.TestRunProfile | undefined = undefined,
-		public readonly continuous = false,
-		public readonly preserveFocus = true,
-	) { }
-}
-
-@es5ClassCompat
-export class TestMessage implements vscode.TestMessage {
-	public expectedOutput?: string;
-	public actualOutput?: string;
-	public location?: vscode.Location;
-	public contextValue?: string;
-
-	/** proposed: */
-	public stackTrace?: TestMessageStackFrame[];
-
-	public static diff(message: string | vscode.MarkdownString, expected: string, actual: string) {
-		const msg = new TestMessage(message);
-		msg.expectedOutput = expected;
-		msg.actualOutput = actual;
-		return msg;
-	}
-
-	constructor(public message: string | vscode.MarkdownString) { }
-}
-
-@es5ClassCompat
-export class TestTag implements vscode.TestTag {
-	constructor(public readonly id: string) { }
-}
-
-export class TestMessageStackFrame {
-	/**
-	 * @param label The name of the stack frame
-	 * @param file The file URI of the stack frame
-	 * @param position The position of the stack frame within the file
-	 */
-	constructor(
-		public label: string,
-		public uri?: vscode.Uri,
-		public position?: Position,
-	) { }
-}
-
-//#endregion
-
-//#region Test Coverage
-export class TestCoverageCount implements vscode.TestCoverageCount {
-	constructor(public covered: number, public total: number) {
-		validateTestCoverageCount(this);
-	}
-}
-
-export function validateTestCoverageCount(cc?: vscode.TestCoverageCount) {
-	if (!cc) {
-		return;
-	}
-
-	if (cc.covered > cc.total) {
-		throw new Error(`The total number of covered items (${cc.covered}) cannot be greater than the total (${cc.total})`);
-	}
-
-	if (cc.total < 0) {
-		throw new Error(`The number of covered items (${cc.total}) cannot be negative`);
-	}
-}
-
-export class FileCoverage implements vscode.FileCoverage {
-	public static fromDetails(uri: vscode.Uri, details: vscode.FileCoverageDetail[]): vscode.FileCoverage {
-		const statements = new TestCoverageCount(0, 0);
-		const branches = new TestCoverageCount(0, 0);
-		const decl = new TestCoverageCount(0, 0);
-
-		for (const detail of details) {
-			if ('branches' in detail) {
-				statements.total += 1;
-				statements.covered += detail.executed ? 1 : 0;
-
-				for (const branch of detail.branches) {
-					branches.total += 1;
-					branches.covered += branch.executed ? 1 : 0;
-				}
-			} else {
-				decl.total += 1;
-				decl.covered += detail.executed ? 1 : 0;
-			}
-		}
-
-		const coverage = new FileCoverage(
-			uri,
-			statements,
-			branches.total > 0 ? branches : undefined,
-			decl.total > 0 ? decl : undefined,
-		);
-
-		coverage.detailedCoverage = details;
-
-		return coverage;
-	}
-
-	detailedCoverage?: vscode.FileCoverageDetail[];
-
-	constructor(
-		public readonly uri: vscode.Uri,
-		public statementCoverage: vscode.TestCoverageCount,
-		public branchCoverage?: vscode.TestCoverageCount,
-		public declarationCoverage?: vscode.TestCoverageCount,
-		public includesTests: vscode.TestItem[] = [],
-	) {
-	}
-}
-
-export class StatementCoverage implements vscode.StatementCoverage {
-	// back compat until finalization:
-	get executionCount() { return +this.executed; }
-	set executionCount(n: number) { this.executed = n; }
-
-	constructor(
-		public executed: number | boolean,
-		public location: Position | Range,
-		public branches: vscode.BranchCoverage[] = [],
-	) { }
-}
-
-export class BranchCoverage implements vscode.BranchCoverage {
-	// back compat until finalization:
-	get executionCount() { return +this.executed; }
-	set executionCount(n: number) { this.executed = n; }
-
-	constructor(
-		public executed: number | boolean,
-		public location: Position | Range,
-		public label?: string,
-	) { }
-}
-
-export class DeclarationCoverage implements vscode.DeclarationCoverage {
-	// back compat until finalization:
-	get executionCount() { return +this.executed; }
-	set executionCount(n: number) { this.executed = n; }
-
-	constructor(
-		public readonly name: string,
-		public executed: number | boolean,
-		public location: Position | Range,
-	) { }
-}
-//#endregion
-
-export enum ExternalUriOpenerPriority {
-	None = 0,
-	Option = 1,
-	Default = 2,
-	Preferred = 3,
-}
-
-export enum WorkspaceTrustState {
-	Untrusted = 0,
-	Trusted = 1,
-	Unspecified = 2
-}
-
-export enum PortAutoForwardAction {
-	Notify = 1,
-	OpenBrowser = 2,
-	OpenPreview = 3,
-	Silent = 4,
-	Ignore = 5,
-	OpenBrowserOnce = 6
-}
-
-export class TypeHierarchyItem {
-	_sessionId?: string;
-	_itemId?: string;
-
-	kind: SymbolKind;
-	tags?: SymbolTag[];
-	name: string;
-	detail?: string;
-	uri: URI;
-	range: Range;
-	selectionRange: Range;
-
-	constructor(kind: SymbolKind, name: string, detail: string, uri: URI, range: Range, selectionRange: Range) {
-		this.kind = kind;
-		this.name = name;
-		this.detail = detail;
-		this.uri = uri;
-		this.range = range;
-		this.selectionRange = selectionRange;
-	}
-}
-
-//#region Tab Inputs
-
-export class TextTabInput {
-	constructor(readonly uri: URI) { }
-}
-
-export class TextDiffTabInput {
-	constructor(readonly original: URI, readonly modified: URI) { }
-}
-
-export class TextMergeTabInput {
-	constructor(readonly base: URI, readonly input1: URI, readonly input2: URI, readonly result: URI) { }
-}
-
-export class CustomEditorTabInput {
-	constructor(readonly uri: URI, readonly viewType: string) { }
-}
-
-export class WebviewEditorTabInput {
-	constructor(readonly viewType: string) { }
-}
-
-export class NotebookEditorTabInput {
-	constructor(readonly uri: URI, readonly notebookType: string) { }
-}
-
-export class NotebookDiffEditorTabInput {
-	constructor(readonly original: URI, readonly modified: URI, readonly notebookType: string) { }
-}
-
-export class TerminalEditorTabInput {
-	constructor() { }
-}
-export class InteractiveWindowInput {
-	constructor(readonly uri: URI, readonly inputBoxUri: URI) { }
-}
-
-export class ChatEditorTabInput {
-	constructor() { }
-}
-
-export class TextMultiDiffTabInput {
-	constructor(readonly textDiffs: TextDiffTabInput[]) { }
-}
-//#endregion
-
-//#region Chat
-
-export enum InteractiveSessionVoteDirection {
-	Down = 0,
-	Up = 1
-}
-
-export enum ChatCopyKind {
-	Action = 1,
-	Toolbar = 2
-}
-
-export enum ChatVariableLevel {
-	Short = 1,
-	Medium = 2,
-	Full = 3
-}
-
-export class ChatCompletionItem implements vscode.ChatCompletionItem {
-	id: string;
-	label: string | CompletionItemLabel;
-	fullName?: string | undefined;
-	icon?: vscode.ThemeIcon;
-	insertText?: string;
-	values: vscode.ChatVariableValue[];
-	detail?: string;
-	documentation?: string | MarkdownString;
-	command?: vscode.Command;
-
-	constructor(id: string, label: string | CompletionItemLabel, values: vscode.ChatVariableValue[]) {
-		this.id = id;
-		this.label = label;
-		this.values = values;
-	}
-}
-
-export enum ChatEditingSessionActionOutcome {
-	Accepted = 1,
-	Rejected = 2,
-	Saved = 3
-}
-
-//#endregion
-
-//#region Interactive Editor
-
-export enum InteractiveEditorResponseFeedbackKind {
-	Unhelpful = 0,
-	Helpful = 1,
-	Undone = 2,
-	Accepted = 3,
-	Bug = 4
-}
-
-export enum ChatResultFeedbackKind {
-	Unhelpful = 0,
-	Helpful = 1,
-}
-
-export class ChatResponseMarkdownPart {
-	value: vscode.MarkdownString;
-	constructor(value: string | vscode.MarkdownString) {
-		if (typeof value !== 'string' && value.isTrusted === true) {
-			throw new Error('The boolean form of MarkdownString.isTrusted is NOT supported for chat participants.');
-		}
-
-		this.value = typeof value === 'string' ? new MarkdownString(value) : value;
-	}
-}
-
-/**
- * TODO if 'vulnerabilities' is finalized, this should be merged with the base ChatResponseMarkdownPart. I just don't see how to do that while keeping
- * vulnerabilities in a seperate API proposal in a clean way.
- */
-export class ChatResponseMarkdownWithVulnerabilitiesPart {
-	value: vscode.MarkdownString;
-	vulnerabilities: vscode.ChatVulnerability[];
-	constructor(value: string | vscode.MarkdownString, vulnerabilities: vscode.ChatVulnerability[]) {
-		if (typeof value !== 'string' && value.isTrusted === true) {
-			throw new Error('The boolean form of MarkdownString.isTrusted is NOT supported for chat participants.');
-		}
-
-		this.value = typeof value === 'string' ? new MarkdownString(value) : value;
-		this.vulnerabilities = vulnerabilities;
-	}
-}
-
-export class ChatResponseDetectedParticipantPart {
-	participant: string;
-	// TODO@API validate this against statically-declared slash commands?
-	command?: vscode.ChatCommand;
-	constructor(participant: string, command?: vscode.ChatCommand) {
-		this.participant = participant;
-		this.command = command;
-	}
-}
-
-export class ChatResponseConfirmationPart {
-	title: string;
-	message: string;
-	data: any;
-	buttons?: string[];
-
-	constructor(title: string, message: string, data: any, buttons?: string[]) {
-		this.title = title;
-		this.message = message;
-		this.data = data;
-		this.buttons = buttons;
-	}
-}
-
-export class ChatResponseFileTreePart {
-	value: vscode.ChatResponseFileTree[];
-	baseUri: vscode.Uri;
-	constructor(value: vscode.ChatResponseFileTree[], baseUri: vscode.Uri) {
-		this.value = value;
-		this.baseUri = baseUri;
-	}
-}
-
-export class ChatResponseAnchorPart implements vscode.ChatResponseAnchorPart {
-	value: vscode.Uri | vscode.Location;
-	title?: string;
-
-	value2: vscode.Uri | vscode.Location | vscode.SymbolInformation;
-	resolve?(token: vscode.CancellationToken): Thenable<void>;
-
-	constructor(value: vscode.Uri | vscode.Location | vscode.SymbolInformation, title?: string) {
-		this.value = value as any;
-		this.value2 = value;
-		this.title = title;
-	}
-}
-
-export class ChatResponseProgressPart {
-	value: string;
-	constructor(value: string) {
-		this.value = value;
-	}
-}
-
-export class ChatResponseProgressPart2 {
-	value: string;
-	task?: (progress: vscode.Progress<vscode.ChatResponseWarningPart>) => Thenable<string | void>;
-	constructor(value: string, task?: (progress: vscode.Progress<vscode.ChatResponseWarningPart>) => Thenable<string | void>) {
-		this.value = value;
-		this.task = task;
-	}
-}
-
-export class ChatResponseWarningPart {
-	value: vscode.MarkdownString;
-	constructor(value: string | vscode.MarkdownString) {
-		if (typeof value !== 'string' && value.isTrusted === true) {
-			throw new Error('The boolean form of MarkdownString.isTrusted is NOT supported for chat participants.');
-		}
-
-		this.value = typeof value === 'string' ? new MarkdownString(value) : value;
-	}
-}
-
-export class ChatResponseCommandButtonPart {
-	value: vscode.Command;
-	constructor(value: vscode.Command) {
-		this.value = value;
-	}
-}
-
-export class ChatResponseReferencePart {
-	value: vscode.Uri | vscode.Location | { variableName: string; value?: vscode.Uri | vscode.Location } | string;
-	iconPath?: vscode.Uri | vscode.ThemeIcon | { light: vscode.Uri; dark: vscode.Uri };
-	options?: { status?: { description: string; kind: vscode.ChatResponseReferencePartStatusKind } };
-	constructor(value: vscode.Uri | vscode.Location | { variableName: string; value?: vscode.Uri | vscode.Location } | string, iconPath?: vscode.Uri | vscode.ThemeIcon | { light: vscode.Uri; dark: vscode.Uri }, options?: { status?: { description: string; kind: vscode.ChatResponseReferencePartStatusKind } }) {
-		this.value = value;
-		this.iconPath = iconPath;
-		this.options = options;
-	}
-}
-
-export class ChatResponseCodeblockUriPart {
-	value: vscode.Uri;
-	constructor(value: vscode.Uri) {
-		this.value = value;
-	}
-}
-
-export class ChatResponseCodeCitationPart {
-	value: vscode.Uri;
-	license: string;
-	snippet: string;
-	constructor(value: vscode.Uri, license: string, snippet: string) {
-		this.value = value;
-		this.license = license;
-		this.snippet = snippet;
-	}
-}
-
-export class ChatResponseMovePart {
-	constructor(
-		public readonly uri: vscode.Uri,
-		public readonly range: vscode.Range,
-	) {
-	}
-}
-
-export class ChatResponseTextEditPart implements vscode.ChatResponseTextEditPart {
-	uri: vscode.Uri;
-	edits: vscode.TextEdit[];
-	isDone?: boolean;
-	constructor(uri: vscode.Uri, editsOrDone: vscode.TextEdit | vscode.TextEdit[] | true) {
-		this.uri = uri;
-		if (editsOrDone === true) {
-			this.isDone = true;
-			this.edits = [];
-		} else {
-			this.edits = Array.isArray(editsOrDone) ? editsOrDone : [editsOrDone];
-		}
-	}
-}
-
-export class ChatRequestTurn implements vscode.ChatRequestTurn {
-	constructor(
-		readonly prompt: string,
-		readonly command: string | undefined,
-		readonly references: vscode.ChatPromptReference[],
-		readonly participant: string,
-		readonly toolReferences: vscode.ChatLanguageModelToolReference[]
-	) { }
-}
-
-export class ChatResponseTurn implements vscode.ChatResponseTurn {
-
-	constructor(
-		readonly response: ReadonlyArray<ChatResponseMarkdownPart | ChatResponseFileTreePart | ChatResponseAnchorPart | ChatResponseCommandButtonPart>,
-		readonly result: vscode.ChatResult,
-		readonly participant: string,
-		readonly command?: string
-	) { }
-}
-
-export enum ChatLocation {
-	Panel = 1,
-	Terminal = 2,
-	Notebook = 3,
-	Editor = 4,
-	EditingSession = 5,
-}
-
-export enum ChatResponseReferencePartStatusKind {
-	Complete = 1,
-	Partial = 2,
-	Omitted = 3
-}
-
-export class ChatRequestEditorData implements vscode.ChatRequestEditorData {
-	constructor(
-		readonly document: vscode.TextDocument,
-		readonly selection: vscode.Selection,
-		readonly wholeRange: vscode.Range,
-	) { }
-}
-
-export class ChatRequestNotebookData implements vscode.ChatRequestNotebookData {
-	constructor(
-		readonly cell: vscode.TextDocument
-	) { }
-}
-
-export class ChatReferenceBinaryData implements vscode.ChatReferenceBinaryData {
-	mimeType: string;
-	data: () => Thenable<Uint8Array>;
-	reference?: vscode.Uri;
-	constructor(mimeType: string, data: () => Thenable<Uint8Array>, reference?: vscode.Uri) {
-		this.mimeType = mimeType;
-		this.data = data;
-		this.reference = reference;
-	}
-}
-
-export enum LanguageModelChatMessageRole {
-	User = 1,
-	Assistant = 2,
-	System = 3
-}
-
-export class LanguageModelToolResultPart implements vscode.LanguageModelToolResultPart {
-
-	callId: string;
-	content: (LanguageModelTextPart | LanguageModelPromptTsxPart | unknown)[];
-	isError: boolean;
-
-	constructor(callId: string, content: (LanguageModelTextPart | LanguageModelPromptTsxPart | unknown)[], isError?: boolean) {
-		this.callId = callId;
-		this.content = content;
-		this.isError = isError ?? false;
-	}
-}
-
-export class LanguageModelChatMessage implements vscode.LanguageModelChatMessage {
-
-	static User(content: string | (LanguageModelTextPart | LanguageModelToolResultPart | LanguageModelToolCallPart)[], name?: string): LanguageModelChatMessage {
-		return new LanguageModelChatMessage(LanguageModelChatMessageRole.User, content, name);
-	}
-
-	static Assistant(content: string | (LanguageModelTextPart | LanguageModelToolResultPart | LanguageModelToolCallPart)[], name?: string): LanguageModelChatMessage {
-		return new LanguageModelChatMessage(LanguageModelChatMessageRole.Assistant, content, name);
-	}
-
-	role: vscode.LanguageModelChatMessageRole;
-
-	private _content: (LanguageModelTextPart | LanguageModelToolResultPart | LanguageModelToolCallPart)[] = [];
-
-	set content(value: string | (LanguageModelTextPart | LanguageModelToolResultPart | LanguageModelToolCallPart)[]) {
-		if (typeof value === 'string') {
-			// we changed this and still support setting content with a string property. this keep the API runtime stable
-			// despite the breaking change in the type definition.
-			this._content = [new LanguageModelTextPart(value)];
-		} else {
-			this._content = value;
-		}
-	}
-
-	get content(): (LanguageModelTextPart | LanguageModelToolResultPart | LanguageModelToolCallPart)[] {
-		return this._content;
-	}
-
-	// Temp to avoid breaking changes
-	set content2(value: (string | LanguageModelToolResultPart | LanguageModelToolCallPart)[] | undefined) {
-		if (value) {
-			this.content = value.map(part => {
-				if (typeof part === 'string') {
-					return new LanguageModelTextPart(part);
-				}
-				return part;
-			});
-		}
-	}
-
-	get content2(): (string | LanguageModelToolResultPart | LanguageModelToolCallPart)[] | undefined {
-		return this.content.map(part => {
-			if (part instanceof LanguageModelTextPart) {
-				return part.value;
-			}
-			return part;
-		});
-	}
-
-	name: string | undefined;
-
-	constructor(role: vscode.LanguageModelChatMessageRole, content: string | (LanguageModelTextPart | LanguageModelToolResultPart | LanguageModelToolCallPart)[], name?: string) {
-		this.role = role;
-		this.content = content;
-		this.name = name;
-	}
-}
-
-export class LanguageModelToolCallPart implements vscode.LanguageModelToolCallPart {
-	callId: string;
-	name: string;
-	input: any;
-
-	constructor(callId: string, name: string, input: any) {
-		this.callId = callId;
-		this.name = name;
-
-		this.input = input;
-	}
-}
-
-export class LanguageModelTextPart implements vscode.LanguageModelTextPart {
-	value: string;
-
-	constructor(value: string) {
-		this.value = value;
-	}
-
-	toJSON() {
-		return {
-			$mid: MarshalledId.LanguageModelTextPart,
-			value: this.value,
-		};
-	}
-}
-
-export class LanguageModelPromptTsxPart {
-	value: unknown;
-
-	constructor(value: unknown) {
-		this.value = value;
-	}
-
-	toJSON() {
-		return {
-			$mid: MarshalledId.LanguageModelPromptTsxPart,
-			value: this.value,
-		};
-	}
-}
-
-/**
- * @deprecated
- */
-export class LanguageModelChatSystemMessage {
-	content: string;
-	constructor(content: string) {
-		this.content = content;
-	}
-}
-
-
-/**
- * @deprecated
- */
-export class LanguageModelChatUserMessage {
-	content: string;
-	name: string | undefined;
-
-	constructor(content: string, name?: string) {
-		this.content = content;
-		this.name = name;
-	}
-}
-
-/**
- * @deprecated
- */
-export class LanguageModelChatAssistantMessage {
-	content: string;
-	name?: string;
-
-	constructor(content: string, name?: string) {
-		this.content = content;
-		this.name = name;
-	}
-}
-
-export class LanguageModelError extends Error {
-
-	static readonly #name = 'LanguageModelError';
-
-	static NotFound(message?: string): LanguageModelError {
-		return new LanguageModelError(message, LanguageModelError.NotFound.name);
-	}
-
-	static NoPermissions(message?: string): LanguageModelError {
-		return new LanguageModelError(message, LanguageModelError.NoPermissions.name);
-	}
-
-	static Blocked(message?: string): LanguageModelError {
-		return new LanguageModelError(message, LanguageModelError.Blocked.name);
-	}
-
-	static tryDeserialize(data: SerializedError): LanguageModelError | undefined {
-		if (data.name !== LanguageModelError.#name) {
-			return undefined;
-		}
-		return new LanguageModelError(data.message, data.code, data.cause);
-	}
-
-	readonly code: string;
-
-	constructor(message?: string, code?: string, cause?: Error) {
-		super(message, { cause });
-		this.name = LanguageModelError.#name;
-		this.code = code ?? '';
-	}
-
-}
-
-export class LanguageModelToolResult {
-	constructor(public content: (LanguageModelTextPart | LanguageModelPromptTsxPart)[]) { }
-
-	toJSON() {
-		return {
-			$mid: MarshalledId.LanguageModelToolResult,
-			content: this.content,
-		};
-	}
-}
-
-export enum LanguageModelChatToolMode {
-	Auto = 1,
-	Required = 2
-}
-
-//#endregion
-
-//#region ai
-
-export enum RelatedInformationType {
-	SymbolInformation = 1,
-	CommandInformation = 2,
-	SearchInformation = 3,
-	SettingInformation = 4
-}
-
-//#endregion
-
-//#region Speech
-
-export enum SpeechToTextStatus {
-	Started = 1,
-	Recognizing = 2,
-	Recognized = 3,
-	Stopped = 4,
-	Error = 5
-}
-
-export enum TextToSpeechStatus {
-	Started = 1,
-	Stopped = 2,
-	Error = 3
-}
-
-export enum KeywordRecognitionStatus {
-	Recognized = 1,
-	Stopped = 2
-}
-
-//#endregion
-
-//#region InlineEdit
-
-export class InlineEdit implements vscode.InlineEdit {
-	constructor(
-		public readonly text: string,
-		public readonly range: Range,
-	) { }
-}
-
-export enum InlineEditTriggerKind {
-	Invoke = 0,
-	Automatic = 1,
-}
-
-//#endregion
+			throw new Error(`INVALID mime type: ${mime}. Must be in the format

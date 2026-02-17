@@ -1,3 +1,30 @@
+/**
+ * @file 1426B.CPP
+ * @brief Solution for a matrix construction problem, likely Codeforces 1426B.
+ * @details This program determines if it's possible to construct a symmetric m x m
+ * matrix using a given set of n types of 2x2 tiles.
+ *
+ * @section
+ *
+ * Algorithm:
+ * The solution is based on identifying two necessary conditions for constructing the
+ * symmetric matrix:
+ * 1. The dimension of the target matrix, 'm', must be even. This is because the
+ *    building blocks are 2x2 tiles, which can only tile a grid with even dimensions.
+ * 2. There must be at least one type of 2x2 tile that is itself symmetric. A tile
+ *    [[a, b], [c, d]] is symmetric if b == c. Such a tile is required for placement
+ *    along the main diagonal of the larger m x m matrix to maintain overall symmetry.
+ *
+ * The code checks for the existence of at least one symmetric tile among the 'n'
+ * types provided. If a symmetric tile is found and 'm' is even, it's possible ("YES").
+ * Otherwise, it's not possible ("NO").
+ *
+ * - Time Complexity: O(T * N) for T test cases, each taking O(N) to iterate through the tiles.
+ * - Space Complexity: O(1) per test case.
+ *
+ * Note: The file contains extensive boilerplate macros and helper functions common in
+ * competitive programming, which are not used in the core logic for this problem.
+ */
 #include <bits/stdc++.h>
 #include <iostream>
 using namespace std;
@@ -78,19 +105,36 @@ int main() {
 
   ll test = 1;
   cin >> test;
+  /**
+   * Block Logic: Main loop to handle multiple test cases.
+   */
   while (test--) {
     ll n, m;
     cin >> n >> m;
-    ll check = 0;
+    ll check = 0; // Flag to indicate if a symmetric tile is found.
+    /**
+     * Block Logic: Iterates through the 'n' available tile types to find a symmetric one.
+     * Invariant: 'check' is 1 if a symmetric tile has been found in the preceding iterations.
+     */
     rep(i, 0, n) {
       ll a, b, c, d;
-      cin >> a >> b >> c >> d;
+      cin >> a >> b >> c >> d; // Reads a 2x2 tile: [[a, b], [c, d]]
+      /**
+       * Block Logic: Checks if the current tile is symmetric (b == c).
+       * Such a tile can be placed on the main diagonal of the target matrix.
+       */
       if (b == c) {
         check = 1;
       }
     }
+    /**
+     * Block Logic: A symmetric m x m matrix cannot be tiled perfectly with 2x2 tiles if 'm' is odd.
+     * This resets the possibility if 'm' is not an even number.
+     */
     if (m % 2 == 1)
       check = 0;
+    
+    // Output "YES" if a symmetric tile was found AND m is even. Otherwise, "NO".
     if (check)
       cout << "YES" << endl;
     else

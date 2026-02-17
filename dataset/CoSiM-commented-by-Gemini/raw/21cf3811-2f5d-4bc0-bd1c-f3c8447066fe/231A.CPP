@@ -1,40 +1,44 @@
+/**
+ * @file 231A.CPP
+ * @brief Solution for a counting problem based on a consensus threshold.
+ * @details This program determines how many problems from a given set will be
+ * solved based on the agreement of three individuals. The condition for solving a
+ * problem is that at least two of the three individuals must agree on the solution.
+ *
+ * @section
+ *
+ * Algorithm:
+ * The approach is a direct simulation. It iterates through each problem one by one.
+ * For each problem, it sums the boolean confidence flags of the three individuals.
+ * If the sum is two or greater, a counter is incremented.
+ *
+ * - Time Complexity: O(N), where N is the total number of problems, as each problem is processed once.
+ * - Space Complexity: O(1), as storage is limited to a few variables for input and counting.
+ */
 #include <iostream>
 
 using namespace std;
 
-/*
-Long before the start the friends decided that they will implement a problem if
-at least two of them are sure about the solution. Otherwise, the friends won't
-write the problem's solution.
-
-This contest offers n problems to the participants. For each problem we know,
-which friend is sure about the solution. Help the friends find the number of
-problems for which they will write a solution.
-
-Input
-
-The first input line contains a single integer n (1   n   1000)   the number of
-problems in the contest. Then n lines contain three integers each, each integer
-is either 0 or 1. If the first number in the line equals 1, then Petya is sure
-about the problem's solution, otherwise he isn't sure. The second number shows
-Vasya's view on the solution, the third number shows Tonya's view. The numbers
-on the lines are separated by spaces.
-
-Output
-
-Print a single integer   the number of problems the friends will implement on
-the contest.
-
-*/
 int main() {
 
   int n;
   cin >> n;
   int res = 0;
 
+  /**
+   * Block Logic: Iterates through each of the 'n' problems to evaluate them individually.
+   * Invariant: Before each iteration, 'res' holds the count of problems that met the
+   *            consensus criteria from the problems processed so far.
+   */
   for (int i = 0; i < n; i++) {
     int p, v, t;
     cin >> p >> v >> t;
+
+    /**
+     * Block Logic: Checks if the consensus condition is met for the current problem.
+     * Pre-condition: 'p', 'v', and 't' hold the boolean confidence values (0 or 1)
+     *                for the current problem.
+     */
     if ((p == 1 && v == 1) || (p == 1 && t == 1) || (v == 1 && t == 1)) {
       res++;
     }

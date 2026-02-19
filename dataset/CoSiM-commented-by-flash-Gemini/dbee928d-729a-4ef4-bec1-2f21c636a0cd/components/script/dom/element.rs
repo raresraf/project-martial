@@ -1,8 +1,10 @@
-/* This Source Code Form is subject to the terms of the Mozilla Public
- * License, v. 2.0. If a copy of the MPL was not distributed with this
- * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
-
-//! Element nodes.
+/**
+ * @file element.rs
+ * @brief This file defines the `Element` struct, a core component for representing DOM elements.
+ *
+ * This module is responsible for the fundamental behaviors and properties of HTML and XML elements within the DOM structure.
+ * It handles attribute management, shadow DOM attachment, styling integration, and interaction with various other DOM features.
+ */
 
 use std::borrow::Cow;
 use std::cell::{Cell, LazyCell};
@@ -162,41 +164,57 @@ use crate::task::TaskOnce;
 // and when the element enters or leaves a browsing context container.
 // https://html.spec.whatwg.org/multipage/#selector-focus
 
-/// <https://dom.spec.whatwg.org/#element>
+/// @brief Represents a generic Element node in the Document Object Model (DOM).
+/// This struct encapsulates common properties and behaviors shared by all element types,
+/// such as local name, namespace, attributes, and relationships within the DOM tree.
+/// It integrates with various rendering and scripting subsystems.
+/// @implements Node
 #[dom_struct]
 pub struct Element {
+    /// The underlying `Node` data structure that this `Element` inherits from.
     node: Node,
+    /// The local part of the element's qualified name, e.g., "div" for `<div>`.
     #[no_trace]
     local_name: LocalName,
+    /// Manages the element's tag name, derived from `local_name` and `namespace`.
     tag_name: TagName,
+    /// The namespace URI for the element, e.g., HTML namespace for HTML elements.
     #[no_trace]
     namespace: Namespace,
+    /// The namespace prefix of the element, if specified (e.g., "svg" in `<svg:rect>`).
     #[no_trace]
     prefix: DomRefCell<Option<Prefix>>,
+    /// A collection of attributes associated with this element.
     attrs: DomRefCell<Vec<Dom<Attr>>>,
+    /// The value of the `id` attribute, used for quick element retrieval.
     #[no_trace]
     id_attribute: DomRefCell<Option<Atom>>,
-    /// <https://dom.spec.whatwg.org/#concept-element-is-value>
+    /// Specifies the custom element name for a custom element, allowing for extended behavior.
+    /// @see https://dom.spec.whatwg.org/#concept-element-is-value
     #[no_trace]
     is: DomRefCell<Option<LocalName>>,
+    /// Caches the parsed style attribute content for performance in style computations.
     #[ignore_malloc_size_of = "Arc"]
     #[no_trace]
     style_attribute: DomRefCell<Option<Arc<Locked<PropertyDeclarationBlock>>>>,
+    /// Provides access to the element's attributes as a `NamedNodeMap`.
     attr_list: MutNullableDom<NamedNodeMap>,
+    /// Manages the element's `class` attribute as a `DOMTokenList`.
     class_list: MutNullableDom<DOMTokenList>,
+    /// Stores the current state of the element, including flags for styling and interactivity.
     #[no_trace]
     state: Cell<ElementState>,
-    /// These flags are set by the style system to indicate the that certain
-    /// operations may require restyling this element or its descendants. The
-    /// flags are not atomic, so the style system takes care of only set them
-    /// when it has exclusive access to the element.
+    /// Flags indicating conditions that require restyling of the element or its descendants,
+    /// set by the CSS selector matching engine.
     #[ignore_malloc_size_of = "bitflags defined in rust-selectors"]
     #[no_trace]
     selector_flags: Cell<ElementSelectorFlags>,
+    /// Stores rarely used data for the element, optimizing memory usage for common cases.
     rare_data: DomRefCell<Option<Box<ElementRareData>>>,
 }
 
 impl fmt::Debug for Element {
+    /// Formats the Element for debugging purposes, showing its local name and ID attribute.
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "<{}", self.local_name)?;
         if let Some(ref id) = *self.id_attribute.borrow() {
@@ -206,24 +224,36 @@ impl fmt::Debug for Element {
     }
 }
 
+/// @brief Defines how an element was created, either by the parser or by script.
+/// This distinction can be important for certain DOM behaviors and lifecycle events.
 #[derive(MallocSizeOf, PartialEq)]
 pub(crate) enum ElementCreator {
+    /// Indicates the element was created during document parsing,
+    /// optionally including the line number where it was parsed.
     ParserCreated(u64),
+    /// Indicates the element was created dynamically via JavaScript.
     ScriptCreated,
 }
 
+/// @brief Specifies the mode of custom element creation.
 pub(crate) enum CustomElementCreationMode {
+    /// Custom element creation occurs synchronously, blocking script execution.
     Synchronous,
+    /// Custom element creation occurs asynchronously, allowing script execution to continue.
     Asynchronous,
 }
 
 impl ElementCreator {
+    /// @brief Checks if the element was created by the HTML parser.
+    /// @returns `true` if parser-created, `false` otherwise.
     pub(crate) fn is_parser_created(&self) -> bool {
         match *self {
             ElementCreator::ParserCreated(_) => true,
             ElementCreator::ScriptCreated => false,
         }
     }
+    /// @brief Retrieves the line number if the element was parser-created, otherwise returns a default value.
+    /// @returns The line number (u64) or 1 if script-created.
     pub(crate) fn return_line_number(&self) -> u64 {
         match *self {
             ElementCreator::ParserCreated(l) => l,
@@ -232,16 +262,25 @@ impl ElementCreator {
     }
 }
 
+/// @brief Defines positions relative to an element for insertion operations.
 pub(crate) enum AdjacentPosition {
+    /// Before the start tag of the element.
     BeforeBegin,
+    /// After the end tag of the element.
     AfterEnd,
+    /// Just inside the start tag of the element, before its first child.
     AfterBegin,
+    /// Just inside the end tag of the element, after its last child.
     BeforeEnd,
 }
 
 impl FromStr for AdjacentPosition {
     type Err = Error;
 
+    /// @brief Parses a string into an `AdjacentPosition` enum.
+    /// This allows for flexible specification of insertion points in DOM manipulation.
+    /// @param position The string representation of the position (e.g., "beforebegin", "afterend").
+    /// @returns A `Result` indicating success with `AdjacentPosition` or an `Error::Syntax` if invalid.
     fn from_str(position: &str) -> Result<Self, Self::Err> {
         match_ignore_ascii_case! { position,
             "beforebegin" => Ok(AdjacentPosition::BeforeBegin),

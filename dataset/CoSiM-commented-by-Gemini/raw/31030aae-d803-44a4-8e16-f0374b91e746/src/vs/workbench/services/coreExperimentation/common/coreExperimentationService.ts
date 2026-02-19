@@ -3,6 +3,11 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/**
+ * @file This file provides the service for running core A/B experiments,
+ * particularly for new user startup experiences in VS Code.
+ */
+
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { IProductService } from '../../../../platform/product/common/productService.js';
@@ -12,34 +17,69 @@ import { createDecorator } from '../../../../platform/instantiation/common/insta
 import { IContextKeyService, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
 
 export const ICoreExperimentationService = createDecorator<ICoreExperimentationService>('coreExperimentationService');
+
+/**
+ * A context key that is set to the name of the startup experiment group the user is in.
+ * This can be used to drive UI changes via `when` clauses.
+ */
 export const startupExpContext = new RawContextKey<string>('coreExperimentation.startupExpGroup', '');
 
+/**
+ * Represents the details of an experiment a user is participating in.
+ */
 interface IExperiment {
+	/** A random number between 0 and 1 assigned to the user. */
 	cohort: number;
-	subCohort: number; // Optional for future use
+	/** A cohort number normalized to the experiment's target population. */
+	subCohort: number;
+	/** The specific group within the experiment that the user belongs to. */
 	experimentGroup: StartupExperimentGroup;
+	/** The version number of the experiment configuration. */
 	iteration: number;
+	/** A flag indicating if the user is part of the experiment. */
 	isInExperiment: boolean;
 }
 
+/**
+ * The public interface for the CoreExperimentationService.
+ */
 export interface ICoreExperimentationService {
 	readonly _serviceBrand: undefined;
+
+	/**
+	 * Retrieves the experiment details for the current user, if they are part of an experiment.
+	 * @returns The experiment object or `undefined`.
+	 */
 	getExperiment(): IExperiment | undefined;
 }
 
+/**
+ * Defines the allocation for a single group within an experiment.
+ */
 interface ExperimentGroupDefinition {
 	name: StartupExperimentGroup;
+	/** The lower bound of the cohort range for this group (inclusive). */
 	min: number;
+	/** The upper bound of the cohort range for this group (exclusive). */
 	max: number;
+	/** The iteration number for this group definition. */
 	iteration: number;
 }
 
+/**
+ * Defines the complete configuration for a single A/B experiment.
+ */
 interface ExperimentConfiguration {
 	experimentName: string;
+	/** The percentage of the total user base to include in the experiment (0-100). */
 	targetPercentage: number;
+	/** The different groups and their cohort allocations. */
 	groups: ExperimentGroupDefinition[];
 }
 
+/**
+ * Enum defining the possible experiment groups for the startup experience.
+ */
 export enum StartupExperimentGroup {
 	Control = 'control',
 	MaximizedChat = 'maximizedChat',
@@ -49,6 +89,10 @@ export enum StartupExperimentGroup {
 
 export const STARTUP_EXPERIMENT_NAME = 'startup';
 
+/**
+ * Central configuration for A/B tests. This object defines the experiment parameters
+ * for different VS Code release qualities (e.g., 'stable' vs. 'insider').
+ */
 const EXPERIMENT_CONFIGURATIONS: Record<string, ExperimentConfiguration> = {
 	stable: {
 		experimentName: STARTUP_EXPERIMENT_NAME,
@@ -74,6 +118,11 @@ const EXPERIMENT_CONFIGURATIONS: Record<string, ExperimentConfiguration> = {
 	}
 };
 
+/**
+ * Service responsible for managing and assigning users to core A/B experiments.
+ * It handles user bucketing, ensures stickiness across sessions, and provides
+ * experiment data to other services.
+ */
 export class CoreExperimentationService extends Disposable implements ICoreExperimentationService {
 	declare readonly _serviceBrand: undefined;
 
@@ -89,8 +138,14 @@ export class CoreExperimentationService extends Disposable implements ICoreExper
 		this.initializeExperiments();
 	}
 
+	/**
+	 * Orchestrates the experiment assignment process on startup.
+	 * Functional Goal: To check if a user is eligible for a startup experiment,
+	 * assign them to a group if they are, and persist that assignment for stickiness.
+	 */
 	private initializeExperiments(): void {
 
+		// Block Pre-condition: Only run startup experiments for new users (within 1 day of first session).
 		const firstSessionDateString = this.storageService.get(firstSessionDateStorageKey, StorageScope.APPLICATION) || new Date().toUTCString();
 		const daysSinceFirstSession = ((+new Date()) - (+new Date(firstSessionDateString))) / 1000 / 60 / 60 / 24;
 		if (daysSinceFirstSession > 1) {
@@ -103,13 +158,14 @@ export class CoreExperimentationService extends Disposable implements ICoreExper
 			return;
 		}
 
-		// also check storage to see if this user has already seen the startup experience
+		// Block Pre-condition: Ensure stickiness by checking if the user is already in an experiment.
 		const storageKey = `coreExperimentation.${experimentConfig.experimentName}`;
 		const storedExperiment = this.storageService.get(storageKey, StorageScope.APPLICATION);
 		if (storedExperiment) {
 			return;
 		}
 
+		// If the user is eligible and not assigned, create and store the experiment assignment.
 		const experiment = this.createStartupExperiment(experimentConfig.experimentName, experimentConfig);
 		if (experiment) {
 			this.experiments.set(experimentConfig.experimentName, experiment);
@@ -124,6 +180,9 @@ export class CoreExperimentationService extends Disposable implements ICoreExper
 		}
 	}
 
+	/**
+	 * Retrieves the experiment configuration based on the product quality (e.g., stable, insider).
+	 */
 	private getExperimentConfiguration(): ExperimentConfiguration | undefined {
 		const quality = this.productService.quality;
 		// if (!quality) {
@@ -132,17 +191,25 @@ export class CoreExperimentationService extends Disposable implements ICoreExper
 		return EXPERIMENT_CONFIGURATIONS[quality || 'stable'];
 	}
 
+	/**
+	 * Implements the user bucketing logic.
+	 * Assigns a user to an experiment group based on a random number and the group allocations.
+	 * @param experimentName The name of the experiment.
+	 * @param experimentConfig The configuration object for the experiment.
+	 * @returns An experiment object if the user is included, otherwise undefined.
+	 */
 	private createStartupExperiment(experimentName: string, experimentConfig: ExperimentConfiguration): IExperiment | undefined {
 		const cohort = Math.random();
 
+		// Check if the user falls within the overall experiment population.
 		if (cohort >= experimentConfig.targetPercentage / 100) {
 			return undefined;
 		}
 
-		// Normalize the cohort to the experiment range [0, targetPercentage/100]
+		// Normalize the cohort to the experiment range [0, 1] for group assignment.
 		const normalizedCohort = cohort / (experimentConfig.targetPercentage / 100);
 
-		// Find which group this user falls into
+		// Find which specific group this user falls into based on the normalized cohort.
 		for (const group of experimentConfig.groups) {
 			if (normalizedCohort >= group.min && normalizedCohort < group.max) {
 				return {
@@ -157,6 +224,12 @@ export class CoreExperimentationService extends Disposable implements ICoreExper
 		return undefined;
 	}
 
+	/**
+	 * Sends a telemetry event to record the user's assignment to an experiment group.
+	 * This is critical for later analysis of the experiment's impact.
+	 * @param experimentName The name of the experiment.
+	 * @param experiment The experiment details for the user.
+	 */
 	private sendExperimentTelemetry(experimentName: string, experiment: IExperiment): void {
 		type ExperimentCohortClassification = {
 			owner: 'bhavyaus';
@@ -191,6 +264,9 @@ export class CoreExperimentationService extends Disposable implements ICoreExper
 		);
 	}
 
+	/**
+	 * Public getter to retrieve the experiment details for the current session.
+	 */
 	getExperiment(): IExperiment | undefined {
 		return this.experiments.get(STARTUP_EXPERIMENT_NAME);
 	}

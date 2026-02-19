@@ -239,94 +239,105 @@ class DeviceThread(Thread):
 		- Using barriers to synchronize with other devices at each timepoint.
 		"""
 		i = 0
-		
-	
 
-
-		
+		# Block Logic: Main simulation loop for processing timepoints.
+		# Invariant: Each iteration processes a single timepoint, coordinating with other devices.
 		while True:
 		
-		
-			
+			# Precondition: The supervisor's neighbor information might change or be available.
+			# Block Logic: Retrieves the current list of neighboring devices from the supervisor.
+			# If no neighbors are returned (e.g., simulation ends), the device shuts down.
 			neighbours = self.device.supervisor.get_neighbours()
 			if neighbours is None:
 				break
 		
 
-
-
-
-		
-		
+			# Block Logic: Device 0 acts as a coordinator for initial setup.
+			# Precondition: This block executes only once for device 0 at the start of the simulation (i == 0).
+			# It initializes global synchronization primitives (barrier) and per-location locks
+			# based on the maximum data location observed across all devices.
 			if self.device.device_id == 0 and i == 0:
 				max = 0
 				location_lock = []
+				# Block Logic: Determine the maximum sensor data location across all devices.
+				# This defines the size of the `location_lock` array.
 				for dev in self.device.dev_l:
 					if dev.get_max_dev() > max:
 						max = dev.get_max_dev()
 				max = max + 1
+				# Block Logic: Initialize a list of locks for each potential data location.
+				# These locks ensure exclusive access to sensor data at a given location.
 				for i in range(max):
 					location_lock.append(Lock())
 
+				# Block Logic: Initialize a reusable barrier for synchronizing all devices.
+				# The barrier size is set to the total number of devices.
 				self.bar = ReusableBarrierSem(self.device.get_no_dev())
+				# Inline: Set i to 2 to ensure this initialization block runs only once.
 				i=2
+				# Block Logic: Distribute the initialized barrier and location locks to all devices.
 				for dev in self.device.dev_l:
 					dev.set_b(self.bar,location_lock)
 		
 			else:
 
-
+				# Block Logic: For non-device 0 or subsequent timepoints, wait for barrier and locks to be set up.
+				# Precondition: Device 0 must have completed `set_b` for this device.
 				self.device.cb.wait()
 				
-
+			# Block Logic: Synchronizes all devices at the beginning of a timepoint.
+			# All devices wait here until all other devices have reached this point.
 			self.device.bar.wait()
 		
-		
+			# Block Logic: Waits until new scripts are assigned for execution.
+			# Precondition: A script must have been assigned via `assign_script` method, setting `script_received` event.
 			self.device.script_received.wait()
 			
-		
-		
-		
-		
-		
-
-			
+			# Block Logic: Iterates through assigned scripts and executes them.
+			# Invariant: Each (script, location) tuple is processed, acquiring a lock for the specific location.
 			for (script, location) in self.device.scripts:
+				# Block Logic: Acquire a lock for the specific sensor data location.
+				# This prevents race conditions when multiple devices access or modify data at the same location.
 				self.device.location_lock[location].acquire()
 			
 				script_data = []
 				
+				# Block Logic: Collect sensor data from neighboring devices for the current location.
+				# This enables collaborative processing of data.
 				for device in neighbours:
 					data = device.get_data(location)
 					if data is not None:
 						script_data.append(data)
 				
+				# Block Logic: Collect sensor data from the current device itself for the current location.
 				data = self.device.get_data(location)
 				if data is not None:
 					script_data.append(data)
 			
-			
-			
-			
-			
-			
+				# Block Logic: Execute the script if there is any data collected for the location.
+				# If `script_data` is not empty, the script is run and its result is used to update data.
 				if script_data != []:
 					
 					result = script.run(script_data)
 			
-			
-					
+					# Block Logic: Update sensor data on neighboring devices with the script's result.
+					# This propagates the processed data across the distributed system.
 					for device in neighbours:
 						device.set_data(location, result)
 					
+					# Block Logic: Update sensor data on the current device with the script's result.
 					self.device.set_data(location, result)
 					
+					# Block Logic: Release the lock for the current sensor data location.
+					# This allows other devices to access or modify data at this location.
 					self.device.location_lock[location].release()
 
-			
-		
+			# Block Logic: Synchronizes all devices after script execution for the current timepoint.
+			# All devices wait here until all other devices have completed their script processing.
 			self.device.bar.wait()
+			# Block Logic: Signals that the current timepoint's script execution is complete for this device.
 			self.device.timepoint_done.set()
 		
-			
+			# Block Logic: Waits for all other devices to signal completion of the timepoint.
+			# This ensures that all devices are ready before proceeding to the next timepoint.
 			self.device.timepoint_done.wait()

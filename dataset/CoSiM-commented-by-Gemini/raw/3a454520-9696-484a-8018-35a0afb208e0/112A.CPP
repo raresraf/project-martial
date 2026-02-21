@@ -1,25 +1,30 @@
 /**
  * @file 112A.CPP
- * @brief An idiomatic C++ solution to the "Petya and Strings" problem (Codeforces 112A).
+ * @brief Performs a case-insensitive lexicographical comparison of two strings.
  *
- * @details This program performs a case-insensitive lexicographical comparison of two
- * strings. It leverages the C++ standard library for a clean implementation.
+ * This program reads two strings, converts them both to lowercase, and then
+ * compares them lexicographically. It prints 0 if they are equal, 1 if the
+ * first string is greater, and -1 if the first string is smaller.
  *
- * @algorithm The approach is to first normalize the strings to a common case and
- * then use standard string comparison operators.
- * 1. A loop iterates through both strings, converting each character to
- *    lowercase in-place using `tolower()`.
- * 2. After normalization, the overloaded `==`, `>`, and `<` operators for
- *    `std::string` are used to perform the lexicographical comparison in a
- *    single step.
- * 3. The result (0, 1, or -1) is stored and then printed.
+ * Algorithm:
+ * 1. Read two strings, `s1` and `s2`.
+ * 2. Iterate through both strings from the first to the last character. In each
+ *    iteration, convert the character at the current index to lowercase for
+ *    both strings.
+ * 3. After the loop, both strings are entirely in lowercase.
+ * 4. Use the standard C++ string comparison operators (`==`, `>`, `<`) to
+ *    perform a lexicographical comparison on the modified strings.
+ * 5. Store the result (0, 1, or -1) in an integer variable.
+ * 6. Print the result.
  *
- * @complexity
- * Time Complexity: O(L), where L is the length of the strings. This includes O(L)
- *                  for the normalization loop and O(L) for the final comparison.
- * Space Complexity: O(L), to store the two input strings.
+ * Time Complexity: O(N), where N is the length of the strings. The program
+ * makes one pass to convert to lowercase (O(N)) and another pass for the
+ * final comparison (also O(N) in the worst case).
+ * Space Complexity: O(N) to store the two input strings.
  */
 #include <iostream>
+#include <string> // Recommended for std::string operations
+#include <cctype>   // Recommended for tolower
 
 using namespace std;
 
@@ -30,8 +35,8 @@ int main() {
   cin >> s1 >> s2;
   
   /**
-   * @brief Block Logic: Normalizes both strings to lowercase.
-   * This is the pre-computation step required for a case-insensitive comparison.
+   * @brief Convert both strings to lowercase in-place.
+   * This ensures the subsequent comparison is case-insensitive.
    */
   for (int i = 0; i < s1.length(); i++) {
     s1[i] = tolower(s1[i]);
@@ -39,8 +44,8 @@ int main() {
   }
 
   /**
-   * @brief Block Logic: Performs lexicographical comparison on the normalized strings.
-   * It uses the overloaded operators for `std::string` for a direct comparison.
+   * @brief Compare the lowercase strings lexicographically.
+   * The overloaded operators for std::string handle the comparison.
    */
   if (s1 == s2) {
     result = 0;

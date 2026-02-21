@@ -1,23 +1,30 @@
 /**
  * @file 282A.CPP
- * @brief An elegant solution to the "Bit++" problem (Codeforces 282A).
+ * @brief Calculates the final value of a variable after a series of increment
+ *        and decrement operations.
  *
- * @details This program calculates the final value of a variable 'X' after a
- * series of increment and decrement operations. It uses a particularly clever
- * insight to simplify the logic.
+ * This program simulates a programming language where a variable `X` starts at 0
+ * and can be modified by statements like "++X", "X++", "--X", and "X--". It
+ * reads a number of such statements and computes the final value of `X`.
  *
- * @algorithm The program leverages a key observation about the input format:
- * - For increment statements ("X++", "++X"), the character at index 1 is always '+'.
- * - For decrement statements ("X--", "--X"), the character at index 1 is always '-'.
+ * Algorithm:
+ * The program uses a clever simplification. For any of the valid statements,
+ * the character at index 1 is unique to the operation type.
+ * - For "++X" and "X++", the character at index 1 is '+'.
+ * - For "--X" and "X--", the character at index 1 is '-'.
  *
- * By checking only the middle character of the 3-character statement string, the
- * program can determine the correct operation. It iterates `n` times, reading
- * each statement and incrementing or decrementing a counter based on the value
- * of `statement[1]`.
+ * 1. Read an integer `n`, the total number of statements.
+ * 2. Initialize a counter `ans` to 0.
+ * 3. Loop `n` times:
+ *    a. Read the statement string.
+ *    b. Check the character at index 1.
+ *    c. If it is '+', increment `ans`.
+ *    d. Otherwise, decrement `ans`.
+ * 4. After the loop, print the final value of `ans`.
  *
- * @complexity
- * Time Complexity: O(N), where N is the number of statements, due to a single pass.
- * Space Complexity: O(1), as it only requires space for a single statement at a time.
+ * Time Complexity: O(N), where N is the number of statements, as it performs
+ * a single pass, and each operation within the loop is O(1).
+ * Space Complexity: O(1), as the space used does not scale with the input size.
  */
 #include <cstdio>
 #include <iostream>
@@ -27,19 +34,24 @@ using namespace std;
 int main(int argc, char *argv[]) {
   int n, ans = 0;
   scanf("%d", &n);
+  
   /**
-   * @brief Block Logic: Processes `n` statements from the input.
-   * @invariant `ans` holds the result of the first `i` operations.
+   * @brief Loop through each statement to update the answer.
+   * Pre-condition: `n` is the number of statements to process.
+   * Invariant: `ans` holds the accumulated value from the statements processed so far.
    */
   for (int i = 0; i < n; i++) {
     string s;
     cin >> s;
-    // Inspect the middle character to determine the operation.
+    
+    // Check the character at index 1 to determine the operation.
     if (s.at(1) == '+')
       ans++;
     else
       ans--;
   }
+  
+  // Print the final result.
   printf("%d\n", ans);
   return 0;
 }

@@ -1,47 +1,57 @@
 /**
  * @file 71A.CPP
- * @brief Solution to the "Way Too Long Words" problem on Codeforces (71A).
- * @details This program shortens words that are longer than 10 characters.
- * The abbreviation consists of the first character, the number of characters
- * between the first and last, and the last character.
+ * @brief Abbreviates long words according to specific rules.
+ * @see https://codeforces.com/problemset/problem/71/A
  *
- * @algorithm The program reads an integer `n` for the number of test cases.
- * It then enters a loop that runs `n` times. In each iteration, it reads a word.
- * If the word's length is greater than 10, it constructs and prints the
- * abbreviated version; otherwise, it prints the word as is.
+ * This program processes a list of words. For each word, if its length is
+ * greater than 10 characters, it is replaced by an abbreviation. The
+ * abbreviation consists of the first character of the word, followed by the
+ * number of characters between the first and last characters, and finally the
+ * last character of the word. Words with 10 or fewer characters are printed
+ * as they are.
  *
- * @complexity
- * Time Complexity: O(N), where N is the number of words to process. This assumes
- * the length of each word is relatively small and bounded, making string
- * operations effectively constant time per word.
- * Space Complexity: O(L), where L is the maximum length of a word, required
- * to store one word at a time.
+ * Algorithm:
+ * 1. Read an integer `n`, the number of words to process.
+ * 2. Loop `n` times:
+ *    a. Read the word into a string `s`.
+ *    b. Check if the length of `s` is greater than 10.
+ *    c. If it is, construct the abbreviation: `s[0]`, `s.size() - 2`, `s[s.size() - 1]`.
+ *    d. If not, print the string `s` as is.
+ *
+ * Time Complexity: O(N * L), where N is the number of words and L is the maximum length
+ * of a word. The processing for each word is constant time, but reading the string
+ * takes time proportional to its length.
+ * Space Complexity: O(L), where L is the maximum length of a word, to store the string.
  */
 #include <bits/stdc++.h>
 using namespace std;
 
 int main() {
   int n;
+  // Read the number of words to be processed.
   cin >> n;
 
   /**
-   * @brief Block Logic: Processes each of the `n` words.
-   * @invariant In each iteration `i`, `i` words have been processed and printed.
+   * @brief Main processing loop that iterates `n` times.
+   * In each iteration, a word is read and processed based on its length.
    */
   for (int i = 0; i < n; ++i) {
     string s;
     cin >> s;
     /**
-     * @brief Block Logic: Checks if the word is "too long" and applies abbreviation rule.
-     * Pre-condition: The word `s` has been read from standard input.
+     * @brief Pre-condition: A word `s` has been read.
+     * Block Logic: Checks if the word is "too long" (more than 10 characters).
+     * If so, it prints an abbreviation; otherwise, it prints the word itself.
      */
     if (s.size() > 10) {
+      // Calculate the number of internal characters.
       int a = s.size() - 2;
-      // Prints the abbreviated word, e.g., "localization" becomes "l10n".
+      // Print the abbreviation in the format: first char, count, last char.
       printf("%c%d%c\n", s[0], a, s[s.size() - 1]);
-    } else
-      // If the word is not too long, it is printed unchanged.
+    } else {
+      // If the word is not too long, print it as is.
       cout << s << endl;
+    }
   }
 
   return 0;

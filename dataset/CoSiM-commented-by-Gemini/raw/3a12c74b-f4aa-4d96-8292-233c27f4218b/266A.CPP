@@ -1,23 +1,30 @@
 /**
  * @file 266A.CPP
- * @brief Solution to the "Stones on the Table" problem (Codeforces 266A).
+ * @brief Counts the minimum number of stones to remove to avoid adjacent same-colored stones.
  *
- * @details The problem asks for the minimum number of stones to remove from a row
- * of colored stones such that no two adjacent stones have the same color.
+ * This program solves a problem where stones of different colors are arranged
+ * in a row. The goal is to find the minimum number of stones to remove so that
+ * no two adjacent stones have the same color. This is equivalent to counting
+ * the number of pairs of adjacent, identical stones.
  *
- * @algorithm The solution involves a single pass through the sequence of stones.
- * The program iterates from the first stone to the second-to-last stone and
- * compares each stone's color (`s[i]`) with the color of the next stone (`s[i+1]`).
- * If the colors are the same, it means one of these two stones must be removed.
- * A counter is incremented for each such adjacent pair. The final value of the
- * counter is the minimum number of stones to remove.
+ * Algorithm:
+ * 1. Read the number of stones, `n`.
+ * 2. Read the string `s`, where each character represents the color of a stone.
+ * 3. Initialize a counter `c` to 0. This will track the number of stones to remove.
+ * 4. Iterate through the string from the first stone to the second-to-last stone.
+ * 5. In each step, compare the color of the current stone `s[i]` with the color
+ *    of the next stone `s[i+1]`.
+ * 6. If they are the same, it means one of these two stones must be removed to
+ *    satisfy the condition. The counter `c` is incremented.
+ * 7. After the loop completes, `c` holds the total count of removals needed.
+ * 8. Print the final count `c`.
  *
- * @complexity
- * Time Complexity: O(N), where N is the number of stones, as it requires a
- *                  single pass through the sequence.
- * Space Complexity: O(N), to store the string of stone colors.
+ * Time Complexity: O(N), where N is the number of stones, as the program
+ * performs a single pass through the string.
+ * Space Complexity: O(N) to store the string of stone colors.
  */
 #include <iostream>
+#include <string>
 
 using namespace std;
 
@@ -25,17 +32,22 @@ int main() {
 
   string s;
   int i, n;
+  // Read the number of stones and the string representing their colors.
   cin >> n >> s;
-  int c = 0; // Counter for stones to remove.
+  int c = 0; // Counter for stones to be removed.
 
   /**
-   * @brief Block Logic: Iterates through adjacent pairs of stones.
-   * @invariant `c` holds the number of removals needed for the prefix `s[0...i]`.
+   * @brief Loop through the stones to find adjacent pairs of the same color.
+   * The loop runs up to n-1 to allow for `s[i+1]` access.
+   * Pre-condition: `s` contains the stone colors.
    */
   for (i = 0; i < n - 1; i++) {
-    // If two adjacent stones have the same color, one must be removed.
+    // If the current stone and the next stone have the same color...
     if (s[i] == s[i + 1])
+      // ...increment the counter of stones to remove.
       c++;
   }
+  
+  // Print the total number of removals required.
   cout << c << endl;
 }

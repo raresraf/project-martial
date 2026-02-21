@@ -1,22 +1,28 @@
 /**
  * @file 231A.CPP
- * @brief Solution to the "Team" problem (Codeforces 231A).
+ * @brief Counts the number of problems to be solved based on team confidence.
  *
- * @details This program calculates how many problems a three-person team will
- * implement. The team decides to implement a problem only if at least two of
- * the members are sure about the solution.
+ * This program calculates how many problems a team of three will implement.
+ * The team decides to solve a problem only if at least two of the three
+ * members are confident about the solution.
  *
- * @algorithm The program reads the total number of problems, `n`. It then loops
- * `n` times. In each iteration, it reads three boolean-like integers (0 or 1)
- * representing the confidence of each team member for that problem. It sums up
- * these three integers. If the sum is 2 or greater, it means at least two members
- * are confident, so a counter for implemented problems is incremented. Finally,
- * the total count is printed.
+ * Algorithm:
+ * 1. Read an integer `n`, which is the total number of problems.
+ * 2. Initialize a counter `total` to 0. This counter will store the number of
+ *    problems the team will implement.
+ * 3. Loop `n` times, once for each problem.
+ *    a. For each problem, read three integers (`a`, `b`, `c`), where each integer
+ *       is either 1 (confident) or 0 (not confident).
+ *    b. Calculate the sum of `a`, `b`, and `c`. This sum represents the number
+ *       of team members who are confident.
+ *    c. If the sum is 2 or greater, it means at least two members are confident.
+ *       In this case, increment the `total` counter.
+ * 4. After the loop finishes, print the final value of `total`.
  *
- * @complexity
- * Time Complexity: O(N), where N is the number of problems, as it requires a
- *                  single pass through all the problems.
- * Space Complexity: O(1), using only a few variables to store counts and inputs.
+ * Time Complexity: O(N), where N is the number of problems, because the program
+ * iterates through each problem once.
+ * Space Complexity: O(1), as it uses a fixed amount of memory regardless of the
+ * number of problems.
  */
 #include <iostream>
 #include <string> // string is included but not used.
@@ -25,23 +31,29 @@ using namespace std;
 int main() {
   int n, total = 0, a, b, c;
 
+  // Read the total number of problems.
   cin >> n;
+
   /**
-   * @brief Block Logic: Iterates through each of the `n` problems.
-   * @invariant `total` holds the count of problems that will be implemented from
-   * the first `i` problems evaluated.
+   * @brief Loop through each problem to check team confidence.
+   * Pre-condition: `n` is the number of problems.
+   * Invariant: `total` is the count of problems that will be solved based on the
+   *            problems evaluated so far.
    */
   for (int i = 0; i < n; i++) {
+    // Read the confidence level of each of the three team members.
     cin >> a;
     cin >> b;
     cin >> c;
+    
     /**
-     * @brief Block Logic: Checks if at least two team members are sure.
-     * The sum `a + b + c` represents the number of confident members.
+     * @brief Check if at least two members are confident.
+     * The sum of their confidence levels (1 or 0) will be >= 2.
      */
     if (a + b + c >= 2) {
       total++;
     }
   }
+  // Print the total number of problems to be implemented.
   cout << total;
 }

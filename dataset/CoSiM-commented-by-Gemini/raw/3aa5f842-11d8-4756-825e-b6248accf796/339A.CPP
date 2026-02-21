@@ -1,24 +1,27 @@
 /**
  * @file 339A.CPP
- * @brief Solution to the "Helpful Maths" problem (Codeforces 339A).
+ * @brief Rearranges a sum of numbers (1, 2, 3) into non-decreasing order.
  *
- * @details The problem requires sorting the numbers in a string that represents
- * a sum (e.g., "3+1+2") into non-decreasing order (e.g., "1+2+3"). The
- * numbers involved are only 1, 2, and 3.
+ * This program takes a string representing a sum of numbers (e.g., "3+2+1")
+ * and sorts the numbers, printing the new sum (e.g., "1+2+3"). The input
+ * numbers are guaranteed to be 1, 2, or 3.
  *
- * @algorithm This program employs a multi-pass sorting strategy, which is a
- * form of counting sort, tailored to the small set of numbers {1, 2, 3}.
- * 1. It makes a full pass through the input string to find and append all '1's
- *    to a result string, each followed by a '+'.
- * 2. It repeats this process in a second pass for all '2's.
- * 3. It repeats again in a third pass for all '3's.
- * This inherently builds the new string with the numbers sorted. Finally, the
- * superfluous trailing '+' is removed before printing the result.
+ * Algorithm:
+ * The implementation uses a stable, counting-sort-like approach by making
+ * multiple passes over the input string.
+ * 1. Read the input string `s`.
+ * 2. Create an empty result string `str`.
+ * 3. First Pass: Iterate through `s`. For each character '1', append "1+" to `str`.
+ * 4. Second Pass: Iterate through `s`. For each character '2', append "2+" to `str`.
+ * 5. Third Pass: Iterate through `s`. For each character '3', append "3+" to `str`.
+ * 6. After the three passes, `str` will contain the sorted numbers separated by
+ *    '+', with an extra '+' at the end.
+ * 7. Remove the trailing '+' character from `str`.
+ * 8. Print the final, sorted string.
  *
- * @complexity
- * Time Complexity: O(L), where L is the length of the input string. The three
- *                  passes are each O(L), resulting in linear time complexity.
- * Space Complexity: O(L), to store both the original and the new result string.
+ * Time Complexity: O(N), where N is the length of the input string. The program
+ * makes three linear passes over the string.
+ * Space Complexity: O(N), to store the resulting string `str`.
  */
 #include <iostream>
 #include <string>
@@ -52,6 +55,7 @@ int main() {
   
   // Remove the trailing '+' from the constructed string.
   str.erase(str.length() - 1, 1);
+  
   cout << str << endl;
   return 0;
 }

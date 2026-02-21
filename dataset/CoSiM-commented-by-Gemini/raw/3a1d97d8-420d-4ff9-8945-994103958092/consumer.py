@@ -9,33 +9,45 @@ NOTE: The file contains multiple class definitions and local package imports
 to be part of a larger `tema` package. It is documented here as a single file.
 """
 
-import time
-from threading import Thread
+"""
+Implements a multi-threaded producer-consumer simulation for a marketplace.
 
-# The following import suggests a circular dependency or project structure issue.
+Note: This file is named `consumer.py` but contains the full simulation
+logic, including the Marketplace and Producer classes.
+
+This module defines a system with a fine-grained locking strategy where each
+producer has its own dedicated product queue and lock within the marketplace.
+This minimizes contention between producers but increases the search time for
+consumers.
+"""
+
+import time
+from threading import Thread, Lock
 from tema.marketplace import Marketplace
+from tema.product import Product
+
 
 class Consumer(Thread):
-    """Represents a consumer thread that processes a list of shopping actions."""
+    """A thread simulating a consumer that buys products."""
 
     def __init__(self,
                  carts: list,
                  marketplace: Marketplace,
                  retry_wait_time: int,
                  **kwargs) \
-    :
-        """Initializes the consumer."""
+            :
+        """Initializes a Consumer thread."""
         super().__init__(**kwargs)
         self.carts = carts
         self.marketplace = marketplace
         self.retry_wait_time = retry_wait_time
 
     def run(self):
-        """Executes the consumer's shopping simulation.
-        
-        For each assigned "cart" (list of actions), it adds or removes items
-        from the marketplace, using a busy-wait loop to retry failed "add"
-        operations. Finally, it places the order and prints the items bought.
+        """Processes a list of shopping carts sequentially.
+
+        For each cart, it performs the specified 'add' or 'remove' operations.
+        'add' is a blocking operation that retries until the product is found.
+        Finally, it places the order and prints the items.
         """
         for cart in self.carts:
             cart_id = self.marketplace.new_cart()
@@ -47,7 +59,7 @@ class Consumer(Thread):
 
                 for _ in range(qty):
                     if type_ == 'add':
-                        # Busy-wait until the product can be added to the cart.
+                        # Retry adding to cart until successful.
                         while not self.marketplace.add_to_cart(cart_id, product):
                             time.sleep(self.retry_wait_time)
                     elif type_ == 'remove':
@@ -59,45 +71,36 @@ class Consumer(Thread):
                 print(f'{self.name} bought {product}')
 
 
-from threading import Lock
-# The following import suggests a circular dependency or project structure issue.
-from tema.product import Product
-
 class Marketplace:
-    """The central marketplace managing inventory via per-producer queues.
+    """A thread-safe marketplace with per-producer product queues.
 
-    This implementation gives each producer its own queue with a dedicated lock,
-    avoiding contention between producers when they publish products. However,
-    consumers must search through all producer queues to find an item, and the
-    logic for this search contains concurrency flaws.
+    This marketplace gives each producer a dedicated queue and lock. This allows
+    producers to publish products without contending with each other, but it
+    requires consumers to search through all producer queues to find an item.
     """
 
     def __init__(self, queue_size_per_producer: int):
-        """Initializes the marketplace."""
+        """Initializes the Marketplace."""
         self.queue_size_per_producer = queue_size_per_producer
-        # A list where each element is a tuple: (list_of_products, lock)
+        # Each producer gets a tuple of (product_list, lock).
         self.producer_queues = []
         self.consumer_carts = []
         self.register_producer_lock = Lock()
         self.new_cart_lock = Lock()
 
     def register_producer(self) -> int:
-        """Registers a new producer, creating a dedicated queue and lock for it."""
+        """Registers a new producer and allocates a dedicated queue and lock."""
         with self.register_producer_lock:
             producer_id = len(self.producer_queues)
             self.producer_queues.append(([], Lock()))
         return producer_id
 
     def publish(self, producer_id: int, product: Product) -> bool:
-        """Publishes a product on behalf of a producer.
-        
-        This operation is thread-safe with respect to other producers, as it
-        only locks the specific queue for the given producer_id.
-        """
+        """Publishes a product to a specific producer's queue."""
         queue, lock = self.producer_queues[producer_id]
         with lock:
             if len(queue) >= self.queue_size_per_producer:
-                return False
+                return False  # Queue is full.
             queue.append(product)
         return True
 
@@ -109,29 +112,25 @@ class Marketplace:
         return cart_id
 
     def add_to_cart(self, cart_id: int, product: Product) -> bool:
-        """Searches all producer queues and moves a product to the consumer's cart.
+        """Adds a product to a cart by searching all producer queues.
 
-        WARNING: This method has a critical race condition. It acquires a
-        producer's lock, removes the item from the producer's queue, and then
-        releases the lock *before* adding the item to the consumer's cart.
-        The state is inconsistent between these two operations, and the item
-        is in limbo, belonging to neither the producer nor the consumer.
+        This operation can be slow as it iterates through every producer's
+        queue, acquiring and releasing each lock, until the product is found.
         """
         cart = self.consumer_carts[cart_id]
 
         for producer_id, (queue, lock) in enumerate(self.producer_queues):
             with lock:
                 try:
-                    # Item is removed from producer within the lock...
                     queue.remove(product)
                 except ValueError:
-                    continue  # Product not in this queue, try next one.
-            
-            # ...but added to consumer cart outside the lock, creating a race condition.
+                    continue  # Product not in this queue.
+
+            # Store the product and its original producer ID in the cart.
             cart.append((product, producer_id))
             return True
 
-        return False # Product not found in any producer queue.
+        return False  # Product not found in any producer queue.
 
     def remove_from_cart(self, cart_id: int, product: Product) -> bool:
         """Removes a product from a cart and returns it to its original producer."""
@@ -140,6 +139,7 @@ class Marketplace:
         for i, (prod, producer_id) in enumerate(cart):
             if prod == product:
                 del cart[i]
+                # Return the product to the correct producer's queue.
                 queue, lock = self.producer_queues[producer_id]
                 with lock:
                     queue.append(prod)
@@ -147,30 +147,21 @@ class Marketplace:
         return False
 
     def place_order(self, cart_id) -> list:
-        """Returns the list of products in the cart.
-        
-        NOTE: This method does not clear or consume the cart, which may be
-        unintended. It simply returns the current contents.
-        """
+        """Finalizes an order by returning the products in the cart."""
         cart = self.consumer_carts[cart_id]
         return [product for product, producer_id in cart]
 
 
-import time
-from threading import Thread
-# The following import suggests a circular dependency or project structure issue.
-from tema.marketplace import Marketplace
-
 class Producer(Thread):
-    """Represents a producer thread that publishes products to the marketplace."""
+    """A thread that produces products and publishes them to the marketplace."""
 
     def __init__(self,
                  products: list,
                  marketplace: Marketplace,
                  republish_wait_time: int,
                  **kwargs) \
-    :
-        """Initializes the producer and registers it with the marketplace."""
+            :
+        """Initializes a Producer thread."""
         super().__init__(**kwargs)
         self.products = products
         self.marketplace = marketplace
@@ -178,15 +169,15 @@ class Producer(Thread):
         self.id_ = self.marketplace.register_producer()
 
     def run(self):
-        """The main loop for the producer.
-        
-        Continuously attempts to publish its products. If a producer's queue in
-        the marketplace is full, it uses a busy-wait loop until space is available.
+        """Continuously produces items and tries to publish them.
+
+        If publishing fails because the producer's queue is full, it waits
+        and retries.
         """
         while True:
             for product, qty, wait_time in self.products:
                 for _ in range(qty):
                     time.sleep(wait_time)
-                    # Busy-wait until the product can be published.
+                    # Retry publishing until successful.
                     while not self.marketplace.publish(self.id_, product):
                         time.sleep(self.republish_wait_time)

@@ -1,19 +1,22 @@
 /**
  * @file 112A.CPP
- * @brief Performs a case-insensitive lexicographical comparison of two strings.
+ * @brief Case-insensitive lexicographical comparison of two strings.
  *
- * @details This program reads two strings and compares them character by character, ignoring case. 
- * It outputs -1 if the first string is lexicographically smaller, 1 if it is larger, 
- * and 0 if they are equal. This is a common task in programming contests.
+ * This program reads two strings from standard input and compares them
+ * lexicographically, ignoring case. It prints -1 if the first string is
+ * lexicographically smaller, 1 if it is larger, and 0 if they are equal.
  *
- * @algorithm The program implements a custom case-insensitive string comparison. It iterates
- * through the strings, converting each character to lowercase using `tolower()` before
- * comparison. The result (-1, 1, or 0) is determined by the first pair of
- * characters that do not match.
+ * Algorithm:
+ * 1. Read two strings, `line1` and `line2`.
+ * 2. Iterate through both strings from the beginning to the end.
+ * 3. In each iteration, convert the characters at the current position to lowercase.
+ * 4. Compare the lowercase characters.
+ *    - If `line1[i]` is less than `line2[i]`, the first string is smaller. Print -1 and terminate.
+ *    - If `line1[i]` is greater than `line2[i]`, the first string is larger. Print 1 and terminate.
+ * 5. If the loop finishes without any character difference, the strings are equal. Print 0.
  *
- * @complexity
  * Time Complexity: O(N), where N is the length of the strings, as it involves a single pass.
- * Space Complexity: O(N), for storing the two input strings.
+ * Space Complexity: O(N) to store the two input strings.
  */
 #include <iostream>
 #include <string>
@@ -25,20 +28,20 @@ using std::string;
 
 int main() {
   string line1, line2;
+  // Read the two strings to be compared.
   cin >> line1 >> line2;
 
-  // This check is likely redundant under typical problem constraints where strings are of equal length.
+  // This check is redundant for this specific problem's constraints but is good practice.
   if (line1.size() != line2.size()) {
     return -1;
   }
 
   /**
-   * @brief Block Logic: Iterates through the strings to find the first lexicographical difference.
-   * @invariant At the beginning of each iteration `i`, the prefixes `line1[0...i-1]` and 
-   * `line2[0...i-1]` are equal when ignoring case.
+   * @brief Perform a character-by-character comparison in a case-insensitive manner.
+   * The loop iterates through the strings and compares the lowercase versions of each character.
    */
   for (decltype(line1.size()) i = 0; i != line1.size(); ++i) {
-    // Compares characters at the current position, ignoring case.
+    // Pre-condition: Characters at index `i` in both strings are being compared.
     if (tolower(line1[i]) < tolower(line2[i])) {
       cout << "-1";
       return 0;
@@ -46,9 +49,10 @@ int main() {
       cout << "1";
       return 0;
     }
+    // Invariant: The substrings from index 0 to `i` are lexicographically equal (case-insensitively).
   }
 
-  // If the loop completes, the strings are equal (case-insensitively).
+  // If the loop completes, the strings are equal.
   cout << "0";
   return 0;
 }

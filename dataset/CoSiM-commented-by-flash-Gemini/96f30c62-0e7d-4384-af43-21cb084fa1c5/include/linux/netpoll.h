@@ -1,15 +1,15 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/*
+/**
  * @file netpoll.h
- * @brief Common definitions for low-level network debugging and logging facilities.
+ * @brief Common definitions for low-level network polling mechanisms in the Linux kernel.
  *
- * This header provides the necessary structures and function prototypes for
- * kernel netpoll facilities, which enable network console, network dump,
- * and network debugger functionalities without relying on the full network
- * stack. It is designed for early boot or critical error scenarios where
- * the standard network drivers might not be fully operational or safe to use.
+ * This header provides the fundamental structures and function prototypes used by
+ * low-level network utilities such as network consoles, network dump tools, and
+ * network debuggers. It centralizes common code originally derived from projects
+ * like netconsole, kgdb-over-ethernet, and netdump, facilitating robust network
+ * communication even in critical system states.
  *
- * Derived from netconsole, kgdb-over-ethernet, and netdump patches.
+ * @96f30c62-0e7d-4384-af43-21cb084fa1c5/include/linux/netpoll.h
  */
 
 #ifndef _LINUX_NETPOLL_H
@@ -21,6 +21,13 @@
 #include <linux/list.h>
 #include <linux/refcount.h>
 
+/**
+ * @brief Union to hold either IPv4 or IPv6 addresses.
+ *
+ * This union provides a flexible way to store network addresses,
+ * accommodating both IPv4 ({@code in_addr}) and IPv6 ({@code in6_addr}) formats,
+ * as well as raw 32-bit or 128-bit representations.
+ */
 union inet_addr {
 	__u32		all[4];
 	__be32		ip;
@@ -29,9 +36,16 @@ union inet_addr {
 	struct in6_addr	in6;
 };
 
+/**
+ * @brief Structure to hold network polling configuration and state.
+ *
+ * This structure encapsulates all necessary information for a network polling
+ * instance, including device details, IP/port configurations, MAC addresses,
+ * and an SKB (Socket Buffer) pool for packet transmission.
+ */
 struct netpoll {
-	struct net_device *dev; /**< @brief Pointer to the network device. */
-	netdevice_tracker dev_tracker; /**< @brief Tracks the net_device lifetime. */
+	struct net_device *dev; /**< @brief The network device to be used for polling. */
+	netdevice_tracker dev_tracker; /**< @brief Tracks the net_device for RCU protection. */
 	/*
 	 * @brief Specifies the local interface.
 	 *
@@ -39,61 +53,60 @@ struct netpoll {
 	 * interface - dev_name is used if it is a nonempty string, else
 	 * dev_mac is used.
 	 */
-	char dev_name[IFNAMSIZ]; /**< @brief Name of the network device. */
-	u8 dev_mac[ETH_ALEN]; /**< @brief MAC address of the network device. */
-	const char *name; /**< @brief Name of the netpoll instance (e.g., "netconsole"). */
+	char dev_name[IFNAMSIZ]; /**< @brief Name of the local network device. */
+	u8 dev_mac[ETH_ALEN]; /**< @brief MAC address of the local network device. */
+	const char *name; /**< @brief A descriptive name for this netpoll instance. */
 
 	union inet_addr local_ip, remote_ip; /**< @brief Local and remote IP addresses. */
-	bool ipv6; /**< @brief Flag indicating if IPv6 is used. */
-	u16 local_port, remote_port; /**< @brief Local and remote UDP ports. */
+	bool ipv6; /**< @brief True if IPv6 is used, false for IPv4. */
+	u16 local_port, remote_port; /**< @brief Local and remote UDP port numbers. */
 	u8 remote_mac[ETH_ALEN]; /**< @brief MAC address of the remote host. */
-	struct sk_buff_head skb_pool; /**< @brief Head of the socket buffer pool for outgoing packets. */
-	struct work_struct refill_wq; /**< @brief Workqueue for refilling the SKB pool. */
+	struct sk_buff_head skb_pool; /**< @brief SKB pool for allocating packets. */
+	struct work_struct refill_wq; /**< @brief Work queue for refilling the SKB pool. */
 };
 
 /**
- * @brief Macro for printing informational messages from a netpoll instance.
+ * @brief Logs an informational message related to a netpoll instance.
  * @param np The netpoll instance.
- * @param fmt Format string.
+ * @param fmt Format string for the message.
  * @param ... Variable arguments for the format string.
  */
-#define np_info(np, fmt, ...) \
+#define np_info(np, fmt, ...)				\
 	pr_info("%s: " fmt, np->name, ##__VA_ARGS__)
 /**
- * @brief Macro for printing error messages from a netpoll instance.
+ * @brief Logs an error message related to a netpoll instance.
  * @param np The netpoll instance.
- * @param fmt Format string.
+ * @param fmt Format string for the message.
  * @param ... Variable arguments for the format string.
  */
-#define np_err(np, fmt, ...) \
+#define np_err(np, fmt, ...)				\
 	pr_err("%s: " fmt, np->name, ##__VA_ARGS__)
 /**
- * @brief Macro for printing notice-level messages from a netpoll instance.
+ * @brief Logs a notice message related to a netpoll instance.
  * @param np The netpoll instance.
- * @param fmt Format string.
+ * @param fmt Format string for the message.
  * @param ... Variable arguments for the format string.
  */
-#define np_notice(np, fmt, ...) \
+#define np_notice(np, fmt, ...)				\
 	pr_notice("%s: " fmt, np->name, ##__VA_ARGS__)
 
 /**
- * @struct netpoll_info
- * @brief Supplementary information and state for a netpoll instance, managed via RCU.
+ * @brief Internal structure to manage netpoll instance lifecycle and transmission.
  *
- * This structure holds reference counts, a device lock, and a transmit queue
- * for managing netpoll operations, particularly in an RCU-protected context.
+ * This structure holds runtime information for a netpoll instance,
+ * primarily managing reference counting, device locking, and a transmit queue.
  */
 struct netpoll_info {
 	refcount_t refcnt; /**< @brief Reference count for the netpoll_info structure. */
 
-	struct semaphore dev_lock; /**< @brief Semaphore for protecting access to the network device. */
+	struct semaphore dev_lock; /**< @brief Semaphore to protect net_device access. */
 
-	struct sk_buff_head txq; /**< @brief Transmit queue for outgoing packets. */
+	struct sk_buff_head txq; /**< @brief Transmit queue for SKBs. */
 
-	struct delayed_work tx_work; /**< @brief Delayed work for processing the transmit queue. */
+	struct delayed_work tx_work; /**< @brief Delayed work structure for transmit operations. */
 
-	struct netpoll *netpoll; /**< @brief Back-pointer to the main netpoll structure. */
-	struct rcu_head rcu; /**< @brief RCU head for safe deferred freeing. */
+	struct netpoll *netpoll; /**< @brief Pointer to the associated netpoll instance. */
+	struct rcu_head rcu; /**< @brief RCU head for safe cleanup. */
 };
 
 /**
@@ -105,31 +118,18 @@ struct netpoll_info {
  */
 #ifdef CONFIG_NETPOLL
 /**
- * @brief Forces a poll of the specified network device.
- *
- * This function is used to manually trigger the polling mechanism for a
- * network device, bypassing the normal interrupt-driven receive path.
- *
- * @param dev Pointer to the network device to poll.
+ * @brief Forces a poll on the specified network device.
+ * @param dev The network device to poll.
  */
 void netpoll_poll_dev(struct net_device *dev);
 /**
- * @brief Disables netpoll polling for the specified network device.
- *
- * Prevents the netpoll mechanism from actively polling the network device
- * for incoming packets.
- *
- * @param dev Pointer to the network device.
+ * @brief Disables polling on a network device for netpoll operations.
+ * @param dev The network device to disable polling on.
  */
 void netpoll_poll_disable(struct net_device *dev);
 /**
- * @brief Enables netpoll polling for the specified network device.
- *
- * Activates the netpoll mechanism to actively poll the network device
- * for incoming packets, typically used in situations where interrupts
- * are disabled or unreliable.
- *
- * @param dev Pointer to the network device.
+ * @brief Enables polling on a network device for netpoll operations.
+ * @param dev The network device to enable polling on.
  */
 void netpoll_poll_enable(struct net_device *dev);
 #else /* !CONFIG_NETPOLL */
@@ -147,72 +147,45 @@ static inline void netpoll_poll_enable(struct net_device *dev) { return; }
 
 /**
  * @brief Sends a UDP message using the netpoll mechanism.
- *
- * This function allows sending a raw UDP message through the netpoll-configured
- * network interface, bypassing the normal network stack.
- *
- * @param np Pointer to the netpoll instance.
- * @param msg Pointer to the message data.
- * @param len Length of the message data.
+ * @param np The netpoll instance to use for sending.
+ * @param msg The message to send.
+ * @param len The length of the message.
  * @return 0 on success, or a negative error code on failure.
  */
 int netpoll_send_udp(struct netpoll *np, const char *msg, int len);
 /**
- * @brief Internal function to set up a netpoll instance.
- *
- * This function performs the core setup for a netpoll instance, associating
- * it with a network device.
- *
- * @param np Pointer to the netpoll instance to set up.
- * @param ndev Pointer to the net_device to associate with.
+ * @brief Internal setup function for a netpoll instance, using a specific net_device.
+ * @param np The netpoll instance to set up.
+ * @param ndev The net_device to associate with the netpoll instance.
  * @return 0 on success, or a negative error code on failure.
  */
 int __netpoll_setup(struct netpoll *np, struct net_device *ndev);
 /**
  * @brief Sets up a netpoll instance.
- *
- * This function is the primary entry point for configuring and activating
- * a netpoll instance.
- *
- * @param np Pointer to the netpoll instance to set up.
+ * @param np The netpoll instance to set up.
  * @return 0 on success, or a negative error code on failure.
  */
 int netpoll_setup(struct netpoll *np);
 /**
  * @brief Internal function to free resources associated with a netpoll instance.
- *
- * This function performs the core cleanup and deallocation of resources
- * for a netpoll instance.
- *
- * @param np Pointer to the netpoll instance to free.
+ * @param np The netpoll instance to free.
  */
 void __netpoll_free(struct netpoll *np);
 /**
- * @brief Cleans up and deactivates a netpoll instance.
- *
- * This function is the primary entry point for deconfiguring and cleaning up
- * a netpoll instance.
- *
- * @param np Pointer to the netpoll instance to clean up.
+ * @brief Cleans up and releases resources for a netpoll instance.
+ * @param np The netpoll instance to clean up.
  */
 void netpoll_cleanup(struct netpoll *np);
 /**
- * @brief Executes the actual netpoll cleanup operations.
- *
- * This function is called to perform the final cleanup of a netpoll instance.
- *
- * @param np Pointer to the netpoll instance.
+ * @brief Performs the actual cleanup operations for a netpoll instance.
+ * @param np The netpoll instance to perform cleanup on.
  */
 void do_netpoll_cleanup(struct netpoll *np);
 /**
- * @brief Sends an SKB using the netpoll mechanism.
- *
- * This function transmits a pre-allocated socket buffer (SKB) through the
- * netpoll-configured interface.
- *
- * @param np Pointer to the netpoll instance.
- * @param skb Pointer to the socket buffer to send.
- * @return `NETDEV_TX_OK` on success, or other `netdev_tx_t` error codes.
+ * @brief Sends a pre-allocated SKB using the netpoll mechanism.
+ * @param np The netpoll instance to use for sending.
+ * @param skb The socket buffer to send.
+ * @return netdev_tx_t status code (e.g., NETDEV_TX_OK).
  */
 netdev_tx_t netpoll_send_skb(struct netpoll *np, struct sk_buff *skb);
 
@@ -225,13 +198,14 @@ netdev_tx_t netpoll_send_skb(struct netpoll *np, struct sk_buff *skb);
  */
 #ifdef CONFIG_NETPOLL
 /**
- * @brief Acquires the netpoll polling lock for a NAPI instance.
+ * @brief Acquires a lock for netpoll polling operations.
  *
- * This function attempts to acquire a lock to allow netpoll to process
- * packets on a given NAPI instance. It spins until the lock is obtained.
+ * This function attempts to acquire a polling lock for the given NAPI structure.
+ * It is used to protect NAPI context during netpoll operations, especially
+ * when potentially conflicting operations might occur.
  *
- * @param napi Pointer to the NAPI structure.
- * @return Pointer to the NAPI structure on success (as a token for unlock), or NULL if netpoll is not configured for the device.
+ * @param napi The NAPI structure associated with the network device.
+ * @return The NAPI structure if the lock was acquired, or NULL if not.
  */
 static inline void *netpoll_poll_lock(struct napi_struct *napi)
 {
@@ -249,12 +223,12 @@ static inline void *netpoll_poll_lock(struct napi_struct *napi)
 }
 
 /**
- * @brief Releases the netpoll polling lock.
+ * @brief Releases the lock for netpoll polling operations.
  *
- * Releases the lock previously acquired by `netpoll_poll_lock`,
- * allowing other CPUs or contexts to acquire it.
+ * This function releases the polling lock previously acquired by `netpoll_poll_lock`.
+ * It is crucial for ensuring proper synchronization and preventing deadlocks.
  *
- * @param have The token returned by `netpoll_poll_lock`.
+ * @param have The value returned by `netpoll_poll_lock` (the NAPI structure).
  */
 static inline void netpoll_poll_unlock(void *have)
 {
@@ -269,13 +243,13 @@ static inline void netpoll_poll_unlock(void *have)
 }
 
 /**
- * @brief Checks if netpoll transmission is currently running on the device.
+ * @brief Checks if netpoll transmit operations are currently running.
  *
- * This is typically true when interrupts are disabled, indicating a critical
- * section where netpoll might be actively transmitting.
+ * This function indicates whether transmit operations are active, typically
+ * by checking if IRQs are disabled, which is a common state during netpoll TX.
  *
- * @param dev Pointer to the network device.
- * @return True if netpoll transmission is active, false otherwise.
+ * @param dev The network device to check.
+ * @return True if transmit operations are running (IRQs disabled), false otherwise.
  */
 static inline bool netpoll_tx_running(struct net_device *dev)
 {

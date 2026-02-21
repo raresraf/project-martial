@@ -1,25 +1,30 @@
 /**
  * @file 266A.CPP
- * @brief Solution to the "Stones on the Table" problem (Codeforces 266A).
+ * @brief Counts adjacent identical stones that need to be removed.
  *
- * @details The problem asks for the minimum number of stones to remove from a
- * row of colored stones so that no two adjacent stones have the same color.
- * This solution is written to handle multiple test cases.
+ * This program calculates the minimum number of stones to take from a row
+ * to ensure no two adjacent stones share the same color. It achieves this by
+ * counting every instance where a stone is followed immediately by another
+ * of the same color. The outer `while` loop suggests it was designed to handle
+ * multiple test cases.
  *
- * @algorithm The program iterates through the input string, keeping track of the
- * previously seen character (`last_ch`).
- * 1. For each character in the string, it compares it to `last_ch`.
- * 2. If the current character is the same as the previous one, a counter
- *    for removals is incremented.
- * 3. After the comparison, `last_ch` is updated to the current character
- *    to prepare for the next iteration.
- * This method effectively counts every stone that is part of a consecutive
- * sequence of identical stones, except for the first one in each sequence.
+ * Algorithm:
+ * 1. An outer loop reads the number of stones `cs`, continuing as long as
+ *    there is input.
+ * 2. Inside the loop, a counter `count` is reset to 0.
+ * 3. A string `inp` representing the stone colors is read.
+ * 4. The program iterates through the string `inp`.
+ * 5. It uses a variable `last_ch` to keep track of the previous stone's color.
+ * 6. For the very first stone (`i == 0`), it initializes `last_ch` and skips
+ *    to the next iteration.
+ * 7. For every subsequent stone, it compares its color (`ch`) with `last_ch`.
+ * 8. If they are the same, `count` is incremented.
+ * 9. `last_ch` is updated to the current stone's color for the next comparison.
+ * 10. After the inner loop, the total `count` is printed.
  *
- * @complexity
  * Time Complexity: O(T * N), where T is the number of test cases and N is the
- *                  length of the string. For a single test case, it is O(N).
- * Space Complexity: O(N), to store the input string.
+ * number of stones in each case. For a single case, it is O(N).
+ * Space Complexity: O(N) to store the input string `inp`.
  */
 #include <algorithm>
 #include <cstdio>
@@ -30,26 +35,28 @@ int main() {
   int cs, count = 0; // cs: number of stones, count: stones to remove
   string inp;
   char ch, last_ch;
-  
-  // This loop structure allows for multiple test cases, though the problem has only one.
+
+  // Outer loop to handle multiple test cases.
   while (cin >> cs) {
     count = 0;
     cin >> inp;
+
     /**
-     * @brief Block Logic: Iterates through the stones to count removals.
-     * @invariant `count` holds the number of removals required for the prefix
-     * `inp[0...i-1]`. `last_ch` holds the color of the stone at `i-1`.
+     * @brief Loop through the string to compare adjacent characters.
+     * Pre-condition: `inp` holds the string of stone colors.
      */
     for (int i = 0; i < inp.size(); i++) {
-      // Special handling for the first stone to initialize `last_ch`.
+      // Handle the first character separately to initialize `last_ch`.
       if (i == 0) {
         last_ch = inp[i];
         continue;
       }
       ch = inp[i];
+      // If the current character is the same as the last one, increment count.
       if (ch == last_ch) {
         count++;
       }
+      // Update `last_ch` for the next iteration.
       last_ch = ch;
     }
     cout << count << endl;

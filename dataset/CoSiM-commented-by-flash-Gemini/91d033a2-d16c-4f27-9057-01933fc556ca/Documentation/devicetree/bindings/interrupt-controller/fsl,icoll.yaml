@@ -1,4 +1,14 @@
 # SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+#
+# @91d033a2-d16c-4f27-9057-01933fc556ca/Documentation/devicetree/bindings/interrupt-controller/fsl,icoll.yaml
+# @brief Device Tree binding for Freescale MXS icoll Interrupt Controller.
+#
+# This YAML file defines the schema for describing the Freescale MXS Interrupt Controller (icoll)
+# within a Device Tree. It specifies the compatible strings, register properties, and
+# interrupt controller characteristics required for hardware enumeration and configuration
+# in embedded Linux systems. This binding ensures consistent description of the icoll
+# hardware across different FreeScale MXS family devices.
+#
 %YAML 1.2
 ---
 $id: http://devicetree.org/schemas/interrupt-controller/fsl,icoll.yaml#

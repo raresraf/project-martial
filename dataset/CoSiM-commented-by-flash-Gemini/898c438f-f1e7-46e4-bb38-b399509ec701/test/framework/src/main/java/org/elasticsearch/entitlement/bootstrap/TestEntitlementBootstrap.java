@@ -26,17 +26,31 @@ import org.elasticsearch.logging.Logger;
 import java.nio.file.Path;
 import java.util.stream.Stream;
 
+/**
+ * @898c438f-f1e7-46e4-bb38-b399509ec701/test/framework/src/main/java/org/elasticsearch/entitlement/bootstrap/TestEntitlementBootstrap.java
+ * @brief Utility class to activate entitlement checking specifically for testing environments.
+ *
+ * This class provides a {@code bootstrap} method to configure and load the entitlement
+ * agent within a test context, allowing for the simulation and verification of
+ * entitlement-related functionalities without relying on a full production setup.
+ */
 public class TestEntitlementBootstrap {
 
     private static final Logger logger = LogManager.getLogger(TestEntitlementBootstrap.class);
 
     /**
+     * @brief Logger instance for recording events and debugging information within this class.
+     */
+
+    /**
+     * Activates entitlement checking in tests.
+     */
+    /**
      * @brief Activates entitlement checking in tests.
      *
-     * Functional Utility: This method initializes the entitlement framework with a test-specific
-     * PathLookup implementation that returns null or empty streams for path-related queries.
-     * It then proceeds to load the entitlement agent, ensuring that entitlement checks are
-     * active within the test environment without relying on a real filesystem structure.
+     * This method initializes the {@code TestEntitlementInitialization} with a test-specific
+     * {@code PathLookup} implementation and subsequently loads the entitlement agent.
+     * It effectively prepares the test environment for entitlement-aware operations.
      */
     public static void bootstrap() {
         TestEntitlementInitialization.initializeArgs = new TestEntitlementInitialization.InitializeArgs(new TestPathLookup());
@@ -54,13 +68,17 @@ public class TestEntitlementBootstrap {
      */
     private record TestPathLookup() implements PathLookup {
         /**
-         * @brief Returns null for the PID file path in a test context.
+         * @brief Test-specific implementation of {@link PathLookup}.
          *
-         * Functional Utility: Prevents the test environment from attempting to
-         * locate or interact with a process ID file.
+         * This record serves as a minimal {@code PathLookup} implementation for testing purposes.
+         * It provides stubbed methods that return {@code null} or empty streams, as actual
+         * file system paths are not relevant for the entitlement tests.
          */
         @Override
         public Path pidFile() {
+            /**
+             * @brief Returns null as a placeholder for the PID file path in a test context.
+             */
             return null;
         }
 
@@ -72,6 +90,11 @@ public class TestEntitlementBootstrap {
          */
         @Override
         public Stream<Path> getBaseDirPaths(BaseDir baseDir) {
+            /**
+             * @brief Returns an empty stream for base directory paths in a test context.
+             * @param baseDir The base directory type.
+             * @return An empty stream of paths.
+             */
             return Stream.empty();
         }
 
@@ -83,6 +106,12 @@ public class TestEntitlementBootstrap {
          */
         @Override
         public Stream<Path> resolveSettingPaths(BaseDir baseDir, String settingName) {
+            /**
+             * @brief Returns an empty stream for resolved setting paths in a test context.
+             * @param baseDir The base directory type.
+             * @param settingName The name of the setting.
+             * @return An empty stream of paths.
+             */
             return Stream.empty();
         }
 

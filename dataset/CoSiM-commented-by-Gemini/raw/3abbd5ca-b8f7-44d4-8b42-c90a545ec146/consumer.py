@@ -10,9 +10,25 @@ ensures thread safety and atomicity of operations, but serializes all access,
 creating a performance bottleneck as only one thread can operate at a time.
 """
 
-from threading import Thread
-import time
+"""
+Implements a multi-threaded producer-consumer simulation for a marketplace.
 
+Note: This file is named `consumer.py` but contains the full simulation
+logic, including the Marketplace, Producer, and Product classes.
+
+This module defines a system that uses a coarse-grained locking strategy, with
+a single global lock protecting most marketplace operations. This simplifies
+concurrency control at the cost of performance, as it serializes all access
+to the shared marketplace state. The marketplace also features logging for
+all its public methods.
+"""
+import time
+from threading import Thread, Lock
+from logging.handlers import RotatingFileHandler
+import logging
+from dataclasses import dataclass
+
+# Constants for cart operations
 ADD_COMMAND = "add"
 REMOVE_COMMAND = "remove"
 COMMAND_TYPE = "type"
@@ -21,31 +37,29 @@ PRODUCT = "product"
 NAME = "name"
 
 class Consumer(Thread):
-    """Represents a consumer thread that purchases items from the marketplace."""
+    """A thread that simulates a consumer buying products."""
 
     def __init__(self, carts, marketplace, retry_wait_time, **kwargs):
         """Initializes a Consumer thread."""
         Thread.__init__(self, **kwargs)
-
         self.carts = carts
         self.marketplace = marketplace
         self.retry_wait_time = retry_wait_time
         self.consumer_name = kwargs[NAME]
 
     def run(self):
-        """The main execution loop for the consumer.
-        
-        Processes a list of shopping actions, using a busy-wait loop to retry
-        adding items if they are not yet available. After processing all actions,
-        it places the order and prints the items bought.
+        """Processes a list of shopping carts.
+
+        For each assigned cart, it creates a new cart in the marketplace,
+        executes the add/remove operations, and then places the final order.
         """
-        cart_id = self.marketplace.new_cart()
+        id_cart = self.marketplace.new_cart()
 
         for item in self.carts:
             for command in item:
                 if command[COMMAND_TYPE] == ADD_COMMAND:
+                    # Retry adding to cart until the operation is successful.
                     for _ in range(command[ITEM_QUANTITY]):
-                        # Busy-wait until the product is available to be added.
                         while not self.marketplace.add_to_cart(id_cart, command[PRODUCT]):
                             time.sleep(self.retry_wait_time)
                 elif command[COMMAND_TYPE] == REMOVE_COMMAND:
@@ -54,43 +68,39 @@ class Consumer(Thread):
 
         order_result = self.marketplace.place_order(id_cart)
 
+        # Print the purchased items, using the marketplace lock for thread-safe printing.
         for item in order_result:
-            # Acquires the marketplace's global lock to ensure atomic printing.
             with self.marketplace.lock:
-                print(f"{self.consumer_name} bought {item[1]}")
+                print(f"{self.consumer_name} bought {str(item[1])}")
 
-
-from logging.handlers import RotatingFileHandler
-from threading import Lock
-import logging
 
 class Marketplace:
-    """The central marketplace, synchronized with a single global lock.
+    """A thread-safe marketplace synchronized with a single global lock.
 
-    This class manages all shared state, including product inventory, carts,
-    and producer information. It enforces thread safety by wrapping almost
-    every method in a single, coarse-grained lock. This approach simplifies
-    concurrency control and prevents race conditions but eliminates the
-    possibility of parallel operations.
+    This class manages all shared state, including products, producers, and carts.
+    Nearly all operations are serialized by a single lock, which can become a
+    performance bottleneck under high contention.
     """
-    
+
     def __init__(self, queue_size_per_producer):
-        """Initializes the marketplace state and its single lock."""
+        """Initializes the Marketplace."""
         self.queue_size_per_producer = queue_size_per_producer
         self.producer_id = 0
         self.consumer_id = 0
         self.products = []
         self.producers = []
         self.carts = []
-        self.lock = Lock()  # The single lock for all operations.
 
+        self.lock = Lock()  # The single global lock for most operations.
+
+        # Setup for logging marketplace events to a file.
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.INFO)
         file_handler = RotatingFileHandler("marketplace.log")
         self.logger.addHandler(file_handler)
 
-    def register_producer(self):
-        """Atomically registers a new producer and returns a new ID."""
+    def register_producer(self) -> int:
+        """Registers a new producer, returning a unique ID."""
         self.logger.info("Entered method: register_producer")
         with self.lock:
             self.producer_id += 1
@@ -98,10 +108,11 @@ class Marketplace:
         self.logger.info("Exited method: register_producer")
         return producer_id
 
-    def publish(self, producer_id, product):
-        """Atomically adds a product to the marketplace inventory."""
+    def publish(self, producer_id, product) -> bool:
+        """Allows a producer to publish a product."""
         self.logger.info(f"Entered method: publish, Params: producer_id: {producer_id}, product: {product.name}")
         with self.lock:
+            # Check if producer has capacity to publish more.
             if self.producers[producer_id - 1].nr_products < self.queue_size_per_producer:
                 self.products.append((producer_id, product))
                 self.producers[producer_id - 1].nr_products += 1
@@ -110,8 +121,8 @@ class Marketplace:
         self.logger.info("Exited method: publish")
         return False
 
-    def new_cart(self):
-        """Atomically creates a new, empty cart for a consumer."""
+    def new_cart(self) -> int:
+        """Creates a new, empty shopping cart."""
         self.logger.info("Entered method: new_cart")
         with self.lock:
             self.consumer_id += 1
@@ -120,8 +131,8 @@ class Marketplace:
         self.logger.info("Exited method: new_cart")
         return consumer_id
 
-    def add_to_cart(self, cart_id, product):
-        """Atomically finds a product and moves it from inventory to a cart."""
+    def add_to_cart(self, cart_id, product) -> bool:
+        """Moves a product from inventory to a cart."""
         self.logger.info(f"Entered method: add_to_cart, Params: cart_id: {cart_id}, product: {product.name}")
         with self.lock:
             for item in self.products:
@@ -135,7 +146,7 @@ class Marketplace:
         return False
 
     def remove_from_cart(self, cart_id, product):
-        """Atomically finds a product in a cart and returns it to inventory."""
+        """Moves a product from a cart back to inventory."""
         self.logger.info(f"Entered method: remove_from_cart, Params: cart_id: {cart_id}, product: {product.name}")
         with self.lock:
             for item in self.carts[cart_id - 1]:
@@ -145,65 +156,55 @@ class Marketplace:
                     self.producers[item[0] - 1].nr_products += 1
                     self.logger.info("Exited method: remove_from_cart")
                     return
-        
-    def place_order(self, cart_id):
-        """Returns the contents of a cart. This operation is read-only."""
+        self.logger.info("Exited method: remove_from_cart")
+
+    def place_order(self, cart_id) -> list:
+        """Returns the list of items in a cart to finalize the order."""
         self.logger.info("Entered method: place_order")
-        self.logger.info("Exited method: place_order")
         return self.carts[cart_id - 1]
 
 
-from threading import Thread
-import time
-
-
 class Producer(Thread):
-    """Represents a producer thread that adds products to the marketplace."""
-    
+    """A thread that simulates a producer creating and publishing products."""
+
     def __init__(self, products, marketplace, republish_wait_time, **kwargs):
-        """Initializes the producer and registers it with the marketplace."""
+        """Initializes a Producer.
+
+        Note the direct coupling: the Producer adds itself to the Marketplace's
+        list of producers upon creation.
+        """
         Thread.__init__(self, **kwargs)
         self.nr_products = 0
         self.products = products
         self.marketplace = marketplace
         self.republish_wait_time = republish_wait_time
-        # Inversion of control: Producer adds itself to the marketplace's list.
+        # The producer instance is directly coupled with the marketplace state.
         self.marketplace.producers.append(self)
         self.producer_id = self.marketplace.register_producer()
 
     def run(self):
-        """The main loop for the producer.
-        
-        Continuously tries to publish products, using a busy-wait loop if the
-        producer's capacity in the marketplace is full.
-        """
+        """Continuously produces items and retries publishing on failure."""
         while True:
             for item in self.products:
                 for _ in range(item[1]):
-                    # Busy-wait until publish is successful.
                     while not self.marketplace.publish(self.producer_id, item[0]):
                         time.sleep(self.republish_wait_time)
                     time.sleep(item[2])
 
 
-from dataclasses import dataclass
-
-
 @dataclass(init=True, repr=True, order=False, frozen=True)
 class Product:
-    """An immutable data class for a generic product."""
+    """A base dataclass for a product."""
     name: str
     price: int
 
-
 @dataclass(init=True, repr=True, order=False, frozen=True)
 class Tea(Product):
-    """A `Product` subclass representing Tea."""
+    """A dataclass for Tea."""
     type: str
-
 
 @dataclass(init=True, repr=True, order=False, frozen=True)
 class Coffee(Product):
-    """A `Product` subclass representing Coffee."""
+    """A dataclass for Coffee."""
     acidity: str
     roast_level: str

@@ -1,36 +1,56 @@
 
 
 
+"""
+@889d6097-9147-4aca-b58d-15070eb182e4/device.py
+@brief Implements Device and DeviceThread for distributed simulation, including a ReusableBarrier for synchronization.
+
+This module provides the foundational components for simulating a network of interconnected devices.
+Each `Device` manages its own sensor data, interacts with a `Supervisor` for network topology,
+and executes scripts in a dedicated `DeviceThread`. Synchronization across devices for
+timepoint progression and script execution is managed via a `ReusableBarrier`, ensuring
+all participants are aligned before advancing simulation states.
+"""
+
 from threading import Event, Thread, Condition
 
 
 class ReusableBarrier():
     """
-    Implements a reusable barrier synchronization mechanism using a Condition variable
-    and static class members to track the number of participating threads.
-    Threads wait at the barrier until all expected threads have arrived before proceeding.
+    @brief A reusable synchronization barrier for multiple threads.
+
+    This barrier allows a fixed number of threads to wait until all have reached
+    a specific point of execution before any are allowed to proceed. It is designed
+    to be reusable for multiple synchronization points within a simulation.
     """
-    # Static class variable to store the total number of threads expected to participate in the barrier.
+    
     num_threads = 0
     # Static class variable to count the number of threads currently waiting at the barrier.
     count_threads = 0
 
     def __init__(self):
         """
-        Initializes the ReusableBarrier instance.
-        Each instance has its own Condition object, but shares static counters.
+        @brief Initializes a ReusableBarrier instance.
+
+        Sets up the condition variable for thread synchronization and an event
+        (though currently unused) for potential future signaling mechanisms.
         """
+        
         self.cond = Condition()
         # This event seems unused in the provided code.
         self.thread_event = Event()
 
     def wait(self):
         """
-        Causes the calling thread to wait until all `num_threads` have reached this barrier.
-        The barrier automatically resets itself for subsequent uses.
+        @brief Blocks the calling thread until all registered threads have reached the barrier.
+
+        Acquires a lock, decrements the count of threads yet to reach the barrier.
+        If this thread is the last to arrive, it notifies all waiting threads and
+        resets the barrier for reuse. Otherwise, it waits until signaled by the last thread.
         """
-        self.cond.acquire() # Acquire the lock associated with the condition variable.
-        ReusableBarrier.count_threads -= 1 # Decrement the count of waiting threads using the static counter.
+        
+        self.cond.acquire()
+        ReusableBarrier.count_threads -= 1
 
         if ReusableBarrier.count_threads == 0:
             self.cond.notify_all() # If this is the last thread, wake up all waiting threads.
@@ -44,35 +64,42 @@ class ReusableBarrier():
     @staticmethod
     def add_thread():
         """
-        Increments the static `num_threads` count and resets `count_threads`.
-        This method should be called once for each thread that will participate in the barrier.
+        @brief Registers a new thread with the barrier.
+
+        Increments the total number of threads the barrier is coordinating and
+        resets the internal counter to reflect the new total. This should be
+        called once for each thread that will participate in the barrier.
         """
+        
         ReusableBarrier.num_threads += 1
         ReusableBarrier.count_threads = ReusableBarrier.num_threads
 
 
 class Device(object):
     """
-    Represents a device in a simulated distributed system.
-    Each device manages sensor data, processes scripts, and coordinates
-    with a supervisor and other devices through a globally shared static barrier.
+    @brief Represents a simulated device in a distributed environment.
+
+    Each Device instance manages its own sensor data, communicates with a supervisor
+    to determine its neighbors, and processes assigned scripts within its dedicated thread.
+    It utilizes a reusable barrier for synchronization across all active devices
+    and events to signal script reception.
     """
-    # A single, static instance of ReusableBarrier shared across all Device objects.
-    # All devices will synchronize using this shared barrier instance.
+    
     barr = ReusableBarrier()    
 
     def __init__(self, device_id, sensor_data, supervisor):
         """
-        Initializes a new Device instance.
+        @brief Initializes a new Device instance.
 
-        Args:
-            device_id (int): A unique identifier for the device.
-            sensor_data (dict): A dictionary holding the device's sensor data,
-                                keyed by location.
-            supervisor (Supervisor): The supervisor object responsible for
-                                     managing devices and providing neighborhood information.
+        Registers the device with the global reusable barrier and sets up
+        its unique identifier, initial sensor data, and a reference to the supervisor.
+        It also initializes internal state for script management and threading.
+
+        @param device_id: A unique identifier for the device.
+        @param sensor_data: A dictionary containing the device's initial sensor readings.
+        @param supervisor: A reference to the supervisor object managing the device network.
         """
-        # Add this device's thread to the global barrier's count.
+        
         Device.barr.add_thread()
 
         self.device_id = device_id
@@ -88,29 +115,39 @@ class Device(object):
 
     def __str__(self):
         """
-        Returns a string representation of the Device.
+        @brief Returns a string representation of the Device.
+
+        @return: A string in the format "Device <device_id>".
         """
+        
         return "Device %d" % self.device_id
 
     def setup_devices(self, devices):
         """
-        This method is a placeholder in this implementation, as the global barrier
-        is initialized statically and threads are added during device instantiation.
-        No additional setup logic is performed here.
+        @brief Placeholder for setting up interactions with other devices.
+
+        This method is intended to configure how this device interacts with a list
+        of other devices in the simulation, though it currently performs no action.
+
+        @param devices: A list of other Device instances in the simulation.
         """
+        
+        
         pass
 
     def assign_script(self, script, location):
         """
-        Assigns a script to be executed by the device.
-        If `script` is None, it signals that scripts are ready to be processed
-        for the current timepoint.
+        @brief Assigns a script to be executed by the device.
 
-        Args:
-            script (Script): The script object to be executed. If None, it signals
-                             the readiness of previously assigned scripts.
-            location: The data location pertinent to the script.
+        If a script is provided, it is added to the device's script queue along
+        with the location it pertains to. If no script is provided (i.e., None),
+        it signals that script reception is complete for the current timepoint,
+        allowing the device thread to proceed.
+
+        @param script: The script object to be executed, or None to signal completion.
+        @param location: The data location (e.g., sensor ID) the script operates on.
         """
+        
         if script is not None:
             self.scripts.append((script, location))
         else:
@@ -119,104 +156,127 @@ class Device(object):
 
     def get_data(self, location):
         """
-        Retrieves sensor data for a given location.
+        @brief Retrieves sensor data for a specific location.
 
-        Args:
-            location: The key for the sensor data.
-
-        Returns:
-            The sensor data for the specified location, or None if not found.
+        @param location: The key identifying the sensor data to retrieve.
+        @return: The sensor data at the specified location, or None if not found.
         """
+        
         return self.sensor_data[location] if location in self.sensor_data else None
 
     def set_data(self, location, data):
         """
-        Sets or updates sensor data for a given location.
+        @brief Sets or updates sensor data for a specific location.
 
-        Args:
-            location: The key for the sensor data.
-            data: The new data to set.
+        Updates the sensor data if the location already exists in the device's
+        sensor data dictionary.
+
+        @param location: The key identifying the sensor data to update.
+        @param data: The new data value to set for the specified location.
         """
+        
         if location in self.sensor_data:
             self.sensor_data[location] = data
 
     def shutdown(self):
         """
-        Shuts down the device by joining its execution thread.
+        @brief Shuts down the device's processing thread.
+
+        This method waits for the device's associated thread to complete
+        its execution, ensuring a clean shutdown.
         """
+        
         self.thread.join()
 
 
 class DeviceThread(Thread):
     """
-    The dedicated thread of execution for a Device object.
-    It manages the device's operational logic within the simulation loop,
-    including supervisor interaction, script execution, and synchronization
-    with other devices via a global static barrier.
+    @brief Manages the execution lifecycle of a Device.
+
+    This thread is responsible for continuously fetching neighbor information,
+    synchronizing with other device threads, processing assigned scripts,
+    and updating sensor data based on script execution. It runs until
+    explicitly signaled to stop by the absence of network neighbors.
     """
+    
+
     def __init__(self, device):
         """
-        Initializes the DeviceThread.
+        @brief Initializes a new DeviceThread instance.
 
-        Args:
-            device (Device): The Device object associated with this thread.
+        Sets up the thread with a descriptive name and associates it with
+        the Device instance it will manage.
+
+        @param device: The Device instance this thread is responsible for.
         """
+        
         Thread.__init__(self, name="Device Thread %d" % device.device_id)
         self.device = device
 
     def run(self):
         """
-        The main execution loop for the device thread.
-        It continuously processes timepoints, synchronizes with other devices
-        using a global barrier, executes scripts sequentially, and updates data.
+        @brief The main execution loop for the device thread.
+
+        This loop continuously performs the following steps:
+        1. Retrieves the current set of neighboring devices from the supervisor.
+        2. Terminates if no neighbors are found, indicating the end of the simulation for this device.
+        3. Waits for all active device threads to reach a synchronization point (barrier).
+        4. Waits for new scripts to be assigned by the supervisor.
+        5. Clears the script received flag for the next timepoint.
+        6. Iterates through all assigned scripts, collects relevant data from neighbors and itself,
+           executes the script, and disseminates the results back to relevant devices.
         """
         while True:
-            # Retrieve current neighbor information from the supervisor.
+            # Block Logic: Determine the current set of active neighbors for data exchange.
+            # Functional Utility: Adapts the device's operational scope dynamically based on network topology.
             neighbours = self.device.supervisor.get_neighbours()
-            # If no neighbors are returned, it signifies the end of the simulation.
+            # Invariant: If no neighbors are returned, the simulation for this device is complete.
             if neighbours is None:
                 break
             
-            # Wait on the global static reusable barrier, ensuring all devices are synchronized
-            # before starting script execution for the current timepoint.
+            # Block Logic: Synchronizes the execution of all active device threads.
+            # Functional Utility: Ensures that all devices are ready to process the current timepoint's
+            #                      scripts before proceeding, maintaining simulation consistency.
             Device.barr.wait()
 
-            # Wait for the script_received event, signaling that scripts are assigned
-            # and ready for processing for this timepoint.
+            # Block Logic: Pauses execution until new scripts are assigned to the device.
+            # Functional Utility: Orchestrates script processing based on external directives,
+            #                      typically from a supervisor or central orchestrator.
             self.device.script_received.wait()
-            # Clear the event for the next cycle.
+            # Inline: Resets the script_received event, preparing it for the next script assignment cycle.
             self.device.script_received.clear()
 
-            # Iterate through and execute all assigned scripts for the current timepoint.
-            # WARNING: This implementation lacks explicit locking mechanisms (e.g., mutexes)
-            # for protecting shared data (sensor_data on local and neighboring devices)
-            # during read/write operations. This can lead to race conditions and
-            # data inconsistency in a concurrent environment if multiple DeviceThreads
-            # attempt to modify the same data locations simultaneously.
+            # Block Logic: Processes each assigned script using data from local sensors and neighbors.
+            # Invariant: Each script operates on a specific 'location' and its collected data.
             for (script, location) in self.device.scripts:
                 script_data = []
-                
-                # Collect data from neighboring devices for the current location.
+                # Block Logic: Aggregates sensor data from all neighboring devices for the current script's location.
+                # Functional Utility: Gathers necessary context from the distributed environment for script execution.
                 for device in neighbours:
                     data = device.get_data(location)
                     if data is not None:
                         script_data.append(data)
                 
-                # Collect data from the local device for the current location.
+                # Block Logic: Includes the device's own sensor data for the current script's location.
+                # Functional Utility: Ensures self-awareness and self-contribution to script processing.
                 data = self.device.get_data(location)
                 if data is not None:
                     script_data.append(data)
 
                 # Execute the script if there is data to process.
                 if script_data != []:
-                    # Execute the script with the aggregated data.
+                    # Block Logic: Executes the assigned script with the collected data.
+                    # Architectural Intent: Decouples data processing logic from device management,
+                    #                      allowing dynamic and flexible behavioral updates.
                     result = script.run(script_data)
 
-                    # Propagate the script's result back to all neighboring devices.
+                    # Block Logic: Disseminates the processed result to all neighboring devices.
+                    # Functional Utility: Propagates local computations across the network,
+                    #                      enabling distributed state updates.
                     for device in neighbours:
                         device.set_data(location, result)
-
-                    # Update the local device's data with the script's result.
+                    # Block Logic: Updates the device's own sensor data with the processed result.
+                    # Functional Utility: Reflects the outcome of local computations on the device's internal state.
                     self.device.set_data(location, result)
             
             # BUG: The 'self.device.scripts' list is not cleared after processing.

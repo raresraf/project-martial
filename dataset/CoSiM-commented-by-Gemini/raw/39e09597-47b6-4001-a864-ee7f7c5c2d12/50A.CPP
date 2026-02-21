@@ -1,21 +1,23 @@
 /**
  * @file 50A.CPP
- * @brief A clear solution to the "Domino piling" problem (Codeforces 50A).
+ * @brief Calculates the maximum number of dominoes on a rectangular board.
  *
- * @details This program calculates the maximum number of 2x1 dominoes that can be
- * placed on a rectangular board of size M x N. This version uses descriptive
- * variable names for clarity.
+ * This program solves the problem of finding the maximum number of 2x1 dominoes
+ * that can be placed on a rectangular board of size M x N without any overlap.
  *
- * @algorithm The solution is based on area calculation.
- * 1. The total area of the rectangular board is computed as `M * N`.
- * 2. The area of a single domino is 2.
- * 3. The maximum number of dominoes is the total area divided by the area of one
- *    domino. Integer division `area / 2` naturally finds the floor of this
- *    value, providing the correct answer for any board size.
+ * Algorithm:
+ * 1. Read the integer dimensions of the board, M and N.
+ * 2. Calculate the total area of the board by multiplying M and N.
+ * 3. The area of a single domino is 2 (2x1).
+ * 4. The maximum number of dominoes that can fit is the total board area
+ *    divided by the area of one domino. Integer division handles the math
+ *    correctly, as any single remaining square cannot fit a domino.
+ * 5. Print the result.
  *
- * @complexity
- * Time Complexity: O(1), as the solution consists of a few arithmetic operations.
- * Space Complexity: O(1), as only a fixed number of variables are used.
+ * Time Complexity: O(1), because the program performs a fixed number of
+ * arithmetic operations, regardless of the input size.
+ * Space Complexity: O(1), as it uses a few variables to store the dimensions
+ * and area.
  */
 #include <iostream>
 
@@ -23,12 +25,15 @@ using namespace std;
 
 int main() {
   int m, n, area;
+  // The area of a single 2x1 domino.
   int areaOneDominoes = 2;
 
+  // Read the board dimensions.
   cin >> m >> n;
+  // Calculate the total area of the board.
   area = m * n;
   
-  // Functional Logic: Calculate and print the maximum number of dominoes.
+  // Calculate and print the maximum number of dominoes.
   cout << area / areaOneDominoes << endl;
 
   return 0;

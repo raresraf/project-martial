@@ -34,28 +34,46 @@ Patterns:
   access shared sensor data.
 """
 
+"""
+@923bbfc5-05f5-4942-8544-8ab73f501f4c/device.py
+@brief Implements a device simulation with a master-worker threading model for script execution.
+
+This module defines a `Device` class that orchestrates script processing using a dedicated
+master thread and a pool of worker threads. It leverages `ReusableBarrierSem` for global
+synchronization across devices and `RLock`s for fine-grained, location-specific data access control,
+ensuring data consistency in a concurrent and distributed simulation environment.
+"""
+
 from threading import Event, Thread, RLock, Semaphore
 from barrier import ReusableBarrierSem
 
 class Device(object):
     """
-    @brief Represents a simulated device in a distributed sensing network.
+    @brief Represents a simulated device with a master-worker threading architecture for script processing.
 
-    Manages local sensor data, orchestrates script execution via a master thread
-    and worker threads, and participates in global synchronization.
+    Each Device instance manages its sensor data, interacts with a supervisor for network topology,
+    and coordinates script execution. A central 'master' thread ({@code master_func}) spawns
+    'worker' threads ({@code worker_func}) to concurrently process scripts. Synchronization is
+    achieved through global barriers ({@code step_barrier}) and fine-grained recursive locks
+    (RLocks) for data consistency across shared sensor locations.
     """
+    
 
     def __init__(self, device_id, sensor_data, supervisor, max_workers=8):
         """
         @brief Initializes a new Device instance.
 
-        @param device_id: A unique identifier for this device.
-        @param sensor_data: A dictionary containing initial sensor readings
-                            for various locations.
-        @param supervisor: A reference to the central supervisor managing
-                           the distributed system.
-        @param max_workers: The maximum number of worker threads to run concurrently.
+        Sets up device-specific attributes such as ID, sensor data, and supervisor reference.
+        It also initializes internal state for script management, the main 'master' thread,
+        a semaphore to control active worker threads, a reference to the 'root' device
+        (for shared resources), a global step barrier, and a dictionary for data locks.
+
+        @param device_id: A unique identifier for the device.
+        @param sensor_data: A dictionary containing the device's initial sensor readings.
+        @param supervisor: A reference to the supervisor object managing the device network.
+        @param max_workers: The maximum number of worker threads that can be active concurrently.
         """
+        
         self.device_id = device_id
         self.sensor_data = sensor_data
         self.supervisor = supervisor
@@ -75,21 +93,26 @@ class Device(object):
         """
         @brief Returns a string representation of the Device.
 
-        @return A string in the format "Device <device_id>".
+        @return: A string in the format "Device <device_id>".
         """
+        
         return "Device %d" % self.device_id
 
     def setup_devices(self, devices):
         """
-        @brief Sets up inter-device communication and synchronization mechanisms.
+        @brief Configures global synchronization resources and identifies the root device.
 
-        Identifies the root device (device_id 0) and, if this is the root device,
-        initializes the global step barrier and data locks for all sensor locations.
-        These shared resources are then accessed by all other devices via the root device.
+        This method first identifies the 'root' device (the device with ID 0) among
+        all participating `devices` and stores a reference to it.
+        If this device *is* the root device, it takes responsibility for:
+        - Initializing a global `ReusableBarrierSem` ({@code step_barrier}) to
+          synchronize all devices at each simulation step.
+        - Initializing `RLock`s for each unique sensor data location across all devices
+          to ensure thread-safe access to shared data.
 
-        @param devices: A list of all Device instances in the simulation.
+        @param devices: A list of all Device instances participating in the simulation.
         """
-        # Block Logic: Finds and stores a reference to the root device (device_id 0).
+        
         for dev in devices:
             if dev.device_id == 0:
                 self.root_device = dev
@@ -111,16 +134,16 @@ class Device(object):
 
     def assign_script(self, script, location):
         """
-        @brief Assigns a script to be executed at a specific data location.
+        @brief Assigns a script to be processed or signals script reception completion.
 
-        If a script is provided, it's appended to the device's script list.
-        If no script is provided (None), it signals that scripts for the current
-        timepoint are fully received, triggering the master thread to proceed.
+        If a `script` is provided, it is appended to the device's internal `scripts` list.
+        If `script` is None, it signals that all scripts for the current timepoint
+        have been received by setting the `scripts_received` event.
 
-        @param script: The script object to execute, or None to signal script reception completion.
-        @param location: The data location (e.g., sensor ID) where the script should operate.
+        @param script: The script object to be executed, or None to signal completion of script assignments.
+        @param location: The data location (e.g., sensor ID) the script operates on.
         """
-        # Block Logic: Appends a new script and its location to the list.
+        
         if script is not None:
             self.scripts.append((script, location))
         # Block Logic: Signals the master thread that all scripts for the current
@@ -130,16 +153,16 @@ class Device(object):
 
     def get_data(self, location):
         """
-        @brief Retrieves sensor data for a given location, ensuring thread-safe access.
+        @brief Retrieves sensor data for a specific location, ensuring thread safety.
 
-        Accesses the sensor data while holding the appropriate data lock managed
-        by the root device.
+        Access to the sensor data is protected by an {@code RLock} associated with the
+        data location, managed by the root device. This prevents race conditions
+        during concurrent read operations.
 
-        @param location: The identifier for the data location.
-        @return The sensor data at the specified location, or None if not found.
+        @param location: The key identifying the sensor data to retrieve.
+        @return: The sensor data at the specified location, or None if not found.
         """
-        # Block Logic: Acquires the RLock for the specific location to ensure
-        # exclusive (or shared-read) access to the sensor data.
+        
         with self.root_device.data_locks[location]:
             if location in self.sensor_data:
                 return self.sensor_data[location]
@@ -148,116 +171,136 @@ class Device(object):
 
     def set_data(self, location, data):
         """
-        @brief Sets or updates sensor data for a given location, ensuring thread-safe access.
+        @brief Sets or updates sensor data for a specific location, ensuring thread safety.
 
-        Modifies the sensor data while holding the appropriate data lock managed
-        by the root device.
+        Modification of the sensor data is protected by an {@code RLock} associated with the
+        data location, managed by the root device. This prevents race conditions
+        during concurrent write operations.
 
-        @param location: The identifier for the data location.
-        @param data: The new data to set.
+        @param location: The key identifying the sensor data to update.
+        @param data: The new data value to set for the specified location.
         """
-        # Block Logic: Acquires the RLock for the specific location to ensure
-        # exclusive write access to the sensor data.
+        
         with self.root_device.data_locks[location]:
             if location in self.sensor_data:
                 self.sensor_data[location] = data
 
     def shutdown(self):
         """
-        @brief Shuts down the device by waiting for its master thread to complete.
+        @brief Shuts down the device's master processing thread.
 
-        Functional Utility: Ensures proper termination and cleanup of resources
-        associated with the device's concurrent execution.
+        This method waits for the device's main 'master' thread to complete
+        its execution, ensuring a clean and orderly shutdown.
         """
+        
         self.master.join()
 
     def master_func(self):
         """
-        @brief The main loop for the device's master thread.
+        @brief The main execution loop for the master thread of the device.
 
-        This thread continuously discovers neighbors, waits for scripts to be assigned,
-        dispatches them to worker threads, and then waits for all workers to complete
-        before synchronizing with other devices globally.
+        This function orchestrates the simulation timepoints by:
+        1.  Continuously fetching updated neighborhood information.
+        2.  Terminating if no neighbors are found, signaling the end of the simulation.
+        3.  Waiting for all scripts for the current timepoint to be assigned.
+        4.  Spawning a pool of worker threads to process each script concurrently,
+            respecting a maximum number of active workers using a semaphore.
+        5.  Waiting for all worker threads to complete their tasks for the current batch of scripts.
+        6.  Clearing the script reception event for the next timepoint.
+        7.  Participating in a global synchronization barrier (`step_barrier`) to align
+            with other devices before proceeding to the next simulation step.
         """
         while True:
-            # Block Logic: Discovers neighboring devices for the current timepoint.
-            # Pre-condition: `self.supervisor` is available to provide neighborhood information.
+            # Block Logic: Fetches the current set of active neighbors from the supervisor.
+            # Functional Utility: Dynamically updates the device's awareness of its network topology.
             neighbours = self.supervisor.get_neighbours()
-            # Block Logic: Checks for a shutdown condition (None neighbors indicates termination).
+            # Invariant: If no neighbors are returned, the simulation for this device is complete.
             if neighbours is None:
                 break
 
-            # Block Logic: Waits until all scripts for the current timepoint have been assigned.
-            # Invariant: `self.scripts` contains all scripts for the current timepoint after this wait.
+            # Block Logic: Waits for all scripts for the current timepoint to be assigned to this device.
+            # Functional Utility: Ensures that the master thread only proceeds to spawn workers once
+            #                      all processing instructions for the current step are available.
             self.scripts_received.wait()
 
             workers = []
-            # Block Logic: Iterates through assigned scripts, creating and starting a worker thread for each.
-            # Invariant: The number of concurrently active worker threads is limited by `self.active_workers` semaphore.
+            # Block Logic: Iterates through each assigned script and spawns a worker thread to process it.
+            # Architectural Intent: Distributes script execution across multiple threads for parallelism.
             for (script, location) in self.scripts:
-                # Block Logic: Acquires a permit from the semaphore, potentially blocking
-                # if the maximum number of active workers has been reached.
+                # Block Logic: Acquires a permit from the semaphore, limiting the number of concurrent worker threads.
+                # Functional Utility: Manages the worker thread pool size to prevent resource exhaustion.
                 self.active_workers.acquire()
 
-                # Functional Utility: Creates a new thread to execute the `worker_func` for each script.
+                # Inline: Creates a new worker thread to execute the specific script.
                 worker = Thread(target=self.worker_func, \
                     args=(script, location, neighbours))
                 workers.append(worker)
                 worker.start()
 
-            # Block Logic: Waits for all worker threads dispatched in this timepoint to complete their execution.
+            # Block Logic: Waits for all worker threads spawned in the current timepoint to complete.
+            # Functional Utility: Ensures all scripts for the current timepoint are fully processed
+            #                      before signaling completion and moving to the next step.
             for worker in workers:
                 worker.join()
 
-            # Block Logic: Resets the scripts_received event for the next timepoint.
-            # Pre-condition: All scripts for the current timepoint have been processed.
+            # Block Logic: Resets the script reception event, preparing for the next timepoint's script assignments.
+            # Functional Utility: Clears the signal, allowing the event to be set again when new scripts arrive.
             self.scripts_received.clear()
-            # Block Logic: Synchronizes all devices at the end of the simulation step.
-            # Invariant: All devices have completed their script processing for the current timepoint
-            # before advancing to the next.
+            
+            # Block Logic: Global synchronization point for all devices across the simulation.
+            # Functional Utility: Ensures all devices have completed their processing for the current
+            #                      timepoint before advancing to the next, maintaining simulation consistency.
             self.root_device.step_barrier.wait()
 
 
     def worker_func(self, script, location, neighbours):
         """
-        @brief The main logic for a worker thread.
+        @brief Executes a single script within a worker thread context.
 
-        A worker thread processes a single script for a given location,
-        collecting data from neighbors and itself, executing the script,
-        and updating the sensor data. All data access is protected by
-        location-specific re-entrant locks.
+        This function represents the task performed by an individual worker thread.
+        It encapsulates the process of gathering data, executing a script,
+        and disseminating its results, ensuring thread-safe access to shared data
+        at specific locations.
 
         @param script: The script object to be executed.
-        @param location: The data location (e.g., sensor ID) to operate on.
-        @param neighbours: A list of neighboring Device instances.
+        @param location: The data location (e.g., sensor ID) the script operates on.
+        @param neighbours: A list of neighboring Device instances relevant for this script's execution.
         """
-        # Block Logic: Acquires the RLock for the specific location to ensure
-        # exclusive write access to the sensor data during script execution.
+        # Block Logic: Acquires a recursive lock specific to the data location before processing.
+        # Functional Utility: Prevents race conditions and ensures atomic updates for data
+        #                      at a given sensor location by multiple concurrent workers.
         with self.root_device.data_locks[location]:
+            # Block Logic: Gathers relevant sensor data from all specified neighbors for the current script's location.
+            # Functional Utility: Collects necessary input for the script based on the current network state.
             script_data = []
-            # Block Logic: Collects sensor data from neighboring devices for script input.
             for dev in neighbours:
                 data = dev.get_data(location)
                 if data is not None:
                     script_data.append(data)
 
-            # Block Logic: Collects sensor data from the current device for script input.
+            # Block Logic: Includes the device's own sensor data for the current script's location.
+            # Functional Utility: Ensures the script considers the device's local state.
             data = self.get_data(location)
             if data is not None:
                 script_data.append(data)
 
             # Block Logic: Executes the script only if there is data to process.
             if script_data != []:
-                # Functional Utility: Executes the assigned script with the collected data.
+                # Block Logic: Executes the assigned script with the aggregated data.
+                # Architectural Intent: Decouples computational logic from data management,
+                #                      allowing dynamic script execution based on current data.
                 result = script.run(script_data)
 
-                # Block Logic: Propagates the script's result back to neighboring devices.
+                # Block Logic: Disseminates the computed result to neighboring devices.
+                # Functional Utility: Propagates state changes across the network as a result of script execution.
                 for dev in neighbours:
                     dev.set_data(location, result)
 
-                # Block Logic: Updates the current device's own sensor data with the script's result.
+                # Block Logic: Updates the device's own sensor data with the computed result.
+                # Functional Utility: Reflects local state changes due to script processing.
                 self.set_data(location, result)
 
-        # Block Logic: Releases a permit to the semaphore, indicating that this worker
-        # has completed its task and another worker can now start.
+        # Block Logic: Releases a permit back to the active_workers semaphore.
+        # Functional Utility: Signals that this worker thread has completed its task,
+        #                      allowing another script to be processed by a new worker.
         self.active_workers.release()

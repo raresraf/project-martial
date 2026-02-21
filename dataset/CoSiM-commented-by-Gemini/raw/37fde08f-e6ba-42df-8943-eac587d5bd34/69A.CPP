@@ -1,33 +1,45 @@
 /**
  * @file 69A.CPP
- * @brief Solution to the "Young Physicist" problem (Codeforces 69A), checking for force equilibrium.
+ * @brief Checks if a system of 3D vectors is in equilibrium.
  *
- * @details This program determines if a set of 3D force vectors results in a net force of zero.
- * A body is in equilibrium if the vector sum of all forces acting on it is zero.
- * This translates to the sum of the components along each axis (x, y, z) being zero.
+ * This program reads a specified number of 3D vectors and determines if their
+ * vector sum is the zero vector (i.e., the sum of the x, y, and z components
+ * are all independently zero). If the sum is the zero vector, it prints "YES",
+ * otherwise it prints "NO". This is a classic statics problem.
  *
- * @algorithm The program first reads the number of vectors, `n`. It then reads the `n` vectors,
- * storing their x, y, and z components in separate arrays. It calculates the sum of all
- * x-components, y-components, and z-components. Finally, it checks if all three sums are
- * equal to zero. If they are, the system is in equilibrium ("YES"); otherwise, it is not ("NO").
+ * Algorithm:
+ * 1. Read an integer `n`, which is the total number of vectors.
+ * 2. Read the `n` vectors, storing their x, y, and z components.
+ * 3. Initialize three variables `sumx`, `sumy`, and `sumz` to zero.
+ * 4. Iterate through the stored vectors, accumulating the sums of their
+ *    respective components into `sumx`, `sumy`, and `sumz`.
+ * 5. After the loop, check if `sumx`, `sumy`, and `sumz` are all zero.
+ * 6. If they are, the system is in equilibrium, and the program prints "YES".
+ * 7. Otherwise, it prints "NO".
  *
- * @complexity
- * Time Complexity: O(N), where N is the number of vectors, due to the linear scan for input and summation.
- * Space Complexity: O(N), to store the x, y, and z components of the N vectors.
+ * Time Complexity: O(N), where N is the number of vectors. The program iterates
+ * through the vectors twice: once to read them and once to sum their components.
+ * Space Complexity: O(N), for storing the x, y, and z components of the N vectors in arrays.
  */
 #include <stdio.h>
+
 int main() {
   int i, n, x[105], y[105], z[105], sumx = 0, sumy = 0, sumz = 0;
+  // Read the number of vectors.
   scanf("%d", &n);
 
-  // Read the n vectors from standard input.
+  /**
+   * @brief Reads the components of `n` vectors from standard input.
+   * Pre-condition: `n` is the number of vectors to be read.
+   * Post-condition: Arrays x, y, and z are populated with vector components.
+   */
   for (i = 0; i < n; i++)
     scanf("%d %d %d", &x[i], &y[i], &z[i]);
 
   /**
-   * @brief Block Logic: Calculates the sum of components for each axis.
-   * @invariant At the end of iteration `i`, `sumx`, `sumy`, and `sumz` contain the
-   * component-wise sum of the first `i+1` vectors.
+   * @brief Calculates the sum of all x, y, and z components.
+   * Invariant: At the start of each iteration `i`, `sumx`, `sumy`, `sumz` hold the
+   * sum of components for the first `i` vectors.
    */
   for (i = 0; i < n; i++) {
     sumx += x[i];
@@ -36,12 +48,13 @@ int main() {
   }
 
   /**
-   * @brief Block Logic: Checks for equilibrium condition.
-   * A system is in equilibrium if the net force vector is (0, 0, 0).
+   * @brief Checks if the total vector sum is zero.
+   * This is the condition for static equilibrium.
    */
   if (sumx == 0 && sumy == 0 && sumz == 0)
     printf("YES");
   else
     printf("NO");
+
   return 0;
 }

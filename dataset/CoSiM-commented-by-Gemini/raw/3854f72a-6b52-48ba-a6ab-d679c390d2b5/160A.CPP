@@ -1,29 +1,30 @@
 /**
  * @file 160A.CPP
- * @brief Solves the "Twins" problem (Codeforces 160A) using a greedy approach.
+ * @brief Solves the "Twins" problem by finding the minimum number of coins to take to have a sum greater than the remaining coins.
  *
- * @details The problem is to find the minimum number of coins to take from a set
- * so that the sum of the taken coins is strictly greater than the sum of the
- * remaining coins. This program implements a greedy algorithm to solve this.
+ * This program determines the smallest number of coins a person must take from a set
+ * so that the sum of their chosen coins is strictly greater than the sum of the
+ * remaining coins. The strategy employed is a greedy one.
  *
- * @algorithm The core of the solution is a greedy strategy.
- * 1. Calculate the total sum of all coin values.
- * 2. Sort the coins in descending order.
- * 3. Iterate through the sorted coins (largest to smallest), accumulating their
- *    sum. Stop when this accumulated sum is strictly greater than the sum of
- *    the remaining coins (which is `total_sum - accumulated_sum`).
- * 4. The count of coins taken is the minimum required.
+ * Algorithm:
+ * 1. Read all coin values into a vector.
+ * 2. Calculate the total sum of all coin values.
+ * 3. Sort the coins in descending order.
+ * 4. Iterate through the sorted coins, adding their values to a running "my_sum".
+ * 5. In each iteration, check if "my_sum" is greater than the sum of the remaining coins
+ *    (total_sum - my_sum).
+ * 6. The number of coins taken when this condition is first met is the answer.
  *
- * @complexity
- * Time Complexity: O(N log N), where N is the number of coins. The sorting
- *                  operation is the performance bottleneck.
- * Space Complexity: O(N), to store the values of the N coins.
+ * Time Complexity: O(N log N), dominated by the sorting of the coins.
+ * Space Complexity: O(N) to store the coin values.
+ *
+ * Note: This file contains a large number of macros and function definitions
+ * (e.g., `mpow`, `ipgraph`, `dfs`) that are part of a generic competitive
+ * programming template and are not used in this specific solution.
  */
 #include <bits/stdc++.h>
 using namespace std;
-// NOTE: The following section contains a large number of macros and unused
-// function declarations, typical of a competitive programming template.
-// The core logic is within the main function.
+// Unused competitive programming macros and template functions.
 #define gc getchar_unlocked
 #define fo(i, n) for (i = 0; i < n; i++)
 #define Fo(i, k, n) for (i = k; k < n ? i < n : i > n; k < n ? i += 1 : i -= 1)
@@ -74,22 +75,24 @@ int main() {
     cin >> ar[i];
     sum += ar[i];
   }
-  // Sort coins in descending order to apply the greedy strategy.
+  
+  // Sort the coins in descending order to apply a greedy strategy.
   sort(ar.begin(), ar.end(), greater<int>());
   
   ll sum2 = 0; // This will be the sum of coins taken.
   i = 0;
   /**
-   * @brief Block Logic: Greedily take the largest coins until their sum is
-   * greater than the sum of the remaining coins.
-   * @invariant `sum2` is the sum of the `i` largest coins.
-   * The loop condition `sum2 <= sum - sum2` checks if our share is not yet
-   * strictly greater than the other share.
+   * @brief Greedily take the largest coins until their sum is more than half the total.
+   * Pre-condition: `ar` is sorted in descending order. `sum` holds the total value.
+   * Invariant: `sum2` is the sum of the `i` largest coins.
+   * The loop continues as long as the sum of coins taken (`sum2`) is not strictly
+   * greater than the sum of the remaining coins (`sum - sum2`).
    */
-  while (i <= ar.size() and sum2 <= sum - sum2) {
+  while (i < ar.size() && sum2 <= sum - sum2) {
     sum2 += ar[i++];
   }
-  // Output the minimum number of coins required.
+  
+  // Output the minimum number of coins needed.
   cout << i;
 
   return 0;

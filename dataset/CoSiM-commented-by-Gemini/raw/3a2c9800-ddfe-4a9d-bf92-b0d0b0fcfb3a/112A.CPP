@@ -1,24 +1,28 @@
 /**
  * @file 112A.CPP
- * @brief A C++ solution to the "Petya and Strings" problem (Codeforces 112A).
+ * @brief Performs a case-insensitive lexicographical comparison of two strings.
  *
- * @details This program performs a case-insensitive lexicographical comparison of two
- * strings. It determines if the first string is less than, greater than, or
- * equal to the second string, ignoring differences in case.
+ * This program reads two strings and compares them lexicographically, ignoring
+ * case differences. It outputs -1 if the first string is smaller, 1 if it is
+ * larger, and 0 if they are equal. This version first converts both strings
+ * to uppercase and then performs the comparison.
  *
- * @algorithm The approach is to normalize the case of both strings before comparison.
- * 1. The `std::transform` algorithm is used to convert both input strings to
- *    uppercase in-place.
- * 2. A loop then iterates through the now-uppercase strings, comparing them
- *    character by character.
- * 3. The result is set to -1 or 1 as soon as the first lexicographical
- *    difference is found. If the loop completes without finding any
- *    difference, the strings are equal, and the result remains 0.
+ * Algorithm:
+ * 1. Read two strings, `a` and `b`.
+ * 2. Use the `std::transform` function to convert string `a` to uppercase in-place.
+ * 3. Similarly, convert string `b` to uppercase.
+ * 4. Initialize an integer `x` to 0, which will store the comparison result.
+ * 5. Iterate through the characters of the now-uppercase strings.
+ * 6. If a character in `a` is greater than the corresponding character in `b`,
+ *    set `x` to 1 and break the loop.
+ * 7. If a character in `a` is less than the corresponding character in `b`,
+ *    set `x` to -1 and break the loop.
+ * 8. If the loop completes without finding any differences, `x` remains 0.
+ * 9. Print the final value of `x`.
  *
- * @complexity
- * Time Complexity: O(L), where L is the length of the strings. This includes O(L)
- *                  for the two `transform` calls and O(L) for the comparison loop.
- * Space Complexity: O(L), to store the two input strings.
+ * Time Complexity: O(N), where N is the length of the strings. The process involves
+ * two passes of O(N) for the transformations and one pass for the comparison.
+ * Space Complexity: O(N) to store the two input strings.
  */
 #include <bits/stdc++.h>
 using namespace std;
@@ -31,14 +35,15 @@ int main() {
   string a, b;
   cin >> a >> b;
   
-  // Pre-computation: Convert both strings to uppercase for case-insensitive comparison.
+  // Convert both strings to uppercase for case-insensitive comparison.
   transform(a.begin(), a.end(), a.begin(), ::toupper);
   transform(b.begin(), b.end(), b.begin(), ::toupper);
 
-  int x = 0; // The result: -1, 0, or 1.
+  int x = 0; // Stores the result: -1, 0, or 1.
+  
   /**
-   * @brief Block Logic: Iterates through the normalized strings to find the
-   * first lexicographical difference.
+   * @brief Loop through the strings to find the first differing character.
+   * Pre-condition: Both strings `a` and `b` are in uppercase.
    */
   for (int i = 0; i < a.length(); i++) {
     if ((int)a[i] > (int)b[i]) {
@@ -49,5 +54,7 @@ int main() {
       break;
     }
   }
+  
+  // Print the result of the lexicographical comparison.
   cout << x << endl;
 }

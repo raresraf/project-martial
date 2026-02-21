@@ -14,17 +14,36 @@ to the setup and assignment of shared locks, which undermines the entire
 synchronization scheme.
 """
 
+"""
+Defines a distributed device simulation using a thread pool architecture.
+
+This file contains the components for a simulation framework where devices
+execute tasks in parallel. The architecture consists of:
+- `ThreadPool` and `Worker`: A classic worker-pool implementation for task execution.
+- `Device`: Represents a node in the network, holding data and state.
+- `DeviceThread`: The main control loop for a device, which dispatches tasks
+  to the `ThreadPool`.
+
+Note: The file is named `ThreadPool.py` but contains the entire device
+simulation logic. The implementation contains apparent race conditions in how
+shared synchronization objects are initialized.
+"""
+
 from Queue import Queue
-from threading import Thread
+from threading import Thread, Event, Lock
+from barrier import ReusableBarrierSem
+
 
 class Worker(Thread):
-    """A worker thread that executes tasks from a queue.
-    
-    Each worker pulls a task, acquires the appropriate lock for the data
-    location, executes the script, and releases the lock.
-    """
+    """A worker thread that executes tasks from a shared queue."""
+
     def __init__(self, tasks, device):
-        """Initializes the worker and starts it as a daemon thread."""
+        """Initializes the worker.
+
+        Args:
+            tasks (Queue): The shared task queue.
+            device (Device): The device this worker belongs to.
+        """
         Thread.__init__(self)
         self.tasks = tasks
         self.device = device
@@ -32,23 +51,29 @@ class Worker(Thread):
         self.start()
 
     def run(self):
-        """The main loop for the worker thread."""
+        """The main execution loop for the worker thread.
+
+        Continuously fetches tasks from the queue and executes them. A task
+        is a tuple of (neighbours, script, location). A `None` value for
+        `neighbours` is a sentinel to terminate the thread.
+        """
         while True:
             # Get a task from the queue. A None task is a sentinel to exit.
             neighbours, script, location = self.tasks.get()
 
+            # Sentinel check for thread shutdown.
             if neighbours is None:
                 self.tasks.task_done()
                 break
-            
-            # Use a 'with' statement for safe lock acquisition and release.
+
+            # Acquire a lock for the specific data location to ensure exclusive access.
             with self.device.locations_locks[location]:
                 self._script(neighbours, script, location)
             self.tasks.task_done()
 
     def _script(self, neighbours, script, location):
-        """The core script execution logic."""
-        # 1. Aggregate data from neighbors and self.
+        """Executes the logic for a single script."""
+        # Gather data from neighbors and self.
         script_data = []
         for neighbour in neighbours:
             data = neighbour.get_data(location)
@@ -59,7 +84,7 @@ class Worker(Thread):
         if data is not None:
             script_data.append(data)
 
-        # 2. Run the script and disseminate the results.
+        # Run the script and propagate the results.
         if script_data:
             result = script.run(script_data)
             for neighbour in neighbours:
@@ -68,50 +93,43 @@ class Worker(Thread):
 
 
 class ThreadPool(object):
-    """A thread pool to manage and execute tasks in parallel."""
+    """Manages a pool of worker threads and a task queue."""
+
     def __init__(self, num_threads):
-        """Initializes the task queue."""
+        """Initializes the thread pool."""
         self.tasks = Queue(num_threads)
         self.threads = []
         self.device = None
 
     def set_device(self, device, num_threads):
-        """Creates and starts the worker threads for a given device."""
+        """Links the pool to a device and creates the worker threads."""
         self.device = device
         for _ in range(num_threads):
             self.threads.append(Worker(self.tasks, self.device))
 
     def add_tasks(self, neighbours, location, script):
-        """Adds a new task to the queue."""
+        """Adds a new task to the queue for the workers to process."""
         self.tasks.put((neighbours, location, script))
 
     def wait_completion(self):
-        """Blocks until all tasks in the queue are processed."""
+        """Blocks until all tasks in the queue have been processed."""
         self.tasks.join()
 
     def end_threads(self):
-        """Gracefully shuts down all worker threads."""
+        """Shuts down all worker threads in the pool gracefully."""
         self.tasks.join()
+        # Add a sentinel task for each thread to cause it to exit its loop.
         for _ in range(len(self.threads)):
-            self.add_tasks(None, None, None) # Send sentinel values.
+            self.add_tasks(None, None, None)
         for thread in self.threads:
             thread.join()
 
 
-from threading import Event, Thread, Lock
-from barrier import ReusableBarrierSem
-# This local import suggests the file was intended to be split.
-from ThreadPool import ThreadPool
-
 class Device(object):
-    """Represents a device in the simulation.
-    
-    This class holds device state and manages a `DeviceThread` which in turn
-    manages a `ThreadPool` for script execution.
-    """
+    """Represents a node in the distributed simulation."""
 
     def __init__(self, device_id, sensor_data, supervisor):
-        """Initializes the device, its locks, and its main thread."""
+        """Initializes the device."""
         self.device_id = device_id
         self.sensor_data = sensor_data
         self.supervisor = supervisor
@@ -131,13 +149,14 @@ class Device(object):
         return "Device %d" % self.device_id
 
     def setup_devices(self, devices):
-        """Sets up shared resources.
-        
-        WARNING: This implementation is flawed. Each device overwrites the
-        `locations_locks` of all other devices with its own dictionary of
-        locks. This creates a race condition where the last device to execute
-        this loop determines the single set of locks used by all devices,
-        instead of a master device creating and distributing one canonical set.
+        """
+        Initializes synchronization objects for the device group.
+
+        Note: This implementation appears to have a race condition. Each device
+        creates its own barrier and then assigns it to all other devices. The
+        last device to execute this will determine the barrier for everyone.
+        Similarly, `locations_locks` are overwritten, leading to unpredictable
+        synchronization behavior.
         """
         barrier = ReusableBarrierSem(len(devices))
         self.barrier = barrier
@@ -146,13 +165,13 @@ class Device(object):
             dev.locations_locks = self.locations_locks
 
     def assign_script(self, script, location):
-        """Assigns a script to the device.
+        """
+        Assigns a script to the device.
 
-        WARNING: This method contains a critical bug. The line
-        `self.locations_locks[location] = Lock()` overwrites the shared lock for
-        a given location with a new, unshared lock. This breaks the intended
-        synchronization between workers, as they will no longer be locking on
-        the same object for that location.
+        Note: This method contains a bug. It creates a new `Lock()` for the
+        given location, overwriting the shared lock that was intended to be
+        set up in `setup_devices`. This defeats the purpose of having a shared
+        lock for that location across devices.
         """
         if script is not None:
             self.scripts.append((script, location))
@@ -162,53 +181,55 @@ class Device(object):
             self.script_received.set()
 
     def get_data(self, location):
-        """Gets data from a location. (Locking is handled by the worker)."""
+        """Gets data from a specific sensor location. Not thread-safe by itself."""
         return self.sensor_data.get(location)
 
     def set_data(self, location, data):
-        """Sets data at a location. (Locking is handled by the worker)."""
+        """Sets data at a specific sensor location. Not thread-safe by itself."""
         if location in self.sensor_data:
             self.sensor_data[location] = data
 
     def shutdown(self):
-        """Joins the main thread for a graceful shutdown."""
+        """Shuts down the device thread."""
         self.thread.join()
 
+
 class DeviceThread(Thread):
-    """The main control loop for a device."""
+    """The main control thread for a device's lifecycle."""
 
     def __init__(self, device):
-        """Initializes the thread and its dedicated thread pool."""
+        """Initializes the DeviceThread and its associated ThreadPool."""
         Thread.__init__(self, name="Device Thread %d" % device.device_id)
         self.device = device
         self.thread_pool = ThreadPool(8)
 
     def run(self):
-        """The main device lifecycle loop.
-        
-        Orchestrates work for a time step: waits for scripts, dispatches them
-        to a thread pool, waits for completion, then syncs at a global barrier.
+        """The main orchestration loop.
+
+        In each time step, this loop waits for scripts to be assigned, dispatches
+        them to the thread pool, waits for their completion, and then synchronizes
+        with all other devices at a global barrier.
         """
         self.thread_pool.set_device(self.device, 8)
 
         while True:
             neighbours = self.device.supervisor.get_neighbours()
             if neighbours is None:
-                break # Simulation exit condition.
+                # Supervisor signals shutdown.
+                break
 
-            # Wait for the signal that all scripts for the step are assigned.
+            # Wait until all scripts for the time step are assigned.
             self.device.script_received.wait()
-            
+
             # Add all assigned scripts to the thread pool's task queue.
             for (script, location) in self.device.scripts:
                 self.thread_pool.add_tasks(neighbours, script, location)
 
             self.device.script_received.clear()
-            
-            # Wait for all workers to finish their tasks for this step.
+            # Wait for the thread pool to process all tasks for this time step.
             self.thread_pool.wait_completion()
-            
-            # Synchronize with all other devices before the next step.
+            # Synchronize with all other devices before starting the next time step.
             self.device.barrier.wait()
 
+        # Cleanly shut down the thread pool when the simulation ends.
         self.thread_pool.end_threads()

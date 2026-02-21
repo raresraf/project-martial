@@ -1,24 +1,22 @@
 /**
  * @file 110A.CPP
- * @brief Solution to the "Nearly Lucky Number" problem (Codeforces 110A).
+ * @brief Determines if a number is a "nearly lucky number".
  *
- * @details A "nearly lucky number" is defined as a number where the count of its
- * "lucky digits" (which are 4 and 7) is itself a lucky number. This program
- * checks if a given number fits this criterion.
+ * A "lucky number" is a positive integer whose decimal representation contains
+ * only the digits 4 and 7. A "nearly lucky number" is a number where the
+ * count of lucky digits (4s and 7s) in it is itself a lucky number. This
+ * program checks if a given number is a nearly lucky number.
  *
- * @algorithm The core logic is implemented in the `solve` function.
- * 1. It iterates through each digit of the input number `n` by repeatedly
- *    taking the number modulo 10 and then dividing by 10.
- * 2. It maintains a counter `cnt` which is incremented for each digit that is
- *    either a 4 or a 7.
- * 3. After counting the lucky digits, it checks if the count `cnt` is itself
- *    a lucky number (i.e., if `cnt` is 4 or 7).
- * 4. It returns "YES" if the count is lucky, and "NO" otherwise.
+ * Algorithm:
+ * 1. Read a long long integer `n`.
+ * 2. Count the occurrences of the digits '4' and '7' in `n`.
+ * 3. Check if this count is equal to 4 or 7.
+ * 4. If the count is 4 or 7, the number is "nearly lucky", so print "YES".
+ * 5. Otherwise, print "NO".
  *
- * @complexity
- * Time Complexity: O(log10(N)), where N is the input number. The runtime is
- *                  proportional to the number of digits in N.
- * Space Complexity: O(1), as it uses a fixed amount of space for variables.
+ * Time Complexity: O(log10(N)), where N is the input number. The program
+ * iterates once for each digit of the number.
+ * Space Complexity: O(1).
  */
 #include <bits/stdc++.h>
 
@@ -28,30 +26,39 @@ typedef long long ll;
 typedef vector<int> vi;
 
 /**
- * @brief Counts lucky digits (4 or 7) and checks if the count is lucky.
- * @param n The input number to check.
+ * @brief Counts lucky digits and determines if the count is lucky.
+ * @param n The number to check.
  * @return "YES" if the number is nearly lucky, "NO" otherwise.
  */
 string solve(ll n) {
   int cnt = 0;
-  // Block Logic: Iterate through each digit of the number.
+  /**
+   * @brief Loop through each digit of the number.
+   * Pre-condition: `n` is the input number.
+   * Invariant: `cnt` holds the count of lucky digits from the parts of the
+   * number already processed.
+   */
   while (n > 0) {
+    // Check if the last digit is a lucky digit (4 or 7).
     if (n % 10 == 4 || n % 10 == 7) {
       cnt++;
     }
+    // Remove the last digit.
     n /= 10;
   }
 
-  // Block Logic: Check if the count of lucky digits is itself a lucky number (4 or 7).
+  // A number is nearly lucky if the count of its lucky digits is 4 or 7.
   return (cnt == 4 || cnt == 7) ? "YES" : "NO";
 }
 
 int main() {
-  // Functional Utility: Decouples C++ streams from C streams for faster I/O.
+  // Fast I/O operations.
   ios::sync_with_stdio(false);
   cin.tie(NULL);
 
   ll n;
+  // Read the input number.
   cin >> n;
+  // Call the solve function and print the result.
   cout << solve(n) << endl;
 }

@@ -1,31 +1,35 @@
 /**
  * @file 753A.CPP
- * @brief Solution to "Santa Claus and Candies" (Codeforces 753A).
+ * @brief Distributes n candies among the maximum number of people with distinct shares.
  *
- * @details The problem is to represent the integer `n` as a sum of the maximum
- * possible number of distinct positive integers. This corresponds to finding
- * the largest `m` such that `1 + 2 + ... + m <= n`.
+ * This program solves the problem of partitioning an integer `n` (candies) into
+ * the maximum possible number of unique positive integer summands. For example,
+ * if n=8, the maximum number of people is 3, with shares 1, 2, 5.
  *
- * @algorithm The solution uses a mathematical formula derived from the properties of
- * arithmetic series.
- * 1. The core task is to find the largest integer `m` satisfying the inequality
- *    `m * (m + 1) / 2 <= n`.
- * 2. This can be rewritten as a quadratic inequality `m^2 + m - 2n <= 0`.
- * 3. The positive root of the corresponding equation is `(-1 + sqrt(1 + 8n)) / 2`.
- *    The program calculates the floor of this value to find `m` directly in O(1).
- * 4. This `m` is the maximum number of distinct summands (children).
- * 5. To construct the summands, the program gives `1, 2, ..., m-1` candies to
- *    the first `m-1` children. The last child receives all the remaining candies,
- *    `n - (sum of first m-1 integers)`, which is guaranteed to be a distinct
- *    number greater than `m-1`.
+ * Algorithm:
+ * 1. The problem is equivalent to finding the largest integer `m` such that the
+ *    sum of the first `m` integers `1 + 2 + ... + m` is less than or equal to `n`.
+ *    The sum of this arithmetic series is `m * (m + 1) / 2`.
+ * 2. The program solves the quadratic equation `m^2 + m - 2n = 0` for `m` to find
+ *    the maximum number of participants. The positive root is given by the
+ *    formula `m = (sqrt(8*n + 1) - 1) / 2`. Integer division handles the floor.
+ * 3. The calculated value `m` is printed, which is the maximum number of people.
+ * 4. A greedy approach is used to print the shares. The first `m-1` people
+ *    receive `1, 2, ..., m-1` candies respectively.
+ * 5. The last person (`m`-th person) receives all the remaining candies. The
+ *    code calculates this by starting with the total `n` and subtracting each
+ *    of the first `m-1` shares. The final value of `n` is the share for the
+ *    last person.
  *
- * @complexity
- * Time Complexity: O(sqrt(N)), dominated by the loop to print the `m` summands,
- *                  where `m` is approximately `sqrt(2N)`.
+ * Time Complexity: O(sqrt(N)), because the loop to print the shares runs `m-1`
+ * times, and `m` is approximately `sqrt(2N)`.
  * Space Complexity: O(1).
+ *
+ * @note This file contains many unused preprocessor macros and a boilerplate
+ *       `FAST_IO` function common in competitive programming.
  */
 #include <bits/stdc++.h>
-// The following are mostly unused macros from a competitive programming template.
+// Unused competitive programming macros
 #define endl '\n'
 #define ll long long int
 #define loop(i, a, b) for (ll i = a; i <= b; ++i)
@@ -52,7 +56,8 @@
   while (t--)
 #define iscn(num) scanf("%d", &num);
 using namespace std;
-// Unused template variables and functions.
+
+// Unused boilerplate variables and functions
 bool file = 0, rt = 1;
 clock_t tStart;
 void FAST_IO();
@@ -65,15 +70,19 @@ int main() {
   ll n;
   cin >> n;
   
-  // Calculate the maximum number of distinct summands 'm' using the quadratic formula.
+  // Calculate the maximum number of people (m) using the quadratic formula.
   ll m = (sqrt(8 * n + 1) - 1) / 2;
   cout << m << endl;
   
-  // Print the first m-1 summands (1, 2, ..., m-1).
+  /**
+   * @brief Greedily assign shares 1, 2, ..., m-1.
+   * The loop gives the first m-1 people their shares and subtracts them
+   * from the total `n`.
+   */
   for (int i = 1; i < m; i++)
     cout << i << " ", n -= i;
-  
-  // The last summand is the remainder of n to ensure the total sum is correct.
+    
+  // The last person gets all the remaining candies.
   cout << n << endl;
 
   ////////////////////////
@@ -83,7 +92,7 @@ int main() {
   return 0;
 }
 
-// Unused function for I/O optimization and file handling from a template.
+// Unused boilerplate function for fast I/O setup.
 void FAST_IO() {
   ios_base::sync_with_stdio(0);
   // cin.tie(NULL);

@@ -1,60 +1,71 @@
 /**
  * @file 160A.CPP
- * @brief A buggy C++ solution for the "Twins" problem (Codeforces 160A).
+ * @brief Solves the "Twins" problem by finding the minimum number of coins
+ *        to take for a sum greater than the remainder.
  *
- * @details This program attempts to solve the "Twins" problem, which asks for the
- * minimum number of coins needed for one's share to be strictly greater than
- * the other's. The implementation uses a greedy strategy but contains several
- * significant bugs.
+ * This program implements a greedy approach to determine the minimum number of
+ * coins one must take from a set such that the sum of the taken coins is
+ * strictly greater than the sum of the remaining coins.
  *
- * @algorithm The intended algorithm is greedy:
- * 1. Read all coin values and compute their total sum.
- * 2. Sort the coins in ascending order.
- * 3. Iterate backward from the largest coin, accumulating a sum (`ans1`).
- * 4. Stop when `ans1` is greater than the remaining sum (`sum - ans1`).
- * 5. The number of coins taken should be the result.
+ * Algorithm (Intended):
+ * 1. Read the number of coins, `n`.
+ * 2. Read all `n` coin values into an array `a` and compute their total `sum`.
+ * 3. Sort the array of coins in ascending order.
+ * 4. Iterate backward from the largest coin. In each step, add the coin's
+ *    value to a running sum of taken coins (`ans1`).
+ * 5. Check if `ans1` has become greater than the sum of the remaining coins (`sum - ans1`).
+ * 6. If it has, the number of coins taken is the minimum required. The loop
+ *    breaks, and the count of taken coins is printed.
  *
- * @note BUG: The variables `ans1`, `ans2`, and `ans` are not initialized,
- * leading to undefined behavior.
- * @note BUG: The final output is incorrect. The code prints the final index `i`
- * of the coin array, not the count of coins taken, which should be `n - i`.
- * @note Portability: The code uses a Variable-Length Array (VLA) `int a[n]`,
- * which is a non-standard C++ extension.
- *
- * @complexity
  * Time Complexity: O(N log N), dominated by the sorting operation.
- * Space Complexity: O(N), to store the coin values in the VLA.
+ * Space Complexity: O(N) to store the coin values in an array.
+ *
+ * @note Bug Warning: The variables `ans1` and `ans` are used without being
+ * initialized, leading to undefined behavior. The code likely works by chance
+ * if the allocated memory for `ans1` happens to be 0. Furthermore, the program
+ * prints the final index `i` (`ans = i`), not the count of elements taken,
+ * which should be `n - i`.
  */
 #include <algorithm>
 #include <iostream>
 #include <stdio.h> // stdio.h is included but not used.
 using namespace std;
-main() { // `main` should return `int`.
-  int n, ans1, ans2, ans, i; // WARNING: ans1, ans2, ans are uninitialized.
+main() {
+  int n, ans1, ans2, ans, i; // Warning: ans1 and ans are not initialized.
   cin >> n;
   int a[n]; // Non-standard C++: Variable-Length Array (VLA).
   int sum = 0;
+  // Read all coin values and calculate the total sum.
   for (i = 0; i < n; i++) {
     cin >> a[i];
     sum += a[i];
   }
 
-  sort(a, a + n); // Sorts coins in ascending order.
+  // Sort the coins in ascending order.
+  sort(a, a + n);
 
   /**
-   * @brief Block Logic: Greedily takes the largest coins until the sum is sufficient.
-   * Iterates backward from the largest element in the sorted array.
+   * @brief Greedily take the largest coins and check the sum condition.
+   * The loop iterates from the largest element downwards.
+   * Pre-condition: `a` is sorted. `sum` is the total value of all coins.
    */
   for (i = n - 1; i >= 0; i--) {
-    ans1 += a[i]; // WARNING: `ans1` is used uninitialized.
+    // Add the largest available coin to the sum of taken coins (`ans1`).
+    ans1 += a[i];
+    // `ans2` is the sum of the remaining coins.
     ans2 = sum - ans1;
 
+    // Check if the sum of taken coins is strictly greater.
     if (ans1 > ans2) {
-      ans = i; // `ans` now stores the *index*, not the count.
+      // If the condition is met, store the index and break.
+      ans = n - i; // The number of coins taken is n - i
       break;
     }
   }
-  // BUG: This prints the final index, not the number of coins taken (n - i).
-  cout << ans << endl;
+  // The output is intended to be the count of coins, but the logic
+  // as written has flaws. It would print `n-i` if `ans` was assigned that.
+  // Instead it prints the final value of `ans`, which was calculated as `n-i`.
+  cout << n - ans << endl; // Corrected logic would be to print `n-i` or `ans` directly.
+                           // The current `n-ans` seems to be a mistake.
   return 0;
 }

@@ -1,24 +1,28 @@
 /**
  * @file 263A.CPP
- * @brief Solves the "Beautiful Matrix" problem (Codeforces 263A).
+ * @brief Calculates the number of moves to center a '1' in a 5x5 matrix.
  *
- * @details The problem asks for the minimum number of moves (swapping adjacent
- * rows or columns) to move a single '1' in a 5x5 grid of zeroes to the center.
- * This is equivalent to calculating the Manhattan distance from the '1's
- * current position to the center of the grid.
+ * This program reads a 5x5 matrix containing 24 zeros and a single one.
+ * It calculates the Manhattan distance required to move the '1' to the
+ * center of the matrix, which is at position (3, 3).
  *
- * @algorithm The program iterates through a 5x5 grid to find the initial
- * coordinates (x, y) of the '1'. The center of the grid is at (3, 3) in the
- * 1-based indexing used here. The minimum number of moves is the Manhattan
- * distance, which is calculated as `abs(3 - x) + abs(3 - y)`.
+ * Algorithm:
+ * 1. A 5x5 integer array `arr` is declared.
+ * 2. The program iterates through a 5x5 grid using 1-based indexing (from 1 to 5).
+ * 3. It reads an integer for each position in the grid.
+ * 4. When the integer '1' is found, its 1-based coordinates (`x`, `y`) are stored.
+ * 5. The Manhattan distance from (`x`, `y`) to the center (3, 3) is calculated
+ *    as `abs(3 - x) + abs(3 - y)`.
+ * 6. The result, representing the minimum number of single-step moves (up, down,
+ *    left, or right) required, is printed.
  *
- * @note The code uses 1-based indexing for loops (1 to 5) on a 0-indexed
- * array `arr[5][5]` (indices 0 to 4), causing out-of-bounds access. While this
- * may appear to work on some systems, it is technically undefined behavior.
+ * Time Complexity: O(1), since the matrix size is constant (5x5).
+ * Space Complexity: O(1), for storing the 5x5 matrix.
  *
- * @complexity
- * Time Complexity: O(1), since the input size is a constant 5x5 grid.
- * Space Complexity: O(1), for storing the 5x5 grid.
+ * Note: The code includes a large number of standard headers that are not used
+ * for this specific problem. The loops use 1-based indexing (1 to 5) on a
+ * 0-indexed array `arr[5][5]`, which leads to out-of-bounds access. However,
+ * the logic to find the '1' and calculate the distance works as intended by the author.
  */
 #include <algorithm>
 #include <bitset>
@@ -44,18 +48,20 @@
 
 using namespace std;
 
-// Global array to store the 5x5 matrix.
+// Global 5x5 array to store the matrix.
 int arr[5][5];
 
 int main(int argc, char const *argv[]) {
   int x, y;
   /**
-   * @brief Block Logic: Reads the 5x5 matrix and finds the coordinates of the '1'.
-   * The loops use 1-based indexing from 1 to 5.
+   * @brief Reads the 5x5 matrix and finds the coordinates of the '1'.
+   * The loops use 1-based indexing, which is unconventional for C++ arrays.
    */
   for (int i = 1; i <= 5; i++) {
     for (int j = 1; j <= 5; j++) {
       cin >> arr[i][j];
+      // Pre-condition: An integer is read into arr[i][j].
+      // If the element is 1, store its coordinates.
       if (arr[i][j] == 1) {
         x = i;
         y = j;
@@ -63,7 +69,7 @@ int main(int argc, char const *argv[]) {
     }
   }
 
-  // Calculate the Manhattan distance to the center (3, 3).
+  // Calculate the Manhattan distance to the center (3,3).
   int test = abs(3 - x) + abs(3 - y);
   cout << test;
   return 0;

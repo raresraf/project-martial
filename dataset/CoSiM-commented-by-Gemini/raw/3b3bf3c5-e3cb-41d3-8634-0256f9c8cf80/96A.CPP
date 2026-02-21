@@ -1,34 +1,34 @@
-///       From dust I came and to dust I shall return
-/**
-                    Asadullah Bin Rahman
-                          CSE-17
-    HAJEE MOHAMMAD DANESH SCIENCE AND TECHNOLOGY UNIVERSITY
-*/
 /**
  * @file 96A.CPP
- * @brief Solution for the "Football" problem (Codeforces 96A).
+ * @brief Determines if a situation in a football match is "dangerous".
  *
- * @details The problem is to determine if there is a "dangerous" situation, defined
- * as a sequence of 7 or more players of the same team standing next to
- * each other. Players are represented by a string of '0's and '1's.
+ * This program analyzes a string representing a sequence of football players
+ * from two teams (encoded as '0' and '1'). A situation is considered
+ * "dangerous" if there are seven or more consecutive players from the same team.
  *
- * @algorithm The program uses a single pass with a counter to find the longest
- * run of identical consecutive characters.
- * 1. It initializes a `count` for the current run to 1.
- * 2. It iterates through the string from the second character.
- * 3. If the current character matches the previous one, `count` is incremented.
- *    If not, the run is broken, and `count` is reset to 1.
- * 4. If `count` ever reaches 7, a dangerous situation is found, "YES" is printed,
- *    and the program terminates.
- * 5. If the loop finishes without `count` reaching 7, "NO" is printed.
+ * Algorithm:
+ * 1. Read the input string `s` representing the line of players.
+ * 2. Initialize a counter `count` to 1.
+ * 3. Iterate through the string from the second character to the end.
+ * 4. In each iteration, compare the current character `s[i]` with the
+ *    previous character `s[i-1]`.
+ *    a. If they are the same, increment the `count` of consecutive players.
+ *    b. If `count` reaches 7, a dangerous situation is found. Print "YES"
+ *       and terminate the program.
+ *    c. If the characters are different, reset `count` to 1.
+ * 5. If the loop completes without `count` ever reaching 7, no dangerous
+ *    situation occurred. Print "NO".
  *
- * @complexity
- * Time Complexity: O(L), where L is the length of the input string, due to the
- *                  single pass.
- * Space Complexity: O(L), to store the input string.
+ * Time Complexity: O(N), where N is the length of the string, as it involves
+ * a single pass over the input.
+ * Space Complexity: O(N) to store the input string.
+ *
+ * @note This file contains many preprocessor definitions, typedefs, and
+ *       commented-out code blocks that are part of a common competitive
+ *       programming template and are not used in this solution.
  */
 #include <bits/stdc++.h>
-// Unused macros and template code from a competitive programming setup.
+// Unused competitive programming macros
 #define sf(f) scanf("%d", &f)
 #define pf(f) printf("%d\n", f)
 #define PI 3.1415926535897932385
@@ -41,6 +41,7 @@
 using namespace std;
 typedef long long ll;
 
+// Unused template code for directional arrays
 /// int dx[]= {-1,-1,0,0,1,1};
 /// int dy[]= {-1,0,-1,1,0,1};
 /// int dx[]= {0,0,1,-1};                 /*4 side move*/
@@ -54,31 +55,31 @@ typedef long long ll;
 int main() {
   string s;
   cin >> s;
-  int count = 1; // Tracks the length of the current run of identical characters.
+  // `count` tracks the number of consecutive identical players.
+  int count = 1;
   int l = s.length();
-
+  
   /**
-   * @brief Block Logic: Iterates through the string to find a run of 7.
-   * @invariant `count` holds the length of the identical character run ending
-   * at index `i-1`.
+   * @brief Iterate through the string to check for 7 consecutive players.
+   * Pre-condition: `s` contains the player sequence.
+   * Loop starts from 1 to allow comparison with the previous character.
    */
   for (int i = 1; i < l; ++i) {
     if (s[i] == s[i - 1]) {
-      // If the character is the same as the previous one, extend the run.
-      // cout<<"fuck\n";
+      // If the current player is from the same team as the previous one, increment count.
       count += 1;
+      // Check if the dangerous condition is met.
       if (count == 7) {
         cout << "YES" << endl;
-        return 0; // Early exit upon finding a dangerous situation.
+        return 0; // Terminate immediately.
       }
-    }
-
-    else
-      // If the character changes, reset the run counter.
+    } else {
+      // If the streak is broken, reset the counter.
       count = 1;
+    }
   }
 
-  // If the loop completes, no run of 7 was found.
+  // If the loop completes, no dangerous situation was found.
   cout << "NO" << endl;
   return 0;
 }

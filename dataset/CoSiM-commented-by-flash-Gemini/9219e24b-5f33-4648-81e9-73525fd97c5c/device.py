@@ -1,27 +1,45 @@
 
 
 
+"""
+@9219e24b-5f33-4648-81e9-73525fd97c5c/device.py
+@brief Implements a single-threaded device simulation with condition variable-based barrier synchronization.
+
+This module defines a `Device` that manages its own sensor data and processes scripts
+within a dedicated `DeviceThread`. Synchronization across devices for timepoint progression
+and script execution is managed via a `CondBarrier`, a condition variable-based mechanism,
+along with a global lock to ensure data consistency during concurrent updates across devices.
+"""
+
 from threading import Event, Thread, Condition, Lock
 
 
 class Device(object):
     """
-    Represents a single device in a simulated distributed system.
-    Each device manages its own sensor data, interacts with a supervisor,
-    executes assigned scripts, and coordinates its operations through
-    a dedicated thread and shared synchronization primitives.
+    @brief Represents a simulated device managing sensor data and script execution.
+
+    Each Device instance is responsible for its unique ID, sensor readings,
+    and a reference to the supervisor. It processes scripts sequentially
+    within its `DeviceThread` and participates in global synchronization
+    through a `CondBarrier` and a global `Lock`.
     """
+    
+
     def __init__(self, device_id, sensor_data, supervisor):
         """
-        Initializes a new Device instance.
+        @brief Initializes a new Device instance.
 
-        Args:
-            device_id (int): A unique identifier for the device.
-            sensor_data (dict): A dictionary holding the device's sensor data,
-                                keyed by location.
-            supervisor (Supervisor): The supervisor object responsible for
-                                     managing devices and providing neighborhood information.
+        Sets up device-specific attributes such as ID, sensor data, and supervisor reference.
+        It also initializes internal state for script management, event signaling,
+        and thread management. Synchronization primitives (`barr`, `lock`) are
+        initialized to None and expected to be set up by the `setup_devices` method
+        of a coordinating device (typically `device_id == 0`).
+
+        @param device_id: A unique identifier for the device.
+        @param sensor_data: A dictionary containing the device's initial sensor readings.
+        @param supervisor: A reference to the supervisor object managing the device network.
         """
+        
         self.device_id = device_id
         self.sensor_data = sensor_data
         self.supervisor = supervisor
@@ -41,22 +59,30 @@ class Device(object):
 
     def __str__(self):
         """
-        Returns a string representation of the Device.
+        @brief Returns a string representation of the Device.
+
+        @return: A string in the format "Device <device_id>".
         """
+        
         return "Device %d" % self.device_id
 
     def setup_devices(self, devices):
         """
-        Configures a shared barrier and a global lock among a group of devices.
-        This method ensures that all devices have access to the same synchronization
-        primitives for timepoint progression and thread-safe operations.
-        The device with the smallest ID typically initializes these shared resources.
+        @brief Configures global synchronization resources and starts the device's main thread.
 
-        Args:
-            devices (list): A list of all Device objects participating in the simulation.
+        This method handles the initialization and propagation of shared synchronization
+        primitives. If this device is the first in the `devices` list and has not
+        yet had its barrier initialized, it creates a new `CondBarrier` (sized for
+        all devices) and a global `Lock`. These instances are then assigned to all
+        devices in the simulation to ensure consistent synchronization across the network.
+        Finally, it starts its own `DeviceThread` to begin processing.
+
+        @param devices: A list of all Device instances participating in the simulation.
         """
-        # The first device in the list (assuming it represents the leader or device with ID 0)
-        # initializes the barrier if it hasn't been initialized already.
+        
+        
+        
+		
         if devices[0].barr is None and self.device_id == devices[0].device_id:
                 # Create a new CondBarrier for all participating devices.
                 barr = CondBarrier(len(devices))
@@ -71,14 +97,16 @@ class Device(object):
 
     def assign_script(self, script, location):
         """
-        Assigns a script to be executed by the device at a specific data location.
-        If `script` is None, it signals the completion of script assignments for the timepoint.
+        @brief Assigns a script to be processed or signals completion of a timepoint.
 
-        Args:
-            script (Script): The script object to be executed. If None, it signals
-                             the end of scripts for the current timepoint.
-            location: The data location pertinent to the script.
+        If a `script` is provided, it is appended to the device's list of `scripts`.
+        If `script` is None, it signals the completion of script assignments for the
+        current timepoint by setting both the `timepoint_done` and `script_received` events.
+
+        @param script: The script object to be executed, or None to signal timepoint completion.
+        @param location: The data location (e.g., sensor ID) the script operates on.
         """
+        
         if script is not None:
             self.scripts.append((script, location))
         else:
@@ -89,51 +117,73 @@ class Device(object):
 
     def get_data(self, location):
         """
-        Retrieves sensor data for a given location.
+        @brief Retrieves sensor data for a specific location.
 
-        Args:
-            location: The key for the sensor data.
-
-        Returns:
-            The sensor data for the specified location, or None if not found.
+        @param location: The key identifying the sensor data to retrieve.
+        @return: The sensor data at the specified location, or None if not found.
         """
+        
         return self.sensor_data[location] if location in self.sensor_data else None
 
     def set_data(self, location, data):
         """
-        Sets or updates sensor data for a given location.
+        @brief Sets or updates sensor data for a specific location.
 
-        Args:
-            location: The key for the sensor data.
-            data: The new data to set.
+        Updates the sensor data if the location already exists in the device's
+        sensor data dictionary.
+
+        @param location: The key identifying the sensor data to update.
+        @param data: The new data value to set for the specified location.
         """
+        
         if location in self.sensor_data:
             self.sensor_data[location] = data
 	
     def shutdown(self):
         """
-        Shuts down the device by joining its execution thread.
+        @brief Shuts down the device's main processing thread.
+
+        This method waits for the device's main `DeviceThread` to complete
+        its execution, ensuring a clean and orderly shutdown.
         """
+        
         self.thread.join()
 
 class CondBarrier():
     """
-    Implements a reusable barrier synchronization mechanism using a Condition variable.
-    Threads arriving at the barrier wait until all expected threads have arrived,
-    after which all are released simultaneously, and the barrier is reset for reuse.
-    """
-    def __init__(self, num_threads):
-        """
-        Initializes the CondBarrier.
+    @brief A reusable synchronization barrier implemented using a Condition variable.
 
-        Args:
-            num_threads (int): The total number of threads that must reach the barrier.
-        """
-        self.num_threads = num_threads
-        # Counter for threads that have not yet reached the barrier.
-        self.count_threads = self.num_threads
-        # Condition variable used for waiting and notifying threads.
-        self.cond = Condition()
+    This barrier allows a fixed number of threads to wait until all have reached
+    a specific point of execution before any are allowed to proceed. It is designed
+    to be reusable for multiple synchronization points within a simulation.
+    """
+	    def __init__(self, num_threads):
+	        """
+	        @brief Initializes a new CondBarrier instance.
+	
+	        Sets the total number of threads that must reach the barrier and initializes
+	        the internal counter and condition variable.
+	
+	        @param num_threads: The total number of threads expected to synchronize at this barrier.
+	        """		self.num_threads = num_threads
+		self.count_threads = self.num_threads
+		self.cond = Condition()
+
+	    def wait(self):
+	        """
+	        @brief Blocks the calling thread until all registered threads have reached the barrier.
+	
+	        Acquires a condition lock, decrements the internal count of threads yet to reach the barrier.
+	        If this thread is the last to arrive, it notifies all waiting threads and
+	        resets the barrier for reuse. Otherwise, it waits until signaled by the last thread.
+	        """		self.cond.acquire()
+		self.count_threads -= 1
+		if self.count_threads == 0:
+			self.cond.notify_all()
+			self.count_threads = self.num_threads
+		else:
+			self.cond.wait()
+		self.cond.release()
 
     def wait(self):
         """
@@ -155,72 +205,104 @@ class CondBarrier():
 
 class DeviceThread(Thread):
     """
-    The dedicated thread of execution for a Device object.
-    It manages the device's operational logic within the simulation loop,
-    including supervisor interaction, sequential script execution,
-    and coordinating with other devices using a global barrier.
+    @brief Manages the execution lifecycle of a Device.
+
+    This thread is responsible for continuously fetching neighbor information,
+    processing assigned scripts, and participating in global synchronization
+    through a `CondBarrier`. It operates as a single processing unit for
+    its associated `Device` instance.
     """
+    
+
     def __init__(self, device):
         """
-        Initializes the DeviceThread.
+        @brief Initializes a new DeviceThread instance.
 
-        Args:
-            device (Device): The Device object associated with this thread.
+        Sets up the thread with a descriptive name and associates it with
+        the Device instance it will manage.
+
+        @param device: The Device instance this thread is responsible for.
         """
+        
         Thread.__init__(self, name="Device Thread %d" % device.device_id)
         self.device = device
 		
 
     def run(self):
         """
-        The main execution loop for the device thread.
-        It continuously processes timepoints, executes scripts sequentially
-        under a global lock, and synchronizes with other devices.
+        @brief The main execution loop for the DeviceThread.
+
+        This loop continuously performs the following steps for each simulation timepoint:
+        1.  Fetches the current set of neighboring devices from the supervisor.
+        2.  Terminates if no neighbors are found, signifying the end of the simulation for this device.
+        3.  Waits for the supervisor to signal that a new timepoint has begun and scripts are ready.
+        4.  Iterates through all assigned scripts for the current timepoint:
+            a.  Acquires a global lock to ensure exclusive access during script processing for this device.
+            b.  Collects relevant data from neighbors and the device's own sensors.
+            c.  Executes the script with the collected data.
+            d.  Disseminates the processed result by updating the sensor data of neighbors and the device itself.
+            e.  Releases the global lock.
+        5.  Clears the timepoint completion event, preparing for the next timepoint.
+        6.  Participates in a global `CondBarrier` synchronization, ensuring all devices
+            are synchronized before advancing to the next timepoint.
         """
         while True:
-            # Retrieve current neighbor information from the supervisor.
+            # Block Logic: Fetches the current set of active neighbors for data exchange.
+            # Functional Utility: Dynamically updates the device's awareness of its network topology.
             neighbours = self.device.supervisor.get_neighbours()
-            # If no neighbors are returned, it signifies the end of the simulation.
+            # Invariant: If no neighbors are returned, the simulation for this device is complete.
             if neighbours is None:
                 break
 
-            # Wait until scripts for the current timepoint have been assigned.
-            # This Event is set by the assign_script method when script is None.
+            # Block Logic: Waits for the supervisor to signal the start of a new timepoint and availability of scripts.
+            # Functional Utility: Orchestrates the progression of simulation timepoints, ensuring data consistency.
             self.device.timepoint_done.wait()
 
-            # Iterate through and execute all assigned scripts for the current timepoint.
-            # Note: All script execution is protected by a single global lock,
-            # which can serialize operations across devices and locations.
+            # Block Logic: Processes each assigned script using data from local sensors and neighbors.
+            # Invariant: Each script operates on a specific 'location' and its collected data.
             for (script, location) in self.device.scripts:
-                # Acquire the global lock to ensure exclusive access during data processing.
+                # Block Logic: Acquires a global lock for exclusive access during script processing.
+                # Functional Utility: Prevents race conditions and ensures atomic updates to shared resources
+                #                      when processing scripts.
                 self.device.lock.acquire()
                 script_data = []
                 
-                # Collect data from neighboring devices for the current location.
+                # Block Logic: Gathers relevant sensor data from neighboring devices for the current script's location.
+                # Functional Utility: Collects necessary input for the script based on the current network state.
                 for device in neighbours:
                     data = device.get_data(location)
                     if data is not None:
                         script_data.append(data)
                 
-                # Collect data from the local device for the current location.
+                # Block Logic: Includes the device's own sensor data for the current script's location.
+                # Functional Utility: Ensures the script considers the device's local state.
                 data = self.device.get_data(location)
                 if data is not None:
                     script_data.append(data)
 
                 # Execute the script if there is data to process.
                 if script_data != []:
-                    # Execute the script with the aggregated data.
+                    # Block Logic: Executes the assigned script with the aggregated data.
+                    # Architectural Intent: Decouples computational logic from data management,
+                    #                      allowing dynamic script execution based on current data.
                     result = script.run(script_data)
 
-                    # Propagate the script's result back to all neighboring devices.
+                    # Block Logic: Disseminates the computed result to neighboring devices.
+                    # Functional Utility: Propagates state changes across the network as a result of script execution.
                     for device in neighbours:
                         device.set_data(location, result)
                     
-                    # Update the local device's data with the script's result.
+                    # Block Logic: Updates the device's own sensor data with the computed result.
+                    # Functional Utility: Reflects local state changes due to script processing.
                     self.device.set_data(location, result)
-                self.device.lock.release() # Release the global lock.
+                # Block Logic: Releases the global lock after script processing is complete.
+                # Functional Utility: Allows other devices to acquire the lock and process their scripts.
+                self.device.lock.release()
             
-            # Reset the timepoint_done event for the next timepoint.
+            # Block Logic: Clears the timepoint completion event, preparing for the next timepoint.
+            # Functional Utility: Resets the event for a new cycle of timepoint synchronization.
             self.device.timepoint_done.clear()
-            # Synchronize with all other devices at the global barrier before starting the next timepoint.
+            # Block Logic: Global synchronization point for all devices across the simulation.
+            # Functional Utility: Ensures all devices have completed their processing for the current
+            #                      timepoint before advancing to the next.
             self.device.barr.wait()

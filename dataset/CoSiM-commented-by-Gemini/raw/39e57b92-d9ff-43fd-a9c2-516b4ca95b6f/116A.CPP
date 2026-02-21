@@ -1,29 +1,31 @@
-// Codeforces_Andrespengineer
-/* List of solved problems
- *
- * Andr s Sierra
- * Instituto Tecnol gico de Santo Domingo (INTEC)
- */
-
 /**
  * @file 116A.CPP
- * @brief Solution to the "Tram" problem (Codeforces 116A) with special handling for the first stop.
+ * @brief Calculates the minimum capacity of a tram based on passenger flow at stops.
+ * @author Andr s Sierra
  *
- * @details This program calculates the minimum possible capacity of a tram by simulating
- * the number of passengers at each stop and tracking the peak.
+ * This program simulates the number of passengers on a tram over a series of stops
+ * to determine the peak passenger count. This peak count represents the minimum
+ * capacity the tram must have. The implementation handles the first stop as a
+ * special case.
  *
- * @algorithm The program simulates passenger flow stop by stop. It uses a `flag`
- * variable to identify and handle the first stop as a special case.
- * 1. At the first stop, the current passenger count (`temp`) and max capacity (`capacity`)
- *    are initialized to the number of entering passengers.
- * 2. At each subsequent stop, the current passenger count is updated by subtracting
- *    exiting passengers and adding entering ones.
- * 3. The max capacity is updated if the current passenger count exceeds the previous max.
- * 4. After processing all stops, the final max capacity is the answer.
+ * Algorithm:
+ * 1. Read the total number of stops, `n`.
+ * 2. Initialize `capacity` (max passengers) and `temp` (current passengers).
+ * 3. A `flag` variable stores the initial number of stops to identify the first
+ *    iteration of the loop.
+ * 4. Loop `n` times, once for each stop.
+ *    a. Read the number of passengers exiting (`a`) and entering (`b`).
+ *    b. For the first stop (`n == flag`):
+ *       - The initial number of passengers is `b` (as `a` is 0).
+ *       - Both `capacity` and `temp` are set to `b`.
+ *    c. For all subsequent stops:
+ *       - Update the current passenger count: `temp = (temp - a) + b`.
+ *       - If the new count `temp` is greater than the max `capacity` recorded so far,
+ *         update `capacity` to `temp`.
+ * 5. After the loop, print the final `capacity`.
  *
- * @complexity
  * Time Complexity: O(N), where N is the number of stops, due to the single loop.
- * Space Complexity: O(1), as only a few variables are needed for the simulation.
+ * Space Complexity: O(1), as it uses a fixed number of variables.
  */
 #include <iostream>
 
@@ -35,13 +37,12 @@ int main() {
 
   cin >> n;
 
-  // `flag` is used to identify the first iteration of the while loop.
+  // `flag` is used to identify the first stop in the loop.
   int flag = n;
 
   /**
-   * @brief Block Logic: Simulates passenger count over `n` stops.
-   * @invariant `temp` holds the current passenger count. `capacity` holds the
-   * maximum passenger count observed so far.
+   * @brief Main loop to simulate passenger flow at each stop.
+   * Pre-condition: `n` holds the number of stops.
    */
   while (n > 0) {
     cin >> a >> b;
@@ -51,11 +52,12 @@ int main() {
       capacity = b;
       temp = b;
     }
-
+    // Logic for all subsequent stops.
     else {
-      // Update passenger count for subsequent stops.
+      // Update the current number of passengers.
       temp = (temp - a) + b;
 
+      // If the current passenger count is the highest so far, update capacity.
       if (temp >= capacity)
         capacity = temp;
     }
@@ -63,5 +65,6 @@ int main() {
     n--;
   }
 
+  // Print the maximum capacity required.
   cout << capacity << endl;
 }

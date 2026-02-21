@@ -24,15 +24,16 @@ Architecture:
   timepoint boundaries.
 - `Queue`: Manages incoming scripts for processing by `WorkerThread` instances.
 
-Patterns:
-- Master-Slave: Device 0 acts as a master for setting up shared resources.
-- Producer-Consumer: The `assign_script` method acts as a producer, adding scripts
-  to a queue, while `WorkerThread` instances act as consumers.
-- Barrier Synchronization: Ensures all devices/threads reach a specific point
-  before proceeding, crucial for time-step simulations.
-- Fine-grained Locking: `location_locks` ensure exclusive access to sensor data
-  at specific locations during script execution across concurrent worker threads.
 """
+@90ef0dc7-ccef-4ad4-a48e-c99934a4846f/device.py
+@brief Implements a multi-threaded device simulation with script queuing and conditional barrier synchronization.
+
+This module defines a `Device` that manages its own sensor data and orchestrates parallel script execution
+through a main `DeviceThread` and dynamically spawned `WorkerThread`s. Scripts are distributed
+via a `Queue`, and synchronization is achieved using a `ReusableBarrierCond` for global timepoint
+coordination and per-location locks for data integrity during concurrent updates.
+"""
+
 from threading import Thread, Lock
 from barrier import ReusableBarrierCond
 from Queue import Queue
@@ -40,22 +41,34 @@ from Queue import Queue
 
 class Device(object):
     """
-    @brief Represents a simulated device in a distributed sensing network.
+    @brief Represents a simulated device managing sensor data, script queuing, and multi-threaded execution.
 
-    Manages local sensor data, orchestrates script execution using worker threads,
-    and participates in synchronization protocols for distributed simulation.
+    Each Device instance is responsible for holding its unique ID, sensor readings,
+    and a reference to the supervisor. It maintains a `Queue` for incoming scripts
+    and orchestrates a `DeviceThread` which, in turn, manages multiple `WorkerThread`s
+    for concurrent script processing. Synchronization mechanisms like `location_locks`,
+    a global lock, and a `ReusableBarrierCond` are managed to ensure data consistency
+    across the distributed simulation.
     """
+    
 
     def __init__(self, device_id, sensor_data, supervisor):
         """
-        @brief Initializes a new Device instance.
+        @brief Initializes a new Device instance, setting up its state and multi-threading components.
 
-        @param device_id: A unique identifier for this device.
-        @param sensor_data: A dictionary containing initial sensor readings
-                            for various locations.
-        @param supervisor: A reference to the central supervisor managing
-                           the distributed system.
+        Initializes device-specific attributes such as ID, sensor data, and supervisor reference.
+        It sets up a `Queue` for scripts, defines the number of worker threads, and
+        prepares synchronization primitives including:
+        - `location_locks`: Dynamically created locks for specific data locations.
+        - `lock`: A global lock for managing access to shared device resources.
+        - `barrier`: A global `ReusableBarrierCond` for inter-device synchronization.
+        - `thread`: The main `DeviceThread` responsible for orchestrating worker threads.
+
+        @param device_id: A unique identifier for the device.
+        @param sensor_data: A dictionary containing the device's initial sensor readings.
+        @param supervisor: A reference to the supervisor object managing the device network.
         """
+        
         self.device_id = device_id
         self.sensor_data = sensor_data
         self.supervisor = supervisor
@@ -75,22 +88,25 @@ class Device(object):
         """
         @brief Returns a string representation of the Device.
 
-        @return A string in the format "Device <device_id>".
+        @return: A string in the format "Device <device_id>".
         """
+        
         return "Device %d" % self.device_id
 
     def setup_devices(self, devices):
         """
-        @brief Sets up inter-device communication and synchronization mechanisms.
+        @brief Configures global synchronization resources and starts the device's main thread.
 
-        The master device (device_id 0) initializes shared location locks and a
-        global barrier. These shared resources are then propagated to all other devices.
-        Each device also initializes and starts its dedicated `DeviceThread`.
+        If this is the device with `device_id == 0` (acting as a coordinator):
+        - It initializes the shared `location_locks` dictionary, a global `lock`,
+          and a `ReusableBarrierCond` to synchronize all devices in the simulation.
+        - These shared resources are then propagated to all other devices.
+        Finally, it creates and starts its own `DeviceThread` which will manage the
+        worker threads for this specific device.
 
-        @param devices: A list of all Device instances in the simulation.
+        @param devices: A list of all Device instances participating in the simulation.
         """
-        # Block Logic: Master device (device_id 0) initializes shared resources.
-        # Pre-condition: This block executes once at the start of the simulation by device 0.
+        
         if self.device_id == 0:
             # Invariant: `location_locks` will contain a lock for each unique sensor data location.
             self.location_locks = {}
@@ -113,18 +129,20 @@ class Device(object):
 
     def assign_script(self, script, location):
         """
-        @brief Assigns a script to be executed at a specific data location.
+        @brief Assigns a script to the processing queue and manages location-specific locks.
 
-        If a script is provided, it's added to the device's script queue.
-        A lock for the specific location is created if it doesn't already exist.
-        If no script is provided (None), a shutdown signal is sent to all worker threads.
+        If a `script` is provided (not None), it's added to the internal `queue` along
+        with its `location`. A global lock (`self.lock`) is used to safely check and
+        create a new `Lock` for the `location` in `self.location_locks` if one doesn't
+        already exist, ensuring concurrent access control for that specific data point.
+        If `script` is None, it signals the end of scripts for the current timepoint
+        by adding `num_threads` (None, None) tuples to the queue, which act as
+        termination signals for the worker threads.
 
-        @param script: The script object to execute, or None to signal shutdown.
-        @param location: The data location (e.g., sensor ID) where the script
-                         should operate.
+        @param script: The script object to be executed, or None to signal timepoint completion.
+        @param location: The data location (e.g., sensor ID) the script operates on.
         """
-        # Block Logic: Adds a script to the queue for processing by worker threads.
-        # Pre-condition: 'script' is an executable object.
+        
         if script is not None:
             # Block Logic: Ensures atomic creation of a location-specific lock if not present.
             with self.lock:
@@ -138,50 +156,61 @@ class Device(object):
 
     def get_data(self, location):
         """
-        @brief Retrieves sensor data for a given location.
+        @brief Retrieves sensor data for a specific location.
 
-        @param location: The identifier for the data location.
-        @return The sensor data at the specified location, or None if not found.
+        @param location: The key identifying the sensor data to retrieve.
+        @return: The sensor data at the specified location, or None if not found.
         """
+        
         return self.sensor_data[
             location] if location in self.sensor_data else None
 
     def set_data(self, location, data):
         """
-        @brief Sets or updates sensor data for a given location.
+        @brief Sets or updates sensor data for a specific location.
 
-        @param location: The identifier for the data location.
-        @param data: The new data to set.
+        Updates the sensor data if the location already exists in the device's
+        sensor data dictionary.
+
+        @param location: The key identifying the sensor data to update.
+        @param data: The new data value to set for the specified location.
         """
-        # Block Logic: Updates sensor data only if the location already exists.
-        # This prevents accidental creation of new data locations.
+        
         if location in self.sensor_data:
             self.sensor_data[location] = data
 
     def shutdown(self):
         """
-        @brief Shuts down the device by waiting for its main thread to complete.
+        @brief Shuts down the device's main processing thread.
 
-        Functional Utility: Ensures proper termination and cleanup of resources
-        associated with the device's concurrent execution.
+        This method waits for the device's main `DeviceThread` to complete
+        its execution, ensuring a clean and orderly shutdown.
         """
+        
         self.thread.join()
 
 
 class DeviceThread(Thread):
     """
-    @brief A dedicated thread for each Device, orchestrating timepoint execution.
+    @brief Orchestrates the execution of worker threads for a Device at each timepoint.
 
-    This thread manages the lifecycle of worker threads, neighborhood discovery,
-    and timepoint-level synchronization for its parent Device.
+    This thread acts as the main control unit for a `Device`, responsible for
+    fetching neighborhood information and spawning a pool of `WorkerThread`s
+    for each simulation timepoint. It ensures all worker threads complete their
+    tasks and then participates in a global barrier synchronization before
+    proceeding to the next timepoint.
     """
+    
 
     def __init__(self, device):
         """
         @brief Initializes a new DeviceThread instance.
 
-        @param device: A reference to the parent Device.
+        Associates the thread with its parent `Device` instance.
+
+        @param device: The parent Device instance this thread belongs to.
         """
+        
         Thread.__init__(self)
         self.device = device
 
@@ -189,63 +218,84 @@ class DeviceThread(Thread):
         """
         @brief The main execution loop for the DeviceThread.
 
-        Continuously discovers neighbors, creates and manages WorkerThreads to
-        process scripts, and synchronizes with other devices at the end of
-        each timepoint until a shutdown signal is received.
+        This loop continuously performs the following steps for each simulation timepoint:
+        1.  Fetches the current set of neighboring devices from the supervisor.
+        2.  Terminates if no neighbors are found, signifying the end of the simulation for this device.
+        3.  Spawns a pool of `WorkerThread`s, each tasked with processing scripts from the queue.
+        4.  Waits for all `WorkerThread`s to complete their execution for the current timepoint.
+        5.  Participates in a global `ReusableBarrierCond` synchronization, ensuring all devices
+            are synchronized before advancing to the next timepoint.
         """
         while True:
-            # Block Logic: Discovers neighboring devices for the current timepoint.
-            # Pre-condition: `self.device.supervisor` is available to provide neighborhood information.
+            # Block Logic: Fetches the current set of active neighbors for data exchange.
+            # Functional Utility: Dynamically updates the device's awareness of its network topology.
             neighbours = self.device.supervisor.get_neighbours()
-            # Block Logic: Checks for a shutdown condition (None neighbors indicates termination).
+            # Invariant: If no neighbors are returned, the simulation for this device is complete.
             if neighbours is None:
                 break
 
-            # Block Logic: Creates and starts multiple WorkerThreads for concurrent script processing.
-            # Invariant: `self.device.num_threads` WorkerThreads are created for each timepoint.
+            # Block Logic: Creates and starts a pool of WorkerThread instances for concurrent script processing.
+            # Architectural Intent: Leverages multi-threading to parallelize the execution of scripts
+            #                      for the current timepoint.
             worker_threads = [WorkerThread(self.device, neighbours) for _ in
                               range(self.device.num_threads)]
             for thread in worker_threads:
                 thread.start()
-            # Block Logic: Waits for all WorkerThreads to complete their tasks for the current timepoint.
+            # Block Logic: Waits for all spawned WorkerThread instances to complete their assigned tasks.
+            # Functional Utility: Ensures all scripts for the current timepoint are processed before global synchronization.
             for thread in worker_threads:
                 thread.join()
 
-            # Block Logic: Synchronizes all devices in the simulation at the end of the timepoint.
-            # Invariant: All devices complete their script processing before advancing to the next timepoint.
+            # Block Logic: Global synchronization point for all devices across the simulation.
+            # Functional Utility: Ensures all devices have completed their processing for the current
+            #                      timepoint before advancing to the next.
             self.device.barrier.wait()
 
 
 class WorkerThread(Thread):
     """
-    @brief A worker thread responsible for fetching and executing scripts.
+    @brief Represents a worker thread that executes individual scripts for a Device.
 
-    Multiple instances of WorkerThread run concurrently within a Device to
-    process scripts from a shared queue, applying them to local and
-    neighboring sensor data.
+    These threads are spawned by the `DeviceThread` for each timepoint. Their responsibility
+    is to fetch scripts from the device's queue, gather relevant data from neighbors and
+    the device itself, execute the script, and then disseminate the results, while
+    adhering to location-specific locking for data integrity.
     """
+    
 
     def __init__(self, device, neighbours):
         """
         @brief Initializes a new WorkerThread instance.
 
-        @param device: A reference to the parent Device.
-        @param neighbours: A list of neighboring Device instances.
+        Associates the thread with its parent `Device` instance and a snapshot
+        of the current `neighbours` list, which is stable for the duration
+        of this worker thread's execution.
+
+        @param device: The parent Device instance this worker thread belongs to.
+        @param neighbours: A list of neighboring Device instances relevant for this timepoint.
         """
+        
         Thread.__init__(self)
         self.device = device
         self.neighbours = neighbours
 
     def run_script(self, script, location):
         """
-        @brief Executes a given script on sensor data from the current device and its neighbors.
+        @brief Executes a given script, gathering data and disseminating results.
 
-        Collects data for the specified location from all neighbors and the current device,
-        executes the script, and then propagates the result back to all participating devices.
+        This helper method performs the core logic of a worker:
+        1.  Collects relevant sensor data from all `neighbours` and the worker's
+            `device` itself for the specified `location`.
+        2.  If data is available, it executes the provided `script` with the
+            collected data.
+        3.  Disseminates the `result` of the script execution by updating the
+            sensor data of all `neighbours` and the worker's own `device` at
+            the specified `location`.
 
         @param script: The script object to be executed.
-        @param location: The data location (e.g., sensor ID) to operate on.
+        @param location: The data location (e.g., sensor ID) the script operates on.
         """
+        
         script_data = []
         # Block Logic: Collects sensor data from neighboring devices for script input.
         for device in self.neighbours:
@@ -272,25 +322,30 @@ class WorkerThread(Thread):
         """
         @brief The main execution loop for the WorkerThread.
 
-        Continuously fetches scripts from the device's queue, acquires
-        location-specific locks, executes the scripts using `run_script`,
-        and then returns the processed script to the queue for potential
-        re-execution in subsequent timepoints (effectively simulating a loop
-        of script availability until a None script is received for shutdown).
+        This loop continuously:
+        1.  Retrieves a `(script, location)` pair from the device's shared `queue`.
+            If `script` is None, it acts as a termination signal for this worker thread.
+        2.  Acquires the location-specific lock (`self.device.location_locks[location]`)
+            to ensure exclusive access to data at that location during processing.
+        3.  Executes the script by calling `self.run_script(script, location)`.
+        4.  Releases the location-specific lock.
+        5.  Puts the `(script, location)` back into the queue. This design implies that
+            scripts are continuously recycled and processed across multiple timepoints.
         """
         while True:
-            # Block Logic: Fetches a script and its location from the device's queue.
-            # Pre-condition: `self.device.queue` contains (script, location) tuples.
+            # Block Logic: Retrieves a script and its associated location from the device's queue.
+            # Functional Utility: Distributes processing tasks (scripts) among available worker threads.
             script, location = self.device.queue.get()
-            # Block Logic: Terminates the worker thread if a None script (shutdown signal) is received.
+            # Invariant: If a None script is received, it signifies that there are no more scripts to process
+            #           for the current timepoint or simulation, and the worker thread terminates.
             if script is None:
                 return
-            # Block Logic: Acquires a location-specific lock before executing the script
-            # to ensure exclusive access to the sensor data at that location.
+            # Block Logic: Acquires a lock specific to the data location before processing the script.
+            # Functional Utility: Ensures atomicity and prevents race conditions for data access/modification
+            #                      at a given sensor location by multiple concurrent workers.
             with self.device.location_locks[location]:
                 self.run_script(script, location)
-            # Block Logic: Puts the script back into the queue. This pattern suggests
-            # that scripts might be re-executed or are part of a continuous process
-            # over multiple timepoints, or it's a mechanism for keeping the queue
-            # populated for other workers.
+            # Block Logic: Re-enqueues the processed script for potential future execution.
+            # Architectural Intent: Supports a continuous processing model where scripts may be
+            #                      re-evaluated across multiple timepoints or cycles.
             self.device.queue.put((script, location))

@@ -1,37 +1,42 @@
 /**
  * @file 71A.CPP
- * @brief A standard C++ solution to the "Way Too Long Words" problem (Codeforces 71A).
+ * @brief Abbreviates words that are too long.
  *
- * @details This program abbreviates words that are longer than 10 characters.
- * The abbreviation is formed by concatenating the first character, the count of
- * the intermediate characters, and the last character.
+ * This program reads a list of words and shortens any word that has a length
+ * strictly greater than 10. The abbreviation consists of the first character,
+ * the number of characters between the first and last, and the last character.
+ * Words with 10 or fewer characters are left unchanged.
  *
- * @algorithm The program reads an integer `n`, the number of words to process.
- * It then loops `n` times, reading one word per iteration. For each word, it
- * checks if its length is greater than 10. If it is, the abbreviated form is
- * printed. Otherwise, the word is printed as is.
+ * Algorithm:
+ * 1. Read an integer `n`, the number of words to process.
+ * 2. Loop `n` times.
+ * 3. In each iteration, read a word into a string `s`.
+ * 4. Get the length of the string, `len`.
+ * 5. If `len` is greater than 10, print the first character `s[0]`, followed by
+ *    the integer `len - 2`, followed by the last character `s[len - 1]`.
+ * 6. Otherwise (if `len` is 10 or less), print the string `s` as is.
  *
- * @complexity
- * Time Complexity: O(N * L), where N is the number of words and L is their
- *                  maximum length. The complexity is dominated by I/O operations.
- * Space Complexity: O(L), to store the longest word read from input.
+ * Time Complexity: O(N * L), where N is the number of words and L is the
+ * maximum length of a word. Reading each string takes O(L) time.
+ * Space Complexity: O(L) to store the longest word read.
  */
 #include <iostream>
+#include <string>
 
 using namespace std;
 
 int main() {
-  // Functional Utility: Decouples C++ streams from C streams for faster I/O.
+  // Fast I/O optimization
   ios::sync_with_stdio(0);
   cin.tie(0);
 
   int n;
+  // Read the number of test cases.
   cin >> n;
 
   /**
-   * @brief Block Logic: Processes each of the `n` words.
-   * @invariant In each iteration `i`, `i` words have been processed and their
-   * (potentially abbreviated) form has been printed.
+   * @brief Main loop to process each word.
+   * Pre-condition: `n` is the number of words to process.
    */
   for (int i = 0; i < n; i++) {
     string s;
@@ -39,7 +44,11 @@ int main() {
 
     int len = s.length();
 
-    // Check if the word's length exceeds the threshold for abbreviation.
+    /**
+     * @brief Check if the word needs to be abbreviated.
+     * Block Logic: If the length is over 10, print the abbreviation,
+     * otherwise print the word itself.
+     */
     if (len > 10) {
       cout << s[0] << len - 2 << s[len - 1] << endl;
     } else {

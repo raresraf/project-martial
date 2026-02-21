@@ -1,50 +1,60 @@
 /**
  * @file 58A.CPP
- * @brief Solution to the "Chat room" problem (Codeforces 58A).
+ * @brief Checks if the word "hello" is a subsequence of a given string.
  *
- * @details This program determines if a given string contains "hello" as a subsequence.
- * A subsequence can be formed by deleting zero or more characters from the original string
- * without changing the order of the remaining characters.
+ * This program reads a string from standard input and determines if the word "hello"
+ * can be obtained by deleting zero or more characters from the input string.
+ * This is a classic subsequence problem.
  *
- * @algorithm The program employs a greedy two-pointer strategy. One pointer (`i`)
- * iterates through the input string `a`, while a second pointer (`j`) tracks the
- * current position in the target string "hello". When the character `a[i]` matches
- * the character `b[j]`, it signifies that the next character of the subsequence has
- * been found, so the `j` pointer is advanced. If the `j` pointer successfully
- * traverses all 5 characters of "hello", the program confirms the subsequence exists.
- * A counter `pas` tracks the number of matched characters.
+ * Algorithm:
+ * 1. Define the target string `b` as "hello".
+ * 2. Read the source string `a` from the user.
+ * 3. Use a pointer `j` to track the current character in the target string `b`.
+ * 4. Iterate through the source string `a` with a pointer `i`.
+ * 5. If the character `a[i]` matches the character `b[j]`, it means the next
+ *    character of the subsequence has been found, so increment `j`.
+ * 6. A counter `pas` tracks the number of matched characters. When a character
+ *    matches, `pas` is incremented.
+ * 7. If `pas` reaches 5, it means all characters of "hello" have been found in
+ *    the correct order, and the loop can terminate early.
+ * 8. After the loop, if `pas` is 5, print "YES"; otherwise, print "NO".
  *
- * @complexity
- * Time Complexity: O(L), where L is the length of the input string, due to the single pass.
- * Space Complexity: O(L), to store the input string `a`.
+ * Time Complexity: O(N), where N is the length of the input string `a`, as it
+ * involves a single pass through the string.
+ * Space Complexity: O(N) to store the input string `a`.
  */
 #include <iostream>
 using namespace std;
-// Global variables to hold the input string, target string, and state for the search.
+
 string a, b = "hello";
 int j = 0, pas = 0;
+
 int main() {
+  // Read the source string.
   cin >> a;
+  
   /**
-   * @brief Block Logic: Iterates through the input string to find the "hello" subsequence.
-   * @invariant `j` is the index of the next character to find in "hello". `pas` is the
-   * number of characters from "hello" found so far in the correct order.
+   * @brief Iterates through the source string to find the "hello" subsequence.
+   * Pre-condition: `a` is the source string, `b` is the target "hello".
+   * Invariant: `j` points to the next character to be found in `b`. `pas` counts
+   * how many characters have been found so far.
    */
   for (int i = 0; i < a.size(); i++) {
-    // If the current character in the input matches the target character in "hello"...
+    // If a character in the source string matches the current target character...
     if (a[i] == b[j]) {
-      // ...advance to the next character in "hello" and increment the found-character count.
+      // ...move to the next character in the target string.
       j++;
+      // Increment the count of matched characters.
       pas++;
 
-      // Early exit if all 5 characters of "hello" have been found.
+      // Optimization: if all characters are found, no need to continue.
       if (pas == 5) {
         break;
       }
     }
   }
   
-  // If all 5 characters were found, "hello" is a subsequence.
+  // Check if the entire "hello" subsequence was found.
   if (pas == 5) {
     cout << "YES";
   } else {

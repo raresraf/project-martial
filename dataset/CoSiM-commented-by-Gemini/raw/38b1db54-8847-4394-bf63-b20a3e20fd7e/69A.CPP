@@ -1,40 +1,53 @@
 /**
  * @file 69A.CPP
- * @brief A standard and space-efficient solution for the "Young Physicist" problem (Codeforces 69A).
+ * @brief Checks for equilibrium in a system of 3D force vectors.
  *
- * @details This program checks if a system of 3D vectors is in equilibrium by summing their
- * components. It uses an O(1) space complexity approach by not storing the
- * individual vectors, processing them as they are read.
+ * This program reads a number of 3D vectors that represent forces and
+ * determines if the system is in static equilibrium. Equilibrium is achieved if
+ * the vector sum of all forces is the zero vector, meaning the sum of components
+ * along each of the three axes (x, y, z) is zero.
  *
- * @algorithm The program reads an integer `n`, the number of vectors. It then iterates `n`
- * times, reading one vector's (x, y, z) components in each iteration and adding
- * them to three running sum variables. After the loop, it checks if the sums for all
- * three axes are zero. If they are, equilibrium is confirmed ("YES"); otherwise, it is not ("NO").
+ * Algorithm:
+ * 1. Read an integer `n`, the number of force vectors.
+ * 2. Initialize three integer variables, `x`, `y`, and `z`, to zero. These will
+ *    store the running sum of the vector components along each axis.
+ * 3. Loop `n` times to process each vector.
+ *    a. In each iteration, read the three components (`a`, `b`, `c`) of a vector.
+ *    b. Add these components to the respective sum variables (`x`, `y`, `z`).
+ * 4. After the loop, check if `x`, `y`, and `z` are all equal to zero.
+ * 5. If they are, print "YES" to indicate equilibrium.
+ * 6. Otherwise, print "NO".
  *
- * @complexity
- * Time Complexity: O(N), where N is the number of vectors, due to a single pass.
- * Space Complexity: O(1), as it only requires constant extra space for the sums.
+ * Time Complexity: O(N), where N is the number of vectors, as the program
+ * iterates through the input vectors only once.
+ * Space Complexity: O(1), as it uses a constant amount of memory regardless of
+ * the number of vectors, by not storing the individual vector data.
  */
 #include <bits/stdc++.h>
 using namespace std;
 
 int main() {
   int n, a, b, c, x = 0, y = 0, z = 0;
+  // Read the quantity of vectors.
   cin >> n;
+  
   /**
-   * @brief Block Logic: Reads `n` vectors and accumulates their components in-place.
-   * @invariant After `i` iterations, `x`, `y`, and `z` hold the component-wise
-   * sum of the first `i` vectors.
+   * @brief Iterates through each vector, accumulating the component sums.
+   * Pre-condition: `n` is the number of vectors to process.
+   * Invariant: `x`, `y`, `z` hold the sum of components for vectors processed so far.
    */
   for (int i = 0; i < n; ++i) {
+    // Read the three components of the current vector.
     cin >> a >> b >> c;
+    // Add components to the total sums.
     x += a;
     y += b;
     z += c;
   }
+  
   /**
-   * @brief Block Logic: Checks for the equilibrium condition.
-   * The system is in equilibrium if the net force vector is (0, 0, 0).
+   * @brief Determine if the system is in equilibrium.
+   * The condition for equilibrium is that the net force along each axis is zero.
    */
   if ((x == 0) && (y == 0) && (z == 0))
     cout << "YES\n";

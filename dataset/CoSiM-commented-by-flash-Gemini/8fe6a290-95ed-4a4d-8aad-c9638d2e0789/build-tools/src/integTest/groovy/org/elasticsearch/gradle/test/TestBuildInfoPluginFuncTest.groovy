@@ -7,7 +7,25 @@ import org.gradle.testkit.runner.TaskOutcome
 
 import java.nio.file.Path
 
+/**
+ * @8fe6a290-95ed-4a4d-8aad-c9638d2e0789/build-tools/src/integTest/groovy/org/elasticsearch/gradle/test/TestBuildInfoPluginFuncTest.groovy
+ * @brief Functional tests for the Elasticsearch Gradle Build Info plugin.
+ *
+ * This class contains integration tests to verify the correct behavior of the
+ * {@code elasticsearch.test-build-info} Gradle plugin, ensuring it accurately
+ * generates build information in various scenarios, including basic project
+ * structures and complex dependency configurations.
+ */
 class TestBuildInfoPluginFuncTest extends AbstractGradleFuncTest {
+    /**
+     * @brief Tests the basic functionality of the build info plugin.
+     *
+     * This test case verifies that the {@code elasticsearch.test-build-info} plugin
+     * correctly generates build information for a simple Java project with a {@code module-info.java}.
+     * It sets up a basic project structure, applies the plugin, runs the
+     * {@code generateTestBuildInfo} task, and asserts that the output JSON file
+     * exists and contains the expected component and location information.
+     */
     def "basic functionality"() {
         given:
         file("src/main/java/com/example/Example.java") << """
@@ -63,6 +81,17 @@ class TestBuildInfoPluginFuncTest extends AbstractGradleFuncTest {
         new ObjectMapper().readValue(output, Map.class) == expectedOutput
     }
 
+    /**
+     * @brief Verifies the plugin's ability to extract build information from project dependencies.
+     *
+     * This test case asserts that the {@code elasticsearch.test-build-info} plugin
+     * correctly identifies and extracts module and representative class information
+     * from various types of dependencies:
+     * - Dependencies with an explicit {@code module-info.class} (e.g., ASM).
+     * - Dependencies with an {@code Automatic-Module-Name} in their manifest (e.g., JUnit).
+     * - Dependencies where module information is inferred from the JAR file name (e.g., Hamcrest).
+     * The test explicitly pins dependency versions to ensure predictable properties for testing.
+     */
     def "dependencies"() {
         buildFile << """
         import org.elasticsearch.gradle.plugin.GenerateTestBuildInfoTask;

@@ -19,7 +19,7 @@ def find_smallest_dirs_without_checkpoint(root_dir="."):
                 size_kb = int(size_output)
                 dirs_to_process.append((d, size_kb))
             except Exception as e:
-                print(f"Error getting size for {dir_path}: {e}")
+                # print(f"Error getting size for {dir_path}: {e}") # Commented out to reduce output noise
                 continue
     
     # Sort by size (smallest first)
@@ -30,9 +30,15 @@ def find_smallest_dirs_without_checkpoint(root_dir="."):
 
 if __name__ == "__main__":
     smallest_dirs = find_smallest_dirs_without_checkpoint()
+    temp_dir = "/Users/raresraf/.gemini/tmp/8f69d9d75cf2f5a11d7fa33d7113d1ad9875dd71f0c57dda23b3a6941c51ce07"
+    output_file_path = os.path.join(temp_dir, "smallest_dirs.txt")
+
     if smallest_dirs:
-        print("Smallest 50 directories without a .checkpoint file:")
-        for directory in smallest_dirs:
-            print(directory)
+        with open(output_file_path, "w") as f:
+            for directory in smallest_dirs:
+                f.write(directory + "\n")
+        print(f"Smallest 50 directories without a .checkpoint file written to: {output_file_path}")
     else:
-        print("No directories found to process or all have .checkpoint files.")
+        with open(output_file_path, "w") as f:
+            f.write("No directories found to process or all have .checkpoint files.\n")
+        print(f"No directories found to process or all have .checkpoint files. Status written to: {output_file_path}")

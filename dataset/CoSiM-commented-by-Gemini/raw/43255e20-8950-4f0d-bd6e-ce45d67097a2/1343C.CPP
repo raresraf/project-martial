@@ -1,3 +1,37 @@
+/**
+ * @file 1343C.CPP
+ * @brief Solution to Codeforces problem 1343C - Alternating Subsequence.
+ *
+ * @algorithm
+ * The problem is to find the maximum sum of an alternating subsequence by picking
+ * the largest element from each contiguous block of same-signed numbers.
+ *
+ * This solution builds a new vector `v` which stores the maximum element found so far
+ * for each same-signed block. It also maintains a running sum of the elements in `v`.
+ *
+ * The algorithm is as follows:
+ * 1. For each test case, read `n`.
+ * 2. Read the first element, push it to vector `v`, and initialize `sum` with it.
+ * 3. Iterate through the rest of the elements from index 1 to `n-1`.
+ * 4. For each new element `arr[i]`, compare its sign with the sign of the last
+ *    element in `v` (`v.back()`).
+ * 5. If they have the same sign, it means we are in the same contiguous block.
+ *    The code updates `v.back()` to be the maximum of itself and `arr[i]`. It
+ *    also updates the `sum` to reflect this change.
+ * 6. If the signs are different, a new block has started. The code pushes `arr[i]`
+ *    to the back of `v` and adds its value to the `sum`.
+ * 7. After the loop, `sum` holds the final answer.
+ *
+ * @note This approach is correct but less space-efficient than an O(1) space
+ *       single-pass solution. It uses O(K) extra space for the vector `v`, where
+ *       K is the number of same-sign blocks. The file also contains a large amount
+ *       of unused template code and macros.
+ *
+ * @complexity
+ * - Time Complexity: O(N) for each test case.
+ * - Space Complexity: O(N) in the worst case (for the input array `arr` and
+ *   the vector `v` if the signs alternate for every element).
+ */
 /*
                     Moontasir Mahmood
           Information and Communication Engineering
@@ -89,17 +123,26 @@ int main() {
     cin >> arr[0];
     v.pb(arr[0]);
     ll sum = arr[0];
+
+    /**
+     * @brief Iterate through the rest of the array to build the sequence of block maximums.
+     */
     FORAB(i, 1, n - 1) {
       cin >> arr[i];
+      // Check if the current element arr[i] has the same sign as the last block's max.
       if (arr[i] < 0 && v[v.size() - 1] < 0) {
-        sum -= v[v.size() - 1];
+        // Same sign (negative): update the block's max if needed.
+        sum -= v[v.size() - 1]; // Subtract old max
         v[v.size() - 1] = MAX(v[v.size() - 1], arr[i]);
-        sum += v[v.size() - 1];
+        sum += v[v.size() - 1]; // Add new max
       } else if (arr[i] > 0 && v[v.size() - 1] > 0) {
+        // Same sign (positive): update the block's max if needed.
         sum -= v[v.size() - 1];
         v[v.size() - 1] = MAX(v[v.size() - 1], arr[i]);
         sum += v[v.size() - 1];
       } else {
+        // Different sign: a new block starts.
+        // Add the new element to our list of block maximums and to the sum.
         v.pb(arr[i]);
         sum += arr[i];
       }

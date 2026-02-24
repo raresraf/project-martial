@@ -1,25 +1,50 @@
 
 
-
 from threading import Thread, Lock
 import time
 
 class Consumer(Thread):
-    
+    """
+    Represents a consumer in a marketplace simulation.
+
+    Each consumer operates as a separate thread, creating a shopping cart,
+    adding and removing products based on a list of operations, and finally
+    placing an order. It handles retries for adding products to the cart.
+    """
 
     def __init__(self, carts, marketplace, retry_wait_time, **kwargs):
-        
+        """
+        Initializes a new Consumer instance.
+
+        Args:
+            carts (list): A list of lists of product operations (add/remove)
+                          that this consumer will perform.
+            marketplace (Marketplace): The marketplace object with which
+                                       this consumer will interact.
+            retry_wait_time (float): The time in seconds to wait before
+                                     retrying a failed 'add to cart' operation.
+            **kwargs: Arbitrary keyword arguments passed to the Thread constructor.
+        """
         Thread.__init__(self, **kwargs)
         self._carts = carts
         self._market = marketplace
         self.retry_time = retry_wait_time
-        self._lock = Lock()
+        self._lock = Lock() # A lock to synchronize printing output (optional, but good practice).
 
     def run(self):
+        """
+        The main execution method for the consumer thread.
+
+        It creates a new shopping cart in the marketplace, then processes
+        a series of product operations. For 'add' operations, it repeatedly
+        tries to add the product, waiting if the operation fails. For 'remove'
+        operations, it simply removes the product. After processing all
+        operations, it places the order and prints the purchased items.
+        """
         cart_id = self._market.new_cart()
         for op_list in self._carts:
 
-            
+            # Iterate through each operation in the current list of operations.
             for op in op_list:
 
                 op_type = op["type"]
@@ -27,24 +52,28 @@ class Consumer(Thread):
                 quantity = op["quantity"]
 
                 if op_type == "add":
-
-                    
+                    # Continuously try to add the product until the desired quantity is met.
                     while quantity > 0:
                         ret = self._market.add_to_cart(cart_id, prod)
 
                         if ret == True:
+                            # If successful, decrement the remaining quantity.
                             quantity -= 1
                         else:
+                            # If failed (e.g., product not available), wait and retry.
                             time.sleep(self.retry_time)
 
                 if op_type == "remove":
-
+                    # Remove the product from the cart the specified number of times.
                     while quantity > 0:
                         self._market.remove_from_cart(cart_id, prod)
                         quantity -= 1
 
+            # Acquire the lock before placing the order and printing to prevent mixed output.
             with self._lock:
+                # Place the order and get the list of products bought.
                 products_list = self._market.place_order(cart_id)
+                # Print each product that was successfully bought by this consumer.
                 for prod in products_list:
                     print("cons" + str(cart_id) + " bought " + str(prod))
 

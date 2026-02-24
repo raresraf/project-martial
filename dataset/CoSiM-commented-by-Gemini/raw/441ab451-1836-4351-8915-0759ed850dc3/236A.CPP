@@ -1,33 +1,30 @@
 /**
- * @file 236A.CPP
- * @brief Solution to Codeforces problem 236A - Boy or Girl.
+ * @file raw/441ab451-1836-4351-8915-0759ed850dc3/236A.CPP
+ * @brief Solution to Codeforces problem 236A - Boy or Girl. This program
+ * determines if the number of distinct characters in a username is even or odd.
  *
  * @algorithm
- * The problem's decision logic is based on the number of distinct characters in a
- * given username. If the count of distinct characters is odd, the user is
- * identified as male ("IGNORE HIM!"). If it's even, the user is female
- * ("CHAT WITH HER!").
+ * The core logic relies on counting the number of unique characters in the input
+ * string. A boolean array `check` of size 26 serves as a hash set to keep
+ * track of the characters encountered.
  *
- * This solution uses a C-style approach with a frequency array to count distinct
- * characters, which is very efficient for a small, known character set like
- * lowercase English letters.
- *
- * The algorithm is as follows:
- * 1. An integer array `check[26]` is used as a boolean flag array (or hash set)
- *    for the 26 lowercase letters.
- * 2. Read the username into a C-style character array.
- * 3. Iterate through the input string.
- * 4. For each character, calculate its 0-based index (`x[i] - 'a'`).
- * 5. Use this index to check the `check` array. If the character has already been
- *    seen (`check[index] == 1`), do nothing.
- * 6. If it's a new character, mark it as seen in the `check` array and increment
- *    a counter `n` for distinct characters.
- * 7. After the loop, check the parity of `n` and print the correct message.
+ * 1. Initialize `check` array to all zeros.
+ * 2. Read the input username string.
+ * 3. Iterate through each character of the string.
+ * 4. For each character, calculate its 0-indexed position relative to 'a'.
+ * 5. If the character has not been seen before (i.e., `check[position]` is 0),
+ *    mark it as seen by setting `check[position]` to 1 and increment the
+ *    `distinct_chars` counter.
+ * 6. After iterating through the entire string, check the parity of `distinct_chars`.
+ * 7. If `distinct_chars` is even, output "CHAT WITH HER!".
+ * 8. If `distinct_chars` is odd, output "IGNORE HIM!".
  *
  * @complexity
- * - Time Complexity: O(L), where L is the length of the string, due to the single pass.
- * - Space Complexity: O(1), as the `check` array has a constant size (26),
- *   plus O(L) for the input string itself.
+ * - Time Complexity: O(L), where L is the length of the username string. This is
+ *   because we perform a single pass over the string.
+ * - Space Complexity: O(1), as the space used by the `check` array is constant
+ *   (26 elements), and the space for the input string is not counted towards
+ *   auxiliary space.
  */
 #include <cstdio>
 

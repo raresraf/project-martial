@@ -1,261 +1,80 @@
-
 import os
-import sys
-import re
+import subprocess
 
-# Assume find_next_dir.py is in the same directory and can be imported
-from find_next_dir import find_next_unprocessed_directory
+def get_directory_sizes(directory_list):
+    dir_sizes = {}
+    for d in directory_list:
+        if d == '.' or not d:  # Skip current directory or empty strings
+            continue
+        try:
+            # Use 'du -s' for summarized disk usage of a directory
+            # and strip the directory name from the output
+            size_output = subprocess.check_output(['du', '-s', d]).decode('utf-8').split('\t')[0]
+            dir_sizes[d] = size_output
+        except subprocess.CalledProcessError:
+            print(f"Error getting size for directory: {d}")
+            dir_sizes[d] = "0K" # Assign a default or handle error as needed
+    return dir_sizes
 
-def get_language_from_extension(filename):
-    """
-    Determines the programming language based on file extension.
-    """
-    _, ext = os.path.splitext(filename)
-    if ext in ['.c', '.h']:
-        return 'c'
-    elif ext in ['.cpp', '.hpp', '.cxx', '.hxx', '.cc', '.hh']:
-        return 'cpp'
-    elif ext == '.py':
-        return 'python'
-    elif ext == '.go':
-        return 'go'
-    elif ext in ['.ts', '.tsx']:
-        return 'typescript'
-    elif ext == '.java':
-        return 'java'
-    elif ext == '.rs':
-        return 'rust'
-    elif ext == '.cl':
-        return 'opencl'
-    return 'unknown'
 
-def add_comments_to_code(file_path, language):
-    print(f"Processing {file_path} as {language}...")
-    with open(file_path, 'r') as f:
-        content_lines = f.readlines()
+def parse_size_to_bytes(size_str):
+    """Parses a human-readable size string (e.g., '10K', '2.5M', '1G') to bytes."""
+    size_str = size_str.strip().upper()
+    if not size_str:
+        return 0
 
-    modified_content = []
-    has_file_header = False
+    if size_str.endswith('K'):
+        return int(float(size_str[:-1]) * 1024)
+    elif size_str.endswith('M'):
+        return int(float(size_str[:-1]) * 1024**2)
+    elif size_str.endswith('G'):
+        return int(float(size_str[:-1]) * 1024**3)
+    elif size_str.endswith('T'):
+        return int(float(size_str[:-1]) * 1024**4)
+    else:
+        return int(size_str) # Assume bytes if no suffix
 
-    # Check for existing file-level header comment
-    if language in ['c', 'cpp', 'java', 'typescript']:
-        for i, line in enumerate(content_lines):
-            stripped_line = line.strip()
-            if stripped_line.startswith("/*") or stripped_line.startswith("/**") or stripped_line.startswith("//"):
-                if i == 0 or (i > 0 and content_lines[i-1].strip() == ""):
-                    has_file_header = True
-                    break
-            elif stripped_line:
-                break
-    elif language == 'python':
-        for i, line in enumerate(content_lines):
-            stripped_line = line.strip()
-            if stripped_line.startswith('"""') or stripped_line.startswith("'''"):
-                has_file_header = True
-                break
-            elif stripped_line:
-                break
-    elif language == 'rust':
-        for i, line in enumerate(content_lines):
-            stripped_line = line.strip()
-            if stripped_line.startswith('//!'):
-                has_file_header = True
-                break
-            elif stripped_line:
-                break
-    elif language == 'go':
-        for i, line in enumerate(content_lines):
-            stripped_line = line.strip()
-            if stripped_line.startswith('//') or stripped_line.startswith('/*'):
-                has_file_header = True
-                break
-            elif stripped_line:
-                break
 
-    # Add file-level header if missing
-    if not has_file_header:
-        file_name = os.path.basename(file_path)
-        if language == 'c' or language == 'cpp' or language == 'opencl':
-            header = [
-                f"/**\n",
-                f" * @file {file_name}\n",
-                f" * @brief Semantic documentation for {file_name}.\n",
-                " *        This is a placeholder. Detailed semantic analysis will be applied later.\n",
-                " */\n"
-            ]
-        elif language == 'python':
-            header = [
-                f'"""\n',
-                f'Module: {file_name}\n',
-                f'Description: Semantic documentation for {file_name}.\n',
-                f'             Detailed semantic analysis will be applied later.\n',
-                f'"""\n'
-            ]
-        elif language == 'java':
-            header = [
-                f"/**\n",
-                f" * @file {file_name}\n",
-                f" * @brief Semantic documentation for {file_name}.\n",
-                " *        Detailed semantic analysis will be applied later.\n",
-                " */\n"
-            ]
-        elif language == 'go':
-            header = [
-                f"// {file_name}\n",
-                f"// Semantic documentation for {file_name}.\n",
-                f"// Detailed semantic analysis will be applied later.\n"
-            ]
-        elif language == 'rust':
-            header = [
-                f"//! {file_name}\n",
-                f"//! Semantic documentation for {file_name}.\n",
-                f"//! Detailed semantic analysis will be applied later.\n"
-            ]
-        elif language == 'typescript':
-            header = [
-                f"/**\n",
-                f" * @file {file_name}\n",
-                f" * @brief Semantic documentation for {file_name}.\n",
-                " *        Detailed semantic analysis will be applied later.\n",
-                " */\n"
-            ]
-        else:
-            header = []
+def find_unprocessed_and_smallest_directories(all_directories_raw):
+    unprocessed_dirs = []
+    
+    # Clean and filter directories
+    all_directories = [d.strip() for d in all_directories_raw.split('\n') if d.strip() and d.strip() != '.']
 
-        if header:
-            modified_content.extend(header)
+    for d in all_directories:
+        checkpoint_path = os.path.join(d, '.checkpoint')
+        if not os.path.exists(checkpoint_path):
+            unprocessed_dirs.append(d)
 
-    modified_content.extend(content_lines)
+    # Get sizes for unprocessed directories
+    dir_sizes_raw = get_directory_sizes(unprocessed_dirs)
 
-    block_patterns = {
-        'for': r'^\s*(for\s*\(.*\)|for\s+.*in\s+.*:|for\s+await\s*\(.*\))',
-        'while': r'^\s*while\s*\(?.*:?',
-        'if': r'^\s*(if\s*\(.*\)|if\s+.*:)',
-        'else if': r'^\s*(else\s+if\s*\(.*\)|elif\s+.*:)',
-        'else': r'^\s*(else|else:)',
-        'switch': r'^\s*switch\s*\(.*\)',
-        'func_def': r'^\s*(?:(?:public|private|protected|static|async)\s+)?(?:[\w<>,\[\]]+\s+)?\s*(\w+)\s*\([^)]*\)\s*(?:throws\s+[\w,]+)?\s*{',
-        'python_def': r'^\s*def\s+\w+\s*\(.*?\)\s*:',
-        'go_func': r'^\s*func\s+(?:\(.*?\)\s*)?\w+\s*\(.*?\)\s*(?:[\w\s*]+)?\s*{',
-        'rust_fn': r'^\s*fn\s+\w+\s*\(.*?\)\s*->\s*.*?\s*{',
-        'ts_func': r'^\s*(?:(?:public|private|protected|static|async)\s+)?(?:[\w<>,\[\]]+\s*:\s*)?(\w+)\s*\([^)]*\)\s*:\s*[\w<>,\[\]]+\s*{'
-    }
+    # Convert sizes to bytes for sorting
+    dir_sizes_bytes = {d: parse_size_to_bytes(s) for d, s in dir_sizes_raw.items()}
 
-    def add_block_comment(lines, lang):
-        new_lines = []
-        i = 0
-        while i < len(lines):
-            line = lines[i]
-            stripped_line = line.strip()
-            
-            if stripped_line.startswith('//') or stripped_line.startswith('/*') or stripped_line.startswith('"""') or stripped_line.startswith("'''") or stripped_line.startswith('//!') or stripped_line.startswith('#'):
-                new_lines.append(line)
-                i += 1
-                continue
+    # Sort by size (smallest first)
+    sorted_dirs = sorted(dir_sizes_bytes.items(), key=lambda item: item[1])
 
-            comment_to_add = None
-            indent = re.match(r'^\s*', line).group(0)
+    # Get the top 50 smallest directories
+    return [d[0] for d in sorted_dirs[:50]]
 
-            if language == 'java' and re.match(block_patterns['func_def'], line):
-                if not any(lines[j].strip().startswith('/**') for j in range(max(0, i-3), i)):
-                    func_name_match = re.search(r'\s*(\w+)\s*\([^)]*\)\s*{', line)
-                    if func_name_match:
-                        func_name = func_name_match.group(1)
-                        comment_to_add = f"{indent}/**\n{indent} * @brief [Functional Utility for {func_name}]: Describe purpose here.\n{indent} */\n"
-            elif language == 'c' and re.match(block_patterns['func_def'], line):
-                 if not any(lines[j].strip().startswith('/**') for j in range(max(0, i-3), i)):
-                    func_name_match = re.search(r'\s*(\w+)\s*\([^)]*\)\s*{', line)
-                    if func_name_match:
-                        func_name = func_name_match.group(1)
-                        comment_to_add = f"{indent}/**\n{indent} * @brief [Functional Utility for {func_name}]: Describe purpose here.\n{indent} */\n"
-            elif language == 'cpp' and re.match(block_patterns['func_def'], line):
-                 if not any(lines[j].strip().startswith('/**') for j in range(max(0, i-3), i)):
-                    func_name_match = re.search(r'\s*(\w+)\s*\([^)]*\)\s*{', line)
-                    if func_name_match:
-                        func_name = func_name_match.group(1)
-                        comment_to_add = f"{indent}/**\n{indent} * @brief [Functional Utility for {func_name}]: Describe purpose here.\n{indent} */\n"
-            elif language == 'python' and re.match(block_patterns['python_def'], line):
-                 if not any(lines[j].strip().startswith('"""') or lines[j].strip().startswith("'''") for j in range(max(0, i-3), i)):
-                    func_name_match = re.search(r'def\s+(\w+)\s*\(.*?\):', line)
-                    if func_name_match:
-                        func_name = func_name_match.group(1)
-                        comment_to_add = f"{indent}'''\n{indent}Functional Utility: Describe purpose of {func_name} here.\n{indent}'''\n"
-            elif language == 'go' and re.match(block_patterns['go_func'], line):
-                 if not any(lines[j].strip().startswith('//') for j in range(max(0, i-3), i)):
-                    func_name_match = re.search(r'func\s+(?:\(.*?\)\s*)?(\w+)\s*\(.*?\)\s*(?:[\w\s*]+)?\s*{', line)
-                    if func_name_match:
-                        func_name = func_name_match.group(1)
-                        comment_to_add = f"{indent}// Functional Utility: Describe purpose of {func_name} here.\n"
-            elif language == 'rust' and re.match(block_patterns['rust_fn'], line):
-                 if not any(lines[j].strip().startswith('///') or lines[j].strip().startswith('/**') for j in range(max(0, i-3), i)):
-                    func_name_match = re.search(r'fn\s+(\w+)\s*\(.*?\)\s*->\s*.*?\s*{', line)
-                    if func_name_match:
-                        func_name = func_name_match.group(1)
-                        comment_to_add = f"{indent}/// Functional Utility: Describe purpose of {func_name} here.\n"
-            elif language == 'typescript' and re.match(block_patterns['ts_func'], line):
-                 if not any(lines[j].strip().startswith('/**') for j in range(max(0, i-3), i)):
-                    func_name_match = re.search(r'function\s+(\w+)\s*\(.*?\)\s*:', line)
-                    if func_name_match:
-                        func_name = func_name_match.group(1)
-                        comment_to_add = f"{indent}/**\n{indent} * Functional Utility: Describe purpose of {func_name} here.\n{indent} */\n"
-            
-            elif re.match(block_patterns['for'], line) or \
-                 re.match(block_patterns['while'], line) or \
-                 re.match(block_patterns['if'], line) or \
-                 re.match(block_patterns['else if'], line) or \
-                 re.match(block_patterns['else'], line) or \
-                 re.match(block_patterns['switch'], line):
-                
-                if not any(lines[j].strip().startswith('//') or lines[j].strip().startswith('/*') or lines[j].strip().startswith('#') or lines[j].strip().startswith('"""') or lines[j].strip().startswith("'''") for j in range(max(0, i-1), i)):
-                    if language in ['c', 'cpp', 'java', 'typescript', 'opencl']:
-                        comment_to_add = f"{indent}// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution\n{indent}// Invariant: State condition that holds true before and after each iteration/execution\n"
-                    elif language == 'python':
-                        comment_to_add = f"{indent}# Block Logic: Describe purpose of this block, e.g., iteration, conditional execution\n{indent}# Invariant: State condition that holds true before and after each iteration/execution\n"
-                    elif language == 'go':
-                        comment_to_add = f"{indent}// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution\n{indent}// Invariant: State condition that holds true before and after each iteration/execution\n"
-                    elif language == 'rust':
-                        comment_to_add = f"{indent}/// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution\n{indent}/// Invariant: State condition that holds true before and after each iteration/execution\n"
-            
-            if comment_to_add:
-                new_lines.append(comment_to_add)
-            new_lines.append(line)
-            i += 1
-        return new_lines
+# Read the full output from the tool
+with open('/Users/trk/.gemini/tmp/cosim-commented-by-flash-gemini/tool-outputs/session-e1556269-3389-4f29-a7a6-aaff06f10c1d/run_shell_command_1771965866089_0.txt', 'r') as f:
+    full_output = f.read()
 
-    content_with_block_comments = add_block_comment(modified_content, language)
+# Extract only the relevant lines (actual directories)
+# The full_output string contains "Output: .\n" at the beginning, so split and take from the second line.
+directory_lines = full_output.split('Output: .\n', 1)
+if len(directory_lines) > 1:
+    raw_dirs_list = directory_lines[1].split('\n')
+    # Filter out empty strings and the '...' truncation indicators
+    raw_dirs = [d for d in raw_dirs_list if d.strip() and not d.startswith('...') and not d.startswith('Process Group PGID')]
+    
+    smallest_dirs = find_unprocessed_and_smallest_directories('\n'.join(raw_dirs))
+    
+    print("Found 50 smallest unprocessed directories:")
+    for d in smallest_dirs:
+        print(d)
+else:
+    print("No directories found or output format unexpected.")
 
-    with open(file_path, 'w') as f:
-        f.writelines(content_with_block_comments)
-    print(f"Finished processing {file_path}")
-
-def process_directories(base_path, max_dirs=100):
-    """
-    Iterates through directories, processes code files, and creates checkpoint files.
-    """
-    processed_count = 0
-    while processed_count < max_dirs:
-        next_dir_name = find_next_unprocessed_directory(base_path)
-        if not next_dir_name:
-            print("All available directories have been processed or checkpointed.")
-            break
-
-        current_dir_path = os.path.join(base_path, next_dir_name)
-        print(f"--- Processing directory: {current_dir_path} ({processed_count + 1}/{max_dirs}) ---")
-
-        for root, _, files in os.walk(current_dir_path):
-            for file in files:
-                file_path = os.path.join(root, file)
-                language = get_language_from_extension(file)
-                
-                if language != 'unknown' and file != '.checkpoint':
-                    add_comments_to_code(file_path, language)
-
-        checkpoint_path = os.path.join(current_dir_path, '.checkpoint')
-        with open(checkpoint_path, 'w') as f:
-            f.write(f"Processed on {os.path.getmtime(current_dir_path)}")
-        print(f"Created checkpoint for {current_dir_path}")
-        processed_count += 1
-
-if __name__ == "__main__":
-    base_path = os.getcwd()
-    process_directories(base_path)

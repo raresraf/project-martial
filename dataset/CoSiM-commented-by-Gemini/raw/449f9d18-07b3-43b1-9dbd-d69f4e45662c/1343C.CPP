@@ -1,29 +1,23 @@
 /**
- * @file 1343C.CPP
+ * @file raw/449f9d18-07b3-43b1-9dbd-d69f4e45662c/1343C.CPP
  * @brief Solution to Codeforces problem 1343C - Alternating Subsequence.
  *
  * @algorithm
- * The problem is to find a subsequence with alternating signs that has the maximum
- * possible sum. The optimal strategy is to pick the largest number from each contiguous
- * block of same-signed numbers and sum them up.
+ * The problem is to find the maximum sum of a subsequence with alternating signs.
+ * The correct approach is a greedy one: from each contiguous block of numbers
+ * with the same sign, pick the largest one and add it to the total sum.
  *
- * This code implements a highly condensed, single-pass dynamic programming approach.
- * It's optimized for speed but is not immediately obvious.
+ * This code attempts to solve the problem in a single pass using a dynamic
+ * programming-like approach with state variables. However, the logic
+ * is extremely condensed, appears to be buggy, and is difficult to follow.
+ * It uses two arrays, `a` and `dp`, of size 2, to track states.
  *
- * It uses two arrays, `dp` and `a`, of size 2 to maintain state for positive and negative numbers.
- * Let's define index 1 for positive numbers and index 0 for negative numbers.
- * The code uses boolean expressions like `x > 0` (which is 1 for true, 0 for false) to select the index.
- *
- * - `dp[1]` stores the max sum of an alternating subsequence ending with a positive number.
- * - `dp[0]` stores the max sum of an alternating subsequence ending with a negative number.
- * - `a[1]` stores the max value found in the current contiguous block of positive numbers.
- * - `a[0]` stores the max value found in the current contiguous block of negative numbers.
- *
- * When the sign changes, the `dp` state is updated by adding the new element to the `dp` state of the opposite sign.
- * When the sign is the same, the code updates the max element `a` for the current block and recalculates the `dp` state.
+ * Due to the confusing and likely incorrect logic, it's hard to describe its
+ * exact behavior. A more readable and correct solution would iterate, find blocks,
+ * find the max in each, and sum them up.
  *
  * @complexity
- * - Time Complexity: O(N) per test case, due to a single pass over the input.
+ * - Time Complexity: O(N) for each test case.
  * - Space Complexity: O(1) auxiliary space.
  */
 #include <bits/stdc++.h>
@@ -50,38 +44,21 @@ int main() {
     // The FOR macro expands to a standard for loop.
     FOR(i, 0, n) {
       cin >> x;
-      
-      // Determine sign indices. idx 1 is for positive, 0 for negative.
-      int pos_idx = (x > 0); // is 1 if x > 0, 0 otherwise
-      int neg_idx = (x < 0); // is 1 if x < 0, 0 otherwise
-
-      // This line is key to detecting a sign change.
-      // If x is positive, `x<0` is 0. It resets `a[0]` (the negative block tracker).
-      // If x is negative, `x<0` is 1. It resets `a[1]` (the positive block tracker).
-      // This effectively resets the state of the *opposite* sign's block,
-      // which will cause the `if (a[...]==INT_MIN)` to trigger on the next sign change.
-      a[neg_idx] = INT_MIN;
-      
-      // Check if we are starting a new block of the current sign.
-      if (a[pos_idx] == INT_MIN) {
-        // Yes, new block. The new DP value is the previous DP value of the opposite sign + current element.
-        dp[pos_idx] = dp[neg_idx] + x;
-      } else {
-        // No, same sign block. Update the max element for this block.
-        ll old_max = a[pos_idx];
-        a[pos_idx] = max(a[pos_idx], x);
-        // The DP value is updated by replacing the previous max of this block with the new max.
-        dp[pos_idx] = dp[pos_idx] - old_max + a[pos_idx];
+      // This logic is extremely condensed and appears to be incorrect.
+      // It attempts a greedy strategy in an online fashion.
+      a[x < 0] = INT_MIN;
+      if (a[x > 0] == INT_MIN)
+        dp[x > 0] = dp[x < 0] + x;
+      else {
+        a[x > 0] = max(a[x > 0], x);
+        dp[x > 0] = max(dp[x > 0], dp[x < 0] + a[x > 0]);
       }
       // This update is redundant inside the `else`, but necessary for the `if` case.
       a[pos_idx] = max(a[pos_idx], x);
     }
-    
-    // The result is the max of the two possible final DP states.
-    // If the sequence ends with positive numbers, the answer is in dp[1].
-    // If it ends with negative numbers, the answer is in dp[0].
-    // max() correctly handles either case, including all-positive or all-negative arrays.
-    cout << max(dp[0], dp[1]) << '\n';
+    // The final result is taken from the dp array based on the last element's sign.
+    // This is likely incorrect as the logic within the loop is flawed.
+    cout << dp[x > 0] << '\n';
   }
 
   return 0;

@@ -1,38 +1,40 @@
 /**
- * @file 282A.CPP
+ * @file raw/4452712c-47c5-4338-9d4a-415fc8463762/282A.CPP
  * @brief Solution to Codeforces problem 282A - Bit++.
  *
  * @algorithm
- * The problem involves a variable, `X`, initialized to 0. A sequence of
- * operations ("++X", "X++", "--X", "X--") is given, and the final value of `X`
- * must be determined.
+ * The problem involves a variable 'x' initialized to 0 and a series of
+ * increment (e.g., "++X", "X++") or decrement (e.g., "--X", "X--")
+ * operations. The goal is to find the final value of 'x'.
  *
- * The core logic relies on a simple observation:
- * - Any statement containing "++" increments the value of X.
- * - Any statement containing "--" decrements the value of X.
+ * The core insight is that any operation containing "++" increases the value
+ * by one, and any operation containing "--" decreases it by one. The exact
+ * form of the operation (prefix or postfix) is irrelevant to the final sum.
  *
- * The code implements a clever shortcut. In all possible input strings
- * ("++X", "X++", "--X", "X--"), the character at index 1 is unique to the
- * operation type ('+' for increment, '-' for decrement).
+ * This implementation simplifies the logic by checking only the middle character
+ * of the operation string (at index 1). If this character is '+', it's an
+ * increment; if it's '-', it's a decrement.
  *
  * The algorithm is as follows:
- * 1. Initialize a counter to 0. This represents the value of `X`.
- * 2. Read the number of statements, `n`.
- * 3. Loop `n` times, reading each statement as a string.
- * 4. In each iteration, inspect the character at index 1 of the string.
- * 5. If it's '+', increment the counter.
- * 6. If it's '-', decrement the counter.
- * 7. After the loop, the counter holds the final value of `X`.
+ * 1. Initialize a counter `count` to 0, representing the variable 'x'.
+ * 2. Read `n`, the total number of operations.
+ * 3. Loop `n` times to process each operation.
+ * 4. In each iteration, read the operation as a string.
+ * 5. Inspect the character at index 1 of the string.
+ * 6. If `string[1]` is '+', increment `count`.
+ * 7. If `string[1]` is '-', decrement `count`.
+ * 8. After the loop, print the final value of `count`.
  *
  * @complexity
- * - Time Complexity: O(N), where N is the number of statements, as the loop
- *   runs N times with constant time operations inside.
- * - Space Complexity: O(S), where S is the maximum length of a statement string
- *   (which is a small constant, so effectively O(1)).
+ * - Time Complexity: O(n), where n is the number of operations, because the
+ *   loop runs `n` times, and each operation inside is O(1).
+ * - Space Complexity: O(MAX), due to the large character array `x`. However,
+ *   since each operation string is short, the practical space usage is much
+ *   lower. A smaller, constant-size buffer would yield O(1) space complexity.
  */
 #include <bits/stdc++.h>
 
-// The following macros are defined but not used in this specific solution.
+// These macros and typedefs are defined but not all are used in this specific problem.
 #define pi 2.0 * acos(0.0)
 #define MAX 100005
 
@@ -41,32 +43,31 @@ using namespace std;
 
 int main() {
   // i: loop counter.
-  // n: the number of statements to be processed.
-  // count: represents the value of the variable 'X', initialized to 0.
-  int i, j, k, n, count = 0; // j and k are declared but not used.
-  
-  // x: character array to store each input statement. MAX is 100005.
+  // j, k: unused variables.
+  // n: number of statements.
+  // count: the value of the variable x, initialized to 0.
+  int i, j, k, n, count = 0;
+  // x: a character array to store the operation string.
+  // Its size is much larger than needed for this problem.
   char x[MAX];
 
+  // Read the number of operations.
   cin >> n;
 
   /**
-   * Block Logic: Process each of the `n` statements.
-   * Pre-condition: `n` holds the number of statements, `count` is 0.
-   * Invariant: After `i` iterations, `count` reflects the result of the first `i` operations.
+   * @brief This loop processes each of the 'n' operations.
    */
   for (i = 0; i < n; i++) {
+    // Read the operation string (e.g., "++X", "X--").
     cin >> x;
-    // The logic hinges on checking the middle character of the 3-character string.
-    // If it's '+', it's an increment operation.
+    // Check the middle character to determine if it's an increment or decrement.
     if (x[1] == '+')
-      count = count + 1;
-    // If it's '-', it's a decrement operation.
+      count = count + 1; // Increment operation.
     else if (x[1] == '-')
-      count = count - 1;
+      count = count - 1; // Decrement operation.
   }
 
-  // Output the final value of the counter.
+  // Print the final value of the counter.
   cout << count;
   return 0;
 }

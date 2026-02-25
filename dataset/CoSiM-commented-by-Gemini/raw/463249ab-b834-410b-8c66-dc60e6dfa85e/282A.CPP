@@ -1,22 +1,33 @@
 /**
- * @file 282A.CPP
- * @brief Solution for a simple simulation problem from a programming contest.
- * @details The program simulates a series of increment and decrement operations on a
- * variable 'x', which starts at 0. It reads 'n' operations and calculates the
- * final value of 'x'.
+ * @file raw/463249ab-b834-410b-8c66-dc60e6dfa85e/282A.CPP
+ * @brief Solution to Codeforces problem 282A - Bit++.
  *
- * Algorithm:
- * 1. Initialize a variable 'x' to 0.
- * 2. Read the total number of operations, 'n'.
- * 3. Loop 'n' times:
- *    a. Read the operation string (e.g., "X++", "++X", "X--", "--X").
- *    b. If the string represents an increment operation, increment 'x'.
- *    c. If the string represents a decrement operation, decrement 'x'.
- * 4. After the loop, print the final value of 'x'.
+ * @algorithm
+ * The problem involves a variable 'x', initially 0, which is modified by a
+ * series of increment or decrement statements. The statements can be either
+ * prefix or postfix (e.g., "++X", "X++", "--X", "X--"). The goal is to compute
+ * the final value of 'x'.
  *
- * Time Complexity: O(n), where 'n' is the number of operations, as each operation
- * is processed in constant time.
- * Space Complexity: O(1), as the storage required is constant regardless of 'n'.
+ * This solution directly simulates the process described in the problem statement.
+ *
+ * The algorithm is as follows:
+ * 1. Read `n`, the number of statements to be executed.
+ * 2. Initialize an integer variable `x` to 0.
+ * 3. Loop `n` times to process each statement.
+ * 4. In each iteration, read the statement as a string.
+ * 5. Use `if-else if` conditions to check the content of the string:
+ *    - If the string is "X++" or "++X", it's an increment operation, so `x` is incremented.
+ *    - If the string is "X--" or "--X", it's a decrement operation, so `x` is decremented.
+ * 6. After the loop completes, print the final value of `x`.
+ *
+ * This approach is clear, readable, and correctly solves the problem by
+ * handling all specified operation types.
+ *
+ * @complexity
+ * - Time Complexity: O(n), where `n` is the number of statements, because the
+ *   loop runs `n` times and the string comparisons inside are constant time.
+ * - Space Complexity: O(1), as it uses a few variables of constant size. The
+ *   string `s` is reused in each iteration.
  */
 #include <iostream>
 #include <string>
@@ -24,33 +35,29 @@
 using namespace std;
 
 int main() {
-  string s;
-  int n, x = 0;
-  cin >> n;
+  string s;    // To store the operation string (e.g., "++X").
+  int n;       // The number of statements.
+  int x = 0;   // The variable `x`, initialized to 0.
   
+  cin >> n;
+
   /**
-   * @block
-   * @description This loop processes each of the 'n' operations.
-   * Invariant: At the end of each iteration, 'x' holds the accumulated value
-   * after processing the operations so far.
+   * @brief Loop through each statement, updating `x` accordingly.
    */
   for (int i = 0; i < n; i++) {
     cin >> s;
-    
-    /**
-     * @block
-     * @description Checks the operation string and updates the value of 'x' accordingly.
-     * "X++" and "++X" increment the value.
-     * "X--" and "--X" decrement the value.
-     */
+    // Check for increment operations.
     if (s == "X++" || s == "++X") {
       x++;
-    } else if (s == "X--" || s == "--X") {
+    } 
+    // Check for decrement operations.
+    else if (s == "X--" || s == "--X") {
       x--;
     }
   }
-  
-  // Output the final value of x after all operations.
+
+  // Print the final value of x.
   cout << x << endl;
+  
   return 0;
 }

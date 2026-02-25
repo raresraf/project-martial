@@ -1,27 +1,31 @@
 /**
- * @file 118A.CPP
+ * @file raw/454ba5f1-01b6-4c49-8c0e-0817ade03178/118A.CPP
  * @brief Solution to Codeforces problem 118A - String Task.
  *
  * @algorithm
- * The problem requires processing a string according to the following rules:
- * 1. Delete all the vowels ('A', 'O', 'Y', 'E', 'U', 'I').
- * 2. Before each consonant, insert a character ".".
- * 3. All uppercase consonants should be replaced with their corresponding
- *    lowercase ones.
+ * The problem requires processing a string based on a set of rules:
+ * 1. Convert all uppercase letters to lowercase.
+ * 2. Delete all vowels. The vowels are 'a', 'e', 'i', 'o', 'u', and 'y'.
+ * 3. Before each consonant, insert a '.' character.
  *
- * The implementation follows these steps directly:
+ * This implementation processes the string character by character and builds
+ * the output string live by printing to standard output.
+ *
+ * The algorithm is as follows:
  * 1. Read the input string.
  * 2. Iterate through each character of the string.
- * 3. For each character, first convert it to lowercase to handle both
- *    uppercase and lowercase letters uniformly.
+ * 3. For each character, convert it to its lowercase equivalent.
  * 4. Check if the lowercase character is a vowel ('a', 'e', 'i', 'o', 'u', 'y').
  * 5. If it is a vowel, ignore it and continue to the next character.
- * 6. If it is a consonant, print a "." followed by the character itself.
+ * 6. If it is a consonant, print a '.' character followed by the consonant itself.
+ *
+ * This approach effectively transforms the string in a single pass.
  *
  * @complexity
- * - Time Complexity: O(L), where L is the length of the string, because the
- *   code iterates through the string once.
- * - Space Complexity: O(L) to store the input string.
+ * - Time Complexity: O(L), where L is the length of the input string, as it
+ *   involves a single pass through the string.
+ * - Space Complexity: O(L) to store the input string. The output is printed
+ *   directly, so auxiliary space is O(1).
  */
 #include <ctype.h>
 #include <iostream>
@@ -30,26 +34,27 @@ using namespace std;
 int main() {
   // a: stores the input string.
   string a;
-  // i: loop counter. n: length of the string. j is declared but unused.
-  int i, j, n;
+  int i, j, n; // j is declared but unused.
   cin >> a;
   n = a.size();
+
   /**
-   * Block Logic: Iterate through each character of the string to apply the rules.
-   * Pre-condition: `a` contains the input string.
-   * Invariant: Characters up to index `i-1` have been processed and printed if they were consonants.
+   * @brief Iterate through the string to process each character.
    */
   for (i = 0; i < n; i++) {
-    // Convert the character to lowercase for case-insensitive vowel checking.
+    // Convert the character to lowercase.
     a[i] = tolower(a[i]);
-    // Check if the character is a vowel (including 'y').
+
+    // Check if the character is a vowel. The problem considers 'y' a vowel.
     if (a[i] == 'a' || a[i] == 'e' || a[i] == 'i' || a[i] == 'o' ||
-        a[i] == 'u' || a[i] == 'y')
-      // If it's a vowel, skip to the next character.
+        a[i] == 'u' || a[i] == 'y') {
+      // If it's a vowel, skip it.
       continue;
-    else
+    } else {
       // If it's a consonant, print a '.' followed by the character.
       cout << "." << a[i];
+    }
   }
+  
   return 0;
 }

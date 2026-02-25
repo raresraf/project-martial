@@ -8,6 +8,11 @@
 from threading import Event, Thread
 from threading import Semaphore, Lock
 
+"""
+    A reusable barrier synchronization primitive for coordinating multiple threads.
+    This barrier allows a fixed number of threads to wait until all threads
+    have reached a specific point, and then resets itself for reuse.
+    """
 class ReusableBarrier(object):
     """
     @brief A re-usable barrier mechanism for synchronizing multiple threads.
@@ -17,128 +22,162 @@ class ReusableBarrier(object):
     """
     def __init__(self, num_threads):
         """
-        @brief Initializes the ReusableBarrier with a specified number of threads.
-        @param num_threads: The total number of threads that must reach the barrier
-                            before any are released.
+        Initializes the ReusableBarrier with a specified number of threads.
+
+        Args:
+            num_threads (int): The total number of threads that must reach the
+                                barrier before any can proceed.
         """
         self.num_threads = num_threads
-        # Two counters for a double-phased barrier to allow reusability
+        # Tracks the number of threads waiting in the first phase of the barrier.
         self.count_threads1 = [self.num_threads]
+        # Tracks the number of threads waiting in the second phase of the barrier.
         self.count_threads2 = [self.num_threads]
 
-        # Lock to protect access to the thread counters
+        # A lock to protect access to the thread count.
         self.count_lock = Lock()
 
-        # Semaphores to block and release threads in each phase
+        # Semaphore for releasing threads in the first phase.
         self.threads_sem1 = Semaphore(0)
+
+        # Semaphore for releasing threads in the second phase.
         self.threads_sem2 = Semaphore(0)
 
     def wait(self):
         """
-        @brief Causes the calling thread to wait at the barrier.
-        The thread will be blocked until all `num_threads` have called this method.
-        This method uses a double-phase approach to ensure reusability.
+        Causes the calling thread to wait until all other threads have also
+        called this method. This method involves two phases to ensure the
+        barrier can be reused.
         """
-        # Phase 1: Wait for all threads to arrive
+
         self.phase(self.count_threads1, self.threads_sem1)
         # Phase 2: Reset the barrier and wait for all threads to clear
         self.phase(self.count_threads2, self.threads_sem2)
 
     def phase(self, count_threads, threads_sem):
         """
-        @brief Implements a single phase of the barrier synchronization.
-        @param count_threads: A list containing the current count of threads for this phase.
-                              (Using a list to allow modification within the `with` block).
-        @param threads_sem: The semaphore associated with this phase to release waiting threads.
+        Manages a single phase of the barrier synchronization.
+
+        Args:
+            count_threads (list): A list containing the current count of threads
+                                  remaining in this phase. (Uses a list to allow
+                                  modification within the `with` statement).
+            threads_sem (Semaphore): The semaphore used to release threads
+                                     once the count reaches zero.
         """
-        # Pre-condition: `count_threads[0]` reflects the number of threads yet to reach this phase.
         with self.count_lock:
-            # Decrement the count of threads waiting at this phase.
+            # Decrement the count of threads waiting in this phase.
             count_threads[0] -= 1
-            # Invariant: If `count_threads[0]` reaches 0, all threads have arrived.
+            # If this is the last thread to arrive, release all waiting threads.
             if count_threads[0] == 0:
-                # All threads have arrived, release them by incrementing the semaphore `num_threads` times.
+                # Release all threads by calling release() num_threads times.
                 for i in range(self.num_threads):
                     threads_sem.release()
-                # Reset the counter for the next use of this phase.
+                # Reset the thread count for the next use of the barrier.
                 count_threads[0] = self.num_threads
-        
-        # Block the current thread until it's released by the last thread to enter the phase.
+        # Acquire the semaphore, effectively waiting until all threads are released.
         threads_sem.acquire()
+
 
 
 class Device(object):
     """
-    @brief Represents a simulated device in a distributed system.
-    Each device can hold sensor data, interact with a supervisor,
-    and execute scripts based on neighbor data.
+    Represents a simulated device within a multi-device system.
+
+    Each device has unique sensor data, can execute scripts, and interacts
+    with a supervisor and other devices through synchronization mechanisms
+    like a reusable barrier and locks for managing shared resources (locations).
     """
+
     def __init__(self, device_id, sensor_data, supervisor):
         """
-        @brief Initializes a Device instance.
-        @param device_id: A unique identifier for the device.
-        @param sensor_data: A dictionary containing sensor readings relevant to this device.
-        @param supervisor: A reference to the supervisor object managing the devices.
+        Initializes a new Device instance.
+
+        Args:
+            device_id (int): A unique identifier for the device.
+            sensor_data (dict): A dictionary containing sensor readings,
+                                 where keys are locations and values are data.
+            supervisor (Supervisor): A reference to the supervisor object
+                                     that manages device interactions.
         """
-        self.barrier = None # Initialized by supervisor for synchronization
-        self.InitializationEvent = Event() # Used to signal device initialization completion
-        self.LockLocation = None # Dictionary to store locks for specific data locations, managed by device_id == 0
-        self.LockDict = Lock() # Lock to protect access to LockLocation dictionary
+        # Barrier for synchronizing all devices. Initialized by device_id 0.
+        self.barrier = None 
+        # Event to signal that initial setup for the device is complete.
+        self.InitializationEvent = Event() 
+        # Dictionary to store locks for specific locations (shared resources).
+        self.LockLocation = None 
+        # Lock to protect access to the LockLocation dictionary.
+        self.LockDict = Lock() 
 
         self.device_id = device_id
         self.sensor_data = sensor_data
         self.supervisor = supervisor
-        self.script_received = Event() # Signals when a script has been assigned
-        self.scripts = [] # List to store (script, location) tuples
-        self.timepoint_done = Event() # Signals when a device has completed its operations for a timepoint
-        self.thread = DeviceThread(self) # The dedicated thread for this device
+        # Event to signal that a new script has been assigned.
+        self.script_received = Event()
+        # List of scripts assigned to this device, each with its associated location.
+        self.scripts = []
+        # Event to signal that processing for the current timepoint is done.
+        self.timepoint_done = Event()
+        # The thread dedicated to running this device's logic.
+        self.thread = DeviceThread(self)
 
     def __str__(self):
         """
-        @brief Returns a string representation of the Device.
-        @return: A string in the format "Device <device_id>".
+        Returns a string representation of the Device.
+
+        Returns:
+            str: A string in the format "Device <device_id>".
         """
         return "Device %d" % self.device_id
 
     def setup_devices(self, devices):
         """
-        @brief Sets up the synchronization mechanisms and inter-device communication.
-        This method is called once during initialization. Only device 0 acts as the coordinator.
-        @param devices: A list of all Device objects in the simulation.
-        """
-        # Pre-condition: This block executes only for device with ID 0 to coordinate setup.
-        if self.device_id == 0:
-            # Invariant: Device 0 initializes the shared barrier and LockLocation dictionary.
-            n = len(devices)
-            self.barrier = ReusableBarrier(n)   # Initialize a barrier for all devices
-            self.LockLocation = {}  # Initialize shared lock storage for data locations
+        Sets up shared resources and starts the device thread.
+        Only device with device_id 0 initializes the shared barrier and LockLocation.
 
-            # Iterate through all devices to set up shared resources.
+        Args:
+            devices (list): A list of all Device instances in the system.
+        """
+        # The device with device_id 0 is responsible for initializing shared resources.
+        if self.device_id == 0:
+            # Get the total number of devices to initialize the barrier.
+            n = len(devices)
+            # Initialize the reusable barrier for all devices.
+            self.barrier = ReusableBarrier(n)   
+            # Initialize a dictionary to hold locks for various locations.
+            self.LockLocation = {}  
+
+            # Iterate through all devices to set up their shared resources.
             for idx in range(len(devices)):
                 d = devices[idx]
 
-                # Assign shared LockLocation and barrier to all devices.
+                # Assign the shared LockLocation dictionary and barrier to each device.
                 d.LockLocation = self.LockLocation
                 d.barrier = self.barrier
-                # If not device 0, signal their initialization completion.
+                # If it's not device 0, signal that initialization is complete for it.
                 if d.device_id == 0:
                     pass
                 else:
                     d.InitializationEvent.set()
         else:
-            # For non-coordinator devices, wait until device 0 has completed shared resource initialization.
+            # Non-device 0 waits for the shared resources to be initialized by device 0.
             self.InitializationEvent.wait()
 
-        # Start the dedicated thread for this device.
+        # Start the thread for this device.
         self.thread.start()
 
     def assign_script(self, script, location):
         """
-        @brief Assigns a script to be executed by the device at a specific data location.
-        @param script: The script object to be executed.
-        @param location: The data location relevant to the script.
+        Assigns a script to be executed at a specific location.
+
+        If `script` is None, it signals that no more scripts are to be executed
+        for the current timepoint, and the `timepoint_done` event is set.
+
+        Args:
+            script (Script or None): The script object to assign, or None to signal
+                                     the end of scripts for a timepoint.
+            location (str): The location associated with the script.
         """
-        # Pre-condition: A script is provided, or None to signal end of timepoint.
         if script is not None:
             self.scripts.append((script, location))
         else:
@@ -147,90 +186,106 @@ class Device(object):
 
     def get_data(self, location):
         """
-        @brief Retrieves sensor data for a given location.
-        @param location: The key for the sensor data.
-        @return: The sensor data at the specified location, or None if not found.
+        Retrieves sensor data for a given location.
+
+        Args:
+            location (str): The location for which to retrieve data.
+
+        Returns:
+            Any: The sensor data if the location exists, otherwise None.
         """
         return self.sensor_data[location] if location in self.sensor_data else None
 
     def set_data(self, location, data):
         """
-        @brief Sets or updates sensor data for a given location.
-        @param location: The key for the sensor data.
-        @param data: The new data to be set.
+        Sets or updates sensor data for a given location.
+
+        Args:
+            location (str): The location where the data should be set.
+            data (Any): The new data to set for the location.
         """
-        # Pre-condition: `location` must exist in `sensor_data` to be updated.
         if location in self.sensor_data:
             self.sensor_data[location] = data
 
     def shutdown(self):
         """
-        @brief Shuts down the device's associated thread.
+        Shuts down the device by joining its associated thread.
         """
-        # Wait for the device's thread to complete its execution.
         self.thread.join()
 
 
 class DeviceThread(Thread):
     """
-    @brief A thread dedicated to a Device, responsible for its operational logic,
-    including synchronization, data collection from neighbors, script execution,
-    and data dissemination.
+    Represents a thread that manages the execution of scripts on a Device.
+
+    This thread continually synchronizes with other device threads using a
+    reusable barrier, processes assigned scripts, and interacts with the
+    supervisor to get information about neighboring devices.
     """
+
     def __init__(self, device):
         """
-        @brief Initializes the DeviceThread.
-        @param device: The Device object that this thread will manage.
+        Initializes a new DeviceThread instance.
+
+        Args:
+            device (Device): The Device object that this thread will manage.
         """
         Thread.__init__(self, name="Device Thread %d" % device.device_id)
         self.device = device
 
     def run(self):
         """
-        @brief The main execution loop for the device thread.
-        Handles barrier synchronization, retrieves neighbor data, executes scripts,
-        and updates shared data locations.
+        The main execution loop for the DeviceThread.
+
+        It continuously performs the following steps:
+        1. Waits at a reusable barrier to synchronize with other device threads.
+        2. Retrieves information about neighboring devices from the supervisor.
+        3. If there are no neighbors (indicating shutdown), breaks the loop.
+        4. Waits until all scripts for the current timepoint are assigned.
+        5. Iterates through assigned scripts, acquiring locks for locations,
+           executing scripts with collected data, and updating data.
+        6. Clears the `timepoint_done` event for the next cycle.
         """
-        # Invariant: Loop continuously until the simulation signals termination.
         while True:
-            # Synchronize all device threads at the barrier before proceeding.
+            # Wait at the barrier to synchronize with other devices.
             self.device.barrier.wait()
 
-            # Retrieve neighbors from the supervisor.
+            # Get information about neighboring devices from the supervisor.
             neighbours = self.device.supervisor.get_neighbours()
             # Pre-condition: If `neighbours` is None, it signals the end of the simulation.
             if neighbours is None:
-                break # Exit the loop and terminate the thread.
+                # If there are no neighbors, it implies a shutdown signal, so break the loop.
+                break
 
-            # Wait until all scripts for the current timepoint have been assigned to this device.
+            # Wait until all scripts for the current timepoint have been assigned.
             self.device.timepoint_done.wait()
 
             dev_scripts = self.device.scripts
 
             # Process each assigned script.
-            # Invariant: Each script is executed in isolation with proper locking of data locations.
             for (script, location) in self.device.scripts:
-                # Acquire a lock for the LockLocation dictionary to safely check/add locks.
+                # Acquire a lock to safely access and modify the LockLocation dictionary.
                 self.device.LockDict.acquire()
 
-                # If no lock exists for this data `location`, create one.
+                # If a lock for this location doesn't exist, create one.
                 if location not in self.device.LockLocation.keys():
                     self.device.LockLocation[location] = Lock()
 
-                # Acquire the specific lock for the current data `location` to ensure exclusive access.
+
+                # Acquire the specific lock for the current location to prevent race conditions.
                 self.device.LockLocation[location].acquire()
 
-                # Release the LockDict lock as the LockLocation dictionary is no longer being modified.
+                # Release the lock for LockDict as it's no longer needed for this operation.
                 self.device.LockDict.release()
 
                 script_data = []
-                # Collect data from neighboring devices for the current `location`.
+                # Collect data from neighboring devices for the current location.
                 for device in neighbours:
                     data = device.get_data(location)
                     if data is not None:
                         script_data.append(data)
                 
-                # Collect data from the current device itself for the current `location`.
+                # Collect data from the current device for the current location.
                 data = self.device.get_data(location)
                 if data is not None:
                     script_data.append(data)
@@ -240,15 +295,57 @@ class DeviceThread(Thread):
                     # Execute the script with the collected data.
                     result = script.run(script_data)
 
-                    # Disseminate the script result to neighboring devices.
+                    # Update the data in neighboring devices.
                     for device in neighbours:
                         device.set_data(location, result)
-                    
-                    # Update the current device's data with the script result.
+                    # Update the data in the current device.
                     self.device.set_data(location, result)
 
-                # Release the lock for the current data `location`.
+                # Release the lock for the current location.
                 self.device.LockLocation[location].release()
 
-            # Reset the timepoint_done event for the next timepoint.
+            # Clear the event to prepare for the next timepoint's scripts.
             self.device.timepoint_done.clear()
+from threading import Semaphore, Lock
+
+class ReusableBarrier(object):
+    
+
+    def __init__(self, num_threads):
+        
+
+        self.num_threads = num_threads
+        self.count_threads1 = [self.num_threads]
+        self.count_threads2 = [self.num_threads]
+
+        
+        self.count_lock = Lock()
+
+        
+        self.threads_sem1 = Semaphore(0)
+
+        
+        self.threads_sem2 = Semaphore(0)
+
+    def wait(self):
+        
+
+        self.phase(self.count_threads1, self.threads_sem1)
+        self.phase(self.count_threads2, self.threads_sem2)
+
+    def phase(self, count_threads, threads_sem):
+        
+
+        with self.count_lock:
+            count_threads[0] -= 1
+            if count_threads[0] == 0:
+                
+                for i in range(self.num_threads):
+                    
+                    
+                    threads_sem.release()
+                
+                count_threads[0] = self.num_threads
+        
+        threads_sem.acquire()
+        

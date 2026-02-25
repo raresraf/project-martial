@@ -1,61 +1,64 @@
 /**
- * @file 1221C.CPP
+ * @file raw/45aaa46e-5c60-497e-b77d-8412712ba4b9/1221C.CPP
  * @brief Solution to Codeforces problem 1221C - Perfect Team.
  *
  * @algorithm
- * The problem asks for the maximum number of teams that can be formed from a
- * group of `c` coders, `m` mathematicians, and `x` people with no specialty.
- * Each team must consist of one coder, one mathematician, and one other person.
+ * The problem asks for the maximum number of "perfect teams" that can be formed
+ * from `c` coders, `m` mathematicians, and `x` individuals with no specialty.
+ * A perfect team requires one of each: 1 coder, 1 mathematician, and 1 other member.
+ * The "other member" slot can be filled by one of the `x` individuals, or by
+ * any leftover coders or mathematicians.
  *
- * The number of teams `k` is constrained by two main factors:
- * 1. The number of specialists: You need one coder and one mathematician for each
- *    team. Therefore, the number of teams cannot exceed the number of coders (`c`)
- *    or the number of mathematicians (`m`). This gives the constraint: `k <= min(c, m)`.
+ * Let `k` be the number of teams we want to form. To form `k` teams, we must satisfy
+ * the following constraints:
  *
- * 2. The total number of people: Each team requires 3 people. The total pool of
- *    people is `c + m + x`. Therefore, the number of teams cannot exceed the
- *    total number of people divided by 3. This gives the constraint: `k <= (c + m + x) / 3`.
+ * 1.  We need `k` coders, so the number of teams cannot exceed the number of available
+ *     coders: `k <= c`.
  *
- * To find the maximum possible number of teams, we must satisfy both constraints.
- * The answer is therefore the minimum of these two upper bounds:
- * `k = min(min(c, m), (c + m + x) / 3)`.
+ * 2.  We need `k` mathematicians, so `k <= m`.
  *
- * The code implements this logic directly.
+ * 3.  We need `k` members for the third "specialist" slot. These can be the `x`
+ *     unspecialized people, plus any remaining coders (`c - k`) and mathematicians
+ *     (`m - k`). So, the total pool for this third slot is `x + (c - k) + (m - k)`.
+ *     Therefore, `k <= x + c - k + m - k`.
+ *     Rearranging this gives: `3k <= c + m + x`, which simplifies to
+ *     `k <= (c + m + x) / 3`.
+ *
+ * To find the maximum possible value of `k`, we must satisfy all three constraints
+ * simultaneously. The maximum `k` is therefore the minimum of the three upper bounds:
+ *   `k_max = min(c, m, (c + m + x) / 3)`
+ *
+ * The code implements this formula directly.
  *
  * @complexity
- * - Time Complexity: O(1) for each test case, as it involves a few
- *   arithmetic and comparison operations.
- * - Space Complexity: O(1).
+ * - Time Complexity: O(1) for each test case, as it only involves a few
+ *   arithmetic operations and comparisons.
+ * - Space Complexity: O(1), using only a few variables.
  */
 #include <bits/stdc++.h>
 using namespace std;
 
 int main() {
 
-  // This is a common competitive programming setup for local testing.
-  // If the macro 'd' is defined during compilation (e.g., g++ -D d ...),
-  // it redirects standard input from "input.txt".
+// This is a common preprocessor directive for competitive programming
+// to redirect input from "input.txt" when compiling with a `d` flag.
 #ifdef d
   freopen("input.txt", "r", stdin);
 #endif
 
-  int t;
-  cin >> t; // Read the number of test cases.
+  int t; // Number of test cases.
+  cin >> t;
   while (t--) {
-    // c: number of coders
-    // m: number of mathematicians
-    // x: number of people with no specialization
-    int c, m, x;
+    int c, m, x; // c: coders, m: mathematicians, x: no specialty.
     cin >> c >> m >> x;
 
-    // Constraint 1: The number of teams is limited by the minimum number of
-    // available specialists (coders or mathematicians).
+    // The number of teams is limited by the minimum of coders and mathematicians.
     int y = min(c, m);
     
-    // The final answer is the minimum of the two constraints:
-    // 1. The number of specialist pairs (`y`).
-    // 2. The total number of groups of three that can be formed (`(c+m+x)/3`).
+    // The number of teams is also limited by the total number of people divided by 3.
     int z = min(y, (c + m + x) / 3);
+
+    // The result is the minimum of these three constraints.
     cout << z << "\n";
   }
 

@@ -1,20 +1,31 @@
 /**
- * @file 339A.CPP
- * @brief Solution for a string sorting problem, likely from a programming contest.
- * @details The program reads a string representing a sum of single-digit numbers
- * (e.g., "3+1+2"), sorts the numbers, and prints the rearranged sum (e.g., "1+2+3").
+ * @file raw/45df1ab3-231c-4eab-aae3-efb483369066/339A.CPP
+ * @brief Solution to Codeforces problem 339A - Helpful Maths.
  *
- * Algorithm:
- * 1. Read the input string which contains digits separated by '+' signs.
- * 2. Extract the digit characters from the string. The digits are located at
- *    even indices (0, 2, 4, ...).
- * 3. Store these digit characters in an array.
- * 4. Sort the array of digit characters. Since they are single digits '1'-'9',
- *    standard character sorting is equivalent to numerical sorting.
- * 5. Print the sorted digits, interleaved with '+' signs to reconstruct the sum format.
+ * @algorithm
+ * The problem requires rearranging a given sum of numbers (1, 2, and 3) into
+ * non-decreasing order. For example, "3+2+1" should become "1+2+3".
  *
- * Time Complexity: O(L log L) where L is the number of digits in the input string, dominated by the sort operation.
- * Space Complexity: O(L) to store the digit characters.
+ * The core idea is to extract the numbers from the input string, sort them,
+ * and then reconstruct the string with the sorted numbers.
+ *
+ * The algorithm implemented is as follows:
+ * 1. Read the entire sum as a single string (e.g., "3+2+1").
+ * 2. Create a character array to store only the digits from the string.
+ * 3. Iterate through the input string at every second position (0, 2, 4, ...)
+ *    to pick out the digit characters, skipping the '+' signs.
+ * 4. Store these digit characters in the new array.
+ * 5. Sort the character array. Since the ASCII values of '1', '2', and '3' are
+ *    in the correct order, sorting the characters is equivalent to sorting the
+ *    numbers they represent.
+ * 6. Iterate through the sorted array of digits.
+ * 7. Print each digit, followed by a '+' sign, until the last digit.
+ * 8. Print the last digit followed by a newline.
+ *
+ * @complexity
+ * - Time Complexity: O(L log L), where L is the number of digits in the sum.
+ *   This is dominated by the `std::sort` operation.
+ * - Space Complexity: O(L), to store the extracted digits in a separate array.
  */
 #include <bits/stdc++.h>
 #include <iostream>
@@ -22,38 +33,34 @@
 using namespace std;
 
 int main() {
-  string s;
+  string s; // To store the input sum string.
   cin >> s;
+  
+  // A C-style character array to hold the extracted digits.
   char array[200];
-  int count = 0;
+  int count = 0; // To count how many digits are extracted.
 
   /**
-   * @block
-   * @description Extracts the digit characters from the input string.
-   * The input is a sum, so digits appear at even indices (0, 2, 4, ...).
+   * @brief Extract the digits from the input string.
+   * The numbers are at even indices (0, 2, 4, ...).
    */
   for (int i = 0; i <= s.size() / 2; i++) {
     array[i] = s[2 * i];
     count++;
   }
 
-  /**
-   * @block
-   * @description Sorts the extracted digits. The std::sort function is used
-   * on the character array. For single digits, character sorting yields the
-   * correct numerical order.
-   */
+  // Sort the array of digit characters.
   sort(array, array + count);
-  
+
   /**
-   * @block
-   * @description Reconstructs and prints the sorted sum. It iterates through
-   * the sorted digits and prints them separated by '+' signs.
+   * @brief Print the sorted digits, separated by '+'.
    */
   for (int i = 0; i < count; i++) {
     if (i == count - 1)
+      // Print the last digit followed by a newline.
       cout << array[i] << endl;
     else
+      // Print the current digit followed by a '+'.
       cout << array[i] << "+";
   }
   return 0;

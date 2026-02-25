@@ -1,28 +1,41 @@
 /**
- * @file 50A.CPP
- * @brief Solution for a classic tiling problem from a programming contest.
- * @details The problem is to determine the maximum number of 2x1 dominoes that can
- * be placed on a rectangular board of size M x N without overlapping.
+ * @file raw/46f119c4-2826-4d46-b3e7-8f74e538d35a/50A.CPP
+ * @brief Solution to Codeforces problem 50A - Domino piling.
  *
- * Algorithm:
- * 1. The total area of the rectangular board is M * N.
- * 2. Each domino has an area of 2x1 = 2.
- * 3. The maximum number of non-overlapping dominoes that can fit on the board is
- *    the total area of the board divided by the area of a single domino.
- * 4. This can be calculated as `floor((M * N) / 2)`. Integer division in C++
- *    naturally performs the floor operation.
+ * @algorithm
+ * The problem is to find the maximum number of 2x1 dominoes that can be placed
+ * on a rectangular board of size M x N without overlapping.
  *
- * Time Complexity: O(1), as the solution involves a single arithmetic calculation.
- * Space Complexity: O(1).
+ * The total area of the board is `M * N`.
+ * Each domino covers an area of 2.
+ *
+ * The maximum number of dominoes is the total area of the board divided by the
+ * area of a single domino. Since we cannot use partial dominoes, we take the
+ * integer part of the division.
+ *
+ *   Maximum dominoes = floor((M * N) / 2)
+ *
+ * In C++, integer division `(m * n) / 2` automatically performs this floor
+ * operation for positive integers.
+ *
+ * The algorithm is as follows:
+ * 1. Read the board dimensions, M and N.
+ * 2. Calculate `(M * N) / 2` using integer division.
+ * 3. Print the result.
+ *
+ * @complexity
+ * - Time Complexity: O(1), as the solution involves a few arithmetic operations.
+ * - Space Complexity: O(1), using only a few variables to store the dimensions.
  */
 #include <bits/stdc++.h>
 using namespace std;
 int main() {
+  // n, m: dimensions of the rectangular board.
   int n, m;
   cin >> m >> n;
   
-  // The total area of the board is m * n. Each domino covers 2 squares.
-  // Integer division correctly gives the maximum number of dominoes that can fit.
+  // Calculate and print the maximum number of dominoes.
+  // This is the total area of the board integer-divided by the area of one domino (2).
   cout << (m * n) / 2;
   
   return 0;

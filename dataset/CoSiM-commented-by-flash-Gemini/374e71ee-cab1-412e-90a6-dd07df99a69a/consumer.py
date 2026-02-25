@@ -1,46 +1,49 @@
-"""
-@374e71ee-cab1-412e-90a6-dd07df99a69a/consumer.py
-@brief Implements a simulated marketplace system with producers, consumers, and a central marketplace.
-This file defines the core components for a multi-threaded application where producers
-publish products to a marketplace, and consumers add/remove products from carts
-and place orders, with synchronization mechanisms to manage shared resources.
-* Algorithm: Producer-Consumer pattern with a shared marketplace.
-* Concurrency: Uses `threading.Thread` for producers and consumers, and `threading.Lock`
-               for mutual exclusion in the marketplace.
-"""
 
 from threading import Thread, Lock
 import time
 
 class Consumer(Thread):
     """
-    @brief Represents a consumer thread that interacts with the marketplace to purchase products.
-    Consumers manage their own shopping carts, adding and removing products, and ultimately placing orders.
+    Represents a consumer in a marketplace simulation.
+
+    Each consumer operates as a separate thread, creating a shopping cart,
+    adding and removing products based on a list of operations, and finally
+    placing an order. It handles retries for adding products to the cart.
     """
+
     def __init__(self, carts, marketplace, retry_wait_time, **kwargs):
         """
-        @brief Initializes a Consumer thread.
-        @param carts: A list of product operation lists (add/remove) for the consumer to execute.
-        @param marketplace: The shared Marketplace instance to interact with.
-        @param retry_wait_time: The time to wait before retrying an operation if it fails.
-        @param kwargs: Additional keyword arguments for the Thread constructor.
+        Initializes a new Consumer instance.
+
+        Args:
+            carts (list): A list of lists of product operations (add/remove)
+                          that this consumer will perform.
+            marketplace (Marketplace): The marketplace object with which
+                                       this consumer will interact.
+            retry_wait_time (float): The time in seconds to wait before
+                                     retrying a failed 'add to cart' operation.
+            **kwargs: Arbitrary keyword arguments passed to the Thread constructor.
         """
         Thread.__init__(self, **kwargs)
         self._carts = carts
         self._market = marketplace
         self.retry_time = retry_wait_time
-        self._lock = Lock() # Lock for synchronizing consumer's output (print statements).
+        self._lock = Lock() # A lock to synchronize printing output (optional, but good practice).
 
     def run(self):
         """
-        @brief The main execution loop for the consumer thread.
-        It creates a new cart, processes a list of product operations, and places the order.
+        The main execution method for the consumer thread.
+
+        It creates a new shopping cart in the marketplace, then processes
+        a series of product operations. For 'add' operations, it repeatedly
+        tries to add the product, waiting if the operation fails. For 'remove'
+        operations, it simply removes the product. After processing all
+        operations, it places the order and prints the purchased items.
         """
-        cart_id = self._market.new_cart() # Obtain a new cart ID from the marketplace.
-        # Invariant: Iterates through each list of operations defined for this consumer.
+        cart_id = self._market.new_cart()
         for op_list in self._carts:
 
-            # Block Logic: Process each operation within the current operation list.
+            # Iterate through each operation in the current list of operations.
             for op in op_list:
                 op_type = op["type"]
                 prod = op["product"]
@@ -48,27 +51,29 @@ class Consumer(Thread):
 
                 # Pre-condition: If the operation is to "add" a product.
                 if op_type == "add":
-                    # Invariant: Continue trying to add the product until the desired quantity is met.
+                    # Continuously try to add the product until the desired quantity is met.
                     while quantity > 0:
                         ret = self._market.add_to_cart(cart_id, prod)
 
                         if ret == True:
-                            quantity -= 1 # Decrement quantity if addition is successful.
+                            # If successful, decrement the remaining quantity.
+                            quantity -= 1
                         else:
-                            # If addition fails (e.g., product not available), wait and retry.
+                            # If failed (e.g., product not available), wait and retry.
                             time.sleep(self.retry_time)
 
                 # Pre-condition: If the operation is to "remove" a product.
                 if op_type == "remove":
-                    # Invariant: Continue trying to remove the product until the desired quantity is met.
+                    # Remove the product from the cart the specified number of times.
                     while quantity > 0:
                         self._market.remove_from_cart(cart_id, prod)
                         quantity -= 1 # Decrement quantity after removal.
 
-            # Block Logic: After processing all operations for a cart, place the order.
-            with self._lock: # Acquire a lock to ensure atomic printing of order confirmation.
-                products_list = self._market.place_order(cart_id) # Place the order in the marketplace.
-                # Invariant: Print each product successfully bought by this consumer.
+            # Acquire the lock before placing the order and printing to prevent mixed output.
+            with self._lock:
+                # Place the order and get the list of products bought.
+                products_list = self._market.place_order(cart_id)
+                # Print each product that was successfully bought by this consumer.
                 for prod in products_list:
                     print("cons" + str(cart_id) + " bought " + str(prod))
 

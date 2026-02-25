@@ -1,25 +1,32 @@
 /**
- * @file 71A.CPP
- * @brief Solution for a string abbreviation problem from a programming contest.
- * @details The program processes a list of words. If a word is longer than 10 characters,
- * it is abbreviated by taking its first letter, the count of letters in between, and its
- * last letter. For example, "localization" becomes "l10n". Shorter words (<=10 characters)
- * are printed unchanged.
+ * @file raw/46ae8003-f180-4fa0-9a36-c116cc1f2057/71A.CPP
+ * @brief Solution to Codeforces problem 71A - Way Too Long Words.
  *
- * Algorithm:
- * 1. Read the number of words, 'n'.
- * 2. Loop 'n' times to process each word:
- *    a. Read the word.
- *    b. Check if its length is greater than 10.
- *    c. If it is, construct the abbreviation:
- *       - Get the first character.
- *       - Calculate the number of middle characters (length - 2).
- *       - Get the last character.
- *       - Concatenate and print these three parts.
- *    d. If the length is not greater than 10, print the word as is.
+ * @algorithm
+ * The problem requires abbreviating long words. A word is "too long"
+ * if its length is strictly greater than 10. The abbreviation rule is to write
+ * the first letter, the number of middle letters, and the last letter.
+ * For example, "localization" becomes "l10n".
  *
- * Time Complexity: O(N * L_avg), where N is the number of words and L_avg is their average length.
- * Space Complexity: O(L_max), where L_max is the length of the longest word.
+ * The algorithm is:
+ * 1. Read `n`, the number of words.
+ * 2. Loop `n` times.
+ * 3. Read a word `s`.
+ * 4. If `s.size() > 10`, print the abbreviation.
+ * 5. Otherwise, print the word as is.
+ *
+ * @note
+ * The original code has a line:
+ * `cout << s[0] + to_string(s.size() - 2) + s.back() << endl;`
+ * This line is syntactically incorrect in standard C++ because `operator+` is not
+ * defined for `char + std::string`. It seems to be a typo and was likely intended
+ * to be `cout << s[0] << (s.size() - 2) << s.back() << endl;`
+ * The documentation explains the intended logic.
+ *
+ * @complexity
+ * - Time Complexity: O(n * L), where `n` is the number of words and L is the
+ *   max word length, dominated by input reading.
+ * - Space Complexity: O(L), to store the longest word.
  */
 #include <iostream>
 #include <string>
@@ -27,14 +34,11 @@
 using namespace std;
 
 int main() {
-  int n;
+  int n; // Number of words.
   cin >> n;
   string s;
   
-  /**
-   * @block
-   * @description This loop iterates 'n' times, processing one word in each iteration.
-   */
+  // Process each word.
   while (n--) {
     cin >> s;
     
@@ -44,7 +48,9 @@ int main() {
      * It checks if the word is "too long" and applies the abbreviation rule accordingly.
      */
     if (s.size() > 10)
-      // Construct and print the abbreviation for long words.
+      // This line contains a syntax error in standard C++. The `+` operators
+      // are likely intended to be `<<` stream insertion operators.
+      // It attempts to print the first letter, the count of middle letters, and the last letter.
       cout << s[0] + to_string(s.size() - 2) + s.back() << endl;
     else
       // Print short words as they are.

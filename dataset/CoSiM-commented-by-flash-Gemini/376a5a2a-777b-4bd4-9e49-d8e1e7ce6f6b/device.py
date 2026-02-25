@@ -16,239 +16,314 @@ from threading import Event, Thread
 
 class Device(object):
     """
-    @brief Represents a simulated device, managing sensor data, scripts, and orchestrating
-    worker threads to process these scripts.
+    Represents a simulated device within a multi-device system.
+
+    Each device manages its own sensor data, processes assigned scripts via
+    a queue and worker threads, and synchronizes with other devices using
+    a reusable barrier.
     """
+
     def __init__(self, device_id, sensor_data, supervisor):
         """
-        @brief Initializes a Device instance.
-        @param device_id: A unique identifier for the device.
-        @param sensor_data: A dictionary containing sensor readings relevant to this device.
-        @param supervisor: A reference to the supervisor object managing the devices.
+        Initializes a new Device instance.
+
+        Args:
+            device_id (int): A unique identifier for the device.
+            sensor_data (dict): A dictionary containing sensor readings,
+                                 where keys are locations and values are data.
+            supervisor (Supervisor): A reference to the supervisor object
+                                     that manages device interactions.
         """
         self.device_id = device_id
         self.read_data = sensor_data # Stores the device's sensor data.
         self.supervisor = supervisor
-        self.active_queue = Queue() # Queue for scripts to be processed by worker threads.
-        self.scripts = [] # List to store assigned scripts.
-        self.thread = DeviceThread(self) # The main thread for this device.
-        self.time = 0 # Not explicitly used in provided methods, possibly for time-stepping.
+        # A queue to hold scripts that are ready to be processed by worker threads.
+        self.active_queue = Queue()
+        # A list to store scripts assigned to this device for the current timepoint.
+        self.scripts = []
+        # The thread dedicated to managing this device's worker threads.
+        self.thread = DeviceThread(self)
+        # A counter for tracking simulation time (or timepoints).
+        self.time = 0
 
     def __str__(self):
         """
-        @brief Returns a string representation of the Device.
-        @return: A string in the format "Device <device_id>".
+        Returns a string representation of the Device.
+
+        Returns:
+            str: A string in the format "Device <device_id>".
         """
         return "Device %d" % self.device_id
 
     def setup_devices(self, devices):
         """
-        @brief Sets up the synchronization barrier and distributes it among all devices.
-        Only device 0 acts as the coordinator for barrier initialization.
-        @param devices: A list of all Device objects in the simulation.
+        Sets up shared resources, specifically the `ReusableBarrierSem`, for all devices.
+        Only device with device_id 0 initializes the barrier and shares it.
+
+        Args:
+            devices (list): A list of all Device instances in the system.
         """
-        # Pre-condition: This block executes only for device with ID 0 to coordinate setup.
+        # Device with device_id 0 initializes the shared barrier.
         if self.device_id == 0:
-            # Invariant: Device 0 initializes a new reusable barrier for all devices.
+            # Create a new reusable barrier with the total number of devices.
             self.new_round = ReusableBarrierSem(len(devices))
+            # Store a reference to all devices.
             self.devices = devices
-            # Distribute the initialized barrier to all devices.
+            # Share the initialized barrier with all other devices.
             for device in self.devices:
                 device.new_round = self.new_round
-        self.thread.start() # Start the device's main thread.
+        # Start the main thread for this device.
+        self.thread.start()
 
     def assign_script(self, script, location):
         """
-        @brief Assigns a script to be executed by the device at a specific data location.
-        If `script` is None, it signals the end of script assignment for a timepoint,
-        and all accumulated scripts are put into the active queue for processing.
-        @param script: The script object to be executed.
-        @param location: The data location relevant to the script.
+        Assigns a script to be processed. If `script` is not None, it's added
+        to a temporary list. If `script` is None, it signals that all scripts
+        for the current timepoint have been assigned and moves them to the
+        `active_queue` for processing by worker threads.
+
+        Args:
+            script (object or None): The script object to assign, or None to signal
+                                     the end of scripts for a timepoint.
+            location (int): The location associated with the script.
         """
-        # Pre-condition: A script is provided, or None to signal end of timepoint.
         if script is not None:
+            # If a script is provided, add it to the temporary scripts list.
             self.scripts.append((script, location))
         else:
-            # Invariant: If script is None, transfer all collected scripts to the active queue.
+            # If script is None, it means all scripts for this timepoint have been collected.
+            # Move all collected scripts into the active_queue for worker threads to pick up.
             for (script, location) in self.scripts:
                 self.active_queue.put((script, location))
-            # Put sentinel values (-1, -1) into the queue to signal worker threads to terminate.
-            for x in range(8): # Number of worker threads.
+            # Add sentinel values to the queue to signal worker threads to terminate
+            # after processing all scripts for the current timepoint.
+            for x in range(8): # Assuming 8 worker threads, though this should ideally be dynamic.
                 self.active_queue.put((-1, -1))
 
     def get_data(self, location):
         """
-        @brief Retrieves sensor data for a given location.
-        @param location: The key for the sensor data.
-        @return: The sensor data at the specified location, or None if not found.
+        Retrieves sensor data for a given location.
+
+        Args:
+            location (int): The integer identifier for the location for which to retrieve data.
+
+        Returns:
+            Any: The sensor data if the location exists in read_data, otherwise None.
         """
         return self.read_data[location] if location in self.read_data else None
 
     def set_data(self, location, data):
         """
-        @brief Sets or updates sensor data for a given location.
-        @param location: The key for the sensor data.
-        @param data: The new data to be set.
+        Sets or updates sensor data for a given location.
+
+        Args:
+            location (int): The integer identifier for the location where the data should be set.
+            data (Any): The new data to set for the location.
         """
-        # Pre-condition: `location` must exist in `read_data` to be updated.
         if location in self.read_data:
             self.read_data[location] = data
 
     def shutdown(self):
         """
-        @brief Shuts down the device's associated thread.
+        Shuts down the device by joining its associated thread.
         """
-        self.thread.join() # Wait for the device's main thread to complete.
+        self.thread.join()
 
 
 class DeviceThread(Thread):
     """
-    @brief The main thread for a Device, responsible for coordinating the execution of worker threads,
-    synchronizing with other devices, and managing timepoints.
+    Manages the lifecycle of WorkerThread instances for a Device.
+
+    This thread is responsible for continuously fetching neighbor information,
+    creating and starting a pool of `WorkerThread`s to process scripts
+    from the device's `active_queue`, waiting for them to complete,
+    and synchronizing with other devices using the `ReusableBarrierSem`.
     """
+
     def __init__(self, device):
         """
-        @brief Initializes the DeviceThread.
-        @param device: The Device object that this thread will manage.
+        Initializes a new DeviceThread instance.
+
+        Args:
+            device (Device): The Device object that this thread will manage.
         """
         Thread.__init__(self, name="Device Thread %d" % device.device_id)
         self.device = device
-        self.workers_number = 8 # Number of worker threads to spawn.
+        # Defines the fixed number of worker threads to be created.
+        self.workers_number = 8
 
     def run(self):
         """
-        @brief The main execution loop for the device thread.
-        It continuously gets neighbors, spawns worker threads to process scripts,
-        and synchronizes with other devices using the barrier.
+        The main execution loop for the DeviceThread.
+
+        It continuously performs the following steps:
+        1. Retrieves up-to-date neighbor information from the supervisor.
+        2. If no neighbors are returned (e.g., simulation end), the loop breaks.
+        3. Creates and starts a fixed number of `WorkerThread` instances.
+        4. Waits for all `WorkerThread` instances to complete their tasks.
+        5. Synchronizes with other DeviceThreads using the `ReusableBarrierSem`.
         """
-        neighbours = self.device.supervisor.get_neighbours() # Initial fetch of neighbors.
-        # Invariant: Loop continuously until the simulation signals termination.
+        # Initial fetch of neighbors for the first round.
+        neighbours = self.device.supervisor.get_neighbours()
         while True:
-            self.workers = [] # List to hold worker thread instances.
-            self.device.neighbours = neighbours # Update device's neighbors.
-            # Pre-condition: If `neighbours` is None, it signals the end of the simulation.
+            # List to hold references to the active worker threads for the current round.
+            self.workers = []
+            # Update the device's view of its neighbors for the current round.
+            self.device.neighbours = neighbours
+            # If no neighbors are available, it implies the simulation should terminate.
             if neighbours is None:
                 break # Exit the loop and terminate the thread.
 
-            # Block Logic: Spawn and start worker threads to process scripts from the active queue.
+            # Create and start a pool of WorkerThread instances.
             for i in range(self.workers_number):
                 new_worker = WorkerThread(self.device)
                 self.workers.append(new_worker)
                 new_worker.start()
 
-            # Invariant: Wait for all worker threads to complete their current tasks.
+            # Wait for all worker threads to complete their execution.
             for worker in self.workers:
                 worker.join()
-            
-            # Synchronize all device threads at the barrier before proceeding to the next timepoint.
+            # Synchronize with other DeviceThreads at the end of the round.
             self.device.new_round.wait()
-            # Fetch updated neighbors for the next timepoint.
+            # Fetch neighbors again for the next round.
             neighbours = self.device.supervisor.get_neighbours()
 
 
 class WorkerThread(Thread):
     """
-    @brief A worker thread that fetches scripts from the device's active queue,
-    executes them, and updates data based on neighbor information.
+    A worker thread responsible for processing individual scripts from a device's active queue.
+
+    Each worker thread continuously retrieves a script and its associated location,
+    collects relevant sensor data from the device and its neighbors, executes the
+    script, and updates the sensor data based on the script's outcome.
     """
+
     def __init__(self, device):
         """
-        @brief Initializes a WorkerThread.
-        @param device: The parent Device object from which to get tasks and data.
+        Initializes a new WorkerThread instance.
+
+        Args:
+            device (Device): The Device object associated with this worker thread.
         """
         Thread.__init__(self, name="Worker Thread %d" % device.device_id)
         self.device = device
 
     def run(self):
         """
-        @brief The main execution loop for the worker thread.
-        It continuously gets scripts from the active queue, performs data collection,
-        executes the script, and applies updates if conditions are met.
-        """
-        # Invariant: Loop continuously until a sentinel value is received from the queue.
-        while True:
-            script, location = self.device.active_queue.get() # Fetch a script task from the queue.
-            # Pre-condition: If `script` is -1, it's a sentinel value signaling termination.
-            if script == -1:
-                break # Exit the loop and terminate the thread.
-            
-            script_data = [] # List to collect data for the script.
-            matches = [] # List to store devices that provided data.
+        The main execution loop for WorkerThread.
 
-            # Block Logic: Collect data from neighboring devices for the current `location`.
+        It continuously performs the following steps:
+        1. Retrieves a script and its location from the `device.active_queue`.
+        2. If a sentinel value (-1, -1) is retrieved, it breaks the loop (terminates).
+        3. Collects sensor data from the device and its current neighbors for the given location.
+        4. If sufficient data is collected, it executes the script.
+        5. Updates the sensor data on the device and its neighbors based on the script's result,
+           specifically if the new result is greater than the old value (e.g., for maximum aggregation).
+        """
+        while True:
+            # Get a script and its location from the device's active queue.
+            script, location = self.device.active_queue.get()
+            # Check for a sentinel value to terminate the worker thread.
+            if script == -1:
+                break
+            
+            script_data = [] # List to store data collected for the script.
+            matches = []     # List to store devices from which data was collected.
+
+            # Collect data from neighboring devices for the current location.
             for device in self.device.neighbours:
                 data = device.get_data(location)
                 if data is not None:
                     matches.append(device)
                     script_data.append(data)
             
-            # Collect data from the current device itself for the current `location`.
+            # Collect data from the current device itself for the current location.
             data = self.device.get_data(location)
             if data is not None:
                 script_data.append(data)
                 matches.append(self.device)
 
-            # Pre-condition: Execute the script only if more than one data point was collected.
+            # If there's enough data (more than one piece, indicating participation from at least two sources),
+            # execute the script and update data.
             if len(script_data) > 1:
-                result = script.run(script_data) # Execute the script.
-                # Invariant: Update data on matching devices if the new result is greater than the old value.
+                # Execute the script with the collected data.
+                result = script.run(script_data)
+                # Update the data in all matching devices (neighbors and self).
                 for device in matches:
                     old_value = device.get_data(location)
+                    # Only update if the new result is greater than the existing value.
                     if old_value < result:
                         device.set_data(location, result)
 
 
 class ReusableBarrierSem():
     """
-    @brief A simpler reusable barrier implementation using semaphores for a two-phase synchronization.
+    A reusable barrier synchronization primitive that uses semaphores to coordinate multiple threads.
+    It ensures that a fixed number of threads all reach a certain point before any can proceed,
+    and can then be reset for subsequent synchronization points. This implementation uses a
+    two-phase approach to allow for barrier reuse.
     """
     def __init__(self, num_threads):
         """
-        @brief Initializes the ReusableBarrierSem.
-        @param num_threads: The number of threads to synchronize.
+        Initializes the ReusableBarrierSem with a specified number of threads.
+
+        Args:
+            num_threads (int): The total number of threads that must reach the
+                                barrier before any can proceed.
         """
         self.num_threads = num_threads
-        self.count_threads1 = self.num_threads # Counter for the first phase.
-        self.count_threads2 = self.num_threads # Counter for the second phase.
-        self.counter_lock = Lock() # Lock to protect the counters.
-        self.threads_sem1 = Semaphore(0) # Semaphore for the first phase.
-        self.threads_sem2 = Semaphore(0) # Semaphore for the second phase.
+        # Counter for the first phase of the barrier.
+        self.count_threads1 = self.num_threads
+        # Counter for the second phase of the barrier.
+        self.count_threads2 = self.num_threads
+        # A lock to protect access to the thread counters.
+        self.counter_lock = Lock()
+        # Semaphore for releasing threads in the first phase.
+        self.threads_sem1 = Semaphore(0)
+        # Semaphore for releasing threads in the second phase.
+        self.threads_sem2 = Semaphore(0)
 
     def wait(self):
         """
-        @brief Causes the calling thread to wait at the barrier, completing both phases.
+        Causes the calling thread to wait until all other threads have also
+        called this method. This method orchestrates the two phases of the barrier.
         """
-        self.phase1() # Execute the first phase of synchronization.
-        self.phase2() # Execute the second phase of synchronization.
+        self.phase1()
+        self.phase2()
 
     def phase1(self):
         """
-        @brief First phase of the barrier: threads decrement a counter and the last one releases all others.
+        Manages the first phase of the barrier synchronization.
+        Threads decrement a shared counter and the last thread releases all others
+        through a semaphore.
         """
-        # Pre-condition: Acquire lock to safely decrement the counter.
         with self.counter_lock:
             self.count_threads1 -= 1
             # Invariant: If this is the last thread, release all waiting threads.
             if self.count_threads1 == 0:
+                # If this is the last thread, release all waiting threads.
                 for i in range(self.num_threads):
                     self.threads_sem1.release()
-                self.count_threads1 = self.num_threads # Reset counter for next use.
+                # Reset the counter for the next use of phase1.
+                self.count_threads1 = self.num_threads
 
-        # Block the current thread until released by the last thread in this phase.
+        # Acquire the semaphore, effectively waiting until all threads are released in this phase.
         self.threads_sem1.acquire()
 
     def phase2(self):
         """
-        @brief Second phase of the barrier: similar to phase1, allowing for reusability.
+        Manages the second phase of the barrier synchronization.
+        Similar to phase1, but uses a separate counter and semaphore for reuse.
         """
-        # Pre-condition: Acquire lock to safely decrement the counter.
         with self.counter_lock:
             self.count_threads2 -= 1
             # Invariant: If this is the last thread, release all waiting threads.
             if self.count_threads2 == 0:
+                # If this is the last thread, release all waiting threads.
                 for i in range(self.num_threads):
                     self.threads_sem2.release()
-                self.count_threads2 = self.num_threads # Reset counter for next use.
+                # Reset the counter for the next use of phase2.
+                self.count_threads2 = self.num_threads
 
-        # Block the current thread until released by the last thread in this phase.
+        # Acquire the semaphore, effectively waiting until all threads are released in this phase.
         self.threads_sem2.acquire()

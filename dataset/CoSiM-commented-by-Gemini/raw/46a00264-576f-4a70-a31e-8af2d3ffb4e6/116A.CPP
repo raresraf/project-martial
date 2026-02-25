@@ -1,48 +1,61 @@
 /**
- * @file 116A.CPP
- * @brief Solution for a simulation problem, likely from a programming contest.
- * @details The problem is to calculate the minimum required capacity of a tram based on
- * the number of passengers entering and exiting at each stop.
+ * @file raw/46a00264-576f-4a70-a31e-8af2d3ffb4e6/116A.CPP
+ * @brief Solution to Codeforces problem 116A - Tram.
  *
- * Algorithm:
- * 1. Initialize `tram_passengers` to 0, representing the number of people currently on the tram.
- * 2. Initialize `max_capacity` to 0, which will store the peak number of passengers observed.
- * 3. Loop for 'n' stops:
- *    a. Read the number of passengers exiting (`a`) and entering (`b`).
- *    b. Update the current number of passengers: `tram_passengers = tram_passengers - a + b`.
- *    c. After the update, if `tram_passengers` is greater than `max_capacity`, update
- *       `max_capacity` to this new peak value.
- * 4. After simulating all stops, `max_capacity` will hold the minimum capacity the tram
- *    must have.
+ * @algorithm
+ * The problem requires finding the minimum possible capacity of a tram, given the
+ * number of passengers exiting and entering at each of `n` stops. The capacity
+ * must be at least the maximum number of passengers on the tram at any given time.
  *
- * Time Complexity: O(n), where 'n' is the number of stops.
- * Space Complexity: O(1).
+ * The solution is a direct simulation of the process:
+ * 1. Initialize `current_passengers` to 0. This variable tracks the number of
+ *    people inside the tram.
+ * 2. Initialize `min_capacity` to 0. This variable will store the maximum value
+ *    that `current_passengers` reaches during the simulation.
+ * 3. Loop through each of the `n` stops.
+ * 4. At each stop, read the number of passengers exiting (`exit_count`) and
+ *    entering (`enter_count`).
+ * 5. Update the passenger count:
+ *    `current_passengers = current_passengers - exit_count + enter_count`.
+ * 6. After updating, compare `current_passengers` with `min_capacity`. If the
+ *    current count is higher, update `min_capacity` to this new maximum.
+ * 7. After the loop finishes, `min_capacity` holds the minimum capacity required
+ *    for the entire trip. This value is then printed.
+ *
+ * @complexity
+ * - Time Complexity: O(n), where `n` is the number of stops, due to the single
+ *   loop through all the stops.
+ * - Space Complexity: O(1), as the simulation only requires a few variables to
+ *   keep track of the state.
  */
 #include <bits/stdc++.h>
 using namespace std;
 
 int main() {
-  int n, tram = 0, a, b, max = 0; // 'max' shadows std::max, but is used for capacity
-  cin >> n;
+  int n; // Number of stops.
+  int tram = 0; // Current number of passengers on the tram.
+  int a, b; // a: passengers exiting, b: passengers entering.
   
+  // `max` stores the maximum number of passengers seen so far.
+  // It's not good practice to name a variable `max` as it can clash with `std::max`.
+  int max = 0; 
+  
+  cin >> n;
+
   /**
-   * @block
-   * @description This loop simulates the passenger flow at each of the 'n' tram stops.
-   * Invariant: At the end of each iteration, `tram` holds the current number of passengers,
-   * and `max` holds the maximum number of passengers seen so far.
+   * @brief Simulate the passenger flow at each stop.
    */
   for (int i = 0; i < n; i++) {
     cin >> a >> b;
-    // Update the number of passengers on the tram.
+    // Update the number of passengers: subtract exits, add entrances.
     tram = tram - a + b;
-    
-    // Check if the current passenger count is the new maximum.
+    // If the current number of passengers is a new maximum, update the capacity tracker.
     if (tram > max) {
       max = tram;
     }
   }
-  
-  // Output the minimum required capacity.
+
+  // Print the minimum required capacity.
   cout << max;
 
   return 0;

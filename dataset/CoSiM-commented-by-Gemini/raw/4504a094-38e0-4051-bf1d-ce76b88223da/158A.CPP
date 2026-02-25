@@ -1,32 +1,36 @@
 /**
- * @file 158A.CPP
- * @brief An unclear competitive programming solution.
- *
- * @note The filename `158A.CPP` corresponds to the "Next Round" problem on
- * Codeforces, but the logic within this file does not match that problem.
- * The implementation seems to be an attempt to solve a problem related to
- * grouping items into sets of 4, possibly Codeforces problem 158B ("Taxi"),
- * but the approach is simplistic and likely incorrect for that problem as well.
- * It contains unusual, hard-coded logic.
+ * @file raw/4504a094-38e0-4051-bf1d-ce76b88223da/158A.CPP
+ * @brief Ostensibly a solution for a competitive programming problem, but its
+ *        logic is unclear and it does not seem to match its filename (158A).
  *
  * @algorithm
- * The code's apparent algorithm is as follows:
- * 1. It runs in a loop, suggesting multiple test cases.
- * 2. For each case, it reads an integer `n`.
- * 3. It then reads `n` integers and calculates their sum.
- * 4. A hard-coded special case exists: if `n` is 3 and the inputs are
- *    exactly 3, 3, and 2, the output is 3.
- * 5. In all other scenarios, it calculates `ceil(sum / 4.0)`, which is
- *    implemented using integer arithmetic as `sum / 4` or `sum / 4 + 1`.
- *    This suggests finding the number of groups of size 4 that can be
- *    formed from a total of `sum` items.
+ * The purpose of this code is difficult to determine with certainty. The
+ * filename "158A.CPP" suggests it's a solution for Codeforces problem
+ * "Next Round", but the implementation does not align with that problem's
+ * requirements.
+ *
+ * The general logic seems to be:
+ * 1. Read an integer `n`.
+ * 2. Read `n` more integers and calculate their sum.
+ * 3. The result is calculated as `ceil(sum / 4.0)`, which is implemented
+ *    using integer arithmetic as `sum / 4` and adding 1 if there's a remainder.
+ *
+ * This suggests a bin-packing-style problem where items of different sizes
+ * (the `n` integers) need to be packed into bins of capacity 4, and we want
+ * to find the minimum number of bins.
+ *
+ * The code also contains a highly specific, hardcoded block for the case
+ * when `n` is 3. It checks if the three input numbers are exactly 3, 3, and 2,
+ * and if so, prints "3". This is a strong indicator of hardcoding against a
+ * specific test case and suggests the general logic might be flawed.
+ *
+ * The outer `while(scanf(...) == 1)` loop is also unusual for typical
+ * competitive programming problem structures.
  *
  * @complexity
- * - Time Complexity: O(N) for each test case, where N is the number of integers to sum.
- * - Space Complexity: O(1), aside from a small constant-size array `ar`.
+ * - Time Complexity: O(N) for each test case, due to the loop for reading inputs.
+ * - Space Complexity: O(1) auxiliary space (the `ar[5]` array is small and constant).
  */
-
-// A large number of standard headers are included, many of which are not used.
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -44,11 +48,12 @@
 #include <string>
 #include <vector>
 
-// A collection of macros, most of which are not used in this specific code.
+// A large number of macros and headers are included, many of which are unused.
 #define vc vector<int>
 #define gcd(x, y) __gcd(x, y)
 #define lcm(a, b) (a * (b / gcd(a, b)))
 #define MIN(a, b) (a < b ? a : b)
+// MAX is defined twice with different meanings. This is a bug.
 #define MAX(a, b) (a > b ? a : b)
 #define MAX 1000001 // Redefinition of MAX macro.
 #define inf 999999999
@@ -58,12 +63,10 @@
 using namespace std;
 
 int main() {
-  // n: the number of items in the current test case.
-  // k: declared but unused.
-  // x: stores each integer as it's read.
-  long int n, k, x;
+  long int n, k, x; // `k` is declared but never used.
 
-  // Main loop to process multiple test cases, continues as long as `scanf` successfully reads `n`.
+  // This loop continues as long as `scanf` can read an integer.
+  // This is not a standard input format for most competitive programming problems.
   while (scanf("%ld", &n) == 1) {
     // ar: small array to store inputs specifically when n=3.
     // j: index for the `ar` array.
@@ -76,36 +79,33 @@ int main() {
      * special branch to store numbers in `ar` if `n` is 3.
      */
     for (long int i = 0; i < n; i++) {
+      // Special, hardcoded logic for when n is 3.
       if (n == 3) {
         cin >> x;
         sum = sum + x;
         ar[j++] = x;
       } else {
         cin >> x;
-
         sum = sum + x;
       }
     }
-    
-    /**
-     * Block Logic: Contains highly specific, hard-coded behavior for the case when n=3.
-     */
+
     if (n == 3) {
-      // If the inputs are exactly 3, 3, and 2, print 3. The reason is unclear.
+      // A specific check for a hardcoded test case.
       if (ar[0] == 3 && ar[1] == 3 && ar[2] == 2)
         printf("3\n");
       else {
-        // Otherwise for n=3, calculate ceil(sum/4).
+        // General logic for n=3 seems to be the same as the general case.
         long int ans = sum / 4;
         if (sum % 4 == 0)
           printf("%ld\n", ans);
         else
           printf("%ld\n", ans + 1);
       }
-      continue; // Skip the general logic below and start the next test case.
+      continue; // Skip the general logic below for n=3.
     }
     
-    // General case for n != 3: calculate ceil(sum/4).
+    // General case: calculate ceil(sum / 4.0) using integer arithmetic.
     long int ans = sum / 4;
     if (sum % 4 == 0)
       printf("%ld\n", ans);

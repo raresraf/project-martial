@@ -1,10 +1,7 @@
 /**
- * @fileoverview
- * This file implements the logic for resolving the National Language Support (NLS)
- * configuration for the application. It is responsible for determining the appropriate
- * language pack to use based on user locale, OS locale, and available language packs.
- * The module handles the caching of processed language pack data to optimize startup
- * performance. This is a core part of the internationalization (i18n) strategy.
+ * @file raw/45d7f3eb-3d1c-4486-ab1f-177bb3bea12d/src/vs/base/node/nls.ts
+ * @brief Handles the resolution of National Language Support (NLS) configuration
+ * in VS Code, including the processing and caching of language packs.
  */
 
 /*---------------------------------------------------------------------------------------------
@@ -18,67 +15,52 @@ import * as perf from '../common/performance.js';
 import type { ILanguagePacks, INLSConfiguration } from '../../nls.js';
 
 /**
- * @interface IResolveNLSConfigurationContext
- * @description Defines the context required to resolve the NLS configuration. This
- * includes paths to necessary metadata and data directories, as well as locale information.
+ * Defines the context required to resolve the NLS configuration.
  */
 export interface IResolveNLSConfigurationContext {
 
 	/**
-	 * @property
-	 * @description Location where `nls.messages.json` and `nls.keys.json` are stored.
-	 * These files contain the default English strings and the keys used for localization.
+	 * Location where `nls.messages.json` and `nls.keys.json` are stored.
+	 * These files contain the default English strings and their ordering.
 	 */
 	readonly nlsMetadataPath: string;
 
 	/**
-	 * @property
-	 * @description Path to the user data directory. This directory is used to cache
-	 * language packs that have been converted into an optimized format for consumption.
+	 * Path to the user data directory. Used as a cache for
+	 * language packs converted to the format needed by the application.
 	 */
 	readonly userDataPath: string;
 
 	/**
-	 * @property
-	 * @description The commit hash of the running application. This is used to ensure
-	 * that cached language packs are compatible with the current version of the application.
-	 * It can be `undefined` in development environments.
+	 * Commit hash of the running application. Can be `undefined`
+	 * when not running a built version (e.g., in development).
 	 */
 	readonly commit: string | undefined;
 
 	/**
-	 * @property
-	 * @description The locale as specified by the user, either through `argv.json` or
-	 * via `app.getLocale()`. This is the primary driver for language selection.
+	 * The locale specified by the user (e.g., from `argv.json` or `app.getLocale()`).
 	 */
 	readonly userLocale: string;
 
 	/**
-	 * @property
-	 * @description The locale as determined by the operating system's language preferences
-	 * (e.g., from `app.getPreferredSystemLanguages()`). This can be used as a fallback
-	 * or for secondary locale information.
+	 * The locale determined from the operating system.
 	 */
 	readonly osLocale: string;
 }
 
 /**
- * @function resolveNLSConfiguration
- * @description Resolves the NLS configuration by selecting an appropriate language pack
- * based on the provided context. It manages the caching of language packs and generates
- * the necessary configuration for the application to use localized strings.
- * @param {IResolveNLSConfigurationContext} context The context for resolving the NLS configuration.
- * @returns {Promise<INLSConfiguration>} A promise that resolves to the NLS configuration.
+ * Resolves the NLS configuration for the application.
+ * This function determines the best available language pack, generates the necessary
+ * translation files if they are not cached, and returns a configuration object
+ * for the NLS system.
+ *
+ * @param context The context required for resolution.
+ * @returns A promise that resolves to the NLS configuration.
  */
 export async function resolveNLSConfiguration({ userLocale, osLocale, userDataPath, commit, nlsMetadataPath }: IResolveNLSConfigurationContext): Promise<INLSConfiguration> {
 	perf.mark('code/willGenerateNls');
 
-	/**
-	 * @block
-	 * @description This block serves as a fast path for scenarios where localization is not needed
-	 * or not possible. This includes development mode, pseudo-localization, English locales, or when
-	 * essential information like commit hash or user data path is missing.
-	 */
+	// Early exit for development, pseudo-locales, or English locales as they don't require language packs.
 	if (
 		process.env['VSCODE_DEV'] ||
 		userLocale === 'pseudo' ||
@@ -90,6 +72,7 @@ export async function resolveNLSConfiguration({ userLocale, osLocale, userDataPa
 	}
 
 	try {
+		// 1. Read language pack configurations from `languagepacks.json`.
 		const languagePacks = await getLanguagePackConfigurations(userDataPath);
 		/**
 		 * @block
@@ -100,6 +83,7 @@ export async function resolveNLSConfiguration({ userLocale, osLocale, userDataPa
 			return defaultNLSConfiguration(userLocale, osLocale, nlsMetadataPath);
 		}
 
+		// 2. Resolve the specific language to use (e.g., 'fr' from 'fr-CA').
 		const resolvedLanguage = resolveLanguagePackLanguage(languagePacks, userLocale);
 		/**
 		 * @block
@@ -125,9 +109,11 @@ export async function resolveNLSConfiguration({ userLocale, osLocale, userDataPa
 			typeof mainLanguagePackPath !== 'string' ||
 			!(await exists(mainLanguagePackPath))
 		) {
+			// The language pack is not valid or installed correctly.
 			return defaultNLSConfiguration(userLocale, osLocale, nlsMetadataPath);
 		}
 
+		// 3. Set up cache paths. The cache is versioned by language pack hash and commit hash.
 		const languagePackId = `${languagePack.hash}.${resolvedLanguage}`;
 		const globalLanguagePackCachePath = path.join(userDataPath, 'clp', languagePackId);
 		const commitLanguagePackCachePath = path.join(globalLanguagePackCachePath, commit);
@@ -135,14 +121,10 @@ export async function resolveNLSConfiguration({ userLocale, osLocale, userDataPa
 		const translationsConfigFile = path.join(globalLanguagePackCachePath, 'tcf.json');
 		const languagePackCorruptMarkerFile = path.join(globalLanguagePackCachePath, 'corrupted.info');
 
-		/**
-		 * @block
-		 * @description Pre-condition: Checks for a corruption marker file.
-		 * If the marker exists, it indicates that a previous attempt to generate the cache failed.
-		 * The corrupted cache is deleted to allow for a clean regeneration attempt.
-		 */
+		// 4. Handle corrupted cache.
 		if (await exists(languagePackCorruptMarkerFile)) {
-			await fs.promises.rm(globalLanguagePackCachePath, { recursive: true, force: true, maxRetries: 3 }); // delete corrupted cache folder
+			// Delete the entire cache folder for this language pack if it's marked as corrupt.
+			await fs.promises.rm(globalLanguagePackCachePath, { recursive: true, force: true, maxRetries: 3 });
 		}
 
 		const result: INLSConfiguration = {
@@ -156,7 +138,7 @@ export async function resolveNLSConfiguration({ userLocale, osLocale, userDataPa
 				corruptMarkerFile: languagePackCorruptMarkerFile
 			},
 
-			// NLS: below properties are a relic from old times only used by vscode-nls and deprecated
+			// Deprecated properties for vscode-nls compatibility.
 			locale: userLocale,
 			availableLanguages: { '*': resolvedLanguage },
 			_languagePackId: languagePackId,
@@ -167,24 +149,14 @@ export async function resolveNLSConfiguration({ userLocale, osLocale, userDataPa
 			_corruptedFile: languagePackCorruptMarkerFile
 		};
 
-		/**
-		 * @block
-		 * @description Checks if a cached version of the language pack for the current commit already exists.
-		 * If it does, the function can return the configuration immediately, which is a significant
-		 * performance optimization. It also touches the directory to update its modification time.
-		 */
+		// 5. Cache hit: If the commit-specific cache exists, we're done.
 		if (await exists(commitLanguagePackCachePath)) {
-			touch(commitLanguagePackCachePath).catch(() => { }); // We don't wait for this. No big harm if we can't touch
+			touch(commitLanguagePackCachePath).catch(() => { }); // Update timestamp for cache management.
 			perf.mark('code/didGenerateNls');
 			return result;
 		}
 
-		/**
-		 * @block
-		 * @description This block is responsible for generating the cached NLS data. It reads the default
-		 * English messages, the localization keys, and the language pack data. It then creates
-		 * the directory structure for the cache.
-		 */
+		// 6. Cache miss: Generate the translation files.
 		const [
 			,
 			nlsDefaultKeys,
@@ -192,23 +164,21 @@ export async function resolveNLSConfiguration({ userLocale, osLocale, userDataPa
 			nlsPackdata
 		]:
 			[unknown, Array<[string, string[]]>, string[], { contents: Record<string, Record<string, string>> }]
-			//               ^moduleId ^nlsKeys                               ^moduleId      ^nlsKey ^nlsValue
 			= await Promise.all([
 				fs.promises.mkdir(commitLanguagePackCachePath, { recursive: true }),
+				// nls.keys.json: defines the structure and order of keys.
 				fs.promises.readFile(path.join(nlsMetadataPath, 'nls.keys.json'), 'utf-8').then(content => JSON.parse(content)),
+				// nls.messages.json: contains the default (English) messages in a flat array.
 				fs.promises.readFile(path.join(nlsMetadataPath, 'nls.messages.json'), 'utf-8').then(content => JSON.parse(content)),
+				// The main language pack file with translations.
 				fs.promises.readFile(mainLanguagePackPath, 'utf-8').then(content => JSON.parse(content)),
 			]);
 
 		const nlsResult: string[] = [];
 
-		/**
-		 * @block
-		 * @description This loop constructs the final array of localized messages.
-		 * Invariant: The `nls.keys.json` file provides the canonical ordering of NLS messages.
-		 * The loop iterates through this structure, looks up the translation for each key,
-		 * and falls back to the default English message if a translation is not found.
-		 */
+		// This process creates a flat array of messages for the target locale.
+		// It uses `nls.keys.json` to iterate in the correct order, ensuring that indices match up.
+		// For each key, it looks up the translation. If not found, it falls back to the default English message.
 		let nlsIndex = 0;
 		for (const [moduleId, nlsKeys] of nlsDefaultKeys) {
 			const moduleTranslations = nlsPackdata.contents[moduleId];
@@ -218,12 +188,7 @@ export async function resolveNLSConfiguration({ userLocale, osLocale, userDataPa
 			}
 		}
 
-		/**
-		 * @block
-		 * @description After generating the localized messages, this block writes the results
-		 * to the cache directory. This includes the `nls.messages.json` file containing the
-		 * localized strings and the `tcf.json` file with translation configurations.
-		 */
+		// 7. Write the generated files to the cache.
 		await Promise.all([
 			fs.promises.writeFile(languagePackMessagesFile, JSON.stringify(nlsResult), 'utf-8'),
 			fs.promises.writeFile(translationsConfigFile, JSON.stringify(languagePack.translations), 'utf-8')
@@ -234,37 +199,34 @@ export async function resolveNLSConfiguration({ userLocale, osLocale, userDataPa
 		return result;
 	} catch (error) {
 		console.error('Generating translation files failed.', error);
+		// Fallback to default configuration on any error.
+		return defaultNLSConfiguration(userLocale, osLocale, nlsMetadataPath);
 	}
-
-	return defaultNLSConfiguration(userLocale, osLocale, nlsMetadataPath);
 }
 
 /**
- * @function getLanguagePackConfigurations
- * @description Retrieves language pack configurations from `languagepacks.json`.
- * This file acts as a registry for all installed language packs, mapping language
- * identifiers to their corresponding translation files.
- * @param {string} userDataPath The path to the user data directory where `languagepacks.json` is located.
- * @returns {Promise<ILanguagePacks | undefined>} A promise that resolves to the parsed language pack
- * configurations, or `undefined` if the file cannot be read or parsed.
+ * Reads the `languagepacks.json` file from the user data directory.
+ * This file contains metadata about all installed language packs.
+ * @param userDataPath The path to the user data directory.
+ * @returns A promise that resolves to the language pack configurations, or undefined if not found.
  */
 async function getLanguagePackConfigurations(userDataPath: string): Promise<ILanguagePacks | undefined> {
 	const configFile = path.join(userDataPath, 'languagepacks.json');
 	try {
-		return JSON.parse(await fs.promises.readFile(configFile, 'utf-8'));
+		const content = await fs.promises.readFile(configFile, 'utf-8');
+		return JSON.parse(content);
 	} catch (err) {
-		return undefined; // Do nothing. If we can't read the file we have no language pack config.
+		// If the file doesn't exist or is corrupt, we have no language pack config.
+		return undefined;
 	}
 }
 
 /**
- * @function resolveLanguagePackLanguage
- * @description Resolves a locale to a supported language pack language. It uses a fallback
- * strategy, trimming the locale (e.g., from `de-DE` to `de`) until a match is found
- * in the available language packs.
- * @param {ILanguagePacks} languagePacks The available language packs.
- * @param {(string | undefined)} locale The locale to resolve.
- * @returns {(string | undefined)} The resolved language, or `undefined` if no match is found.
+ * Resolves a language from a locale.
+ * For example, for a locale `fr-CA`, it would first check for `fr-CA` and then `fr`.
+ * @param languagePacks The available language packs.
+ * @param locale The user's locale.
+ * @returns The resolved language that has a language pack available, or undefined.
  */
 function resolveLanguagePackLanguage(languagePacks: ILanguagePacks, locale: string | undefined): string | undefined {
 	try {
@@ -277,14 +239,14 @@ function resolveLanguagePackLanguage(languagePacks: ILanguagePacks, locale: stri
 		 */
 		while (locale) {
 			if (languagePacks[locale]) {
-				return locale;
+				return locale; // Exact match found.
 			}
-
+			// Fallback to the parent language (e.g., 'fr' from 'fr-CA').
 			const index = locale.lastIndexOf('-');
 			if (index > 0) {
 				locale = locale.substring(0, index);
 			} else {
-				return undefined;
+				return undefined; // No more segments to check.
 			}
 		}
 	} catch (error) {
@@ -295,14 +257,11 @@ function resolveLanguagePackLanguage(languagePacks: ILanguagePacks, locale: stri
 }
 
 /**
- * @function defaultNLSConfiguration
- * @description Returns a default NLS configuration for the English language. This is used
- * as a fallback when no suitable language pack can be found or when localization is
- * explicitly disabled.
- * @param {string} userLocale The user's specified locale.
- * @param {string} osLocale The operating system's locale.
- * @param {string} nlsMetadataPath The path to the NLS metadata directory.
- * @returns {INLSConfiguration} The default NLS configuration.
+ * Returns a default NLS configuration for English, which serves as the ultimate fallback.
+ * @param userLocale The user's locale.
+ * @param osLocale The OS's locale.
+ * @param nlsMetadataPath The path to the NLS metadata directory.
+ * @returns The default NLS configuration.
  */
 function defaultNLSConfiguration(userLocale: string, osLocale: string, nlsMetadataPath: string): INLSConfiguration {
 	perf.mark('code/didGenerateNls');
@@ -312,8 +271,7 @@ function defaultNLSConfiguration(userLocale: string, osLocale: string, nlsMetada
 		osLocale,
 		resolvedLanguage: 'en',
 		defaultMessagesFile: path.join(nlsMetadataPath, 'nls.messages.json'),
-
-		// NLS: below 2 are a relic from old times only used by vscode-nls and deprecated
+		// Deprecated properties for vscode-nls compatibility.
 		locale: userLocale,
 		availableLanguages: {}
 	};
@@ -322,15 +280,13 @@ function defaultNLSConfiguration(userLocale: string, osLocale: string, nlsMetada
 //#region fs helpers
 
 /**
- * @function exists
- * @description Checks if a file or directory exists at the given path.
- * @param {string} path The path to check.
- * @returns {Promise<boolean>} A promise that resolves to `true` if the path exists, and `false` otherwise.
+ * A helper function to check if a file or directory exists.
+ * @param path The path to check.
+ * @returns A promise that resolves to true if the path exists, false otherwise.
  */
 async function exists(path: string): Promise<boolean> {
 	try {
 		await fs.promises.access(path);
-
 		return true;
 	} catch {
 		return false;
@@ -338,15 +294,12 @@ async function exists(path: string): Promise<boolean> {
 }
 
 /**
- * @function touch
- * @description Updates the modification and access times of a file or directory.
- * This is used to signal that a cached resource is still in use.
- * @param {string} path The path to the file or directory to touch.
- * @returns {Promise<void>} A promise that resolves when the operation is complete.
+ * A helper function to update the access and modification times of a file or directory.
+ * @param path The path to touch.
+ * @returns A promise that resolves when the operation is complete.
  */
 function touch(path: string): Promise<void> {
 	const date = new Date();
-
 	return fs.promises.utimes(path, date, date);
 }
 

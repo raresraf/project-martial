@@ -1,5 +1,21 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0
+"""
+This script is a selftest for the DAMON (Data Access Monitor) sysfs interface.
+
+It works by configuring a DAMON monitoring context (`kdamond`) with a default
+monitoring scheme via the sysfs interface provided by the `_damon_sysfs` helper
+module. Once the kdamond is started, this script uses `drgn`, a programmable
+debugger, to execute a companion script (`drgn_dump_damon_status.py`). That
+script dives into kernel memory to dump the internal state of the running
+kdamond into a JSON file.
+
+The main purpose of this test is to verify that the configuration written to the
+sysfs files was correctly applied and is reflected in the kernel's internal
+data structures. It does this by comparing the values from the JSON dump against
+the expected default values.
+"""
+
 
 import json
 import os
@@ -8,16 +24,36 @@ import subprocess
 import _damon_sysfs
 
 def dump_damon_status_dict(pid):
+    """
+    Dumps the internal DAMON status for a given kdamond PID using drgn.
+
+    This function executes an external drgn script ('drgn_dump_damon_status.py')
+    to inspect the kernel's memory, find the DAMON context associated with the
+    given PID, and write its status to a JSON file named 'damon_dump_output'.
+    It then reads and returns the content of that JSON file.
+
+    Args:
+        pid (str): The process ID of the kdamond to inspect.
+
+    Returns:
+        A tuple containing the loaded JSON dictionary and an error string.
+        If successful, the error string is None.
+    """
     try:
+        # Check if drgn is available in the system.
         subprocess.check_output(['which', 'drgn'], stderr=subprocess.DEVNULL)
     except:
         return None, 'drgn not found'
+
+    # Locate and execute the drgn script.
     file_dir = os.path.dirname(os.path.abspath(__file__))
     dump_script = os.path.join(file_dir, 'drgn_dump_damon_status.py')
     rc = subprocess.call(['drgn', dump_script, pid, 'damon_dump_output'],
                          stderr=subprocess.DEVNULL)
     if rc != 0:
         return None, 'drgn fail'
+
+    # Load the JSON output from the drgn script.
     try:
         with open('damon_dump_output', 'r') as f:
             return json.load(f), None
@@ -25,15 +61,20 @@ def dump_damon_status_dict(pid):
         return None, 'json.load fail (%s)' % e
 
 def fail(expectation, status):
+    """Prints an error message and exits the program with a failure code."""
     print('unexpected %s' % expectation)
     print(json.dumps(status, indent=4))
     exit(1)
 
 def assert_true(condition, expectation, status):
+    """Asserts that a condition is True, otherwise fails the test."""
     if condition is not True:
         fail(expectation, status)
 
 def assert_watermarks_committed(watermarks, dump):
+    """Asserts that the DAMOS watermark values were correctly committed."""
+    # This dictionary maps the string representation of the metric to its
+    # integer value in the kernel's enum.
     wmark_metric_val = {
             'none': 0,
             'free_mem_rate': 1,
@@ -46,6 +87,7 @@ def assert_watermarks_committed(watermarks, dump):
     assert_true(dump['low'] == watermarks.low, 'low', dump)
 
 def assert_quota_goal_committed(qgoal, dump):
+    """Asserts that a single DAMOS quota goal was correctly committed."""
     metric_val = {
             'user_input': 0,
             'some_mem_psi_us': 1,
@@ -61,6 +103,7 @@ def assert_quota_goal_committed(qgoal, dump):
     assert_true(dump['nid'] == qgoal.nid, 'nid', dump)
 
 def assert_quota_committed(quota, dump):
+    """Asserts that the DAMOS quota settings were correctly committed."""
     assert_true(dump['reset_interval'] == quota.reset_interval_ms,
                 'reset_interval', dump)
     assert_true(dump['ms'] == quota.ms, 'ms', dump)
@@ -75,12 +118,14 @@ def assert_quota_committed(quota, dump):
 
 
 def assert_migrate_dests_committed(dests, dump):
+    """Asserts that the DAMOS migration destinations were correctly committed."""
     assert_true(dump['nr_dests'] == len(dests.dests), 'nr_dests', dump)
     for idx, dest in enumerate(dests.dests):
         assert_true(dump['node_id_arr'][idx] == dest.id, 'node_id', dump)
         assert_true(dump['weight_arr'][idx] == dest.weight, 'weight', dump)
 
 def assert_filter_committed(filter_, dump):
+    """Asserts that a DAMOS filter was correctly committed."""
     assert_true(filter_.type_ == dump['type'], 'type', dump)
     assert_true(filter_.matching == dump['matching'], 'matching', dump)
     assert_true(filter_.allow == dump['allow'], 'allow', dump)
@@ -96,6 +141,7 @@ def assert_filter_committed(filter_, dump):
                     'sz_range', dump)
 
 def assert_access_pattern_committed(pattern, dump):
+    """Asserts that the DAMOS access pattern settings were correctly committed."""
     assert_true(dump['min_sz_region'] == pattern.size[0], 'min_sz_region',
                 dump)
     assert_true(dump['max_sz_region'] == pattern.size[1], 'max_sz_region',
@@ -110,7 +156,16 @@ def assert_access_pattern_committed(pattern, dump):
                 dump)
 
 def assert_scheme_committed(scheme, dump):
+    """
+    Asserts that an entire DAMOS scheme and its components were committed.
+    
+    This is a top-level assertion function that calls sub-assertions for each
+    part of a DAMOS scheme, including the access pattern, action, quota,
+    watermarks, and filters.
+    """
     assert_access_pattern_committed(scheme.access_pattern, dump['pattern'])
+
+    # Map action string names to their kernel enum integer values for verification.
     action_val = {
             'willneed': 0,
             'cold': 1,
@@ -137,26 +192,45 @@ def assert_scheme_committed(scheme, dump):
         assert_filter_committed(f, dump['ops_filters'][idx])
 
 def main():
+    """Main function for the DAMON sysfs selftest."""
+    #
+    # Setup: Create a kdamond configuration object. This represents the desired
+    # state that we want to write to sysfs. It includes one context with one
+    # target (monitoring all memory with pid=-1) and one default scheme.
+    #
     kdamonds = _damon_sysfs.Kdamonds(
             [_damon_sysfs.Kdamond(
                 contexts=[_damon_sysfs.DamonCtx(
                     targets=[_damon_sysfs.DamonTarget(pid=-1)],
                     schemes=[_damon_sysfs.Damos()],
                     )])])
+
+    #
+    # Execution: Start the kdamond. This writes the configuration to sysfs
+    # and activates the DAMON kernel module.
+    #
     err = kdamonds.start()
     if err is not None:
         print('kdamond start failed: %s' % err)
         exit(1)
 
+    #
+    # Verification: Use drgn to dump the kernel's internal DAMON state to a
+    # dictionary for inspection.
+    #
     status, err = dump_damon_status_dict(kdamonds.kdamonds[0].pid)
     if err is not None:
         print(err)
         kdamonds.stop()
         exit(1)
 
+    #
+    # Assertions: Check if the dumped state matches the expected defaults.
+    #
     if len(status['contexts']) != 1:
         fail('number of contexts', status)
 
+    # Check basic monitoring attributes for their default values.
     ctx = status['contexts'][0]
     attrs = ctx['attrs']
     if attrs['sample_interval'] != 5000:
@@ -183,9 +257,14 @@ def main():
     if len(ctx['schemes']) != 1:
         fail('number of schemes', status)
 
+    # Check the entire default scheme against the dumped state.
     assert_scheme_committed(_damon_sysfs.Damos(), ctx['schemes'][0])
 
+    #
+    # Teardown: Stop the kdamond, cleaning up the sysfs interface.
+    #
     kdamonds.stop()
 
+# Standard Python entry point.
 if __name__ == '__main__':
     main()

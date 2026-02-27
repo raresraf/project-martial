@@ -34,13 +34,11 @@ if __name__ == "__main__":
             dir_path = dir_path.strip()
             if dir_path and os.path.isdir(dir_path) and not os.path.exists(os.path.join(dir_path, '.checkpoint')):
                 outfile.write(dir_path + '\n')
-')
 
     smallest_dirs = find_smallest_directories(output_file, 50)
     
     with open("smallest_50_dirs.txt", 'w') as f:
         for d in smallest_dirs:
-            f.write(d + '
-')
+            f.write(d + '\n')
 
     print("Smallest 50 directories (without .checkpoint) written to smallest_50_dirs.txt")

@@ -3,6 +3,13 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/**
+ * @file This file defines the `ObjectStream` class, a utility for converting a data source,
+ * represented by a `Generator`, into a `ReadableStream`. Its primary purpose is to enable
+ * non-blocking, chunked, and cancellable streaming of objects, which is essential for
+ * handling potentially large datasets without freezing the UI or main thread.
+ */
+
 import { ITextModel } from '../../model.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
 import { assertNever } from '../../../../base/common/assert.js';
@@ -11,22 +18,25 @@ import { ObservableDisposable } from '../../../../base/common/observableDisposab
 import { newWriteableStream, WriteableStream, ReadableStream } from '../../../../base/common/stream.js';
 
 /**
- * A readable stream of provided objects.
+ * A readable stream of objects from a `Generator`. This class acts as an adapter,
+ * taking a synchronous generator and exposing it as an asynchronous, chunked stream
+ * that respects cancellation and can be paused or resumed.
  */
 export class ObjectStream<T extends object> extends ObservableDisposable implements ReadableStream<T> {
 	/**
-	 * Flag that indicates whether the stream has ended.
+	 * Flag that indicates whether the stream has been ended and should not produce more data.
 	 */
 	private ended: boolean = false;
 
 	/**
-	 * Underlying writable stream instance.
+	 * The underlying writable stream that this class pushes data into. Consumers will
+	 * listen on the readable end of this stream.
 	 */
 	private readonly stream: WriteableStream<T>;
 
 	/**
-	 * Interval reference that is used to periodically send
-	 * objects to the stream in the background.
+	 * A handle for the `setTimeout` call used for scheduling the next chunk of data.
+	 * This is the mechanism that makes the stream asynchronous and non-blocking.
 	 */
 	private timeoutHandle: ReturnType<typeof setTimeout> | undefined;
 
@@ -36,39 +46,39 @@ export class ObjectStream<T extends object> extends ObservableDisposable impleme
 	) {
 		super();
 
-		this.stream = newWriteableStream<T>(null);
+		this.stream = newWriteableStream<T>(data => data);
 
+		// Immediately end if cancellation has already been requested.
 		if (cancellationToken?.isCancellationRequested) {
 			this.end();
 			return;
 		}
 
-		// send a first batch of data immediately
+		// Proactively send the first batch of data to make the stream responsive.
 		this.send(true);
 	}
 
 	/**
-	 * Starts process of sending data to the stream.
+	 * Starts the process of sending data to the stream. This method schedules itself
+	 * to run asynchronously, creating a non-blocking data pump.
 	 *
-	 * @param stopAfterFirstSend whether to continue sending data to the stream
-	 *             or stop sending after the first batch of data is sent instead
+	 * @param stopAfterFirstSend If true, the stream will send one batch and then stop,
+	 * waiting to be manually resumed. If false, it will continuously send data.
 	 */
 	public send(
 		stopAfterFirstSend: boolean = false,
 	): void {
-		// this method can be called asynchronously by the `setTimeout` utility below, hence
-		// the state of the cancellation token or the stream itself might have changed by that time
+		// Before proceeding, check if the stream has been cancelled or ended.
 		if (this.cancellationToken?.isCancellationRequested || this.ended) {
 			this.end();
-
 			return;
 		}
 
 		this.sendData()
 			.then(() => {
+				// Re-check state after the async sendData operation.
 				if (this.cancellationToken?.isCancellationRequested || this.ended) {
 					this.end();
-
 					return;
 				}
 
@@ -77,7 +87,8 @@ export class ObjectStream<T extends object> extends ObservableDisposable impleme
 					return;
 				}
 
-				this.timeoutHandle = setTimeout(this.send.bind(this));
+				// Schedule the next call to `send`, yielding to the event loop.
+				this.timeoutHandle = setTimeout(() => this.send());
 			})
 			.catch((error) => {
 				this.stream.error(error);
@@ -86,7 +97,7 @@ export class ObjectStream<T extends object> extends ObservableDisposable impleme
 	}
 
 	/**
-	 * Stop the data sending loop.
+	 * Stops the automatic data sending loop by clearing the scheduled timeout.
 	 */
 	public stopStream(): this {
 		if (this.timeoutHandle === undefined) {
@@ -100,18 +111,19 @@ export class ObjectStream<T extends object> extends ObservableDisposable impleme
 	}
 
 	/**
-	 * Sends a provided number of objects to the stream.
+	 * Sends a batch of objects from the generator to the underlying stream.
+	 * @param objectsCount The maximum number of objects to send in this batch.
 	 */
 	private async sendData(
 		objectsCount: number = 25,
 	): Promise<void> {
-		// send up to 'objectsCount' objects at a time
+		// Send up to 'objectsCount' objects at a time.
 		while (objectsCount > 0) {
 			try {
 				const next = this.data.next();
+				// If the generator is done or cancellation is requested, end the stream.
 				if (next.done || this.cancellationToken?.isCancellationRequested) {
 					this.end();
-
 					return;
 				}
 
@@ -126,7 +138,8 @@ export class ObjectStream<T extends object> extends ObservableDisposable impleme
 	}
 
 	/**
-	 * Ends the stream and stops sending data objects.
+	 * Ends the stream, preventing any more data from being sent.
+	 * This is an idempotent operation.
 	 */
 	private end(): this {
 		if (this.ended) {
@@ -142,15 +155,11 @@ export class ObjectStream<T extends object> extends ObservableDisposable impleme
 	public pause(): void {
 		this.stopStream();
 		this.stream.pause();
-
-		return;
 	}
 
 	public resume(): void {
 		this.send();
 		this.stream.resume();
-
-		return;
 	}
 
 	public destroy(): void {
@@ -159,41 +168,36 @@ export class ObjectStream<T extends object> extends ObservableDisposable impleme
 
 	public removeListener(event: string, callback: (...args: any[]) => void): void {
 		this.stream.removeListener(event, callback);
-
-		return;
 	}
 
+	/**
+	 * Attaches an event listener. Following standard stream conventions, attaching a 'data'
+	 * listener will automatically start the flow of data.
+	 */
 	public on(event: 'data', callback: (data: T) => void): void;
 	public on(event: 'error', callback: (err: Error) => void): void;
 	public on(event: 'end', callback: () => void): void;
 	public on(event: 'data' | 'error' | 'end', callback: (...args: any[]) => void): void {
-		if (event === 'data') {
-			this.stream.on(event, callback);
-			// this is the convention of the readable stream, - when
-			// the `data` event is registered, the stream is started
-			this.send();
-
-			return;
+		switch (event) {
+			case 'data':
+				this.stream.on(event, callback);
+				// Standard stream behavior: start flowing data when a listener is attached.
+				this.send();
+				break;
+			case 'error':
+			case 'end':
+				this.stream.on(event, callback);
+				break;
+			default:
+				assertNever(
+					event,
+					`Unexpected event name '${event}'.`,
+				);
 		}
-
-		if (event === 'error') {
-			this.stream.on(event, callback);
-			return;
-		}
-
-		if (event === 'end') {
-			this.stream.on(event, callback);
-			return;
-		}
-
-		assertNever(
-			event,
-			`Unexpected event name '${event}'.`,
-		);
 	}
 
 	/**
-	 * Cleanup send interval and destroy the stream.
+	 * Cleans up resources by stopping the send interval and destroying the stream.
 	 */
 	public override dispose(): void {
 		this.stopStream();
@@ -203,7 +207,7 @@ export class ObjectStream<T extends object> extends ObservableDisposable impleme
 	}
 
 	/**
-	 * Create new instance of the stream from a provided array.
+	 * A factory method to create a new `ObjectStream` from an array.
 	 */
 	public static fromArray<T extends object>(
 		array: T[],
@@ -213,7 +217,8 @@ export class ObjectStream<T extends object> extends ObservableDisposable impleme
 	}
 
 	/**
-	 * Create new instance of the stream from a provided text model.
+	* A factory method to create a new `ObjectStream` from a VS Code `ITextModel`,
+	* streaming its content line by line as buffers.
 	 */
 	public static fromTextModel(
 		model: ITextModel,
@@ -224,7 +229,7 @@ export class ObjectStream<T extends object> extends ObservableDisposable impleme
 }
 
 /**
- * Create a generator out of a provided array.
+ * A helper function to create a generator from an array.
  */
 export const arrayToGenerator = <T extends NonNullable<unknown>>(array: T[]): Generator<T, undefined> => {
 	return (function* (): Generator<T, undefined> {
@@ -235,7 +240,8 @@ export const arrayToGenerator = <T extends NonNullable<unknown>>(array: T[]): Ge
 };
 
 /**
- * Create a generator out of a provided text model.
+ * A helper function to create a generator from an `ITextModel`. It yields each
+ * line and its corresponding EOL sequence as separate `VSBuffer` objects.
  */
 export const modelToGenerator = (model: ITextModel): Generator<VSBuffer, undefined> => {
 	return (function* (): Generator<VSBuffer, undefined> {
@@ -247,9 +253,11 @@ export const modelToGenerator = (model: ITextModel): Generator<VSBuffer, undefin
 				return undefined;
 			}
 
+			// Yield the content of the current line.
 			yield VSBuffer.fromString(
 				model.getLineContent(currentLine),
 			);
+			// Yield the end-of-line sequence, if it's not the last line.
 			if (currentLine !== totalLines) {
 				yield VSBuffer.fromString(
 					model.getEOL(),

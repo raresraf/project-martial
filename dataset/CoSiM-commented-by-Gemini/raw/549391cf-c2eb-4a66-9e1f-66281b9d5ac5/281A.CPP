@@ -1,9 +1,19 @@
+/**
+ * @file 281A.CPP
+ * @brief A competitive programming template that solves the "Word Capitalization" problem.
+ * @details This file contains a large amount of boilerplate code for competitive
+ * programming, such as macros, type definitions, and helper functions for various
+ * domains (math, graphs). The actual solution to the specific problem is
+ * contained within the `solve()` function.
+ */
 // Problem Link : https://codeforces.com/problemset/problem/281/A
 
 #include <bits/stdc++.h>
 
 using namespace std;
 
+// Note: Most of the following macros and functions are part of a generic
+// template and are not used in this specific problem's solution.
 #define gc getchar_unlocked
 #define rep(i, a, b) for (ll i = (a); i < (b); i++)
 #define rrep(i, a, b) for (ll i = (a); i > (b); i--)
@@ -88,20 +98,36 @@ void dfs(int u, int par) {
   }
 }
 
+/**
+ * @brief Solves the "Word Capitalization" problem (Codeforces 281A).
+ * @details The function reads a single word and capitalizes its first letter,
+ * leaving the rest of the word unchanged.
+ *
+ * @algorithm
+ * 1. Read the input word into a string `s`.
+ * 2. Use `std::transform` to apply the `::toupper` function specifically to the
+ *    first character of the string (range `s.begin()` to `s.begin() + 1`).
+ * 3. Print the modified string.
+ *
+ * @complexity Time: O(L) for reading the string, O(1) for capitalization.
+ *             Space: O(L) for storing the string.
+ */
 void solve() {
   string s;
   cin >> s;
+  // Apply toupper to only the first character of the string.
   transform(s.begin(), s.begin() + 1, s.begin(), ::toupper);
   cout << s << endl;
 }
 
 int main() {
-
+  // Fast I/O setup and random number generator seeding.
   ios_base::sync_with_stdio(0), cin.tie(0), cout.tie(0);
   srand(chrono::high_resolution_clock::now().time_since_epoch().count());
 
   startTime = clock();
 
+// Redirects I/O to files for local testing when not compiling online.
 #ifndef ONLINE_JUDGE
   // for getting input from input.txt
   freopen("input.txt", "r", stdin);
@@ -109,6 +135,7 @@ int main() {
   freopen("output.txt", "w", stdout);
 #endif
 
+  // Standard template loop for multiple test cases, hardcoded to one here.
   ll t = 1;
   // cin >> t;
   while (t--) {

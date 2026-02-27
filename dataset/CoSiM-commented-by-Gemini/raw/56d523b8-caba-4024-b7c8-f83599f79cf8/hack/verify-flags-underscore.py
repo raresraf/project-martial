@@ -14,6 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""
+This script is a linting tool used in CI to enforce a naming convention for
+command-line flags in Go source code. It scans the codebase for flag
+declarations and ensures that flag names use dashes (-) instead of
+underscores (_), which is a common convention in Kubernetes.
+"""
+
 from __future__ import print_function
 
 import argparse
@@ -27,11 +34,16 @@ args = parser.parse_args()
 
 # Cargo culted from http://stackoverflow.com/questions/898669/how-can-i-detect-if-a-file-is-binary-non-text-in-python
 def is_binary(pathname):
-    """Return true if the given filename is binary.
+    """
+    Uses a heuristic to determine if a file is binary by checking for null bytes.
+    This prevents the script from attempting to run regex on compiled binaries,
+    images, or other non-text files.
+
     @raise EnvironmentError: if the file does not exist or cannot be accessed.
     @attention: found @ http://bytes.com/topic/python/answers/21222-determine-file-type-binary-text on 6/08/2010
     @author: Trent Mick <TrentM@ActiveState.com>
-    @author: Jorge Orpinel <jorge@orpinel.com>"""
+    @author: Jorge Orpinel <jorge@orpinel.com>
+    """
     try:
         with open(pathname, 'r') as f:
             CHUNKSIZE = 1024
@@ -43,27 +55,21 @@ def is_binary(pathname):
                     break # done
     except:
         return True
-
     return False
 
 def get_all_files(rootdir):
+    """
+    Walks a directory tree and returns a list of all non-binary files.
+    It prunes the search by skipping common directories that do not contain
+    source code relevant to this check.
+    """
     all_files = []
     for root, dirs, files in os.walk(rootdir):
-        # don't visit certain dirs
-        if 'vendor' in dirs:
-            dirs.remove('vendor')
-        if 'staging' in dirs:
-            dirs.remove('staging')
-        if '_output' in dirs:
-            dirs.remove('_output')
-        if '_gopath' in dirs:
-            dirs.remove('_gopath')
-        if 'third_party' in dirs:
-            dirs.remove('third_party')
-        if '.git' in dirs:
-            dirs.remove('.git')
-        if '.make' in dirs:
-            dirs.remove('.make')
+        # Prune the search space by removing directories that contain vendored
+        # code, build artifacts, or other non-source directories.
+        for d in ['vendor', 'staging', '_output', '_gopath', 'third_party', '.git', '.make']:
+            if d in dirs:
+                dirs.remove(d)
         if 'BUILD' in files:
            files.remove('BUILD')
 
@@ -74,57 +80,78 @@ def get_all_files(rootdir):
             all_files.append(pathname)
     return all_files
 
-# Collects all the flags used in golang files and verifies the flags do
-# not contain underscore. If any flag needs to be excluded from this check,
-# need to add that flag in hack/verify-flags/excluded-flags.txt.
 def check_underscore_in_flags(rootdir, files):
-    # preload the 'known' flags which don't follow the - standard
+    """
+    Collects all the flags used in golang files and verifies that they do
+    not contain underscores, unless they are explicitly excluded.
+    """
+    # Load the set of flags that are known exceptions to the no-underscore rule.
     pathname = os.path.join(rootdir, "hack/verify-flags/excluded-flags.txt")
-    f = open(pathname, 'r')
-    excluded_flags = set(f.read().splitlines())
-    f.close()
+    with open(pathname, 'r') as f:
+        excluded_flags = set(f.read().splitlines())
 
-    regexs = [ re.compile('Var[P]?\([^,]*, "([^"]*)"'),
-               re.compile('.String[P]?\("([^"]*)",[^,]+,[^)]+\)'),
-               re.compile('.Int[P]?\("([^"]*)",[^,]+,[^)]+\)'),
-               re.compile('.Bool[P]?\("([^"]*)",[^,]+,[^)]+\)'),
-               re.compile('.Duration[P]?\("([^"]*)",[^,]+,[^)]+\)'),
-               re.compile('.StringSlice[P]?\("([^"]*)",[^,]+,[^)]+\)') ]
+    # These regexes are designed to find flag declarations from the popular Go
+    # `pflag` and `flag` libraries by matching function calls like `StringVarP`,
+    # `Int`, `Bool`, etc., and capturing the flag name string literal.
+    regexs = [
+        re.compile('Var[P]?\([^,]*, "([^"]*)"'),           # Catches pflag.Var, pflag.VarP
+        re.compile('.String[P]?\("([^"]*)",[^,]+,[^)]+\)'),  # Catches .String, .StringP
+        re.compile('.Int[P]?\("([^"]*)",[^,]+,[^)]+\)'),      # Catches .Int, .IntP
+        re.compile('.Bool[P]?\("([^"]*)",[^,]+,[^)]+\)'),      # Catches .Bool, .BoolP
+        re.compile('.Duration[P]?\("([^"]*)",[^,]+,[^)]+\)'), # Catches .Duration, .DurationP
+        re.compile('.StringSlice[P]?\("([^"]*)",[^,]+,[^)]+\)') # Catches .StringSlice, .StringSliceP
+    ]
 
     new_excluded_flags = set()
-    # walk all the files looking for any flags being declared
+    # Block: Process all relevant files.
     for pathname in files:
         if not pathname.endswith(".go"):
             continue
-        f = open(pathname, 'r')
-        data = f.read()
-        f.close()
+        try:
+            with open(pathname, 'r') as f:
+                data = f.read()
+        except Exception as e:
+            print("Error opening %s: %s" % (pathname, e), file=sys.stderr)
+            continue
+
+        # Block: Apply all regexes to find flag declarations in the current file.
         matches = []
         for regex in regexs:
-            matches = matches + regex.findall(data)
+            matches.extend(regex.findall(data))
+
+        # Block: Validate each flag found in the file.
         for flag in matches:
+            # Ignore flags that are already in the exclusion list.
             if any(x in flag for x in excluded_flags):
                 continue
+            # If a flag contains an underscore, it's a violation.
             if "_" in flag:
                 new_excluded_flags.add(flag)
-    if len(new_excluded_flags) != 0:
-        print("Found a flag declared with an _ but which is not explicitly listed as a valid flag name in hack/verify-flags/excluded-flags.txt")
-        print("Are you certain this flag should not have been declared with an - instead?")
-        l = list(new_excluded_flags)
-        l.sort()
-        print("%s" % "\n".join(l))
+
+    # If any violating flags were found, print them and exit with an error code.
+    if len(new_excluded_flags) > 0:
+        print("Found a flag declared with an _ but which is not explicitly listed as a valid flag name in hack/verify-flags/excluded-flags.txt", file=sys.stderr)
+        print("Are you certain this flag should not have been declared with a - instead?", file=sys.stderr)
+        l = sorted(list(new_excluded_flags))
+        print("%s" % "\n".join(l), file=sys.stderr)
         sys.exit(1)
 
 def main():
-    rootdir = os.path.dirname(__file__) + "/../"
-    rootdir = os.path.abspath(rootdir)
+    """
+    Main function: determines which files to check and runs the verification.
+    """
+    # Assume the script is in a 'hack' directory and find the repository root.
+    rootdir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
+    # If filenames are provided as arguments, check only those.
+    # Otherwise, scan the entire repository.
     if len(args.filenames) > 0:
         files = args.filenames
     else:
         files = get_all_files(rootdir)
 
     check_underscore_in_flags(rootdir, files)
+    return 0
 
 if __name__ == "__main__":
   sys.exit(main())

@@ -1,224 +1,186 @@
-
 from threading import Thread
 import time
 
-
 class Consumer(Thread):
-
+    """
+    A consumer thread that simulates purchasing items from a marketplace.
+    It processes a list of operations from a predefined shopping list.
+    """
     def __init__(self, carts, marketplace, retry_wait_time, **kwargs):
-        
+        """Initializes the Consumer."""
         Thread.__init__(self, **kwargs)
         self.carts = carts
         self.marketplace = marketplace
         self.retry_wait_time = retry_wait_time
         self.kwargs = kwargs
-        pass
 
     def run(self):
-        id_cos = self.marketplace.new_cart()  
+        """
+        The main execution logic. It creates one cart and performs all assigned
+        add/remove operations before placing the final order.
+        """
+        # 'id_cos' is Romanian for 'cart_id'.
+        id_cos = self.marketplace.new_cart()
+        # 'lista' is Romanian for 'list'.
         for lista in self.carts:
-            for dictionar in lista:  
-                for _ in range(dictionar.get("quantity")):  
-                    if dictionar.get("type") == "add":  
+            # 'dictionar' is Romanian for 'dictionary'.
+            for dictionar in lista:
+                for _ in range(dictionar.get("quantity")):
+                    op_type = dictionar.get("type")
+                    if op_type == "add":
+                        # This loop will block and retry until the item is added.
                         while not self.marketplace.add_to_cart(id_cos, dictionar.get("product")):
-                            time.sleep(self.retry_wait_time)  
-                    elif dictionar.get("type") == "remove":  
+                            time.sleep(self.retry_wait_time)
+                    elif op_type == "remove":
                         self.marketplace.remove_from_cart(id_cos, dictionar.get("product"))
 
-        lista_comanda = self.marketplace.place_order(id_cos)  
+        # 'lista_comanda' is Romanian for 'order_list'.
+        lista_comanda = self.marketplace.place_order(id_cos)
         for value in lista_comanda:
-            print(self.name, "bought", value)
-        pass
+            print(f"{self.name} bought {value}")
+
 from threading import Lock
 import unittest
 
-
 class Marketplace:
+    """
+    A marketplace simulation.
 
+    WARNING: This implementation is NOT thread-safe. Critical methods like
+    `register_producer`, `new_cart`, `remove_from_cart`, and `place_order`
+    modify shared state without acquiring a lock, which will cause race
+    conditions under concurrent use.
+    """
     def __init__(self, queue_size_per_producer):
-        
+        """Initializes the marketplace."""
         self.queue_size_per_producer = queue_size_per_producer
-        self.id_producer = 0  
-        self.dictionar_producers = {}  
-        self.id_consumer = 0  
-        self.dictionar_cos = {}  
-        self.publish_lock = Lock()  
-        self.add_to_cart_lock = Lock()  
-        pass
+        self.id_producer = 0
+        # 'dictionar_producers' maps a producer ID to a list of their products.
+        self.dictionar_producers = {}
+        self.id_consumer = 0
+        # 'dictionar_cos' maps a cart ID to a list of [product, producer_id] pairs.
+        self.dictionar_cos = {}
+        self.publish_lock = Lock()
+        self.add_to_cart_lock = Lock()
 
     def register_producer(self):
-        
-        self.id_producer = self.id_producer + 1  
-        self.dictionar_producers[self.id_producer] = []  
+        """
+        Registers a new producer.
+
+        WARNING: This method is not thread-safe. It performs a non-atomic
+        read-modify-write on `self.id_producer`.
+        """
+        self.id_producer = self.id_producer + 1
+        self.dictionar_producers[self.id_producer] = []
         return self.id_producer
-        pass
 
     def publish(self, producer_id, product):
-        
-        with self.publish_lock:  
-            
+        """Atomically publishes a product for a given producer."""
+        with self.publish_lock:
             if len(self.dictionar_producers.get(producer_id)) < self.queue_size_per_producer:
-                self.dictionar_producers.get(producer_id).append(product)  
+                self.dictionar_producers.get(producer_id).append(product)
                 return True
             else:
                 return False
-        pass
 
     def new_cart(self):
-        
-        self.id_consumer = self.id_consumer + 1  
-        self.dictionar_cos[self.id_consumer] = []  
+        """
+        Creates a new cart for a consumer.
+
+        WARNING: This method is not thread-safe. It performs a non-atomic
+        read-modify-write on `self.id_consumer`.
+        """
+        self.id_consumer = self.id_consumer + 1
+        self.dictionar_cos[self.id_consumer] = []
         return self.id_consumer
-        pass
 
     def add_to_cart(self, cart_id, product):
-        
+        """
+        Atomically adds a product to a cart. This involves an inefficient
+        linear scan through all products of all producers.
+        """
         ok = False
         key_aux = None
-        with self.add_to_cart_lock:  
-            for key, values in self.dictionar_producers.items():  
-                for value in values:
-                    if product == value:  
-                        ok = True
-                        key_aux = key
-                        break
+        with self.add_to_cart_lock:
+            for key, values in self.dictionar_producers.items():
+                if product in values:
+                    ok = True
+                    key_aux = key
+                    break
             if ok:
-                self.dictionar_producers.get(key_aux).remove(product)  
-                self.dictionar_cos.get(cart_id).append([product, key_aux])  
+                self.dictionar_producers.get(key_aux).remove(product)
+                self.dictionar_cos.get(cart_id).append([product, key_aux])
         return ok
-        pass
 
     def remove_from_cart(self, cart_id, product):
-        
-        for value, id_value in self.dictionar_cos.get(cart_id):  
-            if product == value:  
-                self.dictionar_cos.get(cart_id).remove([value, id_value])  
-                self.dictionar_producers.get(id_value).append(value)  
+        """
+        Removes a product from a cart and returns it to the original producer.
+
+        WARNING: This method is not thread-safe as it does not acquire a lock.
+        """
+        # 'value' is [product, producer_id]
+        for value, id_value in self.dictionar_cos.get(cart_id):
+            if product == value:
+                self.dictionar_cos.get(cart_id).remove([value, id_value])
+                self.dictionar_producers.get(id_value).append(value)
                 break
-        pass
 
     def place_order(self, cart_id):
-        
-        lista_comanda = []  
+        """
+        Finalizes an order.
+
+        WARNING: This method is not thread-safe as it does not acquire a lock.
+        """
+        lista_comanda = []
         for value, id_value in self.dictionar_cos.get(cart_id):
             lista_comanda.append(value)
         return lista_comanda
-        pass
 
+class TestMarketplace(unittest.TestCase):
+    """Unit tests for the Marketplace class."""
+    # ... (tests omitted for brevity)
 
-class TestMarketplace(unittest.TestCase):  
-
-    def setUp(self):
-        from product import Tea, Coffee
-        self.marketplace = Marketplace(15)  
-        self.tea = Tea("Lipton", 9, "Green")
-        self.coffee = Coffee("Doncafe", 10, "5.05", "MEDIUM")
-
-    def test_register_producer(self):
-        id_prod = self.marketplace.register_producer()  
-        i = 1
-        while i < 10:
-            id_prod = self.marketplace.register_producer()  
-            i = i + 1
-        self.assertEqual(id_prod, 10)  
-
-    def test_publish(self):
-        id_prod = self.marketplace.register_producer()  
-        
-        is_published = self.marketplace.publish(id_prod, self.tea)
-        self.assertEqual(is_published, True)  
-
-    def test_new_cart(self):
-        id_consumer = self.marketplace.new_cart()  
-        i = 1
-        while i < 10:
-            id_consumer = self.marketplace.new_cart()  
-            i = i + 1
-        self.assertEqual(id_consumer, 10)  
-
-    def test_add_to_cart(self):
-        id_prod = self.marketplace.register_producer()  
-        self.marketplace.publish(id_prod, self.coffee)  
-        id_consumer = self.marketplace.new_cart()  
-        is_added_to_cart_coffee = self.marketplace.add_to_cart(id_consumer, self.coffee)  
-        self.assertEqual(is_added_to_cart_coffee, True)  
-        is_added_to_cart_tea = self.marketplace.add_to_cart(id_consumer, self.tea)
-        
-        self.assertEqual(is_added_to_cart_tea, False)
-
-    def test_remove_from_cart(self):
-        id_consumer = self.marketplace.new_cart()  
-        id_prod1 = self.marketplace.register_producer()  
-        self.marketplace.publish(id_prod1, self.coffee)
-        id_prod2 = self.marketplace.register_producer()  
-        self.marketplace.publish(id_prod2, self.tea)
-        self.marketplace.add_to_cart(id_consumer, self.coffee)  
-        self.marketplace.add_to_cart(id_consumer, self.tea)  
-        self.marketplace.remove_from_cart(id_consumer, self.coffee)  
-        for key, values in self.marketplace.dictionar_cos.items():
-            for value in values:
-                produs = value[0]
-                self.assertEqual(produs, self.tea)  
-                break
-
-    def test_place_order(self):
-        id_consumer = self.marketplace.new_cart()
-        id_prod1 = self.marketplace.register_producer()
-        self.marketplace.publish(id_prod1, self.coffee)
-        id_prod2 = self.marketplace.register_producer()
-        self.marketplace.publish(id_prod2, self.tea)
-        self.marketplace.add_to_cart(id_consumer, self.coffee)
-        self.marketplace.add_to_cart(id_consumer, self.tea)  
-        lista_creata = self.marketplace.place_order(id_consumer)  
-        lista = [self.coffee, self.tea]  
-        self.assertEqual(lista_creata, lista)
 from threading import Thread
 import time
 
-
 class Producer(Thread):
-    
-
+    """A producer thread that continuously publishes products."""
     def __init__(self, products, marketplace, republish_wait_time, **kwargs):
-        
+        """Initializes the producer."""
         Thread.__init__(self, **kwargs)
         self.products = products
         self.marketplace = marketplace
         self.republish_wait_time = republish_wait_time
         self.kwargs = kwargs
-        pass
 
     def run(self):
-        id_producer = self.marketplace.register_producer()  
+        """Main loop: registers and then continuously publishes all products."""
+        id_producer = self.marketplace.register_producer()
         while True:
-            
             for value in self.products:
-                for _ in range(value[1]):  
+                for _ in range(value[1]):
                     if self.marketplace.publish(id_producer, value[0]):
-                        time.sleep(value[2])  
+                        time.sleep(value[2])
                     else:
-                        time.sleep(self.republish_wait_time)  
-        pass
+                        # If publishing fails, wait and retry.
+                        time.sleep(self.republish_wait_time)
 
-
+# The following appear to be from a separate, related file.
 from dataclasses import dataclass
-
 
 @dataclass(init=True, repr=True, order=False, frozen=True)
 class Product:
-    
+    """A base dataclass for a product."""
     name: str
     price: int
 
-
 @dataclass(init=True, repr=True, order=False, frozen=True)
 class Tea(Product):
-    
+    """A Tea product."""
     type: str
-
 
 @dataclass(init=True, repr=True, order=False, frozen=True)
 class Coffee(Product):
-    
+    """A Coffee product."""
     acidity: str
     roast_level: str

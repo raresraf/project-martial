@@ -1,54 +1,71 @@
-// Team
-//
-// https://codeforces.com/problemset/problem/231/A
-
-// One day three best friends Petya, Vasya and Tonya decided to form a team and
-// take part in programming contests. Participants are usually offered several
-// problems during programming contests. Long before the start the friends
-// decided that they will implement a problem if at least two of them are sure
-// about the solution. Otherwise, the friends won't write the problem's solution.
-//
-// This contest offers n problems to the participants. For each problem we know,
-// which friend is sure about the solution. Help the friends find the number of
-// problems for which they will write a solution.
-//
-// Input
-// The first input line contains a single integer n (1   n   1000)   the number
-// of problems in the contest. Then n lines contain three integers each, each
-// integer is either 0 or 1. If the first number in the line equals 1, then Petya
-// is sure about the problem's solution, otherwise he isn't sure. The second
-// number shows Vasya's view on the solution, the third number shows Tonya's
-// view. The numbers on the lines are separated by spaces.
-//
-// Output
-// Print a single integer   the number of problems the friends will implement on
-// the contest.
-
+/**
+ * @file 231A.CPP
+ * @brief Solves the "Team" problem from Codeforces.
+ * @details The problem is to count how many problems a team of three will solve.
+ * The team will solve a problem only if at least two members are sure about the solution.
+ *
+ * @algorithm
+ * The solution reads the total number of problems, `n`. It then loops `n` times.
+ * In each iteration, it reads the opinions of the three members (Petya, Vasya, Tonya)
+ * as binary values (1 for sure, 0 for not sure). It sums these values to get a
+ * "sureness" count for the current problem. If this count is 2 or greater, it
+ * increments a counter for solvable problems. Finally, it prints the total count.
+ *
+ * @complexity
+ * Time Complexity: O(N), where N is the number of problems, as the solution involves
+ * a single loop that iterates N times with constant-time operations inside.
+ * Space Complexity: O(1), as only a few integer variables are used regardless of the input size.
+ */
 #include <iostream>
 
 using namespace std;
 
 int main() {
 
+  /**
+   * @variable n: The total number of problems in the contest.
+   */
   int n;
+  /**
+   * @variable p, v, t: Represent the confidence of Petya, Vasya, and Tonya, respectively.
+   * 1 means sure, 0 means not sure.
+   */
   int p, v, t;
   p = v = t = 0;
+  /**
+   * @variable ans: Counter for the number of problems the team will implement.
+   */
   int ans = 0;
+  // Read the total number of problems.
   cin >> n;
 
+  /**
+   * @block
+   * @brief This loop iterates through each of the `n` problems.
+   * @invariant `ans` holds the count of problems solvable by the team so far.
+   */
   for (int i = 0; i < n; i++) {
+    /**
+     * @variable count: Stores the number of team members sure about the current problem.
+     */
     int count = 0;
+    // Read the opinions of the three members for the current problem.
     cin >> p >> v >> t;
+    // Pre-condition: Check if Petya is sure.
     if (p == 1)
       count++;
+    // Pre-condition: Check if Vasya is sure.
     if (v == 1)
       count++;
+    // Pre-condition: Check if Tonya is sure.
     if (t == 1)
       count++;
 
+    // Pre-condition: Check if the number of sure members is at least two.
     if (count > 1)
-      ans++;
+      ans++; // If so, increment the answer counter.
   }
+  // Output the total number of problems the team will solve.
   cout << ans << endl;
   return 0;
 }

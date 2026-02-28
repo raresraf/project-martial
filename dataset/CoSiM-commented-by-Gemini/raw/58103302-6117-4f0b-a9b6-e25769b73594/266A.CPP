@@ -1,3 +1,20 @@
+/**
+ * @file 266A.CPP
+ * @brief Solves the "Stones on the Table" problem from Codeforces (266A).
+ * @details The problem requires finding the minimum number of stones to remove from a row
+ * such that no two adjacent stones have the same color. This file also contains a
+ * number of unused utility functions common in competitive programming.
+ *
+ * @algorithm
+ * The core logic resides in the `solve()` function. It iterates through the sequence of stones
+ * (represented by a string) and counts the number of times two adjacent stones share the
+ * same color. This count is precisely the minimum number of stones that must be
+ * removed to satisfy the problem's condition.
+ *
+ * @complexity
+ * Time Complexity: O(N), where N is the number of stones, due to the single pass through the string.
+ * Space Complexity: O(N) to store the string representing the stone colors.
+ */
 #include <bits/stdc++.h>
 using namespace std;
 #define ll long long
@@ -13,6 +30,7 @@ using namespace std;
  *                                                                   *
  *********************************************************************
  */
+// Unused competitive programming template functions follow.
 // Prime Numbers
 
 vector<bool> prime(N + 1, true);
@@ -130,24 +148,39 @@ void print(vector<ll> a) {
 bool sortbysec(const pair<ll, ll> &a, const pair<ll, ll> &b) {
   return a.second < b.second;
 }
-// Main Solution
+// Main Solution for Codeforces Problem 266A
 
 void solve() {
+  /**
+   * @variable n: The number of stones.
+   * @variable s: A string representing the colors of the stones.
+   * @variable k: A counter for the minimum number of stones to remove.
+   */
   ll n, i, j, k = 0;
   string s;
   cin >> n >> s;
+  /**
+   * @block
+   * @brief This loop iterates through the stones to find adjacent pairs of the same color.
+   * @invariant `k` holds the count of removals needed so far.
+   * The loop starts from the second stone (index 1) to compare it with its predecessor.
+   */
   for (i = 1; i < n; i++) {
+    // Pre-condition: Check if the current stone has the same color as the previous one.
     if (s[i] == s[i - 1])
-      k++;
+      k++; // If they are the same, one must be removed.
   }
+  // Output the final count.
   cout << k;
 }
 
 int main() {
+  // Fast I/O setup
   ios_base::sync_with_stdio(false);
   cin.tie(NULL);
   cout.tie(NULL);
   ll t = 1;
+  // Number of test cases, fixed to 1 for this problem.
   // cin>>t;
   while (t--) {
     solve();

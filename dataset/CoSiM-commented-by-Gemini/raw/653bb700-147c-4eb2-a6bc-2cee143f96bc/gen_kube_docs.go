@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// gen_kube_docs is a command-line utility that auto-generates Markdown
+// documentation for the main Kubernetes components (kube-apiserver, kubelet, etc.).
 package main
 
 import (
@@ -30,7 +32,11 @@ import (
 )
 
 func main() {
-	// use os.Args instead of "flags" because "flags" will mess up the man pages!
+	// This tool expects exactly two arguments:
+	// 1. The output directory for the generated documentation.
+	// 2. The name of the Kubernetes module to document.
+	// It uses os.Args directly to avoid interfering with the flag parsing of the
+	// Kubernetes commands themselves, which is necessary for doc generation.
 	path := ""
 	module := ""
 	if len(os.Args) == 3 {
@@ -41,16 +47,19 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Prepare the output directory.
 	outDir, err := genutils.OutDir(path)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to get output directory: %v\n", err)
 		os.Exit(1)
 	}
 
+	// Select the appropriate module and generate its documentation.
 	switch module {
 	case "kube-apiserver":
-		// generate docs for kube-apiserver
+		// Create a new command object for the kube-apiserver.
 		apiserver := apiservapp.NewAPIServerCommand()
+		// Generate a Markdown documentation tree for the command.
 		doc.GenMarkdownTree(apiserver, outDir)
 	case "kube-controller-manager":
 		// generate docs for kube-controller-manager

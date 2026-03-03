@@ -1,219 +1,204 @@
 
+"""
+This module implements a distributed device simulation using a single global
+barrier for all threads and a work-stealing model for task distribution.
 
+Architectural Overview:
+- `ReentrantBarrier`: A custom, non-reusable barrier based on `Condition`
+  which is used for synchronization. WARNING: This implementation is flawed and
+  prone to deadlocks on reuse.
+- `Device`: Manages its state and a pool of worker threads (`DeviceThread`).
+  It contributes to a set of globally shared resources (barrier, locks).
+- `DeviceThread`: The only thread class. All threads from all devices are
+  instances of this class.
+- Synchronization Model:
+  - A single global barrier synchronizes all worker threads from all devices at
+    the beginning of each step.
+  - A dynamic "master election" pattern is used where the first thread to
+    acquire a lock fetches shared data (neighbors) for its device.
+  - A work-stealing pattern where threads within a device pull scripts from a
+    shared list.
+"""
 
+from threading import Event, Thread, Lock, Condition
 
+class ReentrantBarrier(object):
+    """
+    A custom barrier implementation using a Condition variable. Its name is
+    misleading as it is not a reentrant lock.
 
-from threading import Event, Thread, Lock, Semaphore, Lock
-
-class ReusableBarrier(object):
-
-
-    
+    WARNING: This barrier is NOT safely reusable. A race condition can occur
+    if threads loop and call `wait()` again before all threads from the
+    previous `wait()` have woken up and released the condition's underlying
+    lock. This can lead to deadlocks.
+    """
     def __init__(self, num_threads):
         self.num_threads = num_threads
-        self.count_threads1 = self.num_threads
-        self.count_threads2 = self.num_threads
-        self.counter_lock = Lock()
-        self.threads_sem1 = Semaphore(0)
-        self.threads_sem2 = Semaphore(0)
+        self.count_threads = self.num_threads
+        self.cond = Condition()
 
     def wait(self):
-        
-        self.phase1()
-        self.phase2()
-
-    def phase1(self):
-        
-        with self.counter_lock:
-            self.count_threads1 -= 1
-            if self.count_threads1 == 0:
-                for _ in range(self.num_threads):
-                    self.threads_sem1.release()
-                self.count_threads1 = self.num_threads
-
-        self.threads_sem1.acquire()
-
-    def phase2(self):
-        
-        with self.counter_lock:
-            self.count_threads2 -= 1
-            if self.count_threads2 == 0:
-
-
-                for _ in range(self.num_threads):
-                    self.threads_sem2.release()
-                self.count_threads2 = self.num_threads
-
-        self.threads_sem2.acquire()
-
-
+        """Blocks until all threads reach the barrier."""
+        with self.cond:
+            self.count_threads -= 1
+            if self.count_threads == 0:
+                self.cond.notify_all()
+                self.count_threads = self.num_threads
+            else:
+                self.cond.wait()
 
 class Device(object):
-    
-    
-    bar1 = ReusableBarrier(1)
-    event1 = Event()
-    locck = []
+    """
+    Represents a device, managing its state and a pool of worker threads.
+    Contributes to and uses globally shared synchronization primitives.
+    """
+    # Class-level attributes shared by all Device instances.
+    barrier = None
+    devices_lock = Lock()
+    locations = [] # A global list of locks for data locations.
+    nrloc = 0
 
     def __init__(self, device_id, sensor_data, supervisor):
-        
-        
-        self.timepoint_done = Event()
         self.device_id = device_id
         self.sensor_data = sensor_data
+        self.sensor_data_lock = Lock() # Lock for the device's local sensor data.
+
         self.supervisor = supervisor
+        self.gen_lock = Lock()
 
-        self.devices = []
+        # Primitives for managing script execution within the device.
+        self.script_lock = Lock()
+        self.script_event = Event()
+        self.scripts = [] # Master list of scripts for the step.
+        self.working_scripts = [] # The work-stealing queue.
 
-        
-        
-        self.event = []
-        for _ in xrange(11):
-            self.event.append(Event())
+        # State flags for coordination among the device's threads.
+        self.neighbour_request = False
+        self.neighbours = None
+        self.timepoint_done = False
+        self.reinit_barrier = None # Internal barrier for the device's threads.
 
-        
-        self.nr_threads_device = 8
-        
-        self.nr_thread_atribuire = 0
-        
-        
-        self.bar_threads_device = ReusableBarrier(self.nr_threads_device+1)
-
-        
-        self.thread = DeviceThread(self)
-        self.thread.start()
-
-        
-        self.threads = []
-        for _ in xrange(self.nr_threads_device):
-            self.threads.append(ThreadAux(self))
-        for threadd in self.threads:
-            threadd.start()
+        self.threads_num = 8
+        self.threads = [DeviceThread(self, i) for i in xrange(self.threads_num)]
 
     def __str__(self):
-        
         return "Device %d" % self.device_id
 
     def setup_devices(self, devices):
-        
-        self.devices = devices
-        
-        if self.device_id == 0:
-            for _ in xrange(30):
-                Device.locck.append(Lock())
-            Device.bar1 = ReusableBarrier(len(devices))
+        """
+        Initializes the globally shared barrier and location locks.
+        """
+        with self.gen_lock:
+            self.reinit_barrier = ReentrantBarrier(self.threads_num)
+
+        with Device.devices_lock:
+            # Initialize a global list of locks for all possible locations.
+            Device.nrloc = max(Device.nrloc, (max(self.sensor_data.keys()) + 1))
+            while Device.nrloc > len(Device.locations):
+                Device.locations.append(Lock())
             
-            Device.event1.set()
+            # Create a single barrier for ALL threads across ALL devices.
+            if Device.barrier is None:
+                Device.barrier = ReentrantBarrier(len(devices) * self.threads_num)
+        
+        for thread in self.threads:
+            thread.start()
 
     def assign_script(self, script, location):
-        
-        if script is not None:
-            self.threads[self.nr_thread_atribuire].script_loc[script] = location
-            
-            self.nr_thread_atribuire = (self.nr_thread_atribuire+1)%\
-            self.nr_threads_device
-        else:
-            self.timepoint_done.set()
+        """Assigns a script to this device's workload for the current step."""
+        with self.script_lock:
+            if script is not None:
+                self.scripts.append((script, location))
+                self.working_scripts.append((script, location))
+            else:
+                self.timepoint_done = True
+            self.script_event.set() # Notify waiting workers of new scripts.
 
     def get_data(self, location):
-        
-        return self.sensor_data[location] if location in \
-        self.sensor_data else None
+        """Safely retrieves data from the local sensor dictionary."""
+        with self.sensor_data_lock:
+            return self.sensor_data.get(location)
 
     def set_data(self, location, data):
-        
-        if location in self.sensor_data:
-            self.sensor_data[location] = data
+        """Safely sets data in the local sensor dictionary."""
+        with self.sensor_data_lock:
+            if location in self.sensor_data:
+                self.sensor_data[location] = data
 
     def shutdown(self):
-        
-        self.thread.join()
-        for threadd in self.threads:
-            threadd.join()
-
+        """Waits for all of this device's threads to complete."""
+        for thread in self.threads:
+            thread.join()
 
 class DeviceThread(Thread):
-    
-
-    def __init__(self, device):
-        
+    """A worker thread for a device."""
+    def __init__(self, device, thread_nr):
         Thread.__init__(self, name="Device Thread %d" % device.device_id)
         self.device = device
-        self.neighbours = None
-        self.contor = 0
+        self.t_num = thread_nr
 
-    def run(self):
-        Device.event1.wait()
-
-        while True:
-            
-            self.neighbours = self.device.supervisor.get_neighbours()
-
-            if self.neighbours is None:
-                self.device.event[self.contor].set()
-                break
-
-            
-            
-            self.device.timepoint_done.wait()
-            self.device.timepoint_done.clear()
-
-            
-            self.device.event[self.contor].set()
-            self.contor += 1
-
-            
-            
-            self.device.bar_threads_device.wait()
-
-            
-            
-            Device.bar1.wait()
-
-class ThreadAux(Thread):
-    
-    def __init__(self, device):
-        Thread.__init__(self)
-        self.device = device
-        self.script_loc = {}
-        self.contor = 0
-
-    def run(self):
-        while True:
-            
-            
-            self.device.event[self.contor].wait()
-            self.contor += 1
-
-            
-            neigh = self.device.thread.neighbours
-            if neigh is None:
-                break
-
-            for script in self.script_loc:
-                location = self.script_loc[script]
-                
-                
-                Device.locck[location].acquire()
-                script_data = []
-
-                for device in neigh:
-                    data = device.get_data(location)
-                    if data is not None:
-                        script_data.append(data)
-
-                data = self.device.get_data(location)
+    def run_script(self, script, location):
+        """
+        Executes a single script, synchronizing on the specific data location.
+        """
+        with Device.locations[location]: # Fine-grained lock on location.
+            script_data = []
+            # Gather data from all neighbors and self.
+            for device in self.device.neighbours:
+                data = device.get_data(location)
                 if data is not None:
                     script_data.append(data)
+            data = self.device.get_data(location)
+            if data is not None:
+                script_data.append(data)
 
-                if script_data != []:
-                    result = script.run(script_data)
-                    for device in neigh:
-                        device.set_data(location, result)
-                    self.device.set_data(location, result)
+            if script_data:
+                result = script.run(script_data)
+                # Update data for all involved devices.
+                for device in self.device.neighbours:
+                    device.set_data(location, result)
+                self.device.set_data(location, result)
 
-                
-                Device.locck[location].release()
-
+    def run(self):
+        """
+        Main execution loop for the worker thread.
+        """
+        while True:
+            # 1. Global Sync: All threads from all devices wait here.
+            Device.barrier.wait()
             
-            self.device.bar_threads_device.wait()
+            # 2. Reset Step: The first thread to acquire the lock resets state.
+            with self.device.script_lock:
+                if not self.device.working_scripts:
+                    self.device.working_scripts = list(self.device.scripts)
+                    self.device.timepoint_done = False
+                    self.device.neighbour_request = False
+            
+            # 3. Internal Sync: All threads of this device wait here.
+            self.device.reinit_barrier.wait()
+            
+            # 4. Master Election: One thread gets neighbors for this device.
+            with Device.devices_lock:
+                if not self.device.neighbour_request:
+                    self.device.neighbours = self.device.supervisor.get_neighbours()
+                    self.device.neighbour_request = True
+
+            if self.device.neighbours is None:
+                break # Shutdown signal.
+
+            # 5. Work Stealing Loop
+            while True:
+                script, location = None, None
+                with self.device.script_lock:
+                    if self.device.working_scripts:
+                        (script, location) = self.device.working_scripts.pop()
+                    elif self.device.timepoint_done:
+                        break # Step is complete, exit work loop.
+                    else:
+                        # No work and step not done, so wait for a script.
+                        self.device.script_event.clear()
+                
+                if script:
+                    self.run_script(script, location)
+                elif not self.device.timepoint_done:
+                    self.device.script_event.wait() # Block until new script is assigned.

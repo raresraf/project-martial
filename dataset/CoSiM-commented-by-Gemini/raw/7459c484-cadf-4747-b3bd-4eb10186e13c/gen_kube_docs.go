@@ -1,3 +1,12 @@
+/**
+ * @file gen_kube_docs.go
+ * @brief A command-line tool for auto-generating Markdown documentation for Kubernetes components.
+ *
+ * This program leverages the `cobra` library to generate documentation for the command-line
+ * interfaces of various Kubernetes services like kube-apiserver, kube-controller-manager,
+ * kube-proxy, kube-scheduler, and kubelet. It takes an output directory and a module
+ * name as arguments and creates a tree of Markdown files in that directory.
+ */
 /*
 Copyright 2014 The Kubernetes Authors All rights reserved.
 
@@ -33,6 +42,7 @@ func main() {
 	// use os.Args instead of "flags" because "flags" will mess up the man pages!
 	path := ""
 	module := ""
+	// Basic command-line argument parsing for output directory and module name.
 	if len(os.Args) == 3 {
 		path = os.Args[1]
 		module = os.Args[2]
@@ -47,6 +57,13 @@ func main() {
 		os.Exit(1)
 	}
 
+	/**
+	 * @brief Selects the appropriate Kubernetes module and generates its documentation.
+	 * This switch statement uses the 'module' argument to determine which Kubernetes
+	 * component's documentation to generate. For each case, it creates the root
+	 * cobra command for that component and then calls `cobra.GenMarkdownTree` to
+	 * generate the documentation.
+	 */
 	switch module {
 	case "kube-apiserver":
 		// generate docs for kube-apiserver

@@ -1,3 +1,12 @@
+/**
+ * @file coreExperimentationService.ts
+ * @brief Manages core A/B experimentation for the application.
+ *
+ * This service is responsible for assigning users to experiment groups for
+ * features being tested, particularly for "startup experiments" that are
+ * evaluated for new users. It handles cohort assignment, experiment configuration,
+ * and telemetry for tracking experiment outcomes.
+ */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -12,8 +21,16 @@ import { createDecorator } from '../../../../platform/instantiation/common/insta
 import { IContextKeyService, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
 
 export const ICoreExperimentationService = createDecorator<ICoreExperimentationService>('coreExperimentationService');
+
+/**
+ * A context key that will be set to the experiment group the user is in.
+ * This can be used to show/hide UI elements or change behavior based on the experiment group.
+ */
 export const startupExpContext = new RawContextKey<string>('coreExperimentation.startupExpGroup', '');
 
+/**
+ * Interface representing a single experiment's state for a user.
+ */
 interface IExperiment {
 	cohort: number;
 	subCohort: number; // Optional for future use
@@ -22,11 +39,17 @@ interface IExperiment {
 	isInExperiment: boolean;
 }
 
+/**
+ * Service interface for core experimentation.
+ */
 export interface ICoreExperimentationService {
 	readonly _serviceBrand: undefined;
 	getExperiment(): IExperiment | undefined;
 }
 
+/**
+ * Defines the structure for an experiment group, including its name and the cohort range.
+ */
 interface ExperimentGroupDefinition {
 	name: StartupExperimentGroup;
 	min: number;
@@ -34,12 +57,19 @@ interface ExperimentGroupDefinition {
 	iteration: number;
 }
 
+/**
+ * Defines the overall configuration for an experiment, including its name,
+ * the percentage of users to target, and the groups within the experiment.
+ */
 interface ExperimentConfiguration {
 	experimentName: string;
 	targetPercentage: number;
 	groups: ExperimentGroupDefinition[];
 }
 
+/**
+ * Enum defining the possible experiment groups for the startup experiment.
+ */
 export enum StartupExperimentGroup {
 	Control = 'control',
 	MaximizedChat = 'maximizedChat',
@@ -49,6 +79,9 @@ export enum StartupExperimentGroup {
 
 export const STARTUP_EXPERIMENT_NAME = 'startup';
 
+/**
+ * Configuration for the startup experiments, keyed by product quality (e.g., 'stable', 'insider').
+ */
 const EXPERIMENT_CONFIGURATIONS: Record<string, ExperimentConfiguration> = {
 	stable: {
 		experimentName: STARTUP_EXPERIMENT_NAME,
@@ -74,6 +107,9 @@ const EXPERIMENT_CONFIGURATIONS: Record<string, ExperimentConfiguration> = {
 	}
 };
 
+/**
+ * Implementation of the core experimentation service.
+ */
 export class CoreExperimentationService extends Disposable implements ICoreExperimentationService {
 	declare readonly _serviceBrand: undefined;
 
@@ -89,10 +125,15 @@ export class CoreExperimentationService extends Disposable implements ICoreExper
 		this.initializeExperiments();
 	}
 
+	/**
+	 * Initializes the experiments on startup. This method determines if the user
+	 * is a candidate for any experiments and, if so, assigns them to a group.
+	 */
 	private initializeExperiments(): void {
 
 		const firstSessionDateString = this.storageService.get(firstSessionDateStorageKey, StorageScope.APPLICATION) || new Date().toUTCString();
 		const daysSinceFirstSession = ((+new Date()) - (+new Date(firstSessionDateString))) / 1000 / 60 / 60 / 24;
+		// The startup experiment is only for users within their first day of use.
 		if (daysSinceFirstSession > 1) {
 			// not a startup exp candidate.
 			return;
@@ -124,6 +165,10 @@ export class CoreExperimentationService extends Disposable implements ICoreExper
 		}
 	}
 
+	/**
+	 * Retrieves the experiment configuration based on the product quality (e.g., stable, insider).
+	 * @returns The experiment configuration, or undefined if not found.
+	 */
 	private getExperimentConfiguration(): ExperimentConfiguration | undefined {
 		const quality = this.productService.quality;
 		if (!quality) {
@@ -132,6 +177,14 @@ export class CoreExperimentationService extends Disposable implements ICoreExper
 		return EXPERIMENT_CONFIGURATIONS[quality];
 	}
 
+	/**
+	 * Creates a startup experiment for the user.
+	 * This method determines if the user should be in the experiment based on a random
+	 * cohort number and the target percentage. If they are, it assigns them to a group.
+	 * @param experimentName - The name of the experiment.
+	 * @param experimentConfig - The configuration for the experiment.
+	 * @returns An experiment object if the user is included in the experiment, otherwise undefined.
+	 */
 	private createStartupExperiment(experimentName: string, experimentConfig: ExperimentConfiguration): IExperiment | undefined {
 		const cohort = Math.random();
 
@@ -157,6 +210,11 @@ export class CoreExperimentationService extends Disposable implements ICoreExper
 		return undefined;
 	}
 
+	/**
+	 * Sends telemetry data about the user's experiment cohort and group.
+	 * @param experimentName - The name of the experiment.
+	 * @param experiment - The experiment object containing user's cohort info.
+	 */
 	private sendExperimentTelemetry(experimentName: string, experiment: IExperiment): void {
 		type ExperimentCohortClassification = {
 			owner: 'bhavyaus';
@@ -191,6 +249,10 @@ export class CoreExperimentationService extends Disposable implements ICoreExper
 		);
 	}
 
+	/**
+	 * Retrieves the startup experiment for the current session.
+	 * @returns The startup experiment object, or undefined if none exists.
+	 */
 	getExperiment(): IExperiment | undefined {
 		return this.experiments.get(STARTUP_EXPERIMENT_NAME);
 	}

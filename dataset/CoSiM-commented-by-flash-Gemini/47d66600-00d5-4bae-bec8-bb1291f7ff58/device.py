@@ -1,4 +1,9 @@
-
+"""
+This module defines classes for simulating a distributed system, where individual
+`Device` instances process sensor data and execute scripts in a multi-threaded
+environment. It includes a custom reusable barrier for synchronization and
+dedicated threads for script execution and worker management.
+"""
 
 
 from threading import Event, Thread
@@ -9,12 +14,21 @@ from threading import Condition, RLock
 
 
 class ReusableBarrier():
+    """
+    A reusable barrier synchronization primitive for coordinating multiple threads.
+
+    Threads wait at the barrier until all `num_threads` have arrived. Once all
+    threads have arrived, they are all released, and the barrier resets for
+    subsequent use.
+    """
     def __init__(self, num_threads):
-        self.num_threads = num_threads
-        self.count_threads = self.num_threads    
-        self.cond = Condition()                  
-                                                 
- 
+        """
+        Initializes the ReusableBarrier.
+
+        Args:
+            num_threads (int): The total number of threads that must reach the barrier
+                                before any are released.
+        """
     def wait(self):
         self.cond.acquire()                      
         self.count_threads -= 1;

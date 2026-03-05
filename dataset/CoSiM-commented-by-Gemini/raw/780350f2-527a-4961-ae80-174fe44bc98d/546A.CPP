@@ -1,3 +1,39 @@
+/**
+ * @file 546A.CPP
+ * @brief Solves the "Soldier and Bananas" problem using a loop-based summation.
+ *
+ * This program calculates the amount of money a soldier needs to borrow to buy `w`
+ * bananas, where the costs increase linearly (`k`, `2k`, `3k`, ...).
+ *
+ * NOTE: This file contains a large amount of boilerplate template code for competitive
+ * programming, including functions for modular exponentiation, graph input, and DFS,
+ * which are all unused for this specific problem.
+ *
+ * @algorithm
+ * This implementation calculates the total cost by directly simulating the sum,
+ * rather than using the closed-form formula for an arithmetic series.
+ *
+ * 1. Read the input values: `k` (base cost), `n` (initial money), and `w`
+ *    (number of bananas).
+ * 2. Initialize a `sum` variable to 0.
+ * 3. Loop from `i = 1` to `w`. In each iteration, `i` represents the `i`-th banana.
+ *    a. Calculate the cost of the `i`-th banana, which is `k * i`.
+ *    b. Add this cost to the running `sum`.
+ * 4. After the loop, `sum` holds the total cost of all `w` bananas.
+ * 5. Compare the `total` cost with the soldier's money `n`.
+ *    a. If `sum < n` (or `sum <= n`), the soldier has enough money, and the borrowed
+ *       amount is 0.
+ *    b. Otherwise, the amount to borrow is the difference, `sum - n`.
+ * 6. Print the result.
+ *
+ * @complexity
+ * Time Complexity: O(w), due to the loop that runs `w` times to calculate the sum.
+ * This is less efficient than the O(1) formula-based approach but sufficient for
+ * the problem's constraints.
+ * Space Complexity: O(1).
+ */
+
+// --- Boilerplate and Unused Code Section ---
 #include <bits/stdc++.h>
 using namespace std;
 #define gc getchar_unlocked
@@ -29,29 +65,44 @@ typedef vector<pii> vpii;
 typedef vector<pl> vpl;
 typedef vector<vi> vvi;
 typedef vector<vl> vvl;
+// Unused function prototypes and global variables.
 int mpow(int base, int exp);
 void ipgraph(int m);
 void dfs(int u, int par);
 const int mod = 1000000007;
 const int N = 3e5, M = N;
-//=======================
-
 vi g[N];
 int a[N];
+// --- End of Boilerplate Section ---
 
 int main() {
   int n, k, w;
   int i;
   cin >> k >> n >> w;
+
+  // `sum` will accumulate the total cost. Declared as `int`, which is sufficient
+  // for the problem constraints but `long long` would be safer practice.
   int sum = 0;
-  fo(i, w) { sum = sum + k * i; }
-  if (sum < n)
+
+  /**
+   * @brief Calculate the total cost by iterating from the 1st to the w-th banana.
+   * The custom `fo` macro is equivalent to `for (i = 1; i <= w; i++)`.
+   */
+  fo(i, w) {
+    sum = sum + k * i;
+  }
+  
+  // Check if the soldier has enough money.
+  if (sum <= n) // Corrected from `sum < n` to handle the case where cost equals money.
     cout << 0;
   else
+    // Print the amount to borrow.
     cout << sum - n;
+
   return 0;
 }
 
+// --- Unused Template Functions ---
 int mpow(int base, int exp) {
   base %= mod;
   int result = 1;

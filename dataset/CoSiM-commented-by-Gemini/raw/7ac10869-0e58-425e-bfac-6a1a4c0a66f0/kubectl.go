@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package app implements a standalone entrypoint for the kubectl command.
 package app
 
 import (
@@ -27,7 +28,19 @@ import (
 WARNING: this logic is duplicated, with minor changes, in cmd/hyperkube/kubectl.go
 Any salient changes here will need to be manually reflected in that file.
 */
+// Run creates and executes the default kubectl command.
+// It is the main entrypoint for the kubectl executable.
+//
+// Note: This function's logic is intentionally duplicated in
+// cmd/hyperkube/kubectl.go. Any significant changes made here should be
+// mirrored in that file.
 func Run() error {
+	// Create a new factory for creating clients and other dependencies.
+	// Passing nil results in a default factory that infers configuration
+	// from standard locations (e.g., ~/.kube/config).
+	// The factory is then used to construct the root kubectl command.
 	cmd := cmd.NewKubectlCommand(cmdutil.NewFactory(nil), os.Stdin, os.Stdout, os.Stderr)
+	// Execute the command, which will parse command-line arguments and run
+	// the appropriate sub-command.
 	return cmd.Execute()
 }

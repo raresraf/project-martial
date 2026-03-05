@@ -1,5 +1,14 @@
 // SPDX-License-Identifier: (BSD-3-Clause OR GPL-2.0-only)
 /* Copyright(c) 2014 - 2020 Intel Corporation */
+/**
+ * @file adf_transport_debug.c
+ * @brief
+ * This file provides a debugfs interface for the transport layer of the Intel
+ * QuickAssist (QAT) driver. It uses the kernel's seq_file interface to allow
+ * administrators and developers to inspect the internal state of acceleration
+ * engine rings and banks, which is essential for debugging hardware and driver
+ * issues.
+ */
 #include <linux/mutex.h>
 #include <linux/slab.h>
 #include <linux/seq_file.h>
@@ -10,6 +19,17 @@
 static DEFINE_MUTEX(ring_read_lock);
 static DEFINE_MUTEX(bank_read_lock);
 
+/**
+ * adf_ring_start() - The start function for the ring debug seq_file.
+ * @sfile: The seq_file handle.
+ * @pos: The position of the read.
+ *
+ * This function is called at the beginning of a read operation on the ring's
+ * debugfs file. It locks the ring for reading and returns the first item
+ * in the sequence.
+ *
+ * Return: A pointer to the first item or SEQ_START_TOKEN, or NULL if done.
+ */
 static void *adf_ring_start(struct seq_file *sfile, loff_t *pos)
 {
 	struct adf_etr_ring_data *ring = sfile->private;
@@ -26,6 +46,16 @@ static void *adf_ring_start(struct seq_file *sfile, loff_t *pos)
 		(ADF_MSG_SIZE_TO_BYTES(ring->msg_size) * (*pos)++);
 }
 
+/**
+ * adf_ring_next() - The next function for the ring debug seq_file.
+ * @sfile: The seq_file handle.
+ * @v: The current iterator.
+ * @pos: The position of the read.
+ *
+ * This function returns the next message in the ring buffer to be printed.
+ *
+ * Return: A pointer to the next item, or NULL if done.
+ */
 static void *adf_ring_next(struct seq_file *sfile, void *v, loff_t *pos)
 {
 	struct adf_etr_ring_data *ring = sfile->private;
@@ -38,6 +68,18 @@ static void *adf_ring_next(struct seq_file *sfile, void *v, loff_t *pos)
 		(ADF_MSG_SIZE_TO_BYTES(ring->msg_size) * (*pos)++);
 }
 
+/**
+ * adf_ring_show() - The show function for the ring debug seq_file.
+ * @sfile: The seq_file handle.
+ * @v: The current item to be shown.
+ *
+ * This function formats the output for the ring debugfs file. For the first
+ * entry, it prints the ring's configuration (head/tail pointers from hardware,
+ * size, etc.). For subsequent entries, it prints a hex dump of each message
+ * in the ring buffer.
+ *
+ * Return: 0 on success.
+ */
 static int adf_ring_show(struct seq_file *sfile, void *v)
 {
 	struct adf_etr_ring_data *ring = sfile->private;
@@ -73,6 +115,13 @@ static int adf_ring_show(struct seq_file *sfile, void *v)
 	return 0;
 }
 
+/**
+ * adf_ring_stop() - The stop function for the ring debug seq_file.
+ * @sfile: The seq_file handle.
+ * @v: The current iterator.
+ *
+ * This function is called at the end of a read operation and unlocks the ring.
+ */
 static void adf_ring_stop(struct seq_file *sfile, void *v)
 {
 	mutex_unlock(&ring_read_lock);
@@ -87,6 +136,16 @@ static const struct seq_operations adf_ring_debug_sops = {
 
 DEFINE_SEQ_ATTRIBUTE(adf_ring_debug);
 
+/**
+ * adf_ring_debugfs_add() - Creates a debugfs file for a transport ring.
+ * @ring: Pointer to the ring's internal data structure.
+ * @name: A string name for the ring.
+ *
+ * This function is called during device initialization to create a debugfs
+ * file that exposes the contents and state of a specific ring.
+ *
+ * Return: 0 on success, error code otherwise.
+ */
 int adf_ring_debugfs_add(struct adf_etr_ring_data *ring, const char *name)
 {
 	struct adf_etr_ring_debug_entry *ring_debug;
@@ -107,6 +166,13 @@ int adf_ring_debugfs_add(struct adf_etr_ring_data *ring, const char *name)
 	return 0;
 }
 
+/**
+ * adf_ring_debugfs_rm() - Removes the debugfs file for a transport ring.
+ * @ring: Pointer to the ring's internal data structure.
+ *
+ * This function is called during device shutdown to clean up the debugfs entry
+ * for a specific ring.
+ */
 void adf_ring_debugfs_rm(struct adf_etr_ring_data *ring)
 {
 	if (ring->ring_debug) {
@@ -116,6 +182,13 @@ void adf_ring_debugfs_rm(struct adf_etr_ring_data *ring)
 	}
 }
 
+/**
+ * adf_bank_start() - The start function for the bank debug seq_file.
+ * @sfile: The seq_file handle.
+ * @pos: The position of the read.
+ *
+ * Return: A pointer to the first item or SEQ_START_TOKEN, or NULL if done.
+ */
 static void *adf_bank_start(struct seq_file *sfile, loff_t *pos)
 {
 	struct adf_etr_bank_data *bank = sfile->private;
@@ -131,6 +204,14 @@ static void *adf_bank_start(struct seq_file *sfile, loff_t *pos)
 	return pos;
 }
 
+/**
+ * adf_bank_next() - The next function for the bank debug seq_file.
+ * @sfile: The seq_file handle.
+ * @v: The current iterator.
+ * @pos: The position of the read.
+ *
+ * Return: A pointer to the next item, or NULL if done.
+ */
 static void *adf_bank_next(struct seq_file *sfile, void *v, loff_t *pos)
 {
 	struct adf_etr_bank_data *bank = sfile->private;
@@ -142,6 +223,17 @@ static void *adf_bank_next(struct seq_file *sfile, void *v, loff_t *pos)
 	return pos;
 }
 
+/**
+ * adf_bank_show() - The show function for the bank debug seq_file.
+ * @sfile: The seq_file handle.
+ * @v: The current item to be shown.
+ *
+ * This function formats the output for the bank debugfs file. It prints a
+ * header and then a one-line summary for each ring within the bank, showing
+ * its head, tail, and empty status.
+ *
+ * Return: 0 on success.
+ */
 static int adf_bank_show(struct seq_file *sfile, void *v)
 {
 	struct adf_etr_bank_data *bank = sfile->private;
@@ -174,6 +266,13 @@ static int adf_bank_show(struct seq_file *sfile, void *v)
 	return 0;
 }
 
+/**
+ * adf_bank_stop() - The stop function for the bank debug seq_file.
+ * @sfile: The seq_file handle.
+ * @v: The current iterator.
+ *
+ * This function is called at the end of a read operation and unlocks the bank.
+ */
 static void adf_bank_stop(struct seq_file *sfile, void *v)
 {
 	mutex_unlock(&bank_read_lock);
@@ -188,6 +287,16 @@ static const struct seq_operations adf_bank_debug_sops = {
 
 DEFINE_SEQ_ATTRIBUTE(adf_bank_debug);
 
+/**
+ * adf_bank_debugfs_add() - Creates debugfs entries for a transport bank.
+ * @bank: Pointer to the bank's internal data structure.
+ *
+ * This function is called during device initialization to create a debugfs
+ * directory for a bank and a 'config' file within it to show a summary
+ * of the rings in that bank.
+ *
+ * Return: 0 on success, error code otherwise.
+ */
 int adf_bank_debugfs_add(struct adf_etr_bank_data *bank)
 {
 	struct adf_accel_dev *accel_dev = bank->accel_dev;
@@ -202,6 +311,13 @@ int adf_bank_debugfs_add(struct adf_etr_bank_data *bank)
 	return 0;
 }
 
+/**
+ * adf_bank_debugfs_rm() - Removes the debugfs entries for a transport bank.
+ * @bank: Pointer to the bank's internal data structure.
+ *
+ * This function is called during device shutdown to clean up the debugfs
+ * entries for a specific bank.
+ */
 void adf_bank_debugfs_rm(struct adf_etr_bank_data *bank)
 {
 	debugfs_remove(bank->bank_debug_cfg);

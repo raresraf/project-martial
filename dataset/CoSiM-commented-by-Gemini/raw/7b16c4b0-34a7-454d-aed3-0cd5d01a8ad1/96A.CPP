@@ -1,3 +1,28 @@
+/**
+ * @file 96A.CPP
+ * @brief Solution for Codeforces Problem 96A, "Football".
+ * @details This program checks if a given string of '0's and '1's contains a
+ * sequence of at least seven identical, consecutive characters.
+ * The file includes a large template of helper functions for competitive
+ * programming, most of which are not used in this solution.
+ *
+ * Algorithm:
+ * The code uses a sliding window approach to find a consecutive sequence.
+ * 1. It first checks if the string's length is less than 7. If so, a
+ *    dangerous situation is impossible, and the program exits.
+ * 2. It then iterates through the string with a loop that considers each
+ *    character as a potential start of a 7-character sequence.
+ * 3. For each starting character `s[i]`, an inner loop checks if the
+ *    following 6 characters are all identical to `s[i]`.
+ * 4. If an uninterrupted sequence of 7 identical characters is found, the
+ *    program prints "YES" and terminates.
+ * 5. If the loops complete without finding such a sequence, it prints "NO".
+ *
+ * Time Complexity: O(N), where N is the length of the string. The nested
+ * loop structure results in a linear scan, as the inner loop runs a constant
+ * number of times (6).
+ * Space Complexity: O(N) to store the input string.
+ */
 #include <algorithm>
 #include <bits/stdc++.h>
 #include <iostream>
@@ -10,6 +35,7 @@ const int INF = 1 << 29;
 typedef long long int ll;
 typedef unsigned long long int ull;
 
+// The following is a template of helper functions, largely unused in this problem.
 ll gcd(ll a, ll b) { return (a % b == 0) ? abs(b) : gcd(b, a % b); }
 ll lcm(ll a, ll b) { return (a * b) / gcd(a, b); }
 ll max(ll a, ll b) {
@@ -118,25 +144,40 @@ int main() {
   string s;
   cin >> s;
 
+  // Optimization: If the string is shorter than 7, it's impossible.
   if (s.length() < 7) {
     cout << "NO" << endl;
     return 0;
   }
 
+  /**
+   * @brief Iterates through the string, considering each position `i` as the
+   * potential start of a 7-character sequence.
+   */
   REP(i, s.length() - 6) {
     bool flag = false;
+    /**
+     * @brief Checks the 6 characters following `s[i]` to see if they are
+     * all identical to `s[i]`.
+     */
     FOR(j, i + 1, i + 7) {
       if (s[i] != s[j]) {
-        flag = true;
+        flag = true; // A different character was found.
         break;
       }
     }
 
+    /**
+     * @brief If the inner loop completed without `flag` being set, it means
+     * all 7 characters were the same.
+     */
     if (!flag) {
       cout << "YES" << endl;
       return 0;
     }
   }
+
+  // If the loop finishes, no sequence of 7 was found.
   cout << "NO" << endl;
   return 0;
 }

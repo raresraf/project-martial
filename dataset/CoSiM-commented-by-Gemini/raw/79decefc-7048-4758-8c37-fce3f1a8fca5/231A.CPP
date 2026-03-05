@@ -1,3 +1,24 @@
+/**
+ * @file 231A.CPP
+ * @brief Solution for Codeforces Problem 231A, "Team".
+ * @details This program calculates the number of problems a team will implement.
+ * A problem is implemented if at least two of the three team members are sure
+ * about its solution. The file includes a large, general-purpose template for
+ * competitive programming, most of which is not used in this specific solution.
+ *
+ * Algorithm:
+ * 1. Read the total number of problems, `n`.
+ * 2. Read all `n` lines of input, where each line contains the three members'
+ *    opinions (1 for sure, 0 for not sure), and store them in a 2D array `M`.
+ * 3. Iterate through each row of the array `M`, representing each problem.
+ * 4. For each problem, count the number of members who are sure (i.e., the count of 1s).
+ * 5. If this count is 2 or greater, increment a total problem counter.
+ * 6. After checking all problems, print the final total.
+ *
+ * Time Complexity: O(N) because it iterates through the N*3 inputs twice in
+ * separate loops.
+ * Space Complexity: O(N) to store all inputs in the 2D array `M`.
+ */
 // Codeforces 231A - Team.cpp
 #include <cstdio>
 #include <iostream>
@@ -108,17 +129,30 @@ int main() {
   int cases, caseno = 0, n, I, K = 0, cnt = 0, temp = 0;
   scanf("%d", &n);
 
+  /**
+   * @brief Reads all problem data from standard input and stores it in a 2D
+   * array. This approach reads all data before processing begins.
+   */
   for (I = 0; I < n; I++) {
     for (K = 0; K < 3; K++)
       scanf("%d", &M[I][K]);
   }
 
+  /**
+   * @brief Iterates through each problem stored in the array to determine if
+   * the team will solve it.
+   */
   for (I = 0; I < n; I++) {
     temp = 0;
+    // Inner loop to sum the opinions for the current problem.
     for (K = 0; K < 3; K++) {
       if (M[I][K] == 1)
         temp++;
     }
+    /**
+     * @brief If two or more members are sure, increment the counter for
+     * problems to be implemented.
+     */
     if (temp >= 2)
       cnt++;
   }

@@ -1,3 +1,10 @@
+/**
+ * @file gpu_hashtable.cu
+ * @brief A GPU-accelerated hash table implementation using CUDA.
+ * @details This file defines a hash table that operates on the GPU, leveraging CUDA kernels for
+ * parallel batch insertion, retrieval, and resizing operations. The collision resolution
+ * strategy is linear probing with atomic operations to ensure thread safety.
+ */
 
 #include 
 #include 
@@ -8,182 +15,272 @@
 
 #include "gpu_hashtable.hpp"
 
+/**
+ * @struct Bucket
+ * @brief Represents a single key-value entry in the hash table.
+ */
 typedef struct Bucket {
-	int cheie;
-	int valoare;
+	int cheie;   // The key (cheie) of the entry.
+	int valoare; // The value (valoare) associated with the key.
 } Bucket;
 
-int  lungime = 0;
-int numar_elemente = 0;
-Bucket *buckets; 
+// Global variables for the hash table state.
+int  lungime = 0;        // Represents the total capacity (length) of the hash table.
+int numar_elemente = 0; // Represents the current number of elements stored.
+Bucket *buckets;        // Device pointer to the array of buckets on the GPU.
 
 
-
+/**
+ * @brief CUDA kernel for parallel batch insertion of key-value pairs.
+ * @param buckets Device pointer to the hash table buckets.
+ * @param marime The number of key-value pairs to insert (size of the batch).
+ * @param lungime The total capacity of the hash table.
+ * @param chei Device pointer to the array of keys to insert.
+ * @param valori Device pointer to the array of values to insert.
+ */
 __global__ void inserare(Bucket *buckets, int marime, int lungime, int *chei, int *valori) {
+	// Each thread is responsible for inserting one key-value pair.
 	unsigned int id_thread = threadIdx.x + blockDim.x * blockIdx.x;
 
 	if (id_thread < marime) {
 
+		// Hash calculation: A multiplicative hash function using prime numbers to distribute keys.
 		long pozitie = ((long)abs(chei[id_thread]) * 163307llu) % 668993977llu % lungime;
 
-		int cheie_n = chei[id_thread];
-		int cheie_v;
+		int cheie_n = chei[id_thread]; // The new key to be inserted.
+		int cheie_v; // Variable to store the value read from the bucket's key.
 
+		/**
+		 * @block Collision Resolution: Linear Probing with Atomic Compare-and-Swap (CAS).
+		 * @logic The loop attempts to find an empty bucket (where key is 0) or an existing bucket with the same key.
+		 * `atomicCAS` ensures that only one thread can claim a bucket in case of a hash collision.
+		 * If `atomicCAS` fails (returns a non-zero value that is not our key), it means another thread
+		 * has written to this bucket, so we probe the next position.
+		 */
 		while ((cheie_v = atomicCAS(&(buckets[pozitie].cheie), 0, cheie_n)) != 0 && cheie_v != cheie_n ) {
 			pozitie++;
+			// Wrap around to the beginning if the end of the table is reached.
 			if (pozitie == lungime) {
 				pozitie = 0;
 			}
 		}
+		// Once an empty or matching bucket is secured, write the value.
 		buckets[pozitie].valoare = valori[id_thread];
 	}
 	return;
 }
 
+/**
+ * @brief CUDA kernel for rehashing the table into a new, larger array of buckets.
+ * @param buckets Device pointer to the old hash table buckets.
+ * @param new_buckets Device pointer to the new, larger hash table buckets.
+ * @param marime The size of the old hash table.
+ * @param lungime The capacity of the new hash table.
+ */
 __global__ void reformare(Bucket *buckets, Bucket *new_buckets ,int marime, int lungime) {
+	// Each thread is responsible for rehashing one bucket from the old table.
 	unsigned int id_thread = threadIdx.x + blockDim.x * blockIdx.x;
 
 	if (id_thread < marime) {
+		// Ignore empty buckets from the old table.
+		if (buckets[id_thread].cheie == 0)
+			return;
 
-	long pozitie = ((long)abs(buckets[id_thread].cheie) * 163307llu) % 668993977llu % lungime;
-	int cheie_v;
-
-	if (buckets[id_thread].cheie == 0)
-		return;
-
-	while ((cheie_v = atomicCAS(&(new_buckets[pozitie].cheie), 0, buckets[id_thread].cheie)) != 0 && cheie_v != buckets[id_thread].cheie ) {
-		pozitie++;
-		if (pozitie == lungime) {
-			pozitie = 0;
-		}
-	}
-
-	new_buckets[pozitie].valoare = buckets[id_thread].valoare;
-	return;
-	}
-}
+		// Re-calculate the hash for the key in the context of the new table's larger size.
+		long pozitie = ((long)abs(buckets[id_thread].cheie) * 163307llu) % 668993977llu % lungime;
+		int cheie_v;
 
 
-
-__global__ void retur(Bucket *buckets, int marime, int lungime, int *chei, int *valori) {
-		unsigned int id_thread = threadIdx.x + blockDim.x * blockIdx.x;
-
-	if (id_thread < marime) {
-
-		long pozitie = ((long)abs(chei[id_thread]) * 163307llu) % 668993977llu % lungime;
-		int cheie_c = chei[id_thread];
-
-		while (buckets[pozitie].cheie != cheie_c) {
+		/**
+		 * @block Collision Resolution (Rehashing): Linear Probing with Atomic CAS.
+		 * @logic Similar to the insertion kernel, this finds an empty slot in the new table
+		 * for the element from the old table, handling potential collisions during the rehash process.
+		 */
+		while ((cheie_v = atomicCAS(&(new_buckets[pozitie].cheie), 0, buckets[id_thread].cheie)) != 0 && cheie_v != buckets[id_thread].cheie ) {
 			pozitie++;
 			if (pozitie == lungime) {
 				pozitie = 0;
 			}
 		}
 
+		// Copy the value to the new bucket location.
+		new_buckets[pozitie].valoare = buckets[id_thread].valoare;
+		return;
+	}
+}
+
+
+/**
+ * @brief CUDA kernel for parallel batch retrieval of values based on keys.
+ * @param buckets Device pointer to the hash table buckets.
+ * @param marime The number of keys to look up.
+ * @param lungime The total capacity of the hash table.
+ * @param chei Device pointer to the array of keys to find.
+ * @param valori Device pointer to an array where the found values will be written.
+ */
+__global__ void retur(Bucket *buckets, int marime, int lungime, int *chei, int *valori) {
+	unsigned int id_thread = threadIdx.x + blockDim.x * blockIdx.x;
+
+	if (id_thread < marime) {
+
+		// Calculate the initial hash position for the key.
+		long pozitie = ((long)abs(chei[id_thread]) * 163307llu) % 668993977llu % lungime;
+		int cheie_c = chei[id_thread]; // The current key to search for.
+
+		/**
+		 * @block Search: Linear Probing.
+		 * @logic Starting from the initial hash position, probe linearly until the bucket
+		 * with the matching key is found. This assumes the key exists in the table.
+		 */
+		while (buckets[pozitie].cheie != cheie_c) {
+			pozitie++;
+			// Wrap around if the end of the table is reached.
+			if (pozitie == lungime) {
+				pozitie = 0;
+			}
+		}
+
+		// Write the found value to the output array at the corresponding thread's index.
 		valori[id_thread] = buckets[pozitie].valoare;
 		return;
 	}
 	return;
-
-
-
-
 }
 
 
+/**
+ * @brief Constructor for the GpuHashTable.
+ * @param size Initial capacity of the hash table.
+ */
 GpuHashTable::GpuHashTable(int size) {
-
-
+	// Allocate memory on the GPU for the buckets.
 	cudaMalloc((void **) &(buckets), size * sizeof(Bucket));
+	// Initialize the allocated memory to zero.
 	cudaMemset(buckets, 0, size * sizeof(Bucket));
 
 	lungime = size;
 }
 
-
+/**
+ * @brief Destructor for the GpuHashTable.
+ */
 GpuHashTable::~GpuHashTable() {
+	// Free the allocated GPU memory.
 	cudaFree(buckets);
 }
 
-
+/**
+ * @brief Resizes and rehashes the table if the load factor exceeds a threshold.
+ * @param numBucketsReshape The number of new elements being added, used to calculate the new size.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) {
 
 	numar_elemente += numBucketsReshape;
-	int lungime_v = lungime;
+	int lungime_v = lungime; // Old length/capacity.
 
-	if (numar_elemente / lungime_v > 0.8) {
-
+	// Check if the load factor exceeds the 0.8 threshold.
+	if (numar_elemente / (float)lungime_v > 0.8) {
+		// Calculate a new size, providing some headroom.
 		lungime = numar_elemente * 10 / 8;
 
+		// Allocate a new, larger bucket array on the device.
 		Bucket *new_buckets;
 		cudaMalloc((void **) &(new_buckets),lungime * sizeof(Bucket));
 		cudaMemset(new_buckets, 0, lungime * sizeof(Bucket));
 
+		// Configure and launch the rehashing kernel.
 		const size_t block_size = 1024;
 		size_t blocks_no = ceil((float)lungime_v / (float)block_size);
  
-  		reformare>>(buckets, new_buckets, lungime_v, lungime);
+  		reformare>>(blocks_no, block_size, marime, lungime);
   		cudaDeviceSynchronize();
 	 
-  		cudaFree(buckets);
+  		cudaFree(buckets); // Free the old bucket array.
 
-  		buckets = new_buckets;
+  		buckets = new_buckets; // Point to the new bucket array.
 	}
-
-	
 }
 
-
+/**
+ * @brief Inserts a batch of key-value pairs into the hash table.
+ * @param keys Host pointer to an array of keys.
+ * @param values Host pointer to an array of values.
+ * @param numKeys The number of pairs to insert.
+ * @return Always returns true.
+ */
 bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
-	int *chei, *valori;
+	int *chei, *valori; // Device pointers for keys and values.
 
+	// Allocate memory on the device for the batch.
 	cudaMalloc((void **) &(chei), numKeys * sizeof(int));
 	cudaMalloc((void **) &(valori), numKeys * sizeof(int));
 
+	// Copy data from host to device.
 	cudaMemcpy(chei, keys, numKeys * sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(valori, values, numKeys * sizeof(int), cudaMemcpyHostToDevice);
 
+	// Check if a reshape is needed before insertion.
 	reshape(numKeys);
 
+	// Configure and launch the insertion kernel.
 	const size_t block_size = 1024;
 	size_t blocks_no = ceil((float)numKeys / (float)block_size);
 
-  	inserare>>(buckets, numKeys, lungime, chei, valori);
+  	inserare>>(blocks_no, block_size, numKeys, lungime, chei, valori);
   	
+  	// Free the temporary device memory for the batch.
   	cudaFree(chei);
   	cudaFree(valori);
 
 	return true;
 }
 
+/**
+ * @brief Retrieves a batch of values corresponding to a batch of keys.
+ * @param keys Host pointer to an array of keys to look up.
+ * @param numKeys The number of keys to retrieve.
+ * @return A host pointer to an array containing the retrieved values.
+ */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
-	int *chei, *valori, *rezultate;
+	int *chei, *valori, *rezultate; // Device and host pointers.
 
+	// Allocate host memory for the results.
 	rezultate = (int *)malloc(numKeys * sizeof(int));
 
+	// Allocate device memory for the lookup operation.
 	cudaMalloc((void **) &(chei), numKeys * sizeof(int));
 	cudaMalloc((void **) &(valori), numKeys * sizeof(int));
 
+	// Copy keys from host to device.
 	cudaMemcpy(chei, keys, numKeys * sizeof(int), cudaMemcpyHostToDevice);
 	
+	// Configure and launch the retrieval kernel.
 	const size_t block_size = 512;
 	size_t blocks_no = ceil((float)numKeys / (float)block_size);
   	
-  	retur>>(buckets, numKeys, lungime, chei, valori);
+  	retur>>(blocks_no, block_size, numKeys, lungime, chei, valori);
 
+	// Wait for kernel completion before copying results.
+	cudaDeviceSynchronize();
 
-
+  	// Copy the retrieved values from device to host.
   	cudaMemcpy(rezultate, valori, numKeys * sizeof(int), cudaMemcpyDeviceToHost);
 
+	// Note: Device memory for `chei` and `valori` is not freed here, leading to a memory leak.
 	return rezultate;
 }
 
-
+/**
+ * @brief Calculates the current load factor of the hash table.
+ * @return The load factor as a float.
+ */
 float GpuHashTable::loadFactor() {
 	return (float)numar_elemente / (float)lungime; 
 }
 
 
+// The following section appears to be a separate test harness or a CPU implementation,
+// included directly in the .cu file. It is not directly part of the GpuHashTable class logic.
 
 #define HASH_INIT GpuHashTable GpuHashTable(1);
 #define HASH_RESERVE(size) GpuHashTable.reshape(size);
@@ -201,16 +298,17 @@ using namespace std;
 
 #define	KEY_INVALID		0
 
-#define DIE(assertion, call_description) \
-	do {	\
-		if (assertion) {	\
-		fprintf(stderr, "(%s, %d): ",	\
-		__FILE__, __LINE__);	\
-		perror(call_description);	\
-		exit(errno);	\
-	}	\
+#define DIE(assertion, call_description) 
+	do {	
+		if (assertion) {	
+		fprintf(stderr, "(%s, %d): ",	
+		__FILE__, __LINE__);	
+		perror(call_description);	
+		exit(errno);	
+	}	
 } while (0)
 	
+// A large list of prime numbers, likely for use in various hashing schemes.
 const size_t primeList[] =
 {
 	2llu, 3llu, 5llu, 7llu, 11llu, 13llu, 17llu, 23llu, 29llu, 37llu, 47llu,
@@ -259,7 +357,7 @@ const size_t primeList[] =
 
 
 
-
+// A series of hash functions, likely for experimentation or for a different (CPU) hash table variant.
 int hash1(int data, int limit) {
 	return ((long)abs(data) * primeList[64]) % primeList[90] % limit;
 }
@@ -272,7 +370,7 @@ int hash3(int data, int limit) {
 
 
 
-
+// This appears to be a forward declaration for a CPU-based HashTable class, not the GpuHashTable.
 class GpuHashTable
 {
 	public:
@@ -290,4 +388,3 @@ class GpuHashTable
 };
 
 #endif
-

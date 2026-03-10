@@ -1,3 +1,13 @@
+/**
+ * @file 58A.CPP
+ * @brief Solution for a competitive programming problem (Codeforces 58A - Chat room).
+ * The program checks if the string "hello" is a subsequence of the given input string.
+ *
+ * NOTE: A significant portion of this file consists of a boilerplate template with
+ *       various includes, macros, and utility functions, which is a common practice
+ *       in competitive programming. The core logic for this specific problem
+ *       is located at the bottom of the file.
+ */
 // Codeforces 58A - Chat room.cpp
 #include <cstdio>
 #include <iostream>
@@ -33,6 +43,9 @@
 #define NL '\n'
 using namespace std;
 
+// --- BEGIN BOILERPLATE TEMPLATE ---
+// This section contains a large collection of pre-written utility code
+// for various competitive programming tasks. It is not specific to this problem.
 // BEGINTEMPLATE_BY_ZAYED
 const double PI = 2 * acos(0.0);
 const double EPS = 1e-11;
@@ -99,19 +112,36 @@ double toDouble(string s) {
   return r;
 } // NOTES:toDouble(
 // ENDTEMPLATE_BY_ZAYED
+// --- END BOILERPLATE TEMPLATE ---
 
 char S[100 + 10];
 char T[] = "hello";
+
+/**
+ * @brief Core logic for the "Chat room" problem.
+ * @algorithm Greedy linear scan for subsequence checking.
+ * @time_complexity O(L), where L is the length of the input string.
+ * @space_complexity O(L) for storing the input string.
+ */
 int main() {
-  std::ios_base::sync_with_stdio(0);
+  std::ios_base::sync_with_stdio(0); // Fast I/O
   int tcases, caseno = 1, n, I, K = 0, cnt;
   scanf("%s", S);
   int len = strlen(S);
   bool flag = false;
 
+  /**
+   * @block
+   * @brief Scans the input string `S` to find the subsequence "hello".
+   *
+   * Invariant: `K` is the index of the next character to find in the target string `T` ("hello").
+   * The loop greedily matches characters. When a character `S[I]` matches `T[K]`,
+   * `K` is incremented to look for the next character in "hello".
+   */
   for (I = 0; I < len; I++) {
     if (S[I] == T[K])
       K++;
+    // If K reaches 5, all characters of "hello" have been found in order.
     if (K == 5) {
       flag = true;
       break;

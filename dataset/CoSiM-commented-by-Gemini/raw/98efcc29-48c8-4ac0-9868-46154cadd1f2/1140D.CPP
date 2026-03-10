@@ -1,3 +1,21 @@
+/**
+ * @file 1140D.CPP
+ * @brief Solution for a competitive programming problem (Codeforces 1140D "Minimum Triangulation").
+ * This program calculates the minimum cost to triangulate a regular n-sided polygon (n-gon),
+ * where the cost of a triangulation is the sum of the products of the vertices of each triangle.
+ *
+ * NOTE: This file contains many boilerplate macros and functions for competitive
+ * programming that are not used in this specific solution.
+ *
+ * @algorithm The solution is based on the insight that the minimum cost is achieved
+ * by fixing one vertex (e.g., vertex 1) and forming a "fan" triangulation. This involves
+ * creating triangles (1, 2, 3), (1, 3, 4), ..., (1, n-1, n). The total cost is the
+ * sum of the products of these vertices' indices. Since one vertex is always 1,
+ * the formula simplifies to the sum of `i * (i+1)` for i from 2 to n-1.
+ *
+ * @time_complexity O(N), where N is the number of vertices, due to the single loop.
+ * @space_complexity O(1).
+ */
 #include <bits/stdc++.h>
 #define endl '\n'
 #define time clock_t tStart = clock();
@@ -38,6 +56,13 @@ int main() {
   // FAST_IO();
   ll n, len = 0;
   cin >> n;
+  /**
+   * @block
+   * @brief Calculates the sum of triangulation costs.
+   * This loop implements the formula for the minimum triangulation cost:
+   * sum_{i=2}^{n-1} i * (i+1). This corresponds to the cost of triangles
+   * (1,2,3), (1,3,4), ..., (1,n-1,n), assuming vertex 1 is the fixed pivot.
+   */
   for (ll i = 2; i < n; i++) {
     len += (i * (i + 1));
   }
@@ -45,6 +70,11 @@ int main() {
   // show
   return 0;
 }
+
+/**
+ * @brief A utility function for boilerplate setup in competitive programming.
+ * It optimizes I/O and can redirect streams for local testing.
+ */
 void FAST_IO() {
   ios_base::sync_with_stdio(0);
   cin.tie(0);

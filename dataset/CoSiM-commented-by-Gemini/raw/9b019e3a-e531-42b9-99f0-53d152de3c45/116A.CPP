@@ -1,3 +1,15 @@
+/**
+ * @file 116A.CPP
+ * @author ANMOL GUPTA
+ * @brief Solution for a competitive programming problem (Codeforces "Tram").
+ * This program finds the minimum required capacity for a tram by simulating
+ * passenger flow across several stops.
+ *
+ * NOTE: The vast majority of this file consists of a personal boilerplate
+ * template for competitive programming, including complex debugging macros,
+ * type definitions, and I/O optimizations. The core problem-solving logic
+ * is confined to the last few lines of the `main` function.
+ */
 /*
 Author:
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -7,6 +19,7 @@ Author:
 */
 #include <bits/stdc++.h>
 using namespace std;
+// --- BEGIN BOILERPLATE ---
 #pragma GCC target("avx2")
 #pragma GCC optimization("unroll-loops")
 #pragma GCC optimize("O2")
@@ -111,6 +124,14 @@ template <typename Heads, typename... Tails> void dbgs(Heads H, Tails... T) {
   cout << "[" << #__VA_ARGS__ << "]: ";                                        \
   dbgs(__VA_ARGS__);                                                           \
   cout << endl;
+// --- END BOILERPLATE ---
+
+/**
+ * @brief Main function containing the core logic.
+ * @algorithm Simulation with Maximum Tracking.
+ * @time_complexity O(N), where N is the number of stops.
+ * @space_complexity O(1).
+ */
 int main() {
   ios_base::sync_with_stdio(false);
   cin.tie(NULL);
@@ -118,12 +139,18 @@ int main() {
   // printf("%I64d", n)
   ll n, x, max_x, a, b;
   cin >> n;
-  x = 0;
-  max_x = 0;
+  x = 0;     // Tracks current number of passengers.
+  max_x = 0; // Tracks the maximum number of passengers seen so far.
+  
+  /**
+   * @block
+   * @brief Simulates passenger flow stop by stop.
+   * Invariant: `x` holds the current passenger count, `max_x` holds the peak count.
+   */
   while (n--) {
-    cin >> a >> b;
+    cin >> a >> b; // a: exiting, b: entering
     x += (b - a);
     max_x = max(x, max_x);
   }
-  th(max_x);
+  th(max_x); // `th` is a macro for `cout << n << endl`
 }

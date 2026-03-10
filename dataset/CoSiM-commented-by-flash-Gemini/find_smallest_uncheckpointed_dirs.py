@@ -14,7 +14,7 @@ def get_dir_size(path):
         print(f"Error getting size for {path}: {e}")
         return float('inf') # Treat errors as very large to sort them last
 
-def find_smallest_uncheckpointed_dirs(root_dir=".", limit=50):
+def find_smallest_uncheckpointed_dirs(root_dir=".", limit=100):
     """
     Finds the smallest directories that do not contain a .checkpoint file.
 

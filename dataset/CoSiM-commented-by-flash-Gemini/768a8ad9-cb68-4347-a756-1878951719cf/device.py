@@ -1,50 +1,89 @@
+"""
+This module implements a simulation framework for distributed devices,
+focusing on concurrent execution of scripts and synchronized data processing.
+It utilizes a `Device` class to represent each simulated entity,
+a `DeviceThread` for main control flow, and `MyThread` workers for
+executing individual scripts. A `ReusableBarrier` facilitates global
+synchronization across devices, and a shared `lock_hash` manages
+location-specific data access.
+"""
 
 
-
-from threading import Semaphore, Event, Lock, Thread
+from threading import Semaphore, Event, Lock, Thread, Condition # Condition imported for ReusableBarrier
 
 class ReusableBarrier(object):
-    
+    """
+    A reusable double-barrier synchronization primitive implemented using semaphores.
 
+    This barrier allows a fixed number of threads (`num_threads`) to wait for
+    each other to reach a common point before any can proceed. It is designed
+    to be reusable across multiple synchronization points within a larger simulation loop.
+    """
     def __init__(self, num_threads):
-        
+        """
+        Initializes a ReusableBarrier.
+
+        Args:
+            num_threads (int): The total number of threads that must arrive
+                               at the barrier before any can proceed.
+        """
         self.num_threads = num_threads
-        self.count_threads1 = self.num_threads
+        self.count_threads1 = self.num_threads # Counter for the first phase of the barrier.
 
 
-        self.count_threads2 = self.num_threads
-        self.counter_lock = Lock()
-        self.threads_sem1 = Semaphore(0)
-        self.threads_sem2 = Semaphore(0)
+        self.count_threads2 = self.num_threads # Counter for the second phase of the barrier.
+        self.counter_lock = Lock() # Lock to protect the counters during updates.
+        self.threads_sem1 = Semaphore(0) # Semaphore for the first phase, initialized to block all threads.
+        self.threads_sem2 = Semaphore(0) # Semaphore for the second phase, initialized to block all threads.
 
     def wait(self):
+        """
+        Causes the calling thread to wait at the barrier until all other
+        `num_threads` threads have also called `wait()`.
+        """
         
-        self.phase1()
+        self.phase1() # Executes the first synchronization phase.
 
 
-        self.phase2()
+        self.phase2() # Executes the second synchronization phase, enabling reusability.
 
     def phase1(self):
+        """
+        Manages the first phase of the double-barrier synchronization.
+
+        Block Logic: Decrements a shared counter. When it reaches zero, all threads
+                     have arrived at the barrier for this phase. It then releases
+                     all waiting threads via the first semaphore and resets the
+                     counter for the next phase.
+        """
         
         with self.counter_lock:
             self.count_threads1 -= 1
             if self.count_threads1 == 0:
-                for _ in xrange(self.num_threads):
-                    self.threads_sem1.release()
-                self.count_threads1 = self.num_threads
+                for _ in xrange(self.num_threads): # Note: `xrange` is Python 2.x specific.
+                    self.threads_sem1.release() # Releases all threads blocked on `threads_sem1`.
+                self.count_threads1 = self.num_threads # Resets the counter for barrier reusability.
 
-        self.threads_sem1.acquire()
+        self.threads_sem1.acquire() # Blocks the current thread until it's released by the semaphore.
 
     def phase2(self):
+        """
+        Manages the second phase of the double-barrier synchronization.
+
+        Block Logic: Decrements a shared counter. When it reaches zero, all threads
+                     have passed through the first phase. It then releases all
+                     waiting threads via the second semaphore and resets the
+                     counter for the next cycle, making the barrier fully reusable.
+        """
         
         with self.counter_lock:
             self.count_threads2 -= 1
             if self.count_threads2 == 0:
-                for _ in xrange(self.num_threads):
-                    self.threads_sem2.release()
-                self.count_threads2 = self.num_threads
+                for _ in xrange(self.num_threads): # Note: `xrange` is Python 2.x specific.
+                    self.threads_sem2.release() # Releases all threads blocked on `threads_sem2`.
+                self.count_threads2 = self.num_threads # Resets the counter for barrier reusability.
 
-        self.threads_sem2.acquire()
+        self.threads_sem2.acquire() # Blocks the current thread until it's released by the semaphore.
 
 class Device(object):
     

@@ -1,3 +1,13 @@
+
+/**
+ * @file chatEditingService.ts
+ * @brief Defines the core interfaces and services for the chat editing feature in VS Code.
+ *
+ * This file establishes the contract for the chat editing feature by defining the `IChatEditingService`
+ * and `IChatEditingSession` interfaces. These are central to managing the lifecycle and state of a
+ * chat-based editing workflow, where an AI assistant or similar tool can propose and apply changes
+ * to the user's code.
+ */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -18,21 +28,30 @@ import { IChatResponseModel } from './chatModel.js';
 
 export const IChatEditingService = createDecorator<IChatEditingService>('chatEditingService');
 
+/**
+ * The main service for managing chat editing sessions.
+ */
 export interface IChatEditingService {
 
 	_serviceBrand: undefined;
 
+	/**
+	 * Starts a new global editing session or continues an existing one.
+	 */
 	startOrContinueGlobalEditingSession(chatSessionId: string): Promise<IChatEditingSession>;
 
+	/**
+	 * Gets an existing editing session by its chat session ID.
+	 */
 	getEditingSession(chatSessionId: string): IChatEditingSession | undefined;
 
 	/**
-	 * All editing sessions, sorted by recency, e.g the last created session comes first.
+	 * An observable list of all editing sessions, sorted by recency.
 	 */
 	readonly editingSessionsObs: IObservable<readonly IChatEditingSession[]>;
 
 	/**
-	 * Creates a new short lived editing session
+	 * Creates a new short-lived editing session.
 	 */
 	createEditingSession(chatSessionId: string): Promise<IChatEditingSession>;
 
@@ -69,6 +88,9 @@ export interface WorkingSetDisplayMetadata {
 	description?: string;
 }
 
+/**
+ * An interface for streaming edits to a chat editing session.
+ */
 export interface IStreamingEdits {
 	pushText(edits: TextEdit[]): void;
 	pushNotebookCellText(cell: URI, edits: TextEdit[]): void;
@@ -79,6 +101,9 @@ export interface IStreamingEdits {
 
 export const chatEditingSnapshotScheme = 'chat-editing-snapshot-text-model';
 
+/**
+ * Represents a single chat editing session.
+ */
 export interface IChatEditingSession extends IDisposable {
 	readonly isGlobalEditingSession: boolean;
 	readonly chatSessionId: string;
@@ -127,6 +152,9 @@ export interface IChatEditingSession extends IDisposable {
 	redoInteraction(): Promise<void>;
 }
 
+/**
+ * Represents the diff of a file between two points in time.
+ */
 export interface IEditSessionEntryDiff {
 	/** LHS and RHS of a diff editor, if opened: */
 	originalURI: URI;
@@ -147,6 +175,9 @@ export const enum WorkingSetEntryRemovalReason {
 	Programmatic
 }
 
+/**
+ * The state of a file in the working set.
+ */
 export const enum WorkingSetEntryState {
 	Modified,
 	Accepted,
@@ -169,6 +200,9 @@ export interface IModifiedFileEntryChangeHunk {
 	reject(): Promise<boolean>;
 }
 
+/**
+ * Provides an integration point between a modified file entry and an editor.
+ */
 export interface IModifiedFileEntryEditorIntegration extends IDisposable {
 
 	/**
@@ -215,6 +249,9 @@ export interface IModifiedFileEntryEditorIntegration extends IDisposable {
 	toggleDiff(change: IModifiedFileEntryChangeHunk | undefined): Promise<void>;
 }
 
+/**
+ * Represents a file that has been modified in a chat editing session.
+ */
 export interface IModifiedFileEntry {
 	readonly entryId: string;
 	readonly originalURI: URI;
@@ -246,6 +283,9 @@ export interface IChatEditingSessionStream {
 	notebookEdits(resource: URI, edits: ICellEditOperation[], isLastEdits: boolean, responseModel: IChatResponseModel): void;
 }
 
+/**
+ * The state of a chat editing session.
+ */
 export const enum ChatEditingSessionState {
 	Initial = 0,
 	StreamingEdits = 1,
@@ -267,6 +307,9 @@ export const applyingChatEditsFailedContextKey = new RawContextKey<boolean | und
 export const chatEditingMaxFileAssignmentName = 'chatEditingSessionFileLimit';
 export const defaultChatEditingMaxFileLimit = 10;
 
+/**
+ * The kind of edit being performed.
+ */
 export const enum ChatEditKind {
 	Created,
 	Modified,

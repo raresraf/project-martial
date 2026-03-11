@@ -1,3 +1,16 @@
+
+/**
+ * @file htmldialogelement.rs
+ * @brief Implementation of the `HTMLDialogElement` interface, representing `<dialog>` elements.
+ *
+ * This module provides the Rust implementation for the `HTMLDialogElement`, which corresponds
+ * to the `<dialog>` tag in HTML. This element is used to create a modal or non-modal dialog
+ * box that can be shown to the user.
+ *
+ * This implementation is based on the WHATWG HTML specification for the `<dialog>` element.
+ *
+ * @see https://html.spec.whatwg.org/multipage/interactive-elements.html#the-dialog-element
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -18,6 +31,9 @@ use crate::dom::htmlelement::HTMLElement;
 use crate::dom::node::{Node, NodeTraits};
 use crate::script_runtime::CanGc;
 
+/**
+ * @brief Represents a `<dialog>` HTML element.
+ */
 #[dom_struct]
 pub(crate) struct HTMLDialogElement {
     htmlelement: HTMLElement,
@@ -56,24 +72,31 @@ impl HTMLDialogElement {
 }
 
 impl HTMLDialogElementMethods<crate::DomTypeHolder> for HTMLDialogElement {
-    // https://html.spec.whatwg.org/multipage/#dom-dialog-open
+    /**
+     * @brief Gets or sets the `open` attribute, which indicates whether the dialog is visible.
+     * @see https://html.spec.whatwg.org/multipage/interactive-elements.html#dom-dialog-open
+     */
     make_bool_getter!(Open, "open");
 
-    // https://html.spec.whatwg.org/multipage/#dom-dialog-open
     make_bool_setter!(SetOpen, "open");
 
-    // https://html.spec.whatwg.org/multipage/#dom-dialog-returnvalue
+    /**
+     * @brief Gets or sets the return value of the dialog.
+     * @see https://html.spec.whatwg.org/multipage/interactive-elements.html#dom-dialog-returnvalue
+     */
     fn ReturnValue(&self) -> DOMString {
         let return_value = self.return_value.borrow();
         return_value.clone()
     }
 
-    // https://html.spec.whatwg.org/multipage/#dom-dialog-returnvalue
     fn SetReturnValue(&self, return_value: DOMString) {
         *self.return_value.borrow_mut() = return_value;
     }
 
-    /// <https://html.spec.whatwg.org/multipage/#dom-dialog-show>
+    /**
+     * @brief Displays the dialog.
+     * @see https://html.spec.whatwg.org/multipage/interactive-elements.html#dom-dialog-show
+     */
     fn Show(&self, can_gc: CanGc) {
         let element = self.upcast::<Element>();
 
@@ -98,7 +121,11 @@ impl HTMLDialogElementMethods<crate::DomTypeHolder> for HTMLDialogElement {
         // TODO(Issue #32702): Step 8 Run the dialog focusing steps given this.
     }
 
-    // https://html.spec.whatwg.org/multipage/#dom-dialog-close
+    /**
+     * @brief Closes the dialog.
+     * @param return_value An optional string to set as the dialog's return value.
+     * @see https://html.spec.whatwg.org/multipage/interactive-elements.html#dom-dialog-close
+     */
     fn Close(&self, return_value: Option<DOMString>, can_gc: CanGc) {
         let element = self.upcast::<Element>();
         let target = self.upcast::<EventTarget>();

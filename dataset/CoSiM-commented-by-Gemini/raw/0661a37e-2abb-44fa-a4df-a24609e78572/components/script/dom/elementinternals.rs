@@ -1,3 +1,29 @@
+
+/**
+ * @file elementinternals.rs
+ * @brief Implementation of the `ElementInternals` interface for custom elements.
+ *
+ * This module provides the Rust implementation for the `ElementInternals` object, a key part of
+ * the Web Components specification. This interface allows custom elements to behave like standard
+ * form elements, enabling them to be associated with a form, participate in constraint validation,
+ * and have their values submitted with the form.
+ *
+ * ## Core Functionality:
+ *
+ * - **Form Association:** Enables a custom element to be associated with an `HTMLFormElement`,
+ *   allowing it to be controlled and submitted as part of the form.
+ * - **Constraint Validation:** Provides methods like `setValidity()`, `checkValidity()`, and
+ *   `reportValidity()`, and properties like `validity` and `validationMessage`, which allow
+ *   the custom element to participate in the browser's form validation process.
+ * - **State Management:** Allows the element to expose a "state" that can be saved and restored
+ *   by the browser (e.g., during session history navigation).
+ * - **Submission Value:** Defines the value that the custom element will contribute to the form's
+ *   data set when it is submitted.
+ *
+ * This implementation closely follows the WHATWG HTML specification for `ElementInternals`.
+ *
+ * @see https://html.spec.whatwg.org/multipage/custom-elements.html#elementinternals
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -28,6 +54,7 @@ use crate::dom::validation::{Validatable, is_barred_by_datalist_ancestor};
 use crate::dom::validitystate::{ValidationFlags, ValidityState};
 use crate::script_runtime::CanGc;
 
+/// Represents the value that a custom element can submit with a form.
 #[derive(Clone, JSTraceable, MallocSizeOf)]
 enum SubmissionValue {
     File(DomRoot<File>),
@@ -53,6 +80,15 @@ impl From<Option<&FileOrUSVStringOrFormData>> for SubmissionValue {
     }
 }
 
+/**
+ * @brief Implements the `ElementInternals` interface.
+ *
+ * This struct holds the internal state for a form-associated custom element, providing the
+ * backing implementation for the `ElementInternals` API. It is created when an element calls
+ * `attachInternals()`.
+ *
+ * @see https://html.spec.whatwg.org/multipage/custom-elements.html#the-elementinternals-interface
+ */
 #[dom_struct]
 pub(crate) struct ElementInternals {
     reflector_: Reflector,
@@ -60,18 +96,28 @@ pub(crate) struct ElementInternals {
     /// on an element for which `attachInternals()` wasn't called yet; this is
     /// necessary because it might have a form owner.
     attached: Cell<bool>,
+    /// The custom element that this `ElementInternals` object is associated with.
     target_element: Dom<HTMLElement>,
+    /// The validity state of the element.
     validity_state: MutNullableDom<ValidityState>,
+    /// The validation message to be displayed when the element is invalid.
     validation_message: DomRefCell<DOMString>,
+    /// The custom validity error message set by the author.
     custom_validity_error_message: DomRefCell<DOMString>,
+    /// An optional element to be used as the anchor for the validation message.
     validation_anchor: MutNullableDom<HTMLElement>,
+    /// The value to be submitted with the form.
     submission_value: DomRefCell<SubmissionValue>,
+    /// The state of the element, which can be saved and restored.
     state: DomRefCell<SubmissionValue>,
+    /// The form that the element is associated with.
     form_owner: MutNullableDom<HTMLFormElement>,
+    /// A list of `HTMLLabelElement`s that are associated with the element.
     labels_node_list: MutNullableDom<NodeList>,
 }
 
 impl ElementInternals {
+    /// Creates a new `ElementInternals` instance for the given target element.
     fn new_inherited(target_element: &HTMLElement) -> ElementInternals {
         ElementInternals {
             reflector_: Reflector::new(),
@@ -88,6 +134,13 @@ impl ElementInternals {
         }
     }
 
+    /**
+     * Creates a new `ElementInternals` object and roots it in the JavaScript runtime.
+     *
+     * @param element The `HTMLElement` to which this `ElementInternals` will be attached.
+     * @param can_gc A token indicating that garbage collection can be performed.
+     * @return A rooted `ElementInternals` object.
+     */
     pub(crate) fn new(element: &HTMLElement, can_gc: CanGc) -> DomRoot<ElementInternals> {
         let global = element.owner_window();
         reflect_dom_object(
@@ -97,42 +150,58 @@ impl ElementInternals {
         )
     }
 
+    /// Returns `true` if the target element is a form-associated custom element.
     fn is_target_form_associated(&self) -> bool {
         self.target_element.is_form_associated_custom_element()
     }
 
+    /// Sets the validation message for the element.
     fn set_validation_message(&self, message: DOMString) {
         *self.validation_message.borrow_mut() = message;
     }
 
+    /// Sets the custom validity error message.
     fn set_custom_validity_error_message(&self, message: DOMString) {
         *self.custom_validity_error_message.borrow_mut() = message;
     }
 
+    /// Sets the submission value for the element.
     fn set_submission_value(&self, value: SubmissionValue) {
         *self.submission_value.borrow_mut() = value;
     }
 
+    /// Sets the state of the element.
     fn set_state(&self, value: SubmissionValue) {
         *self.state.borrow_mut() = value;
     }
 
+    /// Sets the form owner of the element.
     pub(crate) fn set_form_owner(&self, form: Option<&HTMLFormElement>) {
         self.form_owner.set(form);
     }
 
+    /// Returns the form owner of the element.
     pub(crate) fn form_owner(&self) -> Option<DomRoot<HTMLFormElement>> {
         self.form_owner.get()
     }
 
+    /// Marks this `ElementInternals` object as attached to its target element.
     pub(crate) fn set_attached(&self) {
         self.attached.set(true);
     }
 
+    /// Returns `true` if this `ElementInternals` object has been attached to its target element.
     pub(crate) fn attached(&self) -> bool {
         self.attached.get()
     }
 
+    /**
+     * Constructs the form data entry for the element and appends it to the entry list.
+     *
+     * This method is called during form submission.
+     *
+     * @param entry_list The list of form data entries to which the element's entry will be appended.
+     */
     pub(crate) fn perform_entry_construction(&self, entry_list: &mut Vec<FormDatum>) {
         if self
             .target_element
@@ -181,6 +250,7 @@ impl ElementInternals {
         }
     }
 
+    /// Returns `true` if the element is invalid.
     pub(crate) fn is_invalid(&self) -> bool {
         self.is_target_form_associated() &&
             self.is_instance_validatable() &&
@@ -189,7 +259,12 @@ impl ElementInternals {
 }
 
 impl ElementInternalsMethods<crate::DomTypeHolder> for ElementInternals {
-    /// <https://html.spec.whatwg.org/multipage/#dom-elementinternals-shadowroot>
+    /**
+     * Gets the shadow root of the target element, if it is available to element internals.
+     *
+     * @return The shadow root, or `None` if it is not available.
+     * @see https://html.spec.whatwg.org/multipage/#dom-elementinternals-shadowroot
+     */
     fn GetShadowRoot(&self) -> Option<DomRoot<ShadowRoot>> {
         // Step 1. Let target be this's target element.
         // Step 2. If target is not a shadow host, then return null.
@@ -205,7 +280,14 @@ impl ElementInternalsMethods<crate::DomTypeHolder> for ElementInternals {
         Some(shadow)
     }
 
-    /// <https://html.spec.whatwg.org/multipage#dom-elementinternals-setformvalue>
+    /**
+     * Sets the form value and state of the element.
+     *
+     * @param value The value to be submitted with the form.
+     * @param maybe_state The state of the element. If not provided, the submission value is used as the state.
+     * @return `Ok(())` if successful, or an error if the element is not a form-associated custom element.
+     * @see https://html.spec.whatwg.org/multipage#dom-elementinternals-setformvalue
+     */
     fn SetFormValue(
         &self,
         value: Option<FileOrUSVStringOrFormData>,
@@ -228,7 +310,16 @@ impl ElementInternalsMethods<crate::DomTypeHolder> for ElementInternals {
         Ok(())
     }
 
-    /// <https://html.spec.whatwg.org/multipage#dom-elementinternals-setvalidity>
+    /**
+     * Sets the validity of the element.
+     *
+     * @param flags The validity flags to set.
+     * @param message The validation message to display if the element is invalid.
+     * @param anchor An optional element to use as the anchor for the validation message.
+     * @param can_gc A token indicating that garbage collection can be performed.
+     * @return `Ok(())` if successful, or an error if the element is not a form-associated custom element or if the arguments are invalid.
+     * @see https://html.spec.whatwg.org/multipage#dom-elementinternals-setvalidity
+     */
     fn SetValidity(
         &self,
         flags: &ValidityStateFlags,
@@ -291,7 +382,12 @@ impl ElementInternalsMethods<crate::DomTypeHolder> for ElementInternals {
         Ok(())
     }
 
-    /// <https://html.spec.whatwg.org/multipage#dom-elementinternals-validationmessage>
+    /**
+     * Gets the validation message for the element.
+     *
+     * @return The validation message.
+     * @see https://html.spec.whatwg.org/multipage#dom-elementinternals-validationmessage
+     */
     fn GetValidationMessage(&self) -> Fallible<DOMString> {
         // This check isn't in the spec but it's in WPT tests and it maintains
         // consistency with other methods that do specify it
@@ -301,7 +397,12 @@ impl ElementInternalsMethods<crate::DomTypeHolder> for ElementInternals {
         Ok(self.validation_message.borrow().clone())
     }
 
-    /// <https://html.spec.whatwg.org/multipage#dom-elementinternals-validity>
+    /**
+     * Gets the validity state of the element.
+     *
+     * @return The `ValidityState` object for the element.
+     * @see https://html.spec.whatwg.org/multipage#dom-elementinternals-validity
+     */
     fn GetValidity(&self) -> Fallible<DomRoot<ValidityState>> {
         if !self.is_target_form_associated() {
             return Err(Error::NotSupported);
@@ -309,7 +410,13 @@ impl ElementInternalsMethods<crate::DomTypeHolder> for ElementInternals {
         Ok(self.validity_state())
     }
 
-    /// <https://html.spec.whatwg.org/multipage#dom-elementinternals-labels>
+    /**
+     * Gets a `NodeList` of all `HTMLLabelElement`s that are associated with the element.
+     *
+     * @param can_gc A token indicating that garbage collection can be performed.
+     * @return The `NodeList` of labels.
+     * @see https://html.spec.whatwg.org/multipage#dom-elementinternals-labels
+     */
     fn GetLabels(&self, can_gc: CanGc) -> Fallible<DomRoot<NodeList>> {
         if !self.is_target_form_associated() {
             return Err(Error::NotSupported);
@@ -323,7 +430,12 @@ impl ElementInternalsMethods<crate::DomTypeHolder> for ElementInternals {
         }))
     }
 
-    /// <https://html.spec.whatwg.org/multipage#dom-elementinternals-willvalidate>
+    /**
+     * Returns `true` if the element will be validated when the form is submitted.
+     *
+     * @return `true` if the element will be validated, `false` otherwise.
+     * @see https://html.spec.whatwg.org/multipage#dom-elementinternals-willvalidate
+     */
     fn GetWillValidate(&self) -> Fallible<bool> {
         if !self.is_target_form_associated() {
             return Err(Error::NotSupported);
@@ -331,7 +443,12 @@ impl ElementInternalsMethods<crate::DomTypeHolder> for ElementInternals {
         Ok(self.is_instance_validatable())
     }
 
-    /// <https://html.spec.whatwg.org/multipage#dom-elementinternals-form>
+    /**
+     * Gets the form that the element is associated with.
+     *
+     * @return The `HTMLFormElement`, or `None` if the element is not associated with a form.
+     * @see https://html.spec.whatwg.org/multipage#dom-elementinternals-form
+     */
     fn GetForm(&self) -> Fallible<Option<DomRoot<HTMLFormElement>>> {
         if !self.is_target_form_associated() {
             return Err(Error::NotSupported);
@@ -339,7 +456,13 @@ impl ElementInternalsMethods<crate::DomTypeHolder> for ElementInternals {
         Ok(self.form_owner.get())
     }
 
-    /// <https://html.spec.whatwg.org/multipage#dom-elementinternals-checkvalidity>
+    /**
+     * Checks the validity of the element.
+     *
+     * @param can_gc A token indicating that garbage collection can be performed.
+     * @return `true` if the element is valid, `false` otherwise.
+     * @see https://html.spec.whatwg.org/multipage#dom-elementinternals-checkvalidity
+     */
     fn CheckValidity(&self, can_gc: CanGc) -> Fallible<bool> {
         if !self.is_target_form_associated() {
             return Err(Error::NotSupported);
@@ -347,7 +470,13 @@ impl ElementInternalsMethods<crate::DomTypeHolder> for ElementInternals {
         Ok(self.check_validity(can_gc))
     }
 
-    /// <https://html.spec.whatwg.org/multipage#dom-elementinternals-reportvalidity>
+    /**
+     * Checks the validity of the element and reports it to the user.
+     *
+     * @param can_gc A token indicating that garbage collection can be performed.
+     * @return `true` if the element is valid, `false` otherwise.
+     * @see https://html.spec.whatwg.org/multipage#dom-elementinternals-reportvalidity
+     */
     fn ReportValidity(&self, can_gc: CanGc) -> Fallible<bool> {
         if !self.is_target_form_associated() {
             return Err(Error::NotSupported);
@@ -374,7 +503,12 @@ impl Validatable for ElementInternals {
         })
     }
 
-    /// <https://html.spec.whatwg.org/multipage#candidate-for-constraint-validation>
+    /**
+     * Determines if the element is a candidate for constraint validation.
+     *
+     * @return `true` if the element is a candidate for constraint validation, `false` otherwise.
+     * @see https://html.spec.whatwg.org/multipage#candidate-for-constraint-validation
+     */
     fn is_instance_validatable(&self) -> bool {
         debug_assert!(self.is_target_form_associated());
         if !self.target_element.is_submittable_element() {

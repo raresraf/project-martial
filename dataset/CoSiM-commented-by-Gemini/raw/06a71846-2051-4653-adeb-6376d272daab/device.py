@@ -1,5 +1,11 @@
 
-
+"""
+This module defines a `Device` class that represents a node in a distributed system or simulation.
+Each device runs in its own thread and can execute scripts that operate on sensor data.
+Devices are synchronized using a barrier and communicate with their neighbors through a supervisor.
+The module also includes custom implementations of Queue, PriorityQueue, and LifoQueue for
+inter-thread communication.
+"""
 
 from threading import Event, Thread, Lock
 from barrier import ReusableBarrierCond
@@ -7,11 +13,22 @@ import multiprocessing
 from queue import *
 
 class Device(object):
-    
+    """
+    Represents a device in the simulated environment.
+
+    Each device has a unique ID, its own sensor data, and is managed by a supervisor.
+    It executes scripts in a separate thread and synchronizes with other devices at each timepoint.
+    """
 
     def __init__(self, device_id, sensor_data, supervisor):
-        
+        """
+        Initializes a new Device instance.
 
+        Args:
+            device_id: The unique identifier for the device.
+            sensor_data: A dictionary representing the device's sensor data.
+            supervisor: The supervisor object that manages the device network.
+        """
         self.currentScript = 0
         self.device_id = device_id
         self.sensor_data = sensor_data
@@ -29,10 +46,19 @@ class Device(object):
 
 
     def __str__(self):
-        
+        """Returns a string representation of the device."""
         return "Device %d" % self.device_id
 
     def get_unique_id(self, devices):
+        """
+        Gets the maximum device ID from a list of devices.
+
+        Args:
+            devices: A list of Device objects.
+
+        Returns:
+            The maximum device ID found in the list.
+        """
         max_id = 0;
         for device in devices:
             if (device.device_id > max_id):
@@ -42,10 +68,18 @@ class Device(object):
         return max_id
 
     def setup_devices(self, devices):
-        
+        """
+        Sets up the device network, including the synchronization barrier and data locks.
+
+        This method should be called by the device with the highest ID to initialize
+        the shared resources for all devices.
+
+        Args:
+            devices: A list of all Device objects in the network.
+        """
 
         if (self.device_id == self.get_unique_id(devices)):
-            self.barrier = ReusableBarrierCond(len(devices)) 
+            self.barrier = ReusableBarrierCond(len(devices))
             for device in devices:
                 for k in device.sensor_data:
                     self.hash[k] = Lock()
@@ -57,30 +91,65 @@ class Device(object):
         pass
 
     def assign_script(self, script, location):
-        
+        """
+        Assigns a script to be executed by the device.
+
+        Args:
+            script: The script object to execute.
+            location: The location at which the script should be executed.
+        """
         if script is not None:
             self.scripts.append((script, location))
         else:
-            self.script_received.set() 
+            self.script_received.set()
 
 
     def get_data(self, location):
-        
+        """
+        Gets sensor data from a specific location.
+
+        Args:
+            location: The location from which to retrieve data.
+
+        Returns:
+            The sensor data at the given location, or None if the location does not exist.
+        """
         return self.sensor_data[location] if location in self.sensor_data else None
 
     def set_data(self, location, data):
-        
+        """
+        Sets sensor data at a specific location.
+
+        Args:
+            location: The location at which to set the data.
+            data: The new data value.
+        """
         if location in self.sensor_data:
             self.sensor_data[location] = data
 
     def shutdown(self):
-        
+        """Shuts down the device's thread."""
         self.thread.join()
 
 
 class DeviceThread(Thread):
-    
+    """
+    The thread of execution for a Device.
+
+    This thread manages a pool of worker threads to execute scripts concurrently.
+    It waits for scripts to be assigned, executes them, and synchronizes with
+    other devices using a barrier.
+    """
     def worker(self, q):
+        """
+        The worker function for the thread pool.
+
+        This function continuously takes scripts from the queue, acquires the necessary locks,
+        gathers data from neighboring devices, executes the script, and updates the data.
+
+        Args:
+            q: The queue from which to get scripts.
+        """
         while True:
             item = q.get()
             my_device = item[0]
@@ -117,13 +186,26 @@ class DeviceThread(Thread):
 
 
     def __init__(self, device):
-        
+        """
+        Initializes a new DeviceThread instance.
+
+        Args:
+            device: The Device object that this thread belongs to.
+        """
         Thread.__init__(self, name="Device Thread %d" % device.device_id)
         self.device = device
         self.numCPUs = multiprocessing.cpu_count()
 
 
     def run(self):
+        """
+        The main run loop for the device thread.
+
+        This loop gets neighboring devices from the supervisor, waits for scripts to be
+        assigned, and then distributes the scripts to the worker threads for execution.
+        After all scripts for a timepoint are done, it waits on the barrier for all
+        other devices to finish.
+        """
         q = Queue()
         threads = {}
         for i in range(self.numCPUs):
@@ -140,9 +222,9 @@ class DeviceThread(Thread):
             self.device.script_received.wait()
             
             for (script, location) in self.device.scripts:
-                q.put((self.device, script, location, neighbours)) 
+                q.put((self.device, script, location, neighbours))
 
-            q.join()            
+            q.join()
             self.device.script_received.clear()
             self.device.barrier.wait()
         
@@ -162,6 +244,10 @@ except ImportError:
 from collections import deque
 import heapq
 
+# This section provides a custom implementation of Queue, PriorityQueue, and LifoQueue.
+# It appears to be a reimplementation of Python's standard `queue` module, likely for
+# compatibility or specific feature requirements within the simulation framework.
+
 __all__ = ['Empty', 'Full', 'Queue', 'PriorityQueue', 'LifoQueue']
 
 class Empty(Exception):
@@ -173,28 +259,26 @@ class Full(Exception):
     pass
 
 class Queue:
-    
+    """
+    A custom Queue implementation, similar to the standard library's `queue.Queue`.
+    """
     def __init__(self, maxsize=0):
         self.maxsize = maxsize
         self._init(maxsize)
         
-        
-        
-        
         self.mutex = _threading.Lock()
-        
         
         self.not_empty = _threading.Condition(self.mutex)
         
-        
         self.not_full = _threading.Condition(self.mutex)
-        
         
         self.all_tasks_done = _threading.Condition(self.mutex)
         self.unfinished_tasks = 0
 
     def task_done(self):
-        
+        """
+        Indicate that a formerly enqueued task is complete.
+        """
         self.all_tasks_done.acquire()
         try:
             unfinished = self.unfinished_tasks - 1
@@ -207,7 +291,9 @@ class Queue:
             self.all_tasks_done.release()
 
     def join(self):
-        
+        """
+        Blocks until all items in the queue have been gotten and processed.
+        """
         self.all_tasks_done.acquire()
         try:
             while self.unfinished_tasks:
@@ -216,28 +302,36 @@ class Queue:
             self.all_tasks_done.release()
 
     def qsize(self):
-        
+        """
+        Return the approximate size of the queue.
+        """
         self.mutex.acquire()
         n = self._qsize()
         self.mutex.release()
         return n
 
     def empty(self):
-        
+        """
+        Return True if the queue is empty, False otherwise.
+        """
         self.mutex.acquire()
         n = not self._qsize()
         self.mutex.release()
         return n
 
     def full(self):
-        
+        """
+        Return True if the queue is full, False otherwise.
+        """
         self.mutex.acquire()
         n = 0 < self.maxsize == self._qsize()
         self.mutex.release()
         return n
 
     def put(self, item, block=True, timeout=None):
-        
+        """
+        Put an item into the queue.
+        """
         self.not_full.acquire()
         try:
             if self.maxsize > 0:
@@ -263,11 +357,15 @@ class Queue:
             self.not_full.release()
 
     def put_nowait(self, item):
-        
+        """
+        Put an item into the queue without blocking.
+        """
         return self.put(item, False)
 
     def get(self, block=True, timeout=None):
-        
+        """
+        Remove and return an item from the queue.
+        """
         self.not_empty.acquire()
         try:
             if not block:
@@ -292,7 +390,9 @@ class Queue:
             self.not_empty.release()
 
     def get_nowait(self):
-        
+        """
+        Remove and return an item from the queue without blocking.
+        """
         return self.get(False)
 
     
@@ -316,7 +416,9 @@ class Queue:
 
 
 class PriorityQueue(Queue):
-    
+    """
+    A custom PriorityQueue implementation.
+    """
 
     def _init(self, maxsize):
         self.queue = []
@@ -332,7 +434,9 @@ class PriorityQueue(Queue):
 
 
 class LifoQueue(Queue):
-    
+    """
+    A custom LifoQueue (Last-In, First-Out) implementation.
+    """
 
     def _init(self, maxsize):
         self.queue = []

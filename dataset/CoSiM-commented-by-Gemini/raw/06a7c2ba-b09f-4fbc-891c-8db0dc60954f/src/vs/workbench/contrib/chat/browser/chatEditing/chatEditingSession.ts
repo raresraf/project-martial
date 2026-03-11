@@ -1,3 +1,16 @@
+
+/**
+ * @file chatEditingSession.ts
+ * @brief Manages the state and logic for a chat-based editing session in VS Code.
+ *
+ * This file contains the implementation of the `ChatEditingSession` class, which is central
+ * to any feature that allows a user to edit code through a chat interface (e.g., an AI assistant).
+ * It tracks the set of files being modified (the "working set"), the history of edits for undo/redo,
+ * and the streaming of edits from the chat agent.
+ *
+ * It coordinates with various VS Code services, including the model service, bulk edit service,
+ * and editor service, to apply changes to the workspace and update the UI.
+ */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -56,6 +69,9 @@ const STORAGE_CONTENTS_FOLDER = 'contents';
 const STORAGE_STATE_FILE = 'state.json';
 const POST_EDIT_STOP_ID = 'd19944f6-f46c-4e17-911b-79a8e843c7c0'; // randomly generated
 
+/**
+ * A sequencer that throttles the execution of queued tasks to a minimum duration.
+ */
 class ThrottledSequencer extends Sequencer {
 
 	private _size = 0;
@@ -123,6 +139,9 @@ function getCurrentAndNextStop(requestId: string, stopId: string | undefined, hi
 	return { current, next };
 }
 
+/**
+ * Manages a single chat editing session, including its state, history, and the files being edited.
+ */
 export class ChatEditingSession extends Disposable implements IChatEditingSession {
 
 	private readonly _state = observableValue<ChatEditingSessionState>(this, ChatEditingSessionState.Initial);
@@ -164,12 +183,6 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 		return linearHistoryIndex < getMaxHistoryIndex(this._linearHistory.read(r));
 	});
 
-	// public hiddenRequestIds = derived<string[]>((r) => {
-	// 	const linearHistory = this._linearHistory.read(r);
-	// 	const linearHistoryIndex = this._linearHistoryIndex.read(r);
-	// 	return linearHistory.slice(linearHistoryIndex).map(s => s.requestId).filter((r): r is string => !!r);
-	// });
-
 	private readonly _onDidChange = this._register(new Emitter<ChatEditingSessionChangeType>());
 	get onDidChange() {
 		this._assertNotDisposed();
@@ -202,6 +215,9 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 		super();
 	}
 
+	/**
+	 * Initializes the session, restoring its state from storage if it exists.
+	 */
 	public async init(): Promise<void> {
 		const restoredSessionState = await this._instantiationService.createInstance(ChatEditingSessionStorage, this.chatSessionId).restoreState();
 		if (restoredSessionState) {
@@ -241,6 +257,9 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 		return this._entriesObs.read(reader).find(e => isEqual(e.modifiedURI, uri));
 	}
 
+	/**
+	 * Stores the current state of the session to persistent storage.
+	 */
 	public storeState(): Promise<void> {
 		const storage = this._instantiationService.createInstance(ChatEditingSessionStorage, this.chatSessionId);
 		const state: StoredSessionState = {
@@ -308,9 +327,7 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 	private readonly _ignoreTrimWhitespaceObservable = observableConfigValue('diffEditor.ignoreTrimWhitespace', true, this._configurationService);
 
 	/**
-	 * Gets diff for text entries between stops.
-	 * @param entriesContent Observable that observes either snapshot entry
-	 * @param modelUrisObservable Observable that observes only the snapshot URIs.
+	 * Gets a diff for text entries between two undo stops.
 	 */
 	private _entryDiffBetweenTextStops(
 		entriesContent: IObservable<{ before: ISnapshotEntry; after: ISnapshotEntry } | undefined>,
@@ -415,6 +432,9 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 		return observable;
 	}
 
+	/**
+	 * Creates a snapshot of the current state of the editing session.
+	 */
 	public createSnapshot(requestId: string, undoStop: string | undefined): void {
 		const snapshot = this._createSnapshot(requestId, undoStop);
 		for (const [uri, _] of this._workingSet) {
@@ -804,20 +824,6 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 	/**
 	 * Ensures the state of the file in the given snapshot matches the current
 	 * state of the {@param entry}. This is used to handle concurrent file edits.
-	 *
-	 * Given the case of two different edits, we will place and undo stop right
-	 * before we `textEditGroup` in the underlying markdown stream, but at the
-	 * time those are added the edits haven't been made yet, so both files will
-	 * simply have the unmodified state.
-	 *
-	 * This method is called after each edit, so after the first file finishes
-	 * being edits, it will update its content in the second undo snapshot such
-	 * that it can be undone successfully.
-	 *
-	 * We ensure that the same file is not concurrently edited via the
-	 * {@link _streamingEditLocks}, avoiding race conditions.
-	 *
-	 * @param next If true, this will edit the snapshot _after_ the undo stop
 	 */
 	private ensureEditInUndoStopMatches(requestId: string, undoStop: string | undefined, entry: AbstractChatEditingModifiedFileEntry, next: boolean, tx: ITransaction) {
 		const history = this._linearHistory.get();
@@ -900,8 +906,6 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 
 	/**
 	 * Retrieves or creates a modified file entry.
-	 *
-	 * @returns The modified file entry.
 	 */
 	private async _getOrCreateModifiedFileEntry(resource: URI, telemetryInfo: IModifiedEntryTelemetryInfo): Promise<AbstractChatEditingModifiedFileEntry> {
 
@@ -992,6 +996,9 @@ export class ChatEditingSession extends Disposable implements IChatEditingSessio
 	}
 }
 
+/**
+ * Interface for the persisted state of a chat editing session.
+ */
 interface StoredSessionState {
 	readonly initialFileContents: ResourceMap<string>;
 	readonly pendingSnapshot?: IChatEditingSessionStop;
@@ -1000,6 +1007,9 @@ interface StoredSessionState {
 	readonly linearHistory: readonly IChatEditingSessionSnapshot[];
 }
 
+/**
+ * Manages the storage and retrieval of a chat editing session's state.
+ */
 class ChatEditingSessionStorage {
 	constructor(
 		private readonly chatSessionId: string,
@@ -1014,6 +1024,9 @@ class ChatEditingSessionStorage {
 		return joinPath(this._environmentService.workspaceStorageHome, workspaceId, 'chatEditingSessions', this.chatSessionId);
 	}
 
+	/**
+	 * Restores the session state from storage.
+	 */
 	public async restoreState(): Promise<StoredSessionState | undefined> {
 		const storageLocation = this._getStorageLocation();
 		const getFileContent = (hash: string) => {
@@ -1101,6 +1114,9 @@ class ChatEditingSessionStorage {
 		return undefined;
 	}
 
+	/**
+	 * Stores the session state to storage.
+	 */
 	public async storeState(state: StoredSessionState): Promise<void> {
 		const storageFolder = this._getStorageLocation();
 		const contentsFolder = URI.joinPath(storageFolder, STORAGE_CONTENTS_FOLDER);
@@ -1187,6 +1203,9 @@ class ChatEditingSessionStorage {
 		}
 	}
 
+	/**
+	 * Clears the persisted state of the session.
+	 */
 	public async clearState(): Promise<void> {
 		const storageFolder = this._getStorageLocation();
 		if (await this._fileService.exists(storageFolder)) {
@@ -1200,6 +1219,9 @@ class ChatEditingSessionStorage {
 	}
 }
 
+/**
+ * A snapshot of the state of a chat editing session at a particular point in time.
+ */
 export interface IChatEditingSessionSnapshot {
 	/**
 	 * Index of this session in the linear history. It's the sum of the lengths
@@ -1220,6 +1242,9 @@ export interface IChatEditingSessionSnapshot {
 	readonly postEdit: ResourceMap<ISnapshotEntry> | undefined;
 }
 
+/**
+ * A specific stop in the history of a chat editing session, used for undo/redo.
+ */
 interface IChatEditingSessionStop {
 	/** Edit stop ID, first for a request is always undefined. */
 	stopId: string | undefined;
@@ -1228,25 +1253,36 @@ interface IChatEditingSessionStop {
 	readonly entries: ResourceMap<ISnapshotEntry>;
 }
 
+/**
+ * Data Transfer Object for persisting an `IChatEditingSessionStop`.
+ */
 interface IChatEditingSessionStopDTO {
 	readonly stopId: string | undefined;
 	readonly workingSet: ResourceMapDTO<WorkingSetDisplayMetadata>;
 	readonly entries: ISnapshotEntryDTO[];
 }
 
-
+/**
+ * Data Transfer Object for persisting an `IChatEditingSessionSnapshot`. (Old format)
+ */
 interface IChatEditingSessionSnapshotDTO {
 	readonly requestId: string | undefined;
 	readonly workingSet: ResourceMapDTO<WorkingSetDisplayMetadata>;
 	readonly entries: ISnapshotEntryDTO[];
 }
 
+/**
+ * Data Transfer Object for persisting an `IChatEditingSessionSnapshot`. (New format)
+ */
 interface IChatEditingSessionSnapshotDTO2 {
 	readonly requestId: string | undefined;
 	readonly stops: IChatEditingSessionStopDTO[];
 	readonly postEdit: ISnapshotEntryDTO[] | undefined;
 }
 
+/**
+ * Data Transfer Object for persisting an `ISnapshotEntry`.
+ */
 interface ISnapshotEntryDTO {
 	readonly resource: string;
 	readonly languageId: string;
@@ -1258,6 +1294,9 @@ interface ISnapshotEntryDTO {
 	readonly telemetryInfo: IModifiedEntryTelemetryInfoDTO;
 }
 
+/**
+ * Data Transfer Object for persisting an `IModifiedEntryTelemetryInfo`.
+ */
 interface IModifiedEntryTelemetryInfoDTO {
 	readonly requestId: string;
 	readonly agentId?: string;
@@ -1269,7 +1308,9 @@ type ResourceMapDTO<T> = [string, T][];
 const COMPATIBLE_STORAGE_VERSIONS = [1, 2];
 const STORAGE_VERSION = 2;
 
-/** Old history uses IChatEditingSessionSnapshotDTO, new history uses IChatEditingSessionSnapshotDTO. */
+/**
+ * Data Transfer Object for persisting the entire state of a `ChatEditingSession`.
+ */
 interface IChatEditingSessionDTO {
 	readonly version: number;
 	readonly sessionId: string;

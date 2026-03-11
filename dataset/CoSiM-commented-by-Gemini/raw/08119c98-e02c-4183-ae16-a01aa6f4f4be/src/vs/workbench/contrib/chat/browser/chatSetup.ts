@@ -1,3 +1,14 @@
+
+/**
+ * @file chatSetup.ts
+ * @brief Orchestrates the setup process for the chat feature in Visual Studio Code.
+ *
+ * This file is responsible for the entire setup and initialization of the chat feature,
+ * which is likely a component of an AI assistant like GitHub Copilot. It manages user
+ * authentication, entitlement checks, extension installation, and the registration of
+ * chat agents that power the chat functionality in different parts of the UI (e.g., panel,
+ * terminal, editor).
+ */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -30,7 +41,7 @@ import { ConfigurationTarget, IConfigurationService } from '../../../../platform
 import { Extensions as ConfigurationExtensions, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { createWorkbenchDialogOptions } from '../../../../platform/dialogs/browser/dialog.js';
-import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
+import { IDialogService } from '../../../../platform/dialogs/common/dialog.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
@@ -103,6 +114,10 @@ const ToolsAgentContextKey = ContextKeyExpr.and(
 	ContextKeyExpr.not(`previewFeaturesDisabled`) // Set by extension
 );
 
+/**
+ * A chat agent implementation that is used to handle the setup process when the
+ * real chat agent is not yet available (e.g., not installed or not signed in).
+ */
 class SetupAgent extends Disposable implements IChatAgentImplementation {
 
 	static registerDefaultAgents(instantiationService: IInstantiationService, location: ChatAgentLocation, mode: ChatModeKind | undefined, context: ChatEntitlementContext, controller: Lazy<ChatSetupController>): { agent: SetupAgent; disposable: IDisposable } {
@@ -570,6 +585,9 @@ class SetupTool extends Disposable implements IToolImpl {
 	}
 }
 
+/**
+ * The different strategies for setting up the chat feature.
+ */
 enum ChatSetupStrategy {
 	Canceled = 0,
 	DefaultSetup = 1,
@@ -586,6 +604,9 @@ interface IChatSetupResult {
 	readonly dialogSkipped: boolean;
 }
 
+/**
+ * Manages the UI and logic for the chat setup process.
+ */
 class ChatSetup {
 
 	private static instance: ChatSetup | undefined = undefined;
@@ -812,6 +833,9 @@ class ChatSetup {
 	}
 }
 
+/**
+ * A workbench contribution that initializes the chat setup process.
+ */
 export class ChatSetupContribution extends Disposable implements IWorkbenchContribution {
 
 	static readonly ID = 'workbench.contrib.chatSetup';
@@ -1177,12 +1201,18 @@ type InstallChatEvent = {
 	provider: string | undefined;
 };
 
+/**
+ * The steps of the chat setup process.
+ */
 enum ChatSetupStep {
 	Initial = 1,
 	SigningIn,
 	Installing
 }
 
+/**
+ * The controller for the chat setup process.
+ */
 class ChatSetupController extends Disposable {
 
 	private readonly _onDidChange = this._register(new Emitter<void>());

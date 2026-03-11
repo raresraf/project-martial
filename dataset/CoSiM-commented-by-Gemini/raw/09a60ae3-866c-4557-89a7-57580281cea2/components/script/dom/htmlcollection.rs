@@ -1,3 +1,29 @@
+
+/**
+ * @file htmlcollection.rs
+ * @brief Implementation of the `HTMLCollection` interface, a live collection of elements.
+ *
+ * This module provides the Rust implementation for `HTMLCollection`, which represents a
+ * live, ordered collection of HTML elements. Unlike a static `NodeList`, an `HTMLCollection`
+ * is automatically updated when the underlying document is changed.
+ *
+ * `HTMLCollection` is used for properties like `document.children`, `document.forms`, and
+ * the results of `getElementsByTagName()`.
+ *
+ * ## Core Functionality:
+ *
+ * - **Live Collection:** The collection is always kept in sync with the DOM tree.
+ * - **Filtering:** A `CollectionFilter` trait is used to specify which elements should be
+ *   included in the collection.
+ * - **Caching:** The collection caches its length and the last accessed element to improve
+ *   performance. The cache is invalidated when the DOM changes.
+ * - **Indexed and Named Access:** Supports accessing elements by index (`item()`) and by
+ *   name or ID (`namedItem()`).
+ *
+ * This implementation is based on the WHATWG DOM specification.
+ *
+ * @see https://dom.spec.whatwg.org/#interface-htmlcollection
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -22,6 +48,9 @@ use crate::dom::node::{Node, NodeTraits};
 use crate::dom::window::Window;
 use crate::script_runtime::CanGc;
 
+/**
+ * @brief A trait for filtering elements to be included in an `HTMLCollection`.
+ */
 pub(crate) trait CollectionFilter: JSTraceable {
     fn filter<'a>(&self, elem: &'a Element, root: &'a Node) -> bool;
 }
@@ -53,6 +82,12 @@ impl OptionU32 {
     }
 }
 
+/**
+ * @brief Represents a live collection of HTML elements.
+ *
+ * This struct holds the state for an `HTMLCollection`, including the root of the
+ * collection, the filter function, and a cache for performance optimization.
+ */
 #[dom_struct]
 pub(crate) struct HTMLCollection {
     reflector_: Reflector,
@@ -173,7 +208,14 @@ impl HTMLCollection {
         }
     }
 
-    /// <https://dom.spec.whatwg.org/#concept-getelementsbytagname>
+    /**
+     * @brief Creates an `HTMLCollection` of elements matching a given tag name.
+     * @param window The window in which the collection exists.
+     * @param root The root node from which to start the search.
+     * @param qualified_name The tag name to match.
+     * @param can_gc A token indicating that garbage collection can be performed.
+     * @return A rooted `HTMLCollection`.
+     */
     pub(crate) fn by_qualified_name(
         window: &Window,
         root: &Node,
@@ -348,7 +390,9 @@ impl HTMLCollection {
 }
 
 impl HTMLCollectionMethods<crate::DomTypeHolder> for HTMLCollection {
-    /// <https://dom.spec.whatwg.org/#dom-htmlcollection-length>
+    /**
+     * @brief Returns the number of elements in the collection.
+     */
     fn Length(&self) -> u32 {
         self.validate_cache();
 
@@ -363,7 +407,11 @@ impl HTMLCollectionMethods<crate::DomTypeHolder> for HTMLCollection {
         }
     }
 
-    /// <https://dom.spec.whatwg.org/#dom-htmlcollection-item>
+    /**
+     * @brief Returns the element at the specified index in the collection.
+     * @param index The index of the element to retrieve.
+     * @return The element at the specified index, or `None` if the index is out of bounds.
+     */
     fn Item(&self, index: u32) -> Option<DomRoot<Element>> {
         self.validate_cache();
 
@@ -404,7 +452,11 @@ impl HTMLCollectionMethods<crate::DomTypeHolder> for HTMLCollection {
         }
     }
 
-    /// <https://dom.spec.whatwg.org/#dom-htmlcollection-nameditem>
+    /**
+     * @brief Returns the first element with the specified ID or name.
+     * @param key The ID or name of the element to retrieve.
+     * @return The first matching element, or `None` if no element is found.
+     */
     fn NamedItem(&self, key: DOMString) -> Option<DomRoot<Element>> {
         // Step 1.
         if key.is_empty() {
@@ -420,17 +472,14 @@ impl HTMLCollectionMethods<crate::DomTypeHolder> for HTMLCollection {
         })
     }
 
-    // https://dom.spec.whatwg.org/#dom-htmlcollection-item
     fn IndexedGetter(&self, index: u32) -> Option<DomRoot<Element>> {
         self.Item(index)
     }
 
-    // check-tidy: no specs after this line
     fn NamedGetter(&self, name: DOMString) -> Option<DomRoot<Element>> {
         self.NamedItem(name)
     }
 
-    // https://dom.spec.whatwg.org/#interface-htmlcollection
     fn SupportedPropertyNames(&self) -> Vec<DOMString> {
         // Step 1
         let mut result = vec![];

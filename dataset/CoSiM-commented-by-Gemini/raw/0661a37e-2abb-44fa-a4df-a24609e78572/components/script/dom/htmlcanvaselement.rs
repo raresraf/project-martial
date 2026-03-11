@@ -1,3 +1,29 @@
+
+/**
+ * @file htmlcanvaselement.rs
+ * @brief Implementation of the `HTMLCanvasElement` interface, representing `<canvas>` HTML elements.
+ *
+ * This module provides the Rust implementation for the `HTMLCanvasElement`, which corresponds to
+ * the `<canvas>` tag in HTML. It provides a drawing surface for 2D and 3D graphics, handling the
+ * creation of different rendering contexts (`2d`, `webgl`, `webgl2`, `webgpu`), managing the
+ * canvas's size, and providing methods for exporting the canvas content.
+ *
+ * ## Core Functionality:
+ *
+ * - **Rendering Contexts:** The `getContext()` method allows for the creation of different
+ *   rendering contexts, such as `CanvasRenderingContext2D` for 2D graphics and `WebGLRenderingContext`
+ *   for 3D graphics.
+ * - **Sizing:** Manages the `width` and `height` attributes of the canvas, which define the size of
+ *   the drawing surface.
+ * - **Content Export:** Provides the `toDataURL()` and `toBlob()` methods to export the canvas
+ *   content as an image in various formats (e.g., PNG, JPEG).
+ * - **Offscreen Canvas:** Supports transferring control of the canvas to an `OffscreenCanvas` for
+ *   rendering in a worker thread.
+ *
+ * This implementation is based on the WHATWG HTML specification for the `<canvas>` element.
+ *
+ * @see https://html.spec.whatwg.org/multipage/canvas.html#the-canvas-element
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -103,6 +129,12 @@ impl EncodedImageType {
     }
 }
 
+/**
+ * @brief Represents the rendering context of a canvas.
+ *
+ * This enum holds the different types of rendering contexts that a canvas can have, such as 2D,
+ * WebGL, or WebGPU.
+ */
 #[cfg_attr(crown, crown::unrooted_must_root_lint::must_root)]
 #[derive(Clone, JSTraceable, MallocSizeOf)]
 pub(crate) enum CanvasContext {
@@ -114,6 +146,12 @@ pub(crate) enum CanvasContext {
     WebGPU(Dom<GPUCanvasContext>),
 }
 
+/**
+ * @brief Represents a `<canvas>` HTML element.
+ *
+ * This struct holds the state for an `HTMLCanvasElement`, including its rendering context and
+ * any ongoing `toBlob()` operations.
+ */
 #[dom_struct]
 pub(crate) struct HTMLCanvasElement {
     htmlelement: HTMLElement,
@@ -511,7 +549,15 @@ impl HTMLCanvasElementMethods<crate::DomTypeHolder> for HTMLCanvasElement {
         Ok(())
     }
 
-    /// <https://html.spec.whatwg.org/multipage/#dom-canvas-getcontext>
+    /**
+     * Gets the rendering context for the canvas.
+     * @param cx The JavaScript context.
+     * @param id The ID of the context to get (e.g., "2d", "webgl").
+     * @param options Context-specific options.
+     * @param can_gc A token indicating that garbage collection can be performed.
+     * @return The rendering context, or `None` if the context is not supported.
+     * @see https://html.spec.whatwg.org/multipage/#dom-canvas-getcontext
+     */
     fn GetContext(
         &self,
         cx: JSContext,
@@ -542,7 +588,14 @@ impl HTMLCanvasElementMethods<crate::DomTypeHolder> for HTMLCanvasElement {
         })
     }
 
-    /// <https://html.spec.whatwg.org/multipage/#dom-canvas-todataurl>
+    /**
+     * Exports the canvas content as a data URL.
+     * @param _context The JavaScript context.
+     * @param mime_type The MIME type of the image to create.
+     * @param quality A number between 0 and 1 indicating the image quality for JPEG images.
+     * @return A data URL representing the image.
+     * @see https://html.spec.whatwg.org/multipage/#dom-canvas-todataurl
+     */
     fn ToDataURL(
         &self,
         _context: JSContext,
@@ -582,7 +635,14 @@ impl HTMLCanvasElementMethods<crate::DomTypeHolder> for HTMLCanvasElement {
         Ok(USVString(url))
     }
 
-    /// <https://html.spec.whatwg.org/multipage/#dom-canvas-toblob>
+    /**
+     * Exports the canvas content as a `Blob` object.
+     * @param _cx The JavaScript context.
+     * @param callback A callback function that will be invoked with the created `Blob`.
+     * @param mime_type The MIME type of the image to create.
+     * @param quality A number between 0 and 1 indicating the image quality for JPEG images.
+     * @see https://html.spec.whatwg.org/multipage/#dom-canvas-toblob
+     */
     fn ToBlob(
         &self,
         _cx: JSContext,
@@ -646,7 +706,12 @@ impl HTMLCanvasElementMethods<crate::DomTypeHolder> for HTMLCanvasElement {
         Ok(())
     }
 
-    /// <https://html.spec.whatwg.org/multipage/#dom-canvas-transfercontroltooffscreen>
+    /**
+     * Transfers control of the canvas to an `OffscreenCanvas`.
+     * @param can_gc A token indicating that garbage collection can be performed.
+     * @return The new `OffscreenCanvas` object.
+     * @see https://html.spec.whatwg.org/multipage/#dom-canvas-transfercontroltooffscreen
+     */
     fn TransferControlToOffscreen(&self, can_gc: CanGc) -> Fallible<DomRoot<OffscreenCanvas>> {
         if self.context.borrow().is_some() {
             // Step 1.

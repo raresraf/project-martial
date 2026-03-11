@@ -1,3 +1,28 @@
+
+/**
+ * @file workerglobalscope.rs
+ * @brief Implementation of the `WorkerGlobalScope` interface, the base for all worker types.
+ *
+ * This module provides the Rust implementation for the `WorkerGlobalScope`, which serves as the
+ * abstract base interface for all types of workers in the Web platform, such as dedicated workers,
+ * shared workers, and service workers. It defines the common properties and methods available in
+ * any worker context.
+ *
+ * ## Core Functionality:
+ *
+ * - **Global Scope:** Acts as the global scope for scripts running in a worker context.
+ * - **Script Loading:** Provides the `importScripts()` method for synchronously importing scripts
+ *   into the worker's scope.
+ * - **Event Handling:** Implements the `EventTarget` interface, allowing workers to handle events.
+ * - **Location and Navigator:** Provides `location` and `navigator` properties, which give information
+ *   about the worker's context and the user agent.
+ * - **Timers and Fetch:** Includes support for timers (`setTimeout`, `setInterval`) and the `fetch()`
+ *   API for making network requests.
+ *
+ * This implementation is based on the WHATWG HTML specification for web workers.
+ *
+ * @see https://html.spec.whatwg.org/multipage/workers.html#the-workerglobalscope-common-interface
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -87,7 +112,13 @@ pub(crate) fn prepare_workerscope_init(
     init
 }
 
-// https://html.spec.whatwg.org/multipage/#the-workerglobalscope-common-interface
+/**
+ * @brief The common interface for all worker global scopes.
+ *
+ * This struct holds the state and implements the functionality that is shared across all types of
+ * worker global scopes in the DOM.
+ * @see https://html.spec.whatwg.org/multipage/#the-workerglobalscope-common-interface
+ */
 #[dom_struct]
 pub(crate) struct WorkerGlobalScope {
     globalscope: GlobalScope,
@@ -261,21 +292,36 @@ impl WorkerGlobalScope {
 }
 
 impl WorkerGlobalScopeMethods<crate::DomTypeHolder> for WorkerGlobalScope {
-    // https://html.spec.whatwg.org/multipage/#dom-workerglobalscope-self
+    /**
+     * Returns a reference to the `WorkerGlobalScope` itself.
+     * @see https://html.spec.whatwg.org/multipage/#dom-workerglobalscope-self
+     */
     fn Self_(&self) -> DomRoot<WorkerGlobalScope> {
         DomRoot::from_ref(self)
     }
 
-    // https://html.spec.whatwg.org/multipage/#dom-workerglobalscope-location
+    /**
+     * Gets the `WorkerLocation` object for the worker.
+     * @see https://html.spec.whatwg.org/multipage/#dom-workerglobalscope-location
+     */
     fn Location(&self) -> DomRoot<WorkerLocation> {
         self.location
             .or_init(|| WorkerLocation::new(self, self.worker_url.borrow().clone(), CanGc::note()))
     }
 
-    // https://html.spec.whatwg.org/multipage/#handler-workerglobalscope-onerror
+    /**
+     * Gets or sets the `onerror` event handler.
+     * @see https://html.spec.whatwg.org/multipage/#handler-workerglobalscope-onerror
+     */
     error_event_handler!(error, GetOnerror, SetOnerror);
 
-    // https://html.spec.whatwg.org/multipage/#dom-workerglobalscope-importscripts
+    /**
+     * Synchronously imports one or more scripts into the worker's scope.
+     * @param url_strings A vector of URLs of scripts to import.
+     * @param can_gc A token indicating that garbage collection can be performed.
+     * @return `Ok(())` if successful, or an error if any of the scripts fail to load or execute.
+     * @see https://html.spec.whatwg.org/multipage/#dom-workerglobalscope-importscripts
+     */
     fn ImportScripts(&self, url_strings: Vec<DOMString>, can_gc: CanGc) -> ErrorResult {
         let mut urls = Vec::with_capacity(url_strings.len());
         for url in url_strings {
@@ -343,13 +389,19 @@ impl WorkerGlobalScopeMethods<crate::DomTypeHolder> for WorkerGlobalScope {
         Ok(())
     }
 
-    // https://html.spec.whatwg.org/multipage/#dom-worker-navigator
+    /**
+     * Gets the `WorkerNavigator` object for the worker.
+     * @see https://html.spec.whatwg.org/multipage/#dom-worker-navigator
+     */
     fn Navigator(&self) -> DomRoot<WorkerNavigator> {
         self.navigator
             .or_init(|| WorkerNavigator::new(self, CanGc::note()))
     }
 
-    // https://html.spec.whatwg.org/multipage/#dfn-Crypto
+    /**
+     * Gets the `Crypto` object for the worker.
+     * @see https://html.spec.whatwg.org/multipage/#dfn-Crypto
+     */
     fn Crypto(&self) -> DomRoot<Crypto> {
         self.upcast::<GlobalScope>().crypto(CanGc::note())
     }

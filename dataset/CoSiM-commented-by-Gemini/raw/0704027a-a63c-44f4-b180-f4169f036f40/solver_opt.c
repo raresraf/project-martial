@@ -1,17 +1,39 @@
 
+/**
+ * @file solver_opt.c
+ * @brief An optimized implementation of a matrix solver.
+ *
+ * This file provides an optimized version of the matrix operations required by the solver.
+ * The optimizations include loop tiling (block-based processing) to improve cache locality
+ * and the use of register variables for frequently accessed pointers.
+ */
+
 #include "utils.h"
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
-#define CHECK_ALLOC(x) \
-            if (x == NULL) \
-            { \
-                perror("Allocation failed\n"); \
-                exit(-1); \
+
+/**
+ * @def CHECK_ALLOC(x)
+ * @brief A macro to check if a memory allocation was successful.
+ *        If not, it prints an error and exits the program.
+ */
+#define CHECK_ALLOC(x) 
+            if (x == NULL) 
+            { 
+                perror("Allocation failed
+"); 
+                exit(-1); 
             }
 
-
+// The block size used for loop tiling.
 int block_size = 100;
 
+/**
+ * @brief Computes the matrix product C = A * A^T using loop tiling.
+ * @param N The size of the square matrix A.
+ * @param A A pointer to the input matrix.
+ * @return A pointer to the resulting matrix C.
+ */
 double* simple_multiplication(int N, double* A)
 {
     double* result = (double*)calloc(N * N, sizeof(double));
@@ -59,6 +81,13 @@ double* simple_multiplication(int N, double* A)
     return result;
 }
 
+/**
+ * @brief Computes the matrix product C = A * B, where A is an upper triangular matrix, using loop tiling.
+ * @param N The size of the square matrices.
+ * @param A A pointer to the upper triangular input matrix.
+ * @param B A pointer to the second input matrix.
+ * @return A pointer to the resulting matrix C.
+ */
 double* triangular_multiplication(int N, double* A, double* B)
 {
     double* result = (double*)calloc(N * N, sizeof(double));
@@ -107,6 +136,12 @@ double* triangular_multiplication(int N, double* A, double* B)
     return result;
 }
 
+/**
+ * @brief Computes the matrix product C = A^T * A, where A is an upper triangular matrix, using loop tiling.
+ * @param N The size of the square matrix A.
+ * @param A A pointer to the upper triangular input matrix.
+ * @return A pointer to the resulting matrix C.
+ */
 double* double_triangular_multiplication(int N, double* A)
 {
     double* result = (double*)calloc(N * N, sizeof(double));
@@ -153,6 +188,13 @@ double* double_triangular_multiplication(int N, double* A)
     return result;
 }
 
+/**
+ * @brief Computes the matrix sum C = A + B using loop tiling.
+ * @param N The size of the square matrices.
+ * @param A A pointer to the first input matrix.
+ * @param B A pointer to the second input matrix.
+ * @return A pointer to the resulting matrix C.
+ */
 double* matrix_addition(int N, double* A, double* B)
 {
     double* result = (double*)calloc(N * N, sizeof(double));
@@ -190,6 +232,17 @@ double* matrix_addition(int N, double* A, double* B)
     return result;
 }
 
+/**
+ * @brief Solves the matrix equation by calling the optimized elementary matrix operation functions.
+ *
+ * This function implements the same logic as the non-optimized version, but calls the
+ * optimized helper functions defined in this file.
+ *
+ * @param N The size of the square matrices.
+ * @param A A pointer to the first input matrix.
+ * @param B A pointer to the second input matrix.
+ * @return A pointer to the resulting matrix.
+ */
 double* my_solver(int N, double *A, double* B) {
     double* R1 = simple_multiplication(N, B);
     double* R2 = triangular_multiplication(N, A, R1);

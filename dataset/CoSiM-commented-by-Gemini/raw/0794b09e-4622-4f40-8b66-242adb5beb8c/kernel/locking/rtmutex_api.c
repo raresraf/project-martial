@@ -1,3 +1,14 @@
+
+/**
+ * @file rtmutex_api.c
+ * @brief API for real-time mutexes in the Linux kernel.
+ *
+ * This file provides the public API for the real-time (RT) mutex implementation.
+ * RT-mutexes are a special type of mutex that support priority inheritance to
+ * prevent priority inversion problems in real-time systems. This file includes
+ * functions for initializing, locking, and unlocking RT-mutexes, as well as
+ * handling priority adjustments and proxy locking for futexes.
+ */
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * rtmutex API
@@ -13,6 +24,9 @@
  */
 int max_lock_depth = 1024;
 
+/**
+ * @brief The sysctl table for RT-mutex parameters.
+ */
 static const struct ctl_table rtmutex_sysctl_table[] = {
 	{
 		.procname	= "max_lock_depth",
@@ -52,6 +66,10 @@ static __always_inline int __rt_mutex_lock_common(struct rt_mutex *lock,
 	return ret;
 }
 
+/**
+ * @brief Initializes a real-time mutex base object.
+ * @param rtb The rt_mutex_base object to initialize.
+ */
 void rt_mutex_base_init(struct rt_mutex_base *rtb)
 {
 	__rt_mutex_base_init(rtb);
@@ -60,10 +78,9 @@ EXPORT_SYMBOL(rt_mutex_base_init);
 
 #ifdef CONFIG_DEBUG_LOCK_ALLOC
 /**
- * rt_mutex_lock_nested - lock a rt_mutex
- *
- * @lock: the rt_mutex to be locked
- * @subclass: the lockdep subclass
+ * @brief Locks an RT-mutex with a given lockdep subclass.
+ * @param lock The RT-mutex to be locked.
+ * @param subclass The lockdep subclass.
  */
 void __sched rt_mutex_lock_nested(struct rt_mutex *lock, unsigned int subclass)
 {
@@ -80,9 +97,8 @@ EXPORT_SYMBOL_GPL(_rt_mutex_lock_nest_lock);
 #else /* !CONFIG_DEBUG_LOCK_ALLOC */
 
 /**
- * rt_mutex_lock - lock a rt_mutex
- *
- * @lock: the rt_mutex to be locked
+ * @brief Locks an RT-mutex.
+ * @param lock The RT-mutex to be locked.
  */
 void __sched rt_mutex_lock(struct rt_mutex *lock)
 {
@@ -92,13 +108,9 @@ EXPORT_SYMBOL_GPL(rt_mutex_lock);
 #endif
 
 /**
- * rt_mutex_lock_interruptible - lock a rt_mutex interruptible
- *
- * @lock:		the rt_mutex to be locked
- *
- * Returns:
- *  0		on success
- * -EINTR	when interrupted by a signal
+ * @brief Locks an RT-mutex interruptibly.
+ * @param lock The RT-mutex to be locked.
+ * @return 0 on success, -EINTR if interrupted by a signal.
  */
 int __sched rt_mutex_lock_interruptible(struct rt_mutex *lock)
 {
@@ -107,13 +119,9 @@ int __sched rt_mutex_lock_interruptible(struct rt_mutex *lock)
 EXPORT_SYMBOL_GPL(rt_mutex_lock_interruptible);
 
 /**
- * rt_mutex_lock_killable - lock a rt_mutex killable
- *
- * @lock:		the rt_mutex to be locked
- *
- * Returns:
- *  0		on success
- * -EINTR	when interrupted by a signal
+ * @brief Locks an RT-mutex killably.
+ * @param lock The RT-mutex to be locked.
+ * @return 0 on success, -EINTR if interrupted by a signal.
  */
 int __sched rt_mutex_lock_killable(struct rt_mutex *lock)
 {
@@ -122,16 +130,9 @@ int __sched rt_mutex_lock_killable(struct rt_mutex *lock)
 EXPORT_SYMBOL_GPL(rt_mutex_lock_killable);
 
 /**
- * rt_mutex_trylock - try to lock a rt_mutex
- *
- * @lock:	the rt_mutex to be locked
- *
- * This function can only be called in thread context. It's safe to call it
- * from atomic regions, but not from hard or soft interrupt context.
- *
- * Returns:
- *  1 on success
- *  0 on contention
+ * @brief Tries to lock an RT-mutex.
+ * @param lock The RT-mutex to be locked.
+ * @return 1 on success, 0 on contention.
  */
 int __sched rt_mutex_trylock(struct rt_mutex *lock)
 {
@@ -149,9 +150,8 @@ int __sched rt_mutex_trylock(struct rt_mutex *lock)
 EXPORT_SYMBOL_GPL(rt_mutex_trylock);
 
 /**
- * rt_mutex_unlock - unlock a rt_mutex
- *
- * @lock: the rt_mutex to be unlocked
+ * @brief Unlocks an RT-mutex.
+ * @param lock The RT-mutex to be unlocked.
  */
 void __sched rt_mutex_unlock(struct rt_mutex *lock)
 {
@@ -174,11 +174,10 @@ int __sched __rt_mutex_futex_trylock(struct rt_mutex_base *lock)
 }
 
 /**
- * __rt_mutex_futex_unlock - Futex variant, that since futex variants
- * do not use the fast-path, can be simple and will not need to retry.
- *
- * @lock:	The rt_mutex to be unlocked
- * @wqh:	The wake queue head from which to get the next lock waiter
+ * @brief Unlocks an RT-mutex for a futex.
+ * @param lock The rt_mutex to be unlocked.
+ * @param wqh The wake queue head from which to get the next lock waiter.
+ * @return True if post-unlock processing is required, false otherwise.
  */
 bool __sched __rt_mutex_futex_unlock(struct rt_mutex_base *lock,
 				     struct rt_wake_q_head *wqh)
@@ -218,15 +217,10 @@ void __sched rt_mutex_futex_unlock(struct rt_mutex_base *lock)
 }
 
 /**
- * __rt_mutex_init - initialize the rt_mutex
- *
- * @lock:	The rt_mutex to be initialized
- * @name:	The lock name used for debugging
- * @key:	The lock class key used for debugging
- *
- * Initialize the rt_mutex to unlocked state.
- *
- * Initializing of a locked rt_mutex is not allowed
+ * @brief Initializes an RT-mutex.
+ * @param lock The RT-mutex to be initialized.
+ * @param name The lock name for debugging.
+ * @param key The lock class key for debugging.
  */
 void __sched __rt_mutex_init(struct rt_mutex *lock, const char *name,
 			     struct lock_class_key *key)
@@ -238,18 +232,9 @@ void __sched __rt_mutex_init(struct rt_mutex *lock, const char *name,
 EXPORT_SYMBOL_GPL(__rt_mutex_init);
 
 /**
- * rt_mutex_init_proxy_locked - initialize and lock a rt_mutex on behalf of a
- *				proxy owner
- *
- * @lock:	the rt_mutex to be locked
- * @proxy_owner:the task to set as owner
- *
- * No locking. Caller has to do serializing itself
- *
- * Special API call for PI-futex support. This initializes the rtmutex and
- * assigns it to @proxy_owner. Concurrent operations on the rtmutex are not
- * possible at this point because the pi_state which contains the rtmutex
- * is not yet visible to other tasks.
+ * @brief Initializes and locks an RT-mutex on behalf of a proxy owner.
+ * @param lock The rt_mutex to be locked.
+ * @param proxy_owner The task to set as owner.
  */
 void __sched rt_mutex_init_proxy_locked(struct rt_mutex_base *lock,
 					struct task_struct *proxy_owner)
@@ -271,16 +256,8 @@ void __sched rt_mutex_init_proxy_locked(struct rt_mutex_base *lock,
 }
 
 /**
- * rt_mutex_proxy_unlock - release a lock on behalf of owner
- *
- * @lock:	the rt_mutex to be locked
- *
- * No locking. Caller has to do serializing itself
- *
- * Special API call for PI-futex support. This just cleans up the rtmutex
- * (debugging) state. Concurrent operations on this rt_mutex are not
- * possible because it belongs to the pi_state which is about to be freed
- * and it is not longer visible to other tasks.
+ * @brief Releases a lock on behalf of the owner.
+ * @param lock The rt_mutex to be unlocked.
  */
 void __sched rt_mutex_proxy_unlock(struct rt_mutex_base *lock)
 {
@@ -289,24 +266,12 @@ void __sched rt_mutex_proxy_unlock(struct rt_mutex_base *lock)
 }
 
 /**
- * __rt_mutex_start_proxy_lock() - Start lock acquisition for another task
- * @lock:		the rt_mutex to take
- * @waiter:		the pre-initialized rt_mutex_waiter
- * @task:		the task to prepare
- * @wake_q:		the wake_q to wake tasks after we release the wait_lock
- *
- * Starts the rt_mutex acquire; it enqueues the @waiter and does deadlock
- * detection. It does not wait, see rt_mutex_wait_proxy_lock() for that.
- *
- * NOTE: does _NOT_ remove the @waiter on failure; must either call
- * rt_mutex_wait_proxy_lock() or rt_mutex_cleanup_proxy_lock() after this.
- *
- * Returns:
- *  0 - task blocked on lock
- *  1 - acquired the lock for task, caller should wake it up
- * <0 - error
- *
- * Special API call for PI-futex support.
+ * @brief Starts lock acquisition for another task.
+ * @param lock The rt_mutex to take.
+ * @param waiter The pre-initialized rt_mutex_waiter.
+ * @param task The task to prepare.
+ * @param wake_q The wake_q to wake tasks after we release the wait_lock.
+ * @return 0 if the task is blocked, 1 if the lock was acquired, <0 on error.
  */
 int __sched __rt_mutex_start_proxy_lock(struct rt_mutex_base *lock,
 					struct rt_mutex_waiter *waiter,
@@ -338,23 +303,11 @@ int __sched __rt_mutex_start_proxy_lock(struct rt_mutex_base *lock,
 }
 
 /**
- * rt_mutex_start_proxy_lock() - Start lock acquisition for another task
- * @lock:		the rt_mutex to take
- * @waiter:		the pre-initialized rt_mutex_waiter
- * @task:		the task to prepare
- *
- * Starts the rt_mutex acquire; it enqueues the @waiter and does deadlock
- * detection. It does not wait, see rt_mutex_wait_proxy_lock() for that.
- *
- * NOTE: unlike __rt_mutex_start_proxy_lock this _DOES_ remove the @waiter
- * on failure.
- *
- * Returns:
- *  0 - task blocked on lock
- *  1 - acquired the lock for task, caller should wake it up
- * <0 - error
- *
- * Special API call for PI-futex support.
+ * @brief Starts lock acquisition for another task, with waiter cleanup on failure.
+ * @param lock The rt_mutex to take.
+ * @param waiter The pre-initialized rt_mutex_waiter.
+ * @param task The task to prepare.
+ * @return 0 if the task is blocked, 1 if the lock was acquired, <0 on error.
  */
 int __sched rt_mutex_start_proxy_lock(struct rt_mutex_base *lock,
 				      struct rt_mutex_waiter *waiter,
@@ -376,21 +329,11 @@ int __sched rt_mutex_start_proxy_lock(struct rt_mutex_base *lock,
 }
 
 /**
- * rt_mutex_wait_proxy_lock() - Wait for lock acquisition
- * @lock:		the rt_mutex we were woken on
- * @to:			the timeout, null if none. hrtimer should already have
- *			been started.
- * @waiter:		the pre-initialized rt_mutex_waiter
- *
- * Wait for the lock acquisition started on our behalf by
- * rt_mutex_start_proxy_lock(). Upon failure, the caller must call
- * rt_mutex_cleanup_proxy_lock().
- *
- * Returns:
- *  0 - success
- * <0 - error, one of -EINTR, -ETIMEDOUT
- *
- * Special API call for PI-futex support
+ * @brief Waits for lock acquisition.
+ * @param lock The rt_mutex we were woken on.
+ * @param to The timeout, null if none.
+ * @param waiter The pre-initialized rt_mutex_waiter.
+ * @return 0 on success, <0 on error.
  */
 int __sched rt_mutex_wait_proxy_lock(struct rt_mutex_base *lock,
 				     struct hrtimer_sleeper *to,
@@ -413,24 +356,10 @@ int __sched rt_mutex_wait_proxy_lock(struct rt_mutex_base *lock,
 }
 
 /**
- * rt_mutex_cleanup_proxy_lock() - Cleanup failed lock acquisition
- * @lock:		the rt_mutex we were woken on
- * @waiter:		the pre-initialized rt_mutex_waiter
- *
- * Attempt to clean up after a failed __rt_mutex_start_proxy_lock() or
- * rt_mutex_wait_proxy_lock().
- *
- * Unless we acquired the lock; we're still enqueued on the wait-list and can
- * in fact still be granted ownership until we're removed. Therefore we can
- * find we are in fact the owner and must disregard the
- * rt_mutex_wait_proxy_lock() failure.
- *
- * Returns:
- *  true  - did the cleanup, we done.
- *  false - we acquired the lock after rt_mutex_wait_proxy_lock() returned,
- *          caller should disregards its return value.
- *
- * Special API call for PI-futex support
+ * @brief Cleans up a failed lock acquisition.
+ * @param lock The rt_mutex we were woken on.
+ * @param waiter The pre-initialized rt_mutex_waiter.
+ * @return True if cleanup was successful, false if the lock was acquired.
  */
 bool __sched rt_mutex_cleanup_proxy_lock(struct rt_mutex_base *lock,
 					 struct rt_mutex_waiter *waiter)
@@ -497,8 +426,9 @@ void __sched rt_mutex_adjust_pi(struct task_struct *task)
 				   next_lock, NULL, task);
 }
 
-/*
- * Performs the wakeup of the top-waiter and re-enables preemption.
+/**
+ * @brief Performs the wakeup of the top-waiter and re-enables preemption.
+ * @param wqh The wake queue head containing the waiter to wake.
  */
 void __sched rt_mutex_postunlock(struct rt_wake_q_head *wqh)
 {

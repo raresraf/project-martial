@@ -1,3 +1,17 @@
+
+/**
+ * @file htmldatalistelement.rs
+ * @brief Implementation of the `HTMLDataListElement` interface, representing `<datalist>` elements.
+ *
+ * This module provides the Rust implementation for the `HTMLDataListElement`, which corresponds
+ * to the `<datalist>` tag in HTML. The `<datalist>` element is used to provide a list of
+ * pre-defined options for an `<input>` element, which can be displayed as a dropdown list
+ * of suggestions to the user.
+ *
+ * This implementation is based on the WHATWG HTML specification for the `<datalist>` element.
+ *
+ * @see https://html.spec.whatwg.org/multipage/form-elements.html#the-datalist-element
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -16,6 +30,9 @@ use crate::dom::htmloptionelement::HTMLOptionElement;
 use crate::dom::node::{Node, NodeTraits};
 use crate::script_runtime::CanGc;
 
+/**
+ * @brief Represents a `<datalist>` HTML element.
+ */
 #[dom_struct]
 pub(crate) struct HTMLDataListElement {
     htmlelement: HTMLElement,
@@ -52,7 +69,10 @@ impl HTMLDataListElement {
 }
 
 impl HTMLDataListElementMethods<crate::DomTypeHolder> for HTMLDataListElement {
-    // https://html.spec.whatwg.org/multipage/#dom-datalist-options
+    /**
+     * @brief Returns a live `HTMLCollection` of the `<option>` elements that are children of this datalist.
+     * @see https://html.spec.whatwg.org/multipage/form-elements.html#dom-datalist-options
+     */
     fn Options(&self, can_gc: CanGc) -> DomRoot<HTMLCollection> {
         HTMLCollection::new_with_filter_fn(
             &self.owner_window(),

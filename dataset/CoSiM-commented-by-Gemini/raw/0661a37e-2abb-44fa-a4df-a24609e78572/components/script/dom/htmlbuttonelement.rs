@@ -1,3 +1,29 @@
+
+/**
+ * @file htmlbuttonelement.rs
+ * @brief Implementation of the `HTMLButtonElement` interface, representing `<button>` HTML elements.
+ *
+ * This module provides the Rust implementation for the `HTMLButtonElement`, which corresponds to
+ * the `<button>` tag in HTML. It handles the different button types (`submit`, `reset`, `button`),
+ * form association, validation, and activation behavior.
+ *
+ * ## Core Functionality:
+ *
+ * - **Button Types:** Differentiates between `submit`, `reset`, and `button` types, each with
+ *   distinct activation behaviors.
+ * - **Form Association:** Implements the `FormControl` trait, allowing the button to be associated
+ *   with an `HTMLFormElement` and participate in form submission and reset.
+ * - **Constraint Validation:** Implements the `Validatable` trait, enabling the button to be
+ *   validated before form submission.
+ * - **Activation:** Defines the activation behavior for each button type. A `submit` button submits
+ *   the form, a `reset` button resets it, and a `button` has no default action.
+ * - **Attribute Reflection:** Reflects various HTML attributes (e.g., `disabled`, `type`, `value`)
+ *   as properties on the `HTMLButtonElement` object.
+ *
+ * This implementation is based on the WHATWG HTML specification for the `<button>` element.
+ *
+ * @see https://html.spec.whatwg.org/multipage/form-elements.html#the-button-element
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -33,6 +59,7 @@ use crate::dom::validitystate::{ValidationFlags, ValidityState};
 use crate::dom::virtualmethods::VirtualMethods;
 use crate::script_runtime::CanGc;
 
+/// The type of the button, which determines its activation behavior.
 #[derive(Clone, Copy, JSTraceable, MallocSizeOf, PartialEq)]
 enum ButtonType {
     Submit,
@@ -40,6 +67,12 @@ enum ButtonType {
     Button,
 }
 
+/**
+ * @brief Represents a `<button>` HTML element.
+ *
+ * This struct holds the state for an `HTMLButtonElement`, including its type, form owner,
+ * associated labels, and validity state.
+ */
 #[dom_struct]
 pub(crate) struct HTMLButtonElement {
     htmlelement: HTMLElement,
@@ -69,6 +102,9 @@ impl HTMLButtonElement {
         }
     }
 
+    /**
+     * Creates a new `HTMLButtonElement` and roots it in the JavaScript runtime.
+     */
     #[cfg_attr(crown, allow(crown::unrooted_must_root))]
     pub(crate) fn new(
         local_name: LocalName,
@@ -100,12 +136,18 @@ impl HTMLButtonElementMethods<crate::DomTypeHolder> for HTMLButtonElement {
     // https://html.spec.whatwg.org/multipage/#dom-fe-disabled
     make_bool_setter!(SetDisabled, "disabled");
 
-    // https://html.spec.whatwg.org/multipage/#dom-fae-form
+    /**
+     * Gets the form that the button is associated with.
+     * @see https://html.spec.whatwg.org/multipage/#dom-fae-form
+     */
     fn GetForm(&self) -> Option<DomRoot<HTMLFormElement>> {
         self.form_owner()
     }
 
-    // <https://html.spec.whatwg.org/multipage/#dom-button-type>
+    /**
+     * Gets or sets the `type` attribute of the button.
+     * @see https://html.spec.whatwg.org/multipage/#dom-button-type
+     */
     make_enumerated_getter!(
         Type,
         "type",
@@ -114,7 +156,6 @@ impl HTMLButtonElementMethods<crate::DomTypeHolder> for HTMLButtonElement {
         invalid => "submit"
     );
 
-    // https://html.spec.whatwg.org/multipage/#dom-button-type
     make_setter!(SetType, "type");
 
     // https://html.spec.whatwg.org/multipage/#dom-fs-formaction
@@ -170,43 +211,68 @@ impl HTMLButtonElementMethods<crate::DomTypeHolder> for HTMLButtonElement {
     // https://html.spec.whatwg.org/multipage/#dom-button-value
     make_setter!(SetValue, "value");
 
-    // https://html.spec.whatwg.org/multipage/#dom-lfe-labels
+    /**
+     * Gets a `NodeList` of all `HTMLLabelElement`s that are associated with the button.
+     * @see https://html.spec.whatwg.org/multipage/#dom-lfe-labels
+     */
     make_labels_getter!(Labels, labels_node_list);
 
-    // https://html.spec.whatwg.org/multipage/#dom-cva-willvalidate
+    /**
+     * Returns `true` if the button will be validated when the form is submitted.
+     * @see https://html.spec.whatwg.org/multipage/#dom-cva-willvalidate
+     */
     fn WillValidate(&self) -> bool {
         self.is_instance_validatable()
     }
 
-    // https://html.spec.whatwg.org/multipage/#dom-cva-validity
+    /**
+     * Gets the validity state of the button.
+     * @see https://html.spec.whatwg.org/multipage/#dom-cva-validity
+     */
     fn Validity(&self) -> DomRoot<ValidityState> {
         self.validity_state()
     }
 
-    // https://html.spec.whatwg.org/multipage/#dom-cva-checkvalidity
+    /**
+     * Checks the validity of the button.
+     * @see https://html.spec.whatwg.org/multipage/#dom-cva-checkvalidity
+     */
     fn CheckValidity(&self, can_gc: CanGc) -> bool {
         self.check_validity(can_gc)
     }
 
-    // https://html.spec.whatwg.org/multipage/#dom-cva-reportvalidity
+    /**
+     * Checks the validity of the button and reports it to the user.
+     * @see https://html.spec.whatwg.org/multipage/#dom-cva-reportvalidity
+     */
     fn ReportValidity(&self, can_gc: CanGc) -> bool {
         self.report_validity(can_gc)
     }
 
-    // https://html.spec.whatwg.org/multipage/#dom-cva-validationmessage
+    /**
+     * Gets the validation message for the button.
+     * @see https://html.spec.whatwg.org/multipage/#dom-cva-validationmessage
+     */
     fn ValidationMessage(&self) -> DOMString {
         self.validation_message()
     }
 
-    // https://html.spec.whatwg.org/multipage/#dom-cva-setcustomvalidity
+    /**
+     * Sets a custom validation message for the button.
+     * @see https://html.spec.whatwg.org/multipage/#dom-cva-setcustomvalidity
+     */
     fn SetCustomValidity(&self, error: DOMString) {
         self.validity_state().set_custom_error_message(error);
     }
 }
 
 impl HTMLButtonElement {
-    /// <https://html.spec.whatwg.org/multipage/#constructing-the-form-data-set>
-    /// Steps range from 3.1 to 3.7 (specific to HTMLButtonElement)
+    /**
+     * Constructs the form data entry for the button if it is the submitter.
+     * @param submitter The element that submitted the form.
+     * @return An `Option<FormDatum>` containing the button's form data, or `None`.
+     * @see https://html.spec.whatwg.org/multipage/#constructing-the-form-data-set
+     */
     pub(crate) fn form_datum(&self, submitter: Option<FormSubmitterElement>) -> Option<FormDatum> {
         // Step 3.1: disabled state check is in get_unclean_dataset
 
@@ -358,7 +424,10 @@ impl Activatable for HTMLButtonElement {
         !self.upcast::<Element>().disabled_state()
     }
 
-    // https://html.spec.whatwg.org/multipage/#run-post-click-activation-steps
+    /**
+     * Defines the behavior when the `<button>` element is activated.
+     * @see https://html.spec.whatwg.org/multipage/#run-post-click-activation-steps
+     */
     fn activation_behavior(&self, _event: &Event, _target: &EventTarget, can_gc: CanGc) {
         let ty = self.button_type.get();
         match ty {

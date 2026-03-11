@@ -1,3 +1,28 @@
+
+/**
+ * @file htmlareaelement.rs
+ * @brief Implementation of the `HTMLAreaElement` interface, representing `<area>` HTML elements.
+ *
+ * This module provides the Rust implementation for the `HTMLAreaElement`, which corresponds to
+ * the `<area>` tag used within an `<map>` element to define a clickable area in an image map.
+ * Like an `<a>` element, an `<area>` element can be a hyperlink, and this implementation
+ * handles its URL parsing, link relations, and activation behavior.
+ *
+ * ## Core Functionality:
+ *
+ * - **Shape and Coordinates:** Parses the `shape` and `coords` attributes to define the geometry
+ *   of the clickable area (e.g., rectangle, circle, polygon).
+ * - **Hit Testing:** Provides logic to determine if a given point (e.g., from a mouse click)
+ *   falls within the defined area.
+ * - **Hyperlink Behavior:** Implements the `HyperlinkElement` trait for handling the `href`
+ *   attribute and its associated properties, similar to `HTMLAnchorElement`.
+ * - **Activation:** Defines the activation behavior, which is to follow the hyperlink if the
+ *   area is clicked.
+ *
+ * This implementation is based on the WHATWG HTML specification for the `<area>` element.
+ *
+ * @see https://html.spec.whatwg.org/multipage/image-maps.html#the-area-element
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -34,6 +59,9 @@ use crate::dom::virtualmethods::VirtualMethods;
 use crate::links::{LinkRelations, follow_hyperlink};
 use crate::script_runtime::CanGc;
 
+/**
+ * @brief Represents the geometric shape and coordinates of an `<area>` element.
+ */
 #[derive(Debug, PartialEq)]
 pub enum Area {
     Circle {
@@ -50,6 +78,7 @@ pub enum Area {
     },
 }
 
+/// The possible shapes for an `<area>` element.
 pub enum Shape {
     Circle,
     Rectangle,
@@ -59,6 +88,13 @@ pub enum Shape {
 // https://html.spec.whatwg.org/multipage/#rules-for-parsing-a-list-of-floating-point-numbers
 // https://html.spec.whatwg.org/multipage/#image-map-processing-model
 impl Area {
+    /**
+     * Parses the `coords` attribute string into an `Area` enum.
+     *
+     * @param coord The `coords` attribute string.
+     * @param target The `Shape` of the area.
+     * @return An `Option<Area>` containing the parsed area, or `None` if parsing fails.
+     */
     pub fn parse(coord: &str, target: Shape) -> Option<Area> {
         let points_count = match target {
             Shape::Circle => 3,
@@ -74,7 +110,8 @@ impl Area {
         while index < size {
             let val = num[index];
             match val {
-                b',' | b';' | b' ' | b'\t' | b'\n' | 0x0C | b'\r' => {},
+                b',' | b';' | b' ' | b'	' | b'
+' | 0x0C | b'' => {},
                 _ => break,
             }
 
@@ -103,7 +140,8 @@ impl Area {
                 let val = num[index];
 
                 match val {
-                    b',' | b';' | b' ' | b'\t' | b'\n' | 0x0C | b'\r' => break,
+                    b',' | b';' | b' ' | b'	' | b'
+' | 0x0C | b'' => break,
                     _ => array.push(val),
                 }
 
@@ -187,6 +225,12 @@ impl Area {
         }
     }
 
+    /**
+     * Performs a hit test to determine if a point is inside the area.
+     *
+     * @param p The point to test.
+     * @return `true` if the point is inside the area, `false` otherwise.
+     */
     pub fn hit_test(&self, p: &Point2D<f32>) -> bool {
         match *self {
             Area::Circle { left, top, radius } => {
@@ -239,6 +283,12 @@ impl Area {
     }
 }
 
+/**
+ * @brief Represents an `<area>` HTML element.
+ *
+ * This struct holds the state for an `HTMLAreaElement`, including its hyperlink-related
+ * properties and link relations.
+ */
 #[dom_struct]
 pub(crate) struct HTMLAreaElement {
     htmlelement: HTMLElement,
@@ -263,6 +313,9 @@ impl HTMLAreaElement {
         }
     }
 
+    /**
+     * Creates a new `HTMLAreaElement` and roots it in the JavaScript runtime.
+     */
     #[cfg_attr(crown, allow(crown::unrooted_must_root))]
     pub(crate) fn new(
         local_name: LocalName,
@@ -279,6 +332,11 @@ impl HTMLAreaElement {
         )
     }
 
+    /**
+     * Parses the `shape` and `coords` attributes to determine the geometry of the area.
+     *
+     * @return An `Option<Area>` containing the parsed area, or `None` if parsing fails.
+     */
     pub(crate) fn get_shape_from_coords(&self) -> Option<Area> {
         let elem = self.upcast::<Element>();
         let shape = elem.get_string_attribute(&"shape".into());

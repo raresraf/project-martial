@@ -1,3 +1,20 @@
+
+/**
+ * @file htmlfieldsetelement.rs
+ * @brief Implementation of the `HTMLFieldSetElement` interface, representing `<fieldset>` elements.
+ *
+ * This module provides the Rust implementation for the `HTMLFieldSetElement`, which corresponds
+ * to the `<fieldset>` tag in HTML. This element is used to group several controls as well as
+ * labels (`<label>`) within a web form.
+ *
+ * A `<legend>` element can be used as the first child of a `<fieldset>` to provide a caption
+ * for the group of controls. The `disabled` attribute on a `<fieldset>` will disable all of
+ * its descendant form controls.
+ *
+ * This implementation is based on the WHATWG HTML specification for the `<fieldset>` element.
+ *
+ * @see https://html.spec.whatwg.org/multipage/form-elements.html#the-fieldset-element
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -28,6 +45,9 @@ use crate::dom::virtualmethods::VirtualMethods;
 use crate::script_runtime::CanGc;
 use crate::script_thread::ScriptThread;
 
+/**
+ * @brief Represents a `<fieldset>` HTML element.
+ */
 #[dom_struct]
 pub(crate) struct HTMLFieldSetElement {
     htmlelement: HTMLElement,
@@ -71,6 +91,7 @@ impl HTMLFieldSetElement {
         )
     }
 
+    /// Updates the validity state of the fieldset based on the validity of its descendant form controls.
     pub(crate) fn update_validity(&self, can_gc: CanGc) {
         let has_invalid_child = self
             .upcast::<Node>()
@@ -86,7 +107,10 @@ impl HTMLFieldSetElement {
 }
 
 impl HTMLFieldSetElementMethods<crate::DomTypeHolder> for HTMLFieldSetElement {
-    // https://html.spec.whatwg.org/multipage/#dom-fieldset-elements
+    /**
+     * @brief Returns a live `HTMLCollection` of the form controls that are descendants of this fieldset.
+     * @see https://html.spec.whatwg.org/multipage/form-elements.html#dom-fieldset-elements
+     */
     fn Elements(&self, can_gc: CanGc) -> DomRoot<HTMLCollection> {
         HTMLCollection::new_with_filter_fn(
             &self.owner_window(),
@@ -100,54 +124,39 @@ impl HTMLFieldSetElementMethods<crate::DomTypeHolder> for HTMLFieldSetElement {
         )
     }
 
-    // https://html.spec.whatwg.org/multipage/#dom-fieldset-disabled
     make_bool_getter!(Disabled, "disabled");
-
-    // https://html.spec.whatwg.org/multipage/#dom-fieldset-disabled
     make_bool_setter!(SetDisabled, "disabled");
-
-    // https://html.spec.whatwg.org/multipage/#dom-fe-name
     make_atomic_setter!(SetName, "name");
-
-    // https://html.spec.whatwg.org/multipage/#dom-fe-name
     make_getter!(Name, "name");
 
-    // https://html.spec.whatwg.org/multipage/#dom-fae-form
     fn GetForm(&self) -> Option<DomRoot<HTMLFormElement>> {
         self.form_owner()
     }
 
-    // https://html.spec.whatwg.org/multipage/#dom-cva-willvalidate
     fn WillValidate(&self) -> bool {
         self.is_instance_validatable()
     }
 
-    // https://html.spec.whatwg.org/multipage/#dom-cva-validity
     fn Validity(&self) -> DomRoot<ValidityState> {
         self.validity_state()
     }
 
-    // https://html.spec.whatwg.org/multipage/#dom-cva-checkvalidity
     fn CheckValidity(&self, can_gc: CanGc) -> bool {
         self.check_validity(can_gc)
     }
 
-    // https://html.spec.whatwg.org/multipage/#dom-cva-reportvalidity
     fn ReportValidity(&self, can_gc: CanGc) -> bool {
         self.report_validity(can_gc)
     }
 
-    // https://html.spec.whatwg.org/multipage/#dom-cva-validationmessage
     fn ValidationMessage(&self) -> DOMString {
         self.validation_message()
     }
 
-    // https://html.spec.whatwg.org/multipage/#dom-cva-setcustomvalidity
     fn SetCustomValidity(&self, error: DOMString) {
         self.validity_state().set_custom_error_message(error);
     }
 
-    /// <https://html.spec.whatwg.org/multipage/#dom-fieldset-type>
     fn Type(&self) -> DOMString {
         DOMString::from_string(String::from("fieldset"))
     }

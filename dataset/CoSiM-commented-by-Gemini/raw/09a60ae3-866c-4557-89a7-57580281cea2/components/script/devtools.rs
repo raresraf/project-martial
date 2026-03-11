@@ -1,3 +1,16 @@
+
+/**
+ * @file devtools.rs
+ * @brief Implementation of the DevTools protocol for the script thread.
+ *
+ * This module provides the handlers for various DevTools protocol messages that are
+ * processed on the script thread. It enables functionality like inspecting the DOM,
+ * evaluating JavaScript in the context of a page, and modifying styles and attributes.
+ *
+ * The functions in this module are typically called in response to messages received
+ * from the DevTools frontend. They interact with the DOM and other parts of the script
+ * thread's state to fulfill these requests and send back the results.
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -44,6 +57,13 @@ use crate::realms::enter_realm;
 use crate::script_module::ScriptFetchOptions;
 use crate::script_runtime::CanGc;
 
+/**
+ * @brief Handles a request to evaluate a JavaScript expression.
+ * @param global The global scope in which to evaluate the expression.
+ * @param eval The JavaScript code to evaluate.
+ * @param reply A sender to send the evaluation result back to the DevTools frontend.
+ * @param can_gc A token indicating that garbage collection can be performed.
+ */
 #[allow(unsafe_code)]
 pub(crate) fn handle_evaluate_js(
     global: &GlobalScope,
@@ -98,6 +118,13 @@ pub(crate) fn handle_evaluate_js(
     reply.send(result).unwrap();
 }
 
+/**
+ * @brief Handles a request to get the root node of a document.
+ * @param documents A collection of all documents.
+ * @param pipeline The ID of the pipeline whose root node is being requested.
+ * @param reply A sender to send the node information back.
+ * @param can_gc A token indicating that garbage collection can be performed.
+ */
 pub(crate) fn handle_get_root_node(
     documents: &DocumentCollection,
     pipeline: PipelineId,
@@ -110,6 +137,13 @@ pub(crate) fn handle_get_root_node(
     reply.send(info).unwrap();
 }
 
+/**
+ * @brief Handles a request to get the document element of a document.
+ * @param documents A collection of all documents.
+ * @param pipeline The ID of the pipeline whose document element is being requested.
+ * @param reply A sender to send the node information back.
+ * @param can_gc A token indicating that garbage collection can be performed.
+ */
 pub(crate) fn handle_get_document_element(
     documents: &DocumentCollection,
     pipeline: PipelineId,
@@ -123,6 +157,13 @@ pub(crate) fn handle_get_document_element(
     reply.send(info).unwrap();
 }
 
+/**
+ * @brief Finds a node in the DOM tree by its unique ID.
+ * @param documents A collection of all documents.
+ * @param pipeline The ID of the pipeline to search in.
+ * @param node_id The unique ID of the node to find.
+ * @return An `Option` containing the found node, or `None`.
+ */
 fn find_node_by_unique_id(
     documents: &DocumentCollection,
     pipeline: PipelineId,
@@ -136,6 +177,14 @@ fn find_node_by_unique_id(
     })
 }
 
+/**
+ * @brief Handles a request to get the children of a node.
+ * @param documents A collection of all documents.
+ * @param pipeline The ID of the pipeline containing the node.
+ * @param node_id The unique ID of the parent node.
+ * @param reply A sender to send the children's node information back.
+ * @param can_gc A token indicating that garbage collection can be performed.
+ */
 pub(crate) fn handle_get_children(
     documents: &DocumentCollection,
     pipeline: PipelineId,
@@ -192,6 +241,14 @@ pub(crate) fn handle_get_children(
     };
 }
 
+/**
+ * @brief Handles a request to get the inline style of an element.
+ * @param documents A collection of all documents.
+ * @param pipeline The ID of the pipeline containing the element.
+ * @param node_id The unique ID of the element.
+ * @param reply A sender to send the style information back.
+ * @param can_gc A token indicating that garbage collection can be performed.
+ */
 pub(crate) fn handle_get_attribute_style(
     documents: &DocumentCollection,
     pipeline: PipelineId,
@@ -225,6 +282,16 @@ pub(crate) fn handle_get_attribute_style(
     reply.send(Some(msg)).unwrap();
 }
 
+/**
+ * @brief Handles a request to get the style of a rule in a stylesheet.
+ * @param documents A collection of all documents.
+ * @param pipeline The ID of the pipeline containing the node.
+ * @param node_id The unique ID of a node to determine the stylesheet owner.
+ * @param selector The selector of the rule to get the style from.
+ * @param stylesheet The index of the stylesheet to inspect.
+ * @param reply A sender to send the style information back.
+ * @param can_gc A token indicating that garbage collection can be performed.
+ */
 #[cfg_attr(crown, allow(crown::unrooted_must_root))]
 pub(crate) fn handle_get_stylesheet_style(
     documents: &DocumentCollection,
@@ -272,6 +339,14 @@ pub(crate) fn handle_get_stylesheet_style(
     reply.send(msg).unwrap();
 }
 
+/**
+ * @brief Handles a request to get all selectors that match a given node.
+ * @param documents A collection of all documents.
+ * @param pipeline The ID of the pipeline containing the node.
+ * @param node_id The unique ID of the node.
+ * @param reply A sender to send the list of selectors back.
+ * @param can_gc A token indicating that garbage collection can be performed.
+ */
 #[cfg_attr(crown, allow(crown::unrooted_must_root))]
 pub(crate) fn handle_get_selectors(
     documents: &DocumentCollection,
@@ -310,6 +385,14 @@ pub(crate) fn handle_get_selectors(
     reply.send(msg).unwrap();
 }
 
+/**
+ * @brief Handles a request to get the computed style of an element.
+ * @param documents A collection of all documents.
+ * @param pipeline The ID of the pipeline containing the element.
+ * @param node_id The unique ID of the element.
+ * @param reply A sender to send the computed style back.
+ * @param can_gc A token indicating that garbage collection can be performed.
+ */
 pub(crate) fn handle_get_computed_style(
     documents: &DocumentCollection,
     pipeline: PipelineId,
@@ -344,6 +427,14 @@ pub(crate) fn handle_get_computed_style(
     reply.send(Some(msg)).unwrap();
 }
 
+/**
+ * @brief Handles a request to get the layout of a node.
+ * @param documents A collection of all documents.
+ * @param pipeline The ID of the pipeline containing the node.
+ * @param node_id The unique ID of the node.
+ * @param reply A sender to send the layout information back.
+ * @param can_gc A token indicating that garbage collection can be performed.
+ */
 pub(crate) fn handle_get_layout(
     documents: &DocumentCollection,
     pipeline: PipelineId,
@@ -394,6 +485,9 @@ pub(crate) fn handle_get_layout(
         .unwrap();
 }
 
+/**
+ * @brief Determines which margins of a node are set to 'auto'.
+ */
 fn determine_auto_margins(node: &Node, can_gc: CanGc) -> AutoMargins {
     let style = node.style(can_gc).unwrap();
     let margin = style.get_margin();
@@ -405,6 +499,14 @@ fn determine_auto_margins(node: &Node, can_gc: CanGc) -> AutoMargins {
     }
 }
 
+/**
+ * @brief Handles a request to modify attributes of an element.
+ * @param documents A collection of all documents.
+ * @param pipeline The ID of the pipeline containing the element.
+ * @param node_id The unique ID of the element.
+ * @param modifications A vector of attribute modifications to apply.
+ * @param can_gc A token indicating that garbage collection can be performed.
+ */
 pub(crate) fn handle_modify_attribute(
     documents: &DocumentCollection,
     pipeline: PipelineId,
@@ -445,6 +547,14 @@ pub(crate) fn handle_modify_attribute(
     }
 }
 
+/**
+ * @brief Handles a request to modify a CSS rule.
+ * @param documents A collection of all documents.
+ * @param pipeline The ID of the pipeline containing the node.
+ * @param node_id The unique ID of an element whose style is being modified.
+ * @param modifications A vector of rule modifications to apply.
+ * @param can_gc A token indicating that garbage collection can be performed.
+ */
 pub(crate) fn handle_modify_rule(
     documents: &DocumentCollection,
     pipeline: PipelineId,
@@ -479,10 +589,22 @@ pub(crate) fn handle_modify_rule(
     }
 }
 
+/**
+ * @brief Enables or disables live notifications from the DevTools.
+ * @param global The global scope.
+ * @param send_notifications True to enable notifications, false to disable.
+ */
 pub(crate) fn handle_wants_live_notifications(global: &GlobalScope, send_notifications: bool) {
     global.set_devtools_wants_updates(send_notifications);
 }
 
+/**
+ * @brief Sets the timeline markers to be recorded.
+ * @param documents A collection of all documents.
+ * @param pipeline The ID of the pipeline.
+ * @param marker_types The types of timeline markers to record.
+ * @param reply A sender to send the timeline markers back.
+ */
 pub(crate) fn handle_set_timeline_markers(
     documents: &DocumentCollection,
     pipeline: PipelineId,
@@ -495,6 +617,12 @@ pub(crate) fn handle_set_timeline_markers(
     }
 }
 
+/**
+ * @brief Drops the specified timeline markers.
+ * @param documents A collection of all documents.
+ * @param pipeline The ID of the pipeline.
+ * @param marker_types The types of timeline markers to drop.
+ */
 pub(crate) fn handle_drop_timeline_markers(
     documents: &DocumentCollection,
     pipeline: PipelineId,
@@ -505,6 +633,12 @@ pub(crate) fn handle_drop_timeline_markers(
     }
 }
 
+/**
+ * @brief Handles a request for an animation frame.
+ * @param documents A collection of all documents.
+ * @param id The ID of the pipeline.
+ * @param actor_name The name of the actor requesting the animation frame.
+ */
 pub(crate) fn handle_request_animation_frame(
     documents: &DocumentCollection,
     id: PipelineId,
@@ -515,12 +649,22 @@ pub(crate) fn handle_request_animation_frame(
     }
 }
 
+/**
+ * @brief Handles a request to reload a document.
+ * @param documents A collection of all documents.
+ * @param id The ID of the pipeline to reload.
+ * @param can_gc A token indicating that garbage collection can be performed.
+ */
 pub(crate) fn handle_reload(documents: &DocumentCollection, id: PipelineId, can_gc: CanGc) {
     if let Some(win) = documents.find_window(id) {
         win.Location().reload_without_origin_check(can_gc);
     }
 }
 
+/**
+ * @brief Handles a request to get the CSS property database.
+ * @param reply A sender to send the database back.
+ */
 pub(crate) fn handle_get_css_database(reply: IpcSender<HashMap<String, CssDatabaseProperty>>) {
     let database: HashMap<_, _> = ENABLED_LONGHAND_PROPERTIES
         .iter()

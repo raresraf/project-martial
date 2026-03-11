@@ -1,3 +1,20 @@
+
+/**
+ * @file htmlformcontrolscollection.rs
+ * @brief Implementation of the `HTMLFormControlsCollection` interface.
+ *
+ * This module provides the Rust implementation for `HTMLFormControlsCollection`, a special
+ * type of `HTMLCollection` used for the `elements` property of an `HTMLFormElement`.
+ * It provides methods for accessing the form controls within a form.
+ *
+ * A key feature of this collection is the behavior of its `namedItem` method, which can
+ * return either a single element or a `RadioNodeList` if there are multiple elements
+ * (like radio buttons) with the same name.
+ *
+ * This implementation is based on the WHATWG HTML specification.
+ *
+ * @see https://html.spec.whatwg.org/multipage/forms.html#htmlformcontrolscollection
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -21,6 +38,9 @@ use crate::dom::radionodelist::RadioNodeList;
 use crate::dom::window::Window;
 use crate::script_runtime::CanGc;
 
+/**
+ * @brief Represents a collection of form controls.
+ */
 #[dom_struct]
 pub(crate) struct HTMLFormControlsCollection {
     collection: HTMLCollection,
@@ -56,14 +76,16 @@ impl HTMLFormControlsCollection {
 }
 
 impl HTMLFormControlsCollectionMethods<crate::DomTypeHolder> for HTMLFormControlsCollection {
-    // FIXME: This shouldn't need to be implemented here since HTMLCollection (the parent of
-    // HTMLFormControlsCollection) implements Length
-    // https://dom.spec.whatwg.org/#dom-htmlcollection-length
     fn Length(&self) -> u32 {
         self.collection.Length()
     }
 
-    // https://html.spec.whatwg.org/multipage/#dom-htmlformcontrolscollection-nameditem
+    /**
+     * @brief Returns an element or a `RadioNodeList` from the collection by name.
+     * @param name The name of the item to retrieve.
+     * @return An `Option` containing either the element or a `RadioNodeList` if found, or `None`.
+     * @see https://html.spec.whatwg.org/multipage/forms.html#dom-htmlformcontrolscollection-nameditem
+     */
     fn NamedItem(&self, name: DOMString, can_gc: CanGc) -> Option<RadioNodeListOrElement> {
         // Step 1
         if name.is_empty() {
@@ -106,21 +128,14 @@ impl HTMLFormControlsCollectionMethods<crate::DomTypeHolder> for HTMLFormControl
         }
     }
 
-    // https://html.spec.whatwg.org/multipage/#dom-htmlformcontrolscollection-nameditem
     fn NamedGetter(&self, name: DOMString, can_gc: CanGc) -> Option<RadioNodeListOrElement> {
         self.NamedItem(name, can_gc)
     }
 
-    // https://html.spec.whatwg.org/multipage/#the-htmlformcontrolscollection-interface:supported-property-names
     fn SupportedPropertyNames(&self) -> Vec<DOMString> {
         self.collection.SupportedPropertyNames()
     }
 
-    // FIXME: This shouldn't need to be implemented here since HTMLCollection (the parent of
-    // HTMLFormControlsCollection) implements IndexedGetter.
-    // https://github.com/servo/servo/issues/5875
-    //
-    // https://dom.spec.whatwg.org/#dom-htmlcollection-item
     fn IndexedGetter(&self, index: u32) -> Option<DomRoot<Element>> {
         self.collection.IndexedGetter(index)
     }

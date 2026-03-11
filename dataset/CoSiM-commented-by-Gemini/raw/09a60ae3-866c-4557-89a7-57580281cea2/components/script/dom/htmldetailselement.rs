@@ -1,3 +1,19 @@
+
+/**
+ * @file htmldetailselement.rs
+ * @brief Implementation of the `HTMLDetailsElement` interface, representing `<details>` elements.
+ *
+ * This module provides the Rust implementation for the `HTMLDetailsElement`, which corresponds
+ * to the `<details>` tag in HTML. This element is used to create a disclosure widget from which
+ * the user can obtain additional information or controls. It can be toggled open or closed.
+ *
+ * A `<summary>` element can be used as a child of the `<details>` element to provide a label
+ * for the disclosure widget.
+ *
+ * This implementation is based on the WHATWG HTML specification for the `<details>` element.
+ *
+ * @see https://html.spec.whatwg.org/multipage/interactive-elements.html#the-details-element
+ */
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -34,10 +50,12 @@ use crate::script_runtime::CanGc;
 /// The summary that should be presented if no `<summary>` element is present
 const DEFAULT_SUMMARY: &str = "Details";
 
-/// Holds handles to all slots in the UA shadow tree
-///
-/// The composition of the tree is described in
-/// <https://html.spec.whatwg.org/multipage/#the-details-and-summary-elements>
+/**
+ * @brief Holds handles to all slots in the UA shadow tree of a `<details>` element.
+ *
+ * The composition of the tree is described in
+ * <https://html.spec.whatwg.org/multipage/#the-details-and-summary-elements>
+ */
 #[derive(Clone, JSTraceable, MallocSizeOf)]
 #[cfg_attr(crown, crown::unrooted_must_root_lint::must_root)]
 struct ShadowTree {
@@ -47,6 +65,9 @@ struct ShadowTree {
     implicit_summary: Dom<HTMLElement>,
 }
 
+/**
+ * @brief Represents a `<details>` HTML element.
+ */
 #[dom_struct]
 pub(crate) struct HTMLDetailsElement {
     htmlelement: HTMLElement,
@@ -87,10 +108,12 @@ impl HTMLDetailsElement {
         )
     }
 
+    /// Toggles the `open` attribute of the details element.
     pub(crate) fn toggle(&self) {
         self.SetOpen(!self.Open());
     }
 
+    /// Returns a reference to the shadow tree, creating it if it doesn't exist.
     fn shadow_tree(&self, can_gc: CanGc) -> Ref<'_, ShadowTree> {
         if !self.upcast::<Element>().is_shadow_host() {
             self.create_shadow_tree(can_gc);
@@ -101,6 +124,7 @@ impl HTMLDetailsElement {
             .expect("UA shadow tree was not created")
     }
 
+    /// Creates the user-agent shadow tree for the details element.
     fn create_shadow_tree(&self, can_gc: CanGc) {
         let document = self.owner_document();
         let root = self
@@ -145,6 +169,7 @@ impl HTMLDetailsElement {
             .dirty(crate::dom::node::NodeDamage::OtherNodeDamage);
     }
 
+    /// Finds the first `<summary>` element that is a child of this details element.
     pub(crate) fn find_corresponding_summary_element(&self) -> Option<DomRoot<HTMLElement>> {
         self.upcast::<Node>()
             .children()
@@ -154,6 +179,7 @@ impl HTMLDetailsElement {
             })
     }
 
+    /// Updates the contents of the shadow tree's slots based on the children of the details element.
     fn update_shadow_tree_contents(&self, can_gc: CanGc) {
         let shadow_tree = self.shadow_tree(can_gc);
 
@@ -182,6 +208,7 @@ impl HTMLDetailsElement {
         self.upcast::<Node>().dirty(NodeDamage::OtherNodeDamage);
     }
 
+    /// Updates the styles of the shadow tree based on the `open` state of the details element.
     fn update_shadow_tree_styles(&self, can_gc: CanGc) {
         let shadow_tree = self.shadow_tree(can_gc);
 

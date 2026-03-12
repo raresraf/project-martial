@@ -24,31 +24,54 @@
 // Print a single integer   the number of problems the friends will implement on
 // the contest.
 
-#include <iostream>
+/**
+ * @57f0d0be-7f91-44c2-87cb-72796feaefa4/231A.CPP
+ * @brief This program solves the Codeforces "Team" problem (231A). It counts
+ * the number of problems a three-person team (Petya, Vasya, Tonya) will
+ * implement, based on the rule that at least two members must be sure about
+ * the solution for a problem to be implemented.
+ *
+ * Algorithm: Iterative counting with majority vote for each problem.
+ * Time Complexity: O(N) where N is the number of problems.
+ * Space Complexity: O(1) for storing counters and input.
+ */
 
-using namespace std;
+#include <iostream> // Includes the standard input/output stream library.
+
+using namespace std; // Uses the standard namespace to avoid prefixing std::.
 
 int main() {
+  int n;       // Declares 'n', representing the total number of problems in the contest.
+  int p, v, t; // Declares 'p', 'v', 't' as binary indicators (0 or 1) for each friend's certainty.
+  p = v = t = 0; // Initializes friends' certainty to 0 (not sure).
+  int ans = 0;   // Initializes 'ans' to 0, which will count the problems the team implements.
+  cin >> n;      // Reads the number of problems from standard input.
 
-  int n;
-  int p, v, t;
-  p = v = t = 0;
-  int ans = 0;
-  cin >> n;
-
+  /**
+   * Block Logic: Iterates through each of the 'n' problems to determine if the team will implement it.
+   * Invariant: 'ans' accurately reflects the count of implemented problems from previous iterations.
+   */
   for (int i = 0; i < n; i++) {
-    int count = 0;
-    cin >> p >> v >> t;
-    if (p == 1)
+    int count = 0; // Initializes 'count' to 0 for the current problem, to tally friends who are sure.
+    cin >> p >> v >> t; // Reads the certainty status (0 or 1) for Petya, Vasya, and Tonya for the current problem.
+    
+    // Block Logic: Tallies the number of friends who are sure about the solution.
+    // Invariant: 'count' stores the number of friends (0 to 3) who are sure for the current problem.
+    if (p == 1) // Inline: If Petya is sure (p=1), increment count.
       count++;
-    if (v == 1)
+    if (v == 1) // Inline: If Vasya is sure (v=1), increment count.
       count++;
-    if (t == 1)
+    if (t == 1) // Inline: If Tonya is sure (t=1), increment count.
       count++;
 
-    if (count > 1)
-      ans++;
+    /**
+     * Block Logic: Checks if the problem meets the implementation criteria.
+     * Pre-condition: 'count' holds the total number of friends who are sure about the current problem.
+     * Invariant: 'ans' is incremented if 'count' is greater than 1 (at least two friends are sure).
+     */
+    if (count > 1) // If at least two friends are sure.
+      ans++;       // Increment the total count of implemented problems.
   }
-  cout << ans << endl;
-  return 0;
+  cout << ans << endl; // Prints the final number of problems the friends will implement.
+  return 0;            // Indicates successful program termination.
 }

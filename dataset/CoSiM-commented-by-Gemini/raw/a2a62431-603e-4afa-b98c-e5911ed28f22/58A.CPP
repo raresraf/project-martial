@@ -20,6 +20,18 @@ If Vasya managed to say hello, print "YES", otherwise print "NO".
 */
 /* Accepted 15 ms 2152 KB */
 
+/**
+ * @file 58A.CPP
+ * @brief Determines if the string "hello" is a subsequence of a given input string.
+ *
+ * This program solves the "Chat room" problem where the goal is to check if
+ * the word "hello" can be formed by deleting zero or more characters from an
+ * input string. This is equivalent to checking for a subsequence.
+ *
+ * @algorithm Greedy Subsequence Matching
+ * @time_complexity O(N), where N is the length of the input string, as it involves a single pass.
+ * @space_complexity O(N) to store the input string.
+ */
 #include <iostream>
 #include <string>
 
@@ -30,11 +42,21 @@ int main() {
   outputStr = "NO";
   std::cin >> inputStr;
 
+  /**
+   * @brief Scans the input string to find "hello" as a subsequence.
+   *
+   * This loop iterates through the input string `inputStr` with index `i`, while
+   * using index `j` to track the current character being sought from the target
+   * string "hello". It's a greedy approach that finds the first character,
+   * then searches for the next character from that point onward.
+   */
   for (i = j = 0; i < inputStr.length(); i++) {
+    // If the current character in the input matches the target character in "hello"...
     if (inputStr.at(i) == hello.at(j)) {
-      if (++j == 5) {
+      // ...move to the next character in "hello".
+      if (++j == 5) { // If all 5 characters of "hello" have been found...
         outputStr = "YES";
-        break;
+        break; // ...the subsequence is found, so we can exit the loop.
       }
     }
   }

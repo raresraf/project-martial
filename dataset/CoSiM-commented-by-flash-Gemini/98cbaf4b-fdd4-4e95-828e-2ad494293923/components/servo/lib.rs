@@ -129,14 +129,21 @@ pub use crate::webview_delegate::{
     WebViewDelegate,
 };
 
+/// Starts the WebDriver server if the `webdriver` feature is enabled.
+///
+/// # Arguments
+/// * `port` - The port number on which the WebDriver server should listen.
+/// * `constellation` - A `Sender` to communicate with the `Constellation`.
 #[cfg(feature = "webdriver")]
 fn webdriver(port: u16, constellation: Sender<ConstellationMsg>) {
     webdriver_server::start_server(port, constellation);
 }
 
+/// Placeholder function for `webdriver` when the feature is not enabled.
 #[cfg(not(feature = "webdriver"))]
 fn webdriver(_port: u16, _constellation: Sender<ConstellationMsg>) {}
 
+/// Media platform specific initialization for GStreamer backend.
 #[cfg(feature = "media-gstreamer")]
 mod media_platform {
     #[cfg(any(windows, target_os = "macos"))]
@@ -148,6 +155,7 @@ mod media_platform {
 
     use super::ServoMedia;
 
+    /// Initializes GStreamer with platform-specific plugins.
     #[cfg(any(windows, target_os = "macos"))]
     pub fn init() {
         ServoMedia::init_with_backend(|| {
@@ -171,12 +179,14 @@ mod media_platform {
         });
     }
 
+    /// Initializes GStreamer with default backend for other platforms.
     #[cfg(not(any(windows, target_os = "macos")))]
     pub fn init() {
         ServoMedia::init::<GStreamerBackend>();
     }
 }
 
+/// Placeholder for media platform initialization when `media-gstreamer` feature is not enabled.
 #[cfg(not(feature = "media-gstreamer"))]
 mod media_platform {
     use super::ServoMedia;
@@ -197,17 +207,19 @@ mod media_platform {
 /// loop to pump messages between the embedding application and
 /// various browser components.
 pub struct Servo {
+    /// The current delegate responsible for handling Servo-specific events and requests.
     delegate: RefCell<Rc<dyn ServoDelegate>>,
+    /// A reference-counted, mutable cell containing the `IOCompositor`, which manages rendering.
     compositor: Rc<RefCell<IOCompositor>>,
+    /// A proxy for communicating with the `Constellation`, Servo's central coordination unit.
     constellation_proxy: ConstellationProxy,
+    /// A receiver for messages originating from the embedder.
     embedder_receiver: Receiver<EmbedderMsg>,
     /// Tracks whether we are in the process of shutting down, or have shut down.
     /// This is shared with `WebView`s and the `ServoRenderer`.
     shutdown_state: Rc<Cell<ShutdownState>>,
-    /// A map  [`WebView`]s that are managed by this [`Servo`] instance. These are stored
-    /// as `Weak` references so that the embedding application can control their lifetime.
-    /// When accessed, `Servo` will be reponsible for cleaning up the invalid `Weak`
-    /// references.
+    /// A map of `WebViewId` to weak references of `WebViewInner` instances managed by this `Servo` instance.
+    /// Weak references allow the embedding application to control the lifetime of `WebView`s.
     webviews: RefCell<HashMap<WebViewId, Weak<RefCell<WebViewInner>>>>,
     /// For single-process Servo instances, this field controls the initialization
     /// and deinitialization of the JS Engine. Multiprocess Servo instances have their
@@ -215,24 +227,47 @@ pub struct Servo {
     _js_engine_setup: Option<JSEngineSetup>,
 }
 
+/// `RenderNotifier` implements `webrender_api::RenderNotifier` to bridge WebRender
+/// frame-ready notifications to Servo's compositor.
 #[derive(Clone)]
 struct RenderNotifier {
+    /// A proxy to the compositor, used to send messages about new frames.
     compositor_proxy: CompositorProxy,
 }
 
 impl RenderNotifier {
+    /// Creates a new `RenderNotifier` instance.
+    ///
+    /// # Arguments
+    /// * `compositor_proxy` - A `CompositorProxy` to communicate with the compositor.
+    ///
+    /// Post-condition: A new `RenderNotifier` is returned.
     pub fn new(compositor_proxy: CompositorProxy) -> RenderNotifier {
         RenderNotifier { compositor_proxy }
     }
 }
 
 impl webrender_api::RenderNotifier for RenderNotifier {
+    /// Clones the `RenderNotifier` instance.
+    ///
+    /// Post-condition: A new boxed `RenderNotifier` instance is returned.
     fn clone(&self) -> Box<dyn webrender_api::RenderNotifier> {
         Box::new(RenderNotifier::new(self.compositor_proxy.clone()))
     }
 
+    /// Wakes up the rendering system (no-op in this implementation).
     fn wake_up(&self, _composite_needed: bool) {}
 
+    /// Notifies the compositor that a new WebRender frame is ready.
+    ///
+    /// # Arguments
+    /// * `document_id` - The `DocumentId` for which the frame is ready.
+    /// * `_scrolled` - A boolean indicating if the frame was scrolled (unused).
+    /// * `composite_needed` - A boolean indicating if a new composite is needed.
+    /// * `_frame_publish_id` - The `FramePublishId` of the new frame (unused).
+    ///
+    /// Post-condition: A `CompositorMsg::NewWebRenderFrameReady` message is sent
+    /// to the compositor.
     fn new_frame_ready(
         &self,
         document_id: DocumentId,
@@ -249,6 +284,19 @@ impl webrender_api::RenderNotifier for RenderNotifier {
 }
 
 impl Servo {
+    /// Creates a new `Servo` instance, initializing all its core components.
+    ///
+    /// # Arguments
+    /// * `opts` - Global configuration options for Servo.
+    /// * `preferences` - User preferences for various Servo behaviors.
+    /// * `rendering_context` - The rendering context for graphical operations.
+    /// * `embedder` - An instance of `EmbedderMethods` for interacting with the embedding application.
+    /// * `window` - An instance of `WindowMethods` for managing window-related events.
+    /// * `user_agent` - An optional user agent string to override the default.
+    ///
+    /// Pre-condition: All input parameters are valid and configured.
+    /// Post-condition: A fully initialized `Servo` instance is returned, with its `Constellation`,
+    /// `Compositor`, and other subsystems set up.
     #[cfg_attr(
         feature = "tracing",
         tracing::instrument(
@@ -543,28 +591,47 @@ impl Servo {
         }
     }
 
+    /// Returns a reference-counted instance of the current `ServoDelegate`.
+    ///
+    /// Post-condition: A `Rc<dyn ServoDelegate>` is returned, allowing interaction
+    /// with the embedding application's specific implementations.
     pub fn delegate(&self) -> Rc<dyn ServoDelegate> {
         self.delegate.borrow().clone()
     }
 
+    /// Sets a new delegate for the `Servo` instance.
+    ///
+    /// # Arguments
+    /// * `delegate` - The new `Rc<dyn ServoDelegate>` to set.
+    ///
+    /// Post-condition: The internal delegate is updated to the provided one.
     pub fn set_delegate(&self, delegate: Rc<dyn ServoDelegate>) {
         *self.delegate.borrow_mut() = delegate;
     }
 
     /// **EXPERIMENTAL:** Intialize GL accelerated media playback. This currently only works on a limited number
     /// of platforms. This should be run *before* calling [`Servo::new`] and creating the first [`WebView`].
+    ///
+    /// # Arguments
+    /// * `display` - The native display context.
+    /// * `api` - The GL API to use (e.g., OpenGL, OpenGL ES).
+    /// * `context` - The GL context for rendering.
+    ///
+    /// Pre-condition: Called before `Servo::new` and before creating any `WebView`s.
+    /// Post-condition: GL accelerated media playback is initialized.
     pub fn initialize_gl_accelerated_media(display: NativeDisplay, api: GlApi, context: GlContext) {
         WindowGLContext::initialize(display, api, context)
     }
 
-    /// Spin the Servo event loop, which:
+    /// Spins the Servo event loop.
     ///
-    ///   - Performs updates in the compositor, such as queued pinch zoom events
-    ///   - Runs delebgate methods on all `WebView`s and `Servo` itself
-    ///   - Maybe update the rendered compositor output, but *without* swapping buffers.
+    /// This method performs several crucial tasks:
+    /// - Processes incoming messages for the compositor, such as queued pinch zoom events.
+    /// - Executes delegate methods on all `WebView` instances and the `Servo` instance itself.
+    /// - Optionally updates the rendered compositor output, without performing buffer swaps.
     ///
-    /// The return value of this method indicates whether or not Servo, false indicates that Servo
-    /// has finished shutting down and you should not spin the event loop any longer.
+    /// Post-condition: Returns `true` if Servo is still running and the event loop should continue,
+    /// `false` if Servo has finished shutting down.
     pub fn spin_event_loop(&self) -> bool {
         if self.shutdown_state.get() == ShutdownState::FinishedShuttingDown {
             return false;
@@ -573,6 +640,8 @@ impl Servo {
         self.compositor.borrow_mut().receive_messages();
 
         // Only handle incoming embedder messages if the compositor hasn't already started shutting down.
+        // Block Logic: Processes incoming messages from the embedder.
+        // Invariant: Iterates as long as there are messages and Servo is not fully shut down.
         while let Ok(message) = self.embedder_receiver.try_recv() {
             self.handle_embedder_message(message);
 
@@ -597,11 +666,17 @@ impl Servo {
         true
     }
 
+    /// Sends `notify_new_frame_ready` messages to all `WebView` delegates if a repaint is needed.
+    ///
+    /// Pre-condition: The compositor has indicated that a repaint is necessary.
+    /// Post-condition: `WebViewDelegate::notify_new_frame_ready` is called for each active webview.
     fn send_new_frame_ready_messages(&self) {
         if !self.compositor.borrow().needs_repaint() {
             return;
         }
 
+        // Block Logic: Iterates through all active WebView handles.
+        // Invariant: Only valid, non-destroyed WebView handles are processed.
         for webview in self
             .webviews
             .borrow()
@@ -612,6 +687,10 @@ impl Servo {
         }
     }
 
+    /// Cleans up destroyed `WebView` handles from the internal map.
+    ///
+    /// Post-condition: Any `Weak` references to `WebViewInner` that no longer have a strong count
+    /// (i.e., the `WebView` has been destroyed) are removed from the `webviews` map.
     fn clean_up_destroyed_webview_handles(&self) {
         // Remove any webview handles that have been destroyed and would not be upgradable.
         // Note that `retain` is O(capacity) because it visits empty buckets, so it may be worth
@@ -622,10 +701,21 @@ impl Servo {
             .retain(|_webview_id, webview| webview.strong_count() > 0);
     }
 
+    /// Returns the current pinch zoom level of the compositor.
+    ///
+    /// Post-condition: The `f32` value representing the pinch zoom level is returned.
     pub fn pinch_zoom_level(&self) -> f32 {
         self.compositor.borrow_mut().pinch_zoom_level().get()
     }
 
+    /// Sets up the global logging infrastructure for Servo.
+    ///
+    /// This involves configuring `env_logger` and setting up a composite logger
+    /// that sends messages to both `env_logger` and the `Constellation`.
+    ///
+    /// Pre-condition: The `ConstellationProxy` is initialized.
+    /// Post-condition: The global logger is configured, and logging messages are routed
+    /// to both the environment logger and the Constellation.
     pub fn setup_logging(&self) {
         let constellation_chan = self.constellation_proxy.sender();
         let env = env_logger::Env::default();
@@ -639,6 +729,14 @@ impl Servo {
         log::set_max_level(filter);
     }
 
+    /// Initiates the shutdown process for Servo.
+    ///
+    /// This sends an `Exit` message to the `Constellation` and sets the internal
+    /// `shutdown_state` to `ShuttingDown`.
+    ///
+    /// Pre-condition: Servo is not already in the process of shutting down.
+    /// Post-condition: An `Exit` message is sent to the `Constellation`, and `shutdown_state`
+    /// is set to `ShuttingDown`.
     pub fn start_shutting_down(&self) {
         if self.shutdown_state.get() != ShutdownState::NotShuttingDown {
             warn!("Requested shutdown while already shutting down");
@@ -650,16 +748,37 @@ impl Servo {
         self.shutdown_state.set(ShutdownState::ShuttingDown);
     }
 
+    /// Finalizes the shutdown process of Servo.
+    ///
+    /// This method is called when the `Constellation` has completed its shutdown.
+    /// It updates the `shutdown_state` to `FinishedShuttingDown` and instructs
+    /// the compositor to finish its shutdown sequence.
+    ///
+    /// Pre-condition: The `Constellation` has signaled that its shutdown is complete.
+    /// Post-condition: `shutdown_state` is set to `FinishedShuttingDown`, and the
+    /// compositor's shutdown is finalized.
     fn finish_shutting_down(&self) {
         debug!("Servo received message that Constellation shutdown is complete");
         self.shutdown_state.set(ShutdownState::FinishedShuttingDown);
         self.compositor.borrow_mut().finish_shutting_down();
     }
 
+    /// Deinitializes the compositor, releasing its resources.
+    ///
+    /// Post-condition: The `IOCompositor`'s `deinit` method is called.
     pub fn deinit(&self) {
         self.compositor.borrow_mut().deinit();
     }
 
+    /// Creates and returns a new `WebView` instance.
+    ///
+    /// # Arguments
+    /// * `url` - The initial `url::Url` to load in the new `WebView`.
+    ///
+    /// Pre-condition: Servo is initialized and not shutting down.
+    /// Post-condition: A new `WebView` is created, registered internally, and
+    /// a `ConstellationMsg::NewWebView` message is sent to the `Constellation`.
+    /// The newly created `WebView` is returned.
     pub fn new_webview(&self, url: url::Url) -> WebView {
         let webview = WebView::new(&self.constellation_proxy, self.compositor.clone());
         self.webviews
@@ -670,6 +789,13 @@ impl Servo {
         webview
     }
 
+    /// Creates and returns a new auxiliary `WebView` instance.
+    ///
+    /// This is typically used for pop-up windows or other auxiliary browsing contexts.
+    ///
+    /// Pre-condition: Servo is initialized and not shutting down.
+    /// Post-condition: A new auxiliary `WebView` is created and registered internally.
+    /// The newly created `WebView` is returned.
     pub fn new_auxiliary_webview(&self) -> WebView {
         let webview = WebView::new(&self.constellation_proxy, self.compositor.clone());
         self.webviews
@@ -678,6 +804,13 @@ impl Servo {
         webview
     }
 
+    /// Retrieves a `WebView` handle by its `WebViewId`.
+    ///
+    /// # Arguments
+    /// * `id` - The `WebViewId` of the `WebView` to retrieve.
+    ///
+    /// Post-condition: An `Option<WebView>` is returned, which is `Some` if a matching
+    /// `WebView` is found and is still active (not destroyed), and `None` otherwise.
     fn get_webview_handle(&self, id: WebViewId) -> Option<WebView> {
         self.webviews
             .borrow()
@@ -685,30 +818,48 @@ impl Servo {
             .and_then(WebView::from_weak_handle)
     }
 
+    /// Handles incoming messages from the embedder.
+    ///
+    /// # Arguments
+    /// * `message` - The `EmbedderMsg` received from the embedding application.
+    ///
+    /// Pre-condition: `message` is a valid `EmbedderMsg`.
+    /// Post-condition: The message is processed by dispatching it to the appropriate
+    /// internal handler or `WebView` delegate.
     fn handle_embedder_message(&self, message: EmbedderMsg) {
         match message {
             EmbedderMsg::ShutdownComplete => self.finish_shutting_down(),
             EmbedderMsg::Status(webview_id, status_text) => {
+                // Block Logic: Updates the status text of the specified WebView.
+                // Invariant: The WebView with `webview_id` must be active.
                 if let Some(webview) = self.get_webview_handle(webview_id) {
                     webview.set_status_text(status_text);
                 }
             },
             EmbedderMsg::ChangePageTitle(webview_id, title) => {
+                // Block Logic: Updates the page title of the specified WebView.
+                // Invariant: The WebView with `webview_id` must be active.
                 if let Some(webview) = self.get_webview_handle(webview_id) {
                     webview.set_page_title(title);
                 }
             },
             EmbedderMsg::MoveTo(webview_id, position) => {
+                // Block Logic: Requests the specified WebView delegate to move.
+                // Invariant: The WebView with `webview_id` must be active.
                 if let Some(webview) = self.get_webview_handle(webview_id) {
                     webview.delegate().request_move_to(webview, position);
                 }
             },
             EmbedderMsg::ResizeTo(webview_id, size) => {
+                // Block Logic: Requests the specified WebView delegate to resize.
+                // Invariant: The WebView with `webview_id` must be active.
                 if let Some(webview) = self.get_webview_handle(webview_id) {
                     webview.delegate().request_resize_to(webview, size);
                 }
             },
             EmbedderMsg::Prompt(webview_id, prompt_definition, prompt_origin) => {
+                // Block Logic: Displays a prompt via the specified WebView delegate.
+                // Invariant: The WebView with `webview_id` must be active.
                 if let Some(webview) = self.get_webview_handle(webview_id) {
                     webview
                         .delegate()
@@ -716,6 +867,8 @@ impl Servo {
                 }
             },
             EmbedderMsg::ShowContextMenu(webview_id, ipc_sender, title, items) => {
+                // Block Logic: Displays a context menu via the specified WebView delegate.
+                // Invariant: The WebView with `webview_id` must be active.
                 if let Some(webview) = self.get_webview_handle(webview_id) {
                     webview
                         .delegate()
@@ -723,6 +876,8 @@ impl Servo {
                 }
             },
             EmbedderMsg::AllowNavigationRequest(webview_id, pipeline_id, servo_url) => {
+                // Block Logic: Requests permission for navigation via the specified WebView delegate.
+                // Invariant: The WebView with `webview_id` must be active.
                 if let Some(webview) = self.get_webview_handle(webview_id) {
                     let request = NavigationRequest {
                         url: servo_url.into_url(),
@@ -734,22 +889,30 @@ impl Servo {
                 }
             },
             EmbedderMsg::AllowOpeningWebView(webview_id, response_sender) => {
+                // Block Logic: Requests permission to open a new auxiliary WebView.
+                // Invariant: The WebView with `webview_id` must be active.
                 if let Some(webview) = self.get_webview_handle(webview_id) {
                     let new_webview = webview.delegate().request_open_auxiliary_webview(webview);
                     let _ = response_sender.send(new_webview.map(|webview| webview.id()));
                 }
             },
             EmbedderMsg::WebViewOpened(webview_id) => {
+                // Block Logic: Notifies the specified WebView delegate that it has been opened.
+                // Invariant: The WebView with `webview_id` must be active.
                 if let Some(webview) = self.get_webview_handle(webview_id) {
                     webview.delegate().notify_ready_to_show(webview);
                 }
             },
             EmbedderMsg::WebViewClosed(webview_id) => {
+                // Block Logic: Notifies the specified WebView delegate that it has been closed.
+                // Invariant: The WebView with `webview_id` must be active.
                 if let Some(webview) = self.get_webview_handle(webview_id) {
                     webview.delegate().notify_closed(webview);
                 }
             },
             EmbedderMsg::WebViewFocused(webview_id) => {
+                // Block Logic: Iterates through all WebViews to set focus state.
+                // Invariant: Each WebView is processed to update its focused status.
                 for id in self.webviews.borrow().keys() {
                     if let Some(webview) = self.get_webview_handle(*id) {
                         let focused = webview.id() == webview_id;
@@ -758,6 +921,8 @@ impl Servo {
                 }
             },
             EmbedderMsg::WebViewBlurred => {
+                // Block Logic: Iterates through all WebViews to clear focus state.
+                // Invariant: Each WebView is processed to clear its focused status.
                 for id in self.webviews.borrow().keys() {
                     if let Some(webview) = self.get_webview_handle(*id) {
                         webview.set_focused(false);
@@ -765,6 +930,8 @@ impl Servo {
                 }
             },
             EmbedderMsg::AllowUnload(webview_id, response_sender) => {
+                // Block Logic: Requests permission to unload a WebView.
+                // Invariant: The WebView with `webview_id` must be active.
                 if let Some(webview) = self.get_webview_handle(webview_id) {
                     let request = AllowOrDenyRequest {
                         response_sender,
@@ -775,6 +942,8 @@ impl Servo {
                 }
             },
             EmbedderMsg::Keyboard(webview_id, keyboard_event) => {
+                // Block Logic: Notifies the specified WebView delegate of a keyboard event.
+                // Invariant: The WebView with `webview_id` must be active.
                 if let Some(webview) = self.get_webview_handle(webview_id) {
                     webview
                         .delegate()
@@ -782,11 +951,15 @@ impl Servo {
                 }
             },
             EmbedderMsg::ClearClipboard(webview_id) => {
+                // Block Logic: Clears the clipboard via the specified WebView's clipboard delegate.
+                // Invariant: The WebView with `webview_id` must be active.
                 if let Some(webview) = self.get_webview_handle(webview_id) {
                     webview.clipboard_delegate().clear(webview);
                 }
             },
             EmbedderMsg::GetClipboardText(webview_id, result_sender) => {
+                // Block Logic: Requests clipboard text via the specified WebView's clipboard delegate.
+                // Invariant: The WebView with `webview_id` must be active.
                 if let Some(webview) = self.get_webview_handle(webview_id) {
                     webview
                         .clipboard_delegate()
@@ -794,26 +967,36 @@ impl Servo {
                 }
             },
             EmbedderMsg::SetClipboardText(webview_id, string) => {
+                // Block Logic: Sets clipboard text via the specified WebView's clipboard delegate.
+                // Invariant: The WebView with `webview_id` must be active.
                 if let Some(webview) = self.get_webview_handle(webview_id) {
                     webview.clipboard_delegate().set_text(webview, string);
                 }
             },
             EmbedderMsg::SetCursor(webview_id, cursor) => {
+                // Block Logic: Sets the cursor for the specified WebView.
+                // Invariant: The WebView with `webview_id` must be active.
                 if let Some(webview) = self.get_webview_handle(webview_id) {
                     webview.set_cursor(cursor);
                 }
             },
             EmbedderMsg::NewFavicon(webview_id, url) => {
+                // Block Logic: Sets the favicon URL for the specified WebView.
+                // Invariant: The WebView with `webview_id` must be active.
                 if let Some(webview) = self.get_webview_handle(webview_id) {
                     webview.set_favicon_url(url.into_url());
                 }
             },
             EmbedderMsg::NotifyLoadStatusChanged(webview_id, load_status) => {
+                // Block Logic: Notifies the specified WebView of a load status change.
+                // Invariant: The WebView with `webview_id` must be active.
                 if let Some(webview) = self.get_webview_handle(webview_id) {
                     webview.set_load_status(load_status);
                 }
             },
             EmbedderMsg::HistoryChanged(webview_id, urls, current_index) => {
+                // Block Logic: Notifies the specified WebView delegate of a history change.
+                // Invariant: The WebView with `webview_id` must be active.
                 if let Some(webview) = self.get_webview_handle(webview_id) {
                     let urls: Vec<_> = urls.into_iter().map(ServoUrl::into_url).collect();
                     let current_url = urls[current_index].clone();
@@ -825,6 +1008,8 @@ impl Servo {
                 }
             },
             EmbedderMsg::NotifyFullscreenStateChanged(webview_id, fullscreen) => {
+                // Block Logic: Notifies the specified WebView delegate of a fullscreen state change.
+                // Invariant: The WebView with `webview_id` must be active.
                 if let Some(webview) = self.get_webview_handle(webview_id) {
                     webview
                         .delegate()
@@ -836,6 +1021,8 @@ impl Servo {
                 web_resource_request,
                 response_sender,
             ) => {
+                // Block Logic: Intercepts web resource requests via the WebView delegate or Servo delegate.
+                // Invariant: The WebView (if specified) and Servo must be active.
                 let webview = webview_id.and_then(|webview_id| self.get_webview_handle(webview_id));
                 if let Some(webview) = webview.clone() {
                     webview.delegate().intercept_web_resource_load(
@@ -852,6 +1039,8 @@ impl Servo {
                 );
             },
             EmbedderMsg::Panic(webview_id, reason, backtrace) => {
+                // Block Logic: Notifies the specified WebView delegate of a crash.
+                // Invariant: The WebView with `webview_id` must be active.
                 if let Some(webview) = self.get_webview_handle(webview_id) {
                     webview
                         .delegate()
@@ -859,6 +1048,8 @@ impl Servo {
                 }
             },
             EmbedderMsg::GetSelectedBluetoothDevice(webview_id, items, response_sender) => {
+                // Block Logic: Displays a Bluetooth device selection dialog via the WebView delegate.
+                // Invariant: The WebView with `webview_id` must be active.
                 if let Some(webview) = self.get_webview_handle(webview_id) {
                     webview.delegate().show_bluetooth_device_dialog(
                         webview,
@@ -873,6 +1064,8 @@ impl Servo {
                 allow_select_multiple,
                 response_sender,
             ) => {
+                // Block Logic: Displays a file selection dialog via the WebView delegate.
+                // Invariant: The WebView with `webview_id` must be active.
                 if let Some(webview) = self.get_webview_handle(webview_id) {
                     webview.delegate().show_file_selection_dialog(
                         webview,
@@ -883,6 +1076,8 @@ impl Servo {
                 }
             },
             EmbedderMsg::RequestAuthentication(webview_id, url, for_proxy, response_sender) => {
+                // Block Logic: Requests authentication via the specified WebView delegate.
+                // Invariant: The WebView with `webview_id` must be active.
                 let authentication_request = AuthenticationRequest {
                     url: url.into_url(),
                     for_proxy,
@@ -896,6 +1091,8 @@ impl Servo {
                 }
             },
             EmbedderMsg::PromptPermission(webview_id, requested_feature, response_sender) => {
+                // Block Logic: Prompts for permission via the specified WebView delegate.
+                // Invariant: The WebView with `webview_id` must be active.
                 if let Some(webview) = self.get_webview_handle(webview_id) {
                     let permission_request = PermissionRequest {
                         requested_feature,
@@ -911,6 +1108,8 @@ impl Servo {
                 }
             },
             EmbedderMsg::ShowIME(webview_id, input_method_type, text, multiline, position) => {
+                // Block Logic: Shows IME via the specified WebView delegate.
+                // Invariant: The WebView with `webview_id` must be active.
                 if let Some(webview) = self.get_webview_handle(webview_id) {
                     webview.delegate().show_ime(
                         webview,
@@ -922,12 +1121,16 @@ impl Servo {
                 }
             },
             EmbedderMsg::HideIME(webview_id) => {
+                // Block Logic: Hides IME via the specified WebView delegate.
+                // Invariant: The WebView with `webview_id` must be active.
                 if let Some(webview) = self.get_webview_handle(webview_id) {
                     webview.delegate().hide_ime(webview);
                 }
             },
             EmbedderMsg::ReportProfile(_items) => {},
             EmbedderMsg::MediaSessionEvent(webview_id, media_session_event) => {
+                // Block Logic: Notifies the specified WebView delegate of a media session event.
+                // Invariant: The WebView with `webview_id` must be active.
                 if let Some(webview) = self.get_webview_handle(webview_id) {
                     webview
                         .delegate()
@@ -943,6 +1146,8 @@ impl Servo {
                     .notify_error(self, ServoError::DevtoolsFailedToStart),
             },
             EmbedderMsg::RequestDevtoolsConnection(response_sender) => {
+                // Block Logic: Requests a DevTools connection via the Servo delegate.
+                // Invariant: Servo must be active.
                 self.delegate().request_devtools_connection(
                     self,
                     AllowOrDenyRequest {
@@ -958,6 +1163,8 @@ impl Servo {
                 gamepad_haptic_effect_type,
                 ipc_sender,
             ) => {
+                // Block Logic: Plays a gamepad haptic effect via the specified WebView delegate.
+                // Invariant: The WebView with `webview_id` must be active.
                 if let Some(webview) = self.get_webview_handle(webview_id) {
                     webview.delegate().play_gamepad_haptic_effect(
                         webview,
@@ -968,6 +1175,8 @@ impl Servo {
                 }
             },
             EmbedderMsg::StopGamepadHapticEffect(webview_id, gamepad_index, ipc_sender) => {
+                // Block Logic: Stops a gamepad haptic effect via the specified WebView delegate.
+                // Invariant: The WebView with `webview_id` must be active.
                 if let Some(webview) = self.get_webview_handle(webview_id) {
                     webview.delegate().stop_gamepad_haptic_effect(
                         webview,
@@ -980,6 +1189,13 @@ impl Servo {
     }
 }
 
+/// Creates a pair of channels for communication with the embedder.
+///
+/// # Arguments
+/// * `event_loop_waker` - A `Box<dyn EventLoopWaker>` to wake up the event loop.
+///
+/// Post-condition: A `(EmbedderProxy, Receiver<EmbedderMsg>)` tuple is returned,
+/// providing the sender and receiver for embedder messages.
 fn create_embedder_channel(
     event_loop_waker: Box<dyn EventLoopWaker>,
 ) -> (EmbedderProxy, Receiver<EmbedderMsg>) {
@@ -993,6 +1209,16 @@ fn create_embedder_channel(
     )
 }
 
+/// Creates a pair of channels for communication with the compositor.
+///
+/// This sets up a cross-process communication channel for compositor messages,
+/// utilizing `ipc_channel` and routing messages through `ROUTER`.
+///
+/// # Arguments
+/// * `event_loop_waker` - A `Box<dyn EventLoopWaker>` to wake up the event loop.
+///
+/// Post-condition: A `(CompositorProxy, CompositorReceiver)` tuple is returned,
+/// providing the sender and receiver for compositor messages, including cross-process APIs.
 fn create_compositor_channel(
     event_loop_waker: Box<dyn EventLoopWaker>,
 ) -> (CompositorProxy, CompositorReceiver) {
@@ -1021,6 +1247,15 @@ fn create_compositor_channel(
     (compositor_proxy, CompositorReceiver { receiver })
 }
 
+/// Determines and returns the appropriate layout factory based on the `legacy_layout` flag.
+///
+/// # Arguments
+/// * `legacy_layout` - A boolean indicating whether to use the legacy layout engine.
+///
+/// Pre-condition: If `legacy_layout` is true, the `layout_2013` feature must be enabled
+/// at compile time.
+/// Post-condition: An `Arc<dyn LayoutFactory>` is returned, providing an instance of
+/// either `layout_thread_2013::LayoutFactoryImpl` or `layout_thread_2020::LayoutFactoryImpl`.
 fn get_layout_factory(legacy_layout: bool) -> Arc<dyn LayoutFactory> {
     cfg_if::cfg_if! {
         if #[cfg(feature = "layout_2013")] {
@@ -1029,7 +1264,7 @@ fn get_layout_factory(legacy_layout: bool) -> Arc<dyn LayoutFactory> {
             }
         } else {
             if legacy_layout {
-                panic!("Runtime option `legacy_layout` was enabled, but the `layout_2013` \
+                panic!("Runtime option `legacy_layout` was enabled, but the `layout_2013` 
                 feature was not enabled at compile time! ");
            }
         }
@@ -1037,6 +1272,32 @@ fn get_layout_factory(legacy_layout: bool) -> Arc<dyn LayoutFactory> {
     Arc::new(layout_thread_2020::LayoutFactoryImpl())
 }
 
+/// Creates and initializes the `Constellation`, Servo's central coordination unit.
+///
+/// This function sets up all the necessary channels and initial state for the
+/// `Constellation` to manage various Servo components, including communication
+/// with the embedder, compositor, profilers, DevTools, and resource threads.
+///
+/// # Arguments
+/// * `user_agent` - The user agent string for Servo.
+/// * `config_dir` - Optional path to the configuration directory.
+/// * `embedder_proxy` - A proxy for communicating with the embedder.
+/// * `compositor_proxy` - A proxy for communicating with the compositor.
+/// * `time_profiler_chan` - Channel for time profiling data.
+/// * `mem_profiler_chan` - Channel for memory profiling data.
+/// * `devtools_sender` - Optional sender for DevTools control messages.
+/// * `webrender_document` - The `DocumentId` for WebRender.
+/// * `webrender_api_sender` - Sender for WebRender API commands.
+/// * `webxr_registry` - WebXR registry instance (if feature enabled).
+/// * `webgl_threads` - Optional `WebGLThreads` instance.
+/// * `initial_window_size` - The initial size of the top-level window.
+/// * `external_images` - External image registry for WebRender.
+/// * `wgpu_image_map` - WGPU image map (if feature enabled).
+/// * `protocols` - Custom protocol handlers.
+///
+/// Pre-condition: All input parameters are valid and configured.
+/// Post-condition: A `Sender<ConstellationMsg>` is returned, providing a channel
+/// to communicate with the newly started `Constellation` thread.
 #[allow(clippy::too_many_arguments)]
 fn create_constellation(
     user_agent: Cow<'static, str>,
@@ -1122,8 +1383,13 @@ fn create_constellation(
     )
 }
 
-// A logger that logs to two downstream loggers.
-// This should probably be in the log crate.
+/// A custom logger that multiplexes log messages to two underlying loggers.
+/// This is useful for sending logs to both a standard output (e.g., console)
+/// and an internal component (e.g., Constellation).
+///
+/// # Type Parameters
+/// * `Log1` - The first logger type.
+/// * `Log2` - The second logger type.
 struct BothLogger<Log1, Log2>(Log1, Log2);
 
 impl<Log1, Log2> Log for BothLogger<Log1, Log2>
@@ -1131,21 +1397,35 @@ where
     Log1: Log,
     Log2: Log,
 {
+    /// Checks if logging is enabled for the given metadata in either logger.
     fn enabled(&self, metadata: &Metadata) -> bool {
         self.0.enabled(metadata) || self.1.enabled(metadata)
     }
 
+    /// Logs a record to both underlying loggers.
     fn log(&self, record: &Record) {
         self.0.log(record);
         self.1.log(record);
     }
 
+    /// Flushes both underlying loggers.
     fn flush(&self) {
         self.0.flush();
         self.1.flush();
     }
 }
 
+/// Sets up the global logger for content processes.
+///
+/// This function configures `env_logger` and a `FromScriptLogger` to route
+/// log messages from script threads to the `Constellation`.
+///
+/// # Arguments
+/// * `script_to_constellation_chan` - A `ScriptToConstellationChan` for sending
+/// log messages to the `Constellation`.
+///
+/// Post-condition: The global logger is configured to forward script-generated
+/// log messages to the `Constellation` and to the environment logger.
 pub fn set_logger(script_to_constellation_chan: ScriptToConstellationChan) {
     let con_logger = FromScriptLogger::new(script_to_constellation_chan);
     let env = env_logger::Env::default();
@@ -1158,7 +1438,20 @@ pub fn set_logger(script_to_constellation_chan: ScriptToConstellationChan) {
     log::set_max_level(filter);
 }
 
-/// Content process entry point.
+/// The entry point for content processes in a multi-process Servo setup.
+///
+/// This function is responsible for:
+/// - Establishing IPC communication with the main Servo process.
+/// - Setting up configuration options and preferences.
+/// - Initializing sandboxing if enabled.
+/// - Initializing the JavaScript engine.
+/// - Starting either a pipeline or a service worker.
+///
+/// # Arguments
+/// * `token` - A string token used to establish IPC connection with the main process.
+///
+/// Pre-condition: `token` is a valid IPC connection token.
+/// Post-condition: The content process is initialized and starts its designated role (pipeline or service worker).
 pub fn run_content_process(token: String) {
     let (unprivileged_content_sender, unprivileged_content_receiver) =
         ipc::channel::<UnprivilegedContent>().unwrap();
@@ -1201,6 +1494,13 @@ pub fn run_content_process(token: String) {
     }
 }
 
+/// Creates and activates a sandboxed environment for content processes.
+///
+/// This function is enabled for Linux (x86_64) and other non-Windows/iOS/Android ARM targets
+/// and utilizes `gaol` for sandboxing.
+///
+/// Pre-condition: The necessary sandboxing libraries are available.
+/// Post-condition: A child sandbox is created and activated, confining the content process.
 #[cfg(all(
     not(target_os = "windows"),
     not(target_os = "ios"),
@@ -1215,6 +1515,13 @@ fn create_sandbox() {
         .expect("Failed to activate sandbox!");
 }
 
+/// Placeholder for `create_sandbox` on unsupported platforms.
+///
+/// This function panics if called on platforms where sandboxing is not supported
+/// (Windows, iOS, ARM targets, Android).
+///
+/// Pre-condition: None.
+/// Post-condition: Panics if called, indicating sandboxing is not available.
 #[cfg(any(
     target_os = "windows",
     target_os = "ios",
@@ -1227,18 +1534,32 @@ fn create_sandbox() {
     panic!("Sandboxing is not supported on Windows, iOS, ARM targets and android.");
 }
 
+/// Enumerates the different types of user agents that Servo can emulate.
 enum UserAgent {
+    /// A desktop user agent.
     Desktop,
+    /// An Android mobile user agent.
     Android,
+    /// An OpenHarmony mobile user agent.
     OpenHarmony,
+    /// An iOS mobile user agent.
     #[allow(non_camel_case_types)]
     iOS,
 }
 
+/// Returns the current version string of Servo.
+///
+/// Post-condition: A static string slice containing the Cargo package version is returned.
 fn get_servo_version() -> &'static str {
     env!("CARGO_PKG_VERSION")
 }
 
+/// Generates a default user agent string based on the specified `UserAgent` type and platform.
+///
+/// # Arguments
+/// * `agent` - The `UserAgent` type for which to generate the string.
+///
+/// Post-condition: A `String` containing the appropriate user agent string is returned.
 fn default_user_agent_string_for(agent: UserAgent) -> String {
     let servo_version = get_servo_version();
 
@@ -1283,14 +1604,18 @@ fn default_user_agent_string_for(agent: UserAgent) -> String {
     }
 }
 
+/// The default user agent for Android.
 #[cfg(target_os = "android")]
 const DEFAULT_USER_AGENT: UserAgent = UserAgent::Android;
 
+/// The default user agent for OpenHarmony.
 #[cfg(target_env = "ohos")]
 const DEFAULT_USER_AGENT: UserAgent = UserAgent::OpenHarmony;
 
+/// The default user agent for iOS.
 #[cfg(target_os = "ios")]
 const DEFAULT_USER_AGENT: UserAgent = UserAgent::iOS;
 
+/// The default user agent for desktop platforms (non-Android, non-iOS, non-OpenHarmony).
 #[cfg(not(any(target_os = "android", target_os = "ios", target_env = "ohos")))]
 const DEFAULT_USER_AGENT: UserAgent = UserAgent::Desktop;

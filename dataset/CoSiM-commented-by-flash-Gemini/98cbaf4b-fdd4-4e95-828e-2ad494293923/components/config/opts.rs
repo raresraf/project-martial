@@ -1,9 +1,11 @@
+//! This module defines the global configuration options for the Servo application,
+//! which are typically parsed from command-line arguments. It includes structs
+//! for general options (`Opts`) and debug-specific options (`DebugOptions`),
+//! along with mechanisms to set and retrieve these options globally.
+
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
-
-//! Configuration options for a single run of the servo application. Created
-//! from command line arguments.
 
 use std::default::Default;
 use std::path::PathBuf;
@@ -13,6 +15,8 @@ use serde::{Deserialize, Serialize};
 use servo_url::ServoUrl;
 
 /// Global flags for Servo, currently set on the command line.
+/// This struct holds all the configurable options that control the behavior
+/// of a single run of the Servo application.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Opts {
     /// Whether or not Servo should wait for web content to go into an idle state, therefore
@@ -47,6 +51,7 @@ pub struct Opts {
     /// won't be loaded
     pub userscripts: Option<String>,
 
+    /// User-defined stylesheets to be applied to web content.
     pub user_stylesheets: Vec<(Vec<u8>, ServoUrl)>,
 
     /// True to exit on thread failure instead of displaying about:failure.
@@ -104,7 +109,9 @@ pub struct Opts {
     pub print_pwm: bool,
 }
 
-/// Debug options for Servo, currently set on the command line with -Z
+/// Debug options for Servo, currently set on the command line with -Z.
+/// These options provide granular control over various debugging features
+/// and diagnostic outputs.
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct DebugOptions {
     /// List all the debug options.
@@ -157,6 +164,14 @@ pub struct DebugOptions {
 }
 
 impl DebugOptions {
+    /// Extends the current `DebugOptions` based on a comma-separated string of options.
+    ///
+    /// # Arguments
+    /// * `debug_string` - A string containing debug options (e.g., "help,dump-style-tree").
+    ///
+    /// Pre-condition: `debug_string` contains valid comma-separated debug option names.
+    /// Post-condition: The corresponding boolean fields in `DebugOptions` are set to `true`.
+    /// Returns `Ok(())` on success, or `Err(String)` if an unknown option is encountered.
     pub fn extend(&mut self, debug_string: String) -> Result<(), String> {
         for option in debug_string.split(',') {
             match option {
@@ -184,14 +199,19 @@ impl DebugOptions {
     }
 }
 
+/// Enumerates the possible output options for profiling data.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum OutputOptions {
-    /// Database connection config (hostname, name, user, pass)
+    /// Specifies a file path for output.
     FileName(String),
+    /// Specifies standard output with a given interval in seconds.
     Stdout(f64),
 }
 
 impl Default for Opts {
+    /// Provides the default configuration options for Servo.
+    ///
+    /// Post-condition: A new `Opts` instance with default values is returned.
     fn default() -> Self {
         Self {
             wait_for_stable_image: false,
@@ -227,10 +247,20 @@ impl Default for Opts {
 // when passing through the DOM structures.
 static OPTIONS: LazyLock<RwLock<Opts>> = LazyLock::new(|| RwLock::new(Opts::default()));
 
+/// Sets the global Servo options.
+///
+/// # Arguments
+/// * `opts` - The `Opts` instance to set globally.
+///
+/// Pre-condition: None.
+/// Post-condition: The global `OPTIONS` `RwLock` is updated with the new `opts`.
 pub fn set_options(opts: Opts) {
     *OPTIONS.write().unwrap() = opts;
 }
 
+/// Retrieves a read guard to the global Servo options.
+///
+/// Post-condition: A `RwLockReadGuard` providing immutable access to the global `Opts` is returned.
 #[inline]
 pub fn get() -> RwLockReadGuard<'static, Opts> {
     OPTIONS.read().unwrap()

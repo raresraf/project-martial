@@ -1,3 +1,9 @@
+//! This module provides tracing utilities for logging messages that are sent to the
+//! Constellation from various Servo components such as the compositor, script threads,
+//! and layout engine. It defines a `LogTarget` trait to dynamically determine
+//! the appropriate log target for different message types, enabling fine-grained
+//! control and filtering of tracing output.
+
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -41,8 +47,10 @@ macro_rules! trace_layout_msg {
     };
 }
 
-/// Get the log target for an event, as a static string.
+/// `LogTarget` is a trait that provides a method to determine the static log target string
+/// for an event. This is used to dynamically categorize log messages for filtering and analysis.
 pub(crate) trait LogTarget {
+    /// Returns the static log target string for the implementing type.
     fn log_target(&self) -> &'static str;
 }
 
@@ -57,6 +65,8 @@ mod from_compositor {
         };
     }
 
+    /// Implements `LogTarget` for `compositing_traits::ConstellationMsg`, providing
+    /// specific log targets based on the message variant from the compositor.
     impl LogTarget for compositing_traits::ConstellationMsg {
         fn log_target(&self) -> &'static str {
             match self {
@@ -93,6 +103,8 @@ mod from_compositor {
         }
     }
 
+    /// Implements `LogTarget` for `embedder_traits::InputEvent`, providing
+    /// specific log targets based on the input event variant.
     impl LogTarget for InputEvent {
         fn log_target(&self) -> &'static str {
             macro_rules! target_variant {
@@ -125,6 +137,8 @@ mod from_script {
         };
     }
 
+    /// Implements `LogTarget` for `script_traits::ScriptMsg`, providing
+    /// specific log targets based on the message variant from script threads.
     impl LogTarget for script_traits::ScriptMsg {
         fn log_target(&self) -> &'static str {
             match self {
@@ -190,6 +204,8 @@ mod from_script {
         }
     }
 
+    /// Implements `LogTarget` for `embedder_traits::EmbedderMsg`, providing
+    /// specific log targets based on the embedder message variant.
     impl LogTarget for embedder_traits::EmbedderMsg {
         fn log_target(&self) -> &'static str {
             macro_rules! target_variant {
@@ -262,6 +278,8 @@ mod from_layout {
         };
     }
 
+    /// Implements `LogTarget` for `script_traits::LayoutMsg`, providing
+    /// specific log targets based on the message variant from the layout thread.
     impl LogTarget for script_traits::LayoutMsg {
         fn log_target(&self) -> &'static str {
             match self {

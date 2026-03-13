@@ -2,6 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
+//! This module defines the core traits, enums, and structs that facilitate
+//! communication between the Servo engine and its embedding application (the "embedder").
+//! It establishes the interface for embedder-specific functionalities such as
+//! event handling, UI prompts, resource requests, and various browser-level
+//! notifications. The types defined here enable a clean separation of concerns,
+//! allowing Servo to be integrated into diverse host environments.
+
 pub mod input_events;
 pub mod resources;
 
@@ -26,8 +33,11 @@ pub use crate::input_events::*;
 /// or has finished shutting down.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ShutdownState {
+    /// Servo is operating normally and is not in a shutdown state.
     NotShuttingDown,
+    /// Servo has begun the shutdown process.
     ShuttingDown,
+    /// Servo has completed its shutdown and is no longer active.
     FinishedShuttingDown,
 }
 
@@ -74,27 +84,53 @@ pub enum Cursor {
 }
 
 #[cfg(feature = "webxr")]
+/// `EventLoopWaker` is a trait that allows waking up the main event loop from another thread.
+/// This is used for WebXR-specific functionalities when the `webxr` feature is enabled.
 pub use webxr_api::MainThreadWaker as EventLoopWaker;
 #[cfg(not(feature = "webxr"))]
+/// `EventLoopWaker` is a trait that allows waking up the main event loop from another thread.
+///
+/// This trait provides a mechanism for other threads to signal the main event loop
+/// that there are pending events to be processed, ensuring responsiveness.
 pub trait EventLoopWaker: 'static + Send {
+    /// Clones the `EventLoopWaker` into a boxed trait object.
+    ///
+    /// Post-condition: A new `Box<dyn EventLoopWaker>` is returned, allowing for
+    /// multiple independent wakers to be created.
     fn clone_box(&self) -> Box<dyn EventLoopWaker>;
+    /// Wakes up the associated event loop.
+    ///
+    /// Post-condition: The event loop is signaled to process pending events.
     fn wake(&self);
 }
 
 #[cfg(not(feature = "webxr"))]
 impl Clone for Box<dyn EventLoopWaker> {
+    /// Clones a boxed `EventLoopWaker`.
+    ///
+    /// Post-condition: A new `Box<dyn EventLoopWaker>` is returned, representing a clone
+    /// of the original waker.
     fn clone(&self) -> Self {
         EventLoopWaker::clone_box(self.as_ref())
     }
 }
 
-/// Sends messages to the embedder.
+/// `EmbedderProxy` provides a mechanism for Servo to send messages to the embedding application.
 pub struct EmbedderProxy {
+    /// The sender half of a channel used to send `EmbedderMsg` to the embedder.
     pub sender: Sender<EmbedderMsg>,
+    /// A waker used to signal the embedder's event loop when a message is sent.
     pub event_loop_waker: Box<dyn EventLoopWaker>,
 }
 
 impl EmbedderProxy {
+    /// Sends an `EmbedderMsg` to the embedder and then wakes up the embedder's event loop.
+    ///
+    /// # Arguments
+    /// * `message` - The `EmbedderMsg` to be sent.
+    ///
+    /// Post-condition: The `message` is sent to the embedder's channel, and its event loop
+    /// is awakened. A warning is logged if the message fails to send.
     pub fn send(&self, message: EmbedderMsg) {
         // Send a message and kick the OS event loop awake.
         if let Err(err) = self.sender.send(message) {
@@ -105,6 +141,10 @@ impl EmbedderProxy {
 }
 
 impl Clone for EmbedderProxy {
+    /// Creates a new `EmbedderProxy` that shares the same sender and event loop waker.
+    ///
+    /// Post-condition: A new `EmbedderProxy` instance is returned, which is a clone
+    /// of the original.
     fn clone(&self) -> EmbedderProxy {
         EmbedderProxy {
             sender: self.sender.clone(),
@@ -113,23 +153,29 @@ impl Clone for EmbedderProxy {
     }
 }
 
+/// `ContextMenuResult` enumerates the possible outcomes when a context menu is displayed.
 #[derive(Deserialize, Serialize)]
 pub enum ContextMenuResult {
+    /// The context menu was dismissed by the user without making a selection.
     Dismissed,
+    /// The user interacted with the context menu, but the action was ignored.
     Ignored,
+    /// An item at the specified index was selected from the context menu.
     Selected(usize),
 }
 
+/// `PromptDefinition` describes the type and content of a prompt to be displayed to the user.
 #[derive(Deserialize, Serialize)]
 pub enum PromptDefinition {
-    /// Show a message.
+    /// A simple alert message with an "OK" button.
     Alert(String, IpcSender<()>),
-    /// Ask a Ok/Cancel question.
+    /// A confirmation dialog with "OK" and "Cancel" buttons, returning a `PromptResult`.
     OkCancel(String, IpcSender<PromptResult>),
-    /// Ask the user to enter text.
+    /// An input dialog that allows the user to enter text, with an initial value.
     Input(String, String, IpcSender<Option<String>>),
 }
 
+/// `AuthenticationResponse` holds the username and password for HTTP authentication requests.
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct AuthenticationResponse {
     /// Username for http request authentication
@@ -138,52 +184,60 @@ pub struct AuthenticationResponse {
     pub password: String,
 }
 
+/// `PromptOrigin` indicates whether a prompt originated from trusted Servo code or untrusted web content.
 #[derive(Deserialize, PartialEq, Serialize)]
 pub enum PromptOrigin {
-    /// Prompt is triggered from content (window.prompt/alert/confirm/…).
-    /// Prompt message is unknown.
+    /// The prompt was triggered by untrusted content (e.g., `window.prompt`, `alert`, `confirm`).
+    /// The message content is assumed to be potentially malicious.
     Untrusted,
-    /// Prompt is triggered from Servo (ask for permission, show error,…).
+    /// The prompt was triggered by trusted Servo code (e.g., asking for permissions, showing errors).
+    /// The message content is considered safe.
     Trusted,
 }
 
+/// `PromptResult` indicates the user's interaction with a prompt dialog.
 #[derive(Deserialize, PartialEq, Serialize)]
 pub enum PromptResult {
-    /// Prompt was closed by clicking on the primary button (ok/yes)
+    /// The user clicked the primary action button (e.g., "OK", "Yes").
     Primary,
-    /// Prompt was closed by clicking on the secondary button (cancel/no)
+    /// The user clicked the secondary action button (e.g., "Cancel", "No").
     Secondary,
-    /// Prompt was dismissed
+    /// The prompt was dismissed without a specific action (e.g., closing the dialog).
     Dismissed,
 }
 
-/// A response to a request to allow or deny an action.
+/// `AllowOrDeny` is a simple enum used to represent a binary choice: allow or deny an action.
 #[derive(Clone, Copy, Deserialize, PartialEq, Serialize)]
 pub enum AllowOrDeny {
+    /// The action is allowed.
     Allow,
+    /// The action is denied.
     Deny,
 }
 
+/// `EmbedderMsg` defines the types of messages that Servo can send to its embedding application.
+/// These messages inform the embedder about various browser events, UI requests,
+/// and status updates.
 #[derive(Deserialize, Serialize)]
 pub enum EmbedderMsg {
-    /// A status message to be displayed by the browser chrome.
+    /// A status message to be displayed by the browser chrome (e.g., in the status bar).
     Status(WebViewId, Option<String>),
     /// Alerts the embedder that the current page has changed its title.
     ChangePageTitle(WebViewId, Option<String>),
-    /// Move the window to a point
+    /// Requests the embedder to move the window to a specific point.
     MoveTo(WebViewId, DeviceIntPoint),
-    /// Resize the window to size
+    /// Requests the embedder to resize the window to a specific size.
     ResizeTo(WebViewId, DeviceIntSize),
-    /// Show dialog to user
+    /// Requests the embedder to display a UI prompt to the user.
     Prompt(WebViewId, PromptDefinition, PromptOrigin),
-    /// Request authentication for a load or navigation from the embedder.
+    /// Requests authentication from the embedder for a load or navigation.
     RequestAuthentication(
         WebViewId,
         ServoUrl,
         bool, /* for proxy */
         IpcSender<Option<AuthenticationResponse>>,
     ),
-    /// Show a context menu to the user
+    /// Requests the embedder to show a context menu.
     ShowContextMenu(
         WebViewId,
         IpcSender<ContextMenuResult>,
@@ -192,58 +246,56 @@ pub enum EmbedderMsg {
     ),
     /// Whether or not to allow a pipeline to load a url.
     AllowNavigationRequest(WebViewId, PipelineId, ServoUrl),
-    /// Whether or not to allow script to open a new tab/browser
+    /// Whether or not to allow script to open a new tab/browser.
     AllowOpeningWebView(WebViewId, IpcSender<Option<WebViewId>>),
-    /// A webview was created.
+    /// Notifies the embedder that a new webview was created.
     WebViewOpened(WebViewId),
-    /// A webview was destroyed.
+    /// Notifies the embedder that a webview was destroyed.
     WebViewClosed(WebViewId),
-    /// A webview gained focus for keyboard events.
+    /// Notifies the embedder that a webview gained focus for keyboard events.
     WebViewFocused(WebViewId),
-    /// All webviews lost focus for keyboard events.
+    /// Notifies the embedder that all webviews lost focus for keyboard events.
     WebViewBlurred,
-    /// Wether or not to unload a document
+    /// Requests the embedder whether to allow a document to unload.
     AllowUnload(WebViewId, IpcSender<AllowOrDeny>),
-    /// Sends an unconsumed key event back to the embedder.
+    /// Sends an unconsumed keyboard event back to the embedder.
     Keyboard(WebViewId, KeyboardEvent),
-    /// Inform embedder to clear the clipboard
+    /// Instructs the embedder to clear the system clipboard.
     ClearClipboard(WebViewId),
-    /// Gets system clipboard contents
+    /// Requests the system clipboard contents from the embedder.
     GetClipboardText(WebViewId, IpcSender<Result<String, String>>),
-    /// Sets system clipboard contents
+    /// Instructs the embedder to set the system clipboard contents.
     SetClipboardText(WebViewId, String),
-    /// Changes the cursor.
+    /// Requests the embedder to change the mouse cursor.
     SetCursor(WebViewId, Cursor),
-    /// A favicon was detected
+    /// Notifies the embedder that a new favicon was detected.
     NewFavicon(WebViewId, ServoUrl),
-    /// The history state has changed.
+    /// Notifies the embedder that the history state has changed for a webview.
     HistoryChanged(WebViewId, Vec<ServoUrl>, usize),
-    /// Entered or exited fullscreen.
+    /// Notifies the embedder that the fullscreen state of a webview has changed.
     NotifyFullscreenStateChanged(WebViewId, bool),
-    /// The [`LoadStatus`] of the Given `WebView` has changed.
+    /// Notifies the embedder that the `LoadStatus` of the given `WebView` has changed.
     NotifyLoadStatusChanged(WebViewId, LoadStatus),
+    /// Requests a web resource from the embedder.
     WebResourceRequested(
         Option<WebViewId>,
         WebResourceRequest,
         IpcSender<WebResourceResponseMsg>,
     ),
-    /// A pipeline panicked. First string is the reason, second one is the backtrace.
+    /// Notifies the embedder that a pipeline panicked, providing a reason and optional backtrace.
     Panic(WebViewId, String, Option<String>),
-    /// Open dialog to select bluetooth device.
+    /// Requests the embedder to open a dialog to select a Bluetooth device.
     GetSelectedBluetoothDevice(WebViewId, Vec<String>, IpcSender<Option<String>>),
-    /// Open file dialog to select files. Set boolean flag to true allows to select multiple files.
+    /// Requests the embedder to open a file dialog to select files.
     SelectFiles(
         WebViewId,
         Vec<FilterPattern>,
         bool,
         IpcSender<Option<Vec<PathBuf>>>,
     ),
-    /// Open interface to request permission specified by prompt.
+    /// Requests the embedder to prompt for a specific permission.
     PromptPermission(WebViewId, PermissionFeature, IpcSender<AllowOrDeny>),
-    /// Request to present an IME to the user when an editable element is focused.
-    /// If the input is text, the second parameter defines the pre-existing string
-    /// text content and the zero-based index into the string locating the insertion point.
-    /// bool is true for multi-line and false otherwise.
+    /// Requests the embedder to present an Input Method Editor (IME) to the user.
     ShowIME(
         WebViewId,
         InputMethodType,
@@ -251,28 +303,31 @@ pub enum EmbedderMsg {
         bool,
         DeviceIntRect,
     ),
-    /// Request to hide the IME when the editable element is blurred.
+    /// Requests the embedder to hide the Input Method Editor (IME).
     HideIME(WebViewId),
-    /// Report a complete sampled profile
+    /// Reports a complete sampled profile to the embedder.
     ReportProfile(Vec<u8>),
-    /// Notifies the embedder about media session events
-    /// (i.e. when there is metadata for the active media session, playback state changes...).
+    /// Notifies the embedder about media session events.
     MediaSessionEvent(WebViewId, MediaSessionEvent),
-    /// Report the status of Devtools Server with a token that can be used to bypass the permission prompt.
+    /// Reports the status of the DevTools Server (started or failed) to the embedder.
     OnDevtoolsStarted(Result<u16, ()>, String),
-    /// Ask the user to allow a devtools client to connect.
+    /// Requests the user's permission for a DevTools client to connect.
     RequestDevtoolsConnection(IpcSender<AllowOrDeny>),
-    /// Request to play a haptic effect on a connected gamepad.
+    /// Requests the embedder to play a haptic effect on a connected gamepad.
     PlayGamepadHapticEffect(WebViewId, usize, GamepadHapticEffectType, IpcSender<bool>),
-    /// Request to stop a haptic effect on a connected gamepad.
+    /// Requests the embedder to stop a haptic effect on a connected gamepad.
     StopGamepadHapticEffect(WebViewId, usize, IpcSender<bool>),
     /// Informs the embedder that the constellation has completed shutdown.
-    /// Required because the constellation can have pending calls to make
-    /// (e.g. SetFrameTree) at the time that we send it an ExitMsg.
     ShutdownComplete,
 }
 
 impl Debug for EmbedderMsg {
+    /// Formats the `EmbedderMsg` for debugging purposes.
+    ///
+    /// # Arguments
+    /// * `f` - A mutable reference to the `Formatter`.
+    ///
+    /// Post-condition: The message is written to the formatter in a human-readable format.
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
         match *self {
             EmbedderMsg::Status(..) => write!(f, "Status"),
@@ -325,18 +380,26 @@ impl Debug for EmbedderMsg {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct FilterPattern(pub String);
 
+/// `MediaMetadata` represents the metadata of currently playing media.
+///
 /// <https://w3c.github.io/mediasession/#mediametadata>
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct MediaMetadata {
-    /// Title
+    /// Title of the media.
     pub title: String,
-    /// Artist
+    /// Artist of the media.
     pub artist: String,
-    /// Album
+    /// Album of the media.
     pub album: String,
 }
 
 impl MediaMetadata {
+    /// Creates a new `MediaMetadata` instance with a given title and empty artist/album.
+    ///
+    /// # Arguments
+    /// * `title` - The title of the media.
+    ///
+    /// Post-condition: A new `MediaMetadata` struct is returned.
     pub fn new(title: String) -> Self {
         Self {
             title,
@@ -346,6 +409,8 @@ impl MediaMetadata {
     }
 }
 
+/// `MediaSessionPlaybackState` defines the playback state of a media session.
+///
 /// <https://w3c.github.io/mediasession/#enumdef-mediasessionplaybackstate>
 #[repr(i32)]
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -358,15 +423,28 @@ pub enum MediaSessionPlaybackState {
     Paused,
 }
 
+/// `MediaPositionState` represents the current position state of media playback.
+///
 /// <https://w3c.github.io/mediasession/#dictdef-mediapositionstate>
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct MediaPositionState {
+    /// The duration of the media in seconds.
     pub duration: f64,
+    /// The current playback rate (e.g., 1.0 for normal speed).
     pub playback_rate: f64,
+    /// The current position of the playback in seconds.
     pub position: f64,
 }
 
 impl MediaPositionState {
+    /// Creates a new `MediaPositionState` instance.
+    ///
+    /// # Arguments
+    /// * `duration` - The total duration of the media.
+    /// * `playback_rate` - The current playback speed.
+    /// * `position` - The current playback position.
+    ///
+    /// Post-condition: A new `MediaPositionState` struct is returned.
     pub fn new(duration: f64, playback_rate: f64, position: f64) -> Self {
         Self {
             duration,
@@ -376,18 +454,20 @@ impl MediaPositionState {
     }
 }
 
-/// Type of events sent from script to the embedder about the media session.
+/// `MediaSessionEvent` defines the types of events related to media sessions that can be sent from script to the embedder.
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum MediaSessionEvent {
-    /// Indicates that the media metadata is available.
+    /// Indicates that the media metadata is available or has changed.
     SetMetadata(MediaMetadata),
-    /// Indicates that the playback state has changed.
+    /// Indicates that the playback state (playing, paused, etc.) has changed.
     PlaybackStateChange(MediaSessionPlaybackState),
-    /// Indicates that the position state is set.
+    /// Indicates that the position state (duration, playback rate, current position) has been set or updated.
     SetPositionState(MediaPositionState),
 }
 
-/// Enum with variants that match the DOM PermissionName enum
+/// `PermissionFeature` enumerates the different types of permissions that can be requested by web content.
+///
+/// This enum's variants match the DOM `PermissionName` enum.
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub enum PermissionFeature {
     Geolocation,
@@ -403,8 +483,9 @@ pub enum PermissionFeature {
     PersistentStorage,
 }
 
-/// Used to specify the kind of input method editor appropriate to edit a field.
-/// This is a subset of htmlinputelement::InputType because some variants of InputType
+/// `InputMethodType` specifies the kind of input method editor appropriate for editing a field.
+///
+/// This is a subset of `htmlinputelement::InputType` because some variants of `InputType`
 /// don't make sense in this context.
 #[derive(Debug, Deserialize, Serialize)]
 pub enum InputMethodType {
@@ -423,41 +504,66 @@ pub enum InputMethodType {
     Week,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+/// `DualRumbleEffectParams` holds parameters for a dual-rumble haptic effect on a gamepad.
+///
 /// <https://w3.org/TR/gamepad/#dom-gamepadhapticeffecttype-dual-rumble>
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct DualRumbleEffectParams {
+    /// The duration of the effect in seconds.
     pub duration: f64,
+    /// The start delay of the effect in seconds.
     pub start_delay: f64,
+    /// The magnitude of the strong rumble motor (normalized to 0.0-1.0).
     pub strong_magnitude: f64,
+    /// The magnitude of the weak rumble motor (normalized to 0.0-1.0).
     pub weak_magnitude: f64,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+/// `GamepadHapticEffectType` enumerates the different types of haptic effects supported by gamepads.
+///
 /// <https://w3.org/TR/gamepad/#dom-gamepadhapticeffecttype>
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum GamepadHapticEffectType {
+    /// A dual-rumble effect with specified parameters.
     DualRumble(DualRumbleEffectParams),
 }
 
+/// `WebResourceRequest` encapsulates a web resource request, including its method, headers, and URL.
 #[derive(Clone, Debug, Deserialize, MallocSizeOf, Serialize)]
 pub struct WebResourceRequest {
+    /// The HTTP method of the request (e.g., GET, POST).
     #[serde(
         deserialize_with = "::hyper_serde::deserialize",
         serialize_with = "::hyper_serde::serialize"
     )]
     #[ignore_malloc_size_of = "Defined in hyper"]
     pub method: Method,
+    /// The HTTP headers associated with the request.
     #[serde(
         deserialize_with = "::hyper_serde::deserialize",
         serialize_with = "::hyper_serde::serialize"
     )]
     #[ignore_malloc_size_of = "Defined in hyper"]
     pub headers: HeaderMap,
+    /// The URL of the requested resource.
     pub url: ServoUrl,
+    /// True if the request is for the main frame of a webview.
     pub is_for_main_frame: bool,
+    /// True if the request is a redirect.
     pub is_redirect: bool,
 }
 
 impl WebResourceRequest {
+    /// Creates a new `WebResourceRequest` instance.
+    ///
+    /// # Arguments
+    /// * `method` - The HTTP method.
+    /// * `headers` - The request headers.
+    /// * `url` - The request URL.
+    /// * `is_for_main_frame` - Whether it's for the main frame.
+    /// * `is_redirect` - Whether it's a redirect.
+    ///
+    /// Post-condition: A new `WebResourceRequest` struct is returned.
     pub fn new(
         method: Method,
         headers: HeaderMap,
@@ -475,42 +581,59 @@ impl WebResourceRequest {
     }
 }
 
+/// `WebResourceResponseMsg` defines messages related to web resource responses.
 #[derive(Clone, Deserialize, Serialize)]
 pub enum WebResourceResponseMsg {
-    // Response of WebResourceRequest, no body included.
+    /// The start of a web resource response, including the response headers and status.
     Start(WebResourceResponse),
-    // send a body chunk. It is expected Response sent before body.
+    /// A chunk of the response body.
     Body(HttpBodyData),
-    // not to override the response.
+    /// Instructs not to override the response, allowing the default behavior.
     None,
 }
 
+/// `HttpBodyData` represents a chunk of HTTP response body data or a completion/cancellation signal.
 #[derive(Clone, Deserialize, Serialize)]
 pub enum HttpBodyData {
+    /// A chunk of bytes from the HTTP response body.
     Chunk(Vec<u8>),
+    /// Signals that the entire HTTP response body has been sent.
     Done,
+    /// Signals that the HTTP response transfer was cancelled.
     Cancelled,
 }
 
+/// `WebResourceResponse` encapsulates a web resource response, including its URL, headers, and status code.
 #[derive(Clone, Debug, Deserialize, MallocSizeOf, Serialize)]
 pub struct WebResourceResponse {
+    /// The URL of the responded resource.
     pub url: ServoUrl,
+    /// The HTTP headers of the response.
     #[serde(
         deserialize_with = "::hyper_serde::deserialize",
         serialize_with = "::hyper_serde::serialize"
     )]
     #[ignore_malloc_size_of = "Defined in hyper"]
     pub headers: HeaderMap,
+    /// The HTTP status code of the response (e.g., 200 OK, 404 Not Found).
     #[serde(
         deserialize_with = "::hyper_serde::deserialize",
         serialize_with = "::hyper_serde::serialize"
     )]
     #[ignore_malloc_size_of = "Defined in hyper"]
     pub status_code: StatusCode,
+    /// The status message accompanying the status code (e.g., "OK").
     pub status_message: Vec<u8>,
 }
 
 impl WebResourceResponse {
+    /// Creates a new `WebResourceResponse` instance with default values.
+    ///
+    /// # Arguments
+    /// * `url` - The URL of the resource.
+    ///
+    /// Post-condition: A new `WebResourceResponse` is returned with an `OK` status
+    /// and no headers.
     pub fn new(url: ServoUrl) -> WebResourceResponse {
         WebResourceResponse {
             url,
@@ -520,40 +643,63 @@ impl WebResourceResponse {
         }
     }
 
+    /// Sets the HTTP headers for the `WebResourceResponse`.
+    ///
+    /// # Arguments
+    /// * `headers` - The `HeaderMap` to set.
+    ///
+    /// Post-condition: The response's headers are updated.
+    /// Returns `self` for chaining.
     pub fn headers(mut self, headers: HeaderMap) -> WebResourceResponse {
         self.headers = headers;
         self
     }
 
+    /// Sets the HTTP status code for the `WebResourceResponse`.
+    ///
+    /// # Arguments
+    /// * `status_code` - The `StatusCode` to set.
+    ///
+    /// Post-condition: The response's status code is updated.
+    /// Returns `self` for chaining.
     pub fn status_code(mut self, status_code: StatusCode) -> WebResourceResponse {
         self.status_code = status_code;
         self
     }
 
+    /// Sets the HTTP status message for the `WebResourceResponse`.
+    ///
+    /// # Arguments
+    /// * `status_message` - The status message bytes.
+    ///
+    /// Post-condition: The response's status message is updated.
+    /// Returns `self` for chaining.
     pub fn status_message(mut self, status_message: Vec<u8>) -> WebResourceResponse {
         self.status_message = status_message;
         self
     }
 }
 
-/// The direction of a history traversal
+/// `TraversalDirection` specifies the direction and amount for navigating through session history.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub enum TraversalDirection {
-    /// Travel forward the given number of documents.
+    /// Travel forward the given number of documents in history.
     Forward(usize),
-    /// Travel backward the given number of documents.
+    /// Travel backward the given number of documents in history.
     Back(usize),
 }
 
-/// The type of platform theme.
+/// `Theme` represents the type of platform theme preference (e.g., light or dark mode).
 #[derive(Clone, Copy, Debug, Deserialize, Eq, MallocSizeOf, PartialEq, Serialize)]
 pub enum Theme {
-    /// Light theme.
+    /// Light theme preference.
     Light,
-    /// Dark theme.
+    /// Dark theme preference.
     Dark,
 }
 // The type of MediaSession action.
+/// `MediaSessionActionType` enumerates actions that can be performed on a media session.
+///
 /// <https://w3c.github.io/mediasession/#enumdef-mediasessionaction>
 #[derive(Clone, Debug, Deserialize, Eq, Hash, MallocSizeOf, PartialEq, Serialize)]
 pub enum MediaSessionActionType {
@@ -582,7 +728,7 @@ pub enum MediaSessionActionType {
     SeekTo,
 }
 
-/// The status of the load in this `WebView`.
+/// `LoadStatus` describes the current loading status of a `WebView`'s document.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum LoadStatus {
     /// The load has started, but the headers have not yet been parsed.

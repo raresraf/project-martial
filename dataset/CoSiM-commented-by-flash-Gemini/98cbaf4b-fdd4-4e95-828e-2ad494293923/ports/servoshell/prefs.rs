@@ -2,6 +2,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
+//! This module is responsible for handling the parsing of command-line arguments
+//! and configuration files to establish Servo's preferences and operational options.
+//! It defines structures for `ServoShellPreferences`, `ArgumentParsingResult`,
+//! and provides the necessary logic for reading and interpreting various
+//! configuration parameters that influence Servo's behavior at runtime.
+//! This includes setting up debug options, profilers, user agent strings,
+//! and controlling layout engines.
+
 use std::collections::HashMap;
 use std::fs::{read_to_string, File};
 use std::io::Read;
@@ -18,6 +26,8 @@ use servo::servo_geometry::DeviceIndependentPixel;
 use servo::servo_url::ServoUrl;
 use url::Url;
 
+/// `ServoShellPreferences` stores command-line arguments and configuration options
+/// specific to the Servo shell, allowing customization of its behavior and appearance.
 #[cfg_attr(any(target_os = "android", target_env = "ohos"), allow(dead_code))]
 #[derive(Clone)]
 pub(crate) struct ServoShellPreferences {
@@ -57,6 +67,9 @@ pub(crate) struct ServoShellPreferences {
 }
 
 impl Default for ServoShellPreferences {
+    /// Provides the default configuration options for `ServoShellPreferences`.
+    ///
+    /// Post-condition: A new `ServoShellPreferences` instance with default values is returned.
     fn default() -> Self {
         Self {
             clean_shutdown: false,
@@ -76,6 +89,9 @@ impl Default for ServoShellPreferences {
     }
 }
 
+/// Returns the default configuration directory for Servo on Unix-like systems (excluding macOS, iOS, Android, OpenHarmony).
+///
+/// Post-condition: An `Option<PathBuf>` is returned, containing the path to `~/.config/servo/default` if available.
 #[cfg(all(
     unix,
     not(target_os = "macos"),
@@ -90,11 +106,17 @@ pub fn default_config_dir() -> Option<PathBuf> {
     Some(config_dir)
 }
 
+/// Returns `None` as the default configuration directory for Android and OpenHarmony.
+///
+/// Post-condition: Returns `None`, indicating no specific default config directory for these platforms.
 #[cfg(any(target_os = "android", target_env = "ohos"))]
 pub fn default_config_dir() -> Option<PathBuf> {
     None
 }
 
+/// Returns the default configuration directory for Servo on macOS.
+///
+/// Post-condition: An `Option<PathBuf>` is returned, containing the path to `~/Library/Application Support/Servo` if available.
 #[cfg(target_os = "macos")]
 pub fn default_config_dir() -> Option<PathBuf> {
     // FIXME: use `config_dir()` ($HOME/Library/Preferences)
@@ -104,6 +126,9 @@ pub fn default_config_dir() -> Option<PathBuf> {
     Some(config_dir)
 }
 
+/// Returns the default configuration directory for Servo on Windows.
+///
+/// Post-condition: An `Option<PathBuf>` is returned, containing the path to `%APPDATA%\Servo` if available.
 #[cfg(target_os = "windows")]
 pub fn default_config_dir() -> Option<PathBuf> {
     let mut config_dir = ::dirs::config_dir().unwrap();
@@ -111,9 +136,14 @@ pub fn default_config_dir() -> Option<PathBuf> {
     Some(config_dir)
 }
 
-/// Get a Servo [`Preferences`] to use when initializing Servo by first reading the user
-/// preferences file and then overriding these preferences with the ones from the `--prefs-file`
-/// command-line argument, if given.
+/// Retrieves Servo [`Preferences`] by reading user preference files and applying command-line overrides.
+///
+/// # Arguments
+/// * `opts_matches` - Command-line options parsed by `getopts`.
+/// * `config_dir` - An optional `PathBuf` specifying the configuration directory.
+///
+/// Post-condition: A `Preferences` object is returned, reflecting default, user-defined,
+/// and command-line overridden preferences.
 fn get_preferences(opts_matches: &Matches, config_dir: &Option<PathBuf>) -> Preferences {
     // Do not read any preferences files from the disk when testing as we do not want it
     // to throw off test results.
@@ -144,10 +174,24 @@ fn get_preferences(opts_matches: &Matches, config_dir: &Option<PathBuf>) -> Pref
     preferences
 }
 
+/// Reads a preference file from the given path and parses its content into a `HashMap`.
+///
+/// # Arguments
+/// * `path` - A reference to the path of the preference file.
+///
+/// Post-condition: A `HashMap<String, PrefValue>` is returned, containing the preferences.
+/// Panics if the file cannot be opened or read.
 fn read_prefs_file<P: AsRef<Path>>(path: P) -> HashMap<String, PrefValue> {
     read_prefs_map(&read_to_string(path).expect("Error opening user prefs"))
 }
 
+/// Parses a JSON string containing preferences into a `HashMap`.
+///
+/// # Arguments
+/// * `txt` - The JSON string to parse.
+///
+/// Post-condition: A `HashMap<String, PrefValue>` is returned, containing the preferences.
+/// Panics if the JSON string is not valid or if preference values cannot be converted.
 pub fn read_prefs_map(txt: &str) -> HashMap<String, PrefValue> {
     let prefs: HashMap<String, Value> = serde_json::from_str(txt)
         .map_err(|_| panic!("Could not parse preferences JSON"))
@@ -164,13 +208,29 @@ pub fn read_prefs_map(txt: &str) -> HashMap<String, PrefValue> {
         .collect()
 }
 
+/// `ArgumentParsingResult` represents the outcome of command-line argument parsing,
+/// distinguishing between a Chrome process and a Content process.
 #[allow(clippy::large_enum_variant)]
 #[cfg_attr(any(target_os = "android", target_env = "ohos"), allow(dead_code))]
 pub(crate) enum ArgumentParsingResult {
+    /// Arguments for a Chrome process, including general `Opts`, `Preferences`, and `ServoShellPreferences`.
     ChromeProcess(Opts, Preferences, ServoShellPreferences),
+    /// Arguments indicating that the application should run as a content process, with a connection token.
     ContentProcess(String),
 }
 
+/// Parses command-line arguments and returns an `ArgumentParsingResult`.
+///
+/// This function defines and parses a wide range of command-line options
+/// to configure various aspects of Servo, including logging, profiling,
+/// debugging, and windowing.
+///
+/// # Arguments
+/// * `args` - A vector of command-line argument strings.
+///
+/// Post-condition: An `ArgumentParsingResult` is returned, indicating whether
+/// the process should run as a Chrome or Content process, along with its
+/// parsed configuration. Exits the process on invalid arguments or help/version flags.
 pub(crate) fn parse_command_line_arguments(args: Vec<String>) -> ArgumentParsingResult {
     let (app_name, args) = args.split_first().unwrap();
 
@@ -179,7 +239,7 @@ pub(crate) fn parse_command_line_arguments(args: Vec<String>) -> ArgumentParsing
     opts.optopt(
         "o",
         "output",
-        "Path to an output image. The format of the image is determined by the extension. \
+        "Path to an output image. The format of the image is determined by the extension. 
          Supports all formats that `rust-image` does.",
         "output.png",
     );
@@ -187,9 +247,9 @@ pub(crate) fn parse_command_line_arguments(args: Vec<String>) -> ArgumentParsing
     opts.optflagopt(
         "p",
         "profile",
-        "Time profiler flag and either a TSV output filename \
+        "Time profiler flag and either a TSV output filename 
          OR an interval for output to Stdout (blank for Stdout with interval of 5s)",
-        "10 \
+        "10 
          OR time.tsv",
     );
     opts.optflagopt(
@@ -374,11 +434,13 @@ pub(crate) fn parse_command_line_arguments(args: Vec<String>) -> ArgumentParsing
         Err(f) => args_fail(&f.to_string()),
     };
 
+    // Block Logic: Checks for version display flag and exits if present.
     if opt_match.opt_present("v") || opt_match.opt_present("version") {
         println!("{}", crate::servo_version());
         process::exit(0);
     }
 
+    // Block Logic: Checks for help display flag and exits if present.
     if opt_match.opt_present("h") || opt_match.opt_present("help") {
         print_usage(app_name, &opts);
         process::exit(0);
@@ -401,17 +463,20 @@ pub(crate) fn parse_command_line_arguments(args: Vec<String>) -> ArgumentParsing
     };
 
     let mut debug_options = DebugOptions::default();
+    // Block Logic: Iterates through debug options from command line and extends `debug_options`.
+    // Invariant: Each valid debug option is applied, or an error is reported for unrecognized options.
     for debug_string in opt_match.opt_strs("Z") {
         if let Err(e) = debug_options.extend(debug_string) {
             args_fail(&format!("error: unrecognized debug option: {}", e));
         }
     }
 
+    // Block Logic: Prints debug options usage if requested.
     if debug_options.help {
         print_debug_options_usage(app_name);
     }
 
-    // If only the flag is present, default to a 5 second period for both profilers
+    // Block Logic: Parses and sets time profiling options.
     let time_profiling = if opt_match.opt_present("p") {
         match opt_match.opt_str("p") {
             Some(argument) => match argument.parse::<f64>() {
@@ -428,6 +493,7 @@ pub(crate) fn parse_command_line_arguments(args: Vec<String>) -> ArgumentParsing
         None
     };
 
+    // Block Logic: Handles `profiler-trace-path` option, creating directories if necessary.
     if let Some(ref time_profiler_trace_path) = opt_match.opt_str("profiler-trace-path") {
         let mut path = PathBuf::from(time_profiler_trace_path);
         path.pop();
@@ -440,12 +506,14 @@ pub(crate) fn parse_command_line_arguments(args: Vec<String>) -> ArgumentParsing
         }
     }
 
+    // Block Logic: Parses and sets memory profiler period.
     let mem_profiler_period = opt_match.opt_default("m", "5").map(|period| {
         period
             .parse()
             .unwrap_or_else(|err| args_fail(&format!("Error parsing option: -m ({})", err)))
     });
 
+    // Block Logic: Parses and sets layout thread count.
     let layout_threads: Option<usize> = opt_match.opt_str("y").map(|layout_threads_str| {
         layout_threads_str
             .parse()
@@ -454,6 +522,7 @@ pub(crate) fn parse_command_line_arguments(args: Vec<String>) -> ArgumentParsing
 
     let nonincremental_layout = opt_match.opt_present("i");
 
+    // Block Logic: Parses and sets random pipeline closure probability.
     let random_pipeline_closure_probability = opt_match
         .opt_str("random-pipeline-closure-probability")
         .map(|prob| {
@@ -465,6 +534,7 @@ pub(crate) fn parse_command_line_arguments(args: Vec<String>) -> ArgumentParsing
             })
         });
 
+    // Block Logic: Parses and sets random pipeline closure seed.
     let random_pipeline_closure_seed =
         opt_match
             .opt_str("random-pipeline-closure-seed")
@@ -477,6 +547,7 @@ pub(crate) fn parse_command_line_arguments(args: Vec<String>) -> ArgumentParsing
                 })
             });
 
+    // Block Logic: Parses and sets DevTools server options.
     if opt_match.opt_present("devtools") {
         let port = opt_match
             .opt_str("devtools")
@@ -490,12 +561,14 @@ pub(crate) fn parse_command_line_arguments(args: Vec<String>) -> ArgumentParsing
         preferences.devtools_server_port = port;
     }
 
+    // Block Logic: Parses and sets WebDriver port.
     let webdriver_port = opt_match.opt_default("webdriver", "7000").map(|port| {
         port.parse().unwrap_or_else(|err| {
             args_fail(&format!("Error parsing option: --webdriver ({})", err))
         })
     });
 
+    // Block Logic: Helper function to parse resolution strings (e.g., "1024x768").
     let parse_resolution_string = |string: String| {
         let components: Vec<u32> = string
             .split('x')
@@ -508,6 +581,7 @@ pub(crate) fn parse_command_line_arguments(args: Vec<String>) -> ArgumentParsing
         Size2D::new(components[0], components[1])
     };
 
+    // Block Logic: Parses and sets screen size override.
     let screen_size_override = opt_match
         .opt_str("screen-size")
         .map(parse_resolution_string);
@@ -522,6 +596,7 @@ pub(crate) fn parse_command_line_arguments(args: Vec<String>) -> ArgumentParsing
         .opt_str("window-size")
         .map_or(default_window_size, parse_resolution_string);
 
+    // Block Logic: Parses and loads user stylesheets.
     let user_stylesheets = opt_match
         .opt_strs("user-stylesheet")
         .iter()
@@ -539,6 +614,8 @@ pub(crate) fn parse_command_line_arguments(args: Vec<String>) -> ArgumentParsing
         .collect();
 
     // Handle all command-line preferences overrides.
+    // Block Logic: Applies command-line preference overrides.
+    // Invariant: Each "pref" argument is parsed and its value set in `preferences`.
     for pref in opt_match.opt_strs("pref") {
         let split: Vec<&str> = pref.splitn(2, '=').collect();
         let pref_name = split[0];
@@ -546,11 +623,13 @@ pub(crate) fn parse_command_line_arguments(args: Vec<String>) -> ArgumentParsing
         preferences.set_value(pref_name, pref_value);
     }
 
+    // Block Logic: Sets legacy layout preference if flag is present.
     let legacy_layout = opt_match.opt_present("legacy-layout");
     if legacy_layout {
         preferences.layout_legacy_layout = true;
     }
 
+    // Block Logic: Sets layout threads preference if specified.
     if let Some(layout_threads) = layout_threads {
         preferences.layout_threads = layout_threads as i64;
     }
@@ -564,6 +643,7 @@ pub(crate) fn parse_command_line_arguments(args: Vec<String>) -> ArgumentParsing
     });
 
     // If an output file is specified the device pixel ratio is always 1.
+    // Block Logic: Forces device pixel ratio to 1.0 if an output image path is specified.
     let output_image_path = opt_match.opt_str("o");
     if output_image_path.is_some() {
         device_pixel_ratio_override = Some(1.0);
@@ -576,6 +656,8 @@ pub(crate) fn parse_command_line_arguments(args: Vec<String>) -> ArgumentParsing
     };
 
     // FIXME: enable JIT compilation on 32-bit Android after the startup crash issue (#31134) is fixed.
+    // Block Logic: Disables JIT compilation on 32-bit Android due to known issues.
+    #[allow(clippy::absurd_extreme_comparisons)] // On 64-bit platforms, this warning is always triggered.
     if cfg!(target_os = "android") && cfg!(target_pointer_width = "32") {
         preferences.js_baseline_interpreter_enabled = false;
         preferences.js_baseline_jit_enabled = false;
@@ -596,9 +678,11 @@ pub(crate) fn parse_command_line_arguments(args: Vec<String>) -> ArgumentParsing
         screen_size_override,
         output_image_path,
         exit_after_stable_image: exit_after_load,
-        ..Default::default()
+        homepage: "https://servo.org".into(),     // Default, can be overridden by prefs-file
+        searchpage: "https://duckduckgo.com/html/?q=%s".into(), // Default, can be overridden by prefs-file
     };
 
+    // Block Logic: Disables GL video rendering in headless mode if enabled.
     if servoshell_preferences.headless && preferences.media_glvideo_enabled {
         warn!("GL video rendering is not supported on headless windows.");
         preferences.media_glvideo_enabled = false;
@@ -634,26 +718,50 @@ pub(crate) fn parse_command_line_arguments(args: Vec<String>) -> ArgumentParsing
     ArgumentParsingResult::ChromeProcess(opts, preferences, servoshell_preferences)
 }
 
+/// Prints an error message to stderr and exits the process with a non-zero status.
+///
+/// # Arguments
+/// * `msg` - The error message string to print.
+///
+/// Post-condition: The process terminates with an error.
 fn args_fail(msg: &str) -> ! {
     eprintln!("{}", msg);
     process::exit(1)
 }
 
+/// Prints the command-line usage information.
+///
+/// # Arguments
+/// * `app` - The name of the application (e.g., "servo").
+/// * `opts` - The `getopts::Options` instance containing defined command-line options.
+///
+/// Post-condition: The usage message is printed to stdout, and the process exits.
 fn print_usage(app: &str, opts: &Options) {
     let message = format!(
-        "Usage: {} [ options ... ] [URL]\n\twhere options include",
+        "Usage: {} [ options ... ] [URL]
+	where options include",
         app
     );
     println!("{}", opts.usage(&message));
 }
 
+/// Prints the usage information for debug options.
+///
+/// # Arguments
+/// * `app` - The name of the application.
+///
+/// Post-condition: A formatted list of available debug options is printed to stdout, and the process exits.
 fn print_debug_options_usage(app: &str) {
+    // Block Logic: Helper function to print individual debug options.
     fn print_option(name: &str, description: &str) {
-        println!("\t{:<35} {}", name, description);
+        println!("	{:<35} {}", name, description);
     }
 
     println!(
-        "Usage: {} debug option,[options,...]\n\twhere options include\n\nOptions:",
+        "Usage: {} debug option,[options,...]
+	where options include
+
+Options:",
         app
     );
 
@@ -730,6 +838,13 @@ fn print_debug_options_usage(app: &str) {
     process::exit(0)
 }
 
+/// Helper function for testing command-line preference parsing.
+///
+/// # Arguments
+/// * `arg` - The command-line argument string to parse (e.g., "dom_bluetooth_enabled=true").
+///
+/// Post-condition: A `Preferences` object is returned after parsing the argument.
+/// Panics if the argument is for a content process, as this is a test for Chrome process preferences.
 #[cfg(test)]
 fn test_parse_pref(arg: &str) -> Preferences {
     let args = vec!["servo".to_string(), "--pref".to_string(), arg.to_string()];
@@ -741,6 +856,7 @@ fn test_parse_pref(arg: &str) -> Preferences {
     }
 }
 
+/// Unit test for parsing boolean and numeric preferences from the command line.
 #[test]
 fn test_parse_pref_from_command_line() {
     // Test with boolean values.
@@ -763,6 +879,7 @@ fn test_parse_pref_from_command_line() {
     assert!(preferences.dom_bluetooth_enabled);
 }
 
+/// Unit test for handling invalid preferences from the command line, expecting a panic.
 #[test]
 fn test_invalid_prefs_from_command_line_panics() {
     let err_msg = std::panic::catch_unwind(|| {
@@ -772,17 +889,18 @@ fn test_invalid_prefs_from_command_line_panics() {
     .and_then(|a| a.downcast_ref::<String>().cloned())
     .expect("Should panic");
     assert_eq!(
-        err_msg, "Unknown preference: \"doesntexist\"",
+        err_msg, r#"Unknown preference: "doesntexist""#,
         "Message should describe the problem"
     )
 }
 
+/// Unit test for creating a preferences map from a JSON string.
 #[test]
 fn test_create_prefs_map() {
     let json_str = "{
-        \"layout.writing-mode.enabled\": true,
-        \"network.mime.sniff\": false,
-        \"shell.homepage\": \"https://servo.org\"
+        "layout.writing-mode.enabled": true,
+        "network.mime.sniff": false,
+        "shell.homepage": "https://servo.org"
     }";
     assert_eq!(read_prefs_map(json_str).len(), 3);
 }

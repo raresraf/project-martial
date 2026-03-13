@@ -24,7 +24,11 @@ import (
 	"k8s.io/kubernetes/pkg/scheduler/api"
 )
 
+// TestValidatePolicy tests the validation logic for the scheduler Policy object.
+// It uses a table-driven approach to cover various valid and invalid policy configurations.
 func TestValidatePolicy(t *testing.T) {
+	// testCases is a collection of scenarios, each with a policy configuration,
+	// an expected error, and a descriptive name.
 	tests := []struct {
 		policy   api.Policy
 		expected error
@@ -71,12 +75,12 @@ func TestValidatePolicy(t *testing.T) {
 			expected: nil,
 		},
 		{
-			name:     "valid preemt verb and urlprefix",
+			name:     "valid preempt verb and urlprefix",
 			policy:   api.Policy{ExtenderConfigs: []api.ExtenderConfig{{URLPrefix: "http://127.0.0.1:8081/extender", PreemptVerb: "preempt"}}},
 			expected: nil,
 		},
 		{
-			name: "invalid multiple extenders",
+			name: "invalid multiple extenders with bind verb",
 			policy: api.Policy{
 				ExtenderConfigs: []api.ExtenderConfig{
 					{URLPrefix: "http://127.0.0.1:8081/extender", BindVerb: "bind"},
@@ -85,7 +89,7 @@ func TestValidatePolicy(t *testing.T) {
 			expected: errors.New("Only one extender can implement bind, found 2"),
 		},
 		{
-			name: "invalid duplicate extender resource name",
+			name: "invalid duplicate extender managed resource name",
 			policy: api.Policy{
 				ExtenderConfigs: []api.ExtenderConfig{
 					{URLPrefix: "http://127.0.0.1:8081/extender", ManagedResources: []api.ExtenderManagedResource{{Name: "foo.com/bar"}}},
@@ -94,7 +98,7 @@ func TestValidatePolicy(t *testing.T) {
 			expected: errors.New("Duplicate extender managed resource name foo.com/bar"),
 		},
 		{
-			name: "invalid extended resource name",
+			name: "invalid extended resource name with reserved prefix",
 			policy: api.Policy{
 				ExtenderConfigs: []api.ExtenderConfig{
 					{URLPrefix: "http://127.0.0.1:8081/extender", ManagedResources: []api.ExtenderManagedResource{{Name: "kubernetes.io/foo"}}},
@@ -103,11 +107,16 @@ func TestValidatePolicy(t *testing.T) {
 		},
 	}
 
+	// This loop iterates through each test case.
+	// `t.Run` creates a sub-test for each case, allowing for clearer test output.
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			// Execute the function being tested.
 			actual := ValidatePolicy(test.policy)
+			// Compare the actual result with the expected result.
+			// Using fmt.Sprint handles nil errors gracefully for comparison.
 			if fmt.Sprint(test.expected) != fmt.Sprint(actual) {
-				t.Errorf("expected: %s, actual: %s", test.expected, actual)
+				t.Errorf("expected error: %s, but got: %s", test.expected, actual)
 			}
 		})
 	}

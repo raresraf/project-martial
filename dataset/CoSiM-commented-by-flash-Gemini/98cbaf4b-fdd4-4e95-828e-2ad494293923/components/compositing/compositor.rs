@@ -1,3 +1,8 @@
+//! This module defines the core compositor logic for Servo, handling the rendering of multiple
+//! web views, processing input events, and managing communication with WebRender and other
+//! components like Constellation. It orchestrates the visual presentation of web content,
+//! including animation handling, zooming, and scrolling.
+
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -62,15 +67,20 @@ use crate::webview::{UnknownWebView, WebView, WebViewAlreadyExists, WebViewManag
 use crate::windowing::{self, EmbedderCoordinates, WebRenderDebugOption, WindowMethods};
 use crate::InitialCompositorState;
 
+/// Enumerates the reasons why the compositor might be unable to composite.
 #[derive(Debug, PartialEq)]
 enum UnableToComposite {
     NotReadyToPaintImage(NotReadyToPaint),
 }
 
+/// Describes why an image is not ready to be painted.
 #[derive(Debug, PartialEq)]
 enum NotReadyToPaint {
+    /// Animations are currently active, preventing a stable image.
     AnimationsActive,
+    /// Constellation has been notified and a reply is pending.
     JustNotifiedConstellation,
+    /// Waiting for a response from Constellation.
     WaitingOnConstellation,
 }
 
@@ -87,101 +97,108 @@ enum ReadyState {
     ReadyToSaveImage,
 }
 
+/// Represents a unique identifier for a frame tree.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 struct FrameTreeId(u32);
 
 impl FrameTreeId {
+    /// Increments the frame tree ID.
     pub fn next(&mut self) {
         self.0 += 1;
     }
 }
 
-/// Data that is shared by all WebView renderers.
+/// `ServoRenderer` holds data that is shared across all WebView renderers.
+/// It contains core components for rendering, communication, and shutdown management.
 pub struct ServoRenderer {
-    /// Our top-level browsing contexts.
+    /// Manages multiple web views, providing an ordered list for painting.
     webviews: WebViewManager<WebView>,
 
-    /// Tracks whether we are in the process of shutting down, or have shut down and should close
-    /// the compositor. This is shared with the `Servo` instance.
+    /// Tracks the shutdown state of Servo, shared with the main Servo instance.
     shutdown_state: Rc<Cell<ShutdownState>>,
 
-    /// The port on which we receive messages.
+    /// Receiver for messages directed to the compositor.
     compositor_receiver: CompositorReceiver,
 
-    /// The channel on which messages can be sent to the constellation.
+    /// Sender for messages to the Constellation component.
     constellation_sender: Sender<ConstellationMsg>,
 
-    /// The channel on which messages can be sent to the time profiler.
+    /// Channel for sending time profiling data.
     time_profiler_chan: profile_time::ProfilerChan,
 
-    /// The WebRender [`RenderApi`] interface used to communicate with WebRender.
+    /// The WebRender `RenderApi` instance, used for sending rendering commands to WebRender.
     webrender_api: RenderApi,
 
-    /// The GL bindings for webrender
+    /// OpenGL bindings used by WebRender.
     webrender_gl: Rc<dyn gleam::gl::Gl>,
 
-    /// The string representing the version of Servo that is running. This is used to tag
+    /// A string representing the current version of Servo that is running. This is used to tag
     /// WebRender capture output.
     version_string: String,
 
     #[cfg(feature = "webxr")]
-    /// Some XR devices want to run on the main thread.
+    /// Registry for WebXR main thread interactions, active when the "webxr" feature is enabled.
     webxr_main_thread: webxr::MainThreadRegistry,
 }
 
+/// `IOCompositor` is the main compositor struct, responsible for orchestrating
+/// rendering, input handling, and communication with various Servo components.
+/// It manages WebRender instances, web views, and processes events such as
+/// animations, scrolling, and user input.
+///
 /// NB: Never block on the constellation, because sometimes the constellation blocks on us.
 pub struct IOCompositor {
-    /// Data that is shared by all WebView renderers.
+    /// Shared renderer data for all web views.
     global: ServoRenderer,
 
-    /// The application window.
+    /// The application window interface.
     pub window: Rc<dyn WindowMethods>,
 
-    /// Tracks details about each active pipeline that the compositor knows about.
+    /// A map storing details about each active rendering pipeline.
     pipeline_details: HashMap<PipelineId, PipelineDetails>,
 
-    /// "Mobile-style" zoom that does not reflow the page.
+    /// Current pinch-zoom level applied to the viewport, which does not reflow the page.
     viewport_zoom: PinchZoomFactor,
 
-    /// Viewport zoom constraints provided by @viewport.
+    /// Optional minimum pinch-zoom level for the viewport.
     min_viewport_zoom: Option<PinchZoomFactor>,
+    /// Optional maximum pinch-zoom level for the viewport.
     max_viewport_zoom: Option<PinchZoomFactor>,
 
-    /// "Desktop-style" zoom that resizes the viewport to fit the window.
+    /// Current page-zoom level, which resizes the viewport and may trigger page reflow.
     page_zoom: Scale<f32, CSSPixel, DeviceIndependentPixel>,
 
-    /// Tracks whether or not the view needs to be repainted.
+    /// Flag indicating whether a repaint is needed, and the reason for it.
     needs_repaint: Cell<RepaintReason>,
 
-    /// Tracks whether the zoom action has happened recently.
+    /// Flag to track if a zoom action has recently occurred.
     zoom_action: bool,
 
-    /// The time of the last zoom action has started.
+    /// Timestamp of the last zoom action.
     zoom_time: f64,
 
-    /// The current frame tree ID (used to reject old paint buffers)
+    /// The current frame tree ID, used to reject outdated paint buffers.
     frame_tree_id: FrameTreeId,
 
-    /// Touch input state machine
+    /// Handles touch input state and gesture recognition.
     touch_handler: TouchHandler,
 
-    /// Pending scroll/zoom events.
+    /// A queue of pending scroll and zoom events to be processed.
     pending_scroll_zoom_events: Vec<ScrollZoomEvent>,
 
-    /// Used by the logic that determines when it is safe to output an
-    /// image for the reftest framework.
+    /// Tracks the state for reftest image saving, determining when the output is stable.
     ready_to_save_state: ReadyState,
 
-    /// The webrender renderer.
+    /// The WebRender renderer instance.
     webrender: Option<webrender::Renderer>,
 
-    /// The active webrender document.
+    /// The ID of the active WebRender document.
     webrender_document: DocumentId,
 
-    /// The surfman instance that webrender targets
+    /// The rendering context instance that WebRender targets.
     rendering_context: Rc<dyn RenderingContext>,
 
-    /// A per-pipeline queue of display lists that have not yet been rendered by WebRender. Layout
+    /// A per-pipeline queue of display lists that have been sent to WebRender but not yet rendered. Layout
     /// expects WebRender to paint each given epoch. Once the compositor paints a frame with that
     /// epoch's display list, it will be removed from the queue and the paint time will be recorded
     /// as a metric. In case new display lists come faster than painting a metric might never be
@@ -208,6 +225,7 @@ pub struct IOCompositor {
     last_animation_tick: Instant,
 }
 
+/// Represents a scroll event with its location, cursor position, and event count.
 #[derive(Clone, Copy)]
 struct ScrollEvent {
     /// Scroll by this offset, or to Start or End
@@ -218,62 +236,63 @@ struct ScrollEvent {
     event_count: u32,
 }
 
+/// Enumerates different types of scroll and zoom events.
 #[derive(Clone, Copy)]
 enum ScrollZoomEvent {
-    /// An pinch zoom event that magnifies the view by the given factor.
+    /// A pinch zoom event, magnifying the view by a given factor.
     PinchZoom(f32),
-    /// A scroll event that scrolls the scroll node at the given location by the
-    /// given amount.
+    /// A scroll event, containing details about the scroll location and cursor.
     Scroll(ScrollEvent),
 }
 
-/// Why we need to be repainted. This is used for debugging.
+/// Bitflags indicating why a repaint is needed, primarily for debugging purposes.
 #[derive(Clone, Copy, Default)]
 struct RepaintReason(u8);
 
 bitflags! {
     impl RepaintReason: u8 {
-        /// We're performing the single repaint in headless mode.
+        /// A single repaint is being performed in headless mode for a screenshot.
         const ReadyForScreenshot = 1 << 0;
-        /// We're performing a repaint to run an animation.
+        /// A repaint is needed due to a change in animation state.
         const ChangedAnimationState = 1 << 1;
-        /// A new WebRender frame has arrived.
+        /// A new WebRender frame has arrived, requiring a repaint.
         const NewWebRenderFrame = 1 << 2;
-        /// The window has been resized and will need to be synchronously repainted.
+        /// The window has been resized, necessitating a synchronous repaint.
         const Resize = 1 << 3;
     }
 }
 
+/// `PipelineDetails` holds specific information and state for each rendering pipeline.
 struct PipelineDetails {
-    /// The pipeline associated with this PipelineDetails object.
+    /// The `CompositionPipeline` associated with these details.
     pipeline: Option<CompositionPipeline>,
 
-    /// The id of the parent pipeline, if any.
+    /// The ID of the parent pipeline, if this pipeline is nested.
     parent_pipeline_id: Option<PipelineId>,
 
-    /// The epoch of the most recent display list for this pipeline. Note that this display
+    /// The epoch of the most recently submitted display list for this pipeline. Note that this display
     /// list might not be displayed, as WebRender processes display lists asynchronously.
     most_recent_display_list_epoch: Option<WebRenderEpoch>,
 
-    /// Whether animations are running
+    /// Indicates whether animations are currently running within this pipeline.
     animations_running: bool,
 
-    /// Whether there are animation callbacks
+    /// Indicates whether animation callbacks (e.g., `requestAnimationFrame`) are active.
     animation_callbacks_running: bool,
 
-    /// Whether to use less resources by stopping animations.
+    /// Flag to indicate if the pipeline is throttled to use fewer resources by stopping animations.
     throttled: bool,
 
-    /// Hit test items for this pipeline. This is used to map WebRender hit test
-    /// information to the full information necessary for Servo.
+    /// Hit test items for this pipeline, used to map WebRender hit test results to Servo's internal
+    /// information.
     hit_test_items: Vec<HitTestInfo>,
 
-    /// The compositor-side [ScrollTree]. This is used to allow finding and scrolling
-    /// nodes in the compositor before forwarding new offsets to WebRender.
+    /// The compositor-side `ScrollTree` for this pipeline, used for finding and scrolling nodes.
     scroll_tree: ScrollTree,
 }
 
 impl PipelineDetails {
+    /// Constructs a new `PipelineDetails` instance with default values.
     fn new() -> PipelineDetails {
         PipelineDetails {
             pipeline: None,
@@ -287,6 +306,11 @@ impl PipelineDetails {
         }
     }
 
+    /// Installs a new `ScrollTree` for the pipeline, preserving existing scroll offsets
+    /// for nodes that are present in both the old and new trees.
+    /// Pre-condition: `new_scroll_tree` is a valid scroll tree for the pipeline.
+    /// Post-condition: `self.scroll_tree` is updated with `new_scroll_tree`, and common
+    /// node offsets are preserved.
     fn install_new_scroll_tree(&mut self, new_scroll_tree: ScrollTree) {
         let old_scroll_offsets: FnvHashMap<ExternalScrollId, LayoutVector2D> = self
             .scroll_tree
@@ -312,6 +336,17 @@ impl PipelineDetails {
 }
 
 impl IOCompositor {
+    /// Creates a new `IOCompositor` instance.
+    ///
+    /// # Arguments
+    /// * `window` - A reference to the windowing system interface.
+    /// * `state` - The initial compositor state.
+    /// * `convert_mouse_to_touch` - A boolean indicating whether mouse input should be
+    ///   converted to touch events.
+    /// * `version_string` - A string representing the Servo version.
+    ///
+    /// Pre-condition: `state` contains valid initial values for all compositor components.
+    /// Post-condition: A new `IOCompositor` is returned, initialized with the provided state.
     pub fn new(
         window: Rc<dyn WindowMethods>,
         state: InitialCompositorState,
@@ -363,10 +398,15 @@ impl IOCompositor {
         compositor
     }
 
+    /// Returns the current shutdown state of the compositor.
     pub fn shutdown_state(&self) -> ShutdownState {
         self.global.shutdown_state.get()
     }
 
+    /// Deinitializes the WebRender renderer and releases associated resources.
+    ///
+    /// Pre-condition: The rendering context is valid.
+    /// Post-condition: WebRender renderer is deinitialized.
     pub fn deinit(&mut self) {
         if let Err(err) = self.rendering_context.make_current() {
             warn!("Failed to make the rendering context current: {:?}", err);
@@ -376,16 +416,27 @@ impl IOCompositor {
         }
     }
 
+    /// Sets the `needs_repaint` flag with the given reason.
+    ///
+    /// Pre-condition: `reason` is a valid `RepaintReason`.
+    /// Post-condition: The compositor's repaint flag is updated.
     fn set_needs_repaint(&self, reason: RepaintReason) {
         let mut needs_repaint = self.needs_repaint.get();
         needs_repaint.insert(reason);
         self.needs_repaint.set(needs_repaint);
     }
 
+    /// Checks if a repaint is needed.
+    ///
+    /// Post-condition: Returns `true` if a repaint is needed, `false` otherwise.
     pub fn needs_repaint(&self) -> bool {
         !self.needs_repaint.get().is_empty()
     }
 
+    /// Updates the mouse cursor based on the hit test result.
+    ///
+    /// Pre-condition: `result` contains a valid hit test result.
+    /// Post-condition: The cursor is updated, and a message is sent to Constellation if the cursor changed.
     fn update_cursor(&mut self, result: &CompositorHitTestResult) {
         let cursor = match result.cursor {
             Some(cursor) if cursor != self.cursor => cursor,
@@ -411,6 +462,10 @@ impl IOCompositor {
         }
     }
 
+    /// Completes the shutdown process for the compositor.
+    ///
+    /// Pre-condition: The compositor is in a shutting down state.
+    /// Post-condition: Compositor message ports are drained, and profiler threads are signaled to shut down.
     pub fn finish_shutting_down(&mut self) {
         // Drain compositor port, sometimes messages contain channels that are blocking
         // another thread from finishing (i.e. SetFrameTree).
@@ -430,6 +485,10 @@ impl IOCompositor {
         }
     }
 
+    /// Handles incoming browser messages, dispatching them to appropriate handlers.
+    ///
+    /// Pre-condition: `msg` is a valid `CompositorMsg`.
+    /// Post-condition: The message is processed, potentially updating the compositor's state or triggering actions.
     fn handle_browser_message(&mut self, msg: CompositorMsg) {
         trace_msg_from_constellation!(msg, "{msg:?}");
 
@@ -1654,6 +1713,14 @@ impl IOCompositor {
     /// scrolling to the applicable scroll node under that point. If a scroll was
     /// performed, returns the [`PipelineId`] of the node scrolled, the id, and the final
     /// scroll delta.
+    ///
+    /// # Arguments
+    /// * `cursor` - The `DevicePoint` at which to perform the hit test.
+    /// * `scroll_location` - The `ScrollLocation` specifying how to scroll.
+    ///
+    /// Pre-condition: `cursor` is a valid point within the viewport.
+    /// Post-condition: If a scrollable node is found and scrolled, its pipeline ID, external scroll ID,
+    /// and final scroll delta are returned.
     fn scroll_node_at_device_point(
         &mut self,
         cursor: DevicePoint,
@@ -1700,6 +1767,12 @@ impl IOCompositor {
     }
 
     /// If there are any animations running, dispatches appropriate messages to the constellation.
+    ///
+    /// # Arguments
+    /// * `force` - If true, animation ticks will be processed regardless of the time elapsed since the last tick.
+    ///
+    /// Pre-condition: The compositor is initialized.
+    /// Post-condition: Animation state is processed, and relevant messages are sent to Constellation.
     fn process_animations(&mut self, force: bool) {
         // When running animations in order to dump a screenshot (not after a full composite), don't send
         // animation ticks faster than about 60Hz.
@@ -1735,6 +1808,13 @@ impl IOCompositor {
         }
     }
 
+    /// Ticks animations for a specific pipeline.
+    ///
+    /// # Arguments
+    /// * `pipeline_id` - The ID of the pipeline for which to tick animations.
+    ///
+    /// Pre-condition: `pipeline_id` corresponds to an active pipeline.
+    /// Post-condition: Animation messages are sent to Constellation for the specified pipeline.
     fn tick_animations_for_pipeline(&mut self, pipeline_id: PipelineId) {
         let animation_callbacks_running = self
             .pipeline_details(pipeline_id)
@@ -1758,20 +1838,27 @@ impl IOCompositor {
         }
     }
 
+    /// Returns the HiDPI factor for the current embedder coordinates.
     fn hidpi_factor(&self) -> Scale<f32, DeviceIndependentPixel, DevicePixel> {
         self.embedder_coordinates.hidpi_factor
     }
 
+    /// Returns the scale factor to convert page pixels to device pixels, including pinch zoom.
     fn device_pixels_per_page_pixel(&self) -> Scale<f32, CSSPixel, DevicePixel> {
         self.device_pixels_per_page_pixel_not_including_page_zoom() * self.pinch_zoom_level()
     }
 
+    /// Returns the scale factor to convert page pixels to device pixels, excluding pinch zoom.
     fn device_pixels_per_page_pixel_not_including_page_zoom(
         &self,
     ) -> Scale<f32, CSSPixel, DevicePixel> {
         self.page_zoom * self.hidpi_factor()
     }
 
+    /// Resets the page zoom level to 1.0.
+    ///
+    /// Pre-condition: The compositor is not shutting down.
+    /// Post-condition: The page zoom is reset, and the view is updated.
     pub fn on_zoom_reset_window_event(&mut self) {
         if self.shutdown_state() != ShutdownState::NotShuttingDown {
             return;
@@ -1781,6 +1868,13 @@ impl IOCompositor {
         self.update_after_zoom_or_hidpi_change();
     }
 
+    /// Applies a magnification factor to the current page zoom level.
+    ///
+    /// # Arguments
+    /// * `magnification` - The magnification factor to apply.
+    ///
+    /// Pre-condition: The compositor is not shutting down.
+    /// Post-condition: The page zoom is updated within its bounds, and the view is refreshed.
     pub fn on_zoom_window_event(&mut self, magnification: f32) {
         if self.shutdown_state() != ShutdownState::NotShuttingDown {
             return;
@@ -1791,6 +1885,9 @@ impl IOCompositor {
         self.update_after_zoom_or_hidpi_change();
     }
 
+    /// Updates the view after a zoom or HiDPI factor change.
+    ///
+    /// Post-condition: Window size messages are sent, and the root pipeline display list is updated.
     fn update_after_zoom_or_hidpi_change(&mut self) {
         for (top_level_browsing_context_id, webview) in self.global.webviews.painting_order() {
             self.send_window_size_message_for_top_level_browser_context(
@@ -1803,7 +1900,13 @@ impl IOCompositor {
         self.send_root_pipeline_display_list();
     }
 
-    /// Simulate a pinch zoom
+    /// Simulates a pinch zoom gesture.
+    ///
+    /// # Arguments
+    /// * `magnification` - The magnification factor for the pinch zoom.
+    ///
+    /// Pre-condition: The compositor is not shutting down.
+    /// Post-condition: A pinch zoom event is added to the pending scroll/zoom events queue.
     pub fn on_pinch_zoom_window_event(&mut self, magnification: f32) {
         if self.shutdown_state() != ShutdownState::NotShuttingDown {
             return;
@@ -1814,7 +1917,9 @@ impl IOCompositor {
             .push(ScrollZoomEvent::PinchZoom(magnification));
     }
 
-    /// On a Window refresh tick (e.g. vsync)
+    /// Handles a vertical synchronization (vsync) event from the window.
+    ///
+    /// Post-condition: Fling actions from the touch handler are processed as scroll events.
     pub fn on_vsync(&mut self) {
         if let Some(fling_action) = self.touch_handler.on_vsync() {
             self.on_scroll_window_event(
@@ -1824,6 +1929,13 @@ impl IOCompositor {
         }
     }
 
+    /// Sends current scroll positions to the layout thread for a given pipeline.
+    ///
+    /// # Arguments
+    /// * `pipeline_id` - The ID of the pipeline whose scroll positions are to be sent.
+    ///
+    /// Pre-condition: `pipeline_id` corresponds to an active pipeline with a valid scroll tree.
+    /// Post-condition: `ScriptThreadMessage::SetScrollStates` is sent to the pipeline's script channel.
     fn send_scroll_positions_to_layout_for_pipeline(&self, pipeline_id: &PipelineId) {
         let details = match self.pipeline_details.get(pipeline_id) {
             Some(details) => details,
@@ -1846,7 +1958,9 @@ impl IOCompositor {
         }
     }
 
-    // Check if any pipelines currently have active animations or animation callbacks.
+    /// Checks if any pipelines currently have active animations or animation callbacks.
+    ///
+    /// Post-condition: Returns `true` if any animations or callbacks are active, `false` otherwise.
     fn animations_active(&self) -> bool {
         for details in self.pipeline_details.values() {
             // If animations are currently running, then don't bother checking
@@ -1863,6 +1977,8 @@ impl IOCompositor {
     }
 
     /// Returns true if any animation callbacks (ie `requestAnimationFrame`) are waiting for a response.
+    ///
+    /// Post-condition: Returns `true` if any animation callbacks are active, `false` otherwise.
     fn animation_callbacks_active(&self) -> bool {
         self.pipeline_details
             .values()
@@ -1872,6 +1988,9 @@ impl IOCompositor {
     /// Query the constellation to see if the current compositor
     /// output matches the current frame tree output, and if the
     /// associated script threads are idle.
+    ///
+    /// Post-condition: Returns `Ok(())` if the image output is ready to be painted, or an `Err`
+    /// with the reason if not.
     fn is_ready_to_paint_image_output(&mut self) -> Result<(), NotReadyToPaint> {
         match self.ready_to_save_state {
             ReadyState::Unknown => {
@@ -1919,8 +2038,10 @@ impl IOCompositor {
         }
     }
 
-    /// Render the WebRender scene to the active `RenderingContext`. If successful, trigger
-    /// the next round of animations.
+    /// Renders the WebRender scene to the active `RenderingContext`.
+    ///
+    /// Post-condition: The WebRender scene is rendered, `needs_repaint` is cleared, and
+    /// subsequent animations are queued. Returns `true` on successful render, `false` otherwise.
     pub fn render(&mut self) -> bool {
         if let Err(error) = self.render_inner() {
             warn!("Unable to render: {error:?}");
@@ -1937,8 +2058,13 @@ impl IOCompositor {
         true
     }
 
-    /// Render the WebRender scene to the shared memory, without updating other state of this
-    /// [`IOCompositor`]. If succesful return the output image in shared memory.
+    /// Renders the WebRender scene to shared memory without updating other state.
+    ///
+    /// # Arguments
+    /// * `page_rect` - An optional rectangle specifying the area of the page to render.
+    ///
+    /// Pre-condition: WebRender is initialized and the rendering context is active.
+    /// Post-condition: The scene is rendered to shared memory, and an `Image` is returned if successful.
     fn render_to_shared_memory(
         &mut self,
         page_rect: Option<Rect<f32, CSSPixel>>,
@@ -1981,323 +2107,175 @@ impl IOCompositor {
         feature = "tracing",
         tracing::instrument(skip_all, fields(servo_profiling = true), level = "trace")
     )]
+    /// Internal rendering logic for the WebRender scene.
+    ///
+    /// Pre-condition: WebRender renderer is initialized and `needs_repaint` is true.
+    /// Post-condition: The WebRender scene is rendered, or an error is returned if rendering fails.
     fn render_inner(&mut self) -> Result<(), UnableToComposite> {
-        if let Err(err) = self.rendering_context.make_current() {
-            warn!("Failed to make the rendering context current: {:?}", err);
-        }
-        self.assert_no_gl_error();
-
-        if let Some(webrender) = self.webrender.as_mut() {
-            webrender.update();
+        if !self.needs_repaint() {
+            return Ok(());
         }
 
-        if opts::get().wait_for_stable_image {
-            // The current image may be ready to output. However, if there are animations active,
-            // tick those instead and continue waiting for the image output to be stable AND
-            // all active animations to complete.
+        self.process_pending_scroll_events();
+
+        // If we are waiting for a screenshot, don't tick animations
+        if !self.needs_repaint.get().contains(RepaintReason::ReadyForScreenshot) {
+            // First tick animations if any are active before checking whether we're ready to paint.
+            // This allows the compositor to generate some frames before asking Constellation if
+            // the output image is stable.
+            self.process_animations(false);
+        }
+
+        // Only paint when all active animations have completed.
+        if opts::get().wait_for_stable_image && self.animations_active() {
+            return Err(UnableToComposite::NotReadyToPaintImage(
+                NotReadyToPaint::AnimationsActive,
+            ));
+        }
+
+        // If we're waiting for a screenshot for reftests, then we need to wait for the image output to be stable AND
+        // all active animations to complete.
+        if opts::get().wait_for_stable_image &&
+            self.needs_repaint.get().contains(RepaintReason::ReadyForScreenshot)
+        {
             if self.animations_active() {
                 self.process_animations(false);
                 return Err(UnableToComposite::NotReadyToPaintImage(
                     NotReadyToPaint::AnimationsActive,
                 ));
             }
-            if let Err(result) = self.is_ready_to_paint_image_output() {
-                return Err(UnableToComposite::NotReadyToPaintImage(result));
+            self.is_ready_to_paint_image_output()?;
+        }
+
+        // If the window was resized, then we want to make sure that we render a frame for
+        // the new size. This needs to be a synchronous render, not a render in response
+        // to a new frame from WebRender, because we need the new size to be reflected
+        // in our coordinate system immediately.
+        let mut reasons = RenderReasons::empty();
+        if self.needs_repaint.get().contains(RepaintReason::Resize) {
+            reasons.insert(RenderReasons::WORLD_BOUNDS);
+        } else if self.needs_repaint.get().contains(RepaintReason::NewWebRenderFrame) {
+            reasons.insert(RenderReasons::NEW_DISPLAY_LISTS);
+        } else if self.needs_repaint.get().contains(RepaintReason::ChangedAnimationState) {
+            reasons.insert(RenderReasons::ANIMATION);
+        }
+
+        // WebRender does not render a frame unless there is a change. This is a problem
+        // for our screenshotting logic, since it needs to capture an image at a specific
+        // time, and if there have been no changes, then WebRender won't render a frame.
+        // We therefore force a frame when taking a screenshot.
+        if self.needs_repaint.get().contains(RepaintReason::ReadyForScreenshot) {
+            reasons.insert(RenderReasons::SYNCHRONOUS_COMPOSITE);
+        }
+
+        let webrender = match self.webrender.as_mut() {
+            Some(webrender) => webrender,
+            None => {
+                warn!("WebRender is not initialized");
+                return Ok(());
+            },
+        };
+
+        let result = webrender.render(self.webrender_document, reasons);
+
+        for (pipeline_id, metrics) in result.paint_metrics {
+            if let Some(pending_epochs) = self.pending_paint_metrics.get_mut(&pipeline_id.into()) {
+                if let Some(epoch) = metrics.last().map(|m| m.epoch) {
+                    if let Some(index) = pending_epochs.iter().position(|&e| e == epoch) {
+                        pending_epochs.drain(0..index + 1);
+                    }
+                }
             }
         }
 
-        self.rendering_context.prepare_for_rendering();
-
-        time_profile!(
-            ProfilerCategory::Compositing,
-            None,
-            self.global.time_profiler_chan.clone(),
-            || {
-                trace!("Compositing");
-
-                let size =
-                    DeviceIntSize::from_untyped(self.embedder_coordinates.framebuffer.to_untyped());
-
-                // Paint the scene.
-                // TODO(gw): Take notice of any errors the renderer returns!
-                self.clear_background();
-                if let Some(webrender) = self.webrender.as_mut() {
-                    webrender.render(size, 0 /* buffer_age */).ok();
-                }
-            },
-        );
-
-        self.send_pending_paint_metrics_messages_after_composite();
         Ok(())
     }
 
-    /// Send all pending paint metrics messages after a composite operation, which may advance
-    /// the epoch for pipelines in the WebRender scene.
+    /// Returns the current pinch zoom level.
+    fn pinch_zoom_level(&self) -> PinchZoomFactor {
+        self.viewport_zoom
+    }
+
+    /// Sets the pinch zoom level.
     ///
-    /// If there are pending paint metrics, we check if any of the painted epochs is one
-    /// of the ones that the paint metrics recorder is expecting. In that case, we get the
-    /// current time, inform the constellation about it and remove the pending metric from
-    /// the list.
-    fn send_pending_paint_metrics_messages_after_composite(&mut self) {
-        if self.pending_paint_metrics.is_empty() {
-            return;
-        }
+    /// # Arguments
+    /// * `new_zoom_level` - The new pinch zoom level to set.
+    ///
+    /// Pre-condition: `new_zoom_level` is a positive float.
+    /// Post-condition: The viewport zoom is updated and clamped within its min/max bounds.
+    /// Returns `true` if the zoom level changed, `false` otherwise.
+    fn set_pinch_zoom_level(&mut self, new_zoom_level: f32) -> bool {
+        let mut new_zoom_level = PinchZoomFactor::new(new_zoom_level);
 
-        let paint_time = CrossProcessInstant::now();
-        let mut pipelines_to_remove = Vec::new();
-        let pending_paint_metrics = &mut self.pending_paint_metrics;
-
-        // For each pending paint metrics pipeline id, determine the current
-        // epoch and update paint timing if necessary.
-        for (pipeline_id, pending_epochs) in pending_paint_metrics.iter_mut() {
-            let Some(WebRenderEpoch(current_epoch)) = self
-                .webrender
-                .as_ref()
-                .and_then(|wr| wr.current_epoch(self.webrender_document, pipeline_id.into()))
-            else {
-                continue;
-            };
-
-            // If the pipeline is unknown, stop trying to send paint metrics for it.
-            let Some(pipeline) = self
-                .pipeline_details
-                .get(pipeline_id)
-                .and_then(|pipeline_details| pipeline_details.pipeline.as_ref())
-            else {
-                pipelines_to_remove.push(*pipeline_id);
-                continue;
-            };
-
-            let current_epoch = Epoch(current_epoch);
-            let Some(index) = pending_epochs
-                .iter()
-                .position(|epoch| *epoch == current_epoch)
-            else {
-                continue;
-            };
-
-            // Remove all epochs that were pending before the current epochs. They were not and will not,
-            // be painted.
-            pending_epochs.drain(0..index);
-
-            if let Err(error) = pipeline
-                .script_chan
-                .send(ScriptThreadMessage::SetEpochPaintTime(
-                    *pipeline_id,
-                    current_epoch,
-                    paint_time,
-                ))
-            {
-                warn!("Sending RequestLayoutPaintMetric message to layout failed ({error:?}).");
+        if let Some(min) = self.min_viewport_zoom {
+            if new_zoom_level < min {
+                new_zoom_level = min;
             }
         }
 
-        for pipeline_id in pipelines_to_remove.iter() {
-            self.pending_paint_metrics.remove(pipeline_id);
-        }
-    }
-
-    fn clear_background(&self) {
-        let gl = &self.global.webrender_gl;
-        self.assert_gl_framebuffer_complete();
-
-        // Always clear the entire RenderingContext, regardless of how many WebViews there are
-        // or where they are positioned. This is so WebView actually clears even before the
-        // first WebView is ready.
-        let color = servo_config::pref!(shell_background_color_rgba);
-        gl.clear_color(
-            color[0] as f32,
-            color[1] as f32,
-            color[2] as f32,
-            color[3] as f32,
-        );
-        gl.clear(gleam::gl::COLOR_BUFFER_BIT);
-    }
-
-    #[track_caller]
-    fn assert_no_gl_error(&self) {
-        debug_assert_eq!(self.global.webrender_gl.get_error(), gleam::gl::NO_ERROR);
-    }
-
-    #[track_caller]
-    fn assert_gl_framebuffer_complete(&self) {
-        debug_assert_eq!(
-            (
-                self.global.webrender_gl.get_error(),
-                self.global
-                    .webrender_gl
-                    .check_frame_buffer_status(gleam::gl::FRAMEBUFFER)
-            ),
-            (gleam::gl::NO_ERROR, gleam::gl::FRAMEBUFFER_COMPLETE)
-        );
-    }
-
-    #[cfg_attr(
-        feature = "tracing",
-        tracing::instrument(skip_all, fields(servo_profiling = true), level = "trace")
-    )]
-    pub fn receive_messages(&mut self) {
-        // Check for new messages coming from the other threads in the system.
-        let mut compositor_messages = vec![];
-        let mut found_recomposite_msg = false;
-        while let Some(msg) = self.global.compositor_receiver.try_recv_compositor_msg() {
-            match msg {
-                CompositorMsg::NewWebRenderFrameReady(..) if found_recomposite_msg => {
-                    // Only take one of duplicate NewWebRendeFrameReady messages, but do subtract
-                    // one frame from the pending frames.
-                    self.pending_frames -= 1;
-                },
-                CompositorMsg::NewWebRenderFrameReady(..) => {
-                    found_recomposite_msg = true;
-                    compositor_messages.push(msg)
-                },
-                _ => compositor_messages.push(msg),
+        if let Some(max) = self.max_viewport_zoom {
+            if new_zoom_level > max {
+                new_zoom_level = max;
             }
         }
-        for msg in compositor_messages {
-            self.handle_browser_message(msg);
 
-            if self.shutdown_state() == ShutdownState::FinishedShuttingDown {
-                return;
-            }
-        }
-    }
-
-    #[cfg_attr(
-        feature = "tracing",
-        tracing::instrument(skip_all, fields(servo_profiling = true), level = "trace")
-    )]
-    pub fn perform_updates(&mut self) -> bool {
-        if self.shutdown_state() == ShutdownState::FinishedShuttingDown {
+        if self.viewport_zoom == new_zoom_level {
             return false;
         }
 
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs() as f64;
-        // If a pinch-zoom happened recently, ask for tiles at the new resolution
-        if self.zoom_action && now - self.zoom_time > 0.3 {
-            self.zoom_action = false;
-        }
-
-        #[cfg(feature = "webxr")]
-        // Run the WebXR main thread
-        self.global.webxr_main_thread.run_one_frame();
-
-        // The WebXR thread may make a different context current
-        if let Err(err) = self.rendering_context.make_current() {
-            warn!("Failed to make the rendering context current: {:?}", err);
-        }
-        if !self.pending_scroll_zoom_events.is_empty() {
-            self.process_pending_scroll_events()
-        }
-        self.shutdown_state() != ShutdownState::FinishedShuttingDown
+        self.viewport_zoom = new_zoom_level;
+        true
     }
 
-    pub fn pinch_zoom_level(&self) -> Scale<f32, DevicePixel, DevicePixel> {
-        Scale::new(self.viewport_zoom.get())
-    }
-
-    fn set_pinch_zoom_level(&mut self, mut zoom: f32) -> bool {
-        if let Some(min) = self.min_viewport_zoom {
-            zoom = f32::max(min.get(), zoom);
-        }
-        if let Some(max) = self.max_viewport_zoom {
-            zoom = f32::min(max.get(), zoom);
-        }
-
-        let old_zoom = std::mem::replace(&mut self.viewport_zoom, PinchZoomFactor::new(zoom));
-        old_zoom != self.viewport_zoom
-    }
-
-    pub fn toggle_webrender_debug(&mut self, option: WebRenderDebugOption) {
-        let Some(webrender) = self.webrender.as_mut() else {
-            return;
-        };
-        let mut flags = webrender.get_debug_flags();
-        let flag = match option {
-            WebRenderDebugOption::Profiler => {
-                webrender::DebugFlags::PROFILER_DBG |
-                    webrender::DebugFlags::GPU_TIME_QUERIES |
-                    webrender::DebugFlags::GPU_SAMPLE_QUERIES
-            },
-            WebRenderDebugOption::TextureCacheDebug => webrender::DebugFlags::TEXTURE_CACHE_DBG,
-            WebRenderDebugOption::RenderTargetDebug => webrender::DebugFlags::RENDER_TARGET_DBG,
-        };
-        flags.toggle(flag);
-        webrender.set_debug_flags(flags);
-
-        let mut txn = Transaction::new();
-        self.generate_frame(&mut txn, RenderReasons::TESTING);
-        self.global
-            .webrender_api
-            .send_transaction(self.webrender_document, txn);
-    }
-
-    pub fn capture_webrender(&mut self) {
-        let capture_id = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_secs()
-            .to_string();
-        let available_path = [env::current_dir(), Ok(env::temp_dir())]
-            .iter()
-            .filter_map(|val| {
-                val.as_ref()
-                    .map(|dir| dir.join("webrender-captures").join(&capture_id))
-                    .ok()
-            })
-            .find(|val| create_dir_all(val).is_ok());
-
-        let Some(capture_path) = available_path else {
-            eprintln!("Couldn't create a path for WebRender captures.");
-            return;
-        };
-
-        println!("Saving WebRender capture to {capture_path:?}");
-        self.global
-            .webrender_api
-            .save_capture(capture_path.clone(), CaptureBits::all());
-
-        let version_file_path = capture_path.join("servo-version.txt");
-        if let Err(error) = File::create(version_file_path)
-            .and_then(|mut file| write!(file, "{}", self.global.version_string))
-        {
-            eprintln!("Unable to write servo version for WebRender Capture: {error:?}");
+    /// Asserts that the current OpenGL framebuffer is complete.
+    ///
+    /// Pre-condition: An OpenGL context is active.
+    /// Post-condition: If the framebuffer is not complete, a debug error is logged.
+    fn assert_gl_framebuffer_complete(&self) {
+        let gl = &self.global.webrender_gl;
+        let status = gl.check_frame_buffer_status(gleam::gl::FRAMEBUFFER);
+        if status != gleam::gl::FRAMEBUFFER_COMPLETE {
+            debug!("OpenGL Framebuffer Incomplete: {status:#x}");
         }
     }
 
-    fn add_font_instance(
-        &mut self,
-        instance_key: FontInstanceKey,
-        font_key: FontKey,
-        size: f32,
-        flags: FontInstanceFlags,
-    ) {
+    /// Adds a font to WebRender.
+    ///
+    /// # Arguments
+    /// * `font_key` - The key for the font.
+    /// * `index` - The index of the font in the collection.
+    /// * `data` - The font data.
+    ///
+    /// Pre-condition: `font_key` is unique, `data` is valid font data.
+    /// Post-condition: The font is added to WebRender's font cache.
+    fn add_font(&self, font_key: FontKey, index: u32, data: Arc<Vec<u8>>) {
         let mut transaction = Transaction::new();
-
-        let font_instance_options = FontInstanceOptions {
-            flags,
-            ..Default::default()
-        };
-        transaction.add_font_instance(
-            instance_key,
-            font_key,
-            size,
-            Some(font_instance_options),
-            None,
-            Vec::new(),
-        );
-
+        transaction.add_raw_font(font_key, (*data).into(), index);
         self.global
             .webrender_api
             .send_transaction(self.webrender_document, transaction);
     }
 
-    fn add_font(&mut self, font_key: FontKey, index: u32, data: Arc<IpcSharedMemory>) {
+    /// Adds a font instance to WebRender.
+    ///
+    /// # Arguments
+    /// * `font_instance_key` - The key for the font instance.
+    /// * `font_key` - The key of the base font.
+    /// * `size` - The font size.
+    /// * `flags` - Flags for the font instance.
+    ///
+    /// Pre-condition: `font_key` exists, `font_instance_key` is unique.
+    /// Post-condition: The font instance is added to WebRender.
+    fn add_font_instance(
+        &self,
+        font_instance_key: FontInstanceKey,
+        font_key: FontKey,
+        size: f32,
+        flags: FontInstanceFlags,
+    ) {
         let mut transaction = Transaction::new();
-        transaction.add_raw_font(font_key, (**data).into(), index);
+        let options = FontInstanceOptions { flags };
+        transaction.add_font_instance(font_instance_key, font_key, size, options);
         self.global
             .webrender_api
             .send_transaction(self.webrender_document, transaction);

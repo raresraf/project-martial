@@ -1,3 +1,8 @@
+//! This module provides tracing utilities for logging events originating from the
+//! `constellation` component within the compositor. It defines a macro for
+//! conditional trace logging and a trait to determine the appropriate log target
+//! for different message types, facilitating granular control over tracing output.
+
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -13,7 +18,8 @@ macro_rules! trace_msg_from_constellation {
     };
 }
 
-/// Get the log target for an event, as a static string.
+/// Provides a method to determine the static log target string for a given type,
+/// typically used for messages originating from the `constellation` component.
 pub(crate) trait LogTarget {
     fn log_target(&self) -> &'static str;
 }
@@ -27,6 +33,9 @@ mod from_constellation {
         };
     }
 
+    /// Implements `LogTarget` for `compositing_traits::CompositorMsg` to provide
+    /// specific log targets based on the message variant. This allows for
+    /// fine-grained control over tracing output for different compositor messages.
     impl LogTarget for compositing_traits::CompositorMsg {
         fn log_target(&self) -> &'static str {
             match self {

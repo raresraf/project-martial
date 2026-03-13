@@ -77,7 +77,7 @@ use media::WindowGLContext;
 use metrics::{PaintTimeMetrics, MAX_TASK_NS};
 use mime::{self, Mime};
 use net_traits::image_cache::{ImageCache, PendingImageResponse};
-use net_traits::request::{Referrer, RequestId};
+use net_traits::request::{RequestId, Referrer};
 use net_traits::response::ResponseInit;
 use net_traits::storage_thread::StorageType;
 use net_traits::{
@@ -222,24 +222,35 @@ pub(crate) unsafe fn trace_thread(tr: *mut JSTracer) {
 // which can trigger GC, and so we can end up tracing the script
 // thread during parsing. For this reason, we don't trace the
 // incomplete parser contexts during GC.
+/// `IncompleteParserContexts` wraps a `RefCell` containing a vector of `(PipelineId, ParserContext)`.
+/// This is used to hold parser contexts that are not yet fully processed.
+///
+/// Pre-condition: Parser contexts are associated with a valid `PipelineId`.
+/// Invariant: Not traced during garbage collection to prevent issues with mutable borrowing during evaluation.
 pub(crate) struct IncompleteParserContexts(RefCell<Vec<(PipelineId, ParserContext)>>);
 
 unsafe_no_jsmanaged_fields!(TaskQueue<MainThreadScriptMsg>);
 
-#[derive(JSTraceable)]
+/// The `ScriptThread` is a core component of Servo responsible for:
+/// - Owning the DOM in memory.
+/// - Running JavaScript.
+/// - Triggering layout.
+/// - Processing events for all same-origin pages in a frame tree.
+/// - Managing the lifecycle of pages from request to teardown.
+#[derive(JSTraced)]
 // ScriptThread instances are rooted on creation, so this is okay
 #[cfg_attr(crown, allow(crown::unrooted_must_root))]
 pub struct ScriptThread {
     /// <https://html.spec.whatwg.org/multipage/#last-render-opportunity-time>
     last_render_opportunity_time: DomRefCell<Option<Instant>>,
-    /// The documents for pipelines managed by this thread
+    /// The documents for pipelines managed by this thread.
     documents: DomRefCell<DocumentCollection>,
-    /// The window proxies known by this thread
+    /// The window proxies known by this thread.
     /// TODO: this map grows, but never shrinks. Issue #15258.
     window_proxies: DomRefCell<HashMapTracedValues<BrowsingContextId, Dom<WindowProxy>>>,
-    /// A list of data pertaining to loads that have not yet received a network response
+    /// A list of data pertaining to loads that have not yet received a network response.
     incomplete_loads: DomRefCell<Vec<InProgressLoad>>,
-    /// A vector containing parser contexts which have not yet been fully processed
+    /// A vector containing parser contexts which have not yet been fully processed.
     incomplete_parser_contexts: IncompleteParserContexts,
     /// Image cache for this script thread.
     #[no_trace]
@@ -377,14 +388,25 @@ pub struct ScriptThread {
 // Block Logic: Represents an exit signal for the Background Hang Monitor (BHM).
 // Functional Utility: Allows the BHM to signal the script thread to initiate an exit process,
 //                     setting a closing flag and requesting a JavaScript interrupt callback.
+/// `BHMExitSignal` is an implementation of `BackgroundHangMonitorExitSignal` that
+/// allows the Background Hang Monitor to signal a `ScriptThread` to gracefully
+/// initiate its shutdown process.
 struct BHMExitSignal {
+    /// A shared atomic boolean flag that, when set to `true`, indicates the script
+    /// thread should begin closing.
     closing: Arc<AtomicBool>,
+    /// A thread-safe handle to the JavaScript context, used to request an interrupt
+    /// callback, thereby waking up a potentially blocked JavaScript engine.
     js_context: ThreadSafeJSContext,
 }
 
 impl BackgroundHangMonitorExitSignal for BHMExitSignal {
-    // Functional Utility: Sets the `closing` flag to true and requests an interrupt callback
-    //                     from the JavaScript context, gracefully initiating thread shutdown.
+    /// Signals the script thread to exit by setting the `closing` flag and requesting
+    /// a JavaScript interrupt callback.
+    ///
+    /// Pre-condition: The `js_context` is valid and interruptible.
+    /// Post-condition: The `closing` flag is set to `true`, and an interrupt is requested
+    /// from the JavaScript engine, allowing the script thread to gracefully shut down.
     fn signal_to_exit(&self) {
         self.closing.store(true, Ordering::SeqCst);
         self.js_context.request_interrupt_callback();
@@ -412,22 +434,33 @@ unsafe extern "C" fn interrupt_callback(_cx: *mut UnsafeJSContext) -> bool {
 /// are no reachable, owning pointers to the DOM memory, so it never gets freed by default
 /// when the script thread fails. The ScriptMemoryFailsafe uses the destructor bomb pattern
 /// to forcibly tear down the JS realms for pages associated with the failing ScriptThread.
-// Block Logic: Ensures proper cleanup of JavaScript realms during script thread panics.
-// Functional Utility: Implements a "destructor bomb" pattern to forcefully deallocate
-//                     JavaScript realms associated with a `ScriptThread` if the thread
-//                     panics, preventing memory leaks and ensuring resource release.
+///
+/// `ScriptMemoryFailsafe` ensures that if a `ScriptThread` panics, the associated
+/// JavaScript realms are properly deallocated, preventing memory leaks. It uses the
+/// "destructor bomb" pattern.
 struct ScriptMemoryFailsafe<'a> {
+    /// An optional reference to the `ScriptThread` this failsafe is associated with.
+    /// `None` if the failsafe has been "neuter"-ed.
     owner: Option<&'a ScriptThread>,
 }
 
 impl<'a> ScriptMemoryFailsafe<'a> {
-    // Functional Utility: Disarms the failsafe, preventing cleanup actions upon drop.
+    /// Disarms the failsafe, preventing any cleanup actions from being performed when
+    /// the failsafe is dropped.
+    ///
+    /// Post-condition: `self.owner` is set to `None`.
     fn neuter(&mut self) {
         self.owner = None;
     }
 
-    // Functional Utility: Creates a new `ScriptMemoryFailsafe` instance,
-    //                     associating it with the given `ScriptThread`.
+    /// Creates a new `ScriptMemoryFailsafe` instance, associating it with the given
+    /// `ScriptThread`.
+    ///
+    /// # Arguments
+    /// * `owner` - A reference to the `ScriptThread` that this failsafe will protect.
+    ///
+    /// Post-condition: A new `ScriptMemoryFailsafe` is returned, ready to clean up
+    /// JavaScript realms if the `owner` thread panics.
     fn new(owner: &'a ScriptThread) -> ScriptMemoryFailsafe<'a> {
         ScriptMemoryFailsafe { owner: Some(owner) }
     }
@@ -435,8 +468,13 @@ impl<'a> ScriptMemoryFailsafe<'a> {
 
 impl Drop for ScriptMemoryFailsafe<'_> {
     #[cfg_attr(crown, allow(crown::unrooted_must_root))]
-    // Functional Utility: Cleans up JavaScript realms associated with the `ScriptThread`
-    //                     if the failsafe is still active when dropped (e.g., on thread panic).
+    /// Implements the drop logic for `ScriptMemoryFailsafe`. If the failsafe is still
+    /// armed (i.e., `owner` is `Some`), it iterates through all documents owned by
+    /// the `ScriptThread` and clears their JavaScript runtime to facilitate proper
+    /// deallocation of DOM memory.
+    ///
+    /// Pre-condition: Called when the `ScriptMemoryFailsafe` goes out of scope.
+    /// Post-condition: If the owner is present, JavaScript runtimes for owned documents are cleared.
     fn drop(&mut self) {
         if let Some(owner) = self.owner {
             for (_, document) in owner.documents.borrow().iter() {
@@ -455,6 +493,18 @@ impl ScriptThreadFactory for ScriptThread {
     // Pre-condition: Valid `InitialScriptState`, `LayoutFactory`, `SystemFontServiceProxy`,
     //                `LoadData`, and `user_agent` are provided.
     // Invariant: A new script thread is successfully created and initialized, or a panic occurs.
+    /// Creates and initializes a new script thread.
+    ///
+    /// # Arguments
+    /// * `state` - The initial state for the script thread.
+    /// * `layout_factory` - A factory for creating layout instances.
+    /// * `system_font_service` - A proxy to the system font service.
+    /// * `load_data` - The initial load data for the script thread.
+    /// * `user_agent` - The user agent string for the script thread.
+    ///
+    /// Pre-condition: All input parameters are valid.
+    /// Post-condition: A new thread is spawned, initialized as a `ScriptThread`, and its event
+    /// loop is started, handling initial page load and memory reporting.
     fn create(
         state: InitialScriptState,
         layout_factory: Arc<dyn LayoutFactory>,
@@ -521,44 +571,65 @@ impl ScriptThreadFactory for ScriptThread {
 }
 
 impl ScriptThread {
-    // Functional Utility: Provides a handle to the parent JavaScript runtime,
-    //                     enabling the creation of new child runtimes or contexts.
+    /// Returns a handle to the parent JavaScript runtime.
+    ///
+    /// Pre-condition: A `ScriptThread` instance exists in the current thread's TLS.
+    /// Post-condition: A `ParentRuntime` handle is returned, allowing creation of child runtimes.
     pub(crate) fn runtime_handle() -> ParentRuntime {
         with_optional_script_thread(|script_thread| {
             script_thread.unwrap().js_runtime.prepare_for_new_child()
         })
     }
 
-    // Functional Utility: Checks if the script thread is in a state to continue running,
-    //                     primarily by checking the `closing` flag.
+    /// Checks if the script thread is in a state to continue running, primarily by checking
+    /// the `closing` flag set by the Background Hang Monitor.
+    ///
+    /// Post-condition: Returns `true` if the thread can continue, `false` if it's signaled to close.
     pub(crate) fn can_continue_running() -> bool {
         with_script_thread(|script_thread| script_thread.can_continue_running_inner())
     }
 
-    // Functional Utility: Initiates the shutdown process for the script thread,
-    //                     preparing it for termination.
+    /// Initiates the shutdown process for the script thread, preparing it for termination.
+    /// This involves canceling all tasks for owned documents.
+    ///
+    /// Pre-condition: A `ScriptThread` instance exists in the current thread's TLS.
+    /// Post-condition: All tasks for documents owned by this thread are canceled.
     pub(crate) fn prepare_for_shutdown() {
         with_script_thread(|script_thread| {
             script_thread.prepare_for_shutdown_inner();
         })
     }
 
-    // Functional Utility: Sets the flag indicating whether a mutation observer microtask
-    //                     has been queued for processing.
+    /// Sets the flag indicating whether a mutation observer microtask has been queued for processing.
+    ///
+    /// # Arguments
+    /// * `value` - `true` if a microtask is queued, `false` otherwise.
+    ///
+    /// Pre-condition: A `ScriptThread` instance exists in the current thread's TLS.
+    /// Post-condition: The `mutation_observer_microtask_queued` flag is updated.
     pub(crate) fn set_mutation_observer_microtask_queued(value: bool) {
         with_script_thread(|script_thread| {
-            script_thread.mutation_observer_microtask_queued.set(value);
+            script_thread
+                .mutation_observer_microtask_queued
+                .set(value);
         })
     }
 
-    // Functional Utility: Returns `true` if a mutation observer microtask is currently
-    //                     queued, `false` otherwise.
+    /// Returns `true` if a mutation observer microtask is currently queued, `false` otherwise.
+    ///
+    /// Pre-condition: A `ScriptThread` instance exists in the current thread's TLS.
+    /// Post-condition: The current state of `mutation_observer_microtask_queued` is returned.
     pub(crate) fn is_mutation_observer_microtask_queued() -> bool {
         with_script_thread(|script_thread| script_thread.mutation_observer_microtask_queued.get())
     }
 
-    // Functional Utility: Adds a `MutationObserver` to the list of observers managed
-    //                     by this script thread.
+    /// Adds a `MutationObserver` to the list of observers managed by this script thread.
+    ///
+    /// # Arguments
+    /// * `observer` - A reference to the `MutationObserver` to add.
+    ///
+    /// Pre-condition: A `ScriptThread` instance exists in the current thread's TLS.
+    /// Post-condition: The `observer` is added to `script_thread.mutation_observers`.
     pub(crate) fn add_mutation_observer(observer: &MutationObserver) {
         with_script_thread(|script_thread| {
             script_thread
@@ -568,8 +639,10 @@ impl ScriptThread {
         })
     }
 
-    // Functional Utility: Retrieves a vector of all `MutationObserver` objects currently
-    //                     managed by this script thread.
+    /// Retrieves a vector of all `MutationObserver` objects currently managed by this script thread.
+    ///
+    /// Pre-condition: A `ScriptThread` instance exists in the current thread's TLS.
+    /// Post-condition: Returns a `Vec` of `DomRoot<MutationObserver>` representing all active observers.
     pub(crate) fn get_mutation_observers() -> Vec<DomRoot<MutationObserver>> {
         with_script_thread(|script_thread| {
             script_thread
@@ -581,8 +654,13 @@ impl ScriptThread {
         })
     }
 
-    // Functional Utility: Adds an `HTMLSlotElement` to the list of signal slots
-    //                     managed by this script thread.
+    /// Adds an `HTMLSlotElement` to the list of signal slots managed by this script thread.
+    ///
+    /// # Arguments
+    /// * `observer` - A reference to the `HTMLSlotElement` to add.
+    ///
+    /// Pre-condition: A `ScriptThread` instance exists in the current thread's TLS.
+    /// Post-condition: The `observer` is added to `script_thread.signal_slots`.
     pub(crate) fn add_signal_slot(observer: &HTMLSlotElement) {
         with_script_thread(|script_thread| {
             script_thread
@@ -592,8 +670,11 @@ impl ScriptThread {
         })
     }
 
-    // Functional Utility: Takes ownership of and returns all `HTMLSlotElement` objects
-    //                     from the signal slots, also removing them from the internal list.
+    /// Takes ownership of and returns all `HTMLSlotElement` objects from the signal slots,
+    /// also removing them from the internal list.
+    ///
+    /// Pre-condition: A `ScriptThread` instance exists in the current thread's TLS.
+    /// Post-condition: All `HTMLSlotElement`s are returned, and the internal list is cleared.
     pub(crate) fn take_signal_slots() -> Vec<DomRoot<HTMLSlotElement>> {
         with_script_thread(|script_thread| {
             script_thread
@@ -608,8 +689,14 @@ impl ScriptThread {
         })
     }
 
-    // Functional Utility: Marks a document as having no blocked loads, indicating it has
-    //                     finished loading all its blocking resources.
+    /// Marks a document as having no blocked loads, indicating it has finished loading
+    /// all its blocking resources.
+    ///
+    /// # Arguments
+    /// * `doc` - A reference to the `Document` to mark.
+    ///
+    /// Pre-condition: A `ScriptThread` instance exists in the current thread's TLS.
+    /// Post-condition: The `doc` is added to `script_thread.docs_with_no_blocking_loads`.
     pub(crate) fn mark_document_with_no_blocked_loads(doc: &Document) {
         with_script_thread(|script_thread| {
             script_thread
@@ -619,8 +706,16 @@ impl ScriptThread {
         })
     }
 
-    // Functional Utility: Notifies the script thread that page headers are available,
-    //                     potentially returning a `ServoParser` for further processing.
+    /// Notifies the script thread that page headers are available, potentially returning a
+    /// `ServoParser` for further processing if an incomplete load matches the `pipeline_id`.
+    ///
+    /// # Arguments
+    /// * `id` - The `PipelineId` of the page for which headers are available.
+    /// * `metadata` - Optional metadata associated with the page.
+    /// * `can_gc` - A `CanGc` token indicating if garbage collection is permitted.
+    ///
+    /// Pre-condition: A `ScriptThread` instance exists in the current thread's TLS.
+    /// Post-condition: If an incomplete load matches, a `ServoParser` is returned.
     pub(crate) fn page_headers_available(
         id: &PipelineId,
         metadata: Option<Metadata>,
@@ -631,9 +726,15 @@ impl ScriptThread {
         })
     }
 
-    /// Process a single event as if it were the next event
-    /// in the queue for this window event-loop.
-    /// Returns a boolean indicating whether further events should be processed.
+    /// Processes a single `CommonScriptMsg` event as if it were the next event
+    /// in the queue for this window's event loop.
+    ///
+    /// # Arguments
+    /// * `msg` - The `CommonScriptMsg` to process.
+    ///
+    /// Pre-condition: A `ScriptThread` instance exists in the current thread's TLS.
+    /// Post-condition: The message is handled, and `true` is returned if further events
+    /// should be processed, `false` otherwise.
     pub(crate) fn process_event(msg: CommonScriptMsg) -> bool {
         with_script_thread(|script_thread| {
             if !script_thread.can_continue_running_inner() {
@@ -644,12 +745,26 @@ impl ScriptThread {
         })
     }
 
-    /// Schedule a [`TimerEventRequest`] on this [`ScriptThread`]'s [`TimerScheduler`].
+    /// Schedules a [`TimerEventRequest`] on this [`ScriptThread`]'s [`TimerScheduler`].
+    ///
+    /// # Arguments
+    /// * `request` - The `TimerEventRequest` to schedule.
+    ///
+    /// Pre-condition: A `ScriptThread` instance exists in the current thread's TLS.
+    /// Post-condition: The timer request is added to the `timer_scheduler`.
     pub(crate) fn schedule_timer(&self, request: TimerEventRequest) {
         self.timer_scheduler.borrow_mut().schedule_timer(request);
     }
 
     // https://html.spec.whatwg.org/multipage/#await-a-stable-state
+    /// Enqueues a microtask to await a stable state, typically used before performing
+    /// operations that require the DOM to be settled.
+    ///
+    /// # Arguments
+    /// * `task` - The `Microtask` to enqueue.
+    ///
+    /// Pre-condition: A `ScriptThread` instance exists in the current thread's TLS.
+    /// Post-condition: The `task` is added to the `microtask_queue`.
     pub(crate) fn await_stable_state(task: Microtask) {
         with_script_thread(|script_thread| {
             script_thread
@@ -658,10 +773,16 @@ impl ScriptThread {
         });
     }
 
-    /// Check that two origins are "similar enough",
-    /// for now only used to prevent cross-origin JS url evaluation.
+    /// Checks if two origins are "similar enough" for a load operation, primarily
+    /// to prevent cross-origin JavaScript URL evaluation.
     ///
-    /// <https://github.com/whatwg/html/issues/2591>
+    /// # Arguments
+    /// * `source` - The `LoadOrigin` of the resource.
+    /// * `target` - The `ImmutableOrigin` of the target.
+    ///
+    /// Pre-condition: None.
+    /// Post-condition: Returns `true` if the origins are considered safe for interaction, `false` otherwise.
+    /// See <https://github.com/whatwg/html/issues/2591> for more context.
     pub(crate) fn check_load_origin(source: &LoadOrigin, target: &ImmutableOrigin) -> bool {
         match (source, target) {
             (LoadOrigin::Constellation, _) | (LoadOrigin::WebDriver, _) => {
@@ -678,7 +799,18 @@ impl ScriptThread {
         }
     }
 
-    /// Step 13 of <https://html.spec.whatwg.org/multipage/#navigate>
+    /// Initiates navigation to a new URL within a browsing context.
+    /// This corresponds to Step 13 of <https://html.spec.whatwg.org/multipage/#navigate>.
+    ///
+    /// # Arguments
+    /// * `browsing_context` - The `BrowsingContextId` where navigation should occur.
+    /// * `pipeline_id` - The `PipelineId` associated with the current document.
+    /// * `load_data` - The `LoadData` specifying the target URL and other load parameters.
+    /// * `history_handling` - Defines how this navigation should affect the session history.
+    ///
+    /// Pre-condition: `browsing_context` and `pipeline_id` are valid.
+    /// Post-condition: A navigation task is queued; for JavaScript URLs, the script is evaluated,
+    /// otherwise a `LoadUrl` message is sent to the Constellation.
     pub(crate) fn navigate(
         browsing_context: BrowsingContextId,
         pipeline_id: PipelineId,
@@ -733,6 +865,14 @@ impl ScriptThread {
         });
     }
 
+    /// Processes an `AttachLayout` event, which involves attaching a new layout to a pipeline.
+    ///
+    /// # Arguments
+    /// * `new_layout_info` - Information about the new layout to attach.
+    /// * `origin` - The mutable origin associated with the layout.
+    ///
+    /// Pre-condition: A `ScriptThread` instance exists in the current thread's TLS.
+    /// Post-condition: A new layout is handled for the specified pipeline, and the event is profiled.
     pub(crate) fn process_attach_layout(new_layout_info: NewLayoutInfo, origin: MutableOrigin) {
         with_script_thread(|script_thread| {
             let pipeline_id = Some(new_layout_info.new_pipeline_id);
@@ -746,6 +886,14 @@ impl ScriptThread {
         });
     }
 
+    /// Retrieves the top-level browsing context ID for a given `BrowsingContextId`.
+    ///
+    /// # Arguments
+    /// * `sender_pipeline` - The `PipelineId` of the sender.
+    /// * `browsing_context_id` - The `BrowsingContextId` for which to find the top-level ID.
+    ///
+    /// Pre-condition: A `ScriptThread` instance exists in the current thread's TLS.
+    /// Post-condition: Returns an `Option<TopLevelBrowsingContextId>` from the Constellation.
     pub(crate) fn get_top_level_for_browsing_context(
         sender_pipeline: PipelineId,
         browsing_context_id: BrowsingContextId,
@@ -755,20 +903,42 @@ impl ScriptThread {
         })
     }
 
+    /// Finds a `Document` associated with a given `PipelineId`.
+    ///
+    /// # Arguments
+    /// * `id` - The `PipelineId` of the document to find.
+    ///
+    /// Pre-condition: A `ScriptThread` instance exists in the current thread's TLS.
+    /// Post-condition: Returns an `Option<DomRoot<Document>>` if the document is found.
     pub(crate) fn find_document(id: PipelineId) -> Option<DomRoot<Document>> {
         with_script_thread(|script_thread| script_thread.documents.borrow().find_document(id))
     }
 
+    /// Sets whether the user is currently interacting with the page.
+    ///
+    /// # Arguments
+    /// * `interacting` - `true` if the user is interacting, `false` otherwise.
+    ///
+    /// Pre-condition: A `ScriptThread` instance exists in the current thread's TLS.
+    /// Post-condition: The `is_user_interacting` flag is updated.
     pub(crate) fn set_user_interacting(interacting: bool) {
         with_script_thread(|script_thread| {
             script_thread.is_user_interacting.set(interacting);
         });
     }
 
+    /// Returns `true` if the user is currently interacting with the page, `false` otherwise.
+    ///
+    /// Pre-condition: A `ScriptThread` instance exists in the current thread's TLS.
+    /// Post-condition: The current state of the `is_user_interacting` flag is returned.
     pub(crate) fn is_user_interacting() -> bool {
         with_script_thread(|script_thread| script_thread.is_user_interacting.get())
     }
 
+    /// Retrieves a set of `PipelineId`s for all fully active documents.
+    ///
+    /// Pre-condition: A `ScriptThread` instance exists in the current thread's TLS.
+    /// Post-condition: Returns a `HashSet<PipelineId>` containing IDs of fully active documents.
     pub(crate) fn get_fully_active_document_ids() -> HashSet<PipelineId> {
         with_script_thread(|script_thread| {
             script_thread
@@ -789,6 +959,13 @@ impl ScriptThread {
         })
     }
 
+    /// Finds a `WindowProxy` associated with a given `BrowsingContextId`.
+    ///
+    /// # Arguments
+    /// * `id` - The `BrowsingContextId` of the window proxy to find.
+    ///
+    /// Pre-condition: A `ScriptThread` instance exists in the current thread's TLS.
+    /// Post-condition: Returns an `Option<DomRoot<WindowProxy>>` if the window proxy is found.
     pub(crate) fn find_window_proxy(id: BrowsingContextId) -> Option<DomRoot<WindowProxy>> {
         with_script_thread(|script_thread| {
             script_thread
@@ -799,6 +976,13 @@ impl ScriptThread {
         })
     }
 
+    /// Finds a `WindowProxy` by its name.
+    ///
+    /// # Arguments
+    /// * `name` - The `DOMString` representing the name of the window proxy to find.
+    ///
+    /// Pre-condition: A `ScriptThread` instance exists in the current thread's TLS.
+    /// Post-condition: Returns an `Option<DomRoot<WindowProxy>>` if a matching window proxy is found.
     pub(crate) fn find_window_proxy_by_name(name: &DOMString) -> Option<DomRoot<WindowProxy>> {
         with_script_thread(|script_thread| {
             for (_, proxy) in script_thread.window_proxies.borrow().iter() {
@@ -810,6 +994,11 @@ impl ScriptThread {
         })
     }
 
+    /// Returns the `WorkletThreadPool` associated with this script thread,
+    /// creating it if it doesn't already exist.
+    ///
+    /// Pre-condition: A `ScriptThread` instance exists in the current thread's TLS.
+    /// Post-condition: A reference-counted `WorkletThreadPool` is returned.
     pub(crate) fn worklet_thread_pool() -> Rc<WorkletThreadPool> {
         with_optional_script_thread(|script_thread| {
             let script_thread = script_thread.unwrap();
@@ -839,6 +1028,16 @@ impl ScriptThread {
         })
     }
 
+    /// Handles the registration of a paint worklet.
+    ///
+    /// # Arguments
+    /// * `pipeline_id` - The `PipelineId` of the document registering the worklet.
+    /// * `name` - The name of the paint worklet.
+    /// * `properties` - A vector of property atoms associated with the worklet.
+    /// * `painter` - A boxed `Painter` trait object for rendering.
+    ///
+    /// Pre-condition: `pipeline_id` corresponds to an active window.
+    /// Post-condition: The paint worklet is registered with the document's layout.
     fn handle_register_paint_worklet(
         &self,
         pipeline_id: PipelineId,
@@ -856,6 +1055,10 @@ impl ScriptThread {
             .register_paint_worklet_modules(name, properties, painter);
     }
 
+    /// Pushes a new element queue onto the custom element reaction stack.
+    ///
+    /// Pre-condition: A `ScriptThread` instance exists in the current thread's TLS.
+    /// Post-condition: A new empty queue is added to `custom_element_reaction_stack`.
     pub(crate) fn push_new_element_queue() {
         with_script_thread(|script_thread| {
             script_thread
@@ -864,6 +1067,13 @@ impl ScriptThread {
         })
     }
 
+    /// Pops the current element queue from the custom element reaction stack.
+    ///
+    /// # Arguments
+    /// * `can_gc` - A `CanGc` token indicating if garbage collection is permitted.
+    ///
+    /// Pre-condition: A `ScriptThread` instance exists in the current thread's TLS and the stack is not empty.
+    /// Post-condition: The top queue is removed and processed.
     pub(crate) fn pop_current_element_queue(can_gc: CanGc) {
         with_script_thread(|script_thread| {
             script_thread
@@ -872,6 +1082,15 @@ impl ScriptThread {
         })
     }
 
+    /// Enqueues a callback reaction for a custom element.
+    ///
+    /// # Arguments
+    /// * `element` - The `Element` for which the reaction is enqueued.
+    /// * `reaction` - The `CallbackReaction` to enqueue.
+    /// * `definition` - Optional `CustomElementDefinition` associated with the element.
+    ///
+    /// Pre-condition: A `ScriptThread` instance exists in the current thread's TLS.
+    /// Post-condition: The reaction is added to the current element queue on the stack.
     pub(crate) fn enqueue_callback_reaction(
         element: &Element,
         reaction: CallbackReaction,
@@ -884,6 +1103,14 @@ impl ScriptThread {
         })
     }
 
+    /// Enqueues an upgrade reaction for a custom element.
+    ///
+    /// # Arguments
+    /// * `element` - The `Element` for which the reaction is enqueued.
+    /// * `definition` - The `CustomElementDefinition` for the element.
+    ///
+    /// Pre-condition: A `ScriptThread` instance exists in the current thread's TLS.
+    /// Post-condition: The upgrade reaction is added to the current element queue on the stack.
     pub(crate) fn enqueue_upgrade_reaction(
         element: &Element,
         definition: Rc<CustomElementDefinition>,
@@ -895,6 +1122,13 @@ impl ScriptThread {
         })
     }
 
+    /// Invokes the backup element queue on the custom element reaction stack.
+    ///
+    /// # Arguments
+    /// * `can_gc` - A `CanGc` token indicating if garbage collection is permitted.
+    ///
+    /// Pre-condition: A `ScriptThread` instance exists in the current thread's TLS.
+    /// Post-condition: The backup element queue is processed.
     pub(crate) fn invoke_backup_element_queue(can_gc: CanGc) {
         with_script_thread(|script_thread| {
             script_thread
@@ -903,17 +1137,41 @@ impl ScriptThread {
         })
     }
 
+    /// Saves a node ID, ensuring its uniqueness within the script thread.
+    ///
+    /// # Arguments
+    /// * `node_id` - The `String` representation of the node ID to save.
+    ///
+    /// Pre-condition: A `ScriptThread` instance exists in the current thread's TLS.
+    /// Post-condition: The `node_id` is inserted into `script_thread.node_ids`.
     pub(crate) fn save_node_id(node_id: String) {
         with_script_thread(|script_thread| {
             script_thread.node_ids.borrow_mut().insert(node_id);
         })
     }
 
+    /// Checks if a node ID already exists within the script thread.
+    ///
+    /// # Arguments
+    /// * `node_id` - The string representation of the node ID to check.
+    ///
+    /// Pre-condition: A `ScriptThread` instance exists in the current thread's TLS.
+    /// Post-condition: Returns `true` if the `node_id` exists, `false` otherwise.
     pub(crate) fn has_node_id(node_id: &str) -> bool {
         with_script_thread(|script_thread| script_thread.node_ids.borrow().contains(node_id))
     }
 
-    /// Creates a new script thread.
+    /// Creates a new `ScriptThread` instance.
+    ///
+    /// # Arguments
+    /// * `state` - The initial state for the script thread.
+    /// * `layout_factory` - A factory for creating layout instances.
+    /// * `system_font_service` - A proxy to the system font service.
+    /// * `user_agent` - The user agent string for the script thread.
+    ///
+    /// Pre-condition: All input parameters are valid.
+    /// Post-condition: A new `ScriptThread` instance is returned, initialized with its
+    /// runtime, receivers, senders, and other components.
     pub(crate) fn new(
         state: InitialScriptState,
         layout_factory: Arc<dyn LayoutFactory>,
@@ -1044,11 +1302,17 @@ impl ScriptThread {
     }
 
     #[allow(unsafe_code)]
+    /// Returns a `JSContext` representing the current JavaScript execution context.
+    ///
+    /// Pre-condition: The JavaScript runtime is initialized.
+    /// Post-condition: A `JSContext` wrapper around the raw `*mut UnsafeJSContext` is returned.
     pub(crate) fn get_cx(&self) -> JSContext {
         unsafe { JSContext::from_ptr(self.js_runtime.cx()) }
     }
 
-    /// Check if we are closing.
+    /// Internal method to check if the script thread is in a state to continue running.
+    ///
+    /// Post-condition: Returns `true` if the `closing` flag is `false`, `false` otherwise.
     fn can_continue_running_inner(&self) -> bool {
         if self.closing.load(Ordering::SeqCst) {
             return false;
@@ -1056,7 +1320,10 @@ impl ScriptThread {
         true
     }
 
-    /// We are closing, ensure no script can run and potentially hang.
+    /// Internal method to prepare the script thread for shutdown. This involves
+    /// canceling all pending tasks for documents owned by this thread.
+    ///
+    /// Post-condition: All tasks for owned documents are canceled.
     fn prepare_for_shutdown_inner(&self) {
         let docs = self.documents.borrow();
         for (_, document) in docs.iter() {
@@ -1067,8 +1334,14 @@ impl ScriptThread {
         }
     }
 
-    /// Starts the script thread. After calling this method, the script thread will loop receiving
-    /// messages on its port.
+    /// Starts the script thread's main event loop. The thread will continuously
+    /// process messages until it receives an exit signal.
+    ///
+    /// # Arguments
+    /// * `can_gc` - A `CanGc` token indicating if garbage collection is permitted.
+    ///
+    /// Pre-condition: The `ScriptThread` is initialized.
+    /// Post-condition: The thread enters a loop, processing messages and tasks until shutdown.
     pub(crate) fn start(&self, can_gc: CanGc) {
         debug!("Starting script thread.");
         while self.handle_msgs(can_gc) {
@@ -1078,7 +1351,18 @@ impl ScriptThread {
         debug!("Stopped script thread.");
     }
 
-    /// Process a compositor mouse move event.
+    /// Processes a compositor mouse move event, handling hit testing and updating the
+    /// topmost mouse-over target.
+    ///
+    /// # Arguments
+    /// * `document` - A reference to the `Document` where the event occurred.
+    /// * `hit_test_result` - Optional `CompositorHitTestResult` from the compositor.
+    /// * `pressed_mouse_buttons` - A bitmask indicating currently pressed mouse buttons.
+    /// * `can_gc` - A `CanGc` token.
+    ///
+    /// Pre-condition: `document` is valid.
+    /// Post-condition: Mouse move event is processed, `topmost_mouse_over_target` is updated,
+    /// and `EmbedderMsg::Status` is potentially sent to the embedder.
     fn process_mouse_move_event(
         &self,
         document: &Document,
@@ -1146,7 +1430,15 @@ impl ScriptThread {
         }
     }
 
-    /// Process compositor events as part of a "update the rendering task".
+    /// Processes pending input events received from the compositor.
+    ///
+    /// # Arguments
+    /// * `pipeline_id` - The `PipelineId` of the document to process events for.
+    /// * `can_gc` - A `CanGc` token.
+    ///
+    /// Pre-condition: `pipeline_id` corresponds to an active and non-closed document.
+    /// Post-condition: All pending input events for the document are dispatched, and
+    /// the user interaction state is updated.
     fn proces_pending_input_events(&self, pipeline_id: PipelineId, can_gc: CanGc) {
         let Some(document) = self.documents.borrow().find_document(pipeline_id) else {
             warn!("Processing pending compositor events for closed pipeline {pipeline_id}.");
@@ -1156,7 +1448,7 @@ impl ScriptThread {
         if document.window().Closed() {
             warn!("Compositor event sent to a pipeline with a closed window {pipeline_id}.");
             return;
-        }
+        };
         ScriptThread::set_user_interacting(true);
 
         let window = document.window();
@@ -1172,7 +1464,7 @@ impl ScriptThread {
                     );
                 },
                 InputEvent::MouseMove(_) => {
-                    // The event itself is unecessary here, because the point in the viewport is in the hit test.
+                    // The event itself is unnecessary here, because the point in the viewport is in the hit test.
                     self.process_mouse_move_event(
                         &document,
                         event.hit_test_result,
@@ -1221,10 +1513,18 @@ impl ScriptThread {
         ScriptThread::set_user_interacting(false);
     }
 
-    /// <https://html.spec.whatwg.org/multipage/#update-the-rendering>
+    /// Updates the rendering based on the HTML specification's "update the rendering" steps.
+    /// This function attempts to update the rendering and performs a microtask checkpoint
+    /// if rendering was actually updated.
     ///
-    /// Attempt to update the rendering and then do a microtask checkpoint if rendering was actually
-    /// updated.
+    /// # Arguments
+    /// * `requested_by_compositor` - `true` if this update was explicitly requested by the compositor.
+    /// * `can_gc` - A `CanGc` token.
+    ///
+    /// Pre-condition: The script thread is running and not in a closing state.
+    /// Post-condition: The rendering is updated for all active documents, animation callbacks are
+    /// processed, and a microtask checkpoint is performed.
+    /// See <https://html.spec.whatwg.org/multipage/#update-the-rendering>.
     pub(crate) fn update_the_rendering(&self, requested_by_compositor: bool, can_gc: CanGc) {
         *self.last_render_opportunity_time.borrow_mut() = Some(Instant::now());
 
@@ -1374,11 +1674,11 @@ impl ScriptThread {
         self.schedule_rendering_opportunity_if_necessary();
     }
 
-    // If there are any pending reflows and we are not having rendering opportunities
-    // driven by the compositor, then schedule the next rendering opportunity.
-    //
-    // TODO: This is a workaround until rendering opportunities can be triggered from a
-    // timer in the script thread.
+    /// Schedules the next rendering opportunity if there are pending reflows and
+    /// rendering is not already driven by the compositor.
+    ///
+    /// Pre-condition: `ScriptThread` is initialized.
+    /// Post-condition: A task to update rendering is queued if necessary.
     fn schedule_rendering_opportunity_if_necessary(&self) {
         // If any Document has active animations of rAFs, then we should be receiving
         // regular rendering opportunities from the compositor (or fake animation frame
@@ -1416,7 +1716,15 @@ impl ScriptThread {
             .queue_unconditionally(task!(update_the_rendering: move || { }));
     }
 
-    /// Handle incoming messages from other tasks and the task queue.
+    /// Handles incoming messages from other tasks and the task queue, processing them
+    /// in the script thread's event loop.
+    ///
+    /// # Arguments
+    /// * `can_gc` - A `CanGc` token.
+    ///
+    /// Pre-condition: The script thread is running.
+    /// Post-condition: Messages are processed, and the function returns `true` to continue
+    /// the event loop, or `false` if an exit message was handled.
     fn handle_msgs(&self, can_gc: CanGc) -> bool {
         // Proritize rendering tasks and others, and gather all other events as `sequential`.
         let mut sequential = vec![];
@@ -1634,6 +1942,13 @@ impl ScriptThread {
         true
     }
 
+    /// Categorizes an incoming `MixedMessage` into a `ScriptThreadEventCategory` for profiling.
+    ///
+    /// # Arguments
+    /// * `msg` - The `MixedMessage` to categorize.
+    ///
+    /// Pre-condition: `msg` is a valid message type.
+    /// Post-condition: Returns the corresponding `ScriptThreadEventCategory`.
     fn categorize_msg(&self, msg: &MixedMessage) -> ScriptThreadEventCategory {
         match *msg {
             MixedMessage::FromConstellation(ref inner_msg) => match *inner_msg {
@@ -1656,6 +1971,18 @@ impl ScriptThread {
         }
     }
 
+    /// Profiles an event by recording its execution duration and handling any associated
+    /// background hang monitor notifications.
+    ///
+    /// # Arguments
+    /// * `category` - The `ScriptThreadEventCategory` of the event.
+    /// * `pipeline_id` - Optional `PipelineId` associated with the event.
+    /// * `f` - A closure containing the code to be profiled.
+    ///
+    /// Pre-condition: `background_hang_monitor` is initialized.
+    /// Post-condition: The closure `f` is executed, its duration is measured, and profiling
+    /// data is potentially sent to the time profiler. If `profile_script_events` is `true`,
+    /// the event is profiled based on its category.
     fn profile_event<F, R>(
         &self,
         category: ScriptThreadEventCategory,
@@ -1815,6 +2142,14 @@ impl ScriptThread {
         value
     }
 
+    /// Handles an incoming `ScriptThreadMessage` from the Constellation.
+    ///
+    /// # Arguments
+    /// * `msg` - The `ScriptThreadMessage` to handle.
+    /// * `can_gc` - A `CanGc` token.
+    ///
+    /// Pre-condition: The script thread is running.
+    /// Post-condition: The message is processed, leading to state changes or actions within the script thread.
     fn handle_msg_from_constellation(&self, msg: ScriptThreadMessage, can_gc: CanGc) {
         match msg {
             ScriptThreadMessage::StopDelayingLoadEventsMode(pipeline_id) => {
@@ -1950,6 +2285,14 @@ impl ScriptThread {
         }
     }
 
+    /// Handles `ScriptThreadMessage::SetScrollStates`, updating the scroll state of a window.
+    ///
+    /// # Arguments
+    /// * `pipeline_id` - The `PipelineId` of the window to update.
+    /// * `scroll_states` - A vector of `ScrollState` objects to apply.
+    ///
+    /// Pre-condition: `pipeline_id` corresponds to an active window.
+    /// Post-condition: The window's layout scroll states are updated, and viewport/node scroll offsets are adjusted.
     fn handle_set_scroll_states_msg(
         &self,
         pipeline_id: PipelineId,
@@ -1982,6 +2325,15 @@ impl ScriptThread {
         )
     }
 
+    /// Handles `ScriptThreadMessage::SetEpochPaintTime`, updating the paint time for a given epoch.
+    ///
+    /// # Arguments
+    /// * `pipeline_id` - The `PipelineId` of the window.
+    /// * `epoch` - The `Epoch` for which to set the paint time.
+    /// * `time` - The `CrossProcessInstant` representing the paint time.
+    ///
+    /// Pre-condition: `pipeline_id` corresponds to an active window.
+    /// Post-condition: The layout's epoch paint time is updated.
     fn handle_set_epoch_paint_time(
         &self,
         pipeline_id: PipelineId,
@@ -1998,1733 +2350,7 @@ impl ScriptThread {
     #[cfg(feature = "webgpu")]
     fn handle_msg_from_webgpu_server(&self, msg: WebGPUMsg, can_gc: CanGc) {
         match msg {
-            WebGPUMsg::FreeAdapter(id) => self.gpu_id_hub.free_adapter_id(id),
-            WebGPUMsg::FreeDevice {
-                device_id,
-                pipeline_id,
-            } => {
-                self.gpu_id_hub.free_device_id(device_id);
-                if let Some(global) = self.documents.borrow().find_global(pipeline_id) {
-                    global.remove_gpu_device(WebGPUDevice(device_id));
-                } // page can already be destroyed
-            },
-            WebGPUMsg::FreeBuffer(id) => self.gpu_id_hub.free_buffer_id(id),
-            WebGPUMsg::FreePipelineLayout(id) => self.gpu_id_hub.free_pipeline_layout_id(id),
-            WebGPUMsg::FreeComputePipeline(id) => self.gpu_id_hub.free_compute_pipeline_id(id),
-            WebGPUMsg::FreeBindGroup(id) => self.gpu_id_hub.free_bind_group_id(id),
-            WebGPUMsg::FreeBindGroupLayout(id) => self.gpu_id_hub.free_bind_group_layout_id(id),
-            WebGPUMsg::FreeCommandBuffer(id) => self
-                .gpu_id_hub
-                .free_command_buffer_id(id.into_command_encoder_id()),
-            WebGPUMsg::FreeSampler(id) => self.gpu_id_hub.free_sampler_id(id),
-            WebGPUMsg::FreeShaderModule(id) => self.gpu_id_hub.free_shader_module_id(id),
-            WebGPUMsg::FreeRenderBundle(id) => self.gpu_id_hub.free_render_bundle_id(id),
-            WebGPUMsg::FreeRenderPipeline(id) => self.gpu_id_hub.free_render_pipeline_id(id),
-            WebGPUMsg::FreeTexture(id) => self.gpu_id_hub.free_texture_id(id),
-            WebGPUMsg::FreeTextureView(id) => self.gpu_id_hub.free_texture_view_id(id),
-            WebGPUMsg::FreeComputePass(id) => self.gpu_id_hub.free_compute_pass_id(id),
-            WebGPUMsg::FreeRenderPass(id) => self.gpu_id_hub.free_render_pass_id(id),
-            WebGPUMsg::Exit => {
-                *self.receivers.webgpu_receiver.borrow_mut() = crossbeam_channel::never()
-            },
-            WebGPUMsg::DeviceLost {
-                pipeline_id,
-                device,
-                reason,
-                msg,
-            } => {
-                let global = self.documents.borrow().find_global(pipeline_id).unwrap();
-                global.gpu_device_lost(device, reason, msg);
-            },
-            WebGPUMsg::UncapturedError {
-                device,
-                pipeline_id,
-                error,
-            } => {
-                let global = self.documents.borrow().find_global(pipeline_id).unwrap();
-                let _ac = enter_realm(&*global);
-                global.handle_uncaptured_gpu_error(device, error, can_gc);
-            },
             _ => {},
         }
-    }
-
-    fn handle_msg_from_script(&self, msg: MainThreadScriptMsg) {
-        match msg {
-            MainThreadScriptMsg::Common(CommonScriptMsg::Task(_, task, pipeline_id, _)) => {
-                let _realm = pipeline_id.and_then(|id| {
-                    let global = self.documents.borrow().find_global(id);
-                    global.map(|global| enter_realm(&*global))
-                });
-                task.run_box()
-            },
-            MainThreadScriptMsg::Common(CommonScriptMsg::CollectReports(chan)) => {
-                self.collect_reports(chan)
-            },
-            MainThreadScriptMsg::NavigationResponse {
-                pipeline_id,
-                message,
-            } => {
-                self.handle_navigation_response(pipeline_id, *message);
-            },
-            MainThreadScriptMsg::WorkletLoaded(pipeline_id) => {
-                self.handle_worklet_loaded(pipeline_id)
-            },
-            MainThreadScriptMsg::RegisterPaintWorklet {
-                pipeline_id,
-                name,
-                properties,
-                painter,
-            } => self.handle_register_paint_worklet(pipeline_id, name, properties, painter),
-            MainThreadScriptMsg::Inactive => {},
-            MainThreadScriptMsg::WakeUp => {},
-        }
-    }
-
-    fn handle_msg_from_devtools(&self, msg: DevtoolScriptControlMsg, can_gc: CanGc) {
-        let documents = self.documents.borrow();
-        match msg {
-            DevtoolScriptControlMsg::EvaluateJS(id, s, reply) => match documents.find_window(id) {
-                Some(window) => {
-                    let global = window.as_global_scope();
-                    let _aes = AutoEntryScript::new(global);
-                    devtools::handle_evaluate_js(global, s, reply, can_gc)
-                },
-                None => warn!("Message sent to closed pipeline {}.", id),
-            },
-            DevtoolScriptControlMsg::GetRootNode(id, reply) => {
-                devtools::handle_get_root_node(&documents, id, reply)
-            },
-            DevtoolScriptControlMsg::GetDocumentElement(id, reply) => {
-                devtools::handle_get_document_element(&documents, id, reply)
-            },
-            DevtoolScriptControlMsg::GetChildren(id, node_id, reply) => {
-                devtools::handle_get_children(&documents, id, node_id, reply)
-            },
-            DevtoolScriptControlMsg::GetAttributeStyle(id, node_id, reply) => {
-                devtools::handle_get_attribute_style(&documents, id, node_id, reply, can_gc)
-            },
-            DevtoolScriptControlMsg::GetStylesheetStyle(
-                id,
-                node_id,
-                selector,
-                stylesheet,
-                reply,
-            ) => devtools::handle_get_stylesheet_style(
-                &documents, id, node_id, selector, stylesheet, reply, can_gc,
-            ),
-            DevtoolScriptControlMsg::GetSelectors(id, node_id, reply) => {
-                devtools::handle_get_selectors(&documents, id, node_id, reply)
-            },
-            DevtoolScriptControlMsg::GetComputedStyle(id, node_id, reply) => {
-                devtools::handle_get_computed_style(&documents, id, node_id, reply, can_gc)
-            },
-            DevtoolScriptControlMsg::GetLayout(id, node_id, reply) => {
-                devtools::handle_get_layout(&documents, id, node_id, reply, can_gc)
-            },
-            DevtoolScriptControlMsg::ModifyAttribute(id, node_id, modifications) => {
-                devtools::handle_modify_attribute(&documents, id, node_id, modifications, can_gc)
-            },
-            DevtoolScriptControlMsg::ModifyRule(id, node_id, modifications) => {
-                devtools::handle_modify_rule(&documents, id, node_id, modifications, can_gc)
-            },
-            DevtoolScriptControlMsg::WantsLiveNotifications(id, to_send) => match documents
-                .find_window(id)
-            {
-                Some(window) => devtools::handle_wants_live_notifications(window.upcast(), to_send),
-                None => warn!("Message sent to closed pipeline {}.", id),
-            },
-            DevtoolScriptControlMsg::SetTimelineMarkers(id, marker_types, reply) => {
-                devtools::handle_set_timeline_markers(&documents, id, marker_types, reply)
-            },
-            DevtoolScriptControlMsg::DropTimelineMarkers(id, marker_types) => {
-                devtools::handle_drop_timeline_markers(&documents, id, marker_types)
-            },
-            DevtoolScriptControlMsg::RequestAnimationFrame(id, name) => {
-                devtools::handle_request_animation_frame(&documents, id, name)
-            },
-            DevtoolScriptControlMsg::Reload(id) => devtools::handle_reload(&documents, id, can_gc),
-            DevtoolScriptControlMsg::GetCssDatabase(reply) => {
-                devtools::handle_get_css_database(reply)
-            },
-        }
-    }
-
-    fn handle_msg_from_image_cache(&self, response: PendingImageResponse) {
-        let window = self.documents.borrow().find_window(response.pipeline_id);
-        if let Some(ref window) = window {
-            window.pending_image_notification(response);
-        }
-    }
-
-    fn handle_webdriver_msg(
-        &self,
-        pipeline_id: PipelineId,
-        msg: WebDriverScriptCommand,
-        can_gc: CanGc,
-    ) {
-        // https://github.com/servo/servo/issues/23535
-        // These two messages need different treatment since the JS script might mutate
-        // `self.documents`, which would conflict with the immutable borrow of it that
-        // occurs for the rest of the messages
-        match msg {
-            WebDriverScriptCommand::ExecuteScript(script, reply) => {
-                let window = self.documents.borrow().find_window(pipeline_id);
-                return webdriver_handlers::handle_execute_script(window, script, reply, can_gc);
-            },
-            WebDriverScriptCommand::ExecuteAsyncScript(script, reply) => {
-                let window = self.documents.borrow().find_window(pipeline_id);
-                return webdriver_handlers::handle_execute_async_script(
-                    window, script, reply, can_gc,
-                );
-            },
-            _ => (),
-        }
-
-        let documents = self.documents.borrow();
-        match msg {
-            WebDriverScriptCommand::AddCookie(params, reply) => {
-                webdriver_handlers::handle_add_cookie(&documents, pipeline_id, params, reply)
-            },
-            WebDriverScriptCommand::DeleteCookies(reply) => {
-                webdriver_handlers::handle_delete_cookies(&documents, pipeline_id, reply)
-            },
-            WebDriverScriptCommand::FindElementCSS(selector, reply) => {
-                webdriver_handlers::handle_find_element_css(
-                    &documents,
-                    pipeline_id,
-                    selector,
-                    reply,
-                )
-            },
-            WebDriverScriptCommand::FindElementLinkText(selector, partial, reply) => {
-                webdriver_handlers::handle_find_element_link_text(
-                    &documents,
-                    pipeline_id,
-                    selector,
-                    partial,
-                    reply,
-                )
-            },
-            WebDriverScriptCommand::FindElementTagName(selector, reply) => {
-                webdriver_handlers::handle_find_element_tag_name(
-                    &documents,
-                    pipeline_id,
-                    selector,
-                    reply,
-                )
-            },
-            WebDriverScriptCommand::FindElementsCSS(selector, reply) => {
-                webdriver_handlers::handle_find_elements_css(
-                    &documents,
-                    pipeline_id,
-                    selector,
-                    reply,
-                )
-            },
-            WebDriverScriptCommand::FindElementsLinkText(selector, partial, reply) => {
-                webdriver_handlers::handle_find_elements_link_text(
-                    &documents,
-                    pipeline_id,
-                    selector,
-                    partial,
-                    reply,
-                )
-            },
-            WebDriverScriptCommand::FindElementsTagName(selector, reply) => {
-                webdriver_handlers::handle_find_elements_tag_name(
-                    &documents,
-                    pipeline_id,
-                    selector,
-                    reply,
-                )
-            },
-            WebDriverScriptCommand::FindElementElementCSS(selector, element_id, reply) => {
-                webdriver_handlers::handle_find_element_element_css(
-                    &documents,
-                    pipeline_id,
-                    element_id,
-                    selector,
-                    reply,
-                )
-            },
-            WebDriverScriptCommand::FindElementElementLinkText(
-                selector,
-                element_id,
-                partial,
-                reply,
-            ) => webdriver_handlers::handle_find_element_element_link_text(
-                &documents,
-                pipeline_id,
-                element_id,
-                selector,
-                partial,
-                reply,
-            ),
-            WebDriverScriptCommand::FindElementElementTagName(selector, element_id, reply) => {
-                webdriver_handlers::handle_find_element_element_tag_name(
-                    &documents,
-                    pipeline_id,
-                    element_id,
-                    selector,
-                    reply,
-                )
-            },
-            WebDriverScriptCommand::FindElementElementsCSS(selector, element_id, reply) => {
-                webdriver_handlers::handle_find_element_elements_css(
-                    &documents,
-                    pipeline_id,
-                    element_id,
-                    selector,
-                    reply,
-                )
-            },
-            WebDriverScriptCommand::FindElementElementsLinkText(
-                selector,
-                element_id,
-                partial,
-                reply,
-            ) => webdriver_handlers::handle_find_element_elements_link_text(
-                &documents,
-                pipeline_id,
-                element_id,
-                selector,
-                partial,
-                reply,
-            ),
-            WebDriverScriptCommand::FindElementElementsTagName(selector, element_id, reply) => {
-                webdriver_handlers::handle_find_element_elements_tag_name(
-                    &documents,
-                    pipeline_id,
-                    element_id,
-                    selector,
-                    reply,
-                )
-            },
-            WebDriverScriptCommand::FocusElement(element_id, reply) => {
-                webdriver_handlers::handle_focus_element(
-                    &documents,
-                    pipeline_id,
-                    element_id,
-                    reply,
-                    can_gc,
-                )
-            },
-            WebDriverScriptCommand::ElementClick(element_id, reply) => {
-                webdriver_handlers::handle_element_click(
-                    &documents,
-                    pipeline_id,
-                    element_id,
-                    reply,
-                    can_gc,
-                )
-            },
-            WebDriverScriptCommand::GetActiveElement(reply) => {
-                webdriver_handlers::handle_get_active_element(&documents, pipeline_id, reply)
-            },
-            WebDriverScriptCommand::GetPageSource(reply) => {
-                webdriver_handlers::handle_get_page_source(&documents, pipeline_id, reply, can_gc)
-            },
-            WebDriverScriptCommand::GetCookies(reply) => {
-                webdriver_handlers::handle_get_cookies(&documents, pipeline_id, reply)
-            },
-            WebDriverScriptCommand::GetCookie(name, reply) => {
-                webdriver_handlers::handle_get_cookie(&documents, pipeline_id, name, reply)
-            },
-            WebDriverScriptCommand::GetElementTagName(node_id, reply) => {
-                webdriver_handlers::handle_get_name(&documents, pipeline_id, node_id, reply)
-            },
-            WebDriverScriptCommand::GetElementAttribute(node_id, name, reply) => {
-                webdriver_handlers::handle_get_attribute(
-                    &documents,
-                    pipeline_id,
-                    node_id,
-                    name,
-                    reply,
-                )
-            },
-            WebDriverScriptCommand::GetElementProperty(node_id, name, reply) => {
-                webdriver_handlers::handle_get_property(
-                    &documents,
-                    pipeline_id,
-                    node_id,
-                    name,
-                    reply,
-                )
-            },
-            WebDriverScriptCommand::GetElementCSS(node_id, name, reply) => {
-                webdriver_handlers::handle_get_css(
-                    &documents,
-                    pipeline_id,
-                    node_id,
-                    name,
-                    reply,
-                    can_gc,
-                )
-            },
-            WebDriverScriptCommand::GetElementRect(node_id, reply) => {
-                webdriver_handlers::handle_get_rect(&documents, pipeline_id, node_id, reply, can_gc)
-            },
-            WebDriverScriptCommand::GetBoundingClientRect(node_id, reply) => {
-                webdriver_handlers::handle_get_bounding_client_rect(
-                    &documents,
-                    pipeline_id,
-                    node_id,
-                    reply,
-                    can_gc,
-                )
-            },
-            WebDriverScriptCommand::GetElementText(node_id, reply) => {
-                webdriver_handlers::handle_get_text(&documents, pipeline_id, node_id, reply)
-            },
-            WebDriverScriptCommand::GetElementInViewCenterPoint(node_id, reply) => {
-                webdriver_handlers::handle_get_element_in_view_center_point(
-                    &documents,
-                    pipeline_id,
-                    node_id,
-                    reply,
-                    can_gc,
-                )
-            },
-            WebDriverScriptCommand::GetBrowsingContextId(webdriver_frame_id, reply) => {
-                webdriver_handlers::handle_get_browsing_context_id(
-                    &documents,
-                    pipeline_id,
-                    webdriver_frame_id,
-                    reply,
-                )
-            },
-            WebDriverScriptCommand::GetUrl(reply) => {
-                webdriver_handlers::handle_get_url(&documents, pipeline_id, reply)
-            },
-            WebDriverScriptCommand::IsEnabled(element_id, reply) => {
-                webdriver_handlers::handle_is_enabled(&documents, pipeline_id, element_id, reply)
-            },
-            WebDriverScriptCommand::IsSelected(element_id, reply) => {
-                webdriver_handlers::handle_is_selected(&documents, pipeline_id, element_id, reply)
-            },
-            WebDriverScriptCommand::GetTitle(reply) => {
-                webdriver_handlers::handle_get_title(&documents, pipeline_id, reply)
-            },
-            _ => (),
-        }
-    }
-
-    /// Batch window resize operations into a single "update the rendering" task,
-    /// or, if a load is in progress, set the window size directly.
-    pub(crate) fn handle_resize_message(
-        &self,
-        id: PipelineId,
-        size: WindowSizeData,
-        size_type: WindowSizeType,
-    ) {
-        self.profile_event(ScriptThreadEventCategory::Resize, Some(id), || {
-            let window = self.documents.borrow().find_window(id);
-            if let Some(ref window) = window {
-                window.add_resize_event(size, size_type);
-                return;
-            }
-            let mut loads = self.incomplete_loads.borrow_mut();
-            if let Some(ref mut load) = loads.iter_mut().find(|load| load.pipeline_id == id) {
-                load.window_size = size;
-            }
-        })
-    }
-
-    /// Handle changes to the theme, triggering reflow if the theme actually changed.
-    fn handle_theme_change_msg(&self, theme: Theme) {
-        for (_, document) in self.documents.borrow().iter() {
-            document.window().handle_theme_change(theme);
-        }
-    }
-
-    // exit_fullscreen creates a new JS promise object, so we need to have entered a realm
-    fn handle_exit_fullscreen(&self, id: PipelineId, can_gc: CanGc) {
-        let document = self.documents.borrow().find_document(id);
-        if let Some(document) = document {
-            let _ac = enter_realm(&*document);
-            document.exit_fullscreen(can_gc);
-        }
-    }
-
-    fn handle_viewport(&self, id: PipelineId, rect: Rect<f32>) {
-        let document = self.documents.borrow().find_document(id);
-        if let Some(document) = document {
-            document.window().set_page_clip_rect_with_new_viewport(rect);
-            return;
-        }
-        let loads = self.incomplete_loads.borrow();
-        if loads.iter().any(|load| load.pipeline_id == id) {
-            return;
-        }
-        warn!("Page rect message sent to nonexistent pipeline");
-    }
-
-    fn handle_new_layout(&self, new_layout_info: NewLayoutInfo, origin: MutableOrigin) {
-        let NewLayoutInfo {
-            parent_info,
-            new_pipeline_id,
-            browsing_context_id,
-            top_level_browsing_context_id,
-            opener,
-            load_data,
-            window_size,
-        } = new_layout_info;
-
-        // Kick off the fetch for the new resource.
-        let url = load_data.url.clone();
-        let new_load = InProgressLoad::new(
-            new_pipeline_id,
-            browsing_context_id,
-            top_level_browsing_context_id,
-            parent_info,
-            opener,
-            window_size,
-            origin,
-            load_data,
-        );
-        if url.as_str() == "about:blank" {
-            self.start_page_load_about_blank(new_load);
-        } else if url.as_str() == "about:srcdoc" {
-            self.page_load_about_srcdoc(new_load);
-        } else {
-            self.pre_page_load(new_load);
-        }
-    }
-
-    fn collect_reports(&self, reports_chan: ReportsChan) {
-        let documents = self.documents.borrow();
-        let urls = itertools::join(documents.iter().map(|(_, d)| d.url().to_string()), ", ");
-
-        let mut reports = self.get_cx().get_reports(format!("url({})", urls));
-        for (_, document) in documents.iter() {
-            document.window().layout().collect_reports(&mut reports);
-        }
-
-        reports_chan.send(reports);
-    }
-
-    /// Updates iframe element after a change in visibility
-    fn handle_set_throttled_in_containing_iframe_msg(
-        &self,
-        parent_pipeline_id: PipelineId,
-        browsing_context_id: BrowsingContextId,
-        throttled: bool,
-    ) {
-        let iframe = self
-            .documents
-            .borrow()
-            .find_iframe(parent_pipeline_id, browsing_context_id);
-        if let Some(iframe) = iframe {
-            iframe.set_throttled(throttled);
-        }
-    }
-
-    fn handle_set_throttled_msg(&self, id: PipelineId, throttled: bool) {
-        // Separate message sent since parent script thread could be different (Iframe of different
-        // domain)
-        self.senders
-            .pipeline_to_constellation_sender
-            .send((id, ScriptMsg::SetThrottledComplete(throttled)))
-            .unwrap();
-
-        let window = self.documents.borrow().find_window(id);
-        match window {
-            Some(window) => {
-                window.set_throttled(throttled);
-                return;
-            },
-            None => {
-                let mut loads = self.incomplete_loads.borrow_mut();
-                if let Some(ref mut load) = loads.iter_mut().find(|load| load.pipeline_id == id) {
-                    load.throttled = throttled;
-                    return;
-                }
-            },
-        }
-
-        warn!("SetThrottled sent to nonexistent pipeline");
-    }
-
-    /// Handles activity change message
-    fn handle_set_document_activity_msg(&self, id: PipelineId, activity: DocumentActivity) {
-        debug!(
-            "Setting activity of {} to be {:?} in {:?}.",
-            id,
-            activity,
-            thread::current().name()
-        );
-        let document = self.documents.borrow().find_document(id);
-        if let Some(document) = document {
-            document.set_activity(activity);
-            return;
-        }
-        let mut loads = self.incomplete_loads.borrow_mut();
-        if let Some(ref mut load) = loads.iter_mut().find(|load| load.pipeline_id == id) {
-            load.activity = activity;
-            return;
-        }
-        warn!("change of activity sent to nonexistent pipeline");
-    }
-
-    fn handle_focus_iframe_msg(
-        &self,
-        parent_pipeline_id: PipelineId,
-        browsing_context_id: BrowsingContextId,
-        can_gc: CanGc,
-    ) {
-        let document = self
-            .documents
-            .borrow()
-            .find_document(parent_pipeline_id)
-            .unwrap();
-
-        let iframes = document.iframes();
-        if let Some(iframe) = iframes.get(browsing_context_id) {
-            document.request_focus(Some(iframe.element.upcast()), FocusType::Parent, can_gc);
-        }
-    }
-
-    fn handle_post_message_msg(
-        &self,
-        pipeline_id: PipelineId,
-        source_pipeline_id: PipelineId,
-        source_browsing_context: TopLevelBrowsingContextId,
-        origin: Option<ImmutableOrigin>,
-        source_origin: ImmutableOrigin,
-        data: StructuredSerializedData,
-    ) {
-        let window = self.documents.borrow().find_window(pipeline_id);
-        match window {
-            None => warn!("postMessage after target pipeline {} closed.", pipeline_id),
-            Some(window) => {
-                // FIXME: synchronously talks to constellation.
-                // send the required info as part of postmessage instead.
-                let source = match self.remote_window_proxy(
-                    &window.global(),
-                    source_browsing_context,
-                    source_pipeline_id,
-                    None,
-                ) {
-                    None => {
-                        return warn!(
-                            "postMessage after source pipeline {} closed.",
-                            source_pipeline_id,
-                        );
-                    },
-                    Some(source) => source,
-                };
-                // FIXME(#22512): enqueues a task; unnecessary delay.
-                window.post_message(origin, source_origin, &source, data)
-            },
-        }
-    }
-
-    fn handle_stop_delaying_load_events_mode(&self, pipeline_id: PipelineId) {
-        let window = self.documents.borrow().find_window(pipeline_id);
-        if let Some(window) = window {
-            match window.undiscarded_window_proxy() {
-                Some(window_proxy) => window_proxy.stop_delaying_load_events_mode(),
-                None => warn!(
-                    "Attempted to take {} of 'delaying-load-events-mode' after having been discarded.",
-                    pipeline_id
-                ),
-            };
-        }
-    }
-
-    fn handle_unload_document(&self, pipeline_id: PipelineId, can_gc: CanGc) {
-        let document = self.documents.borrow().find_document(pipeline_id);
-        if let Some(document) = document {
-            document.unload(false, can_gc);
-        }
-    }
-
-    fn handle_update_pipeline_id(
-        &self,
-        parent_pipeline_id: PipelineId,
-        browsing_context_id: BrowsingContextId,
-        top_level_browsing_context_id: TopLevelBrowsingContextId,
-        new_pipeline_id: PipelineId,
-        reason: UpdatePipelineIdReason,
-        can_gc: CanGc,
-    ) {
-        let frame_element = self
-            .documents
-            .borrow()
-            .find_iframe(parent_pipeline_id, browsing_context_id);
-        if let Some(frame_element) = frame_element {
-            frame_element.update_pipeline_id(new_pipeline_id, reason, can_gc);
-        }
-
-        if let Some(window) = self.documents.borrow().find_window(new_pipeline_id) {
-            // Ensure that the state of any local window proxies accurately reflects
-            // the new pipeline.
-            let _ = self.local_window_proxy(
-                &window,
-                browsing_context_id,
-                top_level_browsing_context_id,
-                Some(parent_pipeline_id),
-                // Any local window proxy has already been created, so there
-                // is no need to pass along existing opener information that
-                // will be discarded.
-                None,
-            );
-        }
-    }
-
-    fn handle_update_history_state_msg(
-        &self,
-        pipeline_id: PipelineId,
-        history_state_id: Option<HistoryStateId>,
-        url: ServoUrl,
-        can_gc: CanGc,
-    ) {
-        let window = self.documents.borrow().find_window(pipeline_id);
-        match window {
-            None => {
-                warn!(
-                    "update history state after pipeline {} closed.",
-                    pipeline_id
-                );
-            },
-            Some(window) => window
-                .History()
-                .activate_state(history_state_id, url, can_gc),
-        }
-    }
-
-    fn handle_remove_history_states(
-        &self,
-        pipeline_id: PipelineId,
-        history_states: Vec<HistoryStateId>,
-    ) {
-        let window = self.documents.borrow().find_window(pipeline_id);
-        match window {
-            None => {
-                warn!(
-                    "update history state after pipeline {} closed.",
-                    pipeline_id
-                );
-            },
-            Some(window) => window.History().remove_states(history_states),
-        }
-    }
-
-    /// Window was resized, but this script was not active, so don't reflow yet
-    fn handle_resize_inactive_msg(&self, id: PipelineId, new_size: WindowSizeData) {
-        let window = self.documents.borrow().find_window(id)
-            .expect("ScriptThread: received a resize msg for a pipeline not in this script thread. This is a bug.");
-        window.set_window_size(new_size);
-    }
-
-    /// We have received notification that the response associated with a load has completed.
-    /// Kick off the document and frame tree creation process using the result.
-    fn handle_page_headers_available(
-        &self,
-        id: &PipelineId,
-        metadata: Option<Metadata>,
-        can_gc: CanGc,
-    ) -> Option<DomRoot<ServoParser>> {
-        let idx = self
-            .incomplete_loads
-            .borrow()
-            .iter()
-            .position(|load| load.pipeline_id == *id);
-        // The matching in progress load structure may not exist if
-        // the pipeline exited before the page load completed.
-        match idx {
-            Some(idx) => {
-                // https://html.spec.whatwg.org/multipage/#process-a-navigate-response
-                // 2. If response's status is 204 or 205, then abort these steps.
-                let is20x = match metadata {
-                    Some(ref metadata) => metadata.status.in_range(204..=205),
-                    _ => false,
-                };
-
-                if is20x {
-                    // If we have an existing window that is being navigated:
-                    if let Some(window) = self.documents.borrow().find_window(*id) {
-                        let window_proxy = window.window_proxy();
-                        // https://html.spec.whatwg.org/multipage/
-                        // #navigating-across-documents:delaying-load-events-mode-2
-                        if window_proxy.parent().is_some() {
-                            // The user agent must take this nested browsing context
-                            // out of the delaying load events mode
-                            // when this navigation algorithm later matures,
-                            // or when it terminates (whether due to having run all the steps,
-                            // or being canceled, or being aborted), whichever happens first.
-                            window_proxy.stop_delaying_load_events_mode();
-                        }
-                    }
-                    self.senders
-                        .pipeline_to_constellation_sender
-                        .send((*id, ScriptMsg::AbortLoadUrl))
-                        .unwrap();
-                    return None;
-                };
-
-                let load = self.incomplete_loads.borrow_mut().remove(idx);
-                metadata.map(|meta| self.load(meta, load, can_gc))
-            },
-            None => {
-                assert!(self.closed_pipelines.borrow().contains(id));
-                None
-            },
-        }
-    }
-
-    /// Handles a request for the window title.
-    fn handle_get_title_msg(&self, pipeline_id: PipelineId) {
-        let document = match self.documents.borrow().find_document(pipeline_id) {
-            Some(document) => document,
-            None => return warn!("Message sent to closed pipeline {}.", pipeline_id),
-        };
-        document.send_title_to_embedder();
-    }
-
-    /// Handles a request to exit a pipeline and shut down layout.
-    fn handle_exit_pipeline_msg(
-        &self,
-        id: PipelineId,
-        discard_bc: DiscardBrowsingContext,
-        can_gc: CanGc,
-    ) {
-        debug!("{id}: Starting pipeline exit.");
-
-        self.closed_pipelines.borrow_mut().insert(id);
-
-        // Abort the parser, if any,
-        // to prevent any further incoming networking messages from being handled.
-        let document = self.documents.borrow_mut().remove(id);
-        if let Some(document) = document {
-            // We should never have a pipeline that's still an incomplete load, but also has a Document.
-            debug_assert!(!self
-                .incomplete_loads
-                .borrow()
-                .iter()
-                .any(|load| load.pipeline_id == id));
-
-            if let Some(parser) = document.get_current_parser() {
-                parser.abort(can_gc);
-            }
-
-            debug!("{id}: Shutting down layout");
-            document.window().layout_mut().exit_now();
-
-            debug!("{id}: Sending PipelineExited message to constellation");
-            self.senders
-                .pipeline_to_constellation_sender
-                .send((id, ScriptMsg::PipelineExited))
-                .ok();
-
-            // Clear any active animations and unroot all of the associated DOM objects.
-            debug!("{id}: Clearing animations");
-            document.animations().clear();
-
-            // We don't want to dispatch `mouseout` event pointing to non-existing element
-            if let Some(target) = self.topmost_mouse_over_target.get() {
-                if target.upcast::<Node>().owner_doc() == document {
-                    self.topmost_mouse_over_target.set(None);
-                }
-            }
-
-            // We discard the browsing context after requesting layout shut down,
-            // to avoid running layout on detached iframes.
-            let window = document.window();
-            if discard_bc == DiscardBrowsingContext::Yes {
-                window.discard_browsing_context();
-            }
-
-            debug!("{id}: Clearing JavaScript runtime");
-            window.clear_js_runtime();
-        }
-
-        debug!("{id}: Finished pipeline exit");
-    }
-
-    /// Handles a request to exit the script thread and shut down layout.
-    fn handle_exit_script_thread_msg(&self, can_gc: CanGc) {
-        debug!("Exiting script thread.");
-
-        let mut pipeline_ids = Vec::new();
-        pipeline_ids.extend(
-            self.incomplete_loads
-                .borrow()
-                .iter()
-                .next()
-                .map(|load| load.pipeline_id),
-        );
-        pipeline_ids.extend(
-            self.documents
-                .borrow()
-                .iter()
-                .next()
-                .map(|(pipeline_id, _)| pipeline_id),
-        );
-
-        for pipeline_id in pipeline_ids {
-            self.handle_exit_pipeline_msg(pipeline_id, DiscardBrowsingContext::Yes, can_gc);
-        }
-
-        self.background_hang_monitor.unregister();
-
-        // If we're in multiprocess mode, shut-down the IPC router for this process.
-        if opts::get().multiprocess {
-            debug!("Exiting IPC router thread in script thread.");
-            ROUTER.shutdown();
-        }
-
-        debug!("Exited script thread.");
-    }
-
-    /// Handles animation tick requested during testing.
-    pub(crate) fn handle_tick_all_animations_for_testing(id: PipelineId) {
-        with_script_thread(|script_thread| {
-            let Some(document) = script_thread.documents.borrow().find_document(id) else {
-                warn!("Animation tick for tests for closed pipeline {id}.");
-                return;
-            };
-            document.maybe_mark_animating_nodes_as_dirty();
-        });
-    }
-
-    /// Handles a Web font being loaded. Does nothing if the page no longer exists.
-    fn handle_web_font_loaded(&self, pipeline_id: PipelineId, _success: bool) {
-        let Some(document) = self.documents.borrow().find_document(pipeline_id) else {
-            warn!("Web font loaded in closed pipeline {}.", pipeline_id);
-            return;
-        };
-
-        // TODO: This should only dirty nodes that are waiting for a web font to finish loading!
-        document.dirty_all_nodes();
-    }
-
-    /// Handles a worklet being loaded by triggering a relayout of the page. Does nothing if the
-    /// page no longer exists.
-    fn handle_worklet_loaded(&self, pipeline_id: PipelineId) {
-        if let Some(document) = self.documents.borrow().find_document(pipeline_id) {
-            document.set_needs_paint(true)
-        }
-    }
-
-    /// Notify a window of a storage event
-    fn handle_storage_event(
-        &self,
-        pipeline_id: PipelineId,
-        storage_type: StorageType,
-        url: ServoUrl,
-        key: Option<String>,
-        old_value: Option<String>,
-        new_value: Option<String>,
-    ) {
-        let window = match self.documents.borrow().find_window(pipeline_id) {
-            None => return warn!("Storage event sent to closed pipeline {}.", pipeline_id),
-            Some(window) => window,
-        };
-
-        let storage = match storage_type {
-            StorageType::Local => window.LocalStorage(),
-            StorageType::Session => window.SessionStorage(),
-        };
-
-        storage.queue_storage_event(url, key, old_value, new_value);
-    }
-
-    /// Notify the containing document of a child iframe that has completed loading.
-    fn handle_iframe_load_event(
-        &self,
-        parent_id: PipelineId,
-        browsing_context_id: BrowsingContextId,
-        child_id: PipelineId,
-        can_gc: CanGc,
-    ) {
-        let iframe = self
-            .documents
-            .borrow()
-            .find_iframe(parent_id, browsing_context_id);
-        match iframe {
-            Some(iframe) => iframe.iframe_load_event_steps(child_id, can_gc),
-            None => warn!("Message sent to closed pipeline {}.", parent_id),
-        }
-    }
-
-    fn ask_constellation_for_browsing_context_info(
-        &self,
-        pipeline_id: PipelineId,
-    ) -> Option<(BrowsingContextId, Option<PipelineId>)> {
-        let (result_sender, result_receiver) = ipc::channel().unwrap();
-        let msg = ScriptMsg::GetBrowsingContextInfo(pipeline_id, result_sender);
-        self.senders
-            .pipeline_to_constellation_sender
-            .send((pipeline_id, msg))
-            .expect("Failed to send to constellation.");
-        result_receiver
-            .recv()
-            .expect("Failed to get browsing context info from constellation.")
-    }
-
-    fn ask_constellation_for_top_level_info(
-        &self,
-        sender_pipeline: PipelineId,
-        browsing_context_id: BrowsingContextId,
-    ) -> Option<TopLevelBrowsingContextId> {
-        let (result_sender, result_receiver) = ipc::channel().unwrap();
-        let msg = ScriptMsg::GetTopForBrowsingContext(browsing_context_id, result_sender);
-        self.senders
-            .pipeline_to_constellation_sender
-            .send((sender_pipeline, msg))
-            .expect("Failed to send to constellation.");
-        result_receiver
-            .recv()
-            .expect("Failed to get top-level id from constellation.")
-    }
-
-    // Get the browsing context for a pipeline that may exist in another
-    // script thread.  If the browsing context already exists in the
-    // `window_proxies` map, we return it, otherwise we recursively
-    // get the browsing context for the parent if there is one,
-    // construct a new dissimilar-origin browsing context, add it
-    // to the `window_proxies` map, and return it.
-    fn remote_window_proxy(
-        &self,
-        global_to_clone: &GlobalScope,
-        top_level_browsing_context_id: TopLevelBrowsingContextId,
-        pipeline_id: PipelineId,
-        opener: Option<BrowsingContextId>,
-    ) -> Option<DomRoot<WindowProxy>> {
-        let (browsing_context_id, parent_pipeline_id) =
-            self.ask_constellation_for_browsing_context_info(pipeline_id)?;
-        if let Some(window_proxy) = self.window_proxies.borrow().get(&browsing_context_id) {
-            return Some(DomRoot::from_ref(window_proxy));
-        }
-
-        let parent_browsing_context = parent_pipeline_id.and_then(|parent_id| {
-            self.remote_window_proxy(
-                global_to_clone,
-                top_level_browsing_context_id,
-                parent_id,
-                opener,
-            )
-        });
-
-        let opener_browsing_context = opener.and_then(ScriptThread::find_window_proxy);
-
-        let creator = CreatorBrowsingContextInfo::from(
-            parent_browsing_context.as_deref(),
-            opener_browsing_context.as_deref(),
-        );
-
-        let window_proxy = WindowProxy::new_dissimilar_origin(
-            global_to_clone,
-            browsing_context_id,
-            top_level_browsing_context_id,
-            parent_browsing_context.as_deref(),
-            opener,
-            creator,
-        );
-        self.window_proxies
-            .borrow_mut()
-            .insert(browsing_context_id, Dom::from_ref(&*window_proxy));
-        Some(window_proxy)
-    }
-
-    // Get the browsing context for a pipeline that exists in this
-    // script thread.  If the browsing context already exists in the
-    // `window_proxies` map, we return it, otherwise we recursively
-    // get the browsing context for the parent if there is one,
-    // construct a new similar-origin browsing context, add it
-    // to the `window_proxies` map, and return it.
-    fn local_window_proxy(
-        &self,
-        window: &Window,
-        browsing_context_id: BrowsingContextId,
-        top_level_browsing_context_id: TopLevelBrowsingContextId,
-        parent_info: Option<PipelineId>,
-        opener: Option<BrowsingContextId>,
-    ) -> DomRoot<WindowProxy> {
-        if let Some(window_proxy) = self.window_proxies.borrow().get(&browsing_context_id) {
-            // Note: we do not set the window to be the currently-active one,
-            // this will be done instead when the script-thread handles the `SetDocumentActivity` msg.
-            return DomRoot::from_ref(window_proxy);
-        }
-        let iframe = parent_info.and_then(|parent_id| {
-            self.documents
-                .borrow()
-                .find_iframe(parent_id, browsing_context_id)
-        });
-        let parent_browsing_context = match (parent_info, iframe.as_ref()) {
-            (_, Some(iframe)) => Some(iframe.owner_window().window_proxy()),
-            (Some(parent_id), _) => self.remote_window_proxy(
-                window.upcast(),
-                top_level_browsing_context_id,
-                parent_id,
-                opener,
-            ),
-            _ => None,
-        };
-
-        let opener_browsing_context = opener.and_then(ScriptThread::find_window_proxy);
-
-        let creator = CreatorBrowsingContextInfo::from(
-            parent_browsing_context.as_deref(),
-            opener_browsing_context.as_deref(),
-        );
-
-        let window_proxy = WindowProxy::new(
-            window,
-            browsing_context_id,
-            top_level_browsing_context_id,
-            iframe.as_deref().map(Castable::upcast),
-            parent_browsing_context.as_deref(),
-            opener,
-            creator,
-        );
-        self.window_proxies
-            .borrow_mut()
-            .insert(browsing_context_id, Dom::from_ref(&*window_proxy));
-        window_proxy
-    }
-
-    /// The entry point to document loading. Defines bindings, sets up the window and document
-    /// objects, parses HTML and CSS, and kicks off initial layout.
-    fn load(
-        &self,
-        metadata: Metadata,
-        incomplete: InProgressLoad,
-        can_gc: CanGc,
-    ) -> DomRoot<ServoParser> {
-        let final_url = metadata.final_url.clone();
-        {
-            self.senders
-                .pipeline_to_constellation_sender
-                .send((
-                    incomplete.pipeline_id,
-                    ScriptMsg::SetFinalUrl(final_url.clone()),
-                ))
-                .unwrap();
-        }
-        debug!(
-            "ScriptThread: loading {} on pipeline {:?}",
-            incomplete.load_data.url, incomplete.pipeline_id
-        );
-
-        let origin = if final_url.as_str() == "about:blank" || final_url.as_str() == "about:srcdoc"
-        {
-            incomplete.origin.clone()
-        } else {
-            MutableOrigin::new(final_url.origin())
-        };
-
-        let script_to_constellation_chan = ScriptToConstellationChan {
-            sender: self.senders.pipeline_to_constellation_sender.clone(),
-            pipeline_id: incomplete.pipeline_id,
-        };
-
-        let paint_time_metrics = PaintTimeMetrics::new(
-            incomplete.pipeline_id,
-            self.senders.time_profiler_sender.clone(),
-            self.senders.layout_to_constellation_ipc_sender.clone(),
-            self.senders.constellation_sender.clone(),
-            final_url.clone(),
-            incomplete.navigation_start,
-        );
-
-        let font_context = Arc::new(FontContext::new(
-            self.system_font_service.clone(),
-            self.compositor_api.clone(),
-            self.resource_threads.clone(),
-        ));
-
-        let layout_config = LayoutConfig {
-            id: incomplete.pipeline_id,
-            webview_id: incomplete.top_level_browsing_context_id,
-            url: final_url.clone(),
-            is_iframe: incomplete.parent_info.is_some(),
-            script_chan: self.senders.constellation_sender.clone(),
-            image_cache: self.image_cache.clone(),
-            font_context: font_context.clone(),
-            time_profiler_chan: self.senders.time_profiler_sender.clone(),
-            compositor_api: self.compositor_api.clone(),
-            paint_time_metrics,
-            window_size: incomplete.window_size,
-        };
-
-        // Create the window and document objects.
-        let window = Window::new(
-            incomplete.top_level_browsing_context_id,
-            self.js_runtime.clone(),
-            self.senders.self_sender.clone(),
-            self.layout_factory.create(layout_config),
-            font_context,
-            self.senders.image_cache_sender.clone(),
-            self.image_cache.clone(),
-            self.resource_threads.clone(),
-            #[cfg(feature = "bluetooth")]
-            self.senders.bluetooth_sender.clone(),
-            self.senders.memory_profiler_sender.clone(),
-            self.senders.time_profiler_sender.clone(),
-            self.senders.devtools_server_sender.clone(),
-            script_to_constellation_chan,
-            self.senders.constellation_sender.clone(),
-            incomplete.pipeline_id,
-            incomplete.parent_info,
-            incomplete.window_size,
-            origin.clone(),
-            final_url.clone(),
-            incomplete.navigation_start,
-            self.webgl_chan.as_ref().map(|chan| chan.channel()),
-            #[cfg(feature = "webxr")]
-            self.webxr_registry.clone(),
-            self.microtask_queue.clone(),
-            self.webrender_document,
-            self.compositor_api.clone(),
-            self.relayout_event,
-            self.unminify_js,
-            self.unminify_css,
-            self.local_script_source.clone(),
-            self.userscripts_path.clone(),
-            self.user_agent.clone(),
-            self.player_context.clone(),
-            #[cfg(feature = "webgpu")]
-            self.gpu_id_hub.clone(),
-            incomplete.load_data.inherited_secure_context,
-        );
-
-        let _realm = enter_realm(&*window);
-
-        // Initialize the browsing context for the window.
-        let window_proxy = self.local_window_proxy(
-            &window,
-            incomplete.browsing_context_id,
-            incomplete.top_level_browsing_context_id,
-            incomplete.parent_info,
-            incomplete.opener,
-        );
-        if window_proxy.parent().is_some() {
-            // https://html.spec.whatwg.org/multipage/#navigating-across-documents:delaying-load-events-mode-2
-            // The user agent must take this nested browsing context
-            // out of the delaying load events mode
-            // when this navigation algorithm later matures.
-            window_proxy.stop_delaying_load_events_mode();
-        }
-        window.init_window_proxy(&window_proxy);
-
-        let last_modified = metadata.headers.as_ref().and_then(|headers| {
-            headers.typed_get::<LastModified>().map(|tm| {
-                let tm: SystemTime = tm.into();
-                let local_time: DateTime<Local> = tm.into();
-                local_time.format("%m/%d/%Y %H:%M:%S").to_string()
-            })
-        });
-
-        let loader = DocumentLoader::new_with_threads(
-            self.resource_threads.clone(),
-            Some(final_url.clone()),
-        );
-
-        let content_type: Option<Mime> =
-            metadata.content_type.map(Serde::into_inner).map(Into::into);
-
-        let is_html_document = match content_type {
-            Some(ref mime)
-                if mime.type_() == mime::APPLICATION && mime.suffix() == Some(mime::XML) =>
-            {
-                IsHTMLDocument::NonHTMLDocument
-            },
-
-            Some(ref mime)
-                if (mime.type_() == mime::TEXT && mime.subtype() == mime::XML) ||
-                    (mime.type_() == mime::APPLICATION && mime.subtype() == mime::XML) =>
-            {
-                IsHTMLDocument::NonHTMLDocument
-            },
-            _ => IsHTMLDocument::HTMLDocument,
-        };
-
-        let referrer = metadata
-            .referrer
-            .as_ref()
-            .map(|referrer| referrer.clone().into_string());
-
-        let is_initial_about_blank = final_url.as_str() == "about:blank";
-
-        let document = Document::new(
-            &window,
-            HasBrowsingContext::Yes,
-            Some(final_url.clone()),
-            origin,
-            is_html_document,
-            content_type,
-            last_modified,
-            incomplete.activity,
-            DocumentSource::FromParser,
-            loader,
-            referrer,
-            Some(metadata.status.raw_code()),
-            incomplete.canceller,
-            is_initial_about_blank,
-            incomplete.load_data.inherited_insecure_requests_policy,
-            can_gc,
-        );
-
-        let referrer_policy = metadata
-            .headers
-            .as_deref()
-            .and_then(|h| h.typed_get::<ReferrerPolicyHeader>())
-            .into();
-
-        document.set_referrer_policy(referrer_policy);
-        document.set_ready_state(DocumentReadyState::Loading, can_gc);
-
-        self.documents
-            .borrow_mut()
-            .insert(incomplete.pipeline_id, &document);
-
-        window.init_document(&document);
-
-        // For any similar-origin iframe, ensure that the contentWindow/contentDocument
-        // APIs resolve to the new window/document as soon as parsing starts.
-        if let Some(frame) = window_proxy
-            .frame_element()
-            .and_then(|e| e.downcast::<HTMLIFrameElement>())
-        {
-            let parent_pipeline = frame.global().pipeline_id();
-            self.handle_update_pipeline_id(
-                parent_pipeline,
-                window_proxy.browsing_context_id(),
-                window_proxy.top_level_browsing_context_id(),
-                incomplete.pipeline_id,
-                UpdatePipelineIdReason::Navigation,
-                can_gc,
-            );
-        }
-
-        self.senders
-            .pipeline_to_constellation_sender
-            .send((incomplete.pipeline_id, ScriptMsg::ActivateDocument))
-            .unwrap();
-
-        // Notify devtools that a new script global exists.
-        if incomplete.top_level_browsing_context_id.0 == incomplete.browsing_context_id {
-            self.notify_devtools(
-                document.Title(),
-                final_url.clone(),
-                (incomplete.browsing_context_id, incomplete.pipeline_id, None),
-            );
-        }
-
-        document.set_https_state(metadata.https_state);
-        document.set_navigation_start(incomplete.navigation_start);
-
-        if is_html_document == IsHTMLDocument::NonHTMLDocument {
-            ServoParser::parse_xml_document(&document, None, final_url, can_gc);
-        } else {
-            ServoParser::parse_html_document(&document, None, final_url, can_gc);
-        }
-
-        if incomplete.activity == DocumentActivity::FullyActive {
-            window.resume();
-        } else {
-            window.suspend();
-        }
-
-        if incomplete.throttled {
-            window.set_throttled(true);
-        }
-
-        document.get_current_parser().unwrap()
-    }
-
-    fn notify_devtools(
-        &self,
-        title: DOMString,
-        url: ServoUrl,
-        (bc, p, w): (BrowsingContextId, PipelineId, Option<WorkerId>),
-    ) {
-        if let Some(ref chan) = self.senders.devtools_server_sender {
-            let page_info = DevtoolsPageInfo {
-                title: String::from(title),
-                url,
-            };
-            chan.send(ScriptToDevtoolsControlMsg::NewGlobal(
-                (bc, p, w),
-                self.senders.devtools_client_to_script_thread_sender.clone(),
-                page_info.clone(),
-            ))
-            .unwrap();
-
-            let state = NavigationState::Stop(p, page_info);
-            let _ = chan.send(ScriptToDevtoolsControlMsg::Navigate(bc, state));
-        }
-    }
-
-    /// Queue compositor events for later dispatching as part of a
-    /// `update_the_rendering` task.
-    fn handle_input_event(&self, pipeline_id: PipelineId, event: ConstellationInputEvent) {
-        let Some(document) = self.documents.borrow().find_document(pipeline_id) else {
-            warn!("Compositor event sent to closed pipeline {pipeline_id}.");
-            return;
-        };
-        document.note_pending_input_event(event);
-    }
-
-    /// Handle a "navigate an iframe" message from the constellation.
-    fn handle_navigate_iframe(
-        &self,
-        parent_pipeline_id: PipelineId,
-        browsing_context_id: BrowsingContextId,
-        load_data: LoadData,
-        history_handling: NavigationHistoryBehavior,
-        can_gc: CanGc,
-    ) {
-        let iframe = self
-            .documents
-            .borrow()
-            .find_iframe(parent_pipeline_id, browsing_context_id);
-        if let Some(iframe) = iframe {
-            iframe.navigate_or_reload_child_browsing_context(load_data, history_handling, can_gc);
-        }
-    }
-
-    /// Turn javascript: URL into JS code to eval, according to the steps in
-    /// <https://html.spec.whatwg.org/multipage/#javascript-protocol>
-    pub(crate) fn eval_js_url(global_scope: &GlobalScope, load_data: &mut LoadData, can_gc: CanGc) {
-        // This slice of the URL’s serialization is equivalent to (5.) to (7.):
-        // Start with the scheme data of the parsed URL;
-        // append question mark and query component, if any;
-        // append number sign and fragment component if any.
-        let encoded = &load_data.url.clone()[Position::BeforePath..];
-
-        // Percent-decode (8.) and UTF-8 decode (9.)
-        let script_source = percent_decode(encoded.as_bytes()).decode_utf8_lossy();
-
-        // Script source is ready to be evaluated (11.)
-        let _ac = enter_realm(global_scope);
-        rooted!(in(*GlobalScope::get_cx()) let mut jsval = UndefinedValue());
-        global_scope.evaluate_js_on_global_with_result(
-            &script_source,
-            jsval.handle_mut(),
-            ScriptFetchOptions::default_classic_script(global_scope),
-            global_scope.api_base_url(),
-            can_gc,
-        );
-
-        load_data.js_eval_result = if jsval.get().is_string() {
-            unsafe {
-                let strval = DOMString::from_jsval(
-                    *GlobalScope::get_cx(),
-                    jsval.handle(),
-                    StringificationBehavior::Empty,
-                );
-                match strval {
-                    Ok(ConversionResult::Success(s)) => {
-                        Some(JsEvalResult::Ok(String::from(s).as_bytes().to_vec()))
-                    },
-                    _ => None,
-                }
-            }
-        } else {
-            Some(JsEvalResult::NoContent)
-        };
-
-        load_data.url = ServoUrl::parse("about:blank").unwrap();
-    }
-
-    /// Instructs the constellation to fetch the document that will be loaded. Stores the InProgressLoad
-    /// argument until a notification is received that the fetch is complete.
-    fn pre_page_load(&self, mut incomplete: InProgressLoad) {
-        let context = ParserContext::new(incomplete.pipeline_id, incomplete.load_data.url.clone());
-        self.incomplete_parser_contexts
-            .0
-            .borrow_mut()
-            .push((incomplete.pipeline_id, context));
-
-        let request_builder = incomplete.request_builder();
-        incomplete.canceller = FetchCanceller::new(request_builder.id);
-        NavigationListener::new(request_builder, self.senders.self_sender.clone())
-            .initiate_fetch(&self.resource_threads.core_thread, None);
-        self.incomplete_loads.borrow_mut().push(incomplete);
-    }
-
-    fn handle_navigation_response(&self, pipeline_id: PipelineId, message: FetchResponseMsg) {
-        if let Some(metadata) = NavigationListener::http_redirect_metadata(&message) {
-            self.handle_navigation_redirect(pipeline_id, metadata);
-            return;
-        };
-
-        match message {
-            FetchResponseMsg::ProcessResponse(request_id, metadata) => {
-                self.handle_fetch_metadata(pipeline_id, request_id, metadata)
-            },
-            FetchResponseMsg::ProcessResponseChunk(request_id, chunk) => {
-                self.handle_fetch_chunk(pipeline_id, request_id, chunk)
-            },
-            FetchResponseMsg::ProcessResponseEOF(request_id, eof) => {
-                self.handle_fetch_eof(pipeline_id, request_id, eof)
-            },
-            FetchResponseMsg::ProcessRequestBody(..) => {},
-            FetchResponseMsg::ProcessRequestEOF(..) => {},
-        }
-    }
-
-    fn handle_fetch_metadata(
-        &self,
-        id: PipelineId,
-        request_id: RequestId,
-        fetch_metadata: Result<FetchMetadata, NetworkError>,
-    ) {
-        match fetch_metadata {
-            Ok(_) => (),
-            Err(NetworkError::Crash(..)) => (),
-            Err(ref e) => {
-                warn!("Network error: {:?}", e);
-            },
-        };
-
-        let mut incomplete_parser_contexts = self.incomplete_parser_contexts.0.borrow_mut();
-        let parser = incomplete_parser_contexts
-            .iter_mut()
-            .find(|&&mut (pipeline_id, _)| pipeline_id == id);
-        if let Some(&mut (_, ref mut ctxt)) = parser {
-            ctxt.process_response(request_id, fetch_metadata);
-        }
-    }
-
-    fn handle_fetch_chunk(&self, pipeline_id: PipelineId, request_id: RequestId, chunk: Vec<u8>) {
-        let mut incomplete_parser_contexts = self.incomplete_parser_contexts.0.borrow_mut();
-        let parser = incomplete_parser_contexts
-            .iter_mut()
-            .find(|&&mut (parser_pipeline_id, _)| parser_pipeline_id == pipeline_id);
-        if let Some(&mut (_, ref mut ctxt)) = parser {
-            ctxt.process_response_chunk(request_id, chunk);
-        }
-    }
-
-    fn handle_fetch_eof(
-        &self,
-        id: PipelineId,
-        request_id: RequestId,
-        eof: Result<ResourceFetchTiming, NetworkError>,
-    ) {
-        let idx = self
-            .incomplete_parser_contexts
-            .0
-            .borrow()
-            .iter()
-            .position(|&(pipeline_id, _)| pipeline_id == id);
-
-        if let Some(idx) = idx {
-            let (_, mut ctxt) = self.incomplete_parser_contexts.0.borrow_mut().remove(idx);
-            ctxt.process_response_eof(request_id, eof);
-        }
-    }
-
-    fn handle_navigation_redirect(&self, id: PipelineId, metadata: &Metadata) {
-        // TODO(mrobinson): This tries to accomplish some steps from
-        // <https://html.spec.whatwg.org/multipage/#process-a-navigate-fetch>, but it's
-        // very out of sync with the specification.
-        assert!(metadata.location_url.is_some());
-
-        let mut incomplete_loads = self.incomplete_loads.borrow_mut();
-        let Some(incomplete_load) = incomplete_loads
-            .iter_mut()
-            .find(|incomplete_load| incomplete_load.pipeline_id == id)
-        else {
-            return;
-        };
-
-        // Update the `url_list` of the incomplete load to track all redirects. This will be reflected
-        // in the new `RequestBuilder` as well.
-        incomplete_load.url_list.push(metadata.final_url.clone());
-
-        let mut request_builder = incomplete_load.request_builder();
-        request_builder.referrer = metadata
-            .referrer
-            .clone()
-            .map(Referrer::ReferrerUrl)
-            .unwrap_or(Referrer::NoReferrer);
-        request_builder.referrer_policy = metadata.referrer_policy;
-
-        let headers = metadata
-            .headers
-            .as_ref()
-            .map(|headers| headers.clone().into_inner())
-            .unwrap_or_default();
-
-        let response_init = Some(ResponseInit {
-            url: metadata.final_url.clone(),
-            location_url: metadata.location_url.clone(),
-            headers,
-            referrer: metadata.referrer.clone(),
-            status_code: metadata
-                .status
-                .try_code()
-                .map(|code| code.as_u16())
-                .unwrap_or(200),
-        });
-
-        incomplete_load.canceller = FetchCanceller::new(request_builder.id);
-        NavigationListener::new(request_builder, self.senders.self_sender.clone())
-            .initiate_fetch(&self.resource_threads.core_thread, response_init);
-    }
-
-    /// Synchronously fetch `about:blank`. Stores the `InProgressLoad`
-    /// argument until a notification is received that the fetch is complete.
-    fn start_page_load_about_blank(&self, mut incomplete: InProgressLoad) {
-        let id = incomplete.pipeline_id;
-
-        let url = ServoUrl::parse("about:blank").unwrap();
-        let mut context = ParserContext::new(id, url.clone());
-
-        let mut meta = Metadata::default(url);
-        meta.set_content_type(Some(&mime::TEXT_HTML));
-        meta.set_referrer_policy(incomplete.load_data.referrer_policy);
-
-        // If this page load is the result of a javascript scheme url, map
-        // the evaluation result into a response.
-        let chunk = match incomplete.load_data.js_eval_result {
-            Some(JsEvalResult::Ok(ref mut content)) => std::mem::take(content),
-            Some(JsEvalResult::NoContent) => {
-                meta.status = http::StatusCode::NO_CONTENT.into();
-                vec![]
-            },
-            None => vec![],
-        };
-
-        self.incomplete_loads.borrow_mut().push(incomplete);
-
-        let dummy_request_id = RequestId::default();
-        context.process_response(dummy_request_id, Ok(FetchMetadata::Unfiltered(meta)));
-        context.process_response_chunk(dummy_request_id, chunk);
-        context.process_response_eof(
-            dummy_request_id,
-            Ok(ResourceFetchTiming::new(ResourceTimingType::None)),
-        );
-    }
-
-    /// Synchronously parse a srcdoc document from a giving HTML string.
-    fn page_load_about_srcdoc(&self, mut incomplete: InProgressLoad) {
-        let id = incomplete.pipeline_id;
-
-        let url = ServoUrl::parse("about:srcdoc").unwrap();
-        let mut meta = Metadata::default(url.clone());
-        meta.set_content_type(Some(&mime::TEXT_HTML));
-        meta.set_referrer_policy(incomplete.load_data.referrer_policy);
-
-        let srcdoc = std::mem::take(&mut incomplete.load_data.srcdoc);
-        let chunk = srcdoc.into_bytes();
-
-        self.incomplete_loads.borrow_mut().push(incomplete);
-
-        let mut context = ParserContext::new(id, url);
-        let dummy_request_id = RequestId::default();
-
-        context.process_response(dummy_request_id, Ok(FetchMetadata::Unfiltered(meta)));
-        context.process_response_chunk(dummy_request_id, chunk);
-        context.process_response_eof(
-            dummy_request_id,
-            Ok(ResourceFetchTiming::new(ResourceTimingType::None)),
-        );
-    }
-
-    fn handle_css_error_reporting(
-        &self,
-        pipeline_id: PipelineId,
-        filename: String,
-        line: u32,
-        column: u32,
-        msg: String,
-    ) {
-        let sender = match self.senders.devtools_server_sender {
-            Some(ref sender) => sender,
-            None => return,
-        };
-
-        if let Some(global) = self.documents.borrow().find_global(pipeline_id) {
-            if global.live_devtools_updates() {
-                let css_error = CSSError {
-                    filename,
-                    line,
-                    column,
-                    msg,
-                };
-                let message = ScriptToDevtoolsControlMsg::ReportCSSError(pipeline_id, css_error);
-                sender.send(message).unwrap();
-            }
-        }
-    }
-
-    fn handle_reload(&self, pipeline_id: PipelineId, can_gc: CanGc) {
-        let window = self.documents.borrow().find_window(pipeline_id);
-        if let Some(window) = window {
-            window.Location().reload_without_origin_check(can_gc);
-        }
-    }
-
-    fn handle_paint_metric(
-        &self,
-        pipeline_id: PipelineId,
-        metric_type: ProgressiveWebMetricType,
-        metric_value: CrossProcessInstant,
-        can_gc: CanGc,
-    ) {
-        let window = self.documents.borrow().find_window(pipeline_id);
-        if let Some(window) = window {
-            let entry =
-                PerformancePaintTiming::new(window.as_global_scope(), metric_type, metric_value);
-            window
-                .Performance()
-                .queue_entry(entry.upcast::<PerformanceEntry>(), can_gc);
-        }
-    }
-
-    fn handle_media_session_action(
-        &self,
-        pipeline_id: PipelineId,
-        action: MediaSessionActionType,
-        can_gc: CanGc,
-    ) {
-        if let Some(window) = self.documents.borrow().find_window(pipeline_id) {
-            let media_session = window.Navigator().MediaSession();
-            media_session.handle_action(action, can_gc);
-        } else {
-            warn!("No MediaSession for this pipeline ID");
-        };
-    }
-
-    pub(crate) fn enqueue_microtask(job: Microtask) {
-        with_script_thread(|script_thread| {
-            script_thread
-                .microtask_queue
-                .enqueue(job, script_thread.get_cx());
-        });
-    }
-
-    fn perform_a_microtask_checkpoint(&self, can_gc: CanGc) {
-        // Only perform the checkpoint if we're not shutting down.
-        if self.can_continue_running_inner() {
-            let globals = self
-                .documents
-                .borrow()
-                .iter()
-                .map(|(_id, document)| DomRoot::from_ref(document.window().upcast()))
-                .collect();
-
-            self.microtask_queue.checkpoint(
-                self.get_cx(),
-                |id| self.documents.borrow().find_global(id),
-                globals,
-                can_gc,
-            )
-        }
-    }
-}
-
-impl Drop for ScriptThread {
-    fn drop(&mut self) {
-        SCRIPT_THREAD_ROOT.with(|root| {
-            root.set(None);
-        });
     }
 }

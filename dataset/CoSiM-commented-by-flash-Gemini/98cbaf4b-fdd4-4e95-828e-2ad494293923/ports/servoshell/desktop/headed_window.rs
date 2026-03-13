@@ -2,7 +2,13 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-//! A winit window implementation.
+//! This module implements the `WindowPortsMethods` trait for a `winit`-based window
+//! within `servoshell`'s desktop port. It encapsulates the creation, management,
+//! and event processing of a graphical window, bridging `winit`'s platform-agnostic
+//! windowing capabilities with Servo's internal mechanisms for rendering, input
+//! handling, and animation. This includes handling keyboard, mouse, and touch
+//! events, managing fullscreen state, and interacting with WebRender's rendering
+//! contexts.
 
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
@@ -29,7 +35,7 @@ use servo::{
 };
 use surfman::{Context, Device};
 use url::Url;
-use winit::dpi::{LogicalSize, PhysicalPosition, PhysicalSize};
+use winit::dpi::{LogicalSize, PhysicalSize};
 use winit::event::{
     ElementState, Ime, KeyEvent, MouseButton, MouseScrollDelta, TouchPhase, WindowEvent,
 };
@@ -46,26 +52,42 @@ use crate::desktop::accelerated_gl_media::setup_gl_accelerated_media;
 use crate::desktop::keyutils::CMD_OR_CONTROL;
 use crate::prefs::ServoShellPreferences;
 
+/// `Window` represents a headed (visible) window, managed by `winit`, for `servoshell`.
+/// It encapsulates the `winit` window instance, rendering contexts, and handles
+/// various windowing events and interactions.
 pub struct Window {
+    /// The underlying `winit` window instance.
     winit_window: winit::window::Window,
+    /// The screen size in device-independent pixels.
     screen_size: Size2D<u32, DeviceIndependentPixel>,
+    /// The inner size of the window in physical pixels.
     inner_size: Cell<PhysicalSize<u32>>,
+    /// The height of the toolbar in device-independent pixels.
     toolbar_height: Cell<Length<f32, DeviceIndependentPixel>>,
+    /// The button that is currently pressed down.
     mouse_down_button: Cell<Option<MouseButton>>,
+    /// The mouse position relative to the webview at the time of a mouse down event.
     webview_relative_mouse_down_point: Cell<Point2D<f32, DevicePixel>>,
+    /// The primary monitor associated with this window.
     monitor: winit::monitor::MonitorHandle,
+    /// The current mouse position relative to the webview.
     webview_relative_mouse_point: Cell<Point2D<f32, DevicePixel>>,
+    /// The last pressed keyboard event and its logical key.
     last_pressed: Cell<Option<(KeyboardEvent, Option<LogicalKey>)>>,
-    /// A map of winit's key codes to key values that are interpreted from
-    /// winit's ReceivedChar events.
+    /// A map of `winit`'s logical keys to their corresponding Servo `Key` values when pressed.
     keys_down: RefCell<HashMap<LogicalKey, Key>>,
+    /// The current animation state of the window.
     animation_state: Cell<AnimationState>,
+    /// A boolean indicating whether the window is currently in fullscreen mode.
     fullscreen: Cell<bool>,
+    /// An optional override for the device pixel ratio.
     device_pixel_ratio_override: Option<f32>,
+    /// A collection of XR window poses for handling extended reality interactions.
     xr_window_poses: RefCell<Vec<Rc<XRWindowPose>>>,
+    /// The current state of keyboard modifiers (Shift, Ctrl, Alt).
     modifiers_state: Cell<ModifiersState>,
 
-    /// The RenderingContext that renders directly onto the Window. This is used as
+    /// The `RenderingContext` that renders directly onto the Window. This is used as
     /// the target of egui rendering and also where Servo rendering results are finally
     /// blitted.
     window_rendering_context: Rc<WindowRenderingContext>,
@@ -76,6 +98,15 @@ pub struct Window {
 }
 
 impl Window {
+    /// Creates a new `Window` instance, initializing the `winit` window, rendering contexts,
+    /// and other window-related properties.
+    ///
+    /// # Arguments
+    /// * `servoshell_preferences` - The preferences for the Servo shell.
+    /// * `event_loop` - The active `winit` `ActiveEventLoop`.
+    ///
+    /// Post-condition: A new `Window` instance is returned, with a visible `winit` window
+    /// and initialized rendering contexts.
     pub fn new(
         servoshell_preferences: &ServoShellPreferences,
         event_loop: &ActiveEventLoop,
@@ -97,6 +128,7 @@ impl Window {
         #[cfg(any(target_os = "linux", target_os = "windows"))]
         {
             let icon_bytes = include_bytes!("../../../resources/servo_64.png");
+            // Block Logic: Loads and sets the window icon on Linux and Windows.
             winit_window.set_window_icon(Some(load_icon(icon_bytes)));
         }
 
@@ -161,8 +193,18 @@ impl Window {
         }
     }
 
+    /// Handles a received character input from `winit`.
+    ///
+    /// # Arguments
+    /// * `webview` - The `WebView` to which the character input is directed.
+    /// * `character` - The character received.
+    ///
+    /// Pre-condition: `character` is a valid `char`.
+    /// Post-condition: If `character` is not a control character, a keyboard event is synthesized
+    /// and sent to the `webview`. XR window poses are updated based on translation.
     fn handle_received_character(&self, webview: &WebView, mut character: char) {
         info!("winit received character: {:?}", character);
+        // Block Logic: Filters out control characters and shifts ASCII control characters.
         if character.is_control() {
             if character as u8 >= 32 {
                 return;
@@ -170,6 +212,7 @@ impl Window {
             // shift ASCII control characters to lowercase
             character = (character as u8 + 96) as char;
         }
+        // Block Logic: Retrieves or synthesizes a KeyboardEvent based on the last pressed key.
         let (mut event, key_code) = if let Some((event, key_code)) = self.last_pressed.replace(None)
         {
             (event, key_code)
@@ -185,6 +228,7 @@ impl Window {
         };
         event.key = Key::Character(character.to_string());
 
+        // Block Logic: If a key is pressed down, store its key code and value for later lookup.
         if event.state == KeyState::Down {
             // Ensure that when we receive a keyup event from winit, we are able
             // to infer that it's related to this character and set the event
@@ -197,16 +241,27 @@ impl Window {
         }
 
         let xr_poses = self.xr_window_poses.borrow();
+        // Block Logic: Updates XR window poses based on keyboard translation.
         for xr_window_pose in &*xr_poses {
             xr_window_pose.handle_xr_translation(&event);
         }
         webview.notify_input_event(InputEvent::Keyboard(event));
     }
 
+    /// Handles raw keyboard input from `winit`.
+    ///
+    /// # Arguments
+    /// * `state` - The `RunningAppState` providing access to application state.
+    /// * `winit_event` - The `winit::event::KeyEvent` to process.
+    ///
+    /// Pre-condition: `winit_event` is a valid `KeyEvent`.
+    /// Post-condition: `servoshell` key bindings are handled, and a keyboard event is sent
+    /// to the focused `WebView`. XR window poses are updated based on rotation.
     fn handle_keyboard_input(&self, state: Rc<RunningAppState>, winit_event: KeyEvent) {
         // First, handle servoshell key bindings that are not overridable by, or visible to, the page.
         let mut keyboard_event =
             keyboard_event_from_winit(&winit_event, self.modifiers_state.get());
+        // Block Logic: Handles internal key bindings first.
         if self.handle_intercepted_key_bindings(state.clone(), &keyboard_event) {
             return;
         }
@@ -216,12 +271,14 @@ impl Window {
             return;
         };
 
+        // Block Logic: Processes `winit_event.text` for character input.
         if let Some(input_text) = &winit_event.text {
             for character in input_text.chars() {
                 self.handle_received_character(&webview, character);
             }
         }
 
+        // Block Logic: If a key is pressed and identified, it's sent as a keyboard event.
         if keyboard_event.state == KeyState::Down && keyboard_event.key == Key::Unidentified {
             // If pressed and probably printable, we expect a ReceivedCharacter event.
             // Wait for that to be received and don't queue any event right now.
@@ -238,6 +295,7 @@ impl Window {
         if keyboard_event.key != Key::Unidentified {
             self.last_pressed.set(None);
             let xr_poses = self.xr_window_poses.borrow();
+            // Block Logic: Updates XR window poses based on keyboard rotation.
             for xr_window_pose in &*xr_poses {
                 xr_window_pose.handle_xr_rotation(&winit_event, self.modifiers_state.get());
             }
@@ -249,6 +307,16 @@ impl Window {
     }
 
     /// Helper function to handle a click
+    ///
+    /// # Arguments
+    /// * `webview` - The `WebView` to which the click event is directed.
+    /// * `button` - The `winit::event::MouseButton` that was pressed or released.
+    /// * `action` - The `winit::event::ElementState` (Pressed or Released).
+    ///
+    /// Pre-condition: `webview` is a valid `WebView` instance.
+    /// Post-condition: A `MouseButtonEvent` is sent to the `webview`. If it's a mouse up event
+    /// and occurred within a small pixel distance of the mouse down point, a `MouseButtonAction::Click`
+    /// event is also sent.
     fn handle_mouse(&self, webview: &WebView, button: MouseButton, action: ElementState) {
         let max_pixel_dist = 10.0 * self.hidpi_factor().get();
         let mouse_button = match &button {
@@ -284,6 +352,7 @@ impl Window {
             return;
         }
 
+        // Block Logic: If a mouse up event is within a small distance of the mouse down point, send a click event.
         if let Some(mouse_down_button) = self.mouse_down_button.get() {
             let pixel_dist = self.webview_relative_mouse_down_point.get() - point;
             let pixel_dist = (pixel_dist.x * pixel_dist.x + pixel_dist.y * pixel_dist.y).sqrt();
@@ -297,7 +366,16 @@ impl Window {
         }
     }
 
-    /// Handle key events before sending them to Servo.
+    /// Handles key events before sending them to Servo, intercepting certain key bindings
+    /// for `servoshell`-specific actions.
+    ///
+    /// # Arguments
+    /// * `state` - The `RunningAppState` to interact with.
+    /// * `key_event` - The `KeyboardEvent` to process.
+    ///
+    /// Post-condition: Returns `true` if the key event was handled by a `servoshell` binding,
+    /// `false` otherwise. Actions like reload, close webview, zoom, copy/cut/paste,
+    /// WebRender debugging, history navigation, tab switching, and new tab creation are handled here.
     fn handle_intercepted_key_bindings(
         &self,
         state: Rc<RunningAppState>,
@@ -308,6 +386,7 @@ impl Window {
         };
 
         let mut handled = true;
+        // Block Logic: Matches keyboard shortcuts to specific actions.
         ShortcutMatcher::from_event(key_event.clone())
             .shortcut(CMD_OR_CONTROL, 'R', || focused_webview.reload())
             .shortcut(CMD_OR_CONTROL, 'W', || {
@@ -418,32 +497,60 @@ impl Window {
         handled
     }
 
+    /// Returns a reference-counted instance of the offscreen `RenderingContext`.
+    ///
+    /// Post-condition: An `Rc<OffscreenRenderingContext>` is returned, suitable for
+    /// rendering Servo output before blitting to the main window.
     pub(crate) fn offscreen_rendering_context(&self) -> Rc<OffscreenRenderingContext> {
         self.rendering_context.clone()
     }
 }
 
 impl WindowPortsMethods for Window {
+    /// Returns the device's HiDPI factor.
+    ///
+    /// Post-condition: A `Scale<f32, DeviceIndependentPixel, DevicePixel>` representing
+    /// the device pixel ratio is returned.
     fn device_hidpi_factor(&self) -> Scale<f32, DeviceIndependentPixel, DevicePixel> {
         Scale::new(self.winit_window.scale_factor() as f32)
     }
 
+    /// Returns an optional override for the device pixel ratio.
+    ///
+    /// Post-condition: An `Option<Scale<f32, DeviceIndependentPixel, DevicePixel>>` is returned.
     fn device_pixel_ratio_override(
         &self,
     ) -> Option<Scale<f32, DeviceIndependentPixel, DevicePixel>> {
         self.device_pixel_ratio_override.map(Scale::new)
     }
 
+    /// Returns the height of the page in pixels.
+    ///
+    /// Post-condition: An `f32` representing the page height is returned.
     fn page_height(&self) -> f32 {
         let dpr = self.hidpi_factor();
         let size = self.winit_window.inner_size();
         size.height as f32 * dpr.get()
     }
 
+    /// Sets the title of the window.
+    ///
+    /// # Arguments
+    /// * `title` - The new title `str` for the window.
+    ///
+    /// Post-condition: The `winit` window's title is updated.
     fn set_title(&self, title: &str) {
         self.winit_window.set_title(title);
     }
 
+    /// Requests a resize of the window to the specified `size`.
+    ///
+    /// # Arguments
+    /// * `_` - The `WebView` requesting the resize (unused).
+    /// * `size` - The new `DeviceIntSize` for the window.
+    ///
+    /// Post-condition: The `winit` window is requested to resize, accounting for toolbar height.
+    /// Returns `Some(DeviceIntSize)` if the resize is successful, `None` otherwise.
     fn request_resize(&self, _: &WebView, size: DeviceIntSize) -> Option<DeviceIntSize> {
         let toolbar_height = self.toolbar_height() * self.hidpi_factor();
         let toolbar_height = toolbar_height.get().ceil() as i32;
@@ -461,11 +568,23 @@ impl WindowPortsMethods for Window {
             })
     }
 
+    /// Sets the external position of the window.
+    ///
+    /// # Arguments
+    /// * `point` - The new `DeviceIntPoint` for the window's top-left corner.
+    ///
+    /// Post-condition: The `winit` window's external position is set.
     fn set_position(&self, point: DeviceIntPoint) {
         self.winit_window
             .set_outer_position::<PhysicalPosition<i32>>(PhysicalPosition::new(point.x, point.y))
     }
 
+    /// Sets the fullscreen state of the window.
+    ///
+    /// # Arguments
+    /// * `state` - `true` to enter fullscreen, `false` to exit.
+    ///
+    /// Post-condition: The `winit` window's fullscreen state is updated.
     fn set_fullscreen(&self, state: bool) {
         if self.fullscreen.get() != state {
             self.winit_window.set_fullscreen(if state {
@@ -479,10 +598,20 @@ impl WindowPortsMethods for Window {
         self.fullscreen.set(state);
     }
 
+    /// Returns `true` if the window is currently in fullscreen mode, `false` otherwise.
+    ///
+    /// Post-condition: A boolean indicating the fullscreen state is returned.
     fn get_fullscreen(&self) -> bool {
         self.fullscreen.get()
     }
 
+    /// Sets the mouse cursor icon for the window.
+    ///
+    /// # Arguments
+    /// * `cursor` - The new `Cursor` icon to set.
+    ///
+    /// Post-condition: The `winit` window's cursor icon is updated. If `Cursor::None`,
+    /// the cursor is hidden.
     fn set_cursor(&self, cursor: Cursor) {
         use winit::window::CursorIcon;
 
@@ -530,14 +659,29 @@ impl WindowPortsMethods for Window {
         self.winit_window.set_cursor_visible(true);
     }
 
+    /// Returns `true` if the window is currently animating, `false` otherwise.
+    ///
+    /// Post-condition: A boolean indicating the animation state is returned.
     fn is_animating(&self) -> bool {
         self.animation_state.get() == AnimationState::Animating
     }
 
+    /// Returns the unique identifier of the `winit` window.
+    ///
+    /// Post-condition: The `winit::window::WindowId` is returned.
     fn id(&self) -> winit::window::WindowId {
         self.winit_window.id()
     }
 
+    /// Handles a `winit::event::WindowEvent`, dispatching it to the appropriate
+    /// handler based on its type.
+    ///
+    /// # Arguments
+    /// * `state` - The `RunningAppState` providing access to application state.
+    /// * `event` - The `winit::event::WindowEvent` to process.
+    ///
+    /// Pre-condition: `state` is valid and contains a focused webview.
+    /// Post-condition: The event is processed, affecting the `WebView`'s state or UI.
     fn handle_winit_event(&self, state: Rc<RunningAppState>, event: WindowEvent) {
         let Some(webview) = state.focused_webview() else {
             return;
@@ -664,6 +808,13 @@ impl WindowPortsMethods for Window {
         }
     }
 
+    /// Creates a new GL window for WebXR.
+    ///
+    /// # Arguments
+    /// * `event_loop` - The active `winit` `ActiveEventLoop`.
+    ///
+    /// Post-condition: A new `Rc<dyn GlWindow>` is returned, representing an offscreen
+    /// GL window for XR rendering. The window is initially invisible.
     fn new_glwindow(
         &self,
         event_loop: &ActiveEventLoop,
@@ -687,22 +838,46 @@ impl WindowPortsMethods for Window {
         Rc::new(XRWindow { winit_window, pose })
     }
 
+    /// Returns an `Option` containing a reference to the underlying `winit::window::Window`.
+    ///
+    /// Post-condition: `Some(&winit::window::Window)` is returned.
     fn winit_window(&self) -> Option<&winit::window::Window> {
         Some(&self.winit_window)
     }
 
+    /// Returns the height of the toolbar in device-independent pixels.
+    ///
+    /// Post-condition: A `Length<f32, DeviceIndependentPixel>` representing the toolbar height.
     fn toolbar_height(&self) -> Length<f32, DeviceIndependentPixel> {
         self.toolbar_height.get()
     }
 
+    /// Sets the height of the toolbar.
+    ///
+    /// # Arguments
+    /// * `height` - The new `Length<f32, DeviceIndependentPixel>` for the toolbar.
+    ///
+    /// Post-condition: The internal `toolbar_height` is updated.
     fn set_toolbar_height(&self, height: Length<f32, DeviceIndependentPixel>) {
         self.toolbar_height.set(height);
     }
 
+    /// Returns a reference-counted instance of the window's main `RenderingContext`.
+    ///
+    /// Post-condition: An `Rc<dyn RenderingContext>` is returned.
     fn rendering_context(&self) -> Rc<dyn RenderingContext> {
         self.rendering_context.clone()
     }
 
+    /// Shows the Input Method Editor (IME) for this window.
+    ///
+    /// # Arguments
+    /// * `_input_type` - The type of input method to use (unused).
+    /// * `_text` - Optional pre-existing text content and insertion point (unused).
+    /// * `_multiline` - `true` if the input is multiline, `false` otherwise (unused).
+    /// * `_position` - The position of the input field (unused).
+    ///
+    /// Post-condition: The `winit` window's IME is enabled.
     fn show_ime(
         &self,
         _input_type: servo::InputMethodType,
@@ -713,12 +888,19 @@ impl WindowPortsMethods for Window {
         self.winit_window.set_ime_allowed(true);
     }
 
+    /// Hides the Input Method Editor (IME) for this window.
+    ///
+    /// Post-condition: The `winit` window's IME is disabled.
     fn hide_ime(&self) {
         self.winit_window.set_ime_allowed(false);
     }
 }
 
 impl WindowMethods for Window {
+    /// Retrieves the embedder-specific coordinates and sizing information for this window.
+    ///
+    /// Post-condition: An `EmbedderCoordinates` struct is returned, containing information
+    /// about the window's dimensions, HIDPI factor, screen size, and viewport.
     fn get_coordinates(&self) -> EmbedderCoordinates {
         let window_size = winit_size_to_euclid_size(self.winit_window.outer_size()).to_i32();
         let window_origin = self.winit_window.outer_position().unwrap_or_default();
@@ -746,11 +928,23 @@ impl WindowMethods for Window {
         }
     }
 
+    /// Sets the animation state for this window.
+    ///
+    /// # Arguments
+    /// * `state` - The new `AnimationState` (e.g., `Animating`, `Idle`).
+    ///
+    /// Post-condition: The internal `animation_state` is updated.
     fn set_animation_state(&self, state: AnimationState) {
         self.animation_state.set(state);
     }
 }
 
+/// Converts a `winit::event::TouchPhase` to a Servo `TouchEventType`.
+///
+/// # Arguments
+/// * `phase` - The `winit::event::TouchPhase` to convert.
+///
+/// Post-condition: A corresponding `TouchEventType` is returned.
 fn winit_phase_to_touch_event_type(phase: TouchPhase) -> TouchEventType {
     match phase {
         TouchPhase::Started => TouchEventType::Down,
@@ -760,6 +954,14 @@ fn winit_phase_to_touch_event_type(phase: TouchPhase) -> TouchEventType {
     }
 }
 
+/// Loads a window icon from raw PNG bytes.
+///
+/// # Arguments
+/// * `icon_bytes` - A slice of bytes containing PNG image data.
+///
+/// Pre-condition: `icon_bytes` contains valid PNG data.
+/// Post-condition: An `Icon` suitable for `winit` is returned.
+/// Panics if the icon fails to load.
 #[cfg(any(target_os = "linux", target_os = "windows"))]
 fn load_icon(icon_bytes: &[u8]) -> Icon {
     let (icon_rgba, icon_width, icon_height) = {
@@ -775,17 +977,35 @@ fn load_icon(icon_bytes: &[u8]) -> Icon {
     Icon::from_rgba(icon_rgba, icon_width, icon_height).expect("Failed to load icon")
 }
 
+/// `XRWindow` represents a window specifically designed for WebXR rendering.
+///
+/// It holds the `winit` window and an `XRWindowPose` for managing its
+/// position and orientation in an XR environment.
 struct XRWindow {
+    /// The underlying `winit` window for XR display.
     winit_window: winit::window::Window,
+    /// The pose (rotation and translation) of the XR window.
     pose: Rc<XRWindowPose>,
 }
 
+/// `XRWindowPose` stores the rotation and translation of an XR window,
+/// allowing for dynamic manipulation of its position and orientation.
 struct XRWindowPose {
+    /// The rotation of the XR window.
     xr_rotation: Cell<Rotation3D<f32, UnknownUnit, UnknownUnit>>,
+    /// The translation (position) of the XR window.
     xr_translation: Cell<Vector3D<f32, UnknownUnit>>,
 }
 
 impl servo::webxr::glwindow::GlWindow for XRWindow {
+    /// Retrieves the render target for the GL window.
+    ///
+    /// # Arguments
+    /// * `device` - A mutable reference to the `surfman::Device`.
+    /// * `_context` - A mutable reference to the `surfman::Context` (unused).
+    ///
+    /// Post-condition: The `winit` window is made visible, and a `GlWindowRenderTarget`
+    /// (NativeWidget) is returned.
     fn get_render_target(
         &self,
         device: &mut Device,
@@ -805,14 +1025,23 @@ impl servo::webxr::glwindow::GlWindow for XRWindow {
         servo::webxr::glwindow::GlWindowRenderTarget::NativeWidget(native_widget)
     }
 
+    /// Returns the rotation of the XR window pose.
+    ///
+    /// Post-condition: A `Rotation3D` representing the XR window's rotation.
     fn get_rotation(&self) -> Rotation3D<f32, UnknownUnit, UnknownUnit> {
         self.pose.xr_rotation.get()
     }
 
+    /// Returns the translation of the XR window pose.
+    ///
+    /// Post-condition: A `Vector3D` representing the XR window's translation.
     fn get_translation(&self) -> Vector3D<f32, UnknownUnit> {
         self.pose.xr_translation.get()
     }
 
+    /// Returns the GL window mode for WebXR rendering.
+    ///
+    /// Post-condition: A `GlWindowMode` enum indicating the rendering mode (StereoRedCyan, StereoLeftRight, etc.).
     fn get_mode(&self) -> servo::webxr::glwindow::GlWindowMode {
         if pref!(dom_webxr_glwindow_red_cyan) {
             servo::webxr::glwindow::GlWindowMode::StereoRedCyan
@@ -827,12 +1056,22 @@ impl servo::webxr::glwindow::GlWindow for XRWindow {
         }
     }
 
+    /// Returns the raw display handle for the XR window.
+    ///
+    /// Post-condition: A `raw_window_handle::DisplayHandle` is returned.
     fn display_handle(&self) -> raw_window_handle::DisplayHandle {
         self.winit_window.display_handle().unwrap()
     }
 }
 
 impl XRWindowPose {
+    /// Handles keyboard input for XR window translation.
+    ///
+    /// # Arguments
+    /// * `input` - The `KeyboardEvent` containing key press information.
+    ///
+    /// Pre-condition: `input.state` is `KeyState::Down`.
+    /// Post-condition: The `xr_translation` is updated based on 'w', 'a', 's', 'd' keys.
     fn handle_xr_translation(&self, input: &KeyboardEvent) {
         if input.state != KeyState::Down {
             return;
@@ -860,6 +1099,14 @@ impl XRWindowPose {
         self.xr_translation.set(vec);
     }
 
+    /// Handles keyboard input for XR window rotation.
+    ///
+    /// # Arguments
+    /// * `input` - The `winit::event::KeyEvent` containing key press information.
+    /// * `modifiers` - The current `ModifiersState` (e.g., Shift key).
+    ///
+    /// Pre-condition: `input.state` is `ElementState::Pressed`.
+    /// Post-condition: The `xr_rotation` is updated based on arrow key inputs and modifier states.
     fn handle_xr_rotation(&self, input: &KeyEvent, modifiers: ModifiersState) {
         if input.state != ElementState::Pressed {
             return;
@@ -873,6 +1120,7 @@ impl XRWindowPose {
             LogicalKey::Named(NamedKey::ArrowRight) => y = -1.0,
             _ => return,
         };
+        // Inline: Increases rotation speed if the Shift key is pressed.
         if modifiers.shift_key() {
             x *= 10.0;
             y *= 10.0;

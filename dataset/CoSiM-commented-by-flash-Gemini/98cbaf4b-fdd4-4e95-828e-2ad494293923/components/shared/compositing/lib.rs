@@ -2,7 +2,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-//! Communication with the compositor thread.
+//! This module defines the communication interfaces and message types for inter-thread
+//! communication with the compositor thread in Servo. It provides `CompositorProxy`
+//! for sending messages and `CompositorReceiver` for handling incoming messages,
+//! enabling various components to interact with the rendering engine. The `CompositorMsg`
+//! enum encapsulates a wide range of commands and notifications, from animation state
+//! changes to WebDriver events.
 
 mod constellation_msg;
 
@@ -22,18 +27,30 @@ use style_traits::CSSPixel;
 use webrender_api::DocumentId;
 use webrender_traits::{CrossProcessCompositorApi, CrossProcessCompositorMessage};
 
-/// Sends messages to the compositor.
+/// `CompositorProxy` provides an interface for sending messages to the compositor thread.
+///
+/// It encapsulates both a direct `crossbeam_channel::Sender` for in-process messages
+/// and a `CrossProcessCompositorApi` for messages that need to be sent across IPC boundaries.
 #[derive(Clone)]
 pub struct CompositorProxy {
+    /// The direct sender for `CompositorMsg` to the compositor thread.
     pub sender: Sender<CompositorMsg>,
     /// Access to [`Self::sender`] that is possible to send across an IPC
     /// channel. These messages are routed via the router thread to
     /// [`Self::sender`].
     pub cross_process_compositor_api: CrossProcessCompositorApi,
+    /// A waker to notify the event loop that new messages are available.
     pub event_loop_waker: Box<dyn EventLoopWaker>,
 }
 
 impl CompositorProxy {
+    /// Sends a `CompositorMsg` to the compositor thread and wakes up its event loop.
+    ///
+    /// # Arguments
+    /// * `msg` - The `CompositorMsg` to send.
+    ///
+    /// Post-condition: The message is sent to the compositor, and its event loop is awakened.
+    /// A warning is logged if the message fails to send.
     pub fn send(&self, msg: CompositorMsg) {
         if let Err(err) = self.sender.send(msg) {
             warn!("Failed to send response ({:?}).", err);
@@ -42,21 +59,30 @@ impl CompositorProxy {
     }
 }
 
-/// The port that the compositor receives messages on.
+/// `CompositorReceiver` is the receiving endpoint for messages destined for the compositor thread.
 pub struct CompositorReceiver {
+    /// The receiver for `CompositorMsg` from other threads.
     pub receiver: Receiver<CompositorMsg>,
 }
 
 impl CompositorReceiver {
+    /// Attempts to receive a `CompositorMsg` without blocking.
+    ///
+    /// Post-condition: Returns `Some(CompositorMsg)` if a message is available, `None` otherwise.
     pub fn try_recv_compositor_msg(&mut self) -> Option<CompositorMsg> {
         self.receiver.try_recv().ok()
     }
+    /// Receives a `CompositorMsg`, blocking until a message is available.
+    ///
+    /// Post-condition: Returns the received `CompositorMsg`. Panics if the sender is disconnected.
     pub fn recv_compositor_msg(&mut self) -> CompositorMsg {
         self.receiver.recv().unwrap()
     }
 }
 
-/// Messages from (or via) the constellation thread to the compositor.
+/// `CompositorMsg` defines the types of messages that can be sent to the compositor thread.
+/// These messages instruct the compositor to perform various rendering-related tasks,
+/// manage webviews, or communicate with other components.
 pub enum CompositorMsg {
     /// Alerts the compositor that the given pipeline has changed whether it is running animations.
     ChangeRunningAnimationsState(PipelineId, AnimationState),
@@ -98,20 +124,34 @@ pub enum CompositorMsg {
     CrossProcess(CrossProcessCompositorMessage),
 }
 
+/// `SendableFrameTree` represents a serializable structure of a frame tree,
+/// used for transmitting frame hierarchy information across threads or processes.
 pub struct SendableFrameTree {
+    /// The `CompositionPipeline` associated with this frame tree node.
     pub pipeline: CompositionPipeline,
+    /// A vector of child `SendableFrameTree` instances, representing nested frames.
     pub children: Vec<SendableFrameTree>,
 }
 
-/// The subset of the pipeline that is needed for layer composition.
+/// `CompositionPipeline` contains the essential subset of pipeline information
+/// required for layer composition by the compositor.
 #[derive(Clone)]
 pub struct CompositionPipeline {
+    /// The unique identifier for this pipeline.
     pub id: PipelineId,
+    /// The unique identifier of the top-level browsing context this pipeline belongs to.
     pub top_level_browsing_context_id: TopLevelBrowsingContextId,
+    /// An IPC sender for messages to the script thread associated with this pipeline.
     pub script_chan: IpcSender<ScriptThreadMessage>,
 }
 
 impl Debug for CompositorMsg {
+    /// Formats the `CompositorMsg` for debugging purposes.
+    ///
+    /// # Arguments
+    /// * `f` - A mutable reference to the `Formatter`.
+    ///
+    /// Post-condition: The message is written to the formatter in a human-readable format.
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
         match *self {
             CompositorMsg::ChangeRunningAnimationsState(_, state) => {

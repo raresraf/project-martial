@@ -2,7 +2,12 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-//! Application entry point, runs the event loop.
+//! This module serves as the main application entry point for the desktop `servoshell`.
+//! It orchestrates the `winit` event loop, managing the interactions between the
+//! Servo engine, the underlying windowing system, and the user interface components.
+//! This includes initializing the `Servo` instance, handling `WebView` lifecycles,
+//! and processing various events such as keyboard input, mouse wheel scrolls,
+//! and UI interactions (e.g., navigation, tab management).
 
 use std::cell::Cell;
 use std::collections::HashMap;
@@ -37,24 +42,41 @@ use crate::desktop::window_trait::WindowPortsMethods;
 use crate::parser::{get_default_url, location_bar_input_to_url};
 use crate::prefs::ServoShellPreferences;
 
+/// `App` represents the main application structure for the `servoshell` desktop port.
+/// It holds the overall application state, configuration options, and manages
+/// the interaction with the `winit` event loop and Servo engine.
 pub struct App {
+    /// Global Servo options, parsed from command-line arguments.
     opts: Opts,
+    /// User preferences for Servo's behavior.
     preferences: Preferences,
+    /// Preferences specific to the Servo shell.
     servoshell_preferences: ServoShellPreferences,
+    /// A `Cell` indicating whether the application is currently suspended.
     suspended: Cell<bool>,
+    /// A map of `WindowId` to `WindowPortsMethods`, managing open windows.
     windows: HashMap<WindowId, Rc<dyn WindowPortsMethods>>,
+    /// An optional `Minibrowser` instance for UI elements.
     minibrowser: Option<Minibrowser>,
+    /// A waker to interact with the event loop.
     waker: Box<dyn EventLoopWaker>,
+    /// The initial URL to load when the application starts.
     initial_url: ServoUrl,
+    /// The starting time of the application for timing calculations.
     t_start: Instant,
+    /// The last recorded time for timing calculations.
     t: Instant,
+    /// The current state of the application's lifecycle.
     state: AppState,
 }
 
-/// Action to be taken by the caller of [`App::handle_events`].
+/// `PumpResult` indicates the outcome of processing events and whether the
+/// application's event loop should continue or shut down.
 pub(crate) enum PumpResult {
     /// The caller should shut down Servo and its related context.
     Shutdown,
+    /// The event loop should continue, with flags indicating whether a UI update
+    /// or window redraw is needed.
     Continue {
         need_update: bool,
         need_window_redraw: bool,
@@ -62,6 +84,16 @@ pub(crate) enum PumpResult {
 }
 
 impl App {
+    /// Creates a new `App` instance, initializing its configuration and basic state.
+    ///
+    /// # Arguments
+    /// * `opts` - Global configuration options for Servo.
+    /// * `preferences` - User preferences for Servo.
+    /// * `servo_shell_preferences` - Preferences specific to the Servo shell.
+    /// * `events_loop` - A reference to the `EventsLoop` for creating a waker.
+    ///
+    /// Pre-condition: All input parameters are valid.
+    /// Post-condition: A new `App` instance is returned in the `Initializing` state.
     pub fn new(
         opts: Opts,
         preferences: Preferences,
@@ -91,7 +123,17 @@ impl App {
         }
     }
 
-    /// Initialize Application once event loop start running.
+    /// Initializes the application once the event loop starts running.
+    ///
+    /// This method sets up the main window (headed or headless), initializes Servo,
+    /// creates the initial `WebView`, and sets up the `Minibrowser` UI if applicable.
+    ///
+    /// # Arguments
+    /// * `event_loop` - An `Option` containing the `ActiveEventLoop` if running in headed mode.
+    ///
+    /// Pre-condition: The application is in the `Initializing` state.
+    /// Post-condition: The application transitions to the `Running` state, with all core
+    /// components initialized and ready.
     pub fn init(&mut self, event_loop: Option<&ActiveEventLoop>) {
         let headless = self.servoshell_preferences.headless;
 
@@ -114,6 +156,7 @@ impl App {
         self.suspended.set(false);
         let (_, window) = self.windows.iter().next().unwrap();
 
+        // Block Logic: Initializes WebXR discovery based on preferences and platform.
         let xr_discovery = if pref!(dom_webxr_openxr_enabled) && !headless {
             #[cfg(target_os = "windows")]
             let openxr = {
@@ -136,11 +179,14 @@ impl App {
 
         // TODO: Remove this once dyn upcasting coercion stabilises
         // <https://github.com/rust-lang/rust/issues/65991>
+        /// Helper struct for upcasting `WindowPortsMethods` to `WindowMethods`.
         struct UpcastedWindow(Rc<dyn WindowPortsMethods>);
         impl WindowMethods for UpcastedWindow {
+            /// Retrieves embedder coordinates from the underlying window.
             fn get_coordinates(&self) -> servo::compositing::windowing::EmbedderCoordinates {
                 self.0.get_coordinates()
             }
+            /// Sets the animation state of the underlying window.
             fn set_animation_state(&self, state: AnimationState) {
                 self.0.set_animation_state(state);
             }
@@ -163,6 +209,7 @@ impl App {
         ));
         running_state.new_toplevel_webview(self.initial_url.clone().into_url());
 
+        // Block Logic: Updates the minibrowser UI if it exists.
         if let Some(ref mut minibrowser) = self.minibrowser {
             minibrowser.update(window.winit_window().unwrap(), &running_state, "init");
             window.set_toolbar_height(minibrowser.toolbar_height);
@@ -171,11 +218,21 @@ impl App {
         self.state = AppState::Running(running_state);
     }
 
+    /// Checks if any window is currently animating.
+    ///
+    /// Post-condition: Returns `true` if any managed window reports an animating state, `false` otherwise.
     pub fn is_animating(&self) -> bool {
         self.windows.iter().any(|(_, window)| window.is_animating())
     }
 
-    /// Handle events with winit contexts
+    /// Handles events in headed mode with `winit`.
+    ///
+    /// # Arguments
+    /// * `event_loop` - The active `winit` `ActiveEventLoop`.
+    /// * `window` - The `WindowPortsMethods` instance for the active window.
+    ///
+    /// Pre-condition: The application is in the `Running` state.
+    /// Post-condition: Processes Servo events, updates the UI, and manages `winit`'s control flow.
     pub fn handle_events_with_winit(
         &mut self,
         event_loop: &ActiveEventLoop,
@@ -194,6 +251,7 @@ impl App {
                 need_update: update,
                 need_window_redraw,
             } => {
+                // Block Logic: Updates the minibrowser UI if needed.
                 let updated = match (update, &mut self.minibrowser) {
                     (true, Some(minibrowser)) => minibrowser.update_webview_data(state),
                     _ => false,
@@ -208,13 +266,16 @@ impl App {
             },
         }
 
+        // Block Logic: If the application is shutting down, exit the event loop.
         if matches!(self.state, AppState::ShuttingDown) {
             event_loop.exit();
         }
     }
 
-    /// Handle all servo events with headless mode. Return true if the application should
-    /// continue.
+    /// Handles all Servo events in headless mode.
+    ///
+    /// Post-condition: Processes Servo events, repaints the Servo view if necessary, and
+    /// returns `true` if the application should continue running, `false` otherwise.
     pub fn handle_events_with_headless(&mut self) -> bool {
         let now = Instant::now();
         let event = winit::event::Event::UserEvent(WakerEvent);
@@ -242,7 +303,12 @@ impl App {
         !matches!(self.state, AppState::ShuttingDown)
     }
 
-    /// Takes any events generated during `egui` updates and performs their actions.
+    /// Takes any events generated during `egui` updates (from the minibrowser UI) and
+    /// performs their corresponding actions.
+    ///
+    /// Pre-condition: The minibrowser exists and the application is in the `Running` state.
+    /// Post-condition: UI events (e.g., Go, Back, Forward, Reload, NewWebView, CloseWebView)
+    /// are processed, affecting the `WebView`s.
     fn handle_servoshell_ui_events(&mut self) {
         let Some(minibrowser) = self.minibrowser.as_ref() else {
             return;
@@ -252,6 +318,7 @@ impl App {
             return;
         };
 
+        // Block Logic: Iterates through events from the minibrowser and dispatches actions.
         for event in minibrowser.take_events() {
             match event {
                 MinibrowserEvent::Go(location) => {
@@ -296,11 +363,29 @@ impl App {
     }
 }
 
+/// `App` implements `winit`'s `ApplicationHandler` trait to manage the application's
+/// lifecycle and respond to various windowing and user events.
 impl ApplicationHandler<WakerEvent> for App {
+    /// Handles the `resumed` event, performing application initialization.
+    ///
+    /// # Arguments
+    /// * `event_loop` - The active `winit` `ActiveEventLoop`.
+    ///
+    /// Post-condition: Calls `init` to set up the application.
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         self.init(Some(event_loop));
     }
 
+    /// Handles `winit` window events.
+    ///
+    /// # Arguments
+    /// * `event_loop` - The active `winit` `ActiveEventLoop`.
+    /// * `window_id` - The `WindowId` of the window that generated the event.
+    /// * `event` - The `WindowEvent` to process.
+    ///
+    /// Pre-condition: The application is in the `Running` state and the `window_id` is valid.
+    /// Post-condition: Processes redraw requests, scale factor changes, and other window events,
+    /// updating the minibrowser UI and managing `winit`'s control flow.
     fn window_event(
         &mut self,
         event_loop: &ActiveEventLoop,
@@ -308,6 +393,7 @@ impl ApplicationHandler<WakerEvent> for App {
         event: WindowEvent,
     ) {
         let now = Instant::now();
+        // Block Logic: Traces winit events for debugging and performance analysis.
         trace_winit_event!(
             event,
             "@{:?} (+{:?}) {event:?}",
@@ -325,6 +411,7 @@ impl ApplicationHandler<WakerEvent> for App {
         };
 
         let window = window.clone();
+        // Block Logic: Handles `RedrawRequested` events, updating and painting the minibrowser.
         if event == WindowEvent::RedrawRequested {
             // We need to redraw the window for some reason.
             trace!("RedrawRequested");
@@ -339,6 +426,7 @@ impl ApplicationHandler<WakerEvent> for App {
 
         // Handle the event
         let mut consumed = false;
+        // Block Logic: Delegates window events to the minibrowser for UI interaction.
         if let Some(ref mut minibrowser) = self.minibrowser {
             match event {
                 WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
@@ -385,13 +473,14 @@ impl ApplicationHandler<WakerEvent> for App {
                 },
             }
         }
+        // Block Logic: If the event was not consumed by the minibrowser, delegate it to the window.
         if !consumed {
             window.handle_winit_event(state.clone(), event);
         }
 
         let animating = self.is_animating();
 
-        // Block until the window gets an event
+        // Block Logic: Controls the winit event loop's polling behavior based on animation state.
         if !animating || self.suspended.get() {
             event_loop.set_control_flow(ControlFlow::Wait);
         } else {
@@ -404,8 +493,17 @@ impl ApplicationHandler<WakerEvent> for App {
         self.handle_events_with_winit(event_loop, window);
     }
 
+    /// Handles user-defined `WakerEvent`s.
+    ///
+    /// # Arguments
+    /// * `event_loop` - The active `winit` `ActiveEventLoop`.
+    /// * `event` - The `WakerEvent` to process.
+    ///
+    /// Pre-condition: The application is in the `Running` state.
+    /// Post-condition: Spins the Servo event loop, processes UI events, and manages `winit`'s control flow.
     fn user_event(&mut self, event_loop: &ActiveEventLoop, event: WakerEvent) {
         let now = Instant::now();
+        // Block Logic: Traces winit events for debugging.
         let event = winit::event::Event::UserEvent(event);
         trace_winit_event!(
             event,
@@ -415,6 +513,7 @@ impl ApplicationHandler<WakerEvent> for App {
         );
         self.t = now;
 
+        // Block Logic: Ensures the application is in the `Running` state before processing.
         if !matches!(self.state, AppState::Running(_)) {
             return;
         };
@@ -425,7 +524,7 @@ impl ApplicationHandler<WakerEvent> for App {
 
         let animating = self.is_animating();
 
-        // Block until the window gets an event
+        // Block Logic: Controls `winit` event loop polling behavior.
         if !animating || self.suspended.get() {
             event_loop.set_control_flow(ControlFlow::Wait);
         } else {
@@ -438,6 +537,12 @@ impl ApplicationHandler<WakerEvent> for App {
         self.handle_events_with_winit(event_loop, window);
     }
 
+    /// Handles the `suspended` event, indicating the application is in the background.
+    ///
+    /// # Arguments
+    /// * `_` - The active `winit` `ActiveEventLoop` (unused).
+    ///
+    /// Post-condition: The internal `suspended` flag is set to `true`.
     fn suspended(&mut self, _: &ActiveEventLoop) {
         self.suspended.set(true);
     }

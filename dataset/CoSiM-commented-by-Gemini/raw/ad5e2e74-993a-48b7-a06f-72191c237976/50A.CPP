@@ -1,3 +1,15 @@
+/**
+ * @file 50A.CPP
+ * @brief Solves the "Domino piling" problem from Codeforces.
+ *
+ * This program calculates the maximum number of 2x1 dominoes that can be
+ * placed on a rectangular board of size M x N.
+ *
+ * @see https://codeforces.com/problemset/problem/50/A
+ *
+ * The various macros and typedefs are common in competitive programming for
+ * brevity and convenience.
+ */
 // https://codeforces.com/contest/50/problem/A
 
 #pragma GCC optimize("-O3")
@@ -67,6 +79,13 @@ ll NUM = 1e9 + 7;
 
 #define zer ll(0)
 
+/**
+ * @brief Reads the board dimensions and calculates the number of dominoes.
+ *
+ * The area of the board is M * N. Each domino covers an area of 2.
+ * Therefore, the maximum number of dominoes is the total area divided by 2,
+ * using integer division.
+ */
 void solve()
 
 {

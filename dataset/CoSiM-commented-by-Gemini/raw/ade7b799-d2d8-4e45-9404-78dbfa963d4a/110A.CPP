@@ -1,3 +1,18 @@
+/**
+ * @file 110A.CPP
+ * @brief Determines if a number is "nearly lucky".
+ *
+ * A number is considered "nearly lucky" if the count of its "lucky digits"
+ * (4 and 7) is a lucky number itself. This program reads an integer, counts the
+ * occurrences of digits 4 and 7, and then checks if this count is a lucky
+ * number.
+ *
+ * @note This file contains a significant amount of boilerplate code, including
+ * macros, typedefs, and unused functions, which is common in competitive
+ * programming.
+ *
+ * @see https://codeforces.com/problemset/problem/110/A
+ */
 #include <bits/stdc++.h>
 using namespace std;
 #define gc getchar_unlocked
@@ -39,6 +54,14 @@ const int N = 3e5, M = N;
 vi g[N];
 int a[N];
 
+/**
+ * @brief Checks if a number is composed only of lucky digits (4 and 7).
+ * @note This function is overly complex for the problem constraints, as the
+ * input `x` (the count of lucky digits) will be small. A simpler check
+ * for `x == 4 || x == 7` would suffice.
+ * @param x The number to check.
+ * @return True if the number is lucky, false otherwise.
+ */
 bool checkLucky(int x) {
   if (x < 10 && (x == 4 || x == 7)) {
     return 1;
@@ -61,11 +84,17 @@ int main() {
   cin >> n;
   ll temp = n;
   int c = 0;
+  /**
+   * @brief Counts the lucky digits in the input number.
+   */
   while (temp) {
     if (temp % 10 == 7 or temp % 10 == 4)
       c++;
     temp = temp / 10;
   }
+  /**
+   * @brief Checks if the count of lucky digits is itself a lucky number.
+   */
   if (checkLucky(c))
     cout << "YES";
   else {
@@ -75,6 +104,9 @@ int main() {
   return 0;
 }
 
+/**
+ * @brief Unused function for modular exponentiation.
+ */
 int mpow(int base, int exp) {
   base %= mod;
   int result = 1;
@@ -87,6 +119,9 @@ int mpow(int base, int exp) {
   return result;
 }
 
+/**
+ * @brief Unused function for inputting a graph.
+ */
 void ipgraph(int n, int m) {
   int i, u, v;
   while (m--) {
@@ -96,6 +131,9 @@ void ipgraph(int n, int m) {
   }
 }
 
+/**
+ * @brief Unused function for Depth First Search.
+ */
 void dfs(int u, int par) {
   for (int v : g[u]) {
     if (v == par)

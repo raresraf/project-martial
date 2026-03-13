@@ -1,13 +1,34 @@
+"""
+A simulation framework for a network of communicating devices using a thread pool.
 
+This module provides a complex simulation of a device network where script
+execution is managed by a thread pool. It features a "lead device" (ID 0) that
+is responsible for initializing shared resources and coordinating synchronization
+across all devices.
+"""
 
 
 from threading import Event, Thread, Lock, Condition, Semaphore
 
 
 class Device(object):
-    
+    """
+    Represents a single device in the simulated network.
+
+    Each device has a set of scripts to execute, sensor data, and can
+    communicate with its neighbors. The device's logic is orchestrated by a
+    `DeviceThread` which uses a `WorkerThreadPool`.
+    """
 
     def __init__(self, device_id, sensor_data, supervisor):
+        """
+        Initializes a Device.
+
+        Args:
+            device_id: A unique identifier for the device.
+            sensor_data: A dictionary of sensor data for this device.
+            supervisor: A supervisor object that manages the network.
+        """
         
         self.devices = None
         self.device_id = device_id
@@ -38,11 +59,20 @@ class Device(object):
             self.can_start = Event()
 
     def __str__(self):
-        
+        """Returns a string representation of the device."""
         return "Device %d" % self.device_id
 
     def setup_devices(self, devices):
-        
+        """
+        Sets up static, shared resources for all devices.
+
+        This method is coordinated by the "lead device" (device 0) to
+        initialize shared locks for all data locations. Other devices wait
+        until the setup is complete.
+
+        Args:
+            devices: A list of all devices in the simulation.
+        """
 
         self.devices = devices
 
@@ -73,7 +103,13 @@ class Device(object):
             devices[self.lead_device_index].can_start.wait()
 
     def assign_script(self, script, location):
-        
+        """
+        Assigns a script to be executed by this device.
+
+        Args:
+            script: The script to be executed.
+            location: The location associated with the script.
+        """
 
         if script is not None:
             self.scripts.append((script, location))
@@ -82,20 +118,41 @@ class Device(object):
             self.timepoint_done.set()
 
     def get_data(self, location):
-        
+        """
+        Retrieves sensor data for a given location.
+
+        Args:
+            location: The location to get data from.
+
+        Returns:
+            The sensor data for the given location, or None if not available.
+        """
         return self.sensor_data[location] if location in self.sensor_data else None
 
     def set_data(self, location, data):
+        """
+        Sets the sensor data for a given location.
+
+        Args:
+            location: The location to set data for.
+            data: The new data value.
+        """
         
         if location in self.sensor_data:
             self.sensor_data[location] = data
 
     def shutdown(self):
+        """Shuts down the device by joining its main thread."""
         
         self.thread.join()
 
     def notify_finish(self):
-        
+        """
+        Notifies the lead device that this device has finished its timepoint.
+
+        This method implements a barrier using a condition variable on the lead
+        device.
+        """
 
 
         self.devices[self.lead_device_index].next_time_point_cond.acquire()
@@ -112,15 +169,30 @@ class Device(object):
         self.devices[self.lead_device_index].next_time_point_cond.release()
 
 class DeviceThread(Thread):
-    
+    """
+    The main thread for a device, responsible for managing the worker thread
+    pool.
+    """
 
     def __init__(self, device):
+        """
+        Initializes the DeviceThread.
+
+        Args:
+            device: The Device object this thread belongs to.
+        """
         
         Thread.__init__(self, name="Device Thread %d" % device.device_id)
         self.device = device
         self.thread_pool = WorkerThreadPool(device)
 
     def run(self):
+        """
+        The main execution loop for the device thread.
+
+        This loop waits for a timepoint, then assigns work to the thread pool.
+        After all work is done, it synchronizes with other devices.
+        """
         
         while True:
 
@@ -141,8 +213,17 @@ class DeviceThread(Thread):
             self.device.notify_finish()
 
 class WorkerThreadPool(object):
+    """
+    A thread pool for executing device scripts concurrently.
+    """
     
     def __init__(self, device):
+        """
+        Initializes the WorkerThreadPool.
+
+        Args:
+            device: The parent device.
+        """
         
         self.device = device
         self.work_finished_event = Event()
@@ -162,6 +243,14 @@ class WorkerThreadPool(object):
             thread.start()
 
     def do_work(self, script, location, neighbours):
+        """
+        Assigns a task to an available worker thread.
+
+        Args:
+            script: The script to execute.
+            location: The location associated with the script.
+            neighbours: A list of neighboring devices.
+        """
         
         if self.work_finished_event.isSet():
             self.work_finished_event.clear()
@@ -172,6 +261,7 @@ class WorkerThreadPool(object):
         worker.do_work(script, location, neighbours)
 
     def shutdown(self):
+        """Shuts down all worker threads in the pool."""
         
         for worker in self.worker_pool:
             worker.should_i_stop = True
@@ -180,6 +270,12 @@ class WorkerThreadPool(object):
             worker.join()
 
     def worker_finished(self, worker):
+        """
+        Called by a worker thread when it has finished its task.
+
+        Args:
+            worker: The worker thread that has finished.
+        """
         
         self.queue_lock.acquire()
         self.ready_for_work_queue.append(worker)
@@ -191,14 +287,25 @@ class WorkerThreadPool(object):
         self.read_to_work_thread_sem.release()
 
     def wait_to_finish_work(self):
+        """Blocks until all work for the current timepoint is complete."""
         
         self.work_finished_event.wait()
 
 
 
 class SimpleWorker(Thread):
+    """
+    A worker thread from the thread pool that executes a single script.
+    """
     
     def __init__(self, worker_pool, device):
+        """
+        Initializes a SimpleWorker.
+
+        Args:
+            worker_pool: The parent WorkerThreadPool.
+            device: The parent device.
+        """
         
         Thread.__init__(self)
         self.worker_pool = worker_pool
@@ -212,6 +319,14 @@ class SimpleWorker(Thread):
         self.neighbours = None
 
     def do_work(self, script, location, neighbours):
+        """
+        Assigns a task to this worker thread.
+
+        Args:
+            script: The script to execute.
+            location: The location associated with the script.
+            neighbours: A list of neighboring devices.
+        """
         
         self.script = script
         self.location = location
@@ -220,6 +335,12 @@ class SimpleWorker(Thread):
 
 
     def run(self):
+        """
+        The main execution loop for the worker thread.
+
+        This loop waits for work, executes it, and then notifies the pool that
+        it is finished.
+        """
         while True:
             self.data_for_work_ready.acquire()
 

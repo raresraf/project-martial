@@ -1,4 +1,12 @@
+"""
+A producer-consumer simulation for a marketplace.
 
+This module contains classes to simulate a marketplace with producers and
+consumers. Producers create products and add them to the marketplace, while
+consumers add products to their carts and place orders. The simulation uses
+threading to run producers and consumers concurrently and locks to protect
+shared data.
+"""
 
 
 from threading import Thread
@@ -6,9 +14,23 @@ import time
 
 
 class Consumer(Thread):
-    
+    """
+    A consumer thread that interacts with the marketplace.
+
+    Each consumer has a set of carts and adds products to them, then places an
+    order.
+    """
 
     def __init__(self, carts, marketplace, retry_wait_time, **kwargs):
+        """
+        Initializes a Consumer thread.
+
+        Args:
+            carts: A list of carts, where each cart is a list of products.
+            marketplace: The Marketplace object to interact with.
+            retry_wait_time: The time to wait before retrying to add a product.
+            **kwargs: Additional arguments for the Thread constructor.
+        """
         
         self.carts = carts
         self.marketplace = marketplace
@@ -16,7 +38,12 @@ class Consumer(Thread):
         Thread.__init__(self, **kwargs)
 
     def print_carts(self, id_cart):
-        
+        """
+        Places an order for a cart and prints the contents.
+
+        Args:
+            id_cart: The ID of the cart to place an order for.
+        """
 
         
         list_order = self.marketplace.place_order(id_cart)
@@ -25,6 +52,13 @@ class Consumer(Thread):
 
 
     def add_product_to_cart(self, id_cart, prod):
+        """
+        Adds a product to a cart, retrying if it fails.
+
+        Args:
+            id_cart: The ID of the cart to add the product to.
+            prod: The product to add.
+        """
         
         
         go_next = self.marketplace.add_to_cart(id_cart,prod)
@@ -34,6 +68,12 @@ class Consumer(Thread):
 
 
     def run(self):
+        """
+        The main execution loop for the consumer thread.
+
+        This method simulates the consumer's behavior: getting a new cart,
+        adding or removing products, and finally placing an order.
+        """
         id_cart = self.marketplace.new_cart()
         for products in self.carts:
             for produs in products:
@@ -66,10 +106,21 @@ logging.Formatter.converter = time.gmtime
 
 
 class Marketplace:
-    
+    """
+    The central marketplace that manages producers, products, and carts.
+
+    This class provides a thread-safe interface for producers to publish
+    products and for consumers to interact with their carts.
+    """
 
     def __init__(self, queue_size_per_producer):
-        
+        """
+        Initializes the Marketplace.
+
+        Args:
+            queue_size_per_producer: The maximum number of products a single
+                producer can have in the marketplace at one time.
+        """
         
 
         logger.info("init Marketplace, argument qsise: %d", queue_size_per_producer)
@@ -92,6 +143,12 @@ class Marketplace:
         logger.info("init Marketplace, all")
 
     def register_producer(self):
+        """
+        Registers a new producer with the marketplace.
+
+        Returns:
+            The ID of the newly registered producer.
+        """
 
 
         
@@ -109,6 +166,16 @@ class Marketplace:
         return self.id_prod
 
     def publish(self, producer_id, product):
+        """
+        Publishes a product from a producer to the marketplace.
+
+        Args:
+            producer_id: The ID of the producer publishing the product.
+            product: The product to publish.
+
+        Returns:
+            True if the product was published successfully, False otherwise.
+        """
         
         
         it_produced = False
@@ -126,6 +193,12 @@ class Marketplace:
 
 
     def new_cart(self):
+        """
+        Creates a new, empty cart for a consumer.
+
+        Returns:
+            The ID of the newly created cart.
+        """
 
 
         
@@ -145,6 +218,16 @@ class Marketplace:
 
 
     def add_to_cart(self, cart_id, product):
+        """
+        Adds a product to a consumer's cart.
+
+        Args:
+            cart_id: The ID of the cart to add the product to.
+            product: The product to add.
+
+        Returns:
+            True if the product was added successfully, False otherwise.
+        """
         
         
         producer_found_id = 0
@@ -182,7 +265,13 @@ class Marketplace:
 
 
     def remove_from_cart(self, cart_id, product):
-        
+        """
+        Removes a product from a consumer's cart.
+
+        Args:
+            cart_id: The ID of the cart to remove the product from.
+            product: The product to remove.
+        """
 
         product_found = False
         producer_found_id = 0
@@ -207,6 +296,15 @@ class Marketplace:
 
 
     def place_order(self, cart_id):
+        """
+        Places an order for a cart, returning the products and clearing the cart.
+
+        Args:
+            cart_id: The ID of the cart to place an order for.
+
+        Returns:
+            A list of products that were in the cart.
+        """
         
         
         logger.info("place_order start %d;", cart_id)
@@ -217,6 +315,13 @@ class Marketplace:
 
 
     def print_cons(self, name, product):
+        """
+        Prints a message indicating that a consumer bought a product.
+
+        Args:
+            name: The name of the consumer.
+            product: The product that was bought.
+        """
         
         
         self.print_lock.acquire()
@@ -230,10 +335,21 @@ class Marketplace:
 from threading import Thread
 import time
 class Producer(Thread):
-    
+    """
+    A producer thread that creates products and publishes them to the marketplace.
+    """
 
     def __init__(self, products, marketplace, republish_wait_time, **kwargs):
-        
+        """
+        Initializes a Producer thread.
+
+        Args:
+            products: A list of products that the producer can create.
+            marketplace: The Marketplace object to interact with.
+            republish_wait_time: The time to wait before retrying to publish a
+                product.
+            **kwargs: Additional arguments for the Thread constructor.
+        """
 
         Thread.__init__(self, **kwargs)
         self.products  = products
@@ -243,6 +359,12 @@ class Producer(Thread):
         self.my_id = self.marketplace.register_producer()
 
     def run(self):
+        """
+        The main execution loop for the producer thread.
+
+        This method continuously produces products and tries to publish them to
+        the marketplace.
+        """
         while True:
             for  prod in self.products:
                 for _ in range(prod[1]):
@@ -258,19 +380,21 @@ from dataclasses import dataclass
 
 @dataclass(init=True, repr=True, order=False, frozen=True)
 class Product:
-    
+    """A simple data class for representing a product."""
     name: str
     price: int
 
 
 @dataclass(init=True, repr=True, order=False, frozen=True)
 class Tea(Product):
-    
+    """A data class for representing a tea product, inheriting from Product."""
     type: str
 
 
 @dataclass(init=True, repr=True, order=False, frozen=True)
 class Coffee(Product):
-    
+    """
+    A data class for representing a coffee product, inheriting from Product.
+    """
     acidity: str
     roast_level: str

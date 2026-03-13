@@ -1,25 +1,45 @@
-
+"""
+This module provides a simulation framework for a network of distributed devices.
+It features a `Device` class representing each node, a `DeviceThread` for the main
+control loop of each device, and a `RunScripts` class as the worker thread for
+executing tasks. Synchronization across all devices is managed by a `ReusableBarrier`,
+and location-specific data access is controlled by a complex lock-sharing mechanism.
+"""
 
 
 from threading import Thread, Event
 from threading import Lock, Semaphore
 
 class ReusableBarrier():
-    
+    """
+    A reusable double-barrier synchronization primitive using semaphores.
+
+    This implementation uses a two-phase (double turnstile) approach to allow a
+    fixed number of threads to wait for each other at a synchronization point,
+    and to be safely reused multiple times.
+    """
     
     def __init__(self, num_threads):
+        """
+        Initializes the ReusableBarrier.
+
+        Args:
+            num_threads (int): The number of threads that must reach the barrier.
+        """
         self.num_threads = num_threads
         self.count_threads1 = self.num_threads
         self.count_threads2 = self.num_threads
-        self.counter_lock = Lock()               
-        self.threads_sem1 = Semaphore(0)         
-        self.threads_sem2 = Semaphore(0)         
+        self.counter_lock = Lock()
+        self.threads_sem1 = Semaphore(0)
+        self.threads_sem2 = Semaphore(0)
 
     def wait(self):
+        """Public method for a thread to wait at the barrier."""
         self.phase1()
         self.phase2()
     
     def phase1(self):
+        """First phase (entry turnstile) of the barrier."""
         with self.counter_lock:
             self.count_threads1 -= 1
             if self.count_threads1 == 0:
@@ -29,6 +49,7 @@ class ReusableBarrier():
         self.threads_sem1.acquire()
     
     def phase2(self):
+        """Second phase (exit turnstile) of the barrier, enables reusability."""
         with self.counter_lock:
             self.count_threads2 -= 1
             if self.count_threads2 == 0:
@@ -37,9 +58,24 @@ class ReusableBarrier():
                 self.count_threads2 = self.num_threads   
         self.threads_sem2.acquire()
 
-class RunScripts(Thread):                                         
+class RunScripts(Thread):
+    """
+    A worker thread responsible for executing a single script on a device.
+    
+    It handles data aggregation from neighbors, script execution, and propagation
+    of results, ensuring thread safety for a specific location via locks.
+    """
     
     def __init__(self, device, location, script, neighbours):
+        """
+        Initializes the worker thread.
+
+        Args:
+            device (Device): The parent device this worker belongs to.
+            location (str): The location context for the script.
+            script (object): The script object to execute (must have a `run` method).
+            neighbours (list): A list of neighboring `Device` objects.
+        """
         Thread.__init__(self)
         self.device = device
         self.location = location
@@ -48,7 +84,16 @@ class RunScripts(Thread):
 
     
     def run(self):
+        """
+        Core logic of the worker thread.
 
+        Workflow:
+        1. Acquire the location-specific lock to ensure exclusive access.
+        2. Aggregate data from its own device and neighbors for that location.
+        3. Execute the script with the aggregated data.
+        4. Write the result back to its own device and all neighbors.
+        5. Release the location lock.
+        """
         
         self.device.location_lock[self.location].acquire()
 
@@ -79,9 +124,22 @@ class RunScripts(Thread):
         self.device.location_lock[self.location].release()
 
 class Device(object):
+    """
+    Represents a single device (or node) in the distributed simulation.
     
+    Each device manages its own state, executes assigned scripts, and coordinates
+    with other devices using shared synchronization primitives.
+    """
 
     def __init__(self, device_id, sensor_data, supervisor):
+        """
+        Initializes a Device instance.
+
+        Args:
+            device_id (int): A unique identifier for the device.
+            sensor_data (dict): A dictionary of the device's internal data.
+            supervisor (object): The central supervisor for fetching neighbors.
+        """
         
         self.device_id = device_id
         self.sensor_data = sensor_data
@@ -96,14 +154,23 @@ class Device(object):
         self.barrier = None
         self.list_thread = []
         self.thread.start()
+        # This list holds location-specific locks; its management is complex.
         self.location_lock = [None] * 200
 
     def __str__(self):
-        
+        """Returns a string representation of the device."""
         return "Device %d" % self.device_id
 
     def setup_devices(self, devices):
-        
+        """
+        Establishes the shared barrier for synchronization among all devices.
+
+        This method should be called on one device to create and distribute a
+        `ReusableBarrier` to all other devices in the simulation.
+
+        Args:
+            devices (list): A list of all `Device` objects in the simulation.
+        """
         
         nr_devices = len(devices)
         
@@ -124,7 +191,18 @@ class Device(object):
 
 
     def assign_script(self, script, location):
-        
+        """
+        Assigns a script to the device and handles the complex lock-sharing logic.
+
+        If a lock for the given `location` does not exist on this device, it will
+        search other devices for an existing lock to "borrow". If none is found,
+        it creates a new one. This ensures all devices use a single lock instance
+        per location.
+
+        Args:
+            script (object): The script to be executed.
+            location (str): The location context for the script.
+        """
         lock_location = False
 
         if script is None:
@@ -151,28 +229,49 @@ class Device(object):
             
 
     def get_data(self, location):
-        
+        """Retrieves data for a specific location."""
         return self.sensor_data[location] if location in self.sensor_data else None
 
     def set_data(self, location, data):
-        
+        """Updates data for a specific location."""
         if location in self.sensor_data:
             self.sensor_data[location] = data
 
     def shutdown(self):
-        
+        """Waits for the device's main control thread to terminate."""
         self.thread.join()
 
 class DeviceThread(Thread):
-    
+    """
+    The main control loop for a single `Device`.
+
+    This thread orchestrates the device's lifecycle in the simulation, including
+    running scripts and synchronizing with other devices at the end of each time step.
+    """
 
     def __init__(self, device):
-        
+        """
+        Initializes the control thread.
+
+        Args:
+            device (Device): The parent `Device` object.
+        """
         Thread.__init__(self, name="Device Thread %d" % device.device_id)
         self.device = device
 
     def run(self):
-        
+        """
+        The main execution loop of the device.
+
+        Workflow per time step:
+        1. Wait until the `timepoint_done` event is set, signaling all scripts
+           for the current step have been assigned.
+        2. Create a `RunScripts` worker thread for each assigned script.
+        3. Start all worker threads.
+        4. Wait for all worker threads to complete their execution.
+        5. Clean up, clear the event, and wait at the global barrier for all
+           other devices to finish the time step.
+        """
         
         while True:
 

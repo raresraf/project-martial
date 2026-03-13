@@ -1,3 +1,16 @@
+/**
+ * @file 96A.CPP
+ * @brief Determines if a football team has a "dangerous" situation.
+ *
+ * This program reads a string representing a sequence of players from two
+ * different teams (represented by '0' and '1'). It determines if there is a
+ * continuous sequence of 7 or more players from the same team.
+ *
+ * @note The extensive use of typedefs and macros is a common practice in
+ * competitive programming for speed and convenience.
+ *
+ * @see https://codeforces.com/problemset/problem/96/A
+ */
 /*
   Yadi Qian
 */
@@ -28,7 +41,21 @@ int main() {
   cin >> a;
   int letter = a[0];
   int count = 0;
+  /**
+   * @brief Main processing loop.
+   *
+   * Iterates through the string of players to find a continuous sequence of
+   * identical characters.
+   */
   for (int i = 0; i < a.length() - 1; i++) {
+    /**
+     * @brief Sequence counting logic.
+     *
+     * If the current player is the same as the next one, the counter is
+     * incremented. If they are different, the counter is reset.
+     * A sequence of 7 is detected when the count of identical adjacent
+     * characters reaches 6.
+     */
     if (a[i] == a[i + 1])
       count++;
     else

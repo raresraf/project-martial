@@ -1,4 +1,12 @@
-/*==============================================*\
+/**
+ * @file 231A.CPP
+ * @brief Solves the "Team" problem from Codeforces.
+ * @see https://codeforces.com/problemset/problem/231/A
+ *
+ * This program counts the number of problems a team will solve. A problem is
+ * solved if at least two out of the three team members are sure about the solution.
+ */
+/*==============================================*
 Codeforces ID:    mdshihab
                                                   |
 Name:     Md. Shihabul Minhaz                     |
@@ -18,16 +26,18 @@ using namespace std;
 #define fi(a) scanf("%d", &a);
 #define fli(a) scanf("%ld", &a);
 #define fll(a) scanf("%lld", &a);
-#define pi(a) printf("%d\n", a);
-#define ppi(i, a) printf("Case %d: %d\n", i, a);
+#define pi(a) printf("%d
+", a);
+#define ppi(i, a) printf("Case %d: %d
+", i, a);
 #define ll long long
-#define fast                                                                   \
-  ios_base::sync_with_stdio(false);                                            \
-  cin.tie(NULL);                                                               \
+#define fast                                                                   
+  ios_base::sync_with_stdio(false);                                            
+  cin.tie(NULL);                                                               
   cout.tie(NULL);
 void FI() {
 #ifndef ONLINE_JUDGE
-  freopen("C:\\Users\\SHIHAB\\Desktop\\input.in", "r", stdin);
+  freopen("C:\Users\SHIHAB\Desktop\input.in", "r", stdin);
 #endif // ONLINE_JUDGE
 }
 
@@ -37,6 +47,11 @@ int main() {
   cin >> n;
   while (n--) {
     cin >> a >> b >> c;
+    /**
+     * @brief Check if at least two team members are sure.
+     * The inputs a, b, and c are either 0 or 1. A sum greater than 1
+     * means that at least two of them are 1.
+     */
     if (a + b + c > 1)
       cnt++;
   }

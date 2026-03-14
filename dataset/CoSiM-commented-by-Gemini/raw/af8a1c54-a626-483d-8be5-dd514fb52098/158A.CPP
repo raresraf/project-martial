@@ -1,3 +1,12 @@
+/**
+ * @file 158A.CPP
+ * @brief Solves the "Next Round" problem from Codeforces.
+ * @see https://codeforces.com/problemset/problem/158/A
+ *
+ * This program determines the number of participants who advance to the next round.
+ * A participant advances if their score is positive and greater than or equal to
+ * the score of the k-th participant.
+ */
 #include <bits/stdc++.h>
 #include <ext/pb_ds/assoc_container.hpp>
 #include <ext/pb_ds/tree_policy.hpp>
@@ -7,8 +16,8 @@
 #define mod 1000000007
 #define mod1 mod
 #define mod2 100000009
-#define show(a)                                                                \
-  for (int i = 0; i < a.size(); i++)                                           \
+#define show(a)                                                                
+  for (int i = 0; i < a.size(); i++)                                           
     cout << a[i & 1] << " ";
 #define fi first
 #define se second
@@ -27,8 +36,8 @@
 #define sot(v) sort(v.begin(), v.end())
 #define maxheap priority_queue<int>
 #define mp make_pair
-#define fast_io()                                                              \
-  cin.sync_with_stdio(false);                                                  \
+#define fast_io()                                                              
+  cin.sync_with_stdio(false);                                                  
   cout.sync_with_stdio(false);
 #define PI 3.1415926535
 #define long_zero 0ll
@@ -74,8 +83,19 @@ int32_t main() {
   for (int i = 1; i <= n; i++) {
     cin >> a[i];
   }
+  
+  // Store the score of the k-th participant.
   int re = a[k];
+  
+  /**
+   * @brief Iterate through all participants to count who advances.
+   * This is a clean, single-pass solution.
+   */
   for (int i = 1; i <= n; i++) {
+    /**
+     * @brief A participant advances if their score is greater than or equal to the
+     * k-th participant's score, and their score is positive.
+     */
     if (a[i] >= re && a[i] > 0)
       c++;
   }

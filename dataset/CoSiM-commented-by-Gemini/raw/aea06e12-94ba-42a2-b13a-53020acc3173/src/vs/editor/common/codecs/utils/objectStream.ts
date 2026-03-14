@@ -1,3 +1,9 @@
+/**
+ * @file This file defines a generic `ObjectStream` class that can create a readable
+ * stream from a generator of objects. It is designed to work within an environment
+ * that uses streams and cancellation tokens, likely for handling data flows in an
+ * editor or similar application.
+ */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -11,7 +17,9 @@ import { ObservableDisposable } from '../../../../base/common/observableDisposab
 import { newWriteableStream, WriteableStream, ReadableStream } from '../../../../base/common/stream.js';
 
 /**
- * A readable stream of provided objects.
+ * A readable stream of provided objects. This class takes a generator of objects
+ * and pushes them into a stream in chunks, respecting backpressure and cancellation.
+ * @template T The type of object in the stream.
  */
 export class ObjectStream<T extends object> extends ObservableDisposable implements ReadableStream<T> {
 	/**
@@ -20,7 +28,7 @@ export class ObjectStream<T extends object> extends ObservableDisposable impleme
 	private ended: boolean = false;
 
 	/**
-	 * Underlying writable stream instance.
+	 * Underlying writable stream instance that we push data to.
 	 */
 	private readonly stream: WriteableStream<T>;
 
@@ -30,6 +38,11 @@ export class ObjectStream<T extends object> extends ObservableDisposable impleme
 	 */
 	private timeoutHandle: ReturnType<typeof setTimeout> | undefined;
 
+	/**
+	 * Creates an instance of ObjectStream.
+	 * @param data A generator that yields the objects to be streamed.
+	 * @param cancellationToken An optional token to signal cancellation of the stream.
+	 */
 	constructor(
 		private readonly data: Generator<T, undefined>,
 		private readonly cancellationToken?: CancellationToken,
@@ -48,10 +61,11 @@ export class ObjectStream<T extends object> extends ObservableDisposable impleme
 	}
 
 	/**
-	 * Starts process of sending data to the stream.
+	 * Starts the process of sending data to the stream. This method is called
+	 * recursively using `setTimeout` to send data in chunks.
 	 *
-	 * @param stopAfterFirstSend whether to continue sending data to the stream
-	 *             or stop sending after the first batch of data is sent instead
+	 * @param stopAfterFirstSend - Whether to continue sending data to the stream
+	 *             or stop sending after the first batch of data is sent instead.
 	 */
 	public send(
 		stopAfterFirstSend: boolean = false,
@@ -95,7 +109,8 @@ export class ObjectStream<T extends object> extends ObservableDisposable impleme
 	}
 
 	/**
-	 * Stop the data sending loop.
+	 * Stops the data sending loop by clearing the timeout.
+	 * @returns The current `ObjectStream` instance.
 	 */
 	public stopStream(): this {
 		if (this.timeoutHandle === undefined) {
@@ -109,7 +124,9 @@ export class ObjectStream<T extends object> extends ObservableDisposable impleme
 	}
 
 	/**
-	 * Sends a provided number of objects to the stream.
+	 * Sends a specified number of objects from the generator to the underlying stream.
+	 * @param objectsCount The number of objects to send in this batch. Defaults to 25.
+	 * @private
 	 */
 	private async sendData(
 		objectsCount: number = 25,
@@ -135,7 +152,9 @@ export class ObjectStream<T extends object> extends ObservableDisposable impleme
 	}
 
 	/**
-	 * Ends the stream and stops sending data objects.
+	 * Ends the stream and stops sending data objects. It's safe to call this multiple times.
+	 * @private
+	 * @returns The current `ObjectStream` instance.
 	 */
 	private end(): this {
 		if (this.ended) {
@@ -148,6 +167,9 @@ export class ObjectStream<T extends object> extends ObservableDisposable impleme
 		return this;
 	}
 
+	/**
+	 * Pauses the stream by stopping the data sending loop and pausing the underlying stream.
+	 */
 	public pause(): void {
 		this.stopStream();
 		this.stream.pause();
@@ -155,6 +177,9 @@ export class ObjectStream<T extends object> extends ObservableDisposable impleme
 		return;
 	}
 
+	/**
+	 * Resumes the stream by restarting the data sending loop and resuming the underlying stream.
+	 */
 	public resume(): void {
 		this.send();
 		this.stream.resume();
@@ -162,16 +187,27 @@ export class ObjectStream<T extends object> extends ObservableDisposable impleme
 		return;
 	}
 
+	/**
+	 * Destroys the stream, ensuring all resources are cleaned up.
+	 */
 	public destroy(): void {
 		this.dispose();
 	}
 
+	/**
+	 * Removes a listener for a given event from the underlying stream.
+	 */
 	public removeListener(event: string, callback: (...args: any[]) => void): void {
 		this.stream.removeListener(event, callback);
 
 		return;
 	}
 
+	/**
+	 * Listens for events on the stream.
+	 * @param event The event to listen for ('data', 'error', or 'end').
+	 * @param callback The function to execute when the event is emitted.
+	 */
 	public on(event: 'data', callback: (data: T) => void): void;
 	public on(event: 'error', callback: (err: Error) => void): void;
 	public on(event: 'end', callback: () => void): void;
@@ -202,7 +238,7 @@ export class ObjectStream<T extends object> extends ObservableDisposable impleme
 	}
 
 	/**
-	 * Cleanup send interval and destroy the stream.
+	 * Cleans up the send interval and destroys the stream.
 	 */
 	public override dispose(): void {
 		this.stopStream();
@@ -212,7 +248,10 @@ export class ObjectStream<T extends object> extends ObservableDisposable impleme
 	}
 
 	/**
-	 * Create new instance of the stream from a provided array.
+	 * Creates a new instance of the stream from a provided array.
+	 * @param array The array of objects to stream.
+	 * @param cancellationToken An optional token to signal cancellation.
+	 * @returns A new `ObjectStream` instance.
 	 */
 	public static fromArray<T extends object>(
 		array: T[],
@@ -223,6 +262,10 @@ export class ObjectStream<T extends object> extends ObservableDisposable impleme
 
 	/**
 	 * Create new instance of the stream from a provided text model.
+	 * Each line and EOL is emitted as a separate `VSBuffer`.
+	 * @param model The text model to stream.
+	 * @param cancellationToken An optional token to signal cancellation.
+	 * @returns A new `ObjectStream` instance for `VSBuffer` objects.
 	 */
 	public static fromTextModel(
 		model: ITextModel,
@@ -233,7 +276,9 @@ export class ObjectStream<T extends object> extends ObservableDisposable impleme
 }
 
 /**
- * Create a generator out of a provided array.
+ * Creates a generator from a provided array.
+ * @param array The array to convert into a generator.
+ * @returns A generator that yields each item from the array.
  */
 export const arrayToGenerator = <T extends NonNullable<unknown>>(array: T[]): Generator<T, undefined> => {
 	return (function* (): Generator<T, undefined> {
@@ -244,7 +289,10 @@ export const arrayToGenerator = <T extends NonNullable<unknown>>(array: T[]): Ge
 };
 
 /**
- * Create a generator out of a provided text model.
+ * Creates a generator from a provided text model. This generator yields each line
+ * and each End-Of-Line sequence as a separate `VSBuffer`.
+ * @param model The `ITextModel` to read from.
+ * @returns A generator that yields buffers for each line and EOL.
  */
 export const modelToGenerator = (model: ITextModel): Generator<VSBuffer, undefined> => {
 	return (function* (): Generator<VSBuffer, undefined> {

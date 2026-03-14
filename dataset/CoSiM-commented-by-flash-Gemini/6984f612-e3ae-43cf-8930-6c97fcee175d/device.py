@@ -1,5 +1,34 @@
+"""
+@6984f612-e3ae-43cf-8930-6c97fcee175d/device.py
+@brief This module implements a distributed simulation or data processing system.
 
+It defines three core classes:
+- `ReusableBarrier`: A custom barrier synchronization mechanism for threads.
+- `Device`: Represents a computational node that manages its sensor data,
+  worker threads, and coordinates with a supervisor and other devices.
+- `DeviceThread`: Worker threads spawned by a `Device` to execute assigned scripts
+  and manage data access.
 
+The system relies on `threading` primitives (Lock, Event, Thread, Condition)
+for concurrency and synchronization, allowing parallel processing of scripts
+across multiple devices and within a single device.
+
+Algorithm:
+- Decentralized processing: Each `Device` operates semi-autonomously.
+- Timepoint synchronization: Devices (via their threads) synchronize at discrete timepoints using a custom barrier.
+- Concurrent script execution: `DeviceThread`s execute scripts in parallel.
+- Distributed locking: Location-specific locks ensure data consistency across devices.
+- Load balancing: Scripts are spread among worker threads based on their `id_thread`.
+
+Time Complexity:
+- `Device.__init__`: O(N_threads) where N_threads is number of threads.
+- `Device.setup_devices`: O(D * L + D * N_threads) where D is number of devices, L is number of locations, N_threads is number of threads per device.
+- `DeviceThread.run`: O(T * S * N_neighbors * L_locations) where T is timepoints, S is scripts per thread, N_neighbors is number of neighbors, L_locations is number of locations.
+Space Complexity:
+- `Device`: O(L) for locks per location, O(N_threads) for threads.
+- `ReusableBarrier`: O(1).
+- `DeviceThread`: O(1) beyond script and data storage.
+"""
 
 from threading import Lock, Event, Thread, Condition
 
@@ -152,4 +181,3 @@ class DeviceThread(Thread):
                 self.device.gotneighbours.clear()
             
             self.device.barrier.wait()
-            

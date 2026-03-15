@@ -7,6 +7,13 @@
  * License v3.0 only", or the "Server Side Public License, v 1".
  */
 
+/**
+ * @file RemoteClusterService.java
+ * @brief Provides core functionality for managing and interacting with remote Elasticsearch clusters.
+ * This service handles remote cluster connections, credential management, index grouping, and request routing
+ * across multiple clusters, supporting both single and multi-project environments.
+ * It ensures robust error handling and proper resource management for inter-cluster communication.
+ */
 package org.elasticsearch.transport;
 
 import org.apache.logging.log4j.LogManager;
@@ -65,7 +72,14 @@ import static org.elasticsearch.common.settings.Setting.timeSetting;
 import static org.elasticsearch.transport.RemoteClusterPortSettings.REMOTE_CLUSTER_SERVER_ENABLED;
 
 /**
- * Basic service for accessing remote clusters via gateway nodes
+ * @brief Basic service for accessing remote clusters via gateway nodes.
+ * This class provides functionality for managing connections to remote Elasticsearch clusters,
+ * handling remote requests, and grouping indices across clusters. It supports features like
+ * connection timeouts, node attribute filtering, and secure credential management for inter-cluster communication.
+ * It extends {@link RemoteClusterAware} for common remote cluster functionalities,
+ * implements {@link Closeable} for resource management,
+ * {@link ReportingService} for cluster information, and
+ * {@link IndicesExpressionGrouper} for index grouping logic.
  */
 public final class RemoteClusterService extends RemoteClusterAware
     implements
@@ -76,7 +90,9 @@ public final class RemoteClusterService extends RemoteClusterAware
     private static final Logger logger = LogManager.getLogger(RemoteClusterService.class);
 
     /**
-     * The initial connect timeout for remote cluster connections
+     * @var REMOTE_INITIAL_CONNECTION_TIMEOUT_SETTING
+     * @brief The initial connection timeout for remote cluster connections.
+     * This setting defines how long to wait when establishing the first connection to a remote cluster.
      */
     public static final Setting<TimeValue> REMOTE_INITIAL_CONNECTION_TIMEOUT_SETTING = Setting.positiveTimeSetting(
         "cluster.remote.initial_connect_timeout",
@@ -85,22 +101,34 @@ public final class RemoteClusterService extends RemoteClusterAware
     );
 
     /**
-     * The name of a node attribute to select nodes that should be connected to in the remote cluster.
-     * For instance a node can be configured with {@code node.attr.gateway: true} in order to be eligible as a gateway node between
-     * clusters. In that case {@code cluster.remote.node.attr: gateway} can be used to filter out other nodes in the remote cluster.
-     * The value of the setting is expected to be a boolean, {@code true} for nodes that can become gateways, {@code false} otherwise.
+     * @var REMOTE_NODE_ATTRIBUTE
+     * @brief Node attribute used to select gateway nodes in remote clusters.
+     * This setting allows specifying a node attribute name (e.g., "gateway") whose value
+     * is expected to be boolean. Nodes with {@code node.attr.gateway: true} would be eligible
+     * as gateway nodes for remote cluster connections.
      */
     public static final Setting<String> REMOTE_NODE_ATTRIBUTE = Setting.simpleString(
         "cluster.remote.node.attr",
         Setting.Property.NodeScope
     );
 
+    /**
+     * @var REMOTE_CLUSTER_SKIP_UNAVAILABLE
+     * @brief Affix setting to control whether to skip unavailable remote clusters.
+     * If set to {@code true}, requests to a disconnected remote cluster will fail immediately
+     * without attempting to re-establish the connection.
+     */
     public static final Setting.AffixSetting<Boolean> REMOTE_CLUSTER_SKIP_UNAVAILABLE = Setting.affixKeySetting(
         "cluster.remote.",
         "skip_unavailable",
         (ns, key) -> boolSetting(key, true, new RemoteConnectionEnabled<>(ns, key), Setting.Property.Dynamic, Setting.Property.NodeScope)
     );
 
+    /**
+     * @var REMOTE_CLUSTER_PING_SCHEDULE
+     * @brief Affix setting for the transport ping schedule to remote clusters.
+     * Defines the interval at which ping requests are sent to remote clusters to maintain connection.
+     */
     public static final Setting.AffixSetting<TimeValue> REMOTE_CLUSTER_PING_SCHEDULE = Setting.affixKeySetting(
         "cluster.remote.",
         "transport.ping_schedule",
@@ -113,6 +141,11 @@ public final class RemoteClusterService extends RemoteClusterAware
         )
     );
 
+    /**
+     * @var REMOTE_CLUSTER_COMPRESS
+     * @brief Affix setting to enable or disable transport compression for remote cluster connections.
+     * This setting controls whether data transmitted to remote clusters should be compressed.
+     */
     public static final Setting.AffixSetting<Compression.Enabled> REMOTE_CLUSTER_COMPRESS = Setting.affixKeySetting(
         "cluster.remote.",
         "transport.compress",
@@ -126,6 +159,11 @@ public final class RemoteClusterService extends RemoteClusterAware
         )
     );
 
+    /**
+     * @var REMOTE_CLUSTER_COMPRESSION_SCHEME
+     * @brief Affix setting to define the compression scheme used for remote cluster transport.
+     * Specifies the algorithm used for compressing data if compression is enabled.
+     */
     public static final Setting.AffixSetting<Compression.Scheme> REMOTE_CLUSTER_COMPRESSION_SCHEME = Setting.affixKeySetting(
         "cluster.remote.",
         "transport.compression_scheme",
@@ -139,31 +177,56 @@ public final class RemoteClusterService extends RemoteClusterAware
         )
     );
 
+    /**
+     * @var REMOTE_CLUSTER_CREDENTIALS
+     * @brief Affix setting for secure credentials used to connect to remote clusters.
+     * Stores sensitive information like usernames and passwords for authentication with remote clusters.
+     */
     public static final Setting.AffixSetting<SecureString> REMOTE_CLUSTER_CREDENTIALS = Setting.affixKeySetting(
         "cluster.remote.",
         "credentials",
         key -> SecureSetting.secureString(key, null)
     );
 
+    /**
+     * @var REMOTE_CLUSTER_HANDSHAKE_ACTION_NAME
+     * @brief The action name for remote cluster handshake requests.
+     * Used for internal communication to establish and verify connections between remote clusters.
+     */
     public static final String REMOTE_CLUSTER_HANDSHAKE_ACTION_NAME = "cluster:internal/remote_cluster/handshake";
 
-    private final boolean enabled;
-    private final boolean remoteClusterServerEnabled;
+    private final boolean enabled; /**< Flag indicating if remote cluster client functionality is enabled on this node. */
+    private final boolean remoteClusterServerEnabled; /**< Flag indicating if the remote cluster server is enabled. */
 
+    /**
+     * @brief Checks if remote cluster client functionality is enabled.
+     * @return True if enabled, false otherwise.
+     */
     public boolean isEnabled() {
         return enabled;
     }
 
+    /**
+     * @brief Checks if the remote cluster server is enabled.
+     * @return True if enabled, false otherwise.
+     */
     public boolean isRemoteClusterServerEnabled() {
         return remoteClusterServerEnabled;
     }
 
-    private final TransportService transportService;
-    private final Map<ProjectId, Map<String, RemoteClusterConnection>> remoteClusters;
-    private final RemoteClusterCredentialsManager remoteClusterCredentialsManager;
-    private final ProjectResolver projectResolver;
+    private final TransportService transportService; /**< The TransportService instance for handling network communications. */
+    private final Map<ProjectId, Map<String, RemoteClusterConnection>> remoteClusters; /**< Map of remote cluster connections, keyed by ProjectId and cluster alias. */
+    private final RemoteClusterCredentialsManager remoteClusterCredentialsManager; /**< Manager for remote cluster credentials. */
+    private final ProjectResolver projectResolver; /**< Resolver for project-related information. */
 
-    @FixForMultiProject(description = "Inject the ProjectResolver instance.")
+    /**
+     * @brief Constructs a new RemoteClusterService.
+     * Initializes the service with given settings and transport service, sets up remote cluster
+     * connection maps, and registers handshake request handlers if the remote cluster server is enabled.
+     * @param settings The node settings.
+     * @param transportService The TransportService instance.
+     * @FixForMultiProject(description = "Inject the ProjectResolver instance.")
+     */
     RemoteClusterService(Settings settings, TransportService transportService) {
         super(settings);
         this.enabled = DiscoveryNode.isRemoteClusterClient(settings);

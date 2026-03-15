@@ -1,5 +1,12 @@
 
 >>>> file: helper.cpp
+/**
+ * @file helper.cpp
+ * @brief Implementation of utility functions for OpenCL applications.
+ * This file provides functionalities for OpenCL error checking,
+ * compilation error logging, and reading kernel source files.
+ * It is designed to assist in debugging and managing OpenCL programs.
+ */
 #include 
 #include 
 #include 
@@ -11,7 +18,11 @@
 using namespace std;
 
 /**
- * User/host function, check OpenCL function return code
+ * @brief Checks the return code of an OpenCL API call.
+ * If the return code indicates an error, it prints a descriptive error message
+ * and returns 1, signaling a failure. Otherwise, it returns 0.
+ * @param cl_ret The integer return code from an OpenCL function.
+ * @return 1 if an error occurred, 0 otherwise.
  */
 int CL_ERR(int cl_ret)
 {
@@ -23,7 +34,13 @@ int CL_ERR(int cl_ret)
 }
 
 /**
- * User/host function, check OpenCL compilation return code
+ * @brief Checks the return code of an OpenCL program compilation.
+ * If compilation fails, it prints the OpenCL compiler's error log and returns 1.
+ * This function is crucial for diagnosing issues during kernel compilation.
+ * @param cl_ret The integer return code from clBuildProgram.
+ * @param program The cl_program object representing the OpenCL program.
+ * @param device The cl_device_id on which the program was compiled.
+ * @return 1 if compilation failed, 0 otherwise.
  */
 int CL_COMPILE_ERR(int cl_ret, cl_program program, cl_device_id device)
 {
@@ -36,8 +53,13 @@ int CL_COMPILE_ERR(int cl_ret, cl_program program, cl_device_id device)
 }
 
 /**
-* Read kernel from file
-*/
+ * @brief Reads the entire content of an OpenCL kernel source file into a string.
+ * This function ensures the kernel source is loaded for compilation.
+ * Pre-condition: The specified file_name must correspond to a valid and accessible file.
+ * Invariant: The `str_kernel` reference will contain the file's content upon successful execution.
+ * @param file_name The path to the OpenCL kernel source file.
+ * @param str_kernel A reference to a string where the kernel source will be stored.
+ */
 void read_kernel(string file_name, string &str_kernel)
 {
 	ifstream in_file(file_name.c_str());
@@ -51,7 +73,10 @@ void read_kernel(string file_name, string &str_kernel)
 }
 
 /**
- * OpenCL return error message, used by CL_ERR and CL_COMPILE_ERR
+ * @brief Translates an OpenCL error code into a human-readable error message.
+ * This utility function enhances debugging by providing meaningful descriptions for OpenCL API return codes.
+ * @param err The OpenCL error code (cl_int).
+ * @return A constant character pointer to the error message string.
  */
 const char* cl_get_string_err(cl_int err) {
 switch (err) {
@@ -106,7 +131,12 @@ switch (err) {
 }
 
 /**
- * Check compiler return code, used by CL_COMPILE_ERR
+ * @brief Retrieves and prints the OpenCL program build log.
+ * This function is invoked when clBuildProgram returns an error,
+ * providing detailed feedback from the OpenCL compiler, which is essential for debugging kernel code.
+ * Pre-condition: `program` must be a valid OpenCL program object and `device` a valid OpenCL device.
+ * @param program The cl_program object for which the build log is to be retrieved.
+ * @param device The cl_device_id associated with the program's build.
  */
 void cl_get_compiler_err_log(cl_program program, cl_device_id device)
 {

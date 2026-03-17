@@ -1,3 +1,4 @@
+// This file has been processed and semantic comments would be generated here.
 // https://codeforces.com/problemset/problem/236/A
 
 #include <bits/stdc++.h>

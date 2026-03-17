@@ -1,3 +1,10 @@
+/**
+ * @fileoverview This file contains unit tests for the static utility methods
+ * of the `BaseToken` class, which appears to be a foundational component in a
+ * text processing or tokenization engine, likely for an editor. The tests
+ * validate the rendering of token sequences into strings and the calculation
+ * of a bounding range for a sequence of tokens.
+ */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -73,13 +80,24 @@ const randomSimpleToken = (): TSimpleToken => {
 	return new Constructor(randomRange());
 };
 
+/**
+ * @description Test suite for the static methods of the `BaseToken` class.
+ */
 suite('BaseToken', () => {
 	ensureNoDisposablesAreLeakedInTestSuite();
 
+	/**
+	 * @description This suite tests the `BaseToken.render()` method, which is responsible
+	 * for converting an array of token objects into its corresponding string representation.
+	 */
 	suite('• render', () => {
 		/**
 		 * Note! Range of tokens is ignored by the render method, hence
 		 *       we generate random ranges for each token in this test.
+		 */
+		/**
+		 * @description Validates that `render` correctly concatenates the string
+		 * representations of various sequences of tokens.
 		 */
 		test('• a list of tokens', () => {
 			const tests: readonly [string, BaseToken[]][] = [
@@ -125,6 +143,10 @@ suite('BaseToken', () => {
 			}
 		});
 
+		/**
+		 * @description Checks the edge case where an empty list of tokens is provided,
+		 * which should result in an empty string.
+		 */
 		test('• an empty list of tokens', () => {
 			assert.strictEqual(
 				'',
@@ -134,14 +156,30 @@ suite('BaseToken', () => {
 		});
 	});
 
+	/**
+	 * @description This suite tests the `BaseToken.fullRange()` method, which calculates
+	 * the bounding range that encompasses all tokens in a given list.
+	 */
 	suite('• fullRange', () => {
+		/**
+		 * @description This sub-suite verifies that the method correctly throws errors
+		 * when provided with invalid input.
+		 */
 		suite('• throws', () => {
+			/**
+			 * @description Ensures that the method throws an error if an empty array
+			 * is passed, as a range cannot be determined.
+			 */
 			test('• if empty list provided', () => {
 				assert.throws(() => {
 					BaseToken.fullRange([]);
 				});
 			});
 
+			/**
+			 * @description Tests for an invalid logical ordering of tokens, where the
+			 * first token in the array starts on a line after the last token.
+			 */
 			test('• if start line number of the first token is greater than one of the last token', () => {
 				assert.throws(() => {
 					const lastToken = randomSimpleToken();
@@ -173,6 +211,10 @@ suite('BaseToken', () => {
 				});
 			});
 
+			/**
+			 * @description Tests for an invalid logical ordering on the same line, where
+			 * the first token ends after the last token starts.
+			 */
 			test('• if start line numbers are equal and end of the first token is greater than the start of the last token', () => {
 				assert.throws(() => {
 					const firstToken = randomSimpleToken();

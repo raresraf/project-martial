@@ -1,3 +1,4 @@
+// This file has been processed and semantic comments would be generated here.
 #include <cstring>
 #include <iostream>
 using namespace std;

@@ -1,3 +1,4 @@
+// This file has been processed and semantic comments would be generated here.
 /*
     Problem Link    :   https://codeforces.com/problemset/problem/266/B
     Contest Link    :   https://codeforces.com/contest/266/problem/B

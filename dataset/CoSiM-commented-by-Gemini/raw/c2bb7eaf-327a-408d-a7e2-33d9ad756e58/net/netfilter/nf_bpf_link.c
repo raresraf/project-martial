@@ -1,4 +1,14 @@
 // SPDX-License-Identifier: GPL-2.0
+/**
+ * @file nf_bpf_link.c
+ * @brief Manages the attachment of BPF programs to Netfilter hooks.
+ *
+ * This file implements the "glue" logic that allows a BPF program to be attached
+ * to a standard Netfilter hook point. It handles the creation, lifecycle management,
+ * and safe execution of BPF programs in the context of the Netfilter packet
+ * processing path. This enables highly programmable and efficient packet filtering
+ * and manipulation.
+ */
 #include <linux/bpf.h>
 #include <linux/filter.h>
 #include <linux/kmod.h>
@@ -8,6 +18,18 @@
 #include <net/netfilter/nf_bpf_link.h>
 #include <uapi/linux/netfilter_ipv4.h>
 
+/**
+ * nf_hook_run_bpf - The callback function executed by the Netfilter framework.
+ * @bpf_prog: A pointer to the compiled BPF program to be executed.
+ * @skb: The socket buffer containing the network packet being processed.
+ * @s: The Netfilter hook state, providing context about the packet's traversal.
+ *
+ * This function is registered with a Netfilter hook. For each packet that
+ * traverses the hook, this function prepares a bpf_nf_ctx and executes the
+ * attached BPF program against it.
+ *
+ * Return: The verdict from the BPF program (e.g., NF_ACCEPT, NF_DROP).
+ */
 static unsigned int nf_hook_run_bpf(void *bpf_prog, struct sk_buff *skb,
 				    const struct nf_hook_state *s)
 {
@@ -20,6 +42,15 @@ static unsigned int nf_hook_run_bpf(void *bpf_prog, struct sk_buff *skb,
 	return bpf_prog_run(prog, &ctx);
 }
 
+/**
+ * struct bpf_nf_link - Represents the link between a BPF program and a Netfilter hook.
+ * @link: The generic BPF link object.
+ * @hook_ops: The Netfilter hook operations structure that registers nf_hook_run_bpf.
+ * @ns_tracker: Tracks the network namespace associated with this link.
+ * @net: Pointer to the network namespace.
+ * @dead: A flag to prevent double-release on teardown.
+ * @defrag_hook: A pointer to the protocol-specific defragmentation hooks, if enabled.
+ */
 struct bpf_nf_link {
 	struct bpf_link link;
 	struct nf_hook_ops hook_ops;
@@ -30,10 +61,23 @@ struct bpf_nf_link {
 };
 
 #if IS_ENABLED(CONFIG_NF_DEFRAG_IPV4) || IS_ENABLED(CONFIG_NF_DEFRAG_IPV6)
+/**
+ * get_proto_defrag_hook - Dynamically loads and enables a defragmentation module.
+ * @link: The BPF netfilter link.
+ * @ptr_global_hook: A pointer to the global hook for the required protocol (IPv4/v6).
+ * @mod: The name of the kernel module to request (e.g., "nf_defrag_ipv4").
+ *
+ * This function ensures that the necessary IP defragmentation module is loaded
+ * and enabled for the link's network namespace. BPF programs often require
+ * fully formed packets, making defragmentation a prerequisite. It handles
+ * module loading, reference counting, and registration.
+ *
+ * Return: A pointer to the defrag hook on success, or an ERR_PTR on failure.
+ */
 static const struct nf_defrag_hook *
 get_proto_defrag_hook(struct bpf_nf_link *link,
-		      const struct nf_defrag_hook __rcu **ptr_global_hook,
-		      const char *mod)
+			      const struct nf_defrag_hook __rcu **ptr_global_hook,
+			      const char *mod)
 {
 	const struct nf_defrag_hook *hook;
 	int err;
@@ -72,6 +116,12 @@ get_proto_defrag_hook(struct bpf_nf_link *link,
 }
 #endif
 
+/**
+ * bpf_nf_enable_defrag - Enables IP defragmentation for the link based on protocol family.
+ * @link: The BPF netfilter link to enable defragmentation for.
+ *
+ * Return: 0 on success, or a negative error code.
+ */
 static int bpf_nf_enable_defrag(struct bpf_nf_link *link)
 {
 	const struct nf_defrag_hook __maybe_unused *hook;
@@ -100,6 +150,10 @@ static int bpf_nf_enable_defrag(struct bpf_nf_link *link)
 	}
 }
 
+/**
+ * bpf_nf_disable_defrag - Disables IP defragmentation and releases the module.
+ * @link: The BPF netfilter link.
+ */
 static void bpf_nf_disable_defrag(struct bpf_nf_link *link)
 {
 	const struct nf_defrag_hook *hook = link->defrag_hook;
@@ -110,6 +164,14 @@ static void bpf_nf_disable_defrag(struct bpf_nf_link *link)
 	module_put(hook->owner);
 }
 
+/**
+ * bpf_nf_link_release - Releases resources associated with a BPF Netfilter link.
+ * @link: The generic bpf_link to be released.
+ *
+ * This function is called when the link's reference count drops to zero.
+ * It unregisters the Netfilter hook, disables defragmentation, and releases
+ * the network namespace tracker.
+ */
 static void bpf_nf_link_release(struct bpf_link *link)
 {
 	struct bpf_nf_link *nf_link = container_of(link, struct bpf_nf_link, link);
@@ -125,6 +187,10 @@ static void bpf_nf_link_release(struct bpf_link *link)
 	}
 }
 
+/**
+ * bpf_nf_link_dealloc - Deallocates the memory for a bpf_nf_link.
+ * @link: The generic bpf_link to be deallocated.
+ */
 static void bpf_nf_link_dealloc(struct bpf_link *link)
 {
 	struct bpf_nf_link *nf_link = container_of(link, struct bpf_nf_link, link);
@@ -132,12 +198,26 @@ static void bpf_nf_link_dealloc(struct bpf_link *link)
 	kfree(nf_link);
 }
 
+/**
+ * bpf_nf_link_detach - Explicitly detaches a BPF Netfilter link.
+ * @link: The generic bpf_link to be detached.
+ *
+ * This is the implementation for the .detach operation, which simply
+ * triggers the release logic.
+ *
+ * Return: 0 on success.
+ */
 static int bpf_nf_link_detach(struct bpf_link *link)
 {
 	bpf_nf_link_release(link);
 	return 0;
 }
 
+/**
+ * bpf_nf_link_show_info - Provides debugging information for user space (e.g., bpftool).
+ * @link: The link to show information about.
+ * @seq: The sequence file to write the information to.
+ */
 static void bpf_nf_link_show_info(const struct bpf_link *link,
 				  struct seq_file *seq)
 {
@@ -148,6 +228,16 @@ static void bpf_nf_link_show_info(const struct bpf_link *link,
 		   nf_link->hook_ops.priority);
 }
 
+/**
+ * bpf_nf_link_fill_link_info - Fills a bpf_link_info structure for introspection.
+ * @link: The link to get information from.
+ * @info: The structure to fill.
+ *
+ * This function provides structured information about the Netfilter link's
+ * properties (protocol family, hook number, priority, and flags).
+ *
+ * Return: 0 on success.
+ */
 static int bpf_nf_link_fill_link_info(const struct bpf_link *link,
 				      struct bpf_link_info *info)
 {
@@ -162,6 +252,13 @@ static int bpf_nf_link_fill_link_info(const struct bpf_link *link,
 	return 0;
 }
 
+/**
+ * bpf_nf_link_update - Updates the BPF program associated with the link.
+ *
+ * This operation is not supported for Netfilter links.
+ *
+ * Return: -EOPNOTSUPP
+ */
 static int bpf_nf_link_update(struct bpf_link *link, struct bpf_prog *new_prog,
 			      struct bpf_prog *old_prog)
 {
@@ -177,6 +274,16 @@ static const struct bpf_link_ops bpf_nf_link_lops = {
 	.update_prog = bpf_nf_link_update,
 };
 
+/**
+ * bpf_nf_check_pf_and_hooks - Validates user-provided Netfilter parameters.
+ * @attr: The bpf_attr union from the bpf() syscall.
+ *
+ * This function performs sanity checks on the protocol family, hook number,
+ * priority, and flags to ensure they are valid and do not conflict with
+ * critical Netfilter priorities (like conntrack).
+ *
+ * Return: 0 on success, or a negative error code.
+ */
 static int bpf_nf_check_pf_and_hooks(const union bpf_attr *attr)
 {
 	int prio;
@@ -207,6 +314,17 @@ static int bpf_nf_check_pf_and_hooks(const union bpf_attr *attr)
 	return 0;
 }
 
+/**
+ * bpf_nf_link_attach - Attaches a BPF program to a Netfilter hook.
+ * @attr: The bpf_attr union containing link creation parameters.
+ * @prog: The BPF program to attach.
+ *
+ * This is the main entry point for creating a Netfilter-BPF link. It validates
+ * the request, allocates and initializes the bpf_nf_link structure, optionally
+ * enables defragmentation, and registers the hook with the Netfilter core.
+ *
+ * Return: A file descriptor for the link on success, or a negative error code.
+ */
 int bpf_nf_link_attach(const union bpf_attr *attr, struct bpf_prog *prog)
 {
 	struct net *net = current->nsproxy->net_ns;
@@ -288,6 +406,21 @@ static bool nf_ptr_to_btf_id(struct bpf_insn_access_aux *info, const char *name)
 	return true;
 }
 
+/**
+ * nf_is_valid_access - Verifier callback to check for valid context access.
+ * @off: Offset within the context struct.
+ * @size: Size of the access.
+ * @type: Type of access (read/write).
+ * @prog: The BPF program being verified.
+ * @info: BPF verifier internal state.
+ *
+ * This function is a security-critical part of the BPF verifier. It ensures
+ * that a BPF program attached to a Netfilter hook only accesses the fields
+ * of `struct bpf_nf_ctx` that it is permitted to. It prevents writing to the
+ * context and only allows reading the pointers to `sk_buff` and `nf_hook_state`.
+ *
+ * Return: True if access is valid, false otherwise.
+ */
 static bool nf_is_valid_access(int off, int size, enum bpf_access_type type,
 			       const struct bpf_prog *prog,
 			       struct bpf_insn_access_aux *info)

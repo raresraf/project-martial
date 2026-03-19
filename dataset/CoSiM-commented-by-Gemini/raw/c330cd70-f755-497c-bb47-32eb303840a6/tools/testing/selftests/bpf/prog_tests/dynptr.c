@@ -1,18 +1,43 @@
 // SPDX-License-Identifier: GPL-2.0
 /* Copyright (c) 2022 Facebook */
 
+/**
+ * @file dynptr.c
+ * @brief User-space test runner for BPF dynamic pointers (dynptr).
+ *
+ * This file is the user-space component of the BPF selftest suite for the
+ * 'dynptr' feature. It is responsible for orchestrating a series of tests
+ * that validate the functionality of dynamic pointers in various BPF program
+ * contexts. It works in conjunction with BPF programs defined in external
+ * files (dynptr_success.bpf.c, dynptr_fail.bpf.c), which are compiled into
+ * BPF skeletons.
+ *
+ * The tests cover creating dynptrs, reading/writing data, passing them to
+ * helpers, and ensuring the verifier correctly accepts valid usage and rejects
+ * invalid usage.
+ */
+
 #include <test_progs.h>
 #include <network_helpers.h>
 #include "dynptr_fail.skel.h"
 #include "dynptr_success.skel.h"
 
+/* Defines the different BPF program contexts in which dynptrs are tested. */
 enum test_setup_type {
-	SETUP_SYSCALL_SLEEP,
-	SETUP_SKB_PROG,
-	SETUP_SKB_PROG_TP,
-	SETUP_XDP_PROG,
+	SETUP_SYSCALL_SLEEP, /* Attach to a syscall tracepoint */
+	SETUP_SKB_PROG,      /* Run as a networking program on an skb */
+	SETUP_SKB_PROG_TP,   /* Run as a tracepoint on skb free */
+	SETUP_XDP_PROG,      /* Run as an XDP program */
 };
 
+/**
+ * @var success_tests
+ * @brief An array defining the suite of tests that are expected to pass.
+ *
+ * Each entry maps a specific BPF program name from the 'dynptr_success' skeleton
+ * to a test setup type, which determines how the BPF program will be attached
+ * and triggered.
+ */
 static struct {
 	const char *prog_name;
 	enum test_setup_type type;
@@ -53,6 +78,18 @@ static struct {
 
 #define PAGE_SIZE_64K 65536
 
+/**
+ * verify_success - Executes a single successful-path test case.
+ * @prog_name: The name of the BPF program to test.
+ * @setup_type: The context in which to run the test.
+ *
+ * This function handles the full lifecycle of a single test:
+ * 1. Opens and loads the BPF skeleton.
+ * 2. Sets up any required user-space data to be passed to the BPF program.
+ * 3. Attaches and triggers the BPF program based on the setup type.
+ * 4. Verifies that the BPF program completed without setting an error flag.
+ * 5. Cleans up all resources.
+ */
 static void verify_success(const char *prog_name, enum test_setup_type setup_type)
 {
 	char user_data[384] = {[0 ... 382] = 'a', '\0'};
@@ -81,6 +118,7 @@ static void verify_success(const char *prog_name, enum test_setup_type setup_typ
 	skel->data->test_len[0] = sizeof(user_data);
 	memcpy(skel->bss->expected_str, user_data, sizeof(user_data));
 
+	/* Attach and trigger the BPF program based on its type */
 	switch (setup_type) {
 	case SETUP_SYSCALL_SLEEP:
 		link = bpf_program__attach(prog);
@@ -170,12 +208,20 @@ static void verify_success(const char *prog_name, enum test_setup_type setup_typ
 	}
 	}
 
+	/* Verify BPF program ran and reported no errors */
 	ASSERT_EQ(skel->bss->err, 0, "err");
 
 cleanup:
 	dynptr_success__destroy(skel);
 }
 
+/**
+ * test_dynptr - The main entry point for the dynptr selftest suite.
+ *
+ * This function iterates through all defined success cases and runs them.
+ * It also invokes the RUN_TESTS macro to execute the suite of tests that are
+ * expected to fail, ensuring the BPF verifier correctly rejects invalid programs.
+ */
 void test_dynptr(void)
 {
 	int i;

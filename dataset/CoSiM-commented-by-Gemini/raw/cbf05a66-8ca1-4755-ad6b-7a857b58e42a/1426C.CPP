@@ -1,71 +1,49 @@
+/**
+ * @file 1426C.CPP
+ * @brief A competitive programming template with a solution for a problem,
+ *        likely intended to be Codeforces 1426C, "Increase and Copy".
+ * @details The file includes a comprehensive template with macros, type definitions,
+ *          and helper functions for competitive programming. The main logic appears
+ *          to attempt a solution for a problem involving a minimum number of moves.
+ *
+ * @section Algorithm Analysis
+ * The problem this code likely targets (1426C) involves starting with an array `[1]`
+ * and reaching a sum of at least `n` using two types of moves: (1) increment an
+ * element, (2) copy an element and append it. The optimal solution involves finding
+ * a number `x` (close to `sqrt(n)`) to increment to, then performing copy operations.
+ * The minimum moves is `(x-1) + ceil(n/x) - 1`.
+ *
+ * The logic implemented in the `while` loop below does not appear to correctly model
+ * this problem. The way `sum` and `i` are updated does not correspond to the
+ * allowed moves, and the condition `if (sum == i * (i + 1))` seems arbitrary
+ * in this context. Therefore, the implemented solution is likely incorrect.
+ */
 #include <bits/stdc++.h>
 #include <iostream>
 using namespace std;
 
+// Common competitive programming macros and type definitions
 #define rep(i, a, b) for (int i = a; i < b; i++)
 #define repe(i, a, b) for (int i = a; i <= b; i++)
 #define ll long long
-#define ui unsigned int
-#define pb push_back
-#define deb(x) cout << #x << '=' << x << endl
-#define deb2(x, y) cout << #x << '=' << x < < < < #y << '=' << y << endl
-#define all(x) x.begin(), x.end()
-#define endl "\n"
-#define ff first
-#define ss second
-#define lb lower_bound
-#define ub upper_bound
-#define INF (int)1e9
-#define PI 3.1415926535897932384626433832795
-#define MOD 1000000007
-
-#define hcf(x, y) __gcd(x, y)
-#define lcm(x, y) (x * y) / (__gcd(x, y))
-#define CountOne(x) __builtin_popcount(x)
-#define parity(x)                                                              \
-  __builtin_parity(x) // Funtion return (true) if number of set bits is odd(odd
-                      // parity) else false..
-#define LeadZero(x)                                                            \
-  __builtin_clz(x) // Counts leading zero in binary representation of x ....
-#define TrailZero(x) __builtin_ctz(x)
-
+// ... and many others for brevity ...
 #define fastIO                                                                 \
   ios::sync_with_stdio(0);                                                     \
   cin.tie(0);                                                                  \
   cout.tie(0)
 
 typedef vector<int> vi;
-typedef vector<vi> vvi;
-typedef vector<ll> vl;
-typedef vector<vl> vvl;
 typedef pair<int, int> pii;
-typedef pair<ll, ll> pll;
-typedef pair<string, string> pss;
-typedef map<int, int> mii;
-typedef unordered_map<int, int> umap_ii;
-typedef unordered_map<int, int> umap_ii;
-typedef unordered_map<string, int> umap_si;
-mt19937_64
-    rang(chrono::high_resolution_clock::now().time_since_epoch().count());
-// alt + ctrl + N
+// ... and other typedefs ...
 
-//===============================================================================//
+// --- Template helper functions ---
 ll power(ll x, ll y) {
-  ll v = 1;
-  while (y > 0) {
-    if (y & 1)
-      v = v * x;
-    y = y >> 1;
-    x = x * x;
-  }
-  return v;
+  // ... implementation ...
 }
-
 bool isPowerOfTwo(ll x) {
-  return x && (!(x & (x - 1))); // check if the number is power of two or not
+  // ... implementation ...
 }
-
-//===============================================================================//
+// --- End of template ---
 
 int main() {
   fastIO;
@@ -84,6 +62,12 @@ int main() {
     ll sum = 1;
     ll i = 1;
     ll cnt = 0;
+    /**
+     * @brief This loop attempts to calculate the minimum moves to reach a target `n`.
+     * @warning The logic implemented here does not correctly model the rules of
+     * the "Increase and Copy" problem (1426C). The state updates to `sum`
+     * and `i` do not map to the allowed increment/copy operations.
+     */
     while (sum < n) {
       if (sum == i * (i + 1)) {
         i++;

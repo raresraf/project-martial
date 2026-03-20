@@ -60,6 +60,20 @@ output
  *  Filename : 282A_bit++.cpp
  */
 
+/**
+ * @brief Solution for the "Bit++" problem (Codeforces 282A).
+ *
+ * @section algorithm Algorithm
+ * The program initializes a counter to zero. It then iterates through each
+ * statement, checking for the presence of a '+' character. A '+' can only
+ * appear in an increment operation ("++X" or "X++"). If a '+' is found, the
+ * counter is incremented; otherwise, the operation must be a decrement, so the
+ * counter is decremented. This provides a very efficient check.
+ *
+ * @section complexity Complexity
+ * - Time Complexity: O(N), for iterating through the N statements.
+ * - Space Complexity: O(1), as it only stores the current statement string.
+ */
 #include <iostream>
 #include <string.h>
 #include <string>
@@ -72,6 +86,14 @@ int main() {
   for (int i = 0; i < N; i++) {
     string tmp;
     cin >> tmp;
+    /**
+     * @brief Core logic to determine the operation.
+     * An increment operation ("++X" or "X++") will always have a '+' character
+     * at either the first (index 0) or third (index 2) position.
+     * A decrement operation will have '-' at both.
+     * Thus, checking for a '+' at either position is sufficient to identify
+     * an increment.
+     */
     if (tmp[0] == '+' || tmp[2] == '+')
       cnt++;
     else

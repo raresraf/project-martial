@@ -1,17 +1,22 @@
 /**
- * @file solver_blas.c
- * @brief This file implements a matrix solver (`my_solver`) using BLAS (Basic Linear Algebra Subprograms)
- *        routines, specifically CBLAS for double-precision operations. It provides an optimized
- *        solution for a specific matrix computation problem, leveraging highly tuned external libraries.
+ * @00b94dd9-4464-47d5-b817-b1dcd44f8586/solver_blas.c
+ * @brief Implements an optimized matrix solver (`my_solver`) leveraging BLAS (Basic Linear Algebra Subprograms)
+ *        routines, specifically the CBLAS interface for double-precision floating-point operations.
  *
- * It includes a helper function to compute matrix transposes.
+ * This module provides a high-performance solution for a complex matrix computation problem.
+ * It utilizes highly optimized external libraries to perform matrix multiplications and
+ * other linear algebra operations, which are critical for scientific computing and
+ * numerical analysis applications. The solver includes a helper function for matrix transposition.
  *
- * Algorithm: Leverages Level 3 BLAS routines (`cblas_dtrmm`, `cblas_dgemm`) for matrix
- *            multiplications, combined with custom matrix transposition and element-wise addition.
- * Time Complexity: Dominated by matrix multiplications, typically O(N^3).
- * Space Complexity: O(N^2) for storing auxiliary matrices and transposes.
+ * Algorithm: The solver orchestrates a sequence of Level 3 BLAS routines (`cblas_dtrmm`, `cblas_dgemm`)
+ *            for matrix multiplications. This is complemented by custom implementations for
+ *            matrix transposition and element-wise addition, strategically designed for efficiency.
+ * Time Complexity: The dominant operations are matrix-matrix multiplications,
+ *                  resulting in an overall time complexity of O(N^3), where N is the
+ *                  dimension of the square matrices.
+ * Space Complexity: O(N^2) for storing intermediate matrices and transposes,
+ *                   proportional to the size of the input matrices.
  */
-
 #include "utils.h" // Assumed to contain utility functions or definitions.
 #include "cblas.h" // Header for CBLAS (C interface to BLAS).
 #include <string.h> // For memcpy().
@@ -36,19 +41,27 @@
  */
 static double *get_transpose(double *M, int N)
 {
-	// Allocate memory for the transposed matrix, initialized to zeros.
+	/**
+	 * Functional Utility: Dynamically allocates memory for the transposed matrix.
+	 * Allocation: Uses `calloc` to allocate `N * N` elements of type `double` and initializes all bytes to zero.
+	 * Error Handling: In a production system, a check for `tr == NULL` should be present to handle allocation failures.
+	 */
 	double *tr = calloc(N * N, sizeof(double));
 	/**
-	 * Block Logic: Iterates through the original matrix to populate the transposed matrix.
+	 * Block Logic: Iterates through each element of the original matrix `M` using nested loops.
+	 *              For each element `M[j][i]` (logical representation), its value is placed
+	 *              into the corresponding transposed position `tr[i][j]`.
 	 * Invariant: `tr[i*N + j]` receives the value from `M[j*N + i]`, effectively
-	 *            swapping rows and columns.
+	 *            swapping rows and columns and storing in row-major order.
 	 */
-	for (int i = 0; i < N; ++i) {
-		for (int j = 0; j < N; ++j) {
-			tr[i * N + j] = M[j * N + i]; // Perform transposition.
+	for (int i = 0; i < N; ++i) { // Iterates over rows of the transposed matrix.
+		for (int j = 0; j < N; ++j) { // Iterates over columns of the transposed matrix.
+			// Inline: Assigns the element from `M` at logical position `(j, i)` to `tr` at logical position `(i, j)`.
+			//         This implements the matrix transposition.
+			tr[i * N + j] = M[j * N + i];
 		}
 	}
-	return tr;
+	return tr; // Functional Utility: Returns a pointer to the newly created transposed matrix.
 }
 
 
@@ -73,84 +86,134 @@ static double *get_transpose(double *M, int N)
  * Space Complexity: O(N^2) for `first_mul`, `first_mul_aux`, `At`, and `Bt`.
  */
 double* my_solver(int N, double *A, double *B) {
-	printf("BLAS SOLVER\n"); // Indicate which solver is being used.
+	printf("BLAS SOLVER\n"); // Functional Utility: Prints an identifier to standard output, indicating that the BLAS-optimized solver is being utilized.
 
-	// Allocate memory for intermediate and final result matrices.
-	double *first_mul = calloc(N * N, sizeof(double));     // Stores A * B (initial triangular mult)
-	double *first_mul_aux = calloc(N * N, sizeof(double)); // Stores (A * B) * Bt + At (final result)
+	/**
+	 * Functional Utility: Dynamically allocates memory for intermediate and final result matrices.
+	 * Allocation Strategy: Uses `calloc` to ensure memory is zero-initialized, which is often a safe
+	 *                      default for numerical computations, and explicitly handles `N*N` double-precision elements.
+	 * Error Handling: In a production-grade system, each `calloc` call would be followed by a null-pointer check
+	 *                 to ensure successful memory allocation before proceeding.
+	 */
+	double *first_mul = calloc(N * N, sizeof(double));     /**< Stores the result of the first triangular matrix-matrix multiplication (A * U). */
+	double *first_mul_aux = calloc(N * N, sizeof(double)); /**< Stores the accumulating result of subsequent matrix operations, eventually holding the final solution. */
 	
-	// Compute transposes of input matrices A and B.
-	double *At = get_transpose(A, N); // Transpose of A.
-	double *Bt = get_transpose(B, N); // Transpose of B.
+	/**
+	 * Block Logic: Computes the transposes of the input matrices `A` and `B`.
+	 * Functional Utility: These transposed matrices (`At` and `Bt`) are necessary for subsequent
+	 *                     BLAS operations that require operands in a specific orientation
+	 *                     or for implementing specific parts of the matrix expression.
+	 * Resource Management: The memory for `At` and `Bt` is dynamically allocated within `get_transpose`
+	 *                      and must be freed by the caller of `my_solver`.
+	 */
+	double *At = get_transpose(A, N); /**< Stores the transpose of the input matrix `A`. */
+	double *Bt = get_transpose(B, N); /**< Stores the transpose of the input matrix `B`. */
 	
-	// Copy matrix A to `first_mul` to use it as an input for the first multiplication.
+	/**
+	 * Functional Utility: Copies the content of matrix `A` into `first_mul`.
+	 * Rationale: This deep copy is crucial because `first_mul` will be used as both an
+	 *            input and an in-place output buffer for `cblas_dtrmm`. Preserving the
+	 *            original `A` allows it to be used later in the computation.
+	 * Parameters:
+	 *   `first_mul`: Destination memory block.
+	 *   `A`: Source memory block.
+	 *   `N * N * sizeof(double)`: Number of bytes to copy (size of an N x N matrix of doubles).
+	 */
 	memcpy(first_mul, A, N * N * sizeof(double));
 
 	/**
-	 * Block Logic: Performs the first matrix-matrix multiplication using CBLAS.
-	 * Operation: `first_mul = B * first_mul` where `first_mul` is initially `A`.
-	 *            Specifically, `first_mul = B * A` (interpreted as B * (implicit Upper Triangular from A)).
-	 *            CblasRowMajor: Matrices stored in row-major order.
-	 *            CblasLeft: B is on the left side of the operation.
-	 *            CblasUpper: Only the upper triangular part of B is used implicitly.
-	 *            CblasNoTrans: B is not transposed.
-	 *            CblasNonUnit: Diagonal elements of B are not assumed to be 1.
-	 *            N, N: Dimensions of the matrices.
-	 *            1.0: Scalar alpha.
-	 *            B: Matrix B.
-	 *            first_mul: Matrix A (modified in place to store result B*A).
+	 * Block Logic: Executes the first crucial matrix-matrix multiplication using `cblas_dtrmm`.
+	 *              This routine performs a triangular matrix multiplication of the form:
+	 *              `first_mul = alpha * B * first_mul` (where `first_mul` initially held `A`).
+	 * Functional Utility: Computes an intermediate product, where `B` acts on `A` (specifically its
+	 *                     upper triangular part due to `CblasUpper`), storing the result back into `first_mul`.
+	 * CBLAS Parameters Breakdown:
+	 *   `CblasRowMajor`: Specifies that matrices are stored in row-major order.
+	 *   `CblasLeft`: Indicates that the triangular matrix `B` is on the left side in the multiplication `B * A`.
+	 *   `CblasUpper`: Only the upper triangular part of `B` is used in the operation.
+	 *   `CblasNoTrans`: `B` is used as is, not transposed.
+	 *   `CblasNonUnit`: Diagonal elements of `B` are not assumed to be 1 and are explicitly used.
+	 *   `N, N`: Dimensions of the matrices, both N x N.
+	 *   `1.0`: The scalar `alpha` value.
+	 *   `B`: Pointer to matrix `B`.
+	 *   `N`: Leading dimension of `B`.
+	 *   `first_mul`: Pointer to matrix `A` (input), which is overwritten with the result (output).
+	 *   `N`: Leading dimension of `first_mul`.
 	 */
 	cblas_dtrmm( CblasRowMajor, CblasLeft, CblasUpper, CblasNoTrans, CblasNonUnit,
 		N, N, 1.0, B, N, first_mul, N);
 
 	/**
-	 * Block Logic: Performs the second general matrix-matrix multiplication.
-	 * Operation: `first_mul_aux = first_mul * Bt`
-	 *            CblasRowMajor: Matrices stored in row-major order.
-	 *            CblasNoTrans: `first_mul` is not transposed.
-	 *            CblasNoTrans: `Bt` is not transposed (it's already B transposed).
-	 *            N, N, N: Dimensions M, N, K for (M x K) * (K x N).
-	 *            1: Scalar alpha.
-	 *            first_mul: Input matrix (result of first multiplication).
-	 *            Bt: Input matrix (transpose of B).
-	 *            0: Scalar beta.
-	 *            first_mul_aux: Output matrix (stores the result).
+	 * Block Logic: Executes a general matrix-matrix multiplication using `cblas_dgemm`.
+	 *              This routine performs the operation:
+	 *              `C = alpha * A * B + beta * C`
+	 *              In this specific context: `first_mul_aux = 1.0 * first_mul * Bt + 0.0 * first_mul_aux`.
+	 * Functional Utility: Computes the product of the intermediate `first_mul` (result of the triangular multiplication)
+	 *                     and the transpose of `B` (`Bt`), storing this product in `first_mul_aux`.
+	 * CBLAS Parameters Breakdown:
+	 *   `CblasRowMajor`: Specifies that matrices are stored in row-major order.
+	 *   `CblasNoTrans`: `first_mul` (acting as matrix A in `dgemm`'s terms) is used as is, not transposed.
+	 *   `CblasNoTrans`: `Bt` (acting as matrix B in `dgemm`'s terms) is used as is, not transposed (it's already `B` transposed).
+	 *   `N, N, N`: Dimensions M, N, K for an (M x K) * (K x N) multiplication, all equal to N.
+	 *   `1.0`: The scalar `alpha` value.
+	 *   `first_mul`: Pointer to the first input matrix for `dgemm`.
+	 *   `N`: Leading dimension of `first_mul`.
+	 *   `Bt`: Pointer to the second input matrix for `dgemm`.
+	 *   `N`: Leading dimension of `Bt`.
+	 *   `0.0`: The scalar `beta` value.
+	 *   `first_mul_aux`: Pointer to the output matrix, which stores the result of the multiplication.
+	 *   `N`: Leading dimension of `first_mul_aux`.
 	 */
 	 cblas_dgemm( CblasRowMajor, CblasNoTrans, CblasNoTrans,
-	 	N, N, N, 1, first_mul, N, Bt, N, 0, first_mul_aux, N);
+	 	N, N, N, 1.0, first_mul, N, Bt, N, 0.0, first_mul_aux, N);
 
 	/**
-	 * Block Logic: Computes A * A_transpose using triangular matrix-matrix multiplication.
-	 * Operation: This line seems to be an intermediate calculation for the final element-wise addition.
-	 *            It appears to overwrite `At` with a result involving A.
-	 *            cblas_dtrmm: A * At (interpreted as A * (implicit Upper Triangular from A))
-	 *            CblasRowMajor, CblasLeft, CblasUpper, CblasNoTrans, CblasNonUnit: Similar parameters as first dtrmm.
-	 *            A: Matrix A.
-	 *            At: Matrix At (modified in place).
-	 * @note This call to `cblas_dtrmm` seems to use `At` as both an input (implicitly from its structure)
-	 *       and an output for storing the result. This might be part of a larger expression.
+	 * Block Logic: Executes a second triangular matrix-matrix multiplication using `cblas_dtrmm`.
+	 *              This operation is of the form: `At = alpha * A * At` (where `At` originally held `A`'s transpose).
+	 * Functional Utility: This computes an intermediate product required for the final element-wise addition.
+	 *                     It multiplies matrix `A` with its own transpose (`At`), leveraging the upper
+	 *                     triangular structure (implicitly from `CblasUpper`) and stores the result back into `At`.
+	 * CBLAS Parameters Breakdown:
+	 *   `CblasRowMajor`, `CblasLeft`, `CblasUpper`, `CblasNoTrans`, `CblasNonUnit`:
+	 *     Parameters configured similarly to the first `cblas_dtrmm` call, defining row-major storage,
+	 *     left-multiplication by a triangular matrix (effectively `A`), usage of the upper triangular
+	 *     part of the implicit triangular matrix, no transposition, and non-unit diagonals.
+	 *   `N, N`: Dimensions of the matrices.
+	 *   `1.0`: The scalar `alpha` value.
+	 *   `A`: Pointer to matrix `A` (input).
+	 *   `N`: Leading dimension of `A`.
+	 *   `At`: Pointer to matrix `At` (input/output). `At` is modified in place to store the result.
+	 *   `N`: Leading dimension of `At`.
 	 */
 	cblas_dtrmm(CblasRowMajor, CblasLeft, CblasUpper, CblasNoTrans, CblasNonUnit,
 		N, N, 1.0, A, N, At, N);
 
 	/**
-	 * Block Logic: Performs element-wise addition of `At` (modified from previous step)
-	 *              to `first_mul_aux` (result of second multiplication).
-	 * Invariant: Each element of `first_mul_aux` is updated with the sum of itself
-	 *            and the corresponding element from `At`.
+	 * Block Logic: Iterates through each element of the `first_mul_aux` and `At` matrices
+	 *              to perform an element-wise addition.
+	 * Functional Utility: This step completes the matrix expression by adding the final
+	 *                     transformed `At` matrix to the product `(A * U) * Bt`.
+	 * Pre-condition: `first_mul_aux` contains the result of the previous `cblas_dgemm` operation,
+	 *                and `At` contains the result of the previous `cblas_dtrmm` operation.
+	 * Invariant: After the loops, `first_mul_aux` holds the final computed matrix
+	 *            (`(A * U) * Bt + A_transformed`).
 	 */
-	for (int i = 0; i < N; i++) {
-		for (int j = 0; j < N; j++) {
-			first_mul_aux[i * N + j] += At[i * N + j]; // Element-wise addition.
+	for (int i = 0; i < N; i++) { // Iterates over rows of the matrices.
+		for (int j = 0; j < N; j++) { // Iterates over columns of the matrices.
+			// Inline: Adds the element `At[i][j]` to `first_mul_aux[i][j]`, updating `first_mul_aux` in place.
+			first_mul_aux[i * N + j] += At[i * N + j];
 		}
 	}
 
 	/**
-	 * Block Logic: Frees dynamically allocated memory for intermediate matrices.
-	 * Functional Utility: Prevents memory leaks by releasing resources.
+	 * Block Logic: Releases all dynamically allocated memory for intermediate matrices.
+	 * Functional Utility: Crucial for preventing memory leaks and ensuring efficient resource
+	 *                     management, especially in long-running applications or repeated calls.
+	 * Pre-condition: `first_mul`, `At`, and `Bt` point to valid, previously allocated memory.
+	 * Post-condition: The memory blocks pointed to by `first_mul`, `At`, and `Bt` are deallocated.
 	 */
-	free(first_mul);
-	free(At);
-	free(Bt);
-	return first_mul_aux; // Return the final result matrix.
+	free(first_mul); // Resource Management: Deallocates memory used for the `first_mul` matrix.
+	free(At);       // Resource Management: Deallocates memory used for the transposed `A` matrix.
+	free(Bt);       // Resource Management: Deallocates memory used for the transposed `B` matrix.
+	return first_mul_aux; // Functional Utility: Returns the pointer to the final computed matrix, which the caller is responsible for freeing.
 }

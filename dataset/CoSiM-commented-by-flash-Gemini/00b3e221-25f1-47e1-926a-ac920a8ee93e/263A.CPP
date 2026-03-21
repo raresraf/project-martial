@@ -1,5 +1,5 @@
 /**
- * @file 263A.CPP
+ * @00b3e221-25f1-47e1-926a-ac920a8ee93e/263A.CPP
  * @brief Solution for the "Beautiful Matrix" problem from Codeforces.
  *
  * This problem involves a 5x5 matrix where exactly one cell contains the
@@ -43,57 +43,75 @@ bool doesOneExist(string c) {
 }
 
 int main() {
-  string a;          // Temporary string to read each row of the matrix.
-  string result;     // Stores the entire row (as a string) that contains '1'.
-  int n = 5;         // Loop counter for 5 rows.
-  int y = 0;         // Current 0-indexed row number being processed.
-  int cy = 0;        // Stores the 0-indexed row number where '1' is found.
+  string a;          /**< Temporary string to read each row of the matrix. */
+  string result;     /**< Stores the entire row (as a string) that contains '1' once located. */
+  int n = 5;         /**< Loop counter for iterating through the 5 rows of the matrix. */
+  int y = 0;         /**< Current 0-indexed row number being processed during matrix scan. */
+  int cy = 0;        /**< Stores the 0-indexed row number where the digit '1' is eventually found. */
 
   /**
    * Block Logic: Reads the 5x5 matrix row by row and identifies the row
    *              containing the digit '1'.
+   * Pre-condition: `n` is initialized to 5, `y` to 0.
    * Invariant: After this loop, `result` holds the row string where '1' was found,
-   *            and `cy` holds its 0-indexed row number.
+   *            and `cy` holds its 0-indexed row number. `y` will be 5.
    */
   while (n--) {
-    getline(cin, a); // Reads an entire line (row) of the matrix.
+    getline(cin, a); // Functional Utility: Reads an entire line from standard input, representing a row of the matrix.
     if (doesOneExist(a)) {
-      cy = y;       // Store the row index where '1' is present.
-      result = a;   // Store the actual row string.
+      cy = y;       // Functional Utility: Records the 0-indexed row number of the '1'.
+      result = a;   // Functional Utility: Stores the specific row string that contains the '1'.
     }
-    y++;            // Increment current row counter.
+    y++;            // Invariant: Increments the current row counter, ensuring progression through the matrix.
   }
 
-  y = cy; // `y` now represents the 0-indexed row of '1'.
-  // Calculates the minimum vertical moves required to bring the '1' to the center row (index 2).
-  int moves = abs(2 - y); // Manhattan distance for rows.
+  y = cy; /**< Functional Utility: Assigns the identified row of '1' to `y` for further calculations. */
+  /**
+   * Functional Utility: Calculates the minimum vertical moves needed to center the '1'.
+   * This is achieved by computing the absolute difference between the '1''s row index
+   * and the target center row index (2 for a 0-indexed 5x5 matrix). This represents
+   * the vertical component of the Manhattan distance.
+   */
+  int moves = abs(2 - y); /**< Inline: Initializes `moves` with the vertical Manhattan distance. */
 
-  vector<int> x; // Vector to store integer representation of the characters in the `result` string.
+  vector<int> x; /**< Functional Utility: A dynamically sized array to store the integer (0 or 1) representation of each character from the `result` string, facilitating column-wise processing. */
 
   /**
    * Block Logic: Converts the `result` string (row containing '1') into a vector
-   *              of integers (0 or 1) and then finds the column index of '1'.
+   *              of integers (0 or 1), effectively preparing for column identification.
+   * Pre-condition: `result` contains the row string identified in the previous `while` loop.
    * Invariant: `x` contains the integer representation of the characters in `result`.
    */
   for (char &c : result) {
     if (c == '0') {
-      x.push_back(0);
+      x.push_back(0); // Functional Utility: Appends 0 to vector 'x' if the character is '0'.
     } else if (c == '1') {
-      x.push_back(1);
+      x.push_back(1); // Functional Utility: Appends 1 to vector 'x' if the character is '1'.
     }
   }
 
   /**
-   * Block Logic: Iterates through the vector representing the row with '1'
-   *              to find its column index and calculate horizontal moves.
+   * Block Logic: Iterates through the vector `x` (representing the row containing '1')
+   *              to precisely locate the column index of the digit '1' and calculate
+   *              the necessary horizontal moves.
+   * Pre-condition: `x` has been populated with the integer representation of the row containing '1'.
    * Invariant: `moves` accumulates the total Manhattan distance (vertical + horizontal).
    */
   for (int i = 0; i < x.size(); i++) {
+    /**
+     * Block Logic: Identifies the position of '1' within the current row.
+     * Pre-condition: `x[i]` represents a cell in the matrix row.
+     */
     if (x[i] == 1) {
-      // Calculates the minimum horizontal moves required to bring the '1' to the center column (index 2).
-      moves += abs(2 - i); // Manhattan distance for columns.
+      // Functional Utility: Adds the absolute difference between the '1''s column index (`i`)
+      // and the target center column index (2) to the total `moves`. This represents
+      // the horizontal component of the Manhattan distance.
+      moves += abs(2 - i); // Inline: Accumulates the horizontal Manhattan distance.
     }
   }
-  // Prints the total minimum number of moves.
+  /**
+   * Functional Utility: Outputs the total minimum number of moves required to reposition
+   * the '1' to the center of the 5x5 matrix to standard output, followed by a newline.
+   */
   cout << moves << endl;
 }

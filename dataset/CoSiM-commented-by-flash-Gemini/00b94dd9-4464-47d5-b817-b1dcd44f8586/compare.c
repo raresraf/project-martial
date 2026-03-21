@@ -1,13 +1,18 @@
 
 /**
- * @file compare.c
- * @brief This utility compares two binary files, assumed to contain square
- *        matrices of double-precision floating-point values. It uses memory-mapped
- *        I/O for efficient access and performs an element-by-element comparison
- *        within a specified numerical precision (tolerance).
+ * @00b94dd9-4464-47d5-b817-b1dcd44f8586/compare.c
+ * @brief Utility for robust, numerically tolerant comparison of two binary files
+ *        representing square matrices of double-precision floating-point values.
  *
- * This tool is typically used to verify the correctness of matrix computation
- * results by comparing an output file against a known-good reference file.
+ * This program leverages memory-mapped I/O for high-performance data access and
+ * conducts an element-wise comparison with a user-defined precision. Its primary
+ * application is validating the output of matrix computation algorithms against
+ * a trusted reference, crucial in scientific computing and performance-critical systems.
+ *
+ * Algorithm: Memory-mapped file I/O, element-wise comparison with floating-point tolerance.
+ * Time Complexity: O(N^2) where N is the dimension of the square matrix.
+ * Space Complexity: O(1) additional space beyond the memory-mapped files themselves,
+ *                   as data is processed directly from mapped regions.
  */
 
 #include <stdlib.h>  // For exit(), malloc(), free()
@@ -51,91 +56,138 @@
  *         -1 if they differ or if an error occurs during file operations or memory mapping.
  */
 int cmp_files(char const *file_path1, char const *file_path2, double precision) {
-	struct stat fileInfo1, fileInfo2; // Structures to store file metadata.
-	double *mat1, *mat2;             // Pointers to the memory-mapped matrix data.
-	int i, j, fd1, fd2, N;           // Loop counters, file descriptors, matrix dimension.
-	int ret = 0;                     // Return value, initialized to success (0).
+	struct stat fileInfo1, fileInfo2; /**< Functional Utility: Stores metadata (e.g., file size) for the first and second input files. */
+	double *mat1, *mat2;             /**< Functional Utility: Pointers to the memory-mapped regions containing the double-precision matrix data from file1 and file2, respectively. */
+	int i, j, fd1, fd2, N;           /**< Loop control variables (`i`, `j`), file descriptors (`fd1`, `fd2`), and computed matrix dimension (`N`). */
+	int ret = 0;                     /**< Return value for the comparison result; initialized to 0 (success) and set to -1 on divergence or error. */
 
-	// Open the first and second binary files for reading.
+	/**
+	 * Functional Utility: Opens the first binary file in read-only mode.
+	 * Error Handling: In a robust production system, this would include checks for `fd1 < 0`.
+	 */
 	fd1 = open(file_path1, O_RDONLY, (mode_t)0600);
+	/**
+	 * Functional Utility: Opens the second binary file in read-only mode.
+	 * Error Handling: In a robust production system, this would include checks for `fd2 < 0`.
+	 */
 	fd2 = open(file_path2, O_RDONLY, (mode_t)0600);
 
-	// Retrieve file status (metadata) for both files.
+	/**
+	 * Functional Utility: Retrieves detailed metadata (e.g., size) for the first opened file.
+	 * Pre-condition: `fd1` must be a valid file descriptor.
+	 */
 	fstat(fd1, &fileInfo1);
+	/**
+	 * Functional Utility: Retrieves detailed metadata (e.g., size) for the second opened file.
+	 * Pre-condition: `fd2` must be a valid file descriptor.
+	 */
 	fstat(fd2, &fileInfo2);
 
 	/**
-	 * Block Logic: Checks if the sizes of the two files are identical.
-	 * Functional Utility: Files containing matrices of different sizes cannot be compared.
+	 * Block Logic: Performs a critical preliminary check to ensure both files have identical sizes.
+	 * Functional Utility: Verifies that the input files could potentially represent matrices of the same dimensions,
+	 *                     a fundamental requirement for element-wise comparison. If sizes differ,
+	 *                     comparison is impossible and an error is returned.
+	 * Pre-condition: Both `fd1` and `fd2` are valid file descriptors, and `fileInfo1`, `fileInfo2` contain valid metadata.
+	 * Error Handling: Prints an informative message to stderr and returns -1, indicating an uncomparable state.
 	 */
 	if(fileInfo1.st_size != fileInfo2.st_size) {
-		printf("Files length differ\n");
-		close(fd1);
-		close(fd2);
-		return -1; // Return error if file sizes are different.
+		fprintf(stderr, "Error: Files have different sizes. Cannot compare matrices.\n");
+		close(fd1); // Resource Management: Close the first file descriptor to prevent leaks.
+		close(fd2); // Resource Management: Close the second file descriptor to prevent leaks.
+		return -1;  // Exit early due to irreconcilable difference.
 	}
 
 	/**
-	 * Block Logic: Memory-maps the first file into the process's address space.
-	 * Functional Utility: Provides direct pointer access to file content, improving I/O performance.
-	 * Error Handling: Checks if mmap operation was successful.
+	 * Block Logic: Memory-maps the entire content of the first file into the process's virtual address space.
+	 * Functional Utility: Enables zero-copy access to file data, significantly boosting I/O performance
+	 *                     by eliminating redundant data transfers between kernel and user space.
+	 * Pre-condition: `fileInfo1.st_size` is accurate and `fd1` is a valid, open file descriptor.
+	 * Error Handling: If `mmap` fails, an error message is printed to stderr, and allocated file descriptors are closed before exiting.
 	 */
 	mat1 = (double*) mmap(0, fileInfo1.st_size, PROT_READ, MAP_SHARED, fd1, 0);
 	if (mat1 == MAP_FAILED)
 	{
-		close(fd1);
-		close(fd2);
-		printf("Error mmapping the first file");
+		close(fd1); // Resource Management: Close the first file descriptor.
+		close(fd2); // Resource Management: Close the second file descriptor.
+		fprintf(stderr, "Error: Failed to memory map the first file.\n");
 		return -1; // Return error on mmap failure.
 	}
 
 	/**
-	 * Block Logic: Memory-maps the second file into the process's address space.
-	 * Functional Utility: Provides direct pointer access to file content, improving I/O performance.
-	 * Error Handling: Checks if mmap operation was successful and cleans up previous mmap if it fails.
+	 * Block Logic: Memory-maps the entire content of the second file into the process's virtual address space.
+	 * Functional Utility: Facilitates high-performance, element-wise comparison by allowing direct memory access
+	 *                     to the second matrix's data, symmetric to the first file's mapping.
+	 * Pre-condition: `fileInfo2.st_size` is accurate and `fd2` is a valid, open file descriptor.
+	 * Error Handling: If `mmap` fails, an error message is printed to stderr, the previously mapped memory
+	 *                 for `mat1` is unmapped, and all allocated file descriptors are closed before exiting.
+	 * Resource Management: `munmap(mat1, fileInfo1.st_size)` ensures cleanup of previously acquired resources.
 	 */
 	mat2 = (double*) mmap(0, fileInfo2.st_size, PROT_READ, MAP_SHARED, fd2, 0);
 	if (mat2 == MAP_FAILED)
 	{
-		munmap(mat1, fileInfo1.st_size); // Clean up the first memory map.
-		close(fd1);
-		close(fd2);
-		printf("Error mmapping the second file");
+		munmap(mat1, fileInfo1.st_size); // Resource Management: Unmap the first memory-mapped file.
+		close(fd1); // Resource Management: Close the first file descriptor.
+		close(fd2); // Resource Management: Close the second file descriptor.
+		fprintf(stderr, "Error: Failed to memory map the second file.\n");
 		return -1; // Return error on mmap failure.
 	}
 
-	// Calculate the dimension N of the square matrix.
-	// Assumes the file size is N*N*sizeof(double).
+	/**
+	 * Functional Utility: Derives the dimension `N` of the square matrix from the total file size.
+	 * Calculation: Assumes the file contains N*N double-precision floating-point values.
+	 *              `fileInfo1.st_size / sizeof(double)` gives the total number of elements.
+	 *              The square root of this value yields `N`.
+	 * Pre-condition: `fileInfo1.st_size` is a multiple of `sizeof(double)` and a perfect square
+	 *                when divided by `sizeof(double)`.
+	 */
 	N = sqrt(fileInfo1.st_size / sizeof(double));
 
 	/**
-	 * Block Logic: Iterates through each element of the memory-mapped matrices and compares them.
-	 * Algorithm: Element-wise comparison using nested loops.
-	 * Invariant: If `check_err` returns non-zero, a difference is found, and the comparison stops.
+	 * Block Logic: Systematically traverses each corresponding element of the two memory-mapped matrices
+	 *              to perform a numerically tolerant comparison.
+	 * Algorithm: Element-wise comparison using nested loops. The comparison halts immediately upon
+	 *            detection of the first significant difference, optimizing for early exit.
+	 * Pre-condition: Both `mat1` and `mat2` point to valid memory-mapped matrix data, and `N` is the
+	 *                correct dimension.
+	 * Invariant: If the loop completes without `ret` becoming non-zero, the matrices are considered
+	 *            identical within the specified `precision`.
 	 */
-	for (i = 0; i < N; i++ ) {
-		for (j = 0; j< N; j++) {
+	for (i = 0; i < N; i++ ) { // Iterates over rows of the matrices.
+		for (j = 0; j< N; j++) { // Iterates over columns of the matrices.
+			// Functional Utility: Compares corresponding elements `mat1[i][j]` and `mat2[i][j]`
+			//                     using the `check_err` macro, which incorporates floating-point precision.
+			// Pre-condition: `mat1[i * N + j]` and `mat2[i * N + j]` provide valid double values.
 			ret = check_err(mat1[i * N + j], mat2[i * N + j], precision);
+			/**
+			 * Block Logic: Checks if the `check_err` macro detected a difference beyond the allowed precision.
+			 * Functional Utility: Upon detecting a discrepancy, it logs the error with details
+			 *                     and initiates an immediate jump to the cleanup phase (`goto done`).
+			 */
 			if (ret != 0) {
-				printf("Matrixes differ on index [%d, %d]. Expected %.8lf got %.8lf\n",
+				fprintf(stderr, "Error: Matrices differ on index [%d, %d]. Expected %.8lf got %.8lf\n",
 						i, j, mat1[i * N + j], mat2[i * N + j]);
-				goto done; // Jump to cleanup on first difference.
+				goto done; // Control Flow: Jumps to the `done` label to clean up resources and exit.
 			}
 		}
 	}
 
 done:
 	/**
-	 * Block Logic: Cleans up memory maps and closes file descriptors.
-	 * Functional Utility: Releases system resources acquired during file processing.
+	 * Block Logic: Centralized resource cleanup mechanism. This section is reached either
+	 *              upon successful completion of matrix comparison or prematurely
+	 *              due to a detected difference.
+	 * Functional Utility: Ensures that all system resources (memory maps, file descriptors)
+	 *                     are properly released, preventing resource leaks.
+	 * Pre-condition: `mat1`, `mat2` (if mapped) and `fd1`, `fd2` (if opened) are valid.
 	 */
-	munmap(mat1, fileInfo1.st_size); // Unmap the first file.
-	munmap(mat2, fileInfo2.st_size); // Unmap the second file.
+	munmap(mat1, fileInfo1.st_size); // Resource Management: Unmaps the memory region associated with the first matrix file.
+	munmap(mat2, fileInfo2.st_size); // Resource Management: Unmaps the memory region associated with the second matrix file.
 
-	close(fd1); // Close the first file descriptor.
-	close(fd2); // Close the second file descriptor.
+	close(fd1); // Resource Management: Closes the file descriptor for the first file.
+	close(fd2); // Resource Management: Closes the file descriptor for the second file.
 
-	return ret; // Return the comparison result.
+	return ret; // Functional Utility: Returns the final comparison result (0 for match, -1 for mismatch/error).
 }
 
 /**
@@ -153,25 +205,42 @@ done:
  */
 int main(int argc, const char **argv)
 {
-	double precision; // Stores the precision (tolerance) for comparison.
-	int ret = 0;      // Stores the return value of the comparison function.
-
+	double precision; /**< Functional Utility: Stores the floating-point tolerance value provided as a command-line argument, used for approximate comparison of matrix elements. */
+	int ret = 0;      /**< Functional Utility: Holds the return status of the `cmp_files` function, indicating the outcome of the matrix comparison (0 for success, non-zero for failure). */
 	/**
-	 * Block Logic: Validates the number of command-line arguments.
-	 * Error Handling: Prints usage message and exits if arguments are insufficient.
+	 * Block Logic: Enforces correct command-line argument usage.
+	 * Functional Utility: Checks if the minimum required number of arguments (executable name,
+	 *                     two matrix file paths, and a tolerance value) are provided.
+	 * Pre-condition: `argc` holds the count of command-line arguments.
+	 * Error Handling: If `argc` is less than 4, a usage message is printed to `stderr`,
+	 *                 and the program terminates with an error status, preventing
+	 *                 further execution with invalid input.
 	 */
 	if(argc < 4) {
-		printf("Usage: %s mat1 mat2 tolerance\n",argv[0]);
-		exit(-1); // Exit with error code.
+		fprintf(stderr, "Usage: %s mat1 mat2 tolerance\n", argv[0]);
+		exit(-1); // Control Flow: Terminates the program due to invalid argument count.
 	}
 
-	// Parse the precision (tolerance) from the third command-line argument.
+	/**
+	 * Functional Utility: Extracts the numerical precision (tolerance) from the fourth
+	 *                     command-line argument (`argv[3]`).
+	 * Pre-condition: `argv[3]` is a valid string representation of a double-precision floating-point number.
+	 */
 	sscanf(argv[3], "%lf", &precision);
 
-	// Call the `cmp_files` function to perform the actual matrix comparison.
+	/**
+	 * Functional Utility: Invokes the core matrix comparison logic.
+	 * Inputs: The file paths for the two matrices (`argv[1]`, `argv[2]`) and the parsed `precision`.
+	 * Output: The return value (`ret`) indicates whether the matrices are identical within the given tolerance.
+	 */
 	ret = cmp_files(argv[1],argv[2],precision);
 	
-	// Print a summary of the comparison result.
+	/**
+	 * Functional Utility: Displays a concise summary of the comparison outcome to standard output.
+	 *                     This message includes the executable name, input file paths, and a status
+	 *                     ("OK" for a match within tolerance, "Incorrect results!" otherwise).
+	 */
 	printf("%s %s %s %s\n", argv[0], argv[1], argv[2], (ret == 0 ? "OK" : "Incorrect results!"));
-	return ret; // Return the overall success/failure of the comparison.
+	return ret; /**< Functional Utility: Returns the integer status code of the matrix comparison
+	                     to the operating system (0 for success, non-zero for failure or differences). */
 }

@@ -4,41 +4,79 @@
 from threading import Thread, Event, Lock, Semaphore
 
 class ReusableBarrier():
-    
+    """
+    Implements a reusable barrier synchronization mechanism using semaphores.
+    This barrier allows a fixed number of threads (`num_threads`) to wait for each other
+    at a synchronization point, and then allows them to proceed. It is "reusable"
+    because it can be used multiple times without reinitialization.
+    It uses a two-phase approach to prevent threads from "slipping" through the barrier
+    if they arrive too early for the next cycle.
+    """
+
 
     def __init__(self, num_threads):
+        """
+        Initializes the ReusableBarrier.
+
+        Args:
+            num_threads (int): The total number of threads that must reach the barrier
+                                before any of them can proceed.
+        """
         self.num_threads = num_threads
+        # Counter for threads in phase 1.
         self.count_threads1 = self.num_threads
+        # Counter for threads in phase 2.
         self.count_threads2 = self.num_threads
+        # Lock to protect access to the thread counters.
         self.counter_lock = Lock()
+        # Semaphore for threads waiting in phase 1. Initialized to 0, so all threads
+        # will block until released.
         self.threads_sem1 = Semaphore(0)
+        # Semaphore for threads waiting in phase 2. Initialized to 0.
         self.threads_sem2 = Semaphore(0)
 
     def wait(self):
-        
+        """
+        Causes the calling thread to wait at the barrier until all `num_threads`
+        have also called `wait()`. Once all threads have arrived, they are all released.
+        This method executes both phase1 and phase2 of the barrier.
+        """
         self.phase1()
         self.phase2()
 
     def phase1(self):
-        
-        with self.counter_lock:
+        """
+        The first phase of the barrier. Threads decrement a counter and the last thread
+        to arrive releases all waiting threads for phase 1.
+        """
+        with self.counter_lock: # Protect access to the counter.
             self.count_threads1 -= 1
+            # Conditional Logic: If this is the last thread to arrive at phase 1.
             if self.count_threads1 == 0:
+                # Release all `num_threads` from the first semaphore.
                 for i in range(self.num_threads):
                     self.threads_sem1.release()
+                # Reset the counter for the next use of phase 1.
                 self.count_threads1 = self.num_threads
-        self.threads_sem1.acquire()
+        self.threads_sem1.acquire() # Block until released by the last thread in phase 1.
 
     def phase2(self):
-        
-        with self.counter_lock:
+        """
+        The second phase of the barrier. Threads decrement a counter and the last thread
+        to arrive releases all waiting threads for phase 2. This phase ensures reusability.
+        """
+        with self.counter_lock: # Protect access to the counter.
             self.count_threads2 -= 1
+            # Conditional Logic: If this is the last thread to arrive at phase 2.
             if self.count_threads2 == 0:
+                # Release all `num_threads` from the second semaphore.
                 for i in range(self.num_threads):
                     self.threads_sem2.release()
+                # Reset the counter for the next use of phase 2.
                 self.count_threads2 = self.num_threads
 
-        self.threads_sem2.acquire()
+        self.threads_sem2.acquire() # Block until released by the last thread in phase 2.
+
 
 class Device(object):
     

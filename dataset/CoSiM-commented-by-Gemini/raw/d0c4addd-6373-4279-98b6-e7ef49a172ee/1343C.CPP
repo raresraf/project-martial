@@ -1,5 +1,26 @@
+/**
+ * @file 1343C.CPP
+ * @brief Solves the "Alternating Subsequence" problem with a data propagation method.
+ *
+ * This file contains a solution to find the maximum sum of an alternating subsequence.
+ * The implementation is heavily stylized with a competitive programming template, including
+ * many macros and helper functions for container printing and other shortcuts.
+ *
+ * @b Algorithm: Multi-Pass Maximum Propagation
+ *   This is an unusual, in-place approach that uses multiple passes to find the solution:
+ *   1. A forward pass propagates the prefix maximum within each same-signed block.
+ *   2. A backward pass propagates the suffix maximum within each same-signed block. After
+ *      these two passes, every element in a block is equal to that block's maximum value.
+ *   3. A final summation pass adds up the maximums. It does this by adding an element
+ *      only when it differs from the previous one, which only occurs at the boundary
+ *      between two blocks of different signs.
+ *
+ * @b Time_Complexity: O(N) per test case, due to three separate linear passes.
+ * @b Space_Complexity: O(N) per test case to store the input array.
+ */
 #include <bits/stdc++.h>
 using namespace std;
+// --- Start of Competitive Programming Template ---
 #define F first
 #define S second
 #define PB push_back
@@ -54,6 +75,7 @@ ostream &operator<<(ostream &os, const map<F, S> &v) {
 }
 
 #define deb(x) cerr << #x << " = " << x << endl;
+// --- End of Competitive Programming Template ---
 
 int32_t main() {
   ios::sync_with_stdio(false);
@@ -68,6 +90,10 @@ int32_t main() {
     a.clear();
     a.resize(n);
     REP(i, 0, n) { cin >> a[i]; }
+
+    /**
+     * @brief First pass (forward): Propagates prefix max within same-sign blocks.
+     */
     for (int i = 1; i < n; i++) {
       if (a[i] < 0 && a[i - 1] < 0) {
         if (a[i - 1] > a[i]) {
@@ -80,6 +106,11 @@ int32_t main() {
         }
       }
     }
+
+    /**
+     * @brief Second pass (backward): Propagates suffix max within same-sign blocks.
+     * After both passes, all elements in a block are equal to the block's maximum.
+     */
     for (int i = n - 2; i >= 0; i--) {
       if (a[i] < 0 && a[i + 1] < 0) {
         if (a[i + 1] > a[i]) {
@@ -92,10 +123,13 @@ int32_t main() {
         }
       }
     }
-    // for(int i=0;i<n;i++){
-    //     S.insert(a[i]);
-    // }if(i==0)
-    int sum = 0;
+
+    ll sum = 0;
+    /**
+     * @brief Third pass (summation): Sums the unique values from the modified array.
+     * An element is added only when it differs from the previous one, which occurs
+     * at the boundary between two blocks.
+     */
     for (int i = 0; i < n; i++) {
       if (i == 0) {
         sum += a[i];

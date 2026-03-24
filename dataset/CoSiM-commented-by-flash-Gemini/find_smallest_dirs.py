@@ -1,37 +1,47 @@
 import os
 import subprocess
 
-def find_smallest_dirs_without_checkpoint(root_dir="."):
-    """
-    Finds the 100 smallest directories within root_dir that do not contain a .checkpoint file.
-    """
-    all_dirs = [d for d in os.listdir(root_dir) if os.path.isdir(os.path.join(root_dir, d)) and not d.startswith('.')]
-    
-    dirs_to_process = []
-    for d in all_dirs:
-        dir_path = os.path.join(root_dir, d)
-        checkpoint_path = os.path.join(dir_path, ".checkpoint")
-        if not os.path.exists(checkpoint_path):
-            try:
-                # Get disk usage in blocks, then convert to bytes or kilobytes for sorting
-                # using -k option with du to get size in 1K blocks, then convert to int
-                size_output = subprocess.check_output(['du', '-sk', dir_path]).decode().split('\t')[0]
-                size_kb = int(size_output)
-                dirs_to_process.append((d, size_kb))
-            except Exception as e:
-                # print(f"Error getting size for {dir_path}: {e}") # Commented out to reduce output noise
-                continue
-    
-    # Sort by size (smallest first)
-    dirs_to_process.sort(key=lambda x: x[1])
-    
-    # Return the names of the top 100 smallest
-    return [d[0] for d in dirs_to_process[:100]]
+base_path = "/Users/trk/project-martial/dataset/CoSiM-commented-by-flash-Gemini"
+directories_to_process = []
 
-if __name__ == "__main__":
-    smallest_dirs = find_smallest_dirs_without_checkpoint()
-    if smallest_dirs:
-        for directory in smallest_dirs:
-            print(directory)
-    else:
-        print("No directories found to process or all have .checkpoint files.")
+# Read all subdirectories from the temporary file
+with open("/Users/trk/.gemini/tmp/cosim-commented-by-flash-gemini/all_subdirectories.txt", "r") as f:
+    all_directories = [line.strip() for line in f if line.strip()]
+
+for directory in all_directories:
+    if not directory:
+        continue
+
+    checkpoint_file = os.path.join(directory, ".checkpoint")
+    
+    if not os.path.exists(checkpoint_file):
+        # Get directory size
+        du_command = f"du -s {directory}"
+        du_result = subprocess.run(du_command, shell=True, capture_output=True, text=True)
+        
+        if du_result.returncode == 0:
+            size_str = du_result.stdout.split('	')[0]
+            try:
+                size_kb = int(size_str) # du -s outputs size in kilobytes
+                directories_to_process.append((directory, size_kb))
+            except ValueError:
+                # Handle cases where size might not be a clean integer
+                print(f"Warning: Could not parse size for {directory}: {size_str}")
+        else:
+            print(f"Error getting size for {directory}: {du_result.stderr}")
+
+# Sort by size
+directories_to_process.sort(key=lambda x: x[1])
+
+# Get the smallest 50
+smallest_50_dirs = directories_to_process[:50]
+
+print("Smallest 50 directories without a .checkpoint file:")
+for directory, size in smallest_50_dirs:
+    print(str(size) + "KB	" + directory) # Changed this line for print
+
+# Optionally, write to a file
+with open(os.path.join(base_path, "smallest_50_dirs_to_process.txt"), "w") as f:
+    for directory, size in smallest_50_dirs:
+        f.write(str(size) + "KB	" + directory + "
+") # Changed this line for file write

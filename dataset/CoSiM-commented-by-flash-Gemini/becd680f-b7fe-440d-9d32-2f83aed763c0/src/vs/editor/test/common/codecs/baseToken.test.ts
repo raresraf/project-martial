@@ -2,6 +2,14 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
+/**
+ * @file baseToken.test.ts
+ * @brief Test suite for the BaseToken class and associated utilities.
+ *
+ * This file contains unit tests for the `BaseToken` class's `render` and `fullRange` methods,
+ * as well as utility functions like `randomRange` and `randomSimpleToken`.
+ * It validates the correct handling of token ranges and text rendering within a tokenization context.
+ */
 
 import assert from 'assert';
 import { Range } from '../../../common/core/range.js';
@@ -17,10 +25,12 @@ import { ISimpleTokenClass, SimpleToken } from '../../../common/codecs/simpleCod
 import { At, Colon, DollarSign, ExclamationMark, Hash, LeftAngleBracket, LeftBracket, LeftCurlyBrace, RightAngleBracket, RightBracket, RightCurlyBrace, Slash, Space, Word } from '../../../common/codecs/simpleCodec/tokens/index.js';
 
 /**
- * Generates a random {@link Range} object.
- *
- * @throws if {@link maxNumber} argument is less than `2`,
- *         is equal to `NaN` or is `infinite`.
+ * @function randomRange
+ * @description Generates a random {@link Range} object representing a text selection or position.
+ *   This utility is used for creating diverse test data for token-related operations.
+ * @param maxNumber The upper bound for random line and column numbers. Defaults to 1_000.
+ * @returns {Range} A randomly generated Range object.
+ * @throws {Error} if `maxNumber` argument is less than `2`, is equal to `NaN`, or is `infinite`.
  */
 const randomRange = (
 	maxNumber: number = 1_000,
@@ -59,9 +69,14 @@ const TOKENS: readonly ISimpleTokenClass<TSimpleToken>[] = Object.freeze([
 ]);
 
 /**
- * Generates a random {@link SimpleToken} instance.
+ * @function randomSimpleToken
+ * @description Generates a random {@link SimpleToken} instance from a predefined list of well-known token types.
+ *   This is used to create varied token inputs for testing token-related functionalities.
+ * @returns {TSimpleToken} A randomly generated SimpleToken object.
+ * @throws {Error} if a constructor object for a well-known token cannot be found at a random index.
  */
 const randomSimpleToken = (): TSimpleToken => {
+
 	const index = randomInt(TOKENS.length - 1);
 
 	const Constructor = TOKENS[index];
@@ -73,7 +88,12 @@ const randomSimpleToken = (): TSimpleToken => {
 	return new Constructor(randomRange());
 };
 
+/**
+ * @testSuite BaseToken
+ * @description Test suite for the core functionalities of the `BaseToken` class.
+ */
 suite('BaseToken', () => {
+
 	ensureNoDisposablesAreLeakedInTestSuite();
 
 	suite('• render', () => {

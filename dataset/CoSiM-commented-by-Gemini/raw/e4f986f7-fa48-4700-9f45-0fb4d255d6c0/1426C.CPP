@@ -1,6 +1,33 @@
+/**
+ * @file 1426C.CPP
+ * @brief Solution to Codeforces problem 1426C - Increase and Copy.
+ * @description This program finds the minimum number of moves to obtain a sum of at least 'n'
+ *              starting from the number 1. The allowed moves are incrementing a number by 1,
+ *              or creating a copy of an existing number.
+ *
+ * Algorithm: The strategy is to find an optimal balance between "increase" moves and "copy" moves.
+ * Let's say we decide to make `c` copies. This results in `c+1` identical numbers in total.
+ * To reach a total value of at least `n`, each of these `c+1` numbers must have a value of at
+ * least `ceil(n / (c+1))`.
+ *
+ * The number of moves to achieve this state is:
+ * 1. `v = ceil(n / (c+1)) - 1` increase moves to get the initial '1' up to the target value.
+ * 2. `c` copy moves.
+ * Total moves = `c + v` = `c + ceil(n / (c+1)) - 1`.
+ *
+ * The program iterates through possible numbers of copies `c` (from 0 upwards) and calculates
+ * the total moves for each case, finding the minimum. The loop variable `i` in the code
+ * represents `c+1`. The loop runs up to 100,000, which is sufficient because the minimum
+ * of `(i-1) + n/i - 1` occurs around `i = sqrt(n)`, and for n=10^9, sqrt(n) is ~31622.
+ *
+ * Time Complexity: O(sqrt(N_max)) for each test case, where N_max is the constraint on n.
+ * Space Complexity: O(1).
+ */
+
 /*
     Created by Rahul Goel.
 */
+// --- GENERIC COMPETITIVE PROGRAMMING TEMPLATE ---
 #include <bits/stdc++.h>
 #include <ext/pb_ds/assoc_container.hpp>
 #include <ext/pb_ds/tree_policy.hpp>
@@ -29,11 +56,12 @@ template <typename T, typename... Args> T mod_prod(T a, Args... args) {
 }
 /*******************************************************************************/
 #ifdef ONLINE_JUDGE
-#define endl '\n'
+#define endl '
+'
 #endif
-#define fastio                                                                 \
-  ios_base::sync_with_stdio(0);                                                \
-  cin.tie(0);                                                                  \
+#define fastio                                                                 
+  ios_base::sync_with_stdio(0);                                                
+  cin.tie(0);                                                                  
   cout.tie(0)
 #define all(c) (c).begin(), (c).end()
 #define present(c, x) ((c).find(x) != (c).end())
@@ -63,8 +91,20 @@ ll solve() {
   cin >> n;
 
   ll ans = LINF;
+  /**
+   * Block Logic: Iterate through `i`, the number of items we aim to create.
+   * This implies we perform `i-1` copy moves. The loop is bounded at 100,000,
+   * which is sufficient to find the minimum for the given constraints of n.
+   */
   for (ll i = 1; i <= 100000; i++) {
+    // To reach a sum of `n` with `i` items, each item's value `x` must
+    // be at least `ceil(n/i)`.
     ll x = (n + i - 1) / i;
+
+    // Total moves = (number of 'increase' moves) + (number of 'copy' moves)
+    // Increase moves = x - 1 (to get the first item from 1 to x)
+    // Copy moves = i - 1 (to create i-1 additional items)
+    // The expression x + (i - 1) - 1 calculates this total.
     ans = min(ans, x + (i - 1) - 1);
   }
 

@@ -1,50 +1,78 @@
+#
+# @brief Default kernel configuration for the Akebono board (PowerPC 44x series).
+# This file specifies the default configuration options for building the Linux kernel
+# tailored for the Akebono embedded system, based on the PowerPC 44x architecture.
+# It defines enabled features, drivers, and optimizations relevant to this specific hardware platform.
+#
+# Domain: Linux Kernel, PowerPC, Board Support Package (BSP), Kconfig.
+#
+# Block Logic: Core System and Processor Configuration.
+# These options define the fundamental characteristics of the kernel for the
+# Akebono board, including multi-processor support (SMP), Inter-Process
+# Communication (IPC) mechanisms, and basic system logging.
 CONFIG_44x=y
 CONFIG_SMP=y
 CONFIG_SYSVIPC=y
 CONFIG_POSIX_MQUEUE=y
-CONFIG_LOG_BUF_SHIFT=14
-CONFIG_BLK_DEV_INITRD=y
-CONFIG_EXPERT=y
-CONFIG_KALLSYMS_ALL=y
-# CONFIG_SLUB_CPU_PARTIAL is not set
-CONFIG_PROFILING=y
-CONFIG_MODULES=y
-CONFIG_MODULE_UNLOAD=y
-# CONFIG_BLK_DEV_BSG is not set
-CONFIG_PPC_47x=y
-# CONFIG_EBONY is not set
-CONFIG_AKEBONO=y
-CONFIG_HIGHMEM=y
-CONFIG_HZ_100=y
-CONFIG_IRQ_ALL_CPUS=y
-# CONFIG_COMPACTION is not set
-# CONFIG_SUSPEND is not set
+CONFIG_LOG_BUF_SHIFT=14 # Functional Utility: Sets the size of the kernel log buffer (2^14 bytes).
+CONFIG_BLK_DEV_INITRD=y # Functional Utility: Enables support for an initial RAM disk, crucial for early boot processes.
+CONFIG_EXPERT=y # Functional Utility: Unlocks advanced kernel configuration options.
+CONFIG_KALLSYMS_ALL=y # Functional Utility: Includes all kernel symbols in kallsyms, aiding debugging and tracing.
+# CONFIG_SLUB_CPU_PARTIAL is not set # Functional Utility: Disables per-CPU partial lists for the SLUB allocator, optimizing memory usage on some systems.
+CONFIG_PROFILING=y # Functional Utility: Enables kernel profiling infrastructure for performance analysis.
+CONFIG_MODULES=y # Functional Utility: Enables loadable kernel module support, allowing dynamic extension of kernel functionality.
+CONFIG_MODULE_UNLOAD=y # Functional Utility: Allows dynamic unloading of kernel modules.
+# CONFIG_BLK_DEV_BSG is not set # Functional Utility: Disables block SCSI generic (BSG) support, often used for direct SCSI command pass-through.
+CONFIG_PPC_47x=y # Functional Utility: Enables support for PowerPC 47x series processors.
+# CONFIG_EBONY is not set # Functional Utility: Disables support for the IBM Ebony reference board.
+CONFIG_AKEBONO=y # Functional Utility: Specifies the target board as Akebono.
+CONFIG_HIGHMEM=y # Functional Utility: Enables High Memory support, allowing the kernel to address more than 4GB of RAM.
+CONFIG_HZ_100=y # Functional Utility: Sets the kernel timer interrupt frequency to 100 Hz.
+CONFIG_IRQ_ALL_CPUS=y # Functional Utility: Ensures all CPUs can handle interrupts.
+# CONFIG_COMPACTION is not set # Functional Utility: Disables memory compaction, a mechanism to reduce fragmentation.
+# CONFIG_SUSPEND is not set # Functional Utility: Disables system suspend functionality (e.g., to RAM or disk).
+# Block Logic: Network Stack Configuration.
+# These options enable various networking functionalities, including common
+# network device support, packet sockets, UNIX domain sockets, and IPv4 with
+# dynamic IP address assignment mechanisms like DHCP and BOOTP.
 CONFIG_NET=y
 CONFIG_NETDEVICES=y
 CONFIG_PACKET=y
 CONFIG_UNIX=y
 CONFIG_INET=y
-CONFIG_IP_PNP=y
-CONFIG_IP_PNP_DHCP=y
-CONFIG_IP_PNP_BOOTP=y
-# CONFIG_IPV6 is not set
-CONFIG_DEVTMPFS=y
-CONFIG_DEVTMPFS_MOUNT=y
-CONFIG_CONNECTOR=y
-CONFIG_MTD=y
-CONFIG_MTD_BLOCK=y
-CONFIG_MTD_JEDECPROBE=y
-CONFIG_MTD_CFI_AMDSTD=y
-CONFIG_MTD_PHYSMAP_OF=y
-CONFIG_BLK_DEV_RAM=y
-CONFIG_BLK_DEV_RAM_SIZE=35000
-# CONFIG_SCSI_PROC_FS is not set
-CONFIG_BLK_DEV_SD=y
-# CONFIG_SCSI_LOWLEVEL is not set
-CONFIG_ATA=y
-# CONFIG_SATA_PMP is not set
-CONFIG_SATA_AHCI_PLATFORM=y
-# CONFIG_ATA_SFF is not set
+CONFIG_IP_PNP=y # Functional Utility: Enables IP auto-configuration (e.g., BOOTP/DHCP) at boot.
+CONFIG_IP_PNP_DHCP=y # Functional Utility: Enables DHCP protocol for IP auto-configuration.
+CONFIG_IP_PNP_BOOTP=y # Functional Utility: Enables BOOTP protocol for IP auto-configuration.
+# CONFIG_IPV6 is not set # Functional Utility: Disables IPv6 protocol support.
+
+# Block Logic: Device Management and Filesystem Configurations.
+# This section configures virtual filesystems for device management and
+# support for various flash memory technologies (MTD).
+CONFIG_DEVTMPFS=y # Functional Utility: Enables devtmpfs, a virtual filesystem for /dev.
+CONFIG_DEVTMPFS_MOUNT=y # Functional Utility: Automatically mounts devtmpfs at boot.
+CONFIG_CONNECTOR=y # Functional Utility: Enables the Linux Connector Netlink protocol, used for communication between kernel and userspace.
+CONFIG_MTD=y # Functional Utility: Enables Memory Technology Device (MTD) support for flash memory.
+CONFIG_MTD_BLOCK=y # Functional Utility: Provides block device access to MTD devices.
+CONFIG_MTD_JEDECPROBE=y # Functional Utility: Enables probing for JEDEC-compliant flash devices.
+CONFIG_MTD_CFI_AMDSTD=y # Functional Utility: Adds support for AMD/Fujitsu Standard CFI (Common Flash Interface) flash.
+CONFIG_MTD_PHYSMAP_OF=y # Functional Utility: Enables MTD physmap support using Device Tree overlays.
+# Block Logic: Block Device and Storage Configurations.
+# This section defines support for various block devices, including RAM disks,
+# SD cards, and ATA/SATA controllers for persistent storage.
+CONFIG_BLK_DEV_RAM=y # Functional Utility: Enables support for RAM disk devices.
+CONFIG_BLK_DEV_RAM_SIZE=35000 # Functional Utility: Sets the default size of RAM disk to 35MB.
+# CONFIG_SCSI_PROC_FS is not set # Functional Utility: Disables /proc filesystem support for SCSI devices.
+CONFIG_BLK_DEV_SD=y # Functional Utility: Enables SCSI disk support, which includes many USB storage devices and SD card readers.
+# CONFIG_SCSI_LOWLEVEL is not set # Functional Utility: Disables generic low-level SCSI device support.
+CONFIG_ATA=y # Functional Utility: Enables support for ATA/ATAPI devices (e.g., IDE/SATA hard drives).
+# CONFIG_SATA_PMP is not set # Functional Utility: Disables SATA Port Multiplier support.
+CONFIG_SATA_AHCI_PLATFORM=y # Functional Utility: Enables AHCI SATA support for platform devices.
+# CONFIG_ATA_SFF is not set # Functional Utility: Disables support for ATA/ATAPI SFF (Small Form Factor) controllers.
+
+# Block Logic: Network Device Vendor Support.
+# This extensive list primarily disables support for various network card vendors
+# by default, indicating a lean build where only explicitly enabled network
+# drivers (like IBM EMAC) are included to minimize kernel size and complexity.
 # CONFIG_NET_VENDOR_3COM is not set
 # CONFIG_NET_VENDOR_ADAPTEC is not set
 # CONFIG_NET_VENDOR_ALTEON is not set
@@ -58,7 +86,7 @@ CONFIG_SATA_AHCI_PLATFORM=y
 # CONFIG_NET_VENDOR_DEC is not set
 # CONFIG_NET_VENDOR_DLINK is not set
 # CONFIG_NET_VENDOR_EMULEX is not set
-CONFIG_IBM_EMAC=y
+CONFIG_IBM_EMAC=y # Functional Utility: Enables the IBM EMAC Ethernet driver.
 # CONFIG_NET_VENDOR_MARVELL is not set
 # CONFIG_NET_VENDOR_MELLANOX is not set
 # CONFIG_NET_VENDOR_MICREL is not set
@@ -80,54 +108,78 @@ CONFIG_IBM_EMAC=y
 # CONFIG_NET_VENDOR_VIA is not set
 # CONFIG_NET_VENDOR_WIZNET is not set
 # CONFIG_NET_VENDOR_XILINX is not set
-# CONFIG_KEYBOARD_ATKBD is not set
-# CONFIG_MOUSE_PS2 is not set
-# CONFIG_SERIO is not set
-# CONFIG_VT is not set
-CONFIG_SERIAL_8250=y
-# CONFIG_SERIAL_8250_DEPRECATED_OPTIONS is not set
-CONFIG_SERIAL_8250_CONSOLE=y
-CONFIG_SERIAL_8250_EXTENDED=y
-CONFIG_SERIAL_8250_SHARE_IRQ=y
-CONFIG_SERIAL_OF_PLATFORM=y
-# CONFIG_HW_RANDOM is not set
-CONFIG_I2C_CHARDEV=y
-# CONFIG_HWMON is not set
-CONFIG_THERMAL=y
-# CONFIG_USB_DEFAULT_PERSIST is not set
-CONFIG_USB_EHCI_HCD=y
-CONFIG_USB_OHCI_HCD=y
-# CONFIG_USB_OHCI_HCD_PCI is not set
-CONFIG_USB_STORAGE=y
-CONFIG_MMC=y
-CONFIG_MMC_SDHCI=y
-CONFIG_MMC_SDHCI_PLTFM=y
-CONFIG_RTC_CLASS=y
-CONFIG_RTC_DRV_M41T80=y
-CONFIG_EXT2_FS=y
-CONFIG_EXT4_FS=y
-CONFIG_EXT4_FS_POSIX_ACL=y
-CONFIG_EXT4_FS_SECURITY=y
-# CONFIG_DNOTIFY is not set
-# CONFIG_INOTIFY_USER is not set
-CONFIG_VFAT_FS=y
-CONFIG_PROC_KCORE=y
-CONFIG_TMPFS=y
-CONFIG_CRAMFS=y
-# CONFIG_NETWORK_FILESYSTEMS is not set
-CONFIG_NLS_DEFAULT="n"
-CONFIG_NLS_CODEPAGE_437=y
-CONFIG_NLS_ISO8859_1=y
-CONFIG_DEBUG_INFO_DWARF_TOOLCHAIN_DEFAULT=y
-CONFIG_MAGIC_SYSRQ=y
-CONFIG_DETECT_HUNG_TASK=y
-CONFIG_XMON=y
-CONFIG_XMON_DEFAULT=y
-CONFIG_PPC_EARLY_DEBUG=y
-CONFIG_PPC_EARLY_DEBUG_44x_PHYSLOW=0x00010000
-CONFIG_PPC_EARLY_DEBUG_44x_PHYSHIGH=0x33f
-CONFIG_CRYPTO_PCBC=y
-CONFIG_CRYPTO_MD5=y
-CONFIG_CRYPTO_SHA1_PPC=y
-CONFIG_CRYPTO_DES=y
-# CONFIG_CRYPTO_HW is not set
+# Block Logic: Input and Serial Interface Configurations.
+# This section configures support for various input devices (keyboard, mouse)
+# and serial communication interfaces, crucial for console access and peripheral
+# connectivity.
+# CONFIG_KEYBOARD_ATKBD is not set # Functional Utility: Disables AT keyboard (PS/2) support.
+# CONFIG_MOUSE_PS2 is not set # Functional Utility: Disables PS/2 mouse support.
+# CONFIG_SERIO is not set # Functional Utility: Disables Serio port support (generic I/O for mice, keyboards, etc.).
+# CONFIG_VT is not set # Functional Utility: Disables Virtual Terminal (VT) support.
+CONFIG_SERIAL_8250=y # Functional Utility: Enables support for 8250/16550 compatible serial ports.
+# CONFIG_SERIAL_8250_DEPRECATED_OPTIONS is not set # Functional Utility: Disables deprecated options for 8250 serial driver.
+CONFIG_SERIAL_8250_CONSOLE=y # Functional Utility: Enables 8250 serial ports for use as a kernel console.
+CONFIG_SERIAL_8250_EXTENDED=y # Functional Utility: Enables extended options for the 8250 serial driver.
+CONFIG_SERIAL_8250_SHARE_IRQ=y # Functional Utility: Allows sharing IRQs among 8250 serial ports.
+CONFIG_SERIAL_OF_PLATFORM=y # Functional Utility: Enables serial port configuration via Device Tree.
+
+# Block Logic: Hardware Random Number Generator, I2C, and Thermal Management.
+# This section includes configurations for hardware randomness, inter-integrated
+# circuit (I2C) communication, and system thermal monitoring.
+# CONFIG_HW_RANDOM is not set # Functional Utility: Disables hardware random number generator support.
+CONFIG_I2C_CHARDEV=y # Functional Utility: Enables I2C character device support, allowing userspace access to I2C buses.
+# CONFIG_HWMON is not set # Functional Utility: Disables hardware monitoring support.
+CONFIG_THERMAL=y # Functional Utility: Enables generic thermal management support.
+
+# Block Logic: USB and MMC/SD Card Configurations.
+# These options enable support for Universal Serial Bus (USB) host controllers
+# and various mass storage devices, including USB storage and MultiMediaCard (MMC)/SD cards.
+# CONFIG_USB_DEFAULT_PERSIST is not set # Functional Utility: Disables USB default persist mode.
+CONFIG_USB_EHCI_HCD=y # Functional Utility: Enables EHCI (USB 2.0) Host Controller Driver.
+CONFIG_USB_OHCI_HCD=y # Functional Utility: Enables OHCI (USB 1.x) Host Controller Driver.
+# CONFIG_USB_OHCI_HCD_PCI is not set # Functional Utility: Disables OHCI HCD support for PCI-based controllers.
+CONFIG_USB_STORAGE=y # Functional Utility: Enables USB mass storage device support.
+CONFIG_MMC=y # Functional Utility: Enables MultiMediaCard (MMC) support.
+CONFIG_MMC_SDHCI=y # Functional Utility: Enables Secure Digital Host Controller Interface (SDHCI) support.
+CONFIG_MMC_SDHCI_PLTFM=y # Functional Utility: Enables SDHCI support for platform devices.
+CONFIG_RTC_CLASS=y # Functional Utility: Enables the Real Time Clock (RTC) framework.
+CONFIG_RTC_DRV_M41T80=y # Functional Utility: Enables support for the M41T80 RTC chip.
+
+# Block Logic: Filesystem Support.
+# This section configures support for various filesystems, including ext2, ext4,
+# VFAT, and temporary filesystems, essential for data storage and system operation.
+CONFIG_EXT2_FS=y # Functional Utility: Enables Ext2 filesystem support.
+CONFIG_EXT4_FS=y # Functional Utility: Enables Ext4 filesystem support.
+CONFIG_EXT4_FS_POSIX_ACL=y # Functional Utility: Enables POSIX Access Control List (ACL) support for Ext4.
+CONFIG_EXT4_FS_SECURITY=y # Functional Utility: Enables security labels support for Ext4.
+# CONFIG_DNOTIFY is not set # Functional Utility: Disables filesystem directory notification support.
+# CONFIG_INOTIFY_USER is not set # Functional Utility: Disables inotify user-space interface.
+CONFIG_VFAT_FS=y # Functional Utility: Enables VFAT (FAT32) filesystem support.
+CONFIG_PROC_KCORE=y # Functional Utility: Enables /proc/kcore, allowing access to kernel memory through /proc.
+CONFIG_TMPFS=y # Functional Utility: Enables Tmpfs (temporary filesystem in RAM) support.
+CONFIG_CRAMFS=y # Functional Utility: Enables Cramfs (compressed ROM filesystem) support.
+# CONFIG_NETWORK_FILESYSTEMS is not set # Functional Utility: Disables support for network filesystems (e.g., NFS).
+
+# Block Logic: Native Language Support (NLS) and Debugging.
+# These options configure character set support for internationalization
+# and various debugging features for kernel development and issue resolution.
+CONFIG_NLS_DEFAULT="n" # Functional Utility: Sets the default Native Language Support (NLS) charset.
+CONFIG_NLS_CODEPAGE_437=y # Functional Utility: Enables NLS for Code Page 437.
+CONFIG_NLS_ISO8859_1=y # Functional Utility: Enables NLS for ISO 8859-1 (Latin 1).
+CONFIG_DEBUG_INFO_DWARF_TOOLCHAIN_DEFAULT=y # Functional Utility: Enables DWARF debug info by default in the toolchain.
+CONFIG_MAGIC_SYSRQ=y # Functional Utility: Enables the 'Magic SysRq key' for emergency system commands.
+CONFIG_DETECT_HUNG_TASK=y # Functional Utility: Enables detection of hung tasks (tasks blocked for too long).
+CONFIG_XMON=y # Functional Utility: Enables XMON debug monitor for PowerPC.
+CONFIG_XMON_DEFAULT=y # Functional Utility: Sets XMON as the default debug monitor.
+CONFIG_PPC_EARLY_DEBUG=y # Functional Utility: Enables early debug output for PowerPC.
+CONFIG_PPC_EARLY_DEBUG_44x_PHYSLOW=0x00010000 # Functional Utility: Defines the physical low address for early debug on 44x.
+CONFIG_PPC_EARLY_DEBUG_44x_PHYSHIGH=0x33f # Functional Utility: Defines the physical high address for early debug on 44x.
+
+# Block Logic: Cryptographic Acceleration.
+# This section configures specific cryptographic algorithms, leveraging PowerPC
+# architectural features for optimized performance.
+CONFIG_CRYPTO_PCBC=y # Functional Utility: Enables PCBC (Propagating Cipher Block Chaining) encryption algorithm.
+CONFIG_CRYPTO_MD5=y # Functional Utility: Enables MD5 hash algorithm.
+CONFIG_CRYPTO_SHA1_PPC=y # Functional Utility: Enables PowerPC-optimized SHA-1 hash algorithm.
+CONFIG_CRYPTO_DES=y # Functional Utility: Enables DES (Data Encryption Standard) algorithm.
+# CONFIG_CRYPTO_HW is not set # Functional Utility: Disables generic hardware cryptographic acceleration interface.

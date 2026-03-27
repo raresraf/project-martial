@@ -1,3 +1,12 @@
+#
+# @brief Device Tree binding for NXP 88W8987/88W8997 Bluetooth chips.
+# This YAML document describes the hardware characteristics and configuration
+# required for integrating NXP's dual-radio (Wi-Fi and Bluetooth) chips,
+# specifically the 88W8987 and 88W8997 models, into a Linux system via Device Tree.
+# It details UART communication, firmware download procedures, and power save mechanisms.
+#
+# Domain: Device Tree, Bluetooth, NXP Hardware, Linux Kernel.
+#
 # SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
 %YAML 1.2
 ---
@@ -6,6 +15,10 @@ $schema: http://devicetree.org/meta-schemas/core.yaml#
 
 title: NXP Bluetooth chips
 
+# Functional Utility: Provides a high-level overview of the binding's purpose.
+# Describes how UART-attached NXP Bluetooth chips operate, including dual-radio
+# capabilities, H4 protocol usage, firmware download via RTS/CTS, and the
+# UART-TX break signal for power save mode.
 description:
   This binding describes UART-attached NXP bluetooth chips. These chips
   are dual-radio chips supporting WiFi and Bluetooth. The bluetooth
@@ -14,12 +27,17 @@ description:
   asserts break signal over UART-TX line to put the chip into power save
   state. De-asserting break wakes up the BT chip.
 
+# Functional Utility: Lists the contact person(s) responsible for maintaining this binding.
 maintainers:
   - Neeraj Sanjay Kale <neeraj.sanjaykale@nxp.com>
 
+# Block Logic: Inherits definitions from a common Bluetooth controller schema.
+# This ensures adherence to standard Bluetooth controller properties and conventions.
 allOf:
   - $ref: bluetooth-controller.yaml#
 
+# Block Logic: Defines the hardware-specific properties for the NXP Bluetooth chip.
+# These properties are used by the kernel to configure and interact with the device.
 properties:
   compatible:
     enum:
@@ -65,11 +83,17 @@ properties:
     description:
       The GPIO number of the NXP chipset used for BT_WAKE_OUT.
 
+# Block Logic: Specifies the mandatory properties that must be present in the device tree node.
+# The 'compatible' property is critical for the kernel to identify and bind the correct driver.
 required:
   - compatible
 
+# Functional Utility: Disallows any properties not explicitly defined in this schema.
+# This helps prevent accidental misconfigurations and ensures strict adherence to the binding.
 unevaluatedProperties: false
 
+# Block Logic: Provides an illustrative example of a device tree node for this NXP Bluetooth chip.
+# This example demonstrates the correct syntax and usage of all relevant properties for hardware integration.
 examples:
   - |
     #include <dt-bindings/gpio/gpio.h>

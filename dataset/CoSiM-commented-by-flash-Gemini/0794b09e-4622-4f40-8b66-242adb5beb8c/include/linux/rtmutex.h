@@ -1,3 +1,15 @@
+/**
+ * @file rtmutex.h
+ * @brief Real-Time Mutex (RT Mutex) data structures and API definitions for the Linux kernel.
+ *
+ * This header provides the necessary definitions for implementing real-time
+ * mutual exclusion locks with Priority Inheritance (PI) support. RT Mutexes
+ * are designed to prevent priority inversion, a critical issue in real-time
+ * operating systems, by ensuring that a task holding a lock temporarily
+ * inherits the priority of the highest-priority task waiting for that lock.
+ *
+ * Domain: Linux Kernel, Real-Time Systems, Concurrency, Synchronization, Priority Inheritance.
+ */
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
  * RT Mutexes: blocking mutual exclusion locks with PI support

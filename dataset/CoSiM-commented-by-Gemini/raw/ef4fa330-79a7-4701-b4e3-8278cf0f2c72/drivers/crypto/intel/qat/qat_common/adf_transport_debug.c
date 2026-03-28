@@ -1,5 +1,13 @@
 // SPDX-License-Identifier: (BSD-3-Clause OR GPL-2.0-only)
 /* Copyright(c) 2014 - 2020 Intel Corporation */
+/**
+ * @file adf_transport_debug.c
+ * @brief
+ * This file provides debugfs interfaces for the ADF transport layer. It allows
+ * for the inspection of transport rings and banks, which are fundamental
+ * components for communication with the QuickAssist hardware. The seq_file
+ * interface is used to safely export this information to user space.
+ */
 #include <linux/mutex.h>
 #include <linux/slab.h>
 #include <linux/seq_file.h>
@@ -10,6 +18,15 @@
 static DEFINE_MUTEX(ring_read_lock);
 static DEFINE_MUTEX(bank_read_lock);
 
+/**
+ * @adf_ring_start - The start function for the ring seq_file interface.
+ * @sfile: The seq_file handle.
+ * @pos: The position of the reader in the sequence.
+ *
+ * This function is called at the beginning of a read operation on the ring
+ * debugfs file. It locks the ring for reading and returns the first element
+ * in the sequence.
+ */
 static void *adf_ring_start(struct seq_file *sfile, loff_t *pos)
 {
 	struct adf_etr_ring_data *ring = sfile->private;
@@ -26,6 +43,14 @@ static void *adf_ring_start(struct seq_file *sfile, loff_t *pos)
 		(ADF_MSG_SIZE_TO_BYTES(ring->msg_size) * (*pos)++);
 }
 
+/**
+ * @adf_ring_next - The next function for the ring seq_file interface.
+ * @sfile: The seq_file handle.
+ * @v: The current element in the sequence.
+ * @pos: The position of the reader in the sequence.
+ *
+ * This function returns the next ring entry to be read.
+ */
 static void *adf_ring_next(struct seq_file *sfile, void *v, loff_t *pos)
 {
 	struct adf_etr_ring_data *ring = sfile->private;
@@ -40,6 +65,15 @@ static void *adf_ring_next(struct seq_file *sfile, void *v, loff_t *pos)
 		(ADF_MSG_SIZE_TO_BYTES(ring->msg_size) * (*pos)++);
 }
 
+/**
+ * @adf_ring_show - The show function for the ring seq_file interface.
+ * @sfile: The seq_file handle.
+ * @v: The current element in the sequence to be shown.
+ *
+ * This function formats and prints the information for a ring entry. For the
+ * first entry, it prints the ring's configuration. For subsequent entries, it
+ * prints a hex dump of the ring message.
+ */
 static int adf_ring_show(struct seq_file *sfile, void *v)
 {
 	struct adf_etr_ring_data *ring = sfile->private;
@@ -75,11 +109,23 @@ static int adf_ring_show(struct seq_file *sfile, void *v)
 	return 0;
 }
 
+/**
+ * @adf_ring_stop - The stop function for the ring seq_file interface.
+ * @sfile: The seq_file handle.
+ * @v: The current element in the sequence.
+ *
+ * This function is called at the end of a read operation and unlocks the ring.
+ */
 static void adf_ring_stop(struct seq_file *sfile, void *v)
 {
 	mutex_unlock(&ring_read_lock);
 }
 
+/**
+ * @adf_ring_debug_sops - seq_operations for ring debugfs files.
+ *
+ * This struct defines the file operations for the ring debugfs interface.
+ */
 static const struct seq_operations adf_ring_debug_sops = {
 	.start = adf_ring_start,
 	.next = adf_ring_next,
@@ -89,6 +135,14 @@ static const struct seq_operations adf_ring_debug_sops = {
 
 DEFINE_SEQ_ATTRIBUTE(adf_ring_debug);
 
+/**
+ * @adf_ring_debugfs_add - Adds a debugfs entry for a transport ring.
+ * @ring: The ring for which to add the debugfs entry.
+ * @name: The name of the ring.
+ *
+ * This function creates a debugfs file for a given ring, which can be used
+ * to inspect the ring's state and contents.
+ */
 int adf_ring_debugfs_add(struct adf_etr_ring_data *ring, const char *name)
 {
 	struct adf_etr_ring_debug_entry *ring_debug;
@@ -109,6 +163,10 @@ int adf_ring_debugfs_add(struct adf_etr_ring_data *ring, const char *name)
 	return 0;
 }
 
+/**
+ * @adf_ring_debugfs_rm - Removes the debugfs entry for a transport ring.
+ * @ring: The ring whose debugfs entry should be removed.
+ */
 void adf_ring_debugfs_rm(struct adf_etr_ring_data *ring)
 {
 	if (ring->ring_debug) {
@@ -118,6 +176,14 @@ void adf_ring_debugfs_rm(struct adf_etr_ring_data *ring)
 	}
 }
 
+/**
+ * @adf_bank_start - The start function for the bank seq_file interface.
+ * @sfile: The seq_file handle.
+ * @pos: The position of the reader in the sequence.
+ *
+ * This function is called at the beginning of a read operation on the bank
+ * debugfs file. It locks the bank for reading.
+ */
 static void *adf_bank_start(struct seq_file *sfile, loff_t *pos)
 {
 	struct adf_etr_bank_data *bank = sfile->private;
@@ -133,6 +199,14 @@ static void *adf_bank_start(struct seq_file *sfile, loff_t *pos)
 	return pos;
 }
 
+/**
+ * @adf_bank_next - The next function for the bank seq_file interface.
+ * @sfile: The seq_file handle.
+ * @v: The current element in the sequence.
+ * @pos: The position of the reader in the sequence.
+ *
+ * This function returns the next ring in the bank to be read.
+ */
 static void *adf_bank_next(struct seq_file *sfile, void *v, loff_t *pos)
 {
 	struct adf_etr_bank_data *bank = sfile->private;
@@ -144,6 +218,15 @@ static void *adf_bank_next(struct seq_file *sfile, void *v, loff_t *pos)
 	return pos;
 }
 
+/**
+ * @adf_bank_show - The show function for the bank seq_file interface.
+ * @sfile: The seq_file handle.
+ * @v: The current element in the sequence to be shown.
+ *
+ * This function formats and prints the information for a bank. For the first
+ * entry, it prints the bank's configuration. For subsequent entries, it
+ * prints the status of each ring within the bank.
+ */
 static int adf_bank_show(struct seq_file *sfile, void *v)
 {
 	struct adf_etr_bank_data *bank = sfile->private;
@@ -176,11 +259,23 @@ static int adf_bank_show(struct seq_file *sfile, void *v)
 	return 0;
 }
 
+/**
+ * @adf_bank_stop - The stop function for the bank seq_file interface.
+ * @sfile: The seq_file handle.
+ * @v: The current element in the sequence.
+ *
+ * This function is called at the end of a read operation and unlocks the bank.
+ */
 static void adf_bank_stop(struct seq_file *sfile, void *v)
 {
 	mutex_unlock(&bank_read_lock);
 }
 
+/**
+ * @adf_bank_debug_sops - seq_operations for bank debugfs files.
+ *
+ * This struct defines the file operations for the bank debugfs interface.
+ */
 static const struct seq_operations adf_bank_debug_sops = {
 	.start = adf_bank_start,
 	.next = adf_bank_next,
@@ -190,6 +285,13 @@ static const struct seq_operations adf_bank_debug_sops = {
 
 DEFINE_SEQ_ATTRIBUTE(adf_bank_debug);
 
+/**
+ * @adf_bank_debugfs_add - Adds debugfs entries for a transport bank.
+ * @bank: The bank for which to add the debugfs entries.
+ *
+ * This function creates a directory and a 'config' file for a given bank,
+ * which can be used to inspect the bank's state.
+ */
 int adf_bank_debugfs_add(struct adf_etr_bank_data *bank)
 {
 	struct adf_accel_dev *accel_dev = bank->accel_dev;
@@ -204,6 +306,10 @@ int adf_bank_debugfs_add(struct adf_etr_bank_data *bank)
 	return 0;
 }
 
+/**
+ * @adf_bank_debugfs_rm - Removes the debugfs entries for a transport bank.
+ * @bank: The bank whose debugfs entries should be removed.
+ */
 void adf_bank_debugfs_rm(struct adf_etr_bank_data *bank)
 {
 	debugfs_remove(bank->bank_debug_cfg);

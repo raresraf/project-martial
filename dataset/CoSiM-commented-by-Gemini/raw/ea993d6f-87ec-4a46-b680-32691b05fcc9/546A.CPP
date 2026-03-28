@@ -1,3 +1,20 @@
+/**
+ * @file 546A.CPP
+ * @brief Solves the "Soldier and Bananas" problem from Codeforces.
+ *
+ * @details
+ * A soldier buys `w` bananas. The first costs `k`, the second `2k`, ..., the
+ * `w`-th costs `w*k`. Given the soldier has `n` dollars, this program
+ * calculates how much money must be borrowed.
+ *
+ * @algorithm This solution iteratively calculates the total cost. It loops from 1
+ * to `w`, adding the cost of each banana (`k*i`) to a running total. After
+ * the loop, it compares the total cost to the money the soldier has (`n`) and
+ * prints the difference if it's positive, otherwise it prints 0.
+ *
+ * @time_complexity O(W), where W is the number of bananas, due to the loop.
+ * @space_complexity O(1).
+ */
 ///        From dust I came and to dust I shall return
 /**
                     Asadullah Bin Rahman
@@ -33,10 +50,18 @@ int main() {
   sf(n);
   sf(w);
 
+  /**
+   * @block_logic Iteratively calculates the total cost of `w` bananas.
+   * The cost of the i-th banana is `k * i`.
+   */
   for (i = 1; i <= w; i++) {
     cost += k * i;
   }
 
+  /**
+   * @block_logic Checks if the soldier has enough money. If the cost is greater
+   * than the money `n`, the deficit is calculated and printed. Otherwise, 0 is printed.
+   */
   if (cost <= n)
     pf(0);
   else {

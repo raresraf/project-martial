@@ -2,6 +2,17 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
+/**
+ * @file frontMatterHeader.ts
+ * @brief Defines the `FrontMatterHeader` class for representing document front matter.
+ *
+ * This module introduces the `FrontMatterHeader` class, extending
+ * `MarkdownExtensionsToken`. Its primary purpose is to encapsulate and manage
+ * the structural and textual components of a front matter block within a document,
+ * such as those commonly found in Markdown files. This includes the distinct
+ * start and end markers, as well as the content contained within, facilitating
+ * structured access and manipulation of document metadata.
+ */
 
 import { Range } from '../../../core/range.js';
 import { BaseToken, Text } from '../../baseToken.js';
@@ -10,20 +21,50 @@ import { TSimpleDecoderToken } from '../../simpleCodec/simpleDecoder.js';
 import { FrontMatterMarker, TMarkerToken } from './frontMatterMarker.js';
 
 /**
- * Token that represents a `Front Matter` header in a text.
+ * @class FrontMatterHeader
+ * @augments MarkdownExtensionsToken
+ * @brief Token representing a "Front Matter" header in a text document.
+ *
+ * Functional Utility: This class extends `MarkdownExtensionsToken` to
+ * specifically encapsulate and provide structured access to a "Front Matter"
+ * block within a text. It serves as a composite token, comprising individual
+ * tokens for its `startMarker`, `content`, and `endMarker`. This structure
+ * allows for direct manipulation and analysis of the metadata contained
+ * within the front matter, which is crucial for parsing and rendering
+ * documents that utilize such constructs (e.g., Markdown files with YAML
+ * front matter).
  */
 export class FrontMatterHeader extends MarkdownExtensionsToken {
+	/**
+	 * @brief Constructs a new `FrontMatterHeader` token.
+	 * @param range The overall range of the entire front matter block in the document.
+	 * @param startMarker The `FrontMatterMarker` token representing the opening delimiter.
+	 * @param content The `Text` token containing the actual content/metadata of the front matter.
+	 * @param endMarker The `FrontMatterMarker` token representing the closing delimiter.
+	 *
+	 * Functional Utility: This constructor assembles a complete `FrontMatterHeader`
+	 * token by taking its individual components—the overall `range`, the
+	 * `startMarker`, the `content` token, and the `endMarker`—and consolidating
+	 * them. This aggregation provides a unified object for interacting with
+	 * a parsed front matter block.
+	 */
 	constructor(
 		range: Range,
-		public readonly startMarker: FrontMatterMarker,
-		public readonly content: Text,
-		public readonly endMarker: FrontMatterMarker,
+		public readonly startMarker: FrontMatterMarker, /**< The token representing the opening marker of the front matter. */
+		public readonly content: Text, /**< The token representing the textual content (metadata) of the front matter. */
+		public readonly endMarker: FrontMatterMarker, /**< The token representing the closing marker of the front matter. */
 	) {
 		super(range);
 	}
 
 	/**
-	 * Return complete text representation of the token.
+	 * @brief Gets the complete text representation of the front matter block.
+	 * @returns A string concatenating the start marker, content, and end marker.
+	 *
+	 * Functional Utility: This getter provides the full, contiguous string
+	 * representation of the `FrontMatterHeader` token, including its start
+	 * marker, content, and end marker. It is useful for operations requiring
+	 * the entire textual block of the front matter as a single string.
 	 */
 	public get text(): string {
 		const text: string[] = [
@@ -36,21 +77,42 @@ export class FrontMatterHeader extends MarkdownExtensionsToken {
 	}
 
 	/**
-	 * Range of the content of the Front Matter header.
+	 * @brief Gets the range of the content part of the Front Matter header.
+	 * @returns A `Range` object specifying the start and end positions of the content.
+	 *
+	 * Functional Utility: This getter returns the `Range` that exclusively
+	 * covers the metadata content within the front matter block, excluding
+	 * the start and end markers. This is particularly useful for operations
+	 * that need to operate solely on the user-defined metadata, such as
+	 * parsing the content for key-value pairs.
 	 */
 	public get contentRange(): Range {
 		return this.content.range;
 	}
 
 	/**
-	 * Content token of the Front Matter header.
+	 * @brief Gets the content token of the Front Matter header.
+	 * @returns The `Text` token that represents the content (metadata) of the front matter.
+	 *
+	 * Functional Utility: This getter provides direct access to the `Text`
+	 * token that holds the raw content of the front matter block. This allows
+	 * for deeper inspection or processing of the content token itself, beyond
+	 * just its string value or range.
 	 */
 	public get contentToken(): Text {
 		return this.content;
 	}
 
 	/**
-	 * Check if this token is equal to another one.
+	 * @brief Checks if this `FrontMatterHeader` token is equal to another token.
+	 * @param other The other token to compare against.
+	 * @returns `true` if the tokens are semantically equivalent, `false` otherwise.
+	 *
+	 * Functional Utility: This method provides a robust comparison mechanism
+	 * to determine if two `FrontMatterHeader` tokens represent the same
+	 * front matter block. It first verifies if their ranges are identical
+	 * and then performs a deep comparison of their concatenated textual
+	 * content, ensuring that both position and content match for equality.
 	 */
 	public override equals<T extends BaseToken>(other: T): boolean {
 		if (!super.sameRange(other.range)) {
@@ -69,7 +131,19 @@ export class FrontMatterHeader extends MarkdownExtensionsToken {
 	}
 
 	/**
-	 * Create new instance of the token from the given tokens.
+	 * @brief Factory method to create a new `FrontMatterHeader` instance from raw tokens.
+	 * @param startMarkerTokens An array of tokens forming the start marker.
+	 * @param contentTokens An array of tokens forming the content.
+	 * @param endMarkerTokens An array of tokens forming the end marker.
+	 * @returns A new `FrontMatterHeader` instance.
+	 *
+	 * Functional Utility: This static method acts as a constructor from a
+	 * lower-level token representation. It takes arrays of tokens that
+	 * constitute the start marker, content, and end marker of a front matter
+	 * block, calculates the overall range, and then constructs a new,
+	 * fully-formed `FrontMatterHeader` object. This simplifies the creation
+	 * of `FrontMatterHeader` instances during parsing by abstracting away
+	 * the details of individual token aggregation.
 	 */
 	public static fromTokens(
 		startMarkerTokens: readonly TMarkerToken[],
@@ -89,7 +163,14 @@ export class FrontMatterHeader extends MarkdownExtensionsToken {
 	}
 
 	/**
-	 * Returns a string representation of the token.
+	 * @brief Returns a string representation of the `FrontMatterHeader` token.
+	 * @returns A string representing the token, including its truncated text and range.
+	 *
+	 * Functional Utility: This method generates a concise, human-readable
+	 * string for debugging and logging purposes. It provides a summary of
+	 * the `FrontMatterHeader` token by showing a shortened version of its
+	 * textual content and its `Range` information, aiding in quick
+	 * identification and analysis of the token's characteristics and location.
 	 */
 	public override toString(): string {
 		return `frontmatter("${this.shortText()}")${this.range}`;

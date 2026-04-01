@@ -1,3 +1,18 @@
+/**
+ * @file 112A.CPP
+ * @brief Solves the "Petya and Strings" problem from Codeforces (Problem 112A).
+ * @details This program compares two strings lexicographically, ignoring case.
+ * It outputs -1 if the first string is lexicographically smaller than the second,
+ * 1 if it is larger, and 0 if they are equal.
+ *
+ * Algorithm: Case-insensitive string comparison.
+ * 1. Read two strings from standard input.
+ * 2. Convert both strings to the same case (lowercase).
+ * 3. Perform a standard lexicographical comparison on the modified strings.
+ *
+ * Time Complexity: O(L) where L is the length of the strings, for conversion and comparison.
+ * Space Complexity: O(L) to store the strings.
+ */
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
@@ -51,6 +66,11 @@ typedef vector<LL> VLL;
   cerr << #a << " = " << (a) << ", " << #b << " = " << (b) << ", " << #c       \
        << " = " << (c) << endl
 
+/**
+ * @brief Converts a string to lowercase.
+ * @param str The input string.
+ * @return The lowercase version of the string.
+ */
 string toLower(string str) {
   REP(i, str.size()) {
     if (str[i] >= 'A' && str[i] <= 'Z') {
@@ -61,6 +81,10 @@ string toLower(string str) {
   return str;
 }
 
+/**
+ * @brief Main logic for solving the problem.
+ * Reads two strings, converts them to lowercase, and compares them.
+ */
 void solve() {
   string s, t;
 
@@ -69,6 +93,7 @@ void solve() {
   s = toLower(s);
   t = toLower(t);
 
+  // Lexicographically compares the two lowercase strings.
   if (s < t)
     cout << -1 << endl;
   else if (s == t)

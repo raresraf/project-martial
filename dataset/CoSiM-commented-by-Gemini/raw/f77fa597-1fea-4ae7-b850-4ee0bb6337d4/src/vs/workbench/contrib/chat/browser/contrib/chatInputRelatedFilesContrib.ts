@@ -14,6 +14,11 @@ import { ChatAgentLocation } from '../../common/chatAgents.js';
 import { ChatEditingSessionChangeType, IChatEditingService, IChatEditingSession, WorkingSetEntryRemovalReason, WorkingSetEntryState } from '../../common/chatEditingService.js';
 import { IChatWidget, IChatWidgetService } from '../chat.js';
 
+/**
+ * A workbench contribution that provides related file suggestions for chat editing sessions.
+ * This class monitors chat widgets and, when a relevant editing session is active,
+ * it dynamically fetches and suggests files that are related to the user's input.
+ */
 export class ChatRelatedFilesContribution extends Disposable implements IWorkbenchContribution {
 	static readonly ID = 'chat.relatedFilesWorkingSet';
 
@@ -28,6 +33,7 @@ export class ChatRelatedFilesContribution extends Disposable implements IWorkben
 
 		this._register(
 			this.chatWidgetService.onDidAddWidget(widget => {
+				// When a new chat widget is added, check if it's for an editing session.
 				if (widget.location === ChatAgentLocation.EditingSession && widget.viewModel?.sessionId) {
 					const editingSession = this.chatEditingService.getEditingSession(widget.viewModel.sessionId);
 					if (editingSession) {
@@ -38,29 +44,38 @@ export class ChatRelatedFilesContribution extends Disposable implements IWorkben
 		);
 	}
 
+	/**
+	 * Fetches and updates related file suggestions for a given chat editing session.
+	 * This method is asynchronous and debounced to prevent excessive calls.
+	 * @param currentEditingSession The active chat editing session.
+	 * @param widget The associated chat widget.
+	 */
 	private _updateRelatedFileSuggestions(currentEditingSession: IChatEditingSession, widget: IChatWidget) {
+		// Prevent multiple concurrent retrieval operations.
 		if (this._currentRelatedFilesRetrievalOperation) {
 			return;
 		}
 
+		// Only provide suggestions for the initial empty working set state.
 		const workingSetEntries = currentEditingSession.entries.get();
 		if (workingSetEntries.length > 0) {
-			// Do this only for the initial working set state
 			return;
 		}
 
+		// Asynchronously get related files from the editing service.
 		this._currentRelatedFilesRetrievalOperation = this.chatEditingService.getRelatedFiles(currentEditingSession.chatSessionId, widget.getInput(), CancellationToken.None)
 			.then((files) => {
 				if (!files?.length) {
 					return;
 				}
 
+				// Ensure the session is still valid and unchanged.
 				const currentEditingSession = this.chatEditingService.globalEditingSessionObs.get();
 				if (!currentEditingSession || currentEditingSession.chatSessionId !== widget.viewModel?.sessionId || currentEditingSession.entries.get().length) {
-					return; // Might have disposed while we were calculating
+					return;
 				}
 
-				// Pick up to 2 related files, or however many we can still fit in the working set
+				// Determine the number of suggestions to show (up to 2).
 				const maximumRelatedFiles = Math.min(2, this.chatEditingService.editingSessionFileLimit - widget.input.chatEditWorkingSetFiles.length);
 				const newSuggestions = new ResourceMap<{ description: string; group: string }>();
 				for (const group of files) {
@@ -72,7 +87,7 @@ export class ChatRelatedFilesContribution extends Disposable implements IWorkben
 					}
 				}
 
-				// Remove the existing related file suggestions from the working set
+				// Remove previous suggestions that are no longer relevant.
 				const existingSuggestedEntriesToRemove: URI[] = [];
 				for (const entry of currentEditingSession.workingSet) {
 					if (entry[1].state === WorkingSetEntryState.Suggested && !newSuggestions.has(entry[0])) {
@@ -81,7 +96,7 @@ export class ChatRelatedFilesContribution extends Disposable implements IWorkben
 				}
 				currentEditingSession?.remove(WorkingSetEntryRemovalReason.Programmatic, ...existingSuggestedEntriesToRemove);
 
-				// Add the new related file suggestions to the working set
+				// Add the new suggestions to the working set.
 				for (const [uri, data] of newSuggestions) {
 					currentEditingSession.addFileToWorkingSet(uri, localize('relatedFile', "{0} (Suggested)", data.description), WorkingSetEntryState.Suggested);
 				}
@@ -92,21 +107,32 @@ export class ChatRelatedFilesContribution extends Disposable implements IWorkben
 
 	}
 
+	/**
+	 * Sets up event listeners for a new chat editing session to handle related file suggestions.
+	 * @param currentEditingSession The new chat editing session.
+	 * @param widget The associated chat widget.
+	 */
 	private _handleNewEditingSession(currentEditingSession: IChatEditingSession, widget: IChatWidget) {
 		const disposableStore = new DisposableStore();
 		disposableStore.add(currentEditingSession.onDidDispose(() => {
 			disposableStore.clear();
 		}));
 		this._updateRelatedFileSuggestions(currentEditingSession, widget);
+		
+		// Debounce input changes to avoid excessive updates.
 		const onDebouncedType = Event.debounce(widget.inputEditor.onDidChangeModelContent, () => null, 3000);
 		disposableStore.add(onDebouncedType(() => {
 			this._updateRelatedFileSuggestions(currentEditingSession, widget);
 		}));
+		
+		// Also update on explicit working set changes.
 		disposableStore.add(currentEditingSession.onDidChange((e) => {
 			if (e === ChatEditingSessionChangeType.WorkingSet) {
 				this._updateRelatedFileSuggestions(currentEditingSession, widget);
 			}
 		}));
+		
+		// Clean up when the session is disposed.
 		disposableStore.add(currentEditingSession.onDidDispose(() => {
 			disposableStore.dispose();
 		}));
@@ -114,6 +140,7 @@ export class ChatRelatedFilesContribution extends Disposable implements IWorkben
 	}
 
 	override dispose() {
+		// Dispose all stored disposables for the chat editing sessions.
 		for (const store of this.chatEditingSessionDisposables.values()) {
 			store.dispose();
 		}

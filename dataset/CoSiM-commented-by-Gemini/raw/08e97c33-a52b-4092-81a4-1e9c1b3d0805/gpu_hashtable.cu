@@ -1,24 +1,55 @@
-
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
+/**
+ * @file gpu_hashtable.cu
+ * @brief A GPU-accelerated hash table implementation using CUDA.
+ *
+ * @details This file contains the implementation of a hash table that operates on the
+ * GPU. It uses open addressing with linear probing to handle collisions and relies
+ * on atomic operations (atomicCAS) for thread-safe concurrent insertions. The
+ * hash table can be dynamically resized and is managed by a host-side C++ class.
+ * The primary design goal is to support batch processing of insertions and lookups
+ * in parallel on the GPU.
+ */
+#include <cstdio>
+#include <cstdlib>
+#include <cmath>
+#include <cassert>
+#include <iostream>
+#include <algorithm>
 
 #include "gpu_hashtable.hpp"
 
+// Constants used in the device-side hash function.
 const size_t HASH1 = 10703903591llu;
 const size_t HASH2 = 21921594616111llu;
 
 
+/**
+ * @brief A simple multiplicative hash function executed on the GPU.
+ * @param data The key to hash.
+ * @param limit The size of the hash table, used for the final modulo operation.
+ * @return The hash value (initial bucket index).
+ */
 __device__ int hash4(int data, int limit) {
 	return ((long long)abs(data) * HASH1) % HASH2 % limit;
 }
 
 
+/**
+ * @brief CUDA kernel to copy elements from an old hash table to a new, resized one.
+ *
+ * @details Each thread is responsible for re-hashing and inserting one element from the
+ * old table into the new one. It uses linear probing with atomicCAS to find and
+ * claim a free slot in the new table. This is a critical part of the `reshape` operation.
+ * Note: The current implementation does not check if `old_vec[i].key` is `KEY_INVALID`.
+ * A thread assigned to an empty slot will attempt to re-insert this invalid key.
+ *
+ * @param old_vec Pointer to the old hash table in global memory.
+ * @param new_vec Pointer to the new (resized) hash table in global memory.
+ * @param old_n The capacity of the old table.
+ * @param new_n The capacity of the new table.
+ */
 __global__ void kernel_copyVec(struct hash_pair *old_vec, struct hash_pair *new_vec, int old_n, int new_n) {
-	
+	// Map global thread ID to an element in the old table.
 	unsigned int i = threadIdx.x + blockDim.x * blockIdx.x;
 
 	
@@ -28,8 +59,11 @@ __global__ void kernel_copyVec(struct hash_pair *old_vec, struct hash_pair *new_
 		int start = hash;
 		int end = new_n;
 
-		int flag = 0;	
+		int flag = 0;	// This flag is unused in this kernel.
+		// --- Linear Probing with Wrap-Around ---
+        // Phase 1: Probe from the initial hash location to the end of the table.
 		for (int k = start; k < end; k++) {
+			// Atomically attempt to claim an empty slot.
 			int oldKey = atomicCAS(&new_vec[k].key, KEY_INVALID, newKey);
 			if (oldKey == KEY_INVALID) {
 				new_vec[k].value = old_vec[i].value;
@@ -37,6 +71,7 @@ __global__ void kernel_copyVec(struct hash_pair *old_vec, struct hash_pair *new_
 				break;
 			}
 		}
+		// Phase 2: If no slot was found, wrap around and probe from the beginning to the hash location.
 		if (flag == 0) {
 			for (int k = 0; k < start; k++) {
 				int oldKey = atomicCAS(&new_vec[k].key, KEY_INVALID, newKey);
@@ -52,7 +87,22 @@ __global__ void kernel_copyVec(struct hash_pair *old_vec, struct hash_pair *new_
 
 
 
+/**
+ * @brief CUDA kernel to insert a batch of key-value pairs into the hash table.
+ *
+ * @details Each thread handles one key-value pair. It uses linear probing and atomicCAS
+ * to find an empty slot or update an existing key. `atomicAdd` is used to
+ * safely increment the total capacity counter.
+ *
+ * @param keys Input array of keys (global memory).
+ * @param values Input array of values (global memory).
+ * @param numKeys The number of elements to insert.
+ * @param hashtable The hash table data structure (global memory).
+ * @param full_capacity The total capacity of the hash table array.
+ * @param capacity Pointer to a counter for the number of stored elements (global memory).
+ */
 __global__ void kernel_insertVec(int *keys, int *values, int numKeys, struct hash_pair *hashtable, int full_capacity, int *capacity) {
+	// Map global thread ID to a key-value pair.
 	unsigned int i = threadIdx.x + blockDim.x * blockIdx.x;
 
 	if (i < numKeys) {
@@ -62,18 +112,21 @@ __global__ void kernel_insertVec(int *keys, int *values, int numKeys, struct has
 		int end = full_capacity;
 
 		int flag = 0;
+		// --- Linear Probing with Wrap-Around ---
+        // Phase 1: Probe from hash to end.
 		for(int k = start; k < end; k++) {
+			// Attempt to claim an empty slot or find an existing key.
 			int oldKey = atomicCAS(&hashtable[k].key, KEY_INVALID, newKey);
 
-			if (oldKey == KEY_INVALID) {
+			if (oldKey == KEY_INVALID) { // Successfully claimed an empty slot.
 				
 				hashtable[k].value = values[i];
 				flag = 1;
 				
-				atomicAdd(&(*capacity), 1);
+				atomicAdd(&(*capacity), 1); // Safely increment the element counter.
 				break;
 			}
-			if (oldKey == newKey) {
+			if (oldKey == newKey) { // Key already exists, update its value.
 				
 				hashtable[k].value = values[i];
 				flag = 1;
@@ -81,17 +134,18 @@ __global__ void kernel_insertVec(int *keys, int *values, int numKeys, struct has
 			}
 			
 		}
+		// Phase 2: Wrap around and probe from start to hash.
 		if (flag == 0) {
 			
 			for (int k = 0; k < start; k++) {
 				int oldKey = atomicCAS(&hashtable[k].key, KEY_INVALID, newKey);
 
-				if (oldKey == KEY_INVALID) {
+				if (oldKey == KEY_INVALID) { // Successfully claimed an empty slot.
 					hashtable[k].value = values[i];
 					atomicAdd(&(*capacity), 1);
 					break;
 				}
-				if (oldKey == newKey) {
+				if (oldKey == newKey) { // Key already exists, update its value.
 					hashtable[k].value = values[i];
 					break;
 				}
@@ -101,7 +155,21 @@ __global__ void kernel_insertVec(int *keys, int *values, int numKeys, struct has
 }
 
 
+/**
+ * @brief CUDA kernel to retrieve a batch of values corresponding to a batch of keys.
+ *
+ * @details Each thread handles one key. It performs a search using the same linear
+ * probing logic as insertion, but without atomic operations as it is a read-only
+ * operation.
+ *
+ * @param keys Input array of keys to look up (global memory).
+ * @param values Output array where found values will be written (global memory).
+ * @param numKeys The number of keys to look up.
+ * @param hashtable The hash table data structure (global memory).
+ * @param full_capacity The total capacity of the hash table array.
+ */
 __global__ void kernel_getVec(int *keys, int *values, int numKeys, struct hash_pair *hashtable, int full_capacity) {
+	// Map global thread ID to a key.
 	unsigned int i = threadIdx.x + blockDim.x * blockIdx.x;
 
 	if (i < numKeys) {
@@ -111,6 +179,8 @@ __global__ void kernel_getVec(int *keys, int *values, int numKeys, struct hash_p
 		int end = full_capacity;
 
 		int flag = 0;
+		// --- Linear Probing with Wrap-Around (Read-Only) ---
+        // Phase 1: Search from hash to end.
 		for(int k = start; k < end; k++) {
 			if (hashtable[k].key == key) {
 				
@@ -119,6 +189,7 @@ __global__ void kernel_getVec(int *keys, int *values, int numKeys, struct hash_p
 				break;
 			}
 		}
+		// Phase 2: Wrap around and search from start to hash.
 		if (flag == 0) {
 			for (int k = 0; k < start; k++) {
 				if (hashtable[k].key == key) {
@@ -131,11 +202,14 @@ __global__ void kernel_getVec(int *keys, int *values, int numKeys, struct hash_p
 }
 
 
-
+// =================================================================================
+// Host-side GpuHashTable Class Implementation
+// =================================================================================
 GpuHashTable::GpuHashTable(int size) {
 	cudaError_t err;
 
 	
+	// Allocate unified memory for the capacity counter so it can be accessed from host and device.
 	err = cudaMallocManaged(&capacity, sizeof(int));
 	DIE(err != cudaSuccess, "cudaMallocManaged");
 
@@ -144,10 +218,12 @@ GpuHashTable::GpuHashTable(int size) {
 	full_capacity = size;
 
 	
+	// Allocate device global memory for the hash table itself.
 	err = cudaMalloc(&hashtable, sizeof(struct hash_pair) * full_capacity);
 	DIE(err != cudaSuccess, "cudaMalloc");
 
-	err = cudaMemset(hashtable, 0, full_capacity);
+	// Initialize all keys to KEY_INVALID (0).
+	err = cudaMemset(hashtable, 0, sizeof(struct hash_pair) * full_capacity);
 	DIE(err != cudaSuccess, "cudaMemset");
 }
 
@@ -169,19 +245,22 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 	struct hash_pair *copy_hashtable;
 
 	
-	err = cudaMalloc(©_hashtable, sizeof(struct hash_pair) * numBucketsReshape);
+	// Allocate a new, larger table on the device.
+	err = cudaMalloc(&copy_hashtable, sizeof(struct hash_pair) * numBucketsReshape);
 	DIE(err != cudaSuccess, "cudaMalloc");
 
 	err = cudaMemset(copy_hashtable, 0, numBucketsReshape * sizeof(hash_pair));
 	DIE(err != cudaSuccess, "cudaMalloc");
 
 	
+	// Calculate grid and block dimensions for the copy kernel.
 	int blocks_no = full_capacity / BLOCKSIZE;
 	if (full_capacity % BLOCKSIZE)
   		++blocks_no;
 
   	
-	kernel_copyVec>>(hashtable, copy_hashtable, full_capacity, numBucketsReshape);
+	// Launch kernel to re-hash and copy all elements to the new table.
+	kernel_copyVec<<<blocks_no, BLOCKSIZE>>>(hashtable, copy_hashtable, full_capacity, numBucketsReshape);
 	err = cudaDeviceSynchronize();
 	DIE(err != cudaSuccess, "cudaDeviceSynchronize");
 
@@ -197,6 +276,7 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	cudaError_t err;
 	int *deviceKeys, *deviceValues;
 
+	// Allocate temporary device memory for the input batch.
 	err = cudaMalloc(&deviceKeys, (size_t) (numKeys * sizeof(int)));
 	DIE(err != cudaSuccess, "cudaMalloc");
 
@@ -205,6 +285,7 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 
 	DIE(err != cudaSuccess, "cudaMalloc");
 
+	// Copy data from host to device.
 	err = cudaMemcpy(deviceKeys, keys, numKeys * sizeof(int), cudaMemcpyHostToDevice);
 	DIE(err != cudaSuccess, "cudaMemcpy");
 
@@ -212,18 +293,21 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	DIE(err != cudaSuccess, "cudaMemcpy");
 
 	
+	// Check load factor and trigger a reshape if it exceeds the threshold.
 	float new_factor = ( (float) (*capacity + numKeys) / full_capacity );
 	if (new_factor > 0.9f)
 		reshape((int)(((float) *capacity + numKeys) / 0.8f));
 
+	// Calculate grid and block dimensions and launch the insertion kernel.
 	int blocks_no = numKeys / BLOCKSIZE;
 	if (numKeys % BLOCKSIZE)
 		++blocks_no;
 
-	kernel_insertVec>>(deviceKeys, deviceValues, numKeys, hashtable, full_capacity, capacity);
+	kernel_insertVec<<<blocks_no, BLOCKSIZE>>>(deviceKeys, deviceValues, numKeys, hashtable, full_capacity, capacity);
 	err = cudaDeviceSynchronize();
 	DIE(err != cudaSuccess, "cudaDeviceSynchronize");
 
+	// Free temporary device memory.
 	err = cudaFree(deviceKeys);
 	DIE(err != cudaSuccess, "cudaFree");
 
@@ -238,29 +322,34 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	cudaError_t err;
 	int *deviceKeys, *deviceValues, *hostValues;
 
+	// Allocate temporary device memory for keys and output values.
 	err = cudaMalloc(&deviceKeys, numKeys * sizeof(int));
 	DIE(err != cudaSuccess, "cudaMalloc");
 
 	err = cudaMalloc(&deviceValues, numKeys * sizeof(int));
 	DIE(err != cudaSuccess, "cudaMalloc");
 
-	hostValues = (int*) calloc(numKeys, sizeof(int));
+	hostValues = (int*) calloc(numKeys, sizeof(int)); // Allocate host memory for results.
 
+	// Copy keys from host to device.
 	err = cudaMemcpy(deviceKeys, keys, numKeys * sizeof(int), cudaMemcpyHostToDevice);
 	DIE(err != cudaSuccess, "cudaMemcpy");
 
+	// Calculate grid/block dimensions and launch the get kernel.
 	int blocks_no = numKeys / BLOCKSIZE;
 	if (numKeys % BLOCKSIZE)
 		++blocks_no;
 
-	kernel_getVec>>(deviceKeys, deviceValues, numKeys, hashtable, full_capacity);
+	kernel_getVec<<<blocks_no, BLOCKSIZE>>>(deviceKeys, deviceValues, numKeys, hashtable, full_capacity);
 	cudaDeviceSynchronize();
 
 
 
+	// Copy results from device back to host.
 	err = cudaMemcpy(hostValues, deviceValues, numKeys * sizeof(int), cudaMemcpyDeviceToHost);
 	DIE(err != cudaSuccess, "cudaMemcpy");
 
+	// Free temporary device memory.
 	err = cudaFree(deviceKeys);
 	DIE(err != cudaSuccess, "cudaFree");
 
@@ -277,7 +366,8 @@ float GpuHashTable::loadFactor() {
 }
 
 
-
+// The following section seems to be for testing and includes another file,
+// which is an unusual practice for a library component.
 #define HASH_INIT GpuHashTable GpuHashTable(1);
 #define HASH_RESERVE(size) GpuHashTable.reshape(size);
 

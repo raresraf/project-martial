@@ -1,44 +1,61 @@
+/**
+ * @file gpu_hashtable.cu
+ * @brief A GPU-accelerated hash table using a two-bucket linear probing scheme.
+ *
+ * @details This file contains a CUDA implementation of a hash table that uses two
+ * separate tables ('buckets') to resolve collisions. It appears to be a hybrid
+ * of linear probing and Cuckoo Hashing concepts. For a given hash location, it
+ * first attempts to insert into bucket1, and if that fails, it tries the same
+ * index in bucket2 before continuing the linear probe. The implementation
+ * includes significant logical flaws, especially in the rehashing kernel.
+ * The header (`.hpp`) content is inlined at the end of this file.
+ */
+#include <cstdio>
+#include <cstdlib>
+#include <cmath>
+#include <cassert>
+#include <iostream>
+#include <algorithm>
 
-#include 
-#include 
-#include 
-#include 
-#include 
+#include "gpu_hashtable.hpp" // Logically included, though physically at the end.
 
-#include "gpu_hashtable.hpp"
-
+/**
+ * @brief A simple multiplicative hash function executed on the GPU.
+ * @param data The key to hash.
+ * @param limit The size of the hash table, used for the final modulo operation.
+ * @return The hash value (initial bucket index).
+ */
 __device__ int myHash(int data, int limit) {
 	return ((long) abs(data) * 20906033) % 5351951779 % limit;
 }
 
-GpuHashTable::GpuHashTable(int size) {
-	pairsInserted = 0;
-	bucketSize = size;
-	bucket1 = nullptr;
-	bucket2 = nullptr;
-	if (cudaMalloc(&bucket1, size * sizeof(hash_entry)) != cudaSuccess) {
-		return;
-	}
-	cudaMemset(bucket1, 0, size * sizeof(hash_entry));
-	if (cudaMalloc(&bucket2, size * sizeof(hash_entry)) != cudaSuccess) {
-		return;
-	}
-	cudaMemset(bucket2, 0, size * sizeof(hash_entry));
-}
-
-GpuHashTable::~GpuHashTable() {
-	cudaFree(bucket1);
-	cudaFree(bucket2);
-}
-
+/**
+ * @brief CUDA kernel to insert a batch of key-value pairs using a two-bucket scheme.
+ *
+ * @details Each thread handles one key-value pair. It uses a "two-chance" linear
+ * probing strategy. For each probe index `i`, it tries to `atomicCAS` a slot in
+ * `bucket1`. If that fails, it immediately tries the slot at the same index `i`
+ * in `bucket2` before continuing the probe at `i+1`.
+ *
+ * @param keys Input array of keys.
+ * @param values Input array of values.
+ * @param numKeys The number of elements to insert.
+ * @param bucket1 Pointer to the first hash table in global memory.
+ * @param bucket2 Pointer to the second hash table in global memory.
+ * @param bucketSize The capacity of a single bucket.
+ */
 __global__ void kernel_insert(int *keys, int *values, int numKeys, hash_entry* bucket1, hash_entry* bucket2, int bucketSize) {
 
 
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
-	if (idx >= bucketSize) return;
+	// BUG: The boundary check should be against numKeys, not bucketSize.
+	// This can lead to out-of-bounds access on the keys/values arrays.
+	if (idx >= bucketSize) return; 
 	int keyOld, keyNew;
 	keyNew = keys[idx];
 	int hash = myHash(keyNew, bucketSize);
+	// --- Two-Chance Linear Probing with Wrap-Around ---
+	// Phase 1: Probe from hash to end of buckets.
 	for (int i = hash; i < bucketSize; i++) {
 		keyOld = atomicCAS(&bucket1[i].key, KEY_INVALID, keyNew);
 		if (keyOld == KEY_INVALID || keyOld == keyNew) {
@@ -51,6 +68,7 @@ __global__ void kernel_insert(int *keys, int *values, int numKeys, hash_entry* b
 			return;
 		}
 	}
+	// Phase 2: Wrap around and probe from start to hash.
 	for (int i = 0; i < hash; i++) {
 		keyOld = atomicCAS(&bucket1[i].key, KEY_INVALID, keyNew);
 		if (keyOld == KEY_INVALID || keyOld == keyNew) {
@@ -65,11 +83,19 @@ __global__ void kernel_insert(int *keys, int *values, int numKeys, hash_entry* b
 	}
 }
 
+/**
+ * @brief CUDA kernel to retrieve values for a batch of keys.
+ *
+ * @details Each thread handles one key, searching through `bucket1` and `bucket2`
+ * at each index of a linear probe. This is a read-only operation.
+ */
 __global__ void kernel_get(int *keys, int *values, int numItems, hash_entry* bucket1, hash_entry* bucket2, int bucketSize) {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
+	// BUG: The boundary check should be against numItems, not bucketSize.
 	if (idx >= bucketSize) return;
 	int crtKey = keys[idx];
 	int hash = myHash(crtKey, bucketSize);
+	// Search from hash to end.
 	for (int i = hash; i < bucketSize; i++) {
 		if (bucket1[i].key == crtKey) {
 			values[idx] = bucket1[i].value;
@@ -80,6 +106,7 @@ __global__ void kernel_get(int *keys, int *values, int numItems, hash_entry* buc
 			return;
 		}
 	}
+	// Wrap around and search from start to hash.
 	for (int i = 0; i < hash; i++) {
 		if (bucket1[i].key == crtKey) {
 			values[idx] = bucket1[i].value;
@@ -92,6 +119,13 @@ __global__ void kernel_get(int *keys, int *values, int numItems, hash_entry* buc
 	}
 }
 
+/**
+ * @brief CUDA kernel to rehash elements into new, larger buckets.
+ * @warning This kernel has a critical logic flaw. It uses the index `idx` from the
+ * old buckets as the index for the new buckets, instead of calculating a new
+ * hash based on the `newBucketSize`. This will lead to incorrect placement of
+ * all elements during a reshape.
+ */
 __global__ void kernel_rehash(hash_entry* oldBucket1, hash_entry* oldBucket2, int oldBucketSize,
 hash_entry* newBucket1, hash_entry* newBucket2, int newBucketSize) {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -166,6 +200,30 @@ hash_entry* newBucket1, hash_entry* newBucket2, int newBucketSize) {
 	}
 }
 
+// =================================================================================
+// Host-side GpuHashTable Class Implementation
+// =================================================================================
+
+GpuHashTable::GpuHashTable(int size) {
+	pairsInserted = 0;
+	bucketSize = size;
+	bucket1 = nullptr;
+	bucket2 = nullptr;
+	if (cudaMalloc(&bucket1, size * sizeof(hash_entry)) != cudaSuccess) {
+		return;
+	}
+	cudaMemset(bucket1, 0, size * sizeof(hash_entry));
+	if (cudaMalloc(&bucket2, size * sizeof(hash_entry)) != cudaSuccess) {
+		return;
+	}
+	cudaMemset(bucket2, 0, size * sizeof(hash_entry));
+}
+
+GpuHashTable::~GpuHashTable() {
+	cudaFree(bucket1);
+	cudaFree(bucket2);
+}
+
 void GpuHashTable::reshape(int sizeReshape) {
 	hash_entry* newBucket1;
 	hash_entry* newBucket2;
@@ -179,7 +237,8 @@ void GpuHashTable::reshape(int sizeReshape) {
 	cudaMemset(newBucket2, 0, sizeReshape * sizeof(hash_entry));
 	unsigned int numBlocks = bucketSize / THREADS_PER_BLOCK;
 	if (bucketSize % THREADS_PER_BLOCK != 0) numBlocks++;
-	kernel_rehash>>(bucket1, bucket2, bucketSize, newBucket1, newBucket2, sizeReshape);
+	// Calls the flawed rehash kernel.
+	kernel_rehash<<<numBlocks, THREADS_PER_BLOCK>>>(bucket1, bucket2, bucketSize, newBucket1, newBucket2, sizeReshape);
 	cudaDeviceSynchronize();
 	cudaFree(bucket1);
 	cudaFree(bucket2);
@@ -207,7 +266,7 @@ bool GpuHashTable::insertBatch(int *keys, int *values, int numKeys) {
 	if (numKeys % THREADS_PER_BLOCK != 0) numBlocks++;
 
 
-	kernel_insert>>(keysFromDevice, valuesFromDevice, numKeys, bucket1, bucket2, bucketSize);
+	kernel_insert<<<numBlocks, THREADS_PER_BLOCK>>>(keysFromDevice, valuesFromDevice, numKeys, bucket1, bucket2, bucketSize);
 	cudaDeviceSynchronize();
 	pairsInserted += numKeys;
 	cudaFree(keysFromDevice);
@@ -229,7 +288,9 @@ int *GpuHashTable::getBatch(int *keys, int numKeys) {
 	cudaMemcpy(keysFromDevice, keys, numKeys * sizeof(int), cudaMemcpyHostToDevice);
 	numBlocks = numKeys / THREADS_PER_BLOCK;
 	if (numKeys % THREADS_PER_BLOCK != 0) numBlocks++;
-	kernel_get>>(keysFromDevice, valuesFromDevice, numKeys, bucket1, bucket2, bucketSize);
+	// BUG: The return value of this function is a GPU pointer, which cannot be
+	// safely used by the host caller without a cudaMemcpy back to host memory.
+	kernel_get<<<numBlocks, THREADS_PER_BLOCK>>>(keysFromDevice, valuesFromDevice, numKeys, bucket1, bucket2, bucketSize);
 	cudaDeviceSynchronize();
 	cudaFree(keysFromDevice);
 	return valuesFromDevice;
@@ -253,8 +314,8 @@ float GpuHashTable::loadFactor() {
 #ifndef _HASHCPU_
 #define _HASHCPU_
 
-#include 
-#include 
+#include <string> 
+#include <vector> 
 
 #define THREADS_PER_BLOCK 1024
 #define MIN_LOAD 0.5
@@ -362,4 +423,3 @@ public:
 };
 
 #endif
-

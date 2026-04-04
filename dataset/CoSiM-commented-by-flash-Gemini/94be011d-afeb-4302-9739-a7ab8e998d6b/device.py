@@ -1,12 +1,43 @@
 
 
 
+"""
+@94be011d-afeb-4302-9739-a7ab8e998d6b/device.py
+@brief Implements a multi-threaded simulation for distributed sensor devices with parallel script execution per device.
+
+This module defines the core components for simulating a network of sensor devices,
+each capable of executing scripts, managing local sensor data, and interacting
+with a central supervisor. This version utilizes a `DeviceThread` that spawns
+`DeviceThreadHelper` threads to process different locations concurrently for a device.
+Synchronization across devices is handled by a `ReusableBarrierCond`.
+
+The simulation models device behavior over discrete timepoints, where devices
+process scripts, update local data, and communicate with neighbors under the
+guidance of a supervisor.
+
+Classes:
+- Device: Represents a single simulated sensor device.
+- DeviceThread: Manages the lifecycle and operation of a Device, including spawning
+                and coordinating `DeviceThreadHelper` instances.
+- DeviceThreadHelper: A worker thread responsible for executing scripts for a subset of locations.
+
+Domain: Distributed Systems Simulation, Concurrent Programming, Parallel Processing, Sensor Networks.
+"""
+
 from threading import Event, Thread, Lock
 from barrier import ReusableBarrierCond
 
 
 class Device(object):
-    
+    """
+    @brief Represents a single simulated sensor device in a distributed network.
+
+    Each device manages its own sensor data, interacts with a supervisor,
+    and executes assigned scripts in a multi-threaded environment. This version
+    uses a dedicated `DeviceThread` which, in turn, can spawn multiple
+    `DeviceThreadHelper` instances to process scripts for different locations
+    in parallel. Synchronization across devices is handled by a `ReusableBarrierCond`.
+    """
 
     def __init__(self, device_id, sensor_data, supervisor):
         

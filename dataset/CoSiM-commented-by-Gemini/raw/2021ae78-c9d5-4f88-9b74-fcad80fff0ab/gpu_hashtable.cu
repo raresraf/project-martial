@@ -1,4 +1,15 @@
-
+/**
+ * @file gpu_hashtable.cu
+ * @brief A self-contained implementation of a GPU-accelerated hash table.
+ * @details This file provides a complete hash table using CUDA, featuring an
+ * open-addressing, linear-probing collision strategy. The implementation uses
+ * robust `atomicCAS` operations for thread-safe insertions and includes an
+ * efficient, fully device-side reshape kernel.
+ *
+ * @warning The logic for tracking the number of elements (`currentSize`) is
+ * incorrect, as it increments on every insert call rather than only for new
+ * keys. This leads to an overestimated load factor and premature resizing.
+ */
 #include 
 #include 
 #include 
@@ -17,6 +28,9 @@ __device__ __const size_t prime_hash[] =
 };
 
 
+/**
+ * @brief Computes a hash value for a given key on the device.
+ */
 __device__ int getHash(int data, int limit) {
 	return ((long long) abs(data) * prime_hash[0]) % prime_hash[1] % limit;
 }
@@ -25,7 +39,8 @@ __device__ int getHash(int data, int limit) {
 GpuHashTable::GpuHashTable(int size) {
 	currentSize = 0;
 	ht_size = size;
-	DIE((cudaMalloc(&ht, size * sizeof(ht_pair)) != cudaSuccess), "cudaMalloc error\n");
+	DIE((cudaMalloc(&ht, size * sizeof(ht_pair)) != cudaSuccess), "cudaMalloc error
+");
 	cudaMemset(ht, 0, size * sizeof(ht_pair));
 }
 
@@ -36,6 +51,9 @@ GpuHashTable::~GpuHashTable() {
 }
 
 
+/**
+ * @brief CUDA kernel to rehash all elements from an old table to a new one.
+ */
 __global__ void reshape_function(ht_pair *old_ht, ht_pair *new_ht, int old_size, int new_size) {
 	unsigned int i = threadIdx.x + blockDim.x * blockIdx.x;
 
@@ -53,7 +71,7 @@ __global__ void reshape_function(ht_pair *old_ht, ht_pair *new_ht, int old_size,
 			key_ok = true;
 
 		
-		
+		// Block Logic: Linear probe using two ranges to handle wrap-around.
 		for (int count = 0; count < 2; count++) {
 			if (key_ok == true)
 				break;
@@ -70,10 +88,7 @@ __global__ void reshape_function(ht_pair *old_ht, ht_pair *new_ht, int old_size,
 
 			for (int x = start; x < finish; x++) {
 				if (key_ok == false) {
-					
-					
-					
-					
+					// Atomic Operation: Attempt to claim an empty slot in the new table.
 					if (atomicCAS(&new_ht[x].key, KEY_INVALID, key) == KEY_INVALID) {
 						key_ok = true;
 						atomicExch(&new_ht[x].value, old_ht[i].value);
@@ -95,14 +110,10 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 	DIE((cudaMalloc(&new_ht, ht_size* sizeof(ht_pair)) != cudaSuccess), "cudaMalloc reshape error");
 	cudaMemset(new_ht, 0, ht_size * sizeof(ht_pair));
 
-	
 	const size_t block_size = 256;
-	size_t blocks_no = ht_size / block_size;
-
-	if (ht_size % block_size)
-		++blocks_no;
-
+	size_t blocks_no = (old_size + block_size - 1) / block_size;
 	
+	// Launch the fully device-side reshape kernel.
 	reshape_function>>(ht, new_ht, old_size, ht_size);
 	cudaDeviceSynchronize();
 	cudaFree(ht);
@@ -111,6 +122,9 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 }
 
 
+/**
+ * @brief CUDA kernel to insert or update a batch of key-value pairs.
+ */
 __global__ void insert_function(int *keys, int *values, int numKeys, ht_pair *ht, int ht_size) {
 	unsigned int i = threadIdx.x + blockDim.x * blockIdx.x;
 
@@ -119,7 +133,7 @@ __global__ void insert_function(int *keys, int *values, int numKeys, ht_pair *ht
 		int new_hash = getHash(new_key, ht_size);
 
 		
-		
+		// Block Logic: Linear probe using two ranges to handle wrap-around.
 		for (int count = 0; count < 2; count++) {
 			int start = -1;
 			int finish = -1;
@@ -136,8 +150,7 @@ __global__ void insert_function(int *keys, int *values, int numKeys, ht_pair *ht
 				
 				int key0 = atomicCAS(&ht[x].key, KEY_INVALID, new_key);
 
-				
-				
+				// Invariant: If slot was empty or already held our key, the write is safe.
 				if (key0 == new_key || key0 == KEY_INVALID) {
 					atomicExch(&ht[x].value, values[i]);
 					return;
@@ -153,28 +166,23 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 
 	int *d_keys, *d_values;
 
-	
 	DIE(cudaMalloc(&d_keys, numKeys * sizeof(int)) != cudaSuccess, "cudaMalloc insert error");
 	DIE(cudaMalloc(&d_values, numKeys * sizeof(int)) != cudaSuccess, "cudaMalloc insert error");
 
 	cudaMemcpy(d_keys, keys, numKeys * sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(d_values, values, numKeys * sizeof(int), cudaMemcpyHostToDevice);
 
-	
+	// Pre-condition: Resize if load factor exceeds threshold.
 	if (float(currentSize + numKeys) / ht_size >= 0.95f)
 		reshape(int((currentSize + numKeys) / 0.9f));
 
 	const size_t block_size = 256;
-	size_t blocks_no = numKeys / block_size;
-
-	if (numKeys % block_size)
-		++blocks_no;
+	size_t blocks_no = (numKeys + block_size - 1) / block_size;
 
 	insert_function>>(d_keys, d_values, numKeys, ht, ht_size);
-
 	cudaDeviceSynchronize();
 
-	
+	// Bug: This incorrectly assumes every insertion is a new element.
 	currentSize += numKeys;
 
 	cudaFree(d_keys);
@@ -184,6 +192,9 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 }
 
 
+/**
+ * @brief CUDA kernel to retrieve values for a batch of keys.
+ */
 __global__ void get_function(int *d_keys, int *values, int numKeys, ht_pair *ht, int ht_size) {
 	unsigned int i = threadIdx.x + blockDim.x * blockIdx.x;
 
@@ -203,7 +214,6 @@ __global__ void get_function(int *d_keys, int *values, int numKeys, ht_pair *ht,
 				finish = current_hash;
 			}
 			
-			
 			for (int x = start; x < finish; x++) {
 				if (ht[x].key == current_key) {
 					values[i] = ht[x].value;
@@ -215,23 +225,18 @@ __global__ void get_function(int *d_keys, int *values, int numKeys, ht_pair *ht,
 }
 
 
-
-
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	int *d_keys;
 	int *d_val;
 
-	
 	DIE(cudaMalloc(&d_keys, numKeys * sizeof(int)) != cudaSuccess, "cudaMalloc get error");
+	// Memory Hierarchy: Use managed memory for the result values to simplify host access.
 	DIE(cudaMallocManaged(&d_val, numKeys * sizeof(int)) != cudaSuccess, "cudaMallocManaged get error");
-
 	
 	cudaMemcpy(d_keys, keys, numKeys * sizeof(int), cudaMemcpyHostToDevice);
 	const size_t block_size = 256;
-	size_t blocks_no = numKeys / block_size;
+	size_t blocks_no = (numKeys + block_size - 1) / block_size;
 
-	if (numKeys % block_size)
-		++blocks_no;
 	get_function>>(d_keys, d_val, numKeys, ht, ht_size);
 	cudaDeviceSynchronize();
 	cudaFree(d_keys);
@@ -264,14 +269,14 @@ using namespace std;
 
 #define	KEY_INVALID		0
 
-#define DIE(assertion, call_description) \
-	do {	\
-		if (assertion) {	\
-		fprintf(stderr, "(%s, %d): ",	\
-		__FILE__, __LINE__);	\
-		perror(call_description);	\
-		exit(errno);	\
-	}	\
+#define DIE(assertion, call_description) 
+	do {	
+		if (assertion) {	
+		fprintf(stderr, "(%s, %d): ",	
+		__FILE__, __LINE__);	
+		perror(call_description);	
+		exit(errno);	
+	}	
 } while (0)
 	
 const size_t primeList[] =
@@ -363,4 +368,3 @@ class GpuHashTable
 };
 
 #endif
-

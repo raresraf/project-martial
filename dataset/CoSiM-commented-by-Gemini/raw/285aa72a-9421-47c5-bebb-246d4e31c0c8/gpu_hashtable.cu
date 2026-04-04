@@ -1,4 +1,14 @@
-
+/**
+ * @file gpu_hashtable.cu
+ * @brief A self-contained implementation of a GPU-accelerated hash table using
+ *        a hybrid Cuckoo Hashing and Linear Probing algorithm.
+ * @details This file provides a complete hash table using CUDA. It uses a sophisticated
+ * Cuckoo Hashing approach with 3 hash functions. If the primary and secondary
+ * hash locations are full, it falls back to linear probing. This hybrid strategy
+ * aims to reduce collision chains. The implementation also features data packing,
+ * where a 32-bit key and 32-bit value are stored in a single 64-bit integer to
+ * improve memory efficiency.
+ */
 #include 
 #include 
 #include 
@@ -27,7 +37,8 @@ GpuHashTable::GpuHashTable(int size) {
 
 	hashmap = 0;
 	cudaMalloc((void **) &hashmap, size * sizeof(long long int));
-	DIE(hashmap == 0, "Couldn't allocate memory init!\n");
+	DIE(hashmap == 0, "Couldn't allocate memory init!
+");
 
 	cudaMemset(hashmap, 0, size * sizeof(long long int));
 	cudaDeviceSynchronize();
@@ -41,6 +52,11 @@ GpuHashTable::~GpuHashTable() {
 	cudaFree(hashmap);
 }
 
+/**
+ * @brief CUDA kernel to rehash all elements from an old table to a new, resized table.
+ * @details Each thread is responsible for migrating one valid element from the old
+ * table to the new one, using the same Cuckoo/Linear Probing strategy as the insert kernel.
+ */
 __global__ void kernel_putValues(unsigned long long int *newHashmap, unsigned long long int *hashmap, int nrSlots, int newNrSlots) {
 	unsigned int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	unsigned int key, slot, pos;
@@ -49,29 +65,26 @@ __global__ void kernel_putValues(unsigned long long int *newHashmap, unsigned lo
 	if (idx < nrSlots && hashmap[idx] != 0) {
 		key = KEY(hashmap[idx]);
 
-		
+		// Cuckoo Hashing: Try the first hash location.
 		slot = HASH_FUNC1(key, newNrSlots);
 		ret = atomicCAS(&newHashmap[slot], 0, hashmap[idx]);
 		if (ret == 0) 
 			return;
 
-		
+		// Cuckoo Hashing: Try the second hash location.
 		slot = HASH_FUNC2(key, newNrSlots);
 		ret = atomicCAS(&newHashmap[slot], 0, hashmap[idx]);
 		if (ret == 0)
 			return;
 
-		
+		// Fallback: If Cuckoo slots are full, begin linear probing.
 		pos = HASH_FUNC3(key, newNrSlots);
-
-		
 		for (slot = pos; slot < newNrSlots; slot++) {
 			ret = atomicCAS(&newHashmap[slot], 0, hashmap[idx]);
 			if (ret == 0)
 				return;
 		}
 
-		
 		for (slot = 0; slot < pos; slot++) {
 			ret = atomicCAS(&newHashmap[slot], 0, hashmap[idx]);
 			if (ret == 0)
@@ -85,12 +98,13 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 	unsigned long long int *newHashmap = 0;
 
 	cudaMalloc((void **) &newHashmap, numBucketsReshape * sizeof(long long int));
-	DIE(newHashmap == 0, "Couldn't allocate memory reshape!\n");
+	DIE(newHashmap == 0, "Couldn't allocate memory reshape!
+");
 
 	cudaMemset(newHashmap, 0, numBucketsReshape * sizeof(long long int));
 	cudaDeviceSynchronize();
 
-	kernel_putValues>>(newHashmap, hashmap, nrSlots, numBucketsReshape);
+	kernel_putValues>>>(newHashmap, hashmap, nrSlots, numBucketsReshape);
 	cudaDeviceSynchronize();
 
 	cudaFree(hashmap);
@@ -98,71 +112,74 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 	nrSlots = numBucketsReshape;
 }
 
+/**
+ * @brief Helper device function to perform linear probing from a starting position.
+ */
 __device__ int insertToEmptySlot(unsigned long long int *hashmap, unsigned long long int keyValue, int pos, int nrSlots) {
 	unsigned int slot;
 	unsigned long long int ret;
 
-	
+	// Linear probe from `pos` to the end of the table.
 	for (slot = pos; slot < nrSlots; slot++) {
 		ret = atomicCAS(&hashmap[slot], 0, keyValue);
 		if (ret == 0)
-			return 0;
-		
+			return 0; // Success: new insertion.
 		if (KEY(ret) == KEY(keyValue)) {
 			hashmap[slot] = keyValue;
-			return 1;
+			return 1; // Success: update.
 		}
 	}
 
-	
+	// Wrap-around and probe from the beginning to `pos`.
 	for (slot = 0; slot < pos; slot++) {
 		ret = atomicCAS(&hashmap[slot], 0, keyValue);
 		if (ret == 0)
 			return 0;
-		
 		if (KEY(ret) == KEY(keyValue)) {
 			hashmap[slot] = keyValue;
 			return 1;
 		}
 	}
-	return -1;
+	return -1; // Failure: table is full.
 }
 
+/**
+ * @brief CUDA kernel for inserting a batch using the Cuckoo/Linear Probing strategy.
+ */
 __global__ void kernel_insertBatch(unsigned long long int *hashmap, unsigned int *d_keys, unsigned int *d_values, int numKeys, int nrSlots, int *updatedKeys) {
 	unsigned int slot, pos;
 	unsigned int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	unsigned long long int keyValue, ret;
 
 	if (idx < numKeys && d_keys[idx] != 0 && d_values[idx] != 0) {
+		// Data Packing: Combine key and value into a single 64-bit integer.
 		keyValue = d_keys[idx];
 		keyValue = keyValue << shiftBits;
 		keyValue += d_values[idx];
 
-		
+		// Cuckoo Hashing: Try the first hash location.
 		slot = HASH_FUNC1(d_keys[idx], nrSlots);
 		ret = atomicCAS(&hashmap[slot], 0, keyValue);
 		if (ret == 0)
-			return;
-		
+			return; // Success: new insertion.
 		if (KEY(ret) == d_keys[idx]) {
 			hashmap[slot] = keyValue;
 			atomicAdd(updatedKeys, 1);
-			return;
+			return; // Success: update.
 		}
 
-		
+		// Cuckoo Hashing: Try the second hash location.
 		slot = HASH_FUNC2(d_keys[idx], nrSlots);
 		ret = atomicCAS(&hashmap[slot], 0, keyValue);
 		if (ret == 0)
 			return;
-		
 		if (KEY(ret) == d_keys[idx]) {
 			hashmap[slot] = keyValue;
 			atomicAdd(updatedKeys, 1);
 			return;
 		}
 
-		
+		// Fallback: If Cuckoo slots are full, begin linear probing from the third hash position.
 		pos = HASH_FUNC3(d_keys[idx], nrSlots);
 		if (insertToEmptySlot(hashmap, keyValue, pos, nrSlots))
 			atomicAdd(updatedKeys, 1);
@@ -178,29 +195,30 @@ bool GpuHashTable::insertBatch(int *keys, int *values, int numKeys) {
 	if (numKeys + occupiedSlots >= nrSlots)
 		reshape(newSize(numKeys + occupiedSlots));
 
+	// Functional Utility: Use a device-side atomic counter to accurately track updated keys.
 	cudaMalloc((void **) &updatedKeys, sizeof(int));
-	DIE(updatedKeys == 0, "Couldn't allocate memory insertBatch!\n");
-
-
+	DIE(updatedKeys == 0, "Couldn't allocate memory insertBatch!
+");
 
 	cudaMalloc((void **) &d_values, numKeys * sizeof(int));
-	DIE(d_values == 0, "Couldn't allocate device memory insertBatch!\n");
-
+	DIE(d_values == 0, "Couldn't allocate device memory insertBatch!
+");
 	cudaMalloc((void **) &d_keys, numKeys * sizeof(int));
-	DIE(d_keys == 0, "Couldn't allocate device memory insertBatch!\n");
+	DIE(d_keys == 0, "Couldn't allocate device memory insertBatch!
+");
 
 	cudaMemcpy(d_values, values, numKeys * sizeof(int), cudaMemcpyHostToDevice);
 	cudaDeviceSynchronize();
-
 	cudaMemcpy(d_keys, keys, numKeys * sizeof(int), cudaMemcpyHostToDevice);
 	cudaDeviceSynchronize();
 
-	kernel_insertBatch>>(hashmap, d_keys, d_values, numKeys, nrSlots, updatedKeys);
+	kernel_insertBatch>>>(hashmap, d_keys, d_values, numKeys, nrSlots, updatedKeys);
 	cudaDeviceSynchronize();
 
 	cudaMemcpy(&num, updatedKeys, sizeof(int), cudaMemcpyDeviceToHost);
 	cudaDeviceSynchronize();
 
+	// Update host-side counter with the precise number of new elements.
 	occupiedSlots += (numKeys - num);
 
 	cudaFree(updatedKeys);
@@ -210,13 +228,16 @@ bool GpuHashTable::insertBatch(int *keys, int *values, int numKeys) {
 	return true;
 }
 
+/**
+ * @brief CUDA kernel to retrieve values for a batch of keys.
+ */
 __global__ void kernel_getBatch(unsigned long long int *hashmap, unsigned int *d_keys, int numKeys, unsigned int *d_batch, unsigned int nrSlots) {
 	unsigned int slot, pos;
 	unsigned int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	unsigned long long int keyValue;
 
 	if (idx < numKeys) {
-		
+		// Cuckoo Hashing: Check first hash location.
 		slot = HASH_FUNC1(d_keys[idx], nrSlots);
 		keyValue = hashmap[slot];
 		if (keyValue == 0)
@@ -226,7 +247,7 @@ __global__ void kernel_getBatch(unsigned long long int *hashmap, unsigned int *d
 			return;
 		}
 
-		
+		// Cuckoo Hashing: Check second hash location.
 		slot = HASH_FUNC2(d_keys[idx], nrSlots);
 		keyValue = hashmap[slot];
 		if (keyValue == 0)
@@ -236,10 +257,8 @@ __global__ void kernel_getBatch(unsigned long long int *hashmap, unsigned int *d
 			return;
 		}
 
-		
+		// Fallback: Linear probing from the third hash location.
 		pos = HASH_FUNC3(d_keys[idx], nrSlots);
-
-		
 		for (slot = pos; slot < nrSlots; slot++) {
 			keyValue = hashmap[slot];
 			if (keyValue == 0)
@@ -250,7 +269,6 @@ __global__ void kernel_getBatch(unsigned long long int *hashmap, unsigned int *d
 			}
 		}
 
-		
 		for (slot = 0; slot < pos; slot++) {
 			keyValue = hashmap[slot];
 			if (keyValue == 0)
@@ -270,20 +288,20 @@ int* GpuHashTable::getBatch(int *keys, int numKeys) {
 	unsigned int *d_batch, *d_keys;
 
 	batch = (int *)malloc(numKeys * sizeof(int));
-	DIE(batch == 0, "Couldn't allocate memory getBatch!\n");
-
-
+	DIE(batch == 0, "Couldn't allocate memory getBatch!
+");
 
 	cudaMalloc((void **) &d_batch, numKeys * sizeof(int));
-	DIE(d_batch == 0, "Couldn't allocate device memory getBatch!\n");
-
+	DIE(d_batch == 0, "Couldn't allocate device memory getBatch!
+");
 	cudaMalloc((void **) &d_keys, numKeys * sizeof(int));
-	DIE(d_keys == 0, "Couldn't allocate device memory getBatch!\n");
+	DIE(d_keys == 0, "Couldn't allocate device memory getBatch!
+");
 
 	cudaMemcpy(d_keys, keys, numKeys * sizeof(int), cudaMemcpyHostToDevice);
 	cudaDeviceSynchronize();
 	
-	kernel_getBatch>>(hashmap, d_keys, numKeys, d_batch, nrSlots);
+	kernel_getBatch>>>(hashmap, d_keys, numKeys, d_batch, nrSlots);
 	cudaDeviceSynchronize();
 
 	cudaMemcpy(batch, d_batch, numKeys * sizeof(int), cudaMemcpyDeviceToHost);
@@ -318,14 +336,14 @@ using namespace std;
 
 #define	KEY_INVALID		0
 
-#define DIE(assertion, call_description) \
-	do {	\
-		if (assertion) {	\
-		fprintf(stderr, "(%s, %d): ",	\
-		__FILE__, __LINE__);	\
-		perror(call_description);	\
-		exit(errno);	\
-	}	\
+#define DIE(assertion, call_description) 
+	do {	
+		if (assertion) {	
+		fprintf(stderr, "(%s, %d): ",	
+		__FILE__, __LINE__);	
+		perror(call_description);	
+		exit(errno);	
+	}	
 } while (0)
 	
 const size_t primeList[] =
@@ -411,4 +429,3 @@ class GpuHashTable
 };
 
 #endif
-

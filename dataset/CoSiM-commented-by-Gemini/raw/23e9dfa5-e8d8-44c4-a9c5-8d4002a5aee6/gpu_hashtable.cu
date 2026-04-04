@@ -1,4 +1,17 @@
-
+/**
+ * @file gpu_hashtable.cu
+ * @brief A self-contained, but highly complex, implementation of a GPU hash table.
+ * @details This file provides a complete hash table using CUDA. It uses an
+ * open-addressing, linear-probing collision strategy with a Structure-of-Arrays
+ * (SoA) memory layout.
+ *
+ * @warning The design is unusually complex. It uses a device-side struct that
+ * contains pointers to other device memory regions (`hashmap_struct`). This
+ * double-indirection and the convoluted host-side management of these device
+ * pointers make the code difficult to follow, error-prone, and likely inefficient
+ * compared to more direct approaches. The `reshape_cuda` kernel also contains a
+ * likely typo that would prevent it from functioning correctly.
+ */
 #include 
 #include 
 #include 
@@ -8,6 +21,9 @@
 #include "gpu_hashtable.hpp"
 
 
+/**
+ * @brief CUDA kernel to initialize the main hashmap struct on the device.
+ */
 __global__ void init(hashmap_struct *hashmap, int *key, int *value, int size)
 {
 	hashmap->key = key;
@@ -46,6 +62,9 @@ GpuHashTable::~GpuHashTable()
 }
 
 
+/**
+ * @brief Computes a hash value for a given key on the device.
+ */
 __device__ int my_hash(int data, int limit)
 {
 	return ((long)abs(data) * 41812097llu) % 3371518343llu % limit;
@@ -53,11 +72,17 @@ __device__ int my_hash(int data, int limit)
 
 
 
+/**
+ * @brief CUDA kernel to rehash all elements from an old table to a new one.
+ * @warning This kernel contains a probable typo `i max` which should be `i < hashmap->max`.
+ * This would cause the kernel to not execute correctly.
+ */
 __global__ void reshape_cuda(hashmap_struct *hashmap, int *keys, int *values, int new_size)
 {
 	int i = threadIdx.x + blockDim.x * blockIdx.x;
 
-	if(i max && hashmap->key[i] > 0)
+	// Bug: This condition `i max` is likely a typo for `i < hashmap->max`.
+	if(i < hashmap->max && hashmap->key[i] > 0)
 	{
 		int hash = my_hash(hashmap->key[i], new_size);
 		for(int j = 0; j < new_size; j++)
@@ -104,8 +129,8 @@ void GpuHashTable::reshape(int numBucketsReshape)
 		cudaMalloc((void **) &values, new_size * sizeof(int));
 		cudaMemset(values, 0, new_size);
 
-		int chunks = load_map->max / 256 + 1;
-		reshape_cuda>>(hashmap, keys, values, new_size);
+		int chunks = (load_map->max + 255) / 256;
+		reshape_cuda>>>(hashmap, keys, values, new_size);
 		cudaDeviceSynchronize();
 
 		cudaFree(load_map->key);
@@ -116,7 +141,7 @@ void GpuHashTable::reshape(int numBucketsReshape)
 
 		cudaFree(hashmap);
 		cudaMalloc((void **) &hashmap, sizeof(hashmap_struct));
-		init>>(hashmap, keys, values, new_size);
+		init>>>(hashmap, keys, values, new_size);
 
 		
 		free(load_map);
@@ -126,6 +151,9 @@ void GpuHashTable::reshape(int numBucketsReshape)
 
 
 
+/**
+ * @brief CUDA kernel to insert or update a batch of key-value pairs.
+ */
 __global__ void insert(hashmap_struct *hashmap, int *keys, int *values, int numKeys)
 {
 	int i = threadIdx.x + blockDim.x * blockIdx.x;
@@ -138,7 +166,7 @@ __global__ void insert(hashmap_struct *hashmap, int *keys, int *values, int numK
 		{
 			int hash = my_hash(key, hashmap->max);
 
-			for (int j = 0; j max; j++)
+			for (int j = 0; j < hashmap->max; j++)
 			{
 				int aux = atomicCAS(&(hashmap->key[hash]), 0, key);
 				if(aux == 0)
@@ -163,15 +191,18 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys)
 	reshape(numKeys);
 	cudaMemcpy(aux_key, keys, numKeys * sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(aux_value, values, numKeys * sizeof(int), cudaMemcpyHostToDevice);
-	int chunks = numKeys / 256 + 1;
+	int chunks = (numKeys + 255) / 256;
 
-	insert>>(hashmap, aux_key, aux_value, numKeys);
+	insert>>>(hashmap, aux_key, aux_value, numKeys);
 	cudaDeviceSynchronize();
 
 	return true;
 }
 
 
+/**
+ * @brief CUDA kernel to retrieve values for a batch of keys.
+ */
 __global__ void get(hashmap_struct *hashmap, int *keys, int *values, int numKeys)
 {
 
@@ -183,7 +214,7 @@ __global__ void get(hashmap_struct *hashmap, int *keys, int *values, int numKeys
 		int key = keys[i];
 		int hash = my_hash(key, hashmap->max);
 
-		for(int j = 0; j max; j++)
+		for(int j = 0; j < hashmap->max; j++)
 		{
 			if(hashmap->key[hash] == key)
 			{
@@ -197,10 +228,10 @@ __global__ void get(hashmap_struct *hashmap, int *keys, int *values, int numKeys
 
 int* GpuHashTable::getBatch(int* keys, int numKeys)
 {
-	int chunks = numKeys / 256 + 1;
+	int chunks = (numKeys + 255) / 256;
 
 	cudaMemcpy(aux_key, keys, numKeys * sizeof(int), cudaMemcpyHostToDevice);
-	get>>(hashmap, aux_key, aux_value, numKeys);
+	get>>>(hashmap, aux_key, aux_value, numKeys);
 	cudaDeviceSynchronize();
 
 	cudaMemcpy(get_value, aux_value, numKeys * sizeof(int), cudaMemcpyDeviceToHost);
@@ -239,7 +270,7 @@ float GpuHashTable::loadFactor() {
 
 #define HASH_LOAD_FACTOR GpuHashTable.loadFactor()
 
-#include "test_map.cpp">>>> file: gpu_hashtable.hpp
+#include "test_map.cpp"
 #ifndef _HASHCPU_
 #define _HASHCPU_
 
@@ -247,14 +278,14 @@ using namespace std;
 
 #define	KEY_INVALID		0
 
-#define DIE(assertion, call_description) \
-	do {	\
-		if (assertion) {	\
-		fprintf(stderr, "(%s, %d): ",	\
-		__FILE__, __LINE__);	\
-		perror(call_description);	\
-		exit(errno);	\
-	}	\
+#define DIE(assertion, call_description) 
+	do {	
+		if (assertion) {	
+		fprintf(stderr, "(%s, %d): ",	
+		__FILE__, __LINE__);	
+		perror(call_description);	
+		exit(errno);	
+	}	
 } while (0)
 	
 const size_t primeList[] =
@@ -352,4 +383,3 @@ class GpuHashTable
 };
 
 #endif
-

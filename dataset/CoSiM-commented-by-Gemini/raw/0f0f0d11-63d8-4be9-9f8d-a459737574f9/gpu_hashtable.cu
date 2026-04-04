@@ -1,57 +1,82 @@
-
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
+/**
+ * @file gpu_hashtable.cu
+ * @brief A self-contained implementation of a GPU-accelerated hash table.
+ * @details This file provides a complete hash table implementation using CUDA.
+ * It employs an open-addressing, linear-probing collision strategy.
+ * A notable feature is its memory layout optimization: it packs a 32-bit key
+ * and a 32-bit value into a single 64-bit unsigned long long, reducing memory
+ * footprint and bandwidth. However, its reshape operation is performed on the host,
+ * involving expensive data transfers between device and host.
+ */
+#include <cuda.h>
+#include <cuda_runtime.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <math.h>
 
 #include "gpu_hashtable.hpp"
 #define LOAD_FACTOR 0.8f
 
-
+/**
+ * @brief CUDA kernel to insert a batch of key-value pairs into the hash table.
+ * @param hashmap Device pointer to the array of 64-bit packed key-value pairs.
+ * @param capacity The total capacity of the hashmap.
+ * @param keys Device pointer to the input keys for the batch.
+ * @param values Device pointer to the input values for the batch.
+ * @param numKeys The number of pairs in the batch.
+ * @param num_inserted A device counter, atomically incremented for each new insertion.
+ * @details Each thread handles one key-value pair. It packs the key and value into a
+ * 64-bit integer and uses linear probing with `atomicCAS` to insert it. If a key
+ * already exists, it updates the value.
+ */
 __global__ void insertHash(unsigned long long *hashmap, int capacity, int *keys, int *values, int numKeys, unsigned int *num_inserted) {
 
+	// Thread Indexing: Each thread handles one key-value pair from the input.
 	unsigned int id = threadIdx.x + blockDim.x * blockIdx.x;
 
 	if(id < numKeys)
 	{	
+		// Pre-condition: Ignore invalid entries.
 		if(keys[id] <= 0 || values[id] <= 0)
 		{
 			return;
 		}
 		
-
-
+		// Data Packing: Combine a 32-bit key and a 32-bit value into one 64-bit integer.
+		// The key occupies the most significant 32 bits, the value the least significant.
 		unsigned long long new_kv;
-		
 		new_kv = keys[id];
 		new_kv = new_kv << 32;
 		new_kv += values[id];
 
 		int index = hash1(keys[id], capacity);
 		
-		
+		// Block Logic: Infinite loop for linear probing, broken on success.
 		while(true)
 		{
-			
-
-
+			// Atomic Operation: Attempt to write the packed key-value pair into an empty slot (0).
 			atomicCAS(&hashmap[index], (unsigned long long) 0, new_kv);
 			
+			// Pre-condition: Check if the write succeeded. If not, the slot was occupied.
 			if(hashmap[index] != new_kv)
 			{
+				// Unpack the existing key from the 64-bit value.
 				unsigned long long k = hashmap[index] >> 32;
 
+				// Pre-condition: If keys match, this is an update operation.
 				if(k == new_kv >> 32)
 				{
+					// Atomically update the entry with the new packed value.
 					atomicCAS(&hashmap[index], hashmap[index], new_kv);
 					return;
 				}
+				// Collision: The slot is occupied by a different key, so probe the next slot.
 				index = (index + 1) % capacity;
 			} else 
 			{
-				
+				// Invariant: The initial atomicCAS succeeded, meaning a new element was inserted.
+				// Atomically increment the counter for newly inserted elements.
 				atomicInc(num_inserted, 4294967295);
 				return;
 			}			
@@ -60,20 +85,31 @@ __global__ void insertHash(unsigned long long *hashmap, int capacity, int *keys,
 	}	
 }
 
+/**
+ * @brief CUDA kernel to retrieve a batch of values for a given set of keys.
+ * @param hash Device pointer to the packed key-value hash map.
+ * @param capacity The capacity of the hash map.
+ * @param keys Device pointer to the keys to look up.
+ * @param values Device pointer to the output array for the found values.
+ * @param numKeys The number of keys in the batch.
+ * @details Each thread searches for one key using linear probing. On finding a match,
+ * it unpacks the 64-bit entry to extract and write the 32-bit value.
+ */
 __global__ void getHash(unsigned long long *hash, int capacity, int *keys, int *values, int numKeys) {
 	
 	unsigned int id = threadIdx.x + blockDim.x * blockIdx.x;
 	if(id < numKeys)
 	{
 		int index = hash1(keys[id], capacity);
-	
 		int start = index;
 			
+		// Block Logic: Linear probing loop.
 		while(true)
 		{
-			
+			// Unpack key from the 64-bit entry and check for a match.
 			if(hash[index] >> 32 == keys[id])
 			{
+				// Data Unpacking: Extract the 32-bit value from the LSBs.
 				unsigned long long temp = hash[index];
 				temp = temp << 32;
 				temp = temp >> 32;
@@ -82,40 +118,46 @@ __global__ void getHash(unsigned long long *hash, int capacity, int *keys, int *
 			
 			} else if( hash[index] >> 32 == 0)
 			{
+				// Invariant: An empty slot means the key is not in the table.
 				values[id] = 0;
 				return;
 			} else 
 			{
+				// Collision: Probe the next slot.
 				index = (index + 1) % capacity;
+				// Pre-condition: If we've probed the whole table, the key is not present.
 				if(start == index)
 				{
 					values[id] = 0;
 					return;
 				}	
 			}
-						
-			
 		}
 	}
-	
 }
  
-
+/**
+ * @brief Constructs a GpuHashTable object.
+ * @param size The initial capacity of the hash table.
+ */
 GpuHashTable::GpuHashTable(int size) {
+	// Memory Hierarchy: Allocate the packed key-value map on the device.
 	cudaMalloc((void**) &hashmap, size * sizeof(unsigned long long));
 	if(hashmap == NULL)
 	{
-		printf("Allocation failed[hashmap]\n");
+		printf("Allocation failed[hashmap]
+");
 		return;
 	}
-
 
 	cudaMemset(hashmap, 0x00, size * sizeof(unsigned long long));
 	capacity = size;
 	occupied = 0; 
 }
 
-
+/**
+ * @brief Destroys the GpuHashTable object, freeing device memory.
+ */
 GpuHashTable::~GpuHashTable() {
 	cudaFree(hashmap);
 	hashmap = NULL;
@@ -123,16 +165,23 @@ GpuHashTable::~GpuHashTable() {
 	occupied = 0;
 }
 
-
+/**
+ * @brief Resizes the hash table.
+ * @param numBucketsReshape The new capacity.
+ * @warning This reshape implementation is highly inefficient. It copies all data
+ * to the host, unpacks it, copies it back to the device, and re-inserts it
+ * using the `insertHash` kernel. This incurs significant performance penalties
+ * due to multiple large memory transfers and host-side processing.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) {
 	
 	unsigned long long *tempHash;
-	int threads_num_block = 1024;
-	int num_blocks = capacity / threads_num_block + 1;
 
+	// Allocate new table on device.
 	if(cudaMalloc((void**) &tempHash, numBucketsReshape * sizeof(unsigned long long)) != cudaSuccess)
 	{
-		printf("Allocation failed [tempHash]\n");
+		printf("Allocation failed [tempHash]
+");
 		return;
 	}
 	cudaMemset(tempHash, 0x00, numBucketsReshape * sizeof(unsigned long long));
@@ -144,6 +193,8 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 		capacity = numBucketsReshape;
 		return;
 	}
+
+	// Host-side unpack: copy entire map to host, iterate, and unpack into key/value arrays.
 	int num_el = 0;
 	int *k_h = (int *) malloc (occupied * sizeof(int));
 	int *v_h = (int *) malloc (occupied * sizeof(int));
@@ -152,56 +203,47 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 
 	if( k_h == NULL || v_h == NULL || hashmap_h == NULL)
 	{
-		printf("Allocation failed [k_h v_h hashmap_h]\n");
+		printf("Allocation failed [k_h v_h hashmap_h]
+");
 		return;
 	}
 	
 	for(int i = 0; i < capacity; i++)
 	{
-
-
 		unsigned long long temp = hashmap_h[i];
 		if(temp >> 32 != 0)
 		{
 			k_h[num_el] = temp >> 32;
-			
 			temp = temp << 32;
 			temp = temp >> 32;
-
 			v_h[num_el] = temp;
 			num_el++;
 		}
 	}
 	
+	// Copy unpacked keys/values back to device for re-insertion.
 	int *k_d;
 	int *v_d;
-
-
-	if(cudaMalloc((void **) &k_d, num_el * sizeof(int)) != cudaSuccess)
-	{
-		printf("Allocation failed\n");
-	}
-	if(cudaMalloc((void **) &v_d, num_el * sizeof(int)) != cudaSuccess)
-	{
-		printf("Allocation failed\n");
-	} 
+	if(cudaMalloc((void **) &k_d, num_el * sizeof(int)) != cudaSuccess) { printf("Allocation failed
+"); }
+	if(cudaMalloc((void **) &v_d, num_el * sizeof(int)) != cudaSuccess) { printf("Allocation failed
+"); } 
 	
 	cudaMemcpy(k_d, k_h, num_el * sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(v_d, v_h, num_el * sizeof(int), cudaMemcpyHostToDevice);
 	unsigned int *num_inserted;
 
-
 	cudaMalloc((void **) &num_inserted, sizeof(unsigned int));
 	cudaMemset(num_inserted, 0, sizeof(unsigned int));
 	
-	insertHash>>(tempHash, numBucketsReshape, k_d, v_d, num_el, num_inserted);
-
+	// Launch kernel to re-insert all elements into the new table.
+	int threads_num_block = 1024;
+	int num_blocks = (num_el + threads_num_block - 1) / threads_num_block;
+	insertHash<<<num_blocks, threads_num_block>>>(tempHash, numBucketsReshape, k_d, v_d, num_el, num_inserted);
 	cudaDeviceSynchronize();
 		
-
+	// Clean up and swap to new hashmap.
 	capacity = numBucketsReshape;
-
-	
 	cudaFree(k_d);
 	cudaFree(v_d);
 	cudaFree(hashmap);
@@ -209,68 +251,59 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 	free(k_h);
 	free(v_h);
 	hashmap = tempHash;
-	
 	tempHash = NULL;
 }
 
-
+/**
+ * @brief Inserts a batch of key-value pairs into the hash table.
+ */
 bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 			
 	int *k_d;
 	int *v_d;
 	int acceptable_kv = 0;
 	int threads_num_block = 1024;	
-	int num_blocks = numKeys / threads_num_block + 1;
+	int num_blocks = (numKeys + threads_num_block - 1) / threads_num_block;
 
+	// Allocate temporary device memory for the input batch.
 	cudaMalloc((void**) &k_d, numKeys * sizeof(int));
-	if(k_d == NULL)
-	{
-		printf("Allocation failed[key]\n");
-		return false;
-	}
-
+	if(k_d == NULL) { printf("Allocation failed[key]
+"); return false; }
 	cudaMalloc((void**) &v_d, numKeys * sizeof(int));
-	if(v_d == NULL)
-	{
+	if(v_d == NULL) { printf("Allocation failed[value]
+"); return false; }	
 
-
-		printf("Allocation failed[value]\n");
-		return false;
-	}	
 	cudaMemcpy(k_d, keys, numKeys * sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(v_d, values, numKeys * sizeof(int), cudaMemcpyHostToDevice);	
 	
+	// Count valid pairs on host before resizing.
 	for(int i = 0; i < numKeys; i++)
 	{
-		if(keys[i] > 0 && values[i] > 0)
-		{
-			acceptable_kv++;		
-		}
+		if(keys[i] > 0 && values[i] > 0) { acceptable_kv++; }
 	}
 	
-	if( (acceptable_kv + occupied) / capacity > LOAD_FACTOR) {
+	// Pre-condition: Check if the load factor will exceed a threshold and resize if necessary.
+	if( (acceptable_kv + occupied) / (float)capacity > LOAD_FACTOR) {
 		int new_capacity = (acceptable_kv + occupied) / LOAD_FACTOR;
 		reshape((int) 1.5 * new_capacity);
 	}
+
 	unsigned int *num_inserted_d;
 	unsigned int *num_inserted_h = (unsigned int *) malloc (sizeof(unsigned int));
 	(*num_inserted_h) = 0;
 
-
-
 	cudaMalloc((void **) &num_inserted_d, sizeof(unsigned int));
 	cudaMemcpy(num_inserted_d, num_inserted_h, sizeof(unsigned int), cudaMemcpyHostToDevice);
 		
-	
-	insertHash>>(hashmap, capacity, k_d, v_d, numKeys, num_inserted_d);
-	
+	// Launch the insertion kernel.
+	insertHash<<<num_blocks, threads_num_block>>>(hashmap, capacity, k_d, v_d, numKeys, num_inserted_d);
 	cudaDeviceSynchronize();
 
 	cudaError_t error = cudaGetLastError();
-	if(error != cudaSuccess)
-	{
-		fprintf(stderr, "ERR: %s \n", cudaGetErrorString(error));
-	}
+	if(error != cudaSuccess) { fprintf(stderr, "ERR: %s 
+", cudaGetErrorString(error)); }
+	
+	// Update the host-side count of occupied slots.
 	cudaMemcpy(num_inserted_h, num_inserted_d, sizeof(unsigned int), cudaMemcpyDeviceToHost);	
 	occupied += (*num_inserted_h);
 	
@@ -281,29 +314,26 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	return true;
 }
 
-
+/**
+ * @brief Retrieves values for a batch of keys.
+ */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	int *k_d;
-
-
 	int *v_d;
 	int threads_num_block = 1024;
-	int num_blocks = numKeys / threads_num_block + 1;
-	if(cudaMalloc((void **) &k_d, numKeys * sizeof(int)) != cudaSuccess)
-	{
-		printf("Allocation error\n");
-		return NULL;
-	}
+	int num_blocks = (numKeys + threads_num_block - 1) / threads_num_block;
+
+	if(cudaMalloc((void **) &k_d, numKeys * sizeof(int)) != cudaSuccess) { printf("Allocation error
+"); return NULL; }
+	if(cudaMalloc((void **) &v_d, numKeys * sizeof(int)) != cudaSuccess) { printf("Allocation error
+"); return NULL; }
 	
-	if(cudaMalloc((void **) &v_d, numKeys * sizeof(int)) != cudaSuccess)
-	{
-		printf("Allocation error\n");
-		return NULL;
-	}
 	cudaMemcpy(k_d, keys, numKeys * sizeof(int), cudaMemcpyHostToDevice);
 	
-	getHash>>(hashmap,capacity,k_d, v_d, numKeys);
+	// Launch the retrieval kernel.
+	getHash<<<num_blocks, threads_num_block>>>(hashmap,capacity,k_d, v_d, numKeys);
 
+	// Copy results from device to a new host array.
 	int *v_h;
 	v_h = (int *) malloc (numKeys * sizeof(int));
 	cudaMemcpy(v_h, v_d, numKeys * sizeof(int), cudaMemcpyDeviceToHost);
@@ -311,10 +341,13 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	cudaFree(k_d);
 	cudaFree(v_d);
 	
+	// The caller is responsible for freeing the returned host memory.
 	return v_h;
 }
 
-
+/**
+ * @brief Calculates the current load factor.
+ */
 float GpuHashTable::loadFactor() {
 	return (1.0f * occupied) / capacity; 
 }
@@ -337,14 +370,14 @@ using namespace std;
 
 #define	KEY_INVALID		0
 
-#define DIE(assertion, call_description) \
-	do {	\
-		if (assertion) {	\
-		fprintf(stderr, "(%s, %d): ",	\
-		__FILE__, __LINE__);	\
-		perror(call_description);	\
-		exit(errno);	\
-	}	\
+#define DIE(assertion, call_description) 
+	do {	
+		if (assertion) {	
+		fprintf(stderr, "(%s, %d): ",	
+		__FILE__, __LINE__);	
+		perror(call_description);	
+		exit(errno);	
+	}	
 } while (0)
 	
 __device__ const size_t primeList[] =
@@ -427,4 +460,3 @@ class GpuHashTable
 };
 
 #endif
-

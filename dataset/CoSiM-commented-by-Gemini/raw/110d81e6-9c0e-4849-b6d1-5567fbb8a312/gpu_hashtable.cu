@@ -1,9 +1,18 @@
-
-#include 
-#include 
-#include 
-#include 
-#include 
+/**
+ * @file gpu_hashtable.cu
+ * @brief A self-contained implementation of a GPU-accelerated hash table.
+ * @details This file provides a complete hash table implementation using CUDA.
+ * It uses an open-addressing, linear-probing collision strategy. Key features
+ * include a fully device-side reshape kernel for efficient resizing and a
+ * dynamic resizing policy based on load factor thresholds. However, the insert
+ * kernel contains a potential race condition, and some kernel launch logic
+ * appears redundant.
+ */
+#include <cuda.h>
+#include <cuda_runtime.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "gpu_hashtable.hpp"
 
@@ -12,21 +21,34 @@
 #define num_threads 256
 
 
+/**
+ * @brief CUDA kernel to rehash all elements from an old table to a new, resized table.
+ * @param oldHash The source hash table.
+ * @param newHash The destination hash table (must be pre-allocated and empty).
+ * @details Each thread is responsible for migrating one valid element from the old
+ * table to the new one. The linear probing logic is split into two loops to handle
+ * table wrap-around.
+ */
 __global__ void do_reshape(hashtable oldHash, hashtable newHash) {
+	// Thread Indexing: Each thread is assigned one slot from the old table.
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
+
+	// Pre-condition: Process only if the index is within bounds and the slot is not empty.
 	if (index < oldHash.size &&
 		oldHash.table[index].key != KEY_INVALID) {
 		int key = oldHash.table[index].key;
 		int hash = Hash(key, newHash.size);
 		int size = newHash.size, i;
 		
-		
+		// Block Logic: First pass of linear probing from the hash value to the end of the table.
 		for (i = hash; i < size; i++){
+			// Atomic Operation: Attempt to claim an empty slot.
 			if (atomicCAS(&newHash.table[i].key, KEY_INVALID, key) == KEY_INVALID) {
 				newHash.table[i].value = oldHash.table[index].value;
 				return;
 			}
 		}
+		// Block Logic: Second pass of linear probing, wrapping around from the beginning.
 		for (i = 0; i < hash; i++){
 			if (atomicCAS(&newHash.table[i].key, KEY_INVALID, key) == KEY_INVALID) {
 				newHash.table[i].value = oldHash.table[index].value;
@@ -37,6 +59,16 @@ __global__ void do_reshape(hashtable oldHash, hashtable newHash) {
 }
 
 
+/**
+ * @brief CUDA kernel to insert or update a batch of key-value pairs.
+ * @param keys Device pointer to the input keys.
+ * @param values Device pointer to the input values.
+ * @param hashmap The target hash table.
+ * @param count The number of pairs in the batch.
+ * @warning The logic for updating existing keys contains a race condition. The value
+ * is updated based on a non-atomic read that occurs after the `atomicCAS`, which
+ * could have been modified by another thread in the intervening time.
+ */
 __global__ void insert(int *keys, int *values, hashtable hashmap, int count) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index < count) {
@@ -44,14 +76,17 @@ __global__ void insert(int *keys, int *values, hashtable hashmap, int count) {
 		int hash = Hash(key, hashmap.size);
 		int size = hashmap.size, i;
 		
-		
+		// Block Logic: Linear probing from hash to end of table.
 		for(i = hash; i < size; i++){
+			// Attempt to claim an empty slot.
 			atomicCAS(&hashmap.table[i].key, KEY_INVALID, key);
+			// Check if the slot now holds our key (either from our CAS or a concurrent one).
 			if (hashmap.table[i].key == key) {
-				hashmap.table[i].value = values[index];
+				hashmap.table[i].value = values[index]; // Update value.
 				return;
 			}
 		}
+		// Block Logic: Wrap-around linear probing from the start of the table.
 		for(i = 0; i < hash; i++){
 			atomicCAS(&hashmap.table[i].key, KEY_INVALID, key);
 			if (hashmap.table[i].key == key) {
@@ -64,6 +99,13 @@ __global__ void insert(int *keys, int *values, hashtable hashmap, int count) {
 }
 
 
+/**
+ * @brief CUDA kernel to retrieve values for a batch of keys.
+ * @param keys Device pointer to the keys to look up.
+ * @param values Device pointer to the output array for found values.
+ * @param hashmap The hash table to search.
+ * @param count The number of keys in the batch.
+ */
 __global__ void get(int *keys, int *values, hashtable hashmap, int count) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	if (index < count) {
@@ -71,15 +113,15 @@ __global__ void get(int *keys, int *values, hashtable hashmap, int count) {
 		int hash = Hash(keys[index], hashmap.size);
 		int size = hashmap.size, i;
 		
+		// Block Logic: Linear probe search from hash to end of table.
 		for (i = hash; i < size; i++){
 			if (hashmap.table[i].key == key) {
 				values[index] = hashmap.table[i].value;
 				return;
 			}
 		}
+		// Block Logic: Wrap-around linear probe search from start of table.
 		for (i = 0; i < hash; i++){
-
-
 			if (hashmap.table[i].key == key) {
 				values[index] = hashmap.table[i].value;
 				return;
@@ -88,90 +130,119 @@ __global__ void get(int *keys, int *values, hashtable hashmap, int count) {
 	}
 }
 
-
+/**
+ * @brief Constructs a GpuHashTable object.
+ */
 GpuHashTable::GpuHashTable(int size) {
 	h.real_size = 0;
 	h.size = size;
+	// Memory Hierarchy: Allocate the main table storage on the device.
 	cudaMalloc(&h.table, size * sizeof(assoc));
 	cudaMemset(h.table, 0, size * sizeof(assoc));
 }
 
-
+/**
+ * @brief Destroys the GpuHashTable object.
+ */
 GpuHashTable::~GpuHashTable() {
 	cudaFree(h.table);
 }
 
-
+/**
+ * @brief Resizes the hash table and rehashes all existing elements.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) {
 	hashtable newh;
 	newh.size = numBucketsReshape;
 	newh.real_size = h.real_size;
 	cudaMalloc(&newh.table, numBucketsReshape * sizeof(assoc));
 	cudaMemset(newh.table, 0, numBucketsReshape * sizeof(assoc));
+
+	// Kernel Launch Configuration: This conditional logic is redundant as both
+	// branches execute the same code. It calculates grid size and launches the kernel.
+	int blocks = (h.size + num_threads - 1) / num_threads;
 	if (h.size / num_threads * num_threads == h.size) {
-		do_reshape>>(h, newh);
+		do_reshape<<<blocks, num_threads>>>(h, newh);
 	} else {
-		do_reshape>>(h, newh);
+		do_reshape<<<blocks, num_threads>>>(h, newh);
 	}
 	cudaDeviceSynchronize();
 
-
+	// Free old table and swap to the new one.
 	cudaFree(h.table);
 	h = newh;
 }
 
-
+/**
+ * @brief Inserts a batch of key-value pairs into the hash table.
+ * @return Always returns `false`, which appears to be an implementation error.
+ */
 bool GpuHashTable::insertBatch(int *keys, int *values, int numKeys) {
 	int *deviceKeys, *deviceValues;
 	cudaMalloc(&deviceKeys, numKeys * sizeof(int));
 	cudaMalloc(&deviceValues, numKeys * sizeof(int));
 	h.real_size += numKeys;
 
-	
+	// Pre-condition: Check if the load factor exceeds the maximum threshold.
 	if (float(h.real_size) >= (float)(h.size * (float)maxim))
+		// Resize the table to bring the load factor down to the minimum threshold.
 		reshape(int((h.real_size) / minim));
 
-	
+	// Data Transfer: Copy input batch from host to device.
 	cudaMemcpy(deviceKeys, keys, numKeys * sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(deviceValues, values, numKeys * sizeof(int), cudaMemcpyHostToDevice);
 
+	// Kernel Launch Configuration: Redundant conditional logic.
+	int blocks = (numKeys + num_threads - 1) / num_threads;
 	if (numKeys / num_threads * num_threads == numKeys) {
-		insert>>
+		insert<<<blocks, num_threads>>>
 			(deviceKeys, deviceValues, h, numKeys);
 	} else {
-		insert>>
+		insert<<<blocks, num_threads>>>
 			(deviceKeys, deviceValues, h, numKeys);
 	}
 	
 	cudaDeviceSynchronize();
 	cudaFree(deviceKeys);
-
-
 	cudaFree(deviceValues);
+
+	// Bug: This function always returns false, regardless of success.
 	return false;
 }
 
-
+/**
+ * @brief Retrieves values for a batch of keys.
+ */
 int *GpuHashTable::getBatch(int *keys, int numKeys) {
 	int *deviceKeys, *values;
+	// Memory Hierarchy: Allocate Unified Memory for keys and values, simplifying
+	// host-device access.
 	cudaMallocManaged(&deviceKeys, numKeys * sizeof(int));
 	cudaMallocManaged(&values, numKeys * sizeof(int));
 
-	
+	// Note: This explicit copy is redundant when using Unified Memory that is
+	// correctly managed, as the driver handles data migration.
 	cudaMemcpy(deviceKeys, keys, numKeys * sizeof(int), cudaMemcpyHostToDevice);
+
+	// Kernel Launch Configuration: Redundant conditional logic.
+	int blocks = (numKeys + num_threads - 1) / num_threads;
 	if (numKeys / num_threads * num_threads == numKeys) {
-		get>>
+		get<<<blocks, num_threads>>>
 			(deviceKeys, values, h, numKeys);
 	} else {
-		get>>
+		get<<<blocks, num_threads>>>
 			(deviceKeys, values, h, numKeys);
 	}
 	cudaDeviceSynchronize();
 	cudaFree(deviceKeys);
+
+	// The caller is responsible for freeing the returned managed memory via `cudaFree`.
 	return values;
 }
 
-
+/**
+ * @brief Calculates the current load factor.
+ */
 float GpuHashTable::loadFactor() {
 	if (h.size > 0)
 		return (float(h.real_size) / h.size);
@@ -192,22 +263,22 @@ float GpuHashTable::loadFactor() {
 #ifndef _HASHCPU_
 #define _HASHCPU_
 
-#include 
-#include 
+#include <stdio.h>
+#include <stdlib.h>
 
 #define KEY_INVALID 0
 
 #define A 518509
 #define B 6904869625999
 
-#define DIE(assertion, call_description) \
-    do {    \
-        if (assertion) {    \
-        fprintf(stderr, "(%s, %d): ",    \
-        __FILE__, __LINE__);    \
-        perror(call_description);    \
-        exit(errno);    \
-    }    \
+#define DIE(assertion, call_description) 
+    do {    
+        if (assertion) {    
+        fprintf(stderr, "(%s, %d): ",    
+        __FILE__, __LINE__);    
+        perror(call_description);    
+        exit(errno);    
+    }    
 } while (0)
 
 

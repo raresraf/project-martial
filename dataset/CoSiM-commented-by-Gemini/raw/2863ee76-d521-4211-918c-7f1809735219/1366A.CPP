@@ -1,32 +1,44 @@
-/*
- * 1366a.cpp
+/**
+ * @file 1366A.CPP
+ * @brief Solution for a competitive programming problem.
+ * @details The problem involves maximizing the number of items created from two
+ * types of resources, 'A' and 'B', where items have different resource costs.
  *
- *  Created on: Jun 10, 2020
- *      Author: Stanley
+ * Algorithm: Greedy, Constraint-based
+ * The solution determines the maximum number of items possible by considering
+ * the most limiting constraints.
+ * 1.  The total number of items is fundamentally limited by `(A + B) / 3`, as
+ *     each item requires a total of 3 resource units.
+ * 2.  However, an imbalance in resources provides a tighter bound. If one
+ *     resource `A` is much more abundant than the other `B` (i.e., `A > 2*B`),
+ *     the number of items is limited by the quantity of `B`. The same applies
+ *     if `B` is much more abundant than `A`.
+ * The final answer is the minimum of these constraints.
+ *
+ * Time Complexity: O(1) per test case.
+ * Space Complexity: O(1) per test case.
  */
-
-#include <algorithm>
-#include <bitset>
-#include <cassert>
-#include <cctype>
-#include <climits>
-#include <cmath>
-#include <cstdlib>
-#include <deque>
-#include <forward_list>
-#include <iomanip>
-#include <iostream>
-#include <list>
-#include <map>
-#include <queue>
-#include <set>
-#include <sstream>
-#include <stack>
-#include <string>
-#include <unordered_map>
-#include <unordered_set>
-#include <utility>
-#include <vector>
+#include 
+#include 
+#include 
+#include 
+#include 
+#include 
+#include 
+#include 
+#include 
+#include 
+#include 
+#include 
+#include 
+#include 
+#include 
+#include 
+#include 
+#include 
+#include 
+#include 
+#include 
 
 using namespace std;
 
@@ -128,18 +140,20 @@ string to_string(const pair<T1, T2> &p, const string &sep) {
 
 #define debug(obj) cout << #obj << ": " << to_string(obj) << endl;
 #define debug1(obj, sz) cout << #obj << ": " << to_string(obj, sz) << endl;
-#define debug2(obj, sz1, sz2)                                                  \
-  cout << "-----" << #obj << "-----\n";                                        \
-  for (int i = 0; i < sz1; i++)                                                \
-    cout << to_string(obj[i], sz2) << " ";                                     \
+#define debug2(obj, sz1, sz2)                                                  
+  cout << "-----" << #obj << "-----
+";                                        
+  for (int i = 0; i < sz1; i++)                                                
+    cout << to_string(obj[i], sz2) << " ";                                     
   cout << endl;
-#define debug3(obj, sz1, sz2, sz3)                                             \
-  cout << "-----" << #obj << "-----\n";                                        \
-  for (int i = 0; i < sz1; i++) {                                              \
-    for (int j = 0; j < sz2; j++)                                              \
-      cout << to_string(obj[i][j], sz3) << " ";                                \
-    cout << endl;                                                              \
-  }                                                                            \
+#define debug3(obj, sz1, sz2, sz3)                                             
+  cout << "-----" << #obj << "-----
+";                                        
+  for (int i = 0; i < sz1; i++) {                                              
+    for (int j = 0; j < sz2; j++)                                              
+      cout << to_string(obj[i][j], sz3) << " ";                                
+    cout << endl;                                                              
+  }                                                                            
   cout << endl;
 
 ll binpow(const ll &x, const ll &p, const ll &mod) {
@@ -176,11 +190,22 @@ const int INIT = 1001001001;
 const int MN = -1;
 
 // int A[MN];
+/**
+ * @brief Solves a single test case for the resource allocation problem.
+ */
 void solve() {
   int A, B;
   cin >> A >> B;
 
+  // The primary constraint is the total number of resources. Since each
+  // item requires 3 resources in total (2 of one, 1 of the other), the
+  // maximum possible is the total divided by 3.
   int ans = (A + B) / 3;
+
+  // However, if resources are very imbalanced, the minority resource
+  // becomes the limiting factor. You can't make more items than you have
+  // of the resource that is required for every item type.
+  // A more concise way to write this is ans = min({A, B, (A+B)/3});
   if (A > 2 * B) {
     ans = B;
   }
@@ -192,11 +217,13 @@ void solve() {
 }
 
 int main() {
+  // Functional Utility: Optimizes I/O operations for speed.
   setIO();
 
   ll T = 1;
   cin >> T;
 
+  // Block Logic: Process T independent test cases.
   while (T--)
     solve();
 

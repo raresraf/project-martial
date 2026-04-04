@@ -11,6 +11,10 @@ import { ensureNoDisposablesAreLeakedInTestSuite } from './utils.js';
 import { assertNotDisposed, ObservableDisposable } from '../../common/observableDisposable.js';
 
 suite('ObservableDisposable', () => {
+	/**
+	 * A test utility that ensures any disposable created in the test suite
+	 * is properly disposed of at the end, preventing memory leaks in tests.
+	 */
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
 	test('tracks `disposed` state', () => {
@@ -43,6 +47,9 @@ suite('ObservableDisposable', () => {
 	});
 
 	suite('onDispose', () => {
+		/**
+		 * @test Verifies that the `onDispose` event is fired once and only once when the object is disposed.
+		 */
 		test('fires the event on dispose', async () => {
 			// this is an abstract class, so we have to create
 			// an anonymous class that extends it
@@ -107,6 +114,10 @@ suite('ObservableDisposable', () => {
 			);
 		});
 
+		/**
+		 * @test Verifies that if a listener subscribes to `onDispose` after the object
+		 * has already been disposed, the listener is called back immediately.
+		 */
 		test('executes callback immediately if already disposed', async () => {
 			// this is an abstract class, so we have to create
 			// an anonymous class that extends it
@@ -146,6 +157,10 @@ suite('ObservableDisposable', () => {
 	});
 
 	suite('addDisposable()', () => {
+		/**
+		 * @test Verifies that any disposable object added via `addDisposable` is
+		 * automatically disposed when the parent ObservableDisposable is disposed.
+		 */
 		test('disposes provided object with itself', async () => {
 			class TestDisposable implements IDisposable {
 				private _disposed = false;
@@ -204,11 +219,15 @@ suite('ObservableDisposable', () => {
 			);
 		});
 
+		/**
+		 * @test Verifies that disposing a root ObservableDisposable will recursively
+		 * dispose of an entire tree of nested disposables.
+		 */
 		test('disposes the entire tree of disposables', async () => {
 			class TestDisposable extends ObservableDisposable { }
 
 			/**
-			 * Generate a tree of disposable objects.
+			 * Helper function to recursively generate a tree of disposable objects.
 			 */
 			const disposableObjects = (
 				count: number = randomInt(20, 10),
@@ -287,6 +306,10 @@ suite('ObservableDisposable', () => {
 	});
 
 	suite('asserts', () => {
+		/**
+		 * @test Verifies that the `assertNotDisposed` method does not throw when the
+		 * object is alive and throws after it has been disposed.
+		 */
 		test('not disposed (method)', async () => {
 			// this is an abstract class, so we have to create
 			// an anonymous class that extends it
@@ -318,6 +341,10 @@ suite('ObservableDisposable', () => {
 			});
 		});
 
+		/**
+		 * @test Verifies that the standalone `assertNotDisposed` function works correctly,
+		 * not throwing when the object is alive and throwing after disposal.
+		 */
 		test('not disposed (function)', async () => {
 			// this is an abstract class, so we have to create
 			// an anonymous class that extends it

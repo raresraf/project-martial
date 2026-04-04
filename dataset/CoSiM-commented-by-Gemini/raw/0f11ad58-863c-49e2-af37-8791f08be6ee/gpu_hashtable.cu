@@ -1,49 +1,87 @@
-
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
+/**
+ * @file gpu_hashtable.cu
+ * @brief A self-contained implementation of a GPU-accelerated hash table.
+ * @details This file provides a complete hash table implementation using CUDA,
+ * featuring an open-addressing, linear-probing collision strategy. The kernels
+ * use `atomicCAS` for thread-safe insertions. A key feature is the fully
+ * device-side reshape operation, which avoids expensive data transfers to the
+ * host. The table also supports automatic shrinking if the load factor drops
+ * below a minimum threshold.
+ */
+#include <cuda.h>
+#include <cuda_runtime.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <math.h>
+#include <iostream>
 
 #include "gpu_hashtable.hpp"
 
 
-
-
+/**
+ * @brief CUDA kernel to insert or update a batch of key-value pairs.
+ * @param keys Device pointer to the input keys.
+ * @param values Device pointer to the input values.
+ * @param input_size The number of key-value pairs in the batch.
+ * @param hmap_data Device pointer to the hash table's data array.
+ * @param HMAP_SIZE The capacity of the hash table.
+ * @param updated A device counter, atomically incremented for each key that is updated (not newly inserted).
+ * @details Each thread handles one key-value pair. It uses linear probing to find
+ * a slot. `atomicCAS` is used to claim an empty slot or, if the key already
+ * exists, the value is updated. The probing logic wraps around the table twice
+ * before giving up.
+ */
 __global__ void kernel_hmap_insert(int *keys, int* values, unsigned int input_size, GpuHashTable::skeyval *hmap_data, int HMAP_SIZE, int *updated) {
+    // Thread Indexing: Each thread is assigned one key-value pair from the input.
     unsigned int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	if (idx >= input_size)
 		return;
 
 	unsigned int mykey = keys[idx];
 	unsigned int myval = values[idx];
+	// Hashing: Calculate the initial bucket index.
 	unsigned int idx_hmap = (((long)mykey * 13169977) % 5351951779) % HMAP_SIZE;
 	GpuHashTable::skeyval *data;
-	int cyc = 0;
+	int cyc = 0; // Cycle counter to detect when the whole table has been probed.
+	// Block Logic: Infinite loop for linear probing, broken on success or failure.
 	while (1) {
+		// Pre-condition: Handle wrap-around for the linear probe.
 		if (idx_hmap == HMAP_SIZE) {
 			idx_hmap = 0;
 			cyc++;
-			if (cyc == 2)
+			if (cyc == 2) // Invariant: If we have cycled twice, the table is full.
 				break;
 		}
 		data = &(hmap_data[idx_hmap]);
+		// Pre-condition: If the key matches, this is an update operation.
 		if (data->key == mykey) {
 			data->val = myval;
-			atomicAdd(updated, 1);
+			atomicAdd(updated, 1); // Atomically count the number of updates.
 			break;
 		}
+		// Atomic Operation: Attempt to claim the slot if it is empty (key=0).
 		atomicCAS(&(data->key), 0, mykey);
+		// Pre-condition: If the write succeeded, the slot was empty.
 		if (data->key == mykey) {
-			data->val = myval;
+			data->val = myval; // Set the value for the newly inserted key.
 			break;
 		}
+		// Collision: The slot was taken by another key, so probe the next slot.
 		idx_hmap++;
 	}
 }
 
+/**
+ * @brief CUDA kernel to retrieve values for a batch of keys.
+ * @param keys Device pointer to the keys to look up.
+ * @param values Device pointer to the output array for found values.
+ * @param input_size The number of keys in the batch.
+ * @param hmap_data Device pointer to the hash table's data.
+ * @param HMAP_SIZE The capacity of the hash table.
+ * @details Each thread searches for one key using linear probing. If found, the value
+ * is written to the output array; otherwise, 0 is written.
+ */
 __global__ void kernel_hmap_get(int *keys, int* values, unsigned int input_size, GpuHashTable::skeyval *hmap_data, int HMAP_SIZE) {
     unsigned int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	if (idx >= input_size)
@@ -54,14 +92,17 @@ __global__ void kernel_hmap_get(int *keys, int* values, unsigned int input_size,
 	unsigned int idx_hmap = (((long)mykey * 13169977) % 5351951779) % HMAP_SIZE;
 	GpuHashTable::skeyval *data;
 	int cyc = 0;
+	// Block Logic: Linear probing search loop.
 	while (1) {
+		// Pre-condition: Handle wrap-around.
 		if (idx_hmap == HMAP_SIZE) {
 			idx_hmap = 0;
 			cyc++;
-			if (cyc == 2)
+			if (cyc == 2) // Invariant: If we've probed the whole table, key not found.
 				break;
 		}
 		data = &(hmap_data[idx_hmap]);
+		// Pre-condition: Check for key match.
 		if (data->key == mykey) {
 			myval = data->val;
 			break;
@@ -71,6 +112,15 @@ __global__ void kernel_hmap_get(int *keys, int* values, unsigned int input_size,
 	values[idx] = myval;
 }
 
+/**
+ * @brief CUDA kernel to rehash all elements from an old table to a new, resized table.
+ * @param hmap_data_old Device pointer to the old hash table data.
+ * @param hmap_data_new Device pointer to the new (empty) hash table data.
+ * @param HMAP_SIZE_OLD The capacity of the old table.
+ * @param HMAP_SIZE_NEW The capacity of the new table.
+ * @details Each thread is responsible for migrating one valid element from the old
+ * table to the new one, using the same linear probing logic as the insert kernel.
+ */
 __global__ void kernel_hmap_reshape(GpuHashTable::skeyval *hmap_data_old, GpuHashTable::skeyval *hmap_data_new, int HMAP_SIZE_OLD, int HMAP_SIZE_NEW) {
     unsigned int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	if (idx >= HMAP_SIZE_OLD)
@@ -78,12 +128,15 @@ __global__ void kernel_hmap_reshape(GpuHashTable::skeyval *hmap_data_old, GpuHas
 
 	GpuHashTable::skeyval *data_old = &(hmap_data_old[idx]);
 	unsigned int mykey = data_old->key;
+	// Pre-condition: Skip empty slots in the old table.
 	if (mykey == 0)
 		return;
 	unsigned int myval = data_old->val;
+	// Hashing: Re-compute hash for the new table size.
 	unsigned int idx_hmap = (((long)mykey * 13169977) % 5351951779) % HMAP_SIZE_NEW;
 	GpuHashTable::skeyval *data;
 	int cyc = 0;
+	// Block Logic: Linear probing to insert the old element into the new table.
 	while (1) {
 		if (idx_hmap == HMAP_SIZE_NEW) {
 			idx_hmap = 0;
@@ -92,6 +145,7 @@ __global__ void kernel_hmap_reshape(GpuHashTable::skeyval *hmap_data_old, GpuHas
 				break;
 		}
 		data = &(hmap_data_new[idx_hmap]);
+		// This logic handles finding an empty slot or updating if somehow the key exists.
 		if (data->key == mykey) {
 			data->val = myval;
 			break;
@@ -105,52 +159,68 @@ __global__ void kernel_hmap_reshape(GpuHashTable::skeyval *hmap_data_old, GpuHas
 	}
 }
 
-
+/**
+ * @brief Constructs a GpuHashTable object.
+ */
 GpuHashTable::GpuHashTable(int size) {
+	// Memory Hierarchy: Allocate main hash table storage on the device.
 	cudaMalloc((void **) &hmap_data, size * sizeof(skeyval));
 	hsize = 0;
 	crt_num = 0;
     if (hmap_data == 0) {
-        printf("[HOST] Couldn't allocate memory\n");
+        printf("[HOST] Couldn't allocate memory
+");
 		return;
     }
 	hsize = size;
+	// Initialize all slots to empty.
 	cudaMemset(hmap_data, 0, hsize * sizeof(skeyval));
 }
 
-
+/**
+ * @brief Destroys the GpuHashTable object.
+ */
 GpuHashTable::~GpuHashTable() {
 	cudaFree(hmap_data);
 }
 
-
+/**
+ * @brief Resizes the hash table to a new capacity.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) {
 	unsigned int elems = numBucketsReshape; 
+	// Calculate new size based on a target load factor to avoid immediate rehashing.
 	unsigned int new_size = ceil(elems / targetLoadFactor); 
 	skeyval *hmap_data_new;
 
 	cudaMalloc((void **) &hmap_data_new, new_size * sizeof(skeyval));
 	if (hmap_data_new == 0) {
-        printf("[HOST] Couldn't allocate memory\n");
+        printf("[HOST] Couldn't allocate memory
+");
 		return;
     }
 	cudaMemset(hmap_data_new, 0, new_size * sizeof(skeyval));
+
+	// Kernel Launch Configuration: Calculate grid size for the reshape operation.
 	unsigned int num_blocks = hsize / num_threads;
-	if (num_blocks % num_threads != 0)
-
-
+	if (hsize % num_threads != 0)
 		num_blocks++;
 
-	kernel_hmap_reshape>> (hmap_data, hmap_data_new, hsize, new_size);
+	// Launch the fully device-side reshape kernel.
+	kernel_hmap_reshape<<<num_blocks, num_threads>>> (hmap_data, hmap_data_new, hsize, new_size);
 	cudaDeviceSynchronize();
 	
+	// Free the old data and swap pointers to the new table.
 	cudaFree(hmap_data);
 	hmap_data = hmap_data_new;
 	hsize = new_size;
 }
 
-
-bool GpuHashTable::insertBatch(int *keys, int *values, int numKeys) {
+/**
+ * @brief Inserts a batch of key-value pairs into the hash table.
+ */
+bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
+	// Pre-condition: Resize if the new elements would exceed current capacity.
 	if (numKeys + crt_num > hsize)
 		reshape(numKeys + crt_num);
 
@@ -158,12 +228,15 @@ bool GpuHashTable::insertBatch(int *keys, int *values, int numKeys) {
 	int *device_values = 0;
 	int *updated;
 
+	// Allocate temporary device buffers for the input batch.
 	cudaMalloc((void **) &device_keys, numKeys * sizeof(int));
 	cudaMalloc((void **) &device_values, numKeys * sizeof(int));
+	// Memory Hierarchy: Use managed memory for 'updated' to easily read the value on the host.
 	cudaMallocManaged(&updated, sizeof(int));
 
 	if (device_keys == 0 || device_values == 0 || updated == 0) {
-        printf("[HOST] Couldn't allocate GPU memory\n");
+        printf("[HOST] Couldn't allocate GPU memory
+");
     	return false;
     }
 
@@ -172,27 +245,30 @@ bool GpuHashTable::insertBatch(int *keys, int *values, int numKeys) {
 	*updated = 0;
 
 	unsigned int num_blocks = numKeys / num_threads;
-
-
-	if (num_blocks % num_threads != 0)
+	if (numKeys % num_threads != 0)
 		num_blocks++;
 
-	kernel_hmap_insert>> (device_keys, device_values, numKeys, hmap_data, hsize, updated);
+	// Launch the insertion kernel.
+	kernel_hmap_insert<<<num_blocks, num_threads>>> (device_keys, device_values, numKeys, hmap_data, hsize, updated);
 	cudaDeviceSynchronize();
 
+	// Update the count of elements, accounting for both new insertions and updates.
 	crt_num += numKeys - *updated;
 
-
+	// Pre-condition: If load factor is too low after insertions/updates, shrink the table.
 	if (loadFactor() < minLoadFactor)
 		reshape(crt_num);
 	
 	cudaFree(device_keys);
 	cudaFree(device_values);
+	cudaFree(updated); // Free managed memory.
 
 	return true;
 }
 
-
+/**
+ * @brief Retrieves values for a batch of keys.
+ */
 int* GpuHashTable::getBatch(int *keys, int numKeys) {
 	int *device_keys = 0;
 	int *device_values = 0;
@@ -200,24 +276,28 @@ int* GpuHashTable::getBatch(int *keys, int numKeys) {
 	cudaMalloc((void **) &device_keys, numKeys * sizeof(int));
 	cudaMalloc((void **) &device_values, numKeys * sizeof(int));
 	if (device_keys == 0 || device_values == 0) {
-        printf("[HOST] Couldn't allocate GPU memory\n");
+        printf("[HOST] Couldn't allocate GPU memory
+");
     	return NULL;
     }
 
 	cudaMemcpy(device_keys, keys, numKeys * sizeof(int), cudaMemcpyHostToDevice);
 
 	unsigned int num_blocks = numKeys / num_threads;
-	if (num_blocks % num_threads != 0)
+	if (numKeys % num_threads != 0)
 		num_blocks++;
 
-	kernel_hmap_get>> (device_keys, device_values, numKeys, hmap_data, hsize);
+	// Launch the retrieval kernel.
+	kernel_hmap_get<<<num_blocks, num_threads>>> (device_keys, device_values, numKeys, hmap_data, hsize);
 	cudaDeviceSynchronize();
 
 	int *values = (int *)malloc(numKeys * sizeof(int));
 	if (values == 0) {
-        printf("[HOST] Couldn't allocate CPU memory\n");
+        printf("[HOST] Couldn't allocate CPU memory
+");
     	return NULL;
     }
+	// Data Transfer: Copy results from device back to host.
 	cudaMemcpy(values, device_values, numKeys * sizeof(int), cudaMemcpyDeviceToHost);
 
 	cudaFree(device_keys);
@@ -225,7 +305,9 @@ int* GpuHashTable::getBatch(int *keys, int numKeys) {
 	return values;
 }
 
-
+/**
+ * @brief Calculates the current load factor.
+ */
 float GpuHashTable::loadFactor() {
 	return (float)crt_num / hsize; 
 }
@@ -248,14 +330,14 @@ using namespace std;
 
 #define	KEY_INVALID		0
 
-#define DIE(assertion, call_description) \
-	do {	\
-		if (assertion) {	\
-		fprintf(stderr, "(%s, %d): ",	\
-		__FILE__, __LINE__);	\
-		perror(call_description);	\
-		exit(errno);	\
-	}	\
+#define DIE(assertion, call_description) 
+	do {	
+		if (assertion) {	
+		fprintf(stderr, "(%s, %d): ",	
+		__FILE__, __LINE__);	
+		perror(call_description);	
+		exit(errno);	
+	}	
 } while (0)
 	
 const size_t primeList[] =
@@ -353,4 +435,3 @@ class GpuHashTable
 };
 
 #endif
-

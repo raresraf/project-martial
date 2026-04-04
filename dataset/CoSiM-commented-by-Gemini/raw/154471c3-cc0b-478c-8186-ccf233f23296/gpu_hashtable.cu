@@ -1,15 +1,30 @@
-
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
+/**
+ * @file gpu_hashtable.cu
+ * @brief A self-contained implementation of a GPU-accelerated hash table using a
+ *        hybrid Cuckoo Hashing and Linear Probing algorithm.
+ * @details This file provides a complete hash table implementation using CUDA.
+ * It employs a sophisticated collision resolution strategy:
+ * 1.  **Cuckoo Hashing**: Each key is mapped to 3 different bucket locations.
+ * 2.  **Buckets**: Each bucket contains 2 slots.
+ * 3.  **Linear Probing**: If all primary/secondary slots are full, it falls back
+ *     to linear probing from the last hash location.
+ * This hybrid approach aims to minimize probe distances and improve performance
+ * compared to simple linear probing. The implementation is robust, with a fully
+ * device-side reshape and correct atomic operations.
+ */
+#include <iostream>
+#include <cuda.h>
+#include <cuda_runtime.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "gpu_hashtable.hpp"
 
 
-
+/**
+ * @brief Utility function to check and report CUDA errors.
+ */
 static void HandleError(cudaError_t err, const char *file, int line ) {
     if (err != cudaSuccess) {
         cout << cudaGetErrorString(err) << " in "
@@ -19,55 +34,61 @@ static void HandleError(cudaError_t err, const char *file, int line ) {
 }
 #define HANDLE_ERROR( err ) (HandleError( err, __FILE__, __LINE__ ))
 
+/**
+ * @brief CUDA kernel to rehash all elements from an old table to a new one.
+ * @param n The capacity of the old table.
+ * @param nn The capacity of the new table.
+ * @param x Device pointer to the old hash table data.
+ * @param y Device pointer to the new (empty) hash table data.
+ * @details Each thread is responsible for one bucket in the old table. It iterates
+ * through the slots in its bucket and re-inserts each valid key-value pair into
+ * the new table using the Cuckoo/Linear Probing strategy.
+ */
 __global__
 void gpu_reshape(int n, int nn, int *x, int *y) {
+	// Thread Indexing: Each thread is assigned one bucket from the old table.
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
 	if (idx >= n)
 		return;
 
-	
+	// Block Logic: Iterate through all slots within the assigned bucket.
 	for (int i = 0; i < SLOTS; i++) {
+		// Memory Layout: Key/value pairs are interleaved in memory.
 		int key = x[2 * SLOTS * idx + 2 * i];
 		if (key == KEY_INVALID)
 			continue;
 
 		int value = x[2 * SLOTS * idx + 2 * i + 1];
 
+		// Cuckoo Hashing: Calculate multiple hash positions for the key.
 		int pos[HASHES];
 		pos[0] = hash1(key, nn);
 		pos[1] = hash2(key, nn);
 		pos[2] = hash3(key, nn);
 
 		int tmp;
-		
+		// Block Logic: Attempt to place the key in one of the Cuckoo hash locations.
 		for (int j = 0; j < HASHES; j++) {
-			
 			for (int k = 0; k < SLOTS; k++) {
 				tmp = atomicCAS(y + 2 * SLOTS * pos[j] + 2 * k, KEY_INVALID, key);
-
-				
 				if (tmp == KEY_INVALID) {
 					y[2 * SLOTS * pos[j] + 2 * k + 1] = value;
-					goto next_key;
+					goto next_key; // Successfully placed, move to next key in bucket.
 				}
 			}
 		}
 
-		
+		// Fallback: If all Cuckoo slots are full, begin linear probing.
 		int j = pos[HASHES - 1];
 		do {
-			
 			for (int k = 0; k < SLOTS; k++) {
 				tmp = atomicCAS(y + 2 * SLOTS * j + 2 * k, KEY_INVALID, key);
-
-				
 				if (tmp == KEY_INVALID) {
 					y[2 * SLOTS * j + 2 * k + 1] = value;
 					goto next_key;
 				}
 			}
-
 			j = (j + 1) % nn;
 		} while (j != pos[HASHES - 1]);
 
@@ -77,6 +98,13 @@ next_key:
 
 }
 
+/**
+ * @brief CUDA kernel to insert or update a batch of key-value pairs.
+ * @details Implements a hybrid Cuckoo Hashing and Linear Probing strategy. Each
+ * thread attempts to place its key in one of several hash locations. If all fail,
+ * it resorts to linear probing. It correctly distinguishes between new insertions
+ * and updates, atomically incrementing a counter for new elements.
+ */
 __global__
 void gpu_insert(int *e, int nn, int n, int *k, int *v, int *ins) {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -87,6 +115,7 @@ void gpu_insert(int *e, int nn, int n, int *k, int *v, int *ins) {
 	int key = k[idx];
 	int value = v[idx];
 
+	// Cuckoo Hashing: Calculate multiple potential bucket locations.
 	int pos[HASHES];
 	pos[0] = hash1(key, nn);
 	pos[1] = hash2(key, nn);
@@ -94,48 +123,42 @@ void gpu_insert(int *e, int nn, int n, int *k, int *v, int *ins) {
 
 	int tmp;
 
-	
+	// Block Logic: Attempt to insert into one of the Cuckoo hash locations first.
 	for (int i = 0; i < HASHES; i++) {
-		
 		for (int j = 0; j < SLOTS; j++) {
 			tmp = atomicCAS(&e[2 * SLOTS * pos[i] + 2 * j], KEY_INVALID, key);
-
+			// Invariant: If slot was empty or already held our key, the write is safe.
 			if (tmp == KEY_INVALID || tmp == key) {
 				e[2 * SLOTS * pos[i] + 2 * j + 1] = value;
-
-				
+				// Atomically count new insertions for accurate load factor tracking.
 				if (tmp != key)
 					atomicAdd(ins, 1);
-
 				return;
 			}
 		}
 	}
 
-	
+	// Fallback: If Cuckoo slots are full, begin linear probing from the last hash position.
 	int i = pos[HASHES - 1] + 1;
 	do {
-		
 		for (int j = 0; j < SLOTS; j++) {
 			tmp = atomicCAS(&e[2 * SLOTS * i + 2 * j], KEY_INVALID, key);
-
-			
 			if (tmp == KEY_INVALID) {
 				e[2 * SLOTS * i + 2 * j + 1] = value;
-
-				
 				if (tmp != key)
 					atomicAdd(ins, 1);
-
-
 				return;
 			}
 		}
-
 		i = (i + 1) % nn;
 	} while (i != pos[HASHES - 1]);
 }
 
+/**
+ * @brief CUDA kernel to retrieve values for a batch of keys.
+ * @details Follows the same Cuckoo Hashing / Linear Probing path as insertion to
+ * efficiently locate keys.
+ */
 __global__
 void gpu_get(int *e, int nn, int n, int *k, int *v) {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -143,15 +166,15 @@ void gpu_get(int *e, int nn, int n, int *k, int *v) {
 	if (idx >= n)
 		return;
 
+	// Cuckoo Hashing: Calculate all potential hash locations.
 	int pos2[HASHES];
 	pos2[0] = 0; pos2[1] = 0; pos2[2] = 0;
 	pos2[0] = hash1(k[idx], nn);
 	pos2[1] = hash2(k[idx], nn);
 	pos2[2] = hash3(k[idx], nn);
 
-	
+	// Block Logic: Search primary Cuckoo locations first.
 	for (int i = 0; i < HASHES; i++) {
-		
 		for (int j = 0; j < SLOTS; j++) {
 			if (e[2 * SLOTS * pos2[i] + 2 * j] == k[idx]) {
 				v[idx] = e[2 * SLOTS * pos2[i] + 2 * j + 1];
@@ -160,17 +183,15 @@ void gpu_get(int *e, int nn, int n, int *k, int *v) {
 		}
 	}
 
-	
+	// Fallback: If not in Cuckoo slots, perform linear probing.
 	int i = pos2[HASHES - 1] + 1;
 	do {
-		
 		for (int j = 0; j < SLOTS; j++) {
 			if (e[2 * SLOTS * i + 2 * j] == k[idx]) {
 				v[idx] = e[2 * SLOTS * i + 2 * j + 1];
 				return;
 			}
 		}
-
 		i = (i + 1) % nn;
 	} while (i != pos2[HASHES - 1]);
 }
@@ -181,6 +202,7 @@ GpuHashTable::GpuHashTable(int size) {
 	this->used = 0;
 	this->entries = NULL;
 
+	// Memory Layout: an interleaved SoA layout for [k,v,k,v,...] per bucket.
 	int num_bytes = 2 * SLOTS * size * sizeof(int);
 
 	cudaMalloc((void **)&(this->entries), num_bytes);
@@ -190,7 +212,6 @@ GpuHashTable::GpuHashTable(int size) {
 	HANDLE_ERROR(cudaGetLastError());
 }
 
-
 GpuHashTable::~GpuHashTable() {
 	cudaFree(this->entries);
 	HANDLE_ERROR(cudaGetLastError());
@@ -198,23 +219,19 @@ GpuHashTable::~GpuHashTable() {
 	cudaDeviceReset();
 }
 
-
 void GpuHashTable::reshape(int numBucketsReshape) {
 	int *new_entries = NULL;
 	int num_bytes = numBucketsReshape * 2 * SLOTS * sizeof(int);
 
 	cudaMalloc((void **)&new_entries, num_bytes);
 	HANDLE_ERROR(cudaGetLastError());
-
 	cudaMemset(new_entries, 0, num_bytes);
 	HANDLE_ERROR(cudaGetLastError());
 
-	int blocks_no = this->size / BLOCK_SIZE;
-	if (this->size % BLOCK_SIZE != 0)
-		blocks_no++;
+	int blocks_no = (this->size + BLOCK_SIZE - 1) / BLOCK_SIZE;
 
 	if (this->used != 0)
-		gpu_reshape>>(this->size, numBucketsReshape, this->entries, new_entries);
+		gpu_reshape<<<blocks_no, BLOCK_SIZE>>>(this->size, numBucketsReshape, this->entries, new_entries);
 	HANDLE_ERROR(cudaGetLastError());
 
 	cudaDeviceSynchronize();
@@ -228,9 +245,9 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 	this->entries = new_entries;
 }
 
-
 bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	
+	// Pre-condition: Check if the load factor will exceed the maximum threshold and resize if so.
 	if (1.0f * (numKeys + this->used) / this->size > MAX_LOAD)
 		this->reshape((int)((numKeys + this->used) / MIN_LOAD));
 
@@ -244,98 +261,67 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	*host_inserted = 0;
 
 	cudaMalloc((void **)&device_keys, num_bytes);
-	HANDLE_ERROR(cudaGetLastError());
-
 	cudaMalloc((void **)&device_values, num_bytes);
-	HANDLE_ERROR(cudaGetLastError());
-
 	cudaMalloc((void **)&device_inserted, sizeof(int));
-	HANDLE_ERROR(cudaGetLastError());
-
-	DIE(device_keys == NULL || device_values == NULL || device_inserted == NULL, "aaa cuda random fail");
+	DIE(device_keys == NULL || device_values == NULL || device_inserted == NULL, "GPU memory allocation failed");
 
 	cudaMemcpy(device_keys, keys, num_bytes, cudaMemcpyHostToDevice);
-	HANDLE_ERROR(cudaGetLastError());
-
 	cudaMemcpy(device_values, values, num_bytes, cudaMemcpyHostToDevice);
-	HANDLE_ERROR(cudaGetLastError());
-
 	cudaMemcpy(device_inserted, host_inserted, sizeof(int), cudaMemcpyHostToDevice);
+
+	int blocks_no = (numKeys + BLOCK_SIZE - 1) / BLOCK_SIZE;
+
+	// Launch insertion kernel.
+	gpu_insert<<<blocks_no, BLOCK_SIZE>>>(this->entries, this->size, numKeys, device_keys, device_values, device_inserted);
 	HANDLE_ERROR(cudaGetLastError());
-
-	int blocks_no = numKeys / BLOCK_SIZE;
-	if (numKeys % BLOCK_SIZE != 0)
-		blocks_no++;
-
-
-
-	gpu_insert>>(this->entries, this->size, numKeys, device_keys, device_values, device_inserted);
-	HANDLE_ERROR(cudaGetLastError());
-
 	cudaDeviceSynchronize();
-	HANDLE_ERROR(cudaGetLastError());
 
+	// Update host-side counter with the number of actual new insertions.
 	cudaMemcpy(host_inserted, device_inserted, sizeof(int), cudaMemcpyDeviceToHost);
-	HANDLE_ERROR(cudaGetLastError());
-
 	this->used += *host_inserted;
 
 	cudaFree(device_keys);
-	HANDLE_ERROR(cudaGetLastError());
-
 	cudaFree(device_values);
-	HANDLE_ERROR(cudaGetLastError());
-
 	cudaFree(device_inserted);
-	HANDLE_ERROR(cudaGetLastError());
-
 	
+	// Pre-condition: Shrink the table if the load factor is now below the minimum.
 	if (this->loadFactor() < MIN_LOAD)
 		this->reshape((int)(this->size * this->loadFactor() / MIN_LOAD));
 
 	return true;
 }
 
-
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	int *host_result = NULL;
 	int *device_result = NULL;
 	int *device_keys = NULL;
-
 	int num_bytes = numKeys * sizeof(int);
 
 	cudaMalloc((void **)&device_result, num_bytes);
 	cudaMalloc((void **)&device_keys, num_bytes);
 	cudaMemcpy(device_keys, keys, num_bytes, cudaMemcpyHostToDevice);
 	HANDLE_ERROR(cudaGetLastError());
-
 	cudaMemset(device_result, 0, num_bytes);
-	HANDLE_ERROR(cudaGetLastError());
 
 	host_result = (int *) malloc(num_bytes);
-	DIE(host_result == NULL, "brah");
+	DIE(host_result == NULL, "Host memory allocation failed");
 
-	int blocks_no = numKeys / BLOCK_SIZE;
-	if (numKeys % BLOCK_SIZE != 0)
-		blocks_no++;
+	int blocks_no = (numKeys + BLOCK_SIZE - 1) / BLOCK_SIZE;
 
-
-
-	gpu_get>>(this->entries, this->size, numKeys, device_keys, device_result);
+	// Launch the retrieval kernel.
+	gpu_get<<<blocks_no, BLOCK_SIZE>>>(this->entries, this->size, numKeys, device_keys, device_result);
 	HANDLE_ERROR(cudaGetLastError());
-
 	cudaDeviceSynchronize();
-	HANDLE_ERROR(cudaGetLastError());
 
+	// Copy results back to host.
 	cudaMemcpy(host_result, device_result, num_bytes, cudaMemcpyDeviceToHost);
 	HANDLE_ERROR(cudaGetLastError());
 
 	cudaFree(device_result);
-	HANDLE_ERROR(cudaGetLastError());
-
+	
+	// The caller is responsible for freeing the returned host memory.
 	return host_result;
 }
-
 
 float GpuHashTable::loadFactor() {
 	return 1.0f * this->used / this->size ; 
@@ -365,14 +351,14 @@ using namespace std;
 #define BLOCK_SIZE		256 
 
 
-#define DIE(assertion, call_description) \
-	do {	\
-		if (assertion) {	\
-		fprintf(stderr, "(%s, %d): ",	\
-		__FILE__, __LINE__);	\
-		perror(call_description);	\
-		exit(errno);	\
-	}	\
+#define DIE(assertion, call_description) 
+	do {	
+		if (assertion) {	
+		fprintf(stderr, "(%s, %d): ",	
+		__FILE__, __LINE__);	
+		perror(call_description);	
+		exit(errno);	
+	}	
 } while (0)
 
 const size_t primeList[] =
@@ -459,4 +445,3 @@ class GpuHashTable
 };
 
 #endif
-

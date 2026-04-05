@@ -1,4 +1,13 @@
-
+/**
+ * @file gpu_hashtable.cu
+ * @brief A GPU-based hash table implementation using open addressing with linear probing.
+ *
+ * This file provides a hash table that resides entirely in GPU memory. It uses
+ * a single contiguous array for storage and resolves hash collisions by linearly
+ * probing for the next available bucket. The implementation includes an efficient,
+ * GPU-only reshape mechanism and uses a shared counter to track the number of
+ * new keys added during a batch insertion.
+ */
 #include 
 #include 
 #include 
@@ -6,12 +15,30 @@
 #include 
 #include 
 #include 
-
+#include 
+#include 
+#include 
+#include 
+#include 
+#include 
+#include 
+#include 
+#include 
+#include 
+#include 
+#include 
 #include "gpu_hashtable.hpp"
 
 
 
-__global__ void hashmapReshapeKernel(HashMapData *newData, int newSize, HashMapData *oldData, int oldSize) 
+/**
+ * @brief CUDA kernel to copy and rehash all elements from an old table to a new one.
+ *
+ * Each thread is responsible for one bucket in the old table. If the bucket is
+ * not empty, the thread reads the key-value pair and re-inserts it into the new,
+ * larger table using an atomic, linear probing strategy.
+ */
+__global__ void hashmapReshapeKernel(HashMapData *newData, int newSize, HashMapData *oldData, int oldSize)
 {
   	unsigned int index = threadIdx.x + blockDim.x * blockIdx.x;
 
@@ -53,6 +80,13 @@ __global__ void hashmapReshapeKernel(HashMapData *newData, int newSize, HashMapD
 
 
 
+/**
+ * @brief CUDA kernel for inserting a batch of key-value pairs.
+ *
+ * Each thread handles one key-value pair. It uses `atomicCAS` for thread-safe
+ * insertion with linear probing. If a new element is inserted (not an update),
+ * it atomically increments a shared counter for the number of added keys.
+ */
 __global__ void hashMapInsertKernel(HashMapData *data, int maxSize, int *keys, int *values, int numKeys, int *addedKeys)
 {
 	unsigned int index = threadIdx.x + blockDim.x * blockIdx.x;
@@ -93,6 +127,16 @@ __global__ void hashMapInsertKernel(HashMapData *data, int maxSize, int *keys, i
 
 
 
+/**
+ * @brief CUDA kernel to retrieve values for a batch of keys.
+ *
+ * Each thread searches for a single key using linear probing. It checks for the
+ * target key or an empty bucket to terminate the search.
+ *
+ * @note This kernel has a potential bug: the `while(1)` loop may never terminate
+ * if a key is not found and the hash table is completely full, as there would be
+ * no KEY_INVALID bucket to stop the search.
+ */
 __global__ void hashMapGetBatchKernel(HashMapData *data, int maxSize, int *keys, int *values, int numKeys)
 {
 	unsigned int index = threadIdx.x + blockDim.x * blockIdx.x;
@@ -135,7 +179,13 @@ __global__ void hashMapGetBatchKernel(HashMapData *data, int maxSize, int *keys,
 
 
 
-GpuHashTable::GpuHashTable(int size) 
+/**
+ * @brief Host-side constructor for the GpuHashTable.
+ *
+ * Allocates the main hash table array in GPU device memory and initializes all
+ * buckets to an empty state.
+ */
+GpuHashTable::GpuHashTable(int size)
 {
 	this->currentSize = 0;
 	this->maxSize = size;
@@ -148,14 +198,26 @@ GpuHashTable::GpuHashTable(int size)
 }
 
 
-GpuHashTable::~GpuHashTable() 
+/**
+ * @brief Host-side destructor for the GpuHashTable.
+ *
+ * Frees the GPU memory allocated for the hash table data.
+ */
+GpuHashTable::~GpuHashTable()
 {
 	
 	cudaFree(this->data);
 }
 
 
-void GpuHashTable::reshape(int numBucketsReshape) 
+/**
+ * @brief Resizes the hash table to a new capacity and rehashes all existing elements.
+ *
+ * This function performs an efficient, GPU-only resize. It allocates a new,
+ * larger table on the device and launches a kernel to rehash all elements from
+ * the old table directly into the new one in parallel.
+ */
+void GpuHashTable::reshape(int numBucketsReshape)
 {
 	
 	HashMapData *oldData = this->data;
@@ -188,7 +250,16 @@ void GpuHashTable::reshape(int numBucketsReshape)
 }
 
 
-bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) 
+/**
+ * @brief Host-side function to insert a batch of key-value pairs.
+ *
+ * This function orchestrates the batch insertion. It first checks if the
+ * insertion would exceed the load factor and calls `reshape` if needed.
+ * It then copies the key-value data to the GPU, launches the insertion
+ * kernel, and updates the element count based on the number of new keys
+ * actually inserted (as reported back from the kernel).
+ */
+bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys)
 {
 	int *deviceKeys = NULL;
 	int *deviceValues = NULL;
@@ -245,7 +316,12 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys)
 }
 
 
-int* GpuHashTable::getBatch(int* keys, int numKeys) 
+/**
+ * @brief Host-side function to retrieve values for a batch of keys.
+ * @return A pointer to a host array containing the results. The caller is
+ *         responsible for freeing this memory.
+ */
+int* GpuHashTable::getBatch(int* keys, int numKeys)
 {
 	
 	int *deviceKeys;
@@ -280,7 +356,11 @@ int* GpuHashTable::getBatch(int* keys, int numKeys)
 }
 
 
-float GpuHashTable::loadFactor() 
+/**
+ * @brief Calculates the current load factor of the hash table.
+ * @return The load factor as a float (elements / capacity).
+ */
+float GpuHashTable::loadFactor()
 {
 	float loadFactor = ((float)this->currentSize) / this->maxSize;
 	return loadFactor; 

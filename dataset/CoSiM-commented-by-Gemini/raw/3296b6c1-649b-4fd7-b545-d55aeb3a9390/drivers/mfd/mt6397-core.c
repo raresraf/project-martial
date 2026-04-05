@@ -1,3 +1,15 @@
+/**
+ * @file mt6397-core.c
+ * @brief Core driver for MediaTek Multi-Function PMICs (Power Management ICs).
+ *
+ * This driver acts as a parent for a variety of MediaTek MFDs, such as the
+ * MT6323, MT6358, and MT6397. Its primary responsibility is to initialize the
+ * main chip, identify it, set up its interrupt controller, and then register
+ * its various sub-functions (like RTC, audio codec, regulator, etc.) as
+ * separate platform devices. This allows dedicated drivers for each function
+ * to bind to their respective hardware blocks. The driver uses a data-driven
+ * approach to support multiple chip variants with a single codebase.
+ */
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2014 MediaTek Inc.
@@ -27,6 +39,13 @@
 #include <linux/mfd/mt6359/registers.h>
 #include <linux/mfd/mt6397/registers.h>
 
+/*
+ * These resource definitions describe the hardware resources (memory-mapped
+ * register regions and IRQ lines) for the sub-devices within each PMIC.
+ * These resources will be assigned to the child platform_devices when they
+ * are created.
+ */
+
 #define MT6323_RTC_BASE		0x8000
 #define MT6323_RTC_SIZE		0x40
 
@@ -45,31 +64,37 @@
 #define MT6323_PWRC_BASE	0x8000
 #define MT6323_PWRC_SIZE	0x40
 
+/* Resources for the MT6323 real-time clock */
 static const struct resource mt6323_rtc_resources[] = {
 	DEFINE_RES_MEM(MT6323_RTC_BASE, MT6323_RTC_SIZE),
 	DEFINE_RES_IRQ(MT6323_IRQ_STATUS_RTC),
 };
 
+/* Resources for the MT6357 real-time clock */
 static const struct resource mt6357_rtc_resources[] = {
 	DEFINE_RES_MEM(MT6357_RTC_BASE, MT6357_RTC_SIZE),
 	DEFINE_RES_IRQ(MT6357_IRQ_RTC),
 };
 
+/* Resources for the MT6331 real-time clock */
 static const struct resource mt6331_rtc_resources[] = {
 	DEFINE_RES_MEM(MT6331_RTC_BASE, MT6331_RTC_SIZE),
 	DEFINE_RES_IRQ(MT6331_IRQ_STATUS_RTC),
 };
 
+/* Resources for the MT6358 real-time clock */
 static const struct resource mt6358_rtc_resources[] = {
 	DEFINE_RES_MEM(MT6358_RTC_BASE, MT6358_RTC_SIZE),
 	DEFINE_RES_IRQ(MT6358_IRQ_RTC),
 };
 
+/* Resources for the MT6397 real-time clock */
 static const struct resource mt6397_rtc_resources[] = {
 	DEFINE_RES_MEM(MT6397_RTC_BASE, MT6397_RTC_SIZE),
 	DEFINE_RES_IRQ(MT6397_IRQ_RTC),
 };
 
+/* Resources for the MT6358 power/home keys */
 static const struct resource mt6358_keys_resources[] = {
 	DEFINE_RES_IRQ_NAMED(MT6358_IRQ_PWRKEY, "powerkey"),
 	DEFINE_RES_IRQ_NAMED(MT6358_IRQ_HOMEKEY, "homekey"),
@@ -77,6 +102,7 @@ static const struct resource mt6358_keys_resources[] = {
 	DEFINE_RES_IRQ_NAMED(MT6358_IRQ_HOMEKEY_R, "homekey_r"),
 };
 
+/* Resources for the MT6359 power/home keys */
 static const struct resource mt6359_keys_resources[] = {
 	DEFINE_RES_IRQ_NAMED(MT6359_IRQ_PWRKEY, "powerkey"),
 	DEFINE_RES_IRQ_NAMED(MT6359_IRQ_HOMEKEY, "homekey"),
@@ -84,17 +110,20 @@ static const struct resource mt6359_keys_resources[] = {
 	DEFINE_RES_IRQ_NAMED(MT6359_IRQ_HOMEKEY_R, "homekey_r"),
 };
 
+/* Resources for the MT6359 accessory detection block */
 static const struct resource mt6359_accdet_resources[] = {
 	DEFINE_RES_IRQ_NAMED(MT6359_IRQ_ACCDET, "accdet_irq"),
 	DEFINE_RES_IRQ_NAMED(MT6359_IRQ_ACCDET_EINT0, "accdet_eint0"),
 	DEFINE_RES_IRQ_NAMED(MT6359_IRQ_ACCDET_EINT1, "accdet_eint1"),
 };
 
+/* Resources for the MT6323 power/home keys */
 static const struct resource mt6323_keys_resources[] = {
 	DEFINE_RES_IRQ_NAMED(MT6323_IRQ_STATUS_PWRKEY, "powerkey"),
 	DEFINE_RES_IRQ_NAMED(MT6323_IRQ_STATUS_FCHRKEY, "homekey"),
 };
 
+/* Resources for the MT6328 power/home keys */
 static const struct resource mt6328_keys_resources[] = {
 	DEFINE_RES_IRQ_NAMED(MT6328_IRQ_STATUS_PWRKEY, "powerkey"),
 	DEFINE_RES_IRQ_NAMED(MT6328_IRQ_STATUS_HOMEKEY, "homekey"),
@@ -102,6 +131,7 @@ static const struct resource mt6328_keys_resources[] = {
 	DEFINE_RES_IRQ_NAMED(MT6328_IRQ_STATUS_HOMEKEY_R, "homekey_r"),
 };
 
+/* Resources for the MT6357 power/home keys */
 static const struct resource mt6357_keys_resources[] = {
 	DEFINE_RES_IRQ_NAMED(MT6357_IRQ_PWRKEY, "powerkey"),
 	DEFINE_RES_IRQ_NAMED(MT6357_IRQ_HOMEKEY, "homekey"),
@@ -109,11 +139,13 @@ static const struct resource mt6357_keys_resources[] = {
 	DEFINE_RES_IRQ_NAMED(MT6357_IRQ_HOMEKEY_R, "homekey_r"),
 };
 
+/* Resources for the MT6331 power/home keys */
 static const struct resource mt6331_keys_resources[] = {
 	DEFINE_RES_IRQ_NAMED(MT6331_IRQ_STATUS_PWRKEY, "powerkey"),
 	DEFINE_RES_IRQ_NAMED(MT6331_IRQ_STATUS_HOMEKEY, "homekey"),
 };
 
+/* Resources for the MT6397 power/home keys */
 static const struct resource mt6397_keys_resources[] = {
 	DEFINE_RES_IRQ_NAMED(MT6397_IRQ_PWRKEY, "powerkey"),
 	DEFINE_RES_IRQ_NAMED(MT6397_IRQ_HOMEKEY, "homekey"),
@@ -122,6 +154,12 @@ static const struct resource mt6397_keys_resources[] = {
 static const struct resource mt6323_pwrc_resources[] = {
 	DEFINE_RES_MEM(MT6323_PWRC_BASE, MT6323_PWRC_SIZE),
 };
+
+/**
+ * @brief An array of `mfd_cell` structures that defines the sub-devices
+ * for a specific PMIC model. This array acts as a blueprint for creating the
+ * child platform devices.
+ */
 
 static const struct mfd_cell mt6323_devs[] = {
 	{
@@ -279,13 +317,21 @@ static const struct mfd_cell mt6397_devs[] = {
 	}
 };
 
+/**
+ * @brief Consolidates chip-specific data to enable a generic probe function.
+ *
+ * This struct holds pointers to chip-specific cells, register addresses,
+ * and initialization functions, allowing the probe function to be data-driven.
+ */
 struct chip_data {
-	u32 cid_addr;
-	u32 cid_shift;
-	const struct mfd_cell *cells;
-	int cell_size;
-	int (*irq_init)(struct mt6397_chip *chip);
+	u32 cid_addr; /* Chip ID register address */
+	u32 cid_shift; /* Bit shift for extracting the chip ID */
+	const struct mfd_cell *cells; /* Array of sub-devices */
+	int cell_size; /* Number of sub-devices */
+	int (*irq_init)(struct mt6397_chip *chip); /* IRQ initialization function */
 };
+
+/* Static definitions of chip-specific data, one for each supported PMIC. */
 
 static const struct chip_data mt6323_core = {
 	.cid_addr = MT6323_CID,
@@ -343,6 +389,13 @@ static const struct chip_data mt6397_core = {
 	.irq_init = mt6397_irq_init,
 };
 
+/**
+ * @brief The main probe function for the MFD driver.
+ *
+ * This function is called by the kernel when a device matching one of the
+ * `of_device_id` entries is found in the device tree. It identifies the specific
+ * PMIC, initializes it, and registers all of its child devices.
+ */
 static int mt6397_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -357,17 +410,19 @@ static int mt6397_probe(struct platform_device *pdev)
 	pmic->dev = &pdev->dev;
 
 	/*
-	 * mt6397 MFD is child device of soc pmic wrapper.
-	 * Regmap is set from its parent.
+	 * The PMIC is a child of another device (e.g., an I2C controller).
+	 * We get the regmap from this parent device to communicate with the PMIC.
 	 */
 	pmic->regmap = dev_get_regmap(pdev->dev.parent, NULL);
 	if (!pmic->regmap)
 		return -ENODEV;
 
+	/* Get the chip-specific data based on the device tree "compatible" string. */
 	pmic_core = of_device_get_match_data(&pdev->dev);
 	if (!pmic_core)
 		return -ENODEV;
 
+	/* Read the hardware Chip ID register to verify the device. */
 	ret = regmap_read(pmic->regmap, pmic_core->cid_addr, &id);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to read chip id: %d\n", ret);
@@ -378,14 +433,20 @@ static int mt6397_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, pmic);
 
+	/* Get the main interrupt line for the PMIC from the platform device. */
 	pmic->irq = platform_get_irq(pdev, 0);
 	if (pmic->irq <= 0)
 		return pmic->irq;
 
+	/* Call the chip-specific interrupt initialization function. */
 	ret = pmic_core->irq_init(pmic);
 	if (ret)
 		return ret;
 
+	/*
+	 * Core MFD Logic: Add all the child devices defined in the `cells`
+	 * array. The kernel will then probe for drivers for these new devices.
+	 */
 	ret = devm_mfd_add_devices(&pdev->dev, PLATFORM_DEVID_NONE,
 				   pmic_core->cells, pmic_core->cell_size,
 				   NULL, 0, pmic->irq_domain);
@@ -397,6 +458,11 @@ static int mt6397_probe(struct platform_device *pdev)
 	return ret;
 }
 
+/**
+ * @brief This structure maps the device tree "compatible" strings to their
+ * corresponding `chip_data`. This is how the driver knows which chip-specific
+ * data to use for a given device.
+ */
 static const struct of_device_id mt6397_of_match[] = {
 	{
 		.compatible = "mediatek,mt6323",
@@ -431,6 +497,10 @@ static const struct platform_device_id mt6397_id[] = {
 };
 MODULE_DEVICE_TABLE(platform, mt6397_id);
 
+/*
+ * @brief The platform_driver structure, which registers the probe function
+ * and the device tree match table with the kernel's platform bus.
+ */
 static struct platform_driver mt6397_driver = {
 	.probe = mt6397_probe,
 	.driver = {
@@ -440,6 +510,10 @@ static struct platform_driver mt6397_driver = {
 	.id_table = mt6397_id,
 };
 
+/*
+ * This macro registers the platform driver with the kernel. It is a wrapper
+ * around module_init() for platform drivers.
+ */
 module_platform_driver(mt6397_driver);
 
 MODULE_AUTHOR("Flora Fu, MediaTek");

@@ -1,4 +1,16 @@
+/**
+ * @file gpu_hashtable.cu
+ * @brief A GPU-based hash table implementation using a hybrid two-table
+ * structure with linear probing for collision resolution.
+ *
+ * This implementation uses two separate hash tables (`nodes1` and `nodes2`) to
+ * store data. When inserting an element, it first attempts to place it in
+ * either of the two tables at the calculated hash index. If both slots are
+ * occupied, it uses linear probing to find the next available slot, checking
+ * both tables at each subsequent index. This approach is a hybrid between
 
+ * 2-way set-associative hashing and open addressing.
+ */
 
 #include 
 #include 
@@ -6,12 +18,14 @@
 #include 
 #include 
 #include 
-
 #include "gpu_hashtable.hpp"
 
+// The number of threads per block used in kernel launches.
 #define BLOCKSIZE 256
 
-
+/**
+ * @brief Host-side constructor. Allocates two tables on the GPU.
+ */
 GpuHashTable::GpuHashTable(int size) {
 	cudaMalloc((void**)&my_ht.nodes1, size * sizeof(Node));
 	cudaMalloc((void**)&my_ht.nodes2, size * sizeof(Node));
@@ -21,7 +35,9 @@ GpuHashTable::GpuHashTable(int size) {
 	my_ht.size = size;
 }
 
-
+/**
+ * @brief Host-side destructor. Frees both GPU tables.
+ */
 GpuHashTable::~GpuHashTable() {
 	cudaFree(my_ht.nodes1);
 	cudaFree(my_ht.nodes2);
@@ -29,7 +45,13 @@ GpuHashTable::~GpuHashTable() {
 	my_ht.size = 0;
 }
 
-
+/**
+ * @brief CUDA kernel to rehash elements from an old table to a new one.
+ *
+ * Each thread reads one element from the input table and re-inserts it into
+ * the output table using a simple linear probing strategy. This is a pure
+ * GPU-to-GPU operation.
+ */
 __global__ void kernel_resize_HashTableElems(Node *input, int size, Node *output)
 {
 	unsigned int i = threadIdx.x + blockIdx.x * blockDim.x;
@@ -38,11 +60,14 @@ __global__ void kernel_resize_HashTableElems(Node *input, int size, Node *output
 
 	int rKey = input[i].key;
 	int rValue = input[i].value;
+	// Ignore empty nodes from the old table.
 	if (rKey <= 0 || rValue <= 0)
 		return;
-	int where = hash1(rKey, size);
 
+	int where = hash1(rKey, size);
+	// Linear probing to find an empty slot in the new table.
 	while (1) {
+		// Atomically claim an empty slot.
 		if(atomicCAS(&(output[where].key), 0, rKey) == 0)
 			break;
 		where = (where + 1) % size;
@@ -50,13 +75,19 @@ __global__ void kernel_resize_HashTableElems(Node *input, int size, Node *output
 	output[where].value = rValue;
 }
 
-
+/**
+ * @brief Resizes the hash table to a new capacity and rehashes all elements.
+ *
+ * This function performs an efficient GPU-to-GPU reshape. It allocates two new,
+ * larger tables and launches kernels to rehash the elements from the old tables
+ * directly into the new ones without transferring data to the host.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) {
-	Node *result1, *result2;	
+	Node *result1, *result2;
+	// 1. Allocate two new (larger) tables on the device.
 	cudaMalloc((void**)&result1, numBucketsReshape * sizeof(Node));
 	if (!result1)
 		return;
-
 	cudaMalloc((void**)&result2, numBucketsReshape * sizeof(Node));
 	if (!result2)
 		return;
@@ -66,7 +97,7 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 		block_no++;
 	my_ht.size = numBucketsReshape;
 	
-	
+	// 2. Launch kernels to rehash elements from old tables to new tables.
 	kernel_resize_HashTableElems>>(
 		my_ht.nodes1, my_ht.size, result1);
 	cudaDeviceSynchronize();
@@ -75,46 +106,63 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 		my_ht.nodes2, my_ht.size, result2);
 	cudaDeviceSynchronize();
 	
+	// 3. Free the old tables and update the struct to point to the new ones.
 	cudaFree(my_ht.nodes1);
 	cudaFree(my_ht.nodes2);
 	my_ht.nodes1 = result1;
 	my_ht.nodes2 = result2;
 }
 
-
+/**
+ * @brief CUDA kernel to insert a batch of key-value pairs.
+ *
+ * Each thread handles one pair. It uses a hybrid strategy:
+ * 1. Calculate a hash index `where`.
+ * 2. Attempt to `atomicCAS` into `nodes1[where]`.
+ * 3. If that fails, attempt to `atomicCAS` into `nodes2[where]`.
+ * 4. If both fail, increment `where` (linear probing) and repeat.
+ */
 __global__ void kernel_insert_HastTableElems(HashTable h, int *keys, int *values, int numKeys)
 {
 	unsigned int i = threadIdx.x + blockIdx.x * blockDim.x;
 	if (i >= numKeys)
 		return;
+	// Assuming keys and values are positive.
 	if(keys[i] <= 0 || values[i] <= 0)
 		return;
 	int where = hash1(keys[i], h.size);
-	int key = keys[i]; 
+	int key = keys[i];
 
+	// Loop until the element is successfully inserted.
 	while (1){
+		// Attempt to insert into the first table.
+		// `atomicCAS` will insert `key` if the slot is empty (0), or do nothing if `key` is already there.
 		if (atomicCAS(&(h.nodes1[where].key), 0, key) == 0){
 			h.nodes1[where].value =  values[i];
-			return;
+			return; // Success
 		}
 		if (atomicCAS(&(h.nodes1[where].key), key, key) == key){
-			h.nodes1[where].value =  values[i];
-			return;
+			h.nodes1[where].value =  values[i]; // Update existing key
+			return; // Success
 		}
 
+		// If the first table is occupied, attempt to insert into the second table at the same index.
 		if (atomicCAS(&(h.nodes2[where].key), 0, key) == 0){
 			h.nodes2[where].value =  values[i];
-			return;
+			return; // Success
 		}
 		if (atomicCAS(&(h.nodes2[where].key), key, key) == key){
-			h.nodes2[where].value =  values[i];
-			return;
-		}	
+			h.nodes2[where].value =  values[i]; // Update existing key
+			return; // Success
+		}
+		// If both slots are full, perform linear probing to find the next available slot.
 		where = (where + 1) % (h.size);
 	}
 }
 
-
+/**
+ * @brief Host-side function to insert a batch of key-value pairs.
+ */
 bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	int *gpuKeys, *gpuValues;
 	cudaMalloc((void**)&gpuKeys, numKeys * sizeof(int));
@@ -123,6 +171,7 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	cudaMemcpy(gpuValues, values, numKeys * sizeof(int), cudaMemcpyHostToDevice);
 
 	my_ht.items += numKeys;
+	// Check load factor and reshape if necessary.
 	if ( ((float)((numKeys + my_ht.items) / my_ht.size)) >= 0.9f)
 		reshape((int)(my_ht.size / 0.8f));
 	
@@ -130,16 +179,26 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	if (numKeys % BLOCKSIZE)
 		block_no++;
 	
+	// Launch the insertion kernel, passing the entire HashTable struct by value.
 	kernel_insert_HastTableElems>>(
 		my_ht, gpuKeys, gpuValues, numKeys);
 	cudaDeviceSynchronize();
 	
 	cudaFree(gpuKeys);
 	cudaFree(gpuValues);
-	return false;
+	return false; // The return value seems incorrect, should likely be true on success.
 }
 
-
+/**
+ * @brief CUDA kernel to retrieve values for a batch of keys.
+ *
+ * Each thread searches for a key. It mirrors the insertion logic by checking
+ * both table `nodes1` and `nodes2` at each position during linear probing.
+ *
+ * Note: The use of `atomicCAS` here for a read operation is highly unconventional
+ * and inefficient. It acts as a "test-if-equal" by attempting to swap the key
+ * with itself. A direct memory read would be much more performant.
+ */
 __global__ void kernel_get_HashTableElems(HashTable h, int *keys, int *values, int numKeys)
 {
 	unsigned int i = threadIdx.x + blockIdx.x * blockDim.x;
@@ -148,24 +207,30 @@ __global__ void kernel_get_HashTableElems(HashTable h, int *keys, int *values, i
 
 	int where = hash1(keys[i], h.size);
 	int key = keys[i];
-	if (key == 0)
+	if (key == 0) // Key 0 is treated as invalid/empty.
 		return;
+	
+	// Loop until the key is found or the table is fully probed (potential infinite loop).
 	while (1) {
-
-
+		// Check the first table at the current position.
 		if (atomicCAS(&(h.nodes1[where].key), key, key) == key){
 			values[i] = h.nodes1[where].value;
 			break;
 		}
+		// Check the second table at the current position.
 		if (atomicCAS(&(h.nodes2[where].key), key, key) == key){
 			values[i] = h.nodes2[where].value;
 			break;
 		}
-		where = (where + 1) % (h.size);	
+		// Probe to the next position.
+		where = (where + 1) % (h.size);
 	}
 }
 
-
+/**
+ * @brief Host-side function to retrieve values for a batch of keys.
+ * @return A pointer to a host array with the results. Caller must free this memory.
+ */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	int *result;
 	int *gpuKeys, *gpuValues;
@@ -173,23 +238,26 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	if (!result)
 		return NULL;
 
-
+	// Allocate device memory for keys and results.
 	cudaMalloc((void**)&gpuValues, numKeys * sizeof(int));
 	if (!gpuValues)
 		return NULL;
 	cudaMalloc((void**)&gpuKeys, numKeys * sizeof(int));
 	if (!gpuKeys)
 		return NULL;
+	// Copy keys from host to device.
 	cudaMemcpy(gpuKeys, keys, numKeys * sizeof(int), cudaMemcpyHostToDevice);
 
 	int block_no = numKeys / BLOCKSIZE;
 	if (numKeys % BLOCKSIZE)
 		block_no++;
 	
+	// Launch the get kernel.
 	kernel_get_HashTableElems>>(
 		my_ht, gpuKeys, gpuValues, numKeys);
 	cudaDeviceSynchronize();
 
+	// Copy results from device back to host.
 	cudaMemcpy(result, gpuValues, numKeys * sizeof(int), cudaMemcpyDeviceToHost);
 
 	cudaFree(gpuKeys);
@@ -198,30 +266,33 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	return result;
 }
 
-
+/**
+ * @brief Calculates the current load factor.
+ */
 float GpuHashTable::loadFactor() {
 		return 1.0f * (float) my_ht.items / my_ht.size; 
 }
 
 
-
+// --- Convenience macros for test file ---
 #define HASH_INIT GpuHashTable GpuHashTable(1);
 #define HASH_RESERVE(size) GpuHashTable.reshape(size);
-
 #define HASH_BATCH_INSERT(keys, values, numKeys) GpuHashTable.insertBatch(keys, values, numKeys)
 #define HASH_BATCH_GET(keys, numKeys) GpuHashTable.getBatch(keys, numKeys)
-
 #define HASH_LOAD_FACTOR GpuHashTable.loadFactor()
 
 #include "test_map.cpp"
 
+// The file includes a header guard and content that should be in gpu_hashtable.hpp
 #ifndef _HASHCPU_
 #define _HASHCPU_
 
 using namespace std;
 
+// Sentinel value for an invalid/empty key.
 #define	KEY_INVALID		0
 
+// C-style error handling macro.
 #define DIE(assertion, call_description) \
 	do {	\
 		if (assertion) {	\
@@ -231,7 +302,8 @@ using namespace std;
 		exit(errno);	\
 	}	\
 } while (0)
-	
+
+// A large list of prime numbers, likely used for hashing.
 __device__ const size_t primeList[] =
 {
 	2llu, 3llu, 5llu, 7llu, 11llu, 13llu, 17llu, 23llu, 29llu, 37llu, 47llu,
@@ -274,15 +346,14 @@ __device__ const size_t primeList[] =
 	718326812383316683llu, 905035071625626043llu, 1140272737634240411llu,
 	1436653624766633509llu, 1810070143251252131llu, 2280545475268481167llu,
 	2873307249533267101llu, 3620140286502504283llu, 4561090950536962147llu,
-
-
 	5746614499066534157llu, 7240280573005008577llu, 9122181901073924329llu,
 	11493228998133068689llu, 14480561146010017169llu, 18446744073709551557llu
 };
 
 
-
-
+/**
+ * @brief A simple multiplicative hash function. Can be used on host and device.
+ */
 __device__ int hash1(int data, int limit) {
 	return ((long)abs(data) * 3llu) % 9122181901073924329llu % limit;
 }
@@ -293,21 +364,24 @@ __device__ int hash3(int data, int limit) {
 	return ((long)abs(data) * primeList[70]) % primeList[93] % limit;
 }
 
+/** @brief A simple key-value pair. */
 typedef struct {
 	int key;
 	int value;
 } Node;
 
+/** @brief A struct holding device pointers and metadata for the hash table. */
 typedef struct {
-	Node *nodes1;
-	Node *nodes2;
-	int size;
-	int items;
+	Node *nodes1; // Pointer to the first table in device memory.
+	Node *nodes2; // Pointer to the second table in device memory.
+	int size;     // The capacity of each table.
+	int items;    // The total number of items stored.
 } HashTable;
 
 
-
-
+/**
+ * @brief The host-side class providing an interface to the GPU hash table.
+ */
 class GpuHashTable
 {
 	public:

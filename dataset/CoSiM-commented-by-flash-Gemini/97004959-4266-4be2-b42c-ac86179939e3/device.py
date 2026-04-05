@@ -3,6 +3,13 @@
 
 
 
+"""
+@97004959-4266-4be2-4b2c-ac86179939e3/device.py
+@brief Defines classes for device simulation in a distributed system, including reusable barrier synchronization and script execution management.
+Functional Utility: This module orchestrates device behavior in a simulated distributed environment, enabling synchronized data processing and script execution across multiple interconnected devices.
+Domain: Distributed Systems, Concurrency, Simulation.
+"""
+
 from threading import Event, Thread, Lock, Semaphore
 import Queue
 

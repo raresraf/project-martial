@@ -6,14 +6,14 @@
  *
  * Algorithm: Greedy, Constraint-based
  * The solution determines the maximum number of items possible by considering
- * the most limiting constraints.
- * 1.  The total number of items is fundamentally limited by `(A + B) / 3`, as
- *     each item requires a total of 3 resource units.
- * 2.  However, an imbalance in resources provides a tighter bound. If one
- *     resource `A` is much more abundant than the other `B` (i.e., `A > 2*B`),
- *     the number of items is limited by the quantity of `B`. The same applies
- *     if `B` is much more abundant than `A`.
- * The final answer is the minimum of these constraints.
+ * the most limiting constraints. The maximum number of items, k, is given by
+ * k = min(A, B, (A+B)/3). This formula is derived from the constraints of the
+ * problem where you can produce 'x' items of type 1 (2A, 1B) and 'y' items of
+ * type 2 (1A, 2B), such that k = x+y. The constraints are:
+ * 1. 2x + y <= A
+ * 2. x + 2y <= B
+ * Summing these gives 3(x+y) <= A+B, so k <= (A+B)/3. Also, k=x+y <= 2x+y <= A
+ * and k=x+y <= x+2y <= B. Thus, k is limited by the minimum of A, B, and (A+B)/3.
  *
  * Time Complexity: O(1) per test case.
  * Space Complexity: O(1) per test case.
@@ -197,15 +197,16 @@ void solve() {
   int A, B;
   cin >> A >> B;
 
-  // The primary constraint is the total number of resources. Since each
-  // item requires 3 resources in total (2 of one, 1 of the other), the
-  // maximum possible is the total divided by 3.
+  // The maximum number of items is the minimum of A, B, and (A+B)/3.
+  // This code implements this logic in a clever way.
+  // First, it computes the bound based on the total number of resources.
   int ans = (A + B) / 3;
 
-  // However, if resources are very imbalanced, the minority resource
-  // becomes the limiting factor. You can't make more items than you have
-  // of the resource that is required for every item type.
-  // A more concise way to write this is ans = min({A, B, (A+B)/3});
+  // Then, it refines the answer by considering the case where one resource
+  // is much scarcer than the other. If A > 2*B, then B is the limiting
+  // factor among the three constraints (A, B, (A+B)/3). A similar argument
+  // holds if B > 2*A. In balanced cases, (A+B)/3 is the tightest bound.
+  // This is a fast way to compute min({A, B, (A+B)/3}).
   if (A > 2 * B) {
     ans = B;
   }
@@ -217,7 +218,8 @@ void solve() {
 }
 
 int main() {
-  // Functional Utility: Optimizes I/O operations for speed.
+  // Functional Utility: Optimizes I/O operations for speed in competitive
+  // programming by decoupling C++ streams from C standard streams.
   setIO();
 
   ll T = 1;

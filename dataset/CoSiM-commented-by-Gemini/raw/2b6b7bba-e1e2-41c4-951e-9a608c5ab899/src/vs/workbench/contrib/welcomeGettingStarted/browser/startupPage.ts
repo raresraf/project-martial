@@ -1,3 +1,9 @@
+/**
+ * @file This file is responsible for the logic that determines which page, if any,
+ * is shown to the user on workbench startup. It handles showing the 'Welcome'
+ * page, a project's README file, a terminal, or restoring a previous
+ * walkthrough, based on a variety of configuration settings and workspace contexts.
+ */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -37,6 +43,14 @@ const configurationKey = 'workbench.startupEditor';
 const oldConfigurationKey = 'workbench.welcome.enabled';
 const telemetryOptOutStorageKey = 'workbench.telemetryOptOutShown';
 
+/**
+ * @class StartupPageEditorResolverContribution
+ * @implements {IWorkbenchContribution}
+ * @brief Registers the 'Welcome Page' as a custom editor within the workbench.
+ * @details This contribution allows the 'Welcome Page' to be treated like any other
+ * editor, with a custom URI scheme (`getting-started:`). It defines how to
+ * create an instance of the `GettingStartedInput` when such a URI is opened.
+ */
 export class StartupPageEditorResolverContribution implements IWorkbenchContribution {
 
 	static readonly ID = 'workbench.contrib.startupPageEditorResolver';
@@ -71,6 +85,15 @@ export class StartupPageEditorResolverContribution implements IWorkbenchContribu
 	}
 }
 
+/**
+ * @class StartupPageRunnerContribution
+ * @implements {IWorkbenchContribution}
+ * @brief Manages the logic for opening a startup page when the workbench launches.
+ * @details This is the core class that orchestrates the startup page behavior. It
+ * waits for the workbench to be restored, then evaluates various conditions
+ * (e.g., first launch, user settings, workspace state) to decide whether to open
+ * the 'Welcome' page, a README file, or another configured startup editor.
+ */
 export class StartupPageRunnerContribution extends Disposable implements IWorkbenchContribution {
 
 	static readonly ID = 'workbench.contrib.startupPageRunner';
@@ -92,6 +115,7 @@ export class StartupPageRunnerContribution extends Disposable implements IWorkbe
 	) {
 		super();
 		this.run().then(undefined, onUnexpectedError);
+		// When a getting started editor is closed, reset its internal navigation state.
 		this._register(this.editorService.onDidCloseEditor((e) => {
 			if (e.editor instanceof GettingStartedInput) {
 				e.editor.selectedCategory = undefined;
@@ -100,12 +124,17 @@ export class StartupPageRunnerContribution extends Disposable implements IWorkbe
 		}));
 	}
 
+	/**
+	 * @brief Core logic to determine and open a startup editor.
+	 * This method is executed after the workbench has been restored. It contains
+	 * the primary decision tree for the startup page feature.
+	 */
 	private async run() {
-
-		// Wait for resolving startup editor until we are restored to reduce startup pressure
+		// Defer execution until the workbench is restored to avoid impacting startup time.
 		await this.lifecycleService.when(LifecyclePhase.Restored);
 
-		// Always open Welcome page for first-launch, no matter what is open or which startupEditor is set.
+		// Special case: On first launch with telemetry enabled, always show the Welcome
+		// page to present the user with telemetry settings and opt-out information.
 		if (
 			this.productService.enableTelemetry
 			&& this.productService.showTelemetryOptOut
@@ -118,27 +147,29 @@ export class StartupPageRunnerContribution extends Disposable implements IWorkbe
 			return;
 		}
 
+		// If a walkthrough was in progress, attempt to restore it.
 		if (this.tryOpenWalkthroughForFolder()) {
 			return;
 		}
 
 		const enabled = isStartupPageEnabled(this.configurationService, this.contextService, this.environmentService);
+		// Pre-condition: Only run on first launch, not on window reload.
 		if (enabled && this.lifecycleService.startupKind !== StartupKind.ReloadedWindow) {
 			const hasBackups = await this.workingCopyBackupService.hasBackups();
+			// Pre-condition: If there are dirty files to restore, suppress the startup page.
 			if (hasBackups) { return; }
 
-			// Open the welcome even if we opened a set of default editors
+			// Open a startup editor only if no other editor is already active or if only default editors were opened.
 			if (!this.editorService.activeEditor || this.layoutService.openedDefaultEditors) {
 				const startupEditorSetting = this.configurationService.inspect<string>(configurationKey);
 
-
 				const isStartupEditorReadme = startupEditorSetting.value === 'readme';
+				// The 'readme' setting is only honored if it comes from user or default settings,
+				// not from workspace settings, to prevent potentially untrusted code execution.
 				const isStartupEditorUserReadme = startupEditorSetting.userValue === 'readme';
 				const isStartupEditorDefaultReadme = startupEditorSetting.defaultValue === 'readme';
 
-				// 'readme' should not be set in workspace settings to prevent tracking,
-				// but it can be set as a default (as in codespaces or from configurationDefaults) or a user setting
-				if (isStartupEditorReadme && (!isStartupEditorUserReadme || !isStartupEditorDefaultReadme)) {
+				if (isStartupEditorReadme && (!isStartupEditorUserReadme && !isStartupEditorDefaultReadme)) {
 					this.logService.warn(`Warning: 'workbench.startupEditor: readme' setting ignored due to being set somewhere other than user or default settings (user=${startupEditorSetting.userValue}, default=${startupEditorSetting.defaultValue})`);
 				}
 
@@ -154,6 +185,10 @@ export class StartupPageRunnerContribution extends Disposable implements IWorkbe
 		}
 	}
 
+	/**
+	 * @brief Restores a walkthrough page if one was active in the folder.
+	 * @returns True if a walkthrough was restored, false otherwise.
+	 */
 	private tryOpenWalkthroughForFolder(): boolean {
 		const toRestore = this.storageService.get(restoreWalkthroughsConfigurationKey, StorageScope.PROFILE);
 		if (!toRestore) {
@@ -162,6 +197,7 @@ export class StartupPageRunnerContribution extends Disposable implements IWorkbe
 		else {
 			const restoreData: RestoreWalkthroughsConfigurationValue = JSON.parse(toRestore);
 			const currentWorkspace = this.contextService.getWorkspace();
+			// Check if the stored folder matches the current workspace before restoring.
 			if (restoreData.folder === UNKNOWN_EMPTY_WINDOW_WORKSPACE.id || restoreData.folder === currentWorkspace.folders[0].uri.toString()) {
 				const options: GettingStartedEditorOptions = { selectedCategory: restoreData.category, selectedStep: restoreData.step, pinned: false };
 				this.editorService.openEditor({
@@ -175,6 +211,10 @@ export class StartupPageRunnerContribution extends Disposable implements IWorkbe
 		return false;
 	}
 
+	/**
+	 * @brief Finds and opens a README file from the workspace.
+	 * Defaults to the Welcome page if no README is found.
+	 */
 	private async openReadme() {
 		const readmes = arrays.coalesce(
 			await Promise.all(this.contextService.getWorkspace().folders.map(
@@ -182,6 +222,7 @@ export class StartupPageRunnerContribution extends Disposable implements IWorkbe
 					const folderUri = folder.uri;
 					const folderStat = await this.fileService.resolve(folderUri).catch(onUnexpectedError);
 					const files = folderStat?.children ? folderStat.children.map(child => child.name).sort() : [];
+					// Find a file named 'readme.md' (case-insensitive) or any file starting with 'readme'.
 					const file = files.find(file => file.toLowerCase() === 'readme.md') || files.find(file => file.toLowerCase().startsWith('readme'));
 					if (file) { return joinPath(folderUri, file); }
 					else { return undefined; }
@@ -190,6 +231,7 @@ export class StartupPageRunnerContribution extends Disposable implements IWorkbe
 		if (!this.editorService.activeEditor) {
 			if (readmes.length) {
 				const isMarkDown = (readme: URI) => readme.path.toLowerCase().endsWith('.md');
+				// Open markdown files in preview mode and other files (e.g., .txt) in a standard editor.
 				await Promise.all([
 					this.commandService.executeCommand('markdown.showPreview', null, readmes.filter(isMarkDown), { locked: true }).catch(error => {
 						this.notificationService.error(localize('startupPage.markdownPreviewError', 'Could not open markdown preview: {0}.\n\nPlease make sure the markdown extension is enabled.', error.message));
@@ -197,17 +239,22 @@ export class StartupPageRunnerContribution extends Disposable implements IWorkbe
 					this.editorService.openEditors(readmes.filter(readme => !isMarkDown(readme)).map(readme => ({ resource: readme }))),
 				]);
 			} else {
-				// If no readme is found, default to showing the welcome page.
+				// Fallback: If no README is found, open the Welcome page instead.
 				await this.openGettingStarted();
 			}
 		}
 	}
 
+	/**
+	 * @brief Opens the 'Getting Started' (Welcome) editor.
+	 * @param showTelemetryNotice - If true, indicates that the page should include a notice about telemetry.
+	 * It ensures that the welcome editor is not opened more than once.
+	 */
 	private async openGettingStarted(showTelemetryNotice?: boolean) {
 		const startupEditorTypeID = gettingStartedInputTypeId;
 		const editor = this.editorService.activeEditor;
 
-		// Ensure that the welcome editor won't get opened more than once
+		// Invariant: Do not open the 'Getting Started' editor if one is already open.
 		if (editor?.typeId === startupEditorTypeID || this.editorService.editors.some(e => e.typeId === startupEditorTypeID)) {
 			return;
 		}
@@ -222,19 +269,28 @@ export class StartupPageRunnerContribution extends Disposable implements IWorkbe
 	}
 }
 
+/**
+ * @brief Determines if any startup page functionality is enabled.
+ * @returns True if a startup editor should be considered, false otherwise.
+ * @details This function checks multiple configuration settings, including the current
+ * `workbench.startupEditor` and the legacy `workbench.welcome.enabled`, as well as
+ * environment flags.
+ */
 function isStartupPageEnabled(configurationService: IConfigurationService, contextService: IWorkspaceContextService, environmentService: IWorkbenchEnvironmentService) {
+	// Check for a global override flag.
 	if (environmentService.skipWelcome) {
 		return false;
 	}
 
 	const startupEditor = configurationService.inspect<string>(configurationKey);
+	// For backward compatibility, if the new key is not set, check the old key.
 	if (!startupEditor.userValue && !startupEditor.workspaceValue) {
 		const welcomeEnabled = configurationService.inspect(oldConfigurationKey);
 		if (welcomeEnabled.value !== undefined && welcomeEnabled.value !== null) {
 			return welcomeEnabled.value;
 		}
 	}
-
+	// Check for the various valid settings that enable a startup editor.
 	return startupEditor.value === 'welcomePage'
 		|| startupEditor.value === 'readme' && (startupEditor.userValue === 'readme' || startupEditor.defaultValue === 'readme')
 		|| (contextService.getWorkbenchState() === WorkbenchState.EMPTY && startupEditor.value === 'welcomePageInEmptyWorkbench')

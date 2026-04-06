@@ -1,15 +1,28 @@
+/**
+ * @file 266B.CPP
+ * @brief Solution for the "Queue at the School" problem (Codeforces 266B).
+ *
+ * This program simulates the state of a queue of boys ('B') and girls ('G')
+ * over a given number of time steps. In each time step, any adjacent pair of
+ * a boy followed by a girl ('BG') swaps places.
+ *
+ * @algorithm Iterative single-pass swap simulation.
+ * @time_complexity O(T * N), where T is the number of time steps and N is the
+ *                  length of the queue.
+ * @space_complexity O(N) to store the queue as a string.
+ */
 // please refer from line no. 207
 /////*31022618*/////
 //_MONU KUMAR
 #include <bits/stdc++.h>
 using namespace std;
-#define fast                                                                   \
-  ios_base::sync_with_stdio(false);                                            \
-  cin.tie(0);                                                                  \
+#define fast                                                                   
+  ios_base::sync_with_stdio(false);                                            
+  cin.tie(0);                                                                  
   cout.tie(0);
-#define tc                                                                     \
-  ll t = 1;                                                                    \
-  cin >> t;                                                                    \
+#define tc                                                                     
+  ll t = 1;                                                                    
+  cin >> t;                                                                    
   while (t--)
 #define ll long long int
 #define ld long double
@@ -18,25 +31,34 @@ using namespace std;
 #define vi std::vector<ll>
 #define vp vector<pll>
 #define mll std::map<ll, ll>
-#define mpl                                                                    \
-  std:                                                                         \
+#define mpl                                                                    
+  std:                                                                         
   map<pll, ll>
-#define p1(x) cout << x << "\n";
-#define p2(x, y) cout << x << " " << y << "\n";
-#define p3(x, y, z) cout << x << " " << y << " " << z << "\n";
-#define p4(x, y, z, w) cout << x << " " << y << " " << z << " " << w << "\n";
-#define trace(x)                                                               \
-  cout << #x << ": " << x << " "                                               \
-       << "\n";
-#define trace2(x, y)                                                           \
-  cout << #x << ": " << x << " | " << #y << ": " << y << "\n";
-#define trace3(x, y, z)                                                        \
-  cout << #x << ":" << x << " | " << #y << ": " << y << " | " << #z << ": "    \
-       << z << "\n";
-#define trace4(a, b, c, d)                                                     \
-  cout << #a << ": " << a << " | " << #b << ": " << b << " | " << #c << ": "   \
-       << c << " | " << #d << ": " << d << "\n";
-#define nL cout << "\n";
+#define p1(x) cout << x << "
+";
+#define p2(x, y) cout << x << " " << y << "
+";
+#define p3(x, y, z) cout << x << " " << y << " " << z << "
+";
+#define p4(x, y, z, w) cout << x << " " << y << " " << z << " " << w << "
+";
+#define trace(x)                                                               
+  cout << #x << ": " << x << " "                                               
+       << "
+";
+#define trace2(x, y)                                                           
+  cout << #x << ": " << x << " | " << #y << ": " << y << "
+";
+#define trace3(x, y, z)                                                        
+  cout << #x << ":" << x << " | " << #y << ": " << y << " | " << #z << ": "    
+       << z << "
+";
+#define trace4(a, b, c, d)                                                     
+  cout << #a << ": " << a << " | " << #b << ": " << b << " | " << #c << ": "   
+       << c << " | " << #d << ": " << d << "
+";
+#define nL cout << "
+";
 #define lp(i, l, r) for (long long int i = l; i < r; i++)
 #define lpr(i, r, l) for (long long int i = r - 1; i >= l; i--)
 #define mem(a, x) memset(a, x, sizeof(a)) // set elements of array to some value
@@ -55,8 +77,8 @@ using namespace std;
 #define all(v) v.begin(), v.end()
 #define lps(v, x) (lower_bound(all(v), x) - v.begin())
 #define ups(v, x) (upper_bound(all(v), x) - v.begin())
-#define ina(a, n)                                                              \
-  ll a[n];                                                                     \
+#define ina(a, n)                                                              
+  ll a[n];                                                                     
   lp(i, 0, n) cin >> a[i];
 #define ona(a, n) lp(i, 0, n) cout << a[i] << " ";
 //#########################################################################################
@@ -191,15 +213,18 @@ ll lcm(ll a, ll b) { return a / gcd(a, b) * b; }
 //###########################################################################################
 void yes() {
   cout << "YES"
-       << "\n";
+       << "
+";
 }
 //###########################################################################################
 void no() {
   cout << "NO"
-       << "\n";
+       << "
+";
 }
 //###########################################################################################
 int main() {
+  // A common competitive programming optimization to untie C++ streams from C stdio.
   fast
       //  clock_t launch=clock();
       //  string r = s1.substr(1, 3);
@@ -213,18 +238,38 @@ int main() {
   cin >> n >> k;
   string s;
   cin >> s;
+
+  /**
+   * Block Logic: This is the main simulation loop, which runs for `k` time steps.
+   * Invariant: At the beginning of each iteration, `s` holds the state of the
+   * queue after `i` time steps have passed.
+   */
   lp(i, 0, k) {
+    /**
+     * Block Logic: This loop performs a single pass over the queue for one time step.
+     * It iterates from right to left to correctly handle the swaps in a single pass.
+     * If iterated from left to right, a 'G' could move multiple spots in one pass,
+     * which is incorrect.
+     */
     lpr(j, n, 1) {
+      // Pre-condition: Check for an adjacent Boy-Girl ('BG') pair.
       if (s[j] == 'G' && s[j - 1] == 'B') {
-        /* code */
         swap(s[j], s[j - 1]);
+        /**
+         * Inline: After a swap, decrement `j`. This is crucial. It prevents the
+         * now-swapped 'G' at index `j-1` from being considered for another
+         * swap in the same time step. This ensures each person moves at most
+         * one position per time step.
+         */
         j--;
       }
     }
   }
+  // Print the final state of the queue after all simulations.
   p1(s)
 
-      // clog<<((long double)(clock()-launch)/CLOCKS_PER_SEC)<<"\n";
+      // clog<<((long double)(clock()-launch)/CLOCKS_PER_SEC)<<"
+";
       return 0;
 }
 //////////*********************end of program*********************//////////

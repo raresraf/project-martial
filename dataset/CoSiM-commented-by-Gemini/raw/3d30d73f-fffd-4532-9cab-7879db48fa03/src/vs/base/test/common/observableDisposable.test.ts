@@ -2,6 +2,12 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
+
+/**
+ * @file This file contains unit tests for the `ObservableDisposable` class, which is a
+ * foundational component for managing resource lifecycle and observing disposal events.
+ */
+
 import assert from 'assert';
 import { spy } from 'sinon';
 import { wait, waitRandom } from './testUtils.js';
@@ -11,8 +17,14 @@ import { ensureNoDisposablesAreLeakedInTestSuite } from './utils.js';
 import { assertNotDisposed, ObservableDisposable } from '../../common/observableDisposable.js';
 
 suite('ObservableDisposable', () => {
+	// A test utility that ensures any disposable created in this suite is
+	// automatically disposed after the tests are run, preventing leaks in the test runner.
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
+	/**
+	 * This test verifies the basic functionality of the `disposed` property.
+	 * An `ObservableDisposable` should correctly track its own lifecycle state.
+	 */
 	test('• tracks `disposed` state', () => {
 		// this is an abstract class, so we have to create
 		// an anonymous class that extends it
@@ -29,6 +41,7 @@ suite('ObservableDisposable', () => {
 			'Object must be instance of Disposable.',
 		);
 
+		// Pre-condition: Check that the object is not disposed upon creation.
 		assert(
 			object.disposed === false,
 			'Object must not be disposed yet.',
@@ -36,13 +49,22 @@ suite('ObservableDisposable', () => {
 
 		object.dispose();
 
+		// Assert that the `disposed` property is true after `dispose()` is called.
 		assert(
 			object.disposed,
 			'Object must be disposed.',
 		);
 	});
 
+	/**
+	 * This suite tests the behavior of the `onDispose` event handler, which allows
+	 * code to react to the disposal of the object.
+	 */
 	suite('• onDispose()', () => {
+		/**
+		 * This test ensures that the `onDispose` event is fired exactly once when
+		 * the object is disposed, and not before or on subsequent dispose calls.
+		 */
 		test('• fires the event on dispose', async () => {
 			// this is an abstract class, so we have to create
 			// an anonymous class that extends it
@@ -57,6 +79,7 @@ suite('ObservableDisposable', () => {
 			const onDisposeSpy = spy(() => { });
 			disposables.add(object.onDispose(onDisposeSpy));
 
+			// Pre-condition: The callback should not be called synchronously.
 			assert(
 				onDisposeSpy.notCalled,
 				'`onDispose` callback must not be called yet.',
@@ -90,7 +113,7 @@ suite('ObservableDisposable', () => {
 			/**
 			 * Validate that the callback is not called again.
 			 */
-
+			// Invariant: Subsequent calls to dispose should have no effect.
 			object.dispose();
 			object.dispose();
 			await waitRandom(10);
@@ -107,6 +130,11 @@ suite('ObservableDisposable', () => {
 			);
 		});
 
+		/**
+		 * This test verifies a critical behavior for robust cleanup: if a listener
+		 * is attached to `onDispose` *after* the object is already disposed, the
+		 * listener should be executed immediately.
+		 */
 		test('• executes callback immediately if already disposed', async () => {
 			// this is an abstract class, so we have to create
 			// an anonymous class that extends it
@@ -127,6 +155,7 @@ suite('ObservableDisposable', () => {
 
 			await waitRandom(10, 5);
 
+			// Attaching another listener should also result in immediate execution.
 			disposables.add(object.onDispose(onDisposeSpy));
 
 			assert(
@@ -145,7 +174,15 @@ suite('ObservableDisposable', () => {
 		});
 	});
 
+	/**
+	 * This suite tests the `addDisposable` method, which is used to build
+	 * chains or trees of disposable objects.
+	 */
 	suite('• addDisposable()', () => {
+		/**
+		 * This test ensures that when a parent `ObservableDisposable` is disposed,
+		 * all child disposables added via `addDisposable` are also disposed.
+		 */
 		test('• disposes provided object with itself', async () => {
 			class TestDisposable implements IDisposable {
 				private _disposed = false;
@@ -191,9 +228,10 @@ suite('ObservableDisposable', () => {
 				);
 			}
 
+			// Action: Dispose the parent object.
 			object.dispose();
 
-			// finally validate that all objects are disposed
+			// finally validate that all child objects are also disposed.
 			const allDisposed = disposableObjects.reduce((acc, disposable) => {
 				return acc && disposable.disposed;
 			}, true);
@@ -204,11 +242,16 @@ suite('ObservableDisposable', () => {
 			);
 		});
 
+		/**
+		 * This test verifies that disposal cascades down through an entire nested
+		 * tree of disposable objects, ensuring that complex object graphs are
+		 * cleaned up correctly.
+		 */
 		test('• disposes the entire tree of disposables', async () => {
 			class TestDisposable extends ObservableDisposable { }
 
 			/**
-			 * Generate a tree of disposable objects.
+			 * Helper function to generate a random tree of disposable objects.
 			 */
 			const disposableObjects = (
 				count: number = randomInt(20, 10),
@@ -256,6 +299,7 @@ suite('ObservableDisposable', () => {
 				'Object must not be disposed yet.',
 			);
 
+			// Build the tree of disposables attached to the root object.
 			const disposablesCount = randomInt(20, 10);
 			const allDisposableObjects = disposableObjects(disposablesCount, object);
 
@@ -272,9 +316,10 @@ suite('ObservableDisposable', () => {
 				);
 			}
 
+			// Action: Dispose the root of the tree.
 			object.dispose();
 
-			// finally validate that all objects are disposed
+			// finally validate that all objects in the entire tree are disposed.
 			const allDisposed = allDisposableObjects.reduce((acc, disposable) => {
 				return acc && disposable.disposed;
 			}, true);
@@ -286,13 +331,21 @@ suite('ObservableDisposable', () => {
 		});
 	});
 
+	/**
+	 * This suite tests the assertion helpers that guard against operations on
+	 * already-disposed objects.
+	 */
 	suite('• asserts', () => {
+		/**
+		 * Tests the `assertNotDisposed()` instance method.
+		 */
 		test('• not disposed (method)', async () => {
 			// this is an abstract class, so we have to create
 			// an anonymous class that extends it
 			const object: ObservableDisposable = new class extends ObservableDisposable { }();
 			disposables.add(object);
 
+			// Should not throw when the object is alive.
 			assert.doesNotThrow(() => {
 				object.assertNotDisposed('Object must not be disposed.');
 			});
@@ -307,6 +360,7 @@ suite('ObservableDisposable', () => {
 			object.dispose();
 			await wait(1);
 
+			// Should throw an error after the object has been disposed.
 			assert.throws(() => {
 				object.assertNotDisposed('Object must not be disposed.');
 			});
@@ -318,12 +372,16 @@ suite('ObservableDisposable', () => {
 			});
 		});
 
+		/**
+		 * Tests the `assertNotDisposed()` standalone utility function.
+		 */
 		test('• not disposed (function)', async () => {
 			// this is an abstract class, so we have to create
 			// an anonymous class that extends it
 			const object: ObservableDisposable = new class extends ObservableDisposable { }();
 			disposables.add(object);
 
+			// Should not throw when the object is alive.
 			assert.doesNotThrow(() => {
 				assertNotDisposed(
 					object,
@@ -344,6 +402,7 @@ suite('ObservableDisposable', () => {
 			object.dispose();
 			await wait(1);
 
+			// Should throw an error after the object has been disposed.
 			assert.throws(() => {
 				assertNotDisposed(
 					object,

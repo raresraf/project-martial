@@ -1,4 +1,13 @@
-
+/**
+ * @file gpu_hashtable.cu
+ * @brief Implements a GPU-accelerated hash table using a two-bucket cuckoo-style approach.
+ *
+ * This implementation uses two separate hash tables ("buckets") to reduce collision
+ * probability. On insertion, it attempts to place a key in either bucket at the
+ * hashed location before resorting to linear probing. This can improve performance by
+ * reducing long probe sequences compared to a single-table approach.
+ * Concurrency is managed with atomic operations.
+ */
 #include 
 #include 
 #include 
@@ -7,10 +16,23 @@
 
 #include "gpu_hashtable.hpp"
 
+/**
+ * @brief Computes a hash value for a given key on the GPU.
+ * @param data The input key to hash.
+ * @param limit The size of the hash table, used for the final modulo operation.
+ * @return The computed hash index.
+ */
 __device__ int myHash(int data, int limit) {
 	return ((long) abs(data) * 20906033) % 5351951779 % limit;
 }
 
+/**
+ * @brief Host-side constructor for the GpuHashTable class.
+ * @param size The initial capacity of the hash table.
+ *
+ * Initializes two separate hash table arrays (`bucket1`, `bucket2`) on the GPU,
+ * which forms the basis of the two-choice hashing scheme.
+ */
 GpuHashTable::GpuHashTable(int size) {
 	pairsInserted = 0;
 	bucketSize = size;
@@ -26,40 +48,59 @@ GpuHashTable::GpuHashTable(int size) {
 	cudaMemset(bucket2, 0, size * sizeof(hash_entry));
 }
 
+/**
+ * @brief Host-side destructor for the GpuHashTable class.
+ */
 GpuHashTable::~GpuHashTable() {
 	cudaFree(bucket1);
 	cudaFree(bucket2);
 }
 
 
-
+/**
+ * @brief CUDA kernel to insert a batch of key-value pairs.
+ * @param keys Pointer to device memory holding the keys.
+ * @param values Pointer to device memory holding the values.
+ * @param numKeys The number of pairs to insert.
+ * @param bucket1 Pointer to the first hash table bucket.
+ * @param bucket2 Pointer to the second hash table bucket.
+ * @param bucketSize The capacity of each bucket.
+ *
+ * This kernel implements a two-choice hashing scheme combined with linear probing.
+ * For each slot in the probe sequence, it attempts to insert the key into
+ * either the first or the second bucket, reducing collisions.
+ */
 __global__ void kernel_insert(int *keys, int *values, int numKeys, hash_entry* bucket1, hash_entry* bucket2, int bucketSize) {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	if (idx >= bucketSize) return;
 	int keyOld, keyNew;
 	keyNew = keys[idx];
+	// Step 1: Calculate the initial hash position.
 	int hash = myHash(keyNew, bucketSize);
+
+	// Step 2: Linearly probe, trying both buckets at each position.
 	for (int i = hash; i < bucketSize; i++) {
+		// Try to insert into bucket 1.
 		keyOld = atomicCAS(&bucket1[i].key, KEY_INVALID, keyNew);
 		if (keyOld == KEY_INVALID || keyOld == keyNew) {
 			bucket1[i].value = values[idx];
 			return;
 		}
 
-
+		// If bucket 1 was occupied, try bucket 2 at the same position.
 		keyOld = atomicCAS(&bucket2[i].key, KEY_INVALID, keyNew);
 		if (keyOld == KEY_INVALID || keyOld == keyNew) {
 			bucket2[i].value = values[idx];
 			return;
 		}
 	}
+	// Step 3: Handle wrap-around if no slot was found.
 	for (int i = 0; i < hash; i++) {
 		keyOld = atomicCAS(&bucket1[i].key, KEY_INVALID, keyNew);
 		if (keyOld == KEY_INVALID || keyOld == keyNew) {
 			bucket1[i].value = values[idx];
 			return;
 		}
-
 
 		keyOld = atomicCAS(&bucket2[i].key, KEY_INVALID, keyNew);
 		if (keyOld == KEY_INVALID || keyOld == keyNew) {
@@ -69,14 +110,24 @@ __global__ void kernel_insert(int *keys, int *values, int numKeys, hash_entry* b
 	}
 }
 
+/**
+ * @brief CUDA kernel to retrieve values for a batch of keys.
+ * @param keys Pointer to device memory holding the keys to look up.
+ * @param values Pointer to device memory where results will be stored.
+ * @param numItems The number of keys to retrieve.
+ * @param bucket1 Pointer to the first hash table bucket.
+ * @param bucket2 Pointer to the second hash table bucket.
+ * @param bucketSize The capacity of each bucket.
+ */
 __global__ void kernel_get(int *keys, int *values, int numItems, hash_entry* bucket1, hash_entry* bucket2, int bucketSize) {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	if (idx >= bucketSize) return;
 	int crtKey = keys[idx];
+	// Step 1: Calculate the initial hash position.
 	int hash = myHash(crtKey, bucketSize);
+
+	// Step 2: Linearly probe, checking both buckets at each position.
 	for (int i = hash; i < bucketSize; i++) {
-
-
 		if (bucket1[i].key == crtKey) {
 			values[idx] = bucket1[i].value;
 			return;
@@ -86,6 +137,7 @@ __global__ void kernel_get(int *keys, int *values, int numItems, hash_entry* buc
 			return;
 		}
 	}
+	// Step 3: Handle wrap-around if not found.
 	for (int i = 0; i < hash; i++) {
 		if (bucket1[i].key == crtKey) {
 			values[idx] = bucket1[i].value;
@@ -98,15 +150,28 @@ __global__ void kernel_get(int *keys, int *values, int numItems, hash_entry* buc
 	}
 }
 
+/**
+ * @brief CUDA kernel to rehash elements from an old pair of buckets to a new pair.
+ * @param oldBucket1 Source bucket 1.
+ * @param oldBucket2 Source bucket 2.
+ * @param oldBucketSize The capacity of the old buckets.
+ * @param newBucket1 Destination bucket 1.
+ * @param newBucket2 Destination bucket 2.
+ * @param newBucketSize The capacity of the new buckets.
+ */
 __global__ void kernel_rehash(hash_entry* oldBucket1, hash_entry* oldBucket2, int oldBucketSize,
-
-
-hash_entry* newBucket1, hash_entry* newBucket2, int newBucketSize) {
+                              hash_entry* newBucket1, hash_entry* newBucket2, int newBucketSize) {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	if (idx >= oldBucketSize) return;
+
+	// --- Rehash from oldBucket1 ---
 	if (oldBucket1[idx].key != KEY_INVALID) {
 		int keyNew, keyOld, hash;
 		keyNew = oldBucket1[idx].key;
+		// BUG: The destination index should be based on the new hash, not the old index `idx`.
+		// The correct hash `hash = myHash(keyNew, newBucketSize)` is calculated but not used
+		// in the `for` loops below for indexing into the new buckets. This will cause incorrect
+		// placement and data loss during reshape.
 		hash = myHash(keyNew, newBucketSize);
 		bool completed = false;
 		for (int i = hash; i < newBucketSize; i++) {
@@ -138,6 +203,7 @@ hash_entry* newBucket1, hash_entry* newBucket2, int newBucketSize) {
 			}
 		}
 	}
+	// --- Rehash from oldBucket2 --- (Contains the same likely bug as above)
 	if (oldBucket2[idx].key != KEY_INVALID) {
 		int keyNew, keyOld, hash;
 		keyNew = oldBucket2[idx].key;
@@ -174,6 +240,10 @@ hash_entry* newBucket1, hash_entry* newBucket2, int newBucketSize) {
 	}
 }
 
+/**
+ * @brief Resizes the hash table buckets on the GPU.
+ * @param sizeReshape The new capacity for each bucket.
+ */
 void GpuHashTable::reshape(int sizeReshape) {
 	hash_entry* newBucket1;
 	hash_entry* newBucket2;
@@ -196,6 +266,13 @@ void GpuHashTable::reshape(int sizeReshape) {
 	bucketSize = sizeReshape;
 }
 
+/**
+ * @brief Inserts a batch of key-value pairs into the hash table.
+ * @param keys Host pointer to an array of keys.
+ * @param values Host pointer to an array of values.
+ * @param numKeys The number of pairs to insert.
+ * @return True on success, false on failure.
+ */
 bool GpuHashTable::insertBatch(int *keys, int *values, int numKeys) {
 	int *keysFromDevice, *valuesFromDevice;
 	unsigned int numBlocks;
@@ -205,6 +282,7 @@ bool GpuHashTable::insertBatch(int *keys, int *values, int numKeys) {
 	if (cudaMalloc(&valuesFromDevice, numKeys * sizeof(int)) != cudaSuccess) {
 		return false;
 	}
+	// Check load factor and trigger a resize if it exceeds the threshold.
 	if ((pairsInserted + numKeys) * 1.0 / bucketSize >= MAX_LOAD)
 		reshape(int((pairsInserted + numKeys) / MIN_LOAD));
 	cudaMemcpy(keysFromDevice, keys, numKeys * sizeof(int), cudaMemcpyHostToDevice);
@@ -219,15 +297,25 @@ bool GpuHashTable::insertBatch(int *keys, int *values, int numKeys) {
 	return true;
 }
 
+/**
+ * @brief Retrieves a batch of values for a given set of keys.
+ * @param keys Host pointer to an array of keys.
+ * @param numKeys The number of keys to retrieve.
+ * @return A **device pointer** to an array containing the results. The caller
+ *         is responsible for copying this data to the host and freeing the
+ *         device memory.
+ */
 int *GpuHashTable::getBatch(int *keys, int numKeys) {
 	int *keysFromDevice, *valuesFromDevice;
 	unsigned int numBlocks;
 	if (cudaMalloc(&keysFromDevice, numKeys * sizeof(int)) != cudaSuccess) {
-		std::cerr<< "Memory for keys failed to allocate\n";
+		std::cerr<< "Memory for keys failed to allocate
+";
 		return nullptr;
 	}
 	if (cudaMalloc(&valuesFromDevice, numKeys * sizeof(int)) != cudaSuccess) {
-		std::cerr<< "Memory for values failed to allocate\n";
+		std::cerr<< "Memory for values failed to allocate
+";
 		return  nullptr;
 	}
 	cudaMemcpy(keysFromDevice, keys, numKeys * sizeof(int), cudaMemcpyHostToDevice);
@@ -236,9 +324,14 @@ int *GpuHashTable::getBatch(int *keys, int numKeys) {
 	kernel_get>>(keysFromDevice, valuesFromDevice, numKeys, bucket1, bucket2, bucketSize);
 	cudaDeviceSynchronize();
 	cudaFree(keysFromDevice);
+	// WARNING: Returning a raw device pointer. The caller must handle it correctly.
 	return valuesFromDevice;
 }
 
+/**
+ * @brief Calculates the current load factor of the hash table.
+ * @return The load factor as a float.
+ */
 float GpuHashTable::loadFactor() {
 	if (bucketSize == 0) return 0.0;
 	return pairsInserted * 1.0 / bucketSize;
@@ -265,14 +358,14 @@ float GpuHashTable::loadFactor() {
 #define MAX_LOAD 0.75
 #define KEY_INVALID 0
 
-#define DIE(assertion, call_description) \
-    do {    \
-        if (assertion) {    \
-        fprintf(stderr, "(%s, %d): ",    \
-        __FILE__, __LINE__);    \
-        perror(call_description);    \
-        exit(errno);    \
-    }    \
+#define DIE(assertion, call_description) 
+    do {    
+        if (assertion) {    
+        fprintf(stderr, "(%s, %d): ",    
+        __FILE__, __LINE__);    
+        perror(call_description);    
+        exit(errno);    
+    }    
 } while (0)
 
 const std::size_t primeList[] =
@@ -368,4 +461,3 @@ public:
 };
 
 #endif
-

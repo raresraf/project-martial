@@ -14,9 +14,27 @@ from threading import Event, Thread, Lock, Semaphore
 import Queue
 
 class ReusableBarrier(object):
-    
+    """
+    Implements a reusable barrier synchronization primitive for a fixed number of threads.
 
-    def __init__(self, num_threads):
+    This barrier allows a group of `num_threads` to halt execution at a specific
+    point (`wait` method) until all threads in the group have arrived. Once all
+    threads have reached the barrier, they are all released simultaneously.
+    The barrier can then be reset and reused for subsequent synchronization points.
+
+    The implementation uses a two-phase approach to ensure reusability without
+    deadlock. Each phase involves:
+    - A `count_lock` to atomically decrement a thread counter.
+    - A `Semaphore` to block arriving threads and release them when the counter reaches zero.
+
+    Attributes:
+        num_threads (int): The total number of threads expected to participate in the barrier.
+        count_threads1 (list): Internal counter for the first phase of the barrier.
+        count_threads2 (list): Internal counter for the second phase of the barrier.
+        count_lock (Lock): A lock to protect access to the thread counters.
+        threads_sem1 (Semaphore): Semaphore for the first phase of thread synchronization.
+        threads_sem2 (Semaphore): Semaphore for the second phase of thread synchronization.
+    """
         
         self.num_threads = num_threads
         self.count_threads1 = [self.num_threads]

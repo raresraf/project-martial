@@ -43,6 +43,33 @@ type QuickInputViewState = {
 	readonly left?: number;
 };
 
+/**
+ * @file quickInputController.ts
+ * @brief Implements the controller for the Quick Input UI, managing its lifecycle, user interactions, and layout.
+ *
+ * This module defines the `QuickInputController` class, which is responsible for orchestrating the
+ * quick pick and input box functionalities. It handles rendering, events, and state management
+ * for the quick input widget, ensuring a consistent user experience. It integrates with various
+ * services like layout, instantiation, and context key services to provide a flexible and
+ * extensible quick input mechanism.
+ */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+/**
+ * @class QuickInputController
+ * @augments Disposable
+ * @brief Manages the lifecycle, display, and interaction logic for the Quick Input UI.
+ *
+ * Functional Utility: This class orchestrates the Quick Input widget, handling its creation,
+ *                     showing, hiding, layout, and event processing. It serves as the central
+ *                     component for presenting interactive quick picks and input boxes to the user.
+ *                     It also manages the internal state related to key modifiers and the currently
+ *                     active quick input.
+ * Domain: User Interface, Quick Input, Event Handling, State Management.
+ */
 export class QuickInputController extends Disposable {
 	private static readonly MAX_WIDTH = 600; // Max total width of quick input widget
 
@@ -90,7 +117,12 @@ export class QuickInputController extends Disposable {
 		this.idPrefix = options.idPrefix;
 		this._container = options.container;
 		this.styles = options.styles;
+		// Block Logic: Registers listeners for key modifier events (Ctrl/Cmd, Alt) on all windows.
+		// Functional Utility: Captures the state of modifier keys during user interaction with the quick input.
 		this._register(Event.runAndSubscribe(dom.onDidRegisterWindow, ({ window, disposables }) => this.registerKeyModsListeners(window, disposables), { window: mainWindow, disposables: this._store }));
+		// Block Logic: Handles the scenario where the window containing the quick input is about to be unregistered.
+		//              It re-parents the UI to the main container and re-layouts it to prevent loss of functionality.
+		// Pre-condition: A window where the quick input is contained is being unregistered.
 		this._register(dom.onWillUnregisterWindow(window => {
 			if (this.ui && dom.getWindow(this.ui.container) === window) {
 				// The window this quick input is contained in is about to
@@ -101,9 +133,20 @@ export class QuickInputController extends Disposable {
 				this.layout(this.layoutService.mainContainerDimension, this.layoutService.mainContainerOffset.quickPickTop);
 			}
 		}));
+		// Inline: Loads the previously saved view state (position and size) from storage.
 		this.viewState = this.loadViewState();
 	}
 
+	/**
+	 * @brief Registers event listeners to track the state of modifier keys (Ctrl/Cmd, Alt).
+	 * Functional Utility: Captures the current state of modifier keys during keyboard and mouse events
+	 *                     to inform quick input actions that might depend on these modifiers.
+	 * @param window The {@link Window} object to attach the event listeners to.
+	 * @param disposables A {@link DisposableStore} to manage the lifecycle of the registered listeners.
+	 * Pre-condition: `window` is a valid Window object.
+	 * Post-condition: Event listeners for `keydown`, `keyup`, and `mousedown` are active on the specified window,
+	 *                 updating `this.keyMods` with the current state of Ctrl/Cmd and Alt keys.
+	 */
 	private registerKeyModsListeners(window: Window, disposables: DisposableStore): void {
 		const listener = (e: KeyboardEvent | MouseEvent) => {
 			this.keyMods.ctrlCmd = e.ctrlKey || e.metaKey;
@@ -115,7 +158,21 @@ export class QuickInputController extends Disposable {
 		}
 	}
 
+	/**
+	 * @brief Retrieves or creates the Quick Input UI components.
+	 * Functional Utility: This method ensures that the UI components for the quick input are
+	 *                     initialized and properly parented within the DOM. It also handles
+	 *                     re-parenting the UI if the active container changes (e.g., multi-window support).
+	 * @param showInActiveContainer Optional. If true, the UI will be re-parented to the currently active container.
+	 * @returns The {@link QuickInputUI} object containing all managed UI elements.
+	 * Pre-condition: The necessary services (layout, instantiation) are available.
+	 * Post-condition: The `this.ui` property is initialized and returned, with all sub-components created
+	 *                 and event listeners attached. Styles are applied, and the drag-and-drop controller is set up.
+	 */
 	private getUI(showInActiveContainer?: boolean) {
+		// Block Logic: If the UI has already been created, return the existing instance.
+		//              Handles re-parenting for multi-window support if `showInActiveContainer` is true.
+		// Pre-condition: `this.ui` might be null or undefined.
 		if (this.ui) {
 			// In order to support aux windows, re-parent the controller
 			// if the original event is from a different document
@@ -129,12 +186,15 @@ export class QuickInputController extends Disposable {
 			return this.ui;
 		}
 
+		// Block Logic: Creates the main HTML container for the quick input widget.
+		//              Sets its initial styles and attributes.
 		const container = dom.append(this._container, $('.quick-input-widget.show-file-icons'));
 		container.tabIndex = -1;
 		container.style.display = 'none';
 
 		const styleSheet = domStylesheetsJs.createStyleSheet(container);
 
+		// Block Logic: Sets up the title bar section of the quick input, including left and right action bars.
 		const titleBar = dom.append(container, $('.quick-input-titlebar'));
 
 		const leftActionBar = this._register(new ActionBar(titleBar, { hoverDelegate: this.options.hoverDelegate }));
@@ -147,6 +207,8 @@ export class QuickInputController extends Disposable {
 
 		const headerContainer = dom.append(container, $('.quick-input-header'));
 
+		// Block Logic: Sets up the "Check All" checkbox for quick picks that allow multiple selections.
+		//              Attaches event listeners to update the list's checked state and to manage focus.
 		const checkAll = <HTMLInputElement>dom.append(headerContainer, $('input.quick-input-check-all'));
 		checkAll.type = 'checkbox';
 		checkAll.setAttribute('aria-label', localize('quickInput.checkAll', "Toggle all checkboxes"));
@@ -164,14 +226,17 @@ export class QuickInputController extends Disposable {
 		const inputContainer = dom.append(headerContainer, $('.quick-input-and-message'));
 		const filterContainer = dom.append(inputContainer, $('.quick-input-filter'));
 
+		// Block Logic: Initializes the input box component, applying specific styles and accessibility attributes.
 		const inputBox = this._register(new QuickInputBox(filterContainer, this.styles.inputBox, this.styles.toggle));
 		inputBox.setAttribute('aria-describedby', `${this.idPrefix}message`);
 
+		// Block Logic: Sets up the "visible count" badge, which displays how many items are currently shown in the list.
 		const visibleCountContainer = dom.append(filterContainer, $('.quick-input-visible-count'));
 		visibleCountContainer.setAttribute('aria-live', 'polite');
 		visibleCountContainer.setAttribute('aria-atomic', 'true');
 		const visibleCount = this._register(new CountBadge(visibleCountContainer, { countFormat: localize({ key: 'quickInput.visibleCount', comment: ['This tells the user how many items are shown in a list of items to select from. The items can be anything. Currently not visible, but read by screen readers.'] }, "{0} Results") }, this.styles.countBadge));
 
+		// Block Logic: Sets up the "selected count" badge, which displays how many items are currently selected in the list.
 		const countContainer = dom.append(filterContainer, $('.quick-input-count'));
 		countContainer.setAttribute('aria-live', 'polite');
 		const count = this._register(new CountBadge(countContainer, { countFormat: localize({ key: 'quickInput.countSelected', comment: ['This tells the user how many items are selected in a list of items to select from. The items can be anything.'] }, "{0} Selected") }, this.styles.countBadge));
@@ -179,6 +244,7 @@ export class QuickInputController extends Disposable {
 		const inlineActionBar = this._register(new ActionBar(headerContainer, { hoverDelegate: this.options.hoverDelegate }));
 		inlineActionBar.domNode.classList.add('quick-input-inline-action-bar');
 
+		// Block Logic: Creates and configures the "OK" button, attaching an event listener for user acceptance.
 		const okContainer = dom.append(headerContainer, $('.quick-input-action'));
 		const ok = this._register(new Button(okContainer, this.styles.button));
 		ok.label = localize('ok', "OK");
@@ -186,6 +252,7 @@ export class QuickInputController extends Disposable {
 			this.onDidAcceptEmitter.fire();
 		}));
 
+		// Block Logic: Creates and configures the "Custom" button, attaching an event listener for custom actions.
 		const customButtonContainer = dom.append(headerContainer, $('.quick-input-action'));
 		const customButton = this._register(new Button(customButtonContainer, { ...this.styles.button, supportIcons: true }));
 		customButton.label = localize('custom', "Custom");
@@ -195,6 +262,7 @@ export class QuickInputController extends Disposable {
 
 		const message = dom.append(inputContainer, $(`#${this.idPrefix}message.quick-input-message`));
 
+		// Inline: Initializes the progress bar component.
 		const progressBar = this._register(new ProgressBar(container, this.styles.progressBar));
 		progressBar.getContainer().classList.add('quick-input-progress');
 
@@ -203,6 +271,8 @@ export class QuickInputController extends Disposable {
 
 		const description1 = dom.append(container, $('.quick-input-description'));
 
+		// Block Logic: Initializes the `QuickInputTree` (the list component) which displays the quick pick items.
+		//              Attaches various event listeners to handle focus, checked states, and item selection.
 		const listId = this.idPrefix + 'list';
 		const list = this._register(this.instantiationService.createInstance(QuickInputTree, container, this.options.hoverDelegate, this.options.linkOpenerDelegate, listId));
 		inputBox.setAttribute('aria-controls', listId);
@@ -234,6 +304,8 @@ export class QuickInputController extends Disposable {
 
 		const focusTracker = dom.trackFocus(container);
 		this._register(focusTracker);
+		// Block Logic: Handles focus events within the quick input container.
+		//              Updates context keys related to input box selection and tracks the previously focused element.
 		this._register(dom.addDisposableListener(container, dom.EventType.FOCUS, e => {
 			const ui = this.getUI();
 			if (dom.isAncestor(e.relatedTarget as HTMLElement, ui.inputContainer)) {
@@ -249,6 +321,8 @@ export class QuickInputController extends Disposable {
 			this.inQuickInputContext.set(true);
 			this.previousFocusElement = dom.isHTMLElement(e.relatedTarget) ? e.relatedTarget : undefined;
 		}, true));
+		// Block Logic: Handles blur events for the quick input container.
+		//              If focus moves outside the container and `ignoreFocusOut` is not set, it hides the quick input.
 		this._register(focusTracker.onDidBlur(() => {
 			if (!this.getUI().ignoreFocusOut && !this.options.ignoreFocusOut()) {
 				this.hide(QuickInputHideReason.Blur);
@@ -257,6 +331,7 @@ export class QuickInputController extends Disposable {
 			this.endOfQuickInputBoxContext.set(false);
 			this.previousFocusElement = undefined;
 		}));
+		// Block Logic: Manages `aria-activedescendant` for accessibility and updates `EndOfQuickInputBoxContextKey`.
 		this._register(inputBox.onKeyDown(_ => {
 			const value = this.getUI().inputBox.isSelectionAtEnd();
 			if (this.endOfQuickInputBoxContext.get() !== value) {
@@ -268,18 +343,22 @@ export class QuickInputController extends Disposable {
 			// change in the list.
 			inputBox.removeAttribute('aria-activedescendant');
 		}));
+		// Block Logic: Ensures the input box regains focus when the container receives focus.
 		this._register(dom.addDisposableListener(container, dom.EventType.FOCUS, (e: FocusEvent) => {
 			inputBox.setFocus();
 		}));
 		// TODO: Turn into commands instead of handling KEY_DOWN
-		// Keybindings for the quickinput widget as a whole
+		// Block Logic: Handles global keydown events for the quick input widget.
+		//              Includes logic for Enter (accept), Escape (hide), and Tab (focus navigation).
 		this._register(dom.addStandardDisposableListener(container, dom.EventType.KEY_DOWN, (event) => {
+			// Pre-condition: Event target is not inside the custom widget area.
 			if (dom.isAncestor(event.target, widget)) {
 				return; // Ignore event if target is inside widget to allow the widget to handle the event.
 			}
 			switch (event.keyCode) {
 				case KeyCode.Enter:
 					dom.EventHelper.stop(event, true);
+					// Inline: Triggers the accept action if the quick input is enabled.
 					if (this.enabled) {
 						this.onDidAcceptEmitter.fire();
 					}
@@ -289,6 +368,9 @@ export class QuickInputController extends Disposable {
 					this.hide(QuickInputHideReason.Gesture);
 					break;
 				case KeyCode.Tab:
+					// Block Logic: Custom tab navigation logic for accessibility within the quick input.
+					//              Determines tab stops based on visible elements and wraps focus if needed.
+					// Invariant: Ensures consistent tab order even with dynamically visible elements.
 					if (!event.altKey && !event.ctrlKey && !event.metaKey) {
 						// detect only visible actions
 						const selectors = [
@@ -311,6 +393,7 @@ export class QuickInputController extends Disposable {
 						}
 
 						if (this.getUI().widget) {
+							// Inline: Allow the custom widget to handle its own tab navigation.
 							if (dom.isAncestor(event.target, this.getUI().widget)) {
 								// let the widget control tab
 								break;
@@ -349,13 +432,14 @@ export class QuickInputController extends Disposable {
 			this.viewState
 		));
 
-		// DnD update layout
+		// Block Logic: Listens for updates from the DND controller and updates the quick input's layout and saved view state.
 		this._register(autorun(reader => {
 			const dndViewState = this.dndController?.dndViewState.read(reader);
 			if (!dndViewState) {
 				return;
 			}
 
+			// Inline: Updates the view state with new position if provided by DND controller.
 			if (dndViewState.top !== undefined && dndViewState.left !== undefined) {
 				this.viewState = {
 					...this.viewState,
@@ -369,12 +453,13 @@ export class QuickInputController extends Disposable {
 
 			this.updateLayout();
 
-			// Save position
+			// Inline: Saves the updated view state to storage when DND operation is complete.
 			if (dndViewState.done) {
 				this.saveViewState(this.viewState);
 			}
 		}));
 
+		// Block Logic: Populates the `this.ui` object with all created UI components and their associated functionalities.
 		this.ui = {
 			container,
 			styleSheet,
@@ -417,6 +502,15 @@ export class QuickInputController extends Disposable {
 		return this.ui;
 	}
 
+	/**
+	 * @brief Re-parents the Quick Input UI to a new container.
+	 * Functional Utility: Used primarily in multi-window scenarios to move the quick input widget
+	 *                     from one DOM container to another (e.g., when the active window changes).
+	 * @param container The new {@link HTMLElement} to append the quick input UI to.
+	 * Pre-condition: `this.ui` must be initialized.
+	 * Post-condition: The quick input's DOM element is moved to the new `container`, and the
+	 *                 `dndController` is also informed of the change.
+	 */
 	private reparentUI(container: HTMLElement): void {
 		if (this.ui) {
 			this._container = container;
@@ -425,6 +519,20 @@ export class QuickInputController extends Disposable {
 		}
 	}
 
+	/**
+	 * @brief Presents a quick pick UI to the user, allowing them to select one or more items from a list.
+	 * Functional Utility: Provides a versatile and configurable way to prompt the user for a selection
+	 *                     from a list of options, supporting single or multi-selection, dynamic updates,
+	 *                     and custom actions.
+	 * @param picks A {@link Promise} or array of {@link QuickPickInput} items to display in the quick pick.
+	 * @param options Configuration options for the quick pick, including title, placeholder, validation, etc.
+	 * @param token An optional {@link CancellationToken} to cancel the quick pick operation.
+	 * @returns A {@link Promise} that resolves to the selected item(s) or `undefined` if cancelled.
+	 * @template T The type of the items in the quick pick list, extending {@link IQuickPickItem}.
+	 * @template O The type of the options object, extending {@link IPickOptions}.
+	 * Pre-condition: `picks` contains valid items, and `options` are correctly configured.
+	 * Post-condition: The quick pick UI is displayed, and the promise resolves upon user interaction (selection or cancellation).
+	 */
 	pick<T extends IQuickPickItem, O extends IPickOptions<T>>(picks: Promise<QuickPickInput<T>[]> | QuickPickInput<T>[], options: IPickOptions<T> = {}, token: CancellationToken = CancellationToken.None): Promise<(O extends { canPickMany: true } ? T[] : T) | undefined> {
 		type R = (O extends { canPickMany: true } ? T[] : T) | undefined;
 		return new Promise<R>((doResolve, reject) => {
@@ -433,14 +541,19 @@ export class QuickInputController extends Disposable {
 				options.onKeyMods?.(input.keyMods);
 				doResolve(result);
 			};
+			// Block Logic: Checks if the operation has already been cancelled. If so, resolves immediately with undefined.
 			if (token.isCancellationRequested) {
 				resolve(undefined);
 				return;
 			}
+			// Block Logic: Creates a new QuickPick instance configured to use separators.
 			const input = this.createQuickPick<T>({ useSeparators: true });
 			let activeItem: T | undefined;
+			// Block Logic: Sets up a collection of disposables to manage the lifecycle of the QuickPick and its listeners.
 			const disposables = [
 				input,
+				// Block Logic: Handles the acceptance of items in the QuickPick.
+				//              If `canSelectMany` is true, it resolves with all selected items; otherwise, with the active item.
 				input.onDidAccept(() => {
 					if (input.canSelectMany) {
 						resolve(<R>input.selectedItems.slice());
@@ -453,12 +566,15 @@ export class QuickInputController extends Disposable {
 						}
 					}
 				}),
+				// Block Logic: Notifies `options.onDidFocus` when the active item in the QuickPick changes.
 				input.onDidChangeActive(items => {
 					const focused = items[0];
 					if (focused && options.onDidFocus) {
 						options.onDidFocus(focused);
 					}
 				}),
+				// Block Logic: Handles item selection in the QuickPick.
+				//              If `canSelectMany` is false, it resolves with the selected item and hides the QuickPick.
 				input.onDidChangeSelection(items => {
 					if (!input.canSelectMany) {
 						const result = items[0];
@@ -468,6 +584,8 @@ export class QuickInputController extends Disposable {
 						}
 					}
 				}),
+				// Block Logic: Handles when a button on an item is triggered.
+				//              Allows for custom actions like removing the item from the list.
 				input.onDidTriggerItemButton(event => options.onDidTriggerItemButton && options.onDidTriggerItemButton({
 					...event,
 					removeItem: () => {
@@ -486,20 +604,25 @@ export class QuickInputController extends Disposable {
 						}
 					}
 				})),
+				// Block Logic: Handles when a button on a separator is triggered, delegating to `options.onDidTriggerSeparatorButton`.
 				input.onDidTriggerSeparatorButton(event => options.onDidTriggerSeparatorButton?.(event)),
+				// Block Logic: Manages the active item when the input value changes, ensuring it remains focused if appropriate.
 				input.onDidChangeValue(value => {
 					if (activeItem && !value && (input.activeItems.length !== 1 || input.activeItems[0] !== activeItem)) {
 						input.activeItems = [activeItem];
 					}
 				}),
+				// Block Logic: Hides the QuickPick if the cancellation token is requested.
 				token.onCancellationRequested(() => {
 					input.hide();
 				}),
+				// Block Logic: Disposes of resources and resolves the promise with `undefined` when the QuickPick is hidden.
 				input.onDidHide(() => {
 					dispose(disposables);
 					resolve(undefined);
 				}),
 			];
+			// Block Logic: Configures the QuickPick instance with the provided options.
 			input.title = options.title;
 			if (options.value) {
 				input.value = options.value;
@@ -514,6 +637,7 @@ export class QuickInputController extends Disposable {
 			input.hideInput = !!options.hideInput;
 			input.contextKey = options.contextKey;
 			input.busy = true;
+			// Block Logic: Populates the QuickPick with items and sets the active item once promises resolve.
 			Promise.all([picks, options.activeItem])
 				.then(([items, _activeItem]) => {
 					activeItem = _activeItem;
@@ -526,7 +650,9 @@ export class QuickInputController extends Disposable {
 						input.activeItems = [activeItem];
 					}
 				});
+			// Block Logic: Displays the configured QuickPick to the user.
 			input.show();
+			// Block Logic: Handles potential errors during the promise resolution of `picks`, rejecting the main promise.
 			Promise.resolve(picks).then(undefined, err => {
 				reject(err);
 				input.hide();
@@ -534,6 +660,17 @@ export class QuickInputController extends Disposable {
 		});
 	}
 
+	/**
+	 * @brief Applies a validation result to an input box, setting its severity and validation message.
+	 * Functional Utility: Standardizes the display of validation feedback (errors, warnings, info)
+	 *                     within an {@link IInputBox}.
+	 * @param input The {@link IInputBox} to apply the validation to.
+	 * @param validationResult The validation result, which can be a string (error message),
+	 *                         an object with content and severity, or null/undefined for no validation.
+	 * Pre-condition: `input` is a valid `IInputBox` instance.
+	 * Post-condition: The `input.severity` and `input.validationMessage` properties are updated
+	 *                 based on the provided `validationResult`.
+	 */
 	private setValidationOnInput(input: IInputBox, validationResult: string | {
 		content: string;
 		severity: Severity;

@@ -1,3 +1,14 @@
+/**
+ * @file languageConfigurationRegistry.ts
+ * @brief Manages and provides language-specific configurations for the editor.
+ *
+ * This module is central to how the editor understands and interacts with different
+ * programming languages. It registers and resolves `LanguageConfiguration` objects,
+ * combining default, extension-provided, and user-customized settings to offer
+ * a comprehensive view of a language's behavior. This registry powers features
+ * like auto-indentation, bracket matching, commenting, and code folding.
+ * Domain: Text Editor, Language Services, Configuration Management, Extension Host.
+ */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -25,23 +36,86 @@ import { LanguageBracketsConfiguration } from './supports/languageBracketsConfig
 /**
  * Interface used to support insertion of mode specific comments.
  */
+/**
+ * @interface ICommentsConfiguration
+ * @brief Represents the resolved and flattened comment configuration for a language.
+ *
+ * Functional Utility: This interface provides direct access to the specific tokens
+ *                     used for line and block comments, facilitating editor features
+ *                     that manipulate or interpret comments, such as toggling comments
+ *                     or providing intelligent formatting.
+ */
 export interface ICommentsConfiguration {
+	/**
+	 * @property lineCommentToken
+	 * @brief The string token used to start a single-line comment (e.g., `//`).
+	 * @type {string}
+	 */
 	lineCommentToken?: string;
+	/**
+	 * @property lineCommentTokenColumn
+	 * @brief The preferred column for inserting line comment tokens.
+	 * @type {number}
+	 */
 	lineCommentTokenColumn?: number;
+	/**
+	 * @property blockCommentStartToken
+	 * @brief The string token used to start a multi-line (block) comment (e.g., `/*`).
+	 * @type {string}
+	 */
 	blockCommentStartToken?: string;
+	/**
+	 * @property blockCommentEndToken
+	 * @brief The string token used to end a multi-line (block) comment (e.g., `*&#47;`).
+	 * @type {string}
+	 */
 	blockCommentEndToken?: string;
 }
 
+/**
+ * @interface ILanguageConfigurationService
+ * @brief Manages and provides access to resolved language configurations.
+ *
+ * Functional Utility: This service acts as a central hub for obtaining the
+ *                     complete and resolved `LanguageConfiguration` for any given
+ *                     language ID. It handles the registration of configurations
+ *                     from various sources (extensions, user settings) and provides
+ *                     mechanisms for listening to configuration changes.
+ * Domain: Language Services, Dependency Injection, Configuration Management.
+ */
 export interface ILanguageConfigurationService {
 	readonly _serviceBrand: undefined;
 
+	/**
+	 * @property onDidChange
+	 * @brief An event that fires when any language configuration changes.
+	 * Functional Utility: Allows consumers to react to updates in language configurations,
+	 *                     ensuring that editor features are always using the latest settings.
+	 * @type {Event<LanguageConfigurationServiceChangeEvent>}
+	 */
 	onDidChange: Event<LanguageConfigurationServiceChangeEvent>;
 
 	/**
-	 * @param priority Use a higher number for higher priority
+	 * @method register
+	 * @brief Registers a new language configuration or updates an existing one for a given language ID.
+	 * @param languageId The unique identifier of the language.
+	 * @param configuration The `LanguageConfiguration` object to register.
+	 * @param priority An optional numeric priority for this configuration. Higher numbers indicate higher priority.
+	 *                 Configurations with higher priority override those with lower priority for the same language.
+	 * @returns An `IDisposable` that, when disposed, unregisters the configuration.
+	 * Functional Utility: Allows extensions and other parts of the system to contribute
+	 *                     language-specific settings to the editor.
 	 */
 	register(languageId: string, configuration: LanguageConfiguration, priority?: number): IDisposable;
 
+	/**
+	 * @method getLanguageConfiguration
+	 * @brief Retrieves the resolved `LanguageConfiguration` for a specified language ID.
+	 * @param languageId The unique identifier of the language.
+	 * @returns The fully resolved `ResolvedLanguageConfiguration` object for the given language.
+	 * Functional Utility: Provides the consolidated and active set of language settings,
+	 *                     taking into account all registered configurations and their priorities.
+	 */
 	getLanguageConfiguration(languageId: string): ResolvedLanguageConfiguration;
 
 }

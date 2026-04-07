@@ -1,4 +1,12 @@
 
+/**
+ * @file gpu_hashtable.cu
+ * @brief A GPU-accelerated hash table implementation using CUDA with double hashing.
+ * @details This file defines a hash table that resides in GPU memory and is manipulated
+ * through CUDA kernels. It supports batch insertion and retrieval operations. The collision
+ * resolution strategy is double hashing, and thread safety is ensured using atomic operations.
+ * The hash table can also be dynamically resized.
+ */
 #include 
 #include 
 #include 
@@ -9,6 +17,12 @@
 #include "gpu_hashtable.hpp"
 
 
+/**
+ * @brief Handles CUDA errors by printing an error message and exiting.
+ * @param err The CUDA error code.
+ * @param file The name of the file where the error occurred.
+ * @param line The line number where the error occurred.
+ */
 static void HandleError(cudaError_t err, const char *file, int line ) {
 	if (err != cudaSuccess) {
 		cout << cudaGetErrorString(err) << " in " 
@@ -19,6 +33,13 @@ static void HandleError(cudaError_t err, const char *file, int line ) {
 #define HANDLE_ERROR( err ) (HandleError( err, __FILE__, __LINE__ ))
 
 
+/**
+ * @brief Constructs a GpuHashTable object.
+ * @param size The initial desired capacity of the hash table.
+ * @details Allocates memory on the GPU for the hash table. The actual capacity is adjusted
+ * to be a prime number to improve hash distribution. It initializes the table to zero
+ * and selects random prime numbers for the double hashing function.
+ */
 GpuHashTable::GpuHashTable(int size)
 {
 	int flag = 0, i;
@@ -29,6 +50,7 @@ GpuHashTable::GpuHashTable(int size)
 	HANDLE_ERROR( cudaMallocManaged((void **) &hashTable, sizeof(struct hashT)) );
 
 	
+	// Find the next prime number greater than or equal to size for the capacity.
 	while (1) {
 		for (i = 2; i < size; i++)
 			if (size % i == 0) {
@@ -51,11 +73,16 @@ GpuHashTable::GpuHashTable(int size)
 		size * sizeof(struct node)) );
 	HANDLE_ERROR( cudaMemset(hashTable->data, KEY_INVALID,
 		size * sizeof(struct node)) );
+	// Select random prime numbers for the hash functions.
 	hashTable->firstPrime = primeList[rand() % primeSize];
 	hashTable->secondPrime = primeList[rand() % primeSize];
 }
 
 
+/**
+ * @brief Destroys the GpuHashTable object.
+ * @details Frees the GPU memory allocated for the hash table data and the table structure itself.
+ */
 GpuHashTable::~GpuHashTable()
 {
 	HANDLE_ERROR( cudaFree(hashTable->data) );
@@ -63,6 +90,13 @@ GpuHashTable::~GpuHashTable()
 }
 
 
+/**
+ * @brief CUDA kernel to resize the hash table by re-hashing all elements.
+ * @param currHash The new, larger hash table.
+ * @param prevHash The old hash table.
+ * @details Each thread takes an element from the old table and inserts it into the new table
+ * using a double hashing scheme.
+ */
 __global__ void reshapeKernel(HashTable currHash, HashTable prevHash)
 {
 	uint32_t prevKey = KEY_INVALID, currKey, value, hashInd, hashVal;
@@ -75,10 +109,12 @@ __global__ void reshapeKernel(HashTable currHash, HashTable prevHash)
 		if (currKey == KEY_INVALID)
 			return;
 		value = prevHash->data[id].value;
+		// Calculate the new hash position in the new table.
 		hashInd = h1(currKey, currHash->capacity, currHash->firstPrime,
 			currHash->secondPrime);
 		hashVal = h2(currKey, currHash->subHash);
 
+		// Probe for an empty slot using double hashing.
 		do {
 			hashInd = (hashInd + hashVal) % currHash->capacity;
 			prevKey = atomicCAS(&(currHash->data[hashInd].key),
@@ -90,6 +126,12 @@ __global__ void reshapeKernel(HashTable currHash, HashTable prevHash)
 }
 
 
+/**
+ * @brief Resizes the hash table to a new capacity.
+ * @param numBucketsReshape The number of new buckets to add.
+ * @details Allocates a new, larger hash table on the GPU and launches a kernel to re-hash
+ * all elements from the old table into the new one. The new size is chosen to be a prime number.
+ */
 void GpuHashTable::reshape(int numBucketsReshape)
 {
 	HashTable newHash;
@@ -102,6 +144,7 @@ void GpuHashTable::reshape(int numBucketsReshape)
 	HANDLE_ERROR( cudaMallocManaged((void **) &newHash, sizeof(struct hashT)) );
 
 	
+	// Find the next prime number for the new capacity.
 	while (1) {
 		for (i = 2; i < sizeForReshape; i++)
 			if (sizeForReshape % i == 0) {
@@ -140,6 +183,15 @@ void GpuHashTable::reshape(int numBucketsReshape)
 }
 
 
+/**
+ * @brief CUDA kernel to insert a batch of key-value pairs using double hashing.
+ * @param hashTable The hash table structure.
+ * @param keys Pointer to an array of keys to insert.
+ * @param values Pointer to an array of values to insert.
+ * @param numKeys The number of keys to insert.
+ * @details Each thread handles one key-value pair. It computes two hash values and uses them
+ * for probing. `atomicCAS` is used to ensure thread-safe insertion.
+ */
 __global__ void insertKernel(HashTable hashTable, int *keys, int *values, int numKeys)
 {
 	uint32_t prevKey = KEY_INVALID, currKey, value, hashInd, hashVal;
@@ -150,10 +202,12 @@ __global__ void insertKernel(HashTable hashTable, int *keys, int *values, int nu
 		value = values[id];
 		if (currKey <= KEY_INVALID || value <= KEY_INVALID)
 			return;
+		// Compute primary and secondary hashes.
 		hashInd = h1(currKey, hashTable->capacity, hashTable->firstPrime,
 			hashTable->secondPrime);
 		hashVal = h2(currKey, hashTable->subHash);
 
+		// Probe for an empty slot using double hashing.
 		do {
 			hashInd = (hashInd + hashVal) % hashTable->capacity;
 			prevKey = atomicCAS(&(hashTable->data[hashInd].key),
@@ -162,12 +216,22 @@ __global__ void insertKernel(HashTable hashTable, int *keys, int *values, int nu
 
 		hashTable->data[hashInd].value = value;
 		
+		// Atomically increment the size of the hash table if a new element was inserted.
 		if (prevKey == KEY_INVALID)
 			atomicAdd(&(hashTable->size), 1);
 	}
 }
 
 
+/**
+ * @brief Inserts a batch of key-value pairs into the hash table.
+ * @param keys An array of keys to insert.
+ * @param values An array of values to insert.
+ * @param numKeys The number of keys and values in the batch.
+ * @return True if the insertion was successful.
+ * @details If the load factor exceeds a threshold, the table is resized. Keys and values
+ * are copied to the GPU, and the insertion kernel is launched.
+ */
 bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys)
 {
 	int *devKeys, *devValues;
@@ -200,6 +264,15 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys)
 }
 
 
+/**
+ * @brief CUDA kernel to retrieve values for a batch of keys using double hashing.
+ * @param hashTable The hash table structure.
+ * @param keys Pointer to an array of keys to look up.
+ * @param values Pointer to an array to store the retrieved values.
+ * @param numKeys The number of keys to look up.
+ * @details Each thread handles one key. It computes the primary and secondary hashes and
+ * uses them to probe the table until the key is found.
+ */
 __global__ void getKernel(HashTable hashTable, int *keys, int *values, int numKeys)
 {
 	uint32_t key, hashInd, hashVal;
@@ -207,10 +280,12 @@ __global__ void getKernel(HashTable hashTable, int *keys, int *values, int numKe
 
 	if (id < numKeys) {
 		key = keys[id];
+		// Compute primary and secondary hashes.
 		hashInd = h1(key, hashTable->capacity, hashTable->firstPrime,
 			hashTable->secondPrime);
 		hashVal = h2(key, hashTable->subHash);
 
+		// Probe for the key using double hashing.
 		do {
 			hashInd = (hashInd + hashVal) % hashTable->capacity;
 		} while (hashTable->data[hashInd].key != key);
@@ -220,6 +295,13 @@ __global__ void getKernel(HashTable hashTable, int *keys, int *values, int numKe
 }
 
 
+/**
+ * @brief Retrieves values for a batch of keys.
+ * @param keys An array of keys to look up.
+ * @param numKeys The number of keys in the batch.
+ * @return A pointer to an array in managed GPU memory containing the retrieved values.
+ * @details This function copies the keys to the GPU and launches a kernel to retrieve the values.
+ */
 int *GpuHashTable::getBatch(int* keys, int numKeys)
 {
 	unsigned int numBlocks, size = numKeys * sizeof(int);
@@ -245,6 +327,10 @@ int *GpuHashTable::getBatch(int* keys, int numKeys)
 }
 
 
+/**
+ * @brief Calculates the load factor of the hash table.
+ * @return The load factor (ratio of occupied slots to total capacity).
+ */
 float GpuHashTable::loadFactor()
 {
 	float currLoad = (float)hashTable->size / hashTable->capacity;
@@ -350,10 +436,24 @@ int hash3(int data, int limit)
 }
 
 
+/**
+ * @brief Computes the primary hash for double hashing.
+ * @param data The key to hash.
+ * @param limit The capacity of the hash table.
+ * @param firstPrime A large prime number for the hash function.
+ * @param secondPrime Another large prime number for the hash function.
+ * @return The primary hash value.
+ */
 __device__ uint32_t h1(uint32_t data, uint32_t limit, size_t firstPrime, size_t secondPrime)
 {
 	return ((long)data * firstPrime) % secondPrime % limit;
 }
+/**
+ * @brief Computes the secondary hash (step size) for double hashing.
+ * @param data The key to hash.
+ * @param subHash A value derived from the table capacity, typically a prime number smaller than the capacity.
+ * @return The step size for probing.
+ */
 __device__ uint32_t h2(uint32_t data, uint32_t subHash)
 {
 	return subHash - ((long)data % subHash);

@@ -1,6 +1,10 @@
-
-
-
+/**
+ * @file gpu_hashtable.cu
+ * @brief A GPU-accelerated hash table implementation using CUDA.
+ * @details This file defines a hash table that resides in GPU memory and is manipulated
+ * through CUDA kernels. It uses linear probing with wrap-around for collision resolution
+ * and atomic operations for thread safety.
+ */
 #include 
 #include 
 #include 
@@ -12,6 +16,12 @@
 
 #define plus10percent(x) (int)((double)1.1*(double)x)
 
+/**
+ * @brief Computes a hash for a given integer key on the device.
+ * @param data The integer key to hash.
+ * @param limit The size of the hash table, used to scale the hash value.
+ * @return The computed hash value.
+ */
 __global__ void insert(int *keys, int* values, int numKeys, 
                         dataType *data, int *max_size, int *crt_size) {
 
@@ -28,12 +38,14 @@ __global__ void insert(int *keys, int* values, int numKeys,
         while(1){
 
             
+            // If the key already exists, update its value.
             if(data[position].key == keys[i]){
                 atomicExch(&data[position].value, values[i]);
                 return;
             }
 
             
+            // Attempt to insert the key in an empty slot.
             if(atomicCAS(&data[position].key, 0, keys[i]) == 0){
 
                 atomicExch(&data[position].value, values[i]);
@@ -42,8 +54,10 @@ __global__ void insert(int *keys, int* values, int numKeys,
             }
 
             
+            // Linear probing: move to the next slot.
             position++;
             
+            // Wrap around if the end of the table is reached.
             if(position >= *max_size){
                 position = 0;
             }
@@ -54,6 +68,17 @@ __global__ void insert(int *keys, int* values, int numKeys,
 
 
 
+/**
+ * @brief CUDA kernel to retrieve values for a batch of keys.
+ * @param keys Pointer to an array of keys to look up.
+ * @param values Pointer to an array to store the retrieved values.
+ * @param numKeys The number of keys to look up.
+ * @param data Pointer to the hash table data.
+ * @param max_size Pointer to the maximum size of the hash table.
+ * @details Each thread searches for a key using linear probing with wrap-around.
+ * If the key is found, the corresponding value is written to the output array;
+ * otherwise, -1 is written.
+ */
 __global__ void get_values(int *keys, int* values, int numKeys, 
                             dataType *data, int *max_size) {
 
@@ -68,17 +93,20 @@ __global__ void get_values(int *keys, int* values, int numKeys,
 
         while(1){
             
+            // If the key is found, store the value and exit.
             if(data[position].key == keys[i]){
                 atomicExch(&values[i], data[position].value);
                 return;
             }
 
             position++;
+            // Wrap around at the end of the table.
             if(position >= *max_size){
                 position = 0;
             }
 
             
+            // If the whole table has been searched, the key is not present.
             if(position == first_position){
                 atomicExch(&values[i], -1);
                 return;
@@ -88,6 +116,12 @@ __global__ void get_values(int *keys, int* values, int numKeys,
 }
 
 
+/**
+ * @brief Constructs a GpuHashTable object.
+ * @param size The initial capacity of the hash table.
+ * @details Allocates managed memory on the GPU for the hash table data and its metadata,
+ * allowing direct access from both host and device.
+ */
 GpuHashTable::GpuHashTable(int size) {
 
     data = 0;
@@ -95,6 +129,7 @@ GpuHashTable::GpuHashTable(int size) {
     crt_size = 0;
     
     
+    // Allocate managed memory for the hash table structure and its data.
     cudaMallocManaged(&data, size * sizeof(dataType));
     cudaMallocManaged(&max_size, sizeof(int));
     cudaMallocManaged(&crt_size, sizeof(int));
@@ -105,6 +140,7 @@ GpuHashTable::GpuHashTable(int size) {
     }
 
     
+    // Initialize the hash table memory.
     memset(data, 0, size * sizeof(dataType));
     *max_size = size;
     *crt_size = 0;
@@ -116,6 +152,10 @@ GpuHashTable::GpuHashTable(int size) {
 }
 
 
+/**
+ * @brief Destroys the GpuHashTable object.
+ * @details Frees the GPU memory allocated for the hash table.
+ */
 GpuHashTable::~GpuHashTable() {
 
     cudaFree(data);   
@@ -123,9 +163,17 @@ GpuHashTable::~GpuHashTable() {
 }
 
 
+/**
+ * @brief Resizes the hash table to a new capacity.
+ * @param numBucketsReshape The new capacity of the hash table.
+ * @details This function allocates a new, larger hash table and rehashes the elements
+ * from the old table to the new one. The rehashing process is done on the host by
+ * extracting all elements and then launching a kernel to insert them into the new table.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) { 
 
     
+    // Allocate a new table in managed memory.
     dataType *new_data;
     cudaMallocManaged(&new_data, numBucketsReshape * sizeof(dataType));
 
@@ -150,9 +198,10 @@ void GpuHashTable::reshape(int numBucketsReshape) {
     size_t blocks_no = numKeys / block_size;
 
     if (numKeys % block_size) 
-        ++blocks_no; 
+        ++blocks_no;
 
     
+    // Temporary storage for keys and values.
     int *keys, *values;
     cudaMallocManaged(&keys, numKeys * sizeof(int));
     cudaMallocManaged(&values, numKeys * sizeof(int));
@@ -160,6 +209,7 @@ void GpuHashTable::reshape(int numBucketsReshape) {
     int idx = 0;
 
 
+    // Extract key-value pairs from the old table (host-side).
     for(int i = 0; i < (*max_size); i++){
         if(data[i].key != 0){
             keys[idx] = data[i].key;
@@ -172,6 +222,7 @@ void GpuHashTable::reshape(int numBucketsReshape) {
     (*crt_size) = 0;
 
 
+    // Re-insert the elements into the new table using a kernel.
     insert>> (keys, values, numKeys, 
                                         new_data, max_size, crt_size);
     cudaDeviceSynchronize();
@@ -190,6 +241,15 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 }
 
 
+/**
+ * @brief Inserts a batch of key-value pairs into the hash table.
+ * @param keys An array of keys to insert.
+ * @param values An array of values to insert.
+ * @param numKeys The number of keys and values in the batch.
+ * @return True if the insertion was successful, false otherwise.
+ * @details If the table is close to full, it is resized. Then, keys and values are
+ * copied to the GPU, and the insertion kernel is launched.
+ */
 bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 
     int *device_keys = 0;
@@ -204,6 +264,7 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
     	++blocks_no;
 
     
+    // Reshape if load factor is too high.
     if(numKeys >= *max_size - *crt_size){
         int x = numKeys + *crt_size;
         
@@ -219,10 +280,12 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
     }
 
     
+    // Copy keys and values from host to device.
     cudaMemcpy(device_keys, keys, num_bytes, cudaMemcpyHostToDevice);
     cudaMemcpy(device_values, values, num_bytes, cudaMemcpyHostToDevice);
 
     
+    // Launch the insertion kernel.
     insert>> (device_keys, device_values, numKeys, 
                                         data, max_size, crt_size);
     cudaDeviceSynchronize();
@@ -240,6 +303,14 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 }
 
 
+/**
+ * @brief Retrieves values for a batch of keys.
+ * @param keys An array of keys to look up.
+ * @param numKeys The number of keys in the batch.
+ * @return A pointer to a host array containing the retrieved values. The caller must free this memory.
+ * @details This function copies the keys to the GPU, launches a retrieval kernel, and copies
+ * the results back to the host.
+ */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
 
     int *values;
@@ -262,6 +333,7 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
     }
 
     
+    // Allocate managed memory for device-side operations.
     cudaMallocManaged(&device_keys, num_bytes);
     cudaMallocManaged(&device_values, num_bytes);
 
@@ -273,11 +345,13 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
     memcpy(device_keys, keys, num_bytes);
 
     
+    // Launch the retrieval kernel.
     get_values>> (device_keys, device_values, 
                                             numKeys, data, max_size);
     cudaDeviceSynchronize();
 
     
+    // Copy results back to host.
     memcpy(values, device_values, num_bytes);
 
     cudaFree(device_keys);
@@ -288,6 +362,10 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 
 
 
+/**
+ * @brief Calculates the load factor of the hash table.
+ * @return The current load factor (ratio of current size to maximum size).
+ */
 float GpuHashTable::loadFactor() {
     return (float)(*crt_size)/(float)(*max_size);
 }
@@ -311,13 +389,13 @@ using namespace std;
 #define	KEY_INVALID		0
 
 #define DIE(assertion, call_description) \
-	do {	\
-		if (assertion) {	\
-		fprintf(stderr, "(%s, %d): ",	\
-		__FILE__, __LINE__);	\
-		perror(call_description);	\
-		exit(errno);	\
-	}	\
+	do { \
+		if (assertion) { \
+		fprintf(stderr, "(%s, %d): ", \
+		__FILE__, __LINE__); \
+		perror(call_description); \
+		exit(errno); \
+	} \
 } while (0)
 	
 const size_t primeList[] =
@@ -417,4 +495,3 @@ class GpuHashTable
 };
 
 #endif
-

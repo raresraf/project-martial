@@ -1,4 +1,10 @@
-
+/**
+ * @file gpu_hashtable.cu
+ * @brief A GPU-accelerated hash table implementation using CUDA with double hashing.
+ * @details This file defines a hash table that resides in GPU memory and is manipulated
+ * through CUDA kernels. It uses double hashing for collision resolution and atomic operations
+ * for thread safety. The hash table capacity is always a prime number to improve hash distribution.
+ */
 #include 
 #include 
 #include 
@@ -8,14 +14,34 @@
 
 #include "gpu_hashtable.hpp"
 
+/**
+ * @brief Computes the primary hash for double hashing.
+ * @param data The key to hash.
+ * @param limit The capacity of the hash table.
+ * @return The primary hash value.
+ */
 __device__ unsigned int hash1(int data, int limit) {
 	return ((long)data * 67965551447llu) % 441911656067171llu % limit;
 }
 
+/**
+ * @brief Computes the secondary hash (step size) for double hashing.
+ * @param data The key to hash.
+ * @return The step size for probing.
+ */
 __device__ unsigned int hash2(int data) {
 	return  23llu - ((long)data * 16991387857llu) % 23llu;
 }
 
+/**
+ * @brief CUDA kernel to retrieve values for a batch of keys using double hashing.
+ * @param gpu_hash Pointer to the hash table structure in GPU memory.
+ * @param keys Pointer to an array of keys to look up.
+ * @param values Pointer to an array to store the retrieved values.
+ * @param n_keys The number of keys to look up.
+ * @details Each thread searches for a key using double hashing. If found, the value is written
+ * to the output array; otherwise, the value is set to 0.
+ */
 __global__ void kernel_get(hash_table *gpu_hash, int *keys, int *values, int n_keys) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	unsigned int index1, index2, search;
@@ -47,13 +73,21 @@ __global__ void kernel_get(hash_table *gpu_hash, int *keys, int *values, int n_k
 
 
 
+/**
+ * @brief CUDA kernel to reshape the hash table by re-hashing all elements.
+ * @param gpu_hash Pointer to the old hash table structure.
+ * @param new_table Pointer to the new, larger hash table data.
+ * @param limit The size of the new hash table.
+ * @details Each thread takes an element from the old table and inserts it into the new table
+ * using double hashing.
+ */
 __global__ void kernel_reshape(hash_table *gpu_hash, pairkv *new_table, int limit) {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	int i;
 	unsigned int index1, index2, search, old_key;
 	pairkv to_add;
 
-	if (idx load.capacity && gpu_hash->table[idx].key != KEY_INVALID) {
+	if (idx < gpu_hash->load.capacity && gpu_hash->table[idx].key != KEY_INVALID) {
 		to_add.key = gpu_hash->table[idx].key;
 		to_add.value = gpu_hash->table[idx].value;
 
@@ -73,12 +107,21 @@ __global__ void kernel_reshape(hash_table *gpu_hash, pairkv *new_table, int limi
 	}
 }
 
+/**
+ * @brief CUDA kernel to insert a batch of key-value pairs using double hashing.
+ * @param gpu_hash Pointer to the hash table structure in GPU memory.
+ * @param keys Pointer to an array of keys to insert.
+ * @param values Pointer to an array of values to insert.
+ * @param n_keys The number of keys to insert.
+ * @details Each thread handles one key-value pair. It uses double hashing and atomicCAS
+ * to find an empty slot or update an existing key.
+ */
 __global__ void kernel_insert(hash_table *gpu_hash, int *keys, int *values, int n_keys) {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	int i;
 	unsigned int index1, index2, search, old_key;
 
-	if (idx  0 && values[idx] > 0) {
+	if (idx < n_keys && keys[idx] > 0 && values[idx] > 0) {
 		index1 = hash1(keys[idx], gpu_hash->load.capacity);
 		index2 = hash2(keys[idx]);
 		i = 0;
@@ -102,6 +145,12 @@ __global__ void kernel_insert(hash_table *gpu_hash, int *keys, int *values, int 
 	}
 }
 
+/**
+ * @brief Finds the index of the smallest prime number in `primeList` that is greater than or equal to n.
+ * @param n The number to compare against.
+ * @param start The starting index in `primeList` for the search.
+ * @return The index of the found prime number.
+ */
 int find_prime(int n, int start)
 {
 	int i;
@@ -115,6 +164,12 @@ int find_prime(int n, int start)
 }
 
 
+/**
+ * @brief Constructs a GpuHashTable object.
+ * @param size The initial capacity of the hash table.
+ * @details Allocates managed memory for the hash table structure and its data, allowing
+ * direct access from both host and device. The capacity is adjusted to be a prime number.
+ */
 GpuHashTable::GpuHashTable(int size) {
 	cudaMallocManaged(&gpu_hash, sizeof(hash_table));
 	cudaMallocManaged(&gpu_hash->table, size * sizeof(pairkv));
@@ -127,12 +182,22 @@ GpuHashTable::GpuHashTable(int size) {
 }
 
 
+/**
+ * @brief Destroys the GpuHashTable object.
+ * @details Frees the GPU memory allocated for the hash table.
+ */
 GpuHashTable::~GpuHashTable() {
 	cudaFree(gpu_hash->table);
 	cudaFree(gpu_hash);
 }
 
 
+/**
+ * @brief Resizes the hash table to a new capacity.
+ * @param numBucketsReshape The new desired capacity.
+ * @details The new capacity is adjusted to be the next prime number. A new table is
+ * allocated, and a kernel is launched to re-hash the elements.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) {
 	pairkv *new_table;
 	int new_size;
@@ -158,6 +223,15 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 }
 
 
+/**
+ * @brief Inserts a batch of key-value pairs into the hash table.
+ * @param keys An array of keys to insert.
+ * @param values An array of values to insert.
+ * @param numKeys The number of keys and values in the batch.
+ * @return True if the insertion was successful.
+ * @details If the table is full, it is resized. Then, keys and values are copied to the
+ * GPU, and the insertion kernel is launched.
+ */
 bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	int *device_keys;
 	int *device_values;
@@ -189,6 +263,14 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 }
 
 
+/**
+ * @brief Retrieves values for a batch of keys.
+ * @param keys An array of keys to look up.
+ * @param numKeys The number of keys in the batch.
+ * @return A pointer to a host array containing the retrieved values. The caller must free this memory.
+ * @details This function copies the keys to the GPU, launches a retrieval kernel, and copies
+ * the results back to the host.
+ */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	int *host_values;
 	int *device_values;
@@ -216,6 +298,10 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 }
 
 
+/**
+ * @brief Calculates the load factor of the hash table.
+ * @return The current load factor (ratio of number of elements to capacity).
+ */
 float GpuHashTable::loadFactor() {
 	return (float)gpu_hash->load.elements / gpu_hash->load.capacity; 
 }
@@ -241,14 +327,14 @@ using namespace std;
 #define PRIME_SIZE 186
 
 #define DIE(assertion, call_description) \
-	do {	\
-		if (assertion) {	\
-		fprintf(stderr, "(%s, %d): ",	\
-		__FILE__, __LINE__);	\
-		perror(call_description);	\
-		exit(errno);	\
-	}	\
-} while (0)
+	do { \
+		if (assertion) { \
+		fprintf(stderr, "(%s, %d): ", \
+		__FILE__, __LINE__); \
+		perror(call_description); \
+		exit(errno); \
+	} \
+	} while (0)
 	
 const size_t primeList[] =
 {
@@ -295,9 +381,6 @@ const size_t primeList[] =
 	5746614499066534157llu, 7240280573005008577llu, 9122181901073924329llu,
 	11493228998133068689llu, 14480561146010017169llu, 18446744073709551557llu
 };
-
-
-
 
 
 

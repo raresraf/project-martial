@@ -1,8 +1,49 @@
+/**
+ * @file 118A.CPP
+ * @brief Solution for Codeforces Problem 118A - "String Task"
+ * @author MONU KUMAR (Original author)
+ *
+ * @details
+ * This program implements a solution to a string manipulation task. The goal is to
+ * process a given string according to the following rules:
+ * 1. Convert all uppercase letters to lowercase.
+ * 2. Delete all vowels ('a', 'o', 'y', 'e', 'u', 'i').
+ * 3. Insert a '.' character before each consonant.
+ *
+ * @section algorithm
+ * Algorithm: Direct String Processing
+ * The solution iterates through the input string character by character. It
+ * converts each character to lowercase and then checks if it is a vowel. Vowels
+ * are ignored. For each consonant, a '.' is prepended, and the consonant is
+ * appended to a new result string.
+ *
+ * @section complexity
+ * - Time Complexity: O(N), where N is the length of the input string. This is because
+ *   the program performs a single pass over the string.
+ * - Space Complexity: O(N), as a new string is created to store the result, which
+ *   in the worst case (a string of all consonants) can be up to 2N characters long.
+ */
+
 // please refer from line no. 207
 /////*31022618*/////
 //_MONU KUMAR
 #include <bits/stdc++.h>
 using namespace std;
+
+/**
+ * @brief Competitive Programming Toolkit
+ *
+ * The following macros and helper functions are a common toolkit used in
+ * competitive programming to accelerate development. They include:
+ * - I/O optimization (`fast`).
+ * - Shorthands for data types (`ll`, `vll`, `pll`).
+ * - Looping constructs (`lp`, `lpr`).
+ * - Debugging trace macros.
+ * - Mathematical utilities (modular arithmetic, GCD, LCM).
+ *
+ * While not all may be used in this specific problem, they are part of a
+ * standard template.
+ */
 #define fast                                                                   \
   ios_base::sync_with_stdio(false);                                            \
   cin.tie(0);                                                                  \
@@ -59,7 +100,11 @@ using namespace std;
   ll a[n];                                                                     \
   lp(i, 0, n) cin >> a[i];
 #define ona(a, n) lp(i, 0, n) cout << a[i] << " ";
+
 //#########################################################################################
+// Generic helper functions for various programming contest tasks.
+//#########################################################################################
+
 bool anagram(char *s1, char *s2) {
   ll count[siz];
   mem(count, 0);
@@ -211,26 +256,37 @@ int main() {
               xx = 0, minn1 = big, minn2 = big, maxx1 = small, maxx2 = small;
   string s;
   cin >> s;
-  // transform(s.begin(),s.end(),s.begin(),::tolower);
-  // trace(s)
+  
+  // Converts the entire string to lowercase for case-insensitive processing.
   transform(s.begin(), s.end(), s.begin(), ::tolower);
-  // trace(s)
+  
   string ss;
   ss += ".";
+
+  /**
+   * @brief Core logic for string transformation.
+   *
+   * This loop iterates through each character of the lowercase input string.
+   * Pre-condition: The string 's' contains only lowercase letters.
+   * Invariant: The result string 'ss' contains the correctly formatted sequence
+   * of consonants processed so far.
+   */
   lp(i, 0, s.size()) {
+    // Check for vowels ('y' is considered a vowel in this problem).
     if (s[i] == 'a' || s[i] == 'o' || s[i] == 'y' || s[i] == 'e' ||
         s[i] == 'i' || s[i] == 'u') {
-      /* code */
+      // If character is a vowel, skip it.
       continue;
     }
+    // If character is a consonant, append it to the result string, followed by a dot.
     ss += s[i];
     ss += '.';
-    // trace(ss)
   }
+  // The loop produces a trailing dot, which needs to be removed.
   ss.pop_back();
-  p1(ss)
+  p1(ss); // Print the final formatted string.
 
-      // clog<<((long double)(clock()-launch)/CLOCKS_PER_SEC)<<"\n";
-      return 0;
+  // clog<<((long double)(clock()-launch)/CLOCKS_PER_SEC)<<"\n";
+  return 0;
 }
 //////////*********************end of program*********************//////////

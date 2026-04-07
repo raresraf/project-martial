@@ -11,6 +11,7 @@
  * (line number and character range). It serves as a fundamental building block
  * within the linesCodec tokenization system for editors, providing a structured
  * representation of textual content for further processing and rendering.
+ * Domain: Text Editor, Tokenization, Data Structure.
  */
 
 import { BaseToken } from '../../baseToken.js';
@@ -30,6 +31,8 @@ import { Range } from '../../../../../editor/common/core/range.js';
  * This ensures that each `Line` token carries sufficient information for
  * accurate rendering, navigation, and text manipulation operations within
  * an editor context.
+ * Invariant: A `Line` token always represents a contiguous sequence of characters on a single line within the document,
+ *            and its `Range` precisely corresponds to its `text` content.
  */
 export class Line extends BaseToken {
 	/**
@@ -49,11 +52,15 @@ export class Line extends BaseToken {
 		// the line contents
 		public readonly text: string, /**< The immutable string content of the line. */
 	) {
+		// Block Logic: Ensures that the provided line number is a valid numerical value.
+		// Pre-condition: `lineNumber` must not be `NaN`.
 		assert(
 			!isNaN(lineNumber),
 			`The line number must not be a NaN.`,
 		);
 
+		// Block Logic: Enforces that the line number is a positive integer, as lines are 1-based indexed.
+		// Pre-condition: `lineNumber` must be greater than 0.
 		assert(
 			lineNumber > 0,
 			`The line number must be >= 1, got "${lineNumber}".`,
@@ -82,10 +89,18 @@ export class Line extends BaseToken {
 	 * position and contain identical textual data.
 	 */
 	public override equals<T extends BaseToken>(other: T): boolean {
+		// Block Logic: Delegates initial equality check to the `BaseToken` superclass.
+		// Functional Utility: Efficiently prunes non-matching tokens based on their fundamental range properties.
+		// Pre-condition: `other` is a `BaseToken` or a subclass.
+		// Invariant: If `BaseToken`'s equality check fails, the tokens are definitively not equal.
 		if (!super.equals(other)) {
 			return false;
 		}
 
+		// Block Logic: Verifies that the `other` token is specifically an instance of `Line`.
+		// Functional Utility: Ensures type compatibility for a semantic comparison, as only two `Line` tokens can be truly equal.
+		// Pre-condition: `other` is a valid `BaseToken` instance.
+		// Invariant: If `other` is not a `Line` token, it cannot be semantically equal to this `Line` token.
 		if (!(other instanceof Line)) {
 			return false;
 		}

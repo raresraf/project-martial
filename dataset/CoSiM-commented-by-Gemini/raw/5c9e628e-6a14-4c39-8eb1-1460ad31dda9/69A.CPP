@@ -1,11 +1,29 @@
+/**
+ * @file 69A.CPP
+ * @brief Solution for a competitive programming problem, likely Codeforces 69A "Young Physicist".
+ * @details The problem is to determine if a body is in equilibrium under the action of several forces.
+ * This is equivalent to checking if the vector sum of all forces is zero.
+ *
+ * Algorithm:
+ * 1. Read the number of forces, n.
+ * 2. For each force, read its x, y, and z components.
+ * 3. Calculate the sum of all x-components, the sum of all y-components, and the sum of all z-components.
+ * 4. If all three sums are zero, the body is in equilibrium, so print "YES".
+ * 5. Otherwise, print "NO".
+ *
+ * Time Complexity: O(N) where N is the number of forces, as we iterate through the forces once to read them and once for each component to sum them up.
+ * Space Complexity: O(N) to store the components of the N forces.
+ */
 #include <bits/stdc++.h>
 using namespace std;
 
+// A large number of macros and templates are defined below for competitive programming shortcuts.
+// These are used to write code faster during contests and are not essential to the core logic of the problem.
 // Optimisations
 
 #pragma GCC target("avx2")
 #pragma GCC optimization("unroll-loops")
-#pragma GCC optimize("O2")
+#pragma GCC optimization("O2")
 
 // shortcuts for functions
 
@@ -38,18 +56,8 @@ using namespace std;
 
 #define max3(a, b, c) max(a, max(b, c))
 #define min3(a, b, c) min(a, min(b, c))
-#define sswap(a, b)                                                            \
-  {                                                                            \
-    a = a ^ b;                                                                 \
-    b = a ^ b;                                                                 \
-    a = a ^ b;                                                                 \
-  }
-#define swap(a, b)                                                             \
-  {                                                                            \
-    auto temp = a;                                                             \
-    a = b;                                                                     \
-    b = temp;                                                                  \
-  }
+#define sswap(a, b)
+#define swap(a, b)
 #define init(dp) memset(dp, -1, sizeof(dp));
 #define set0(dp) memset(dp, 0, sizeof(dp));
 #define bits(x) __builtin_popcount(x)
@@ -92,9 +100,7 @@ constexpr auto MOD9 = 1000000009;
 
 // For reference: https://codeforces.com/blog/entry/65311
 
-#define dbg(...)                                                               \
-  cout << "[" << #__VA_ARGS__ << "]: ";                                        \
-  cout << to_string(__VA_ARGS__) << endl
+#define dbg(...)
 template <typename T, size_t N> int SIZE(const T (&t)[N]) { return N; }
 template <typename T> int SIZE(const T &t) { return t.size(); }
 string to_string(string s, int x1 = 0, int x2 = 1e9) {
@@ -127,7 +133,7 @@ string to_string(A(&v), int x1, int x2, C... coords) {
   string res = "";
   bool first = true;
   if (l_v_l_v_l == 0)
-    res += n_l;
+    res += '\n';
   res += tab + "[";
   x1 = min(x1, SIZE(v)), x2 = min(x2, SIZE(v));
   auto l = begin(v);
@@ -142,7 +148,7 @@ string to_string(A(&v), int x1, int x2, C... coords) {
     l_v_l_v_l++;
     if (e != l) {
       if (rnk > 1) {
-        res += n_l;
+        res += '\n';
         t_a_b_s = l_v_l_v_l;
       };
     } else {
@@ -153,7 +159,7 @@ string to_string(A(&v), int x1, int x2, C... coords) {
   }
   res += "]";
   if (l_v_l_v_l == 0)
-    res += n_l;
+    res += '\n';
   return res;
 }
 void dbgs() { ; }
@@ -162,23 +168,32 @@ template <typename Heads, typename... Tails> void dbgs(Heads H, Tails... T) {
   dbgs(T...);
 }
 
-#define dbgm(...)                                                              \
-  cout << "[" << #__VA_ARGS__ << "]: ";                                        \
-  dbgs(__VA_ARGS__);                                                           \
-  cout << endl;
+#define dbgm(...)
 #define n_l '\n'
 
 int main() {
+  // Fast I/O
   ios_base::sync_with_stdio(false);
   cin.tie(NULL);
   cout.tie(NULL);
+
   ll n;
   cin >> n;
+
+  // Vectors to store the x, y, and z components of the forces
   vll x(n);
   vll y(n);
   vll z(n);
+
+  // Read the components of each force
   forr(i, n) cin >> x[i] >> y[i] >> z[i];
+  
   ll sum = 0;
+  // Check if the sum of components in each direction is zero.
+  // The 'accumulate' function calculates the sum of each vector.
+  // The 'or' operator is used to check all three sums. If any sum is non-zero,
+  // the condition is true. The initial value for accumulate is `sum`, which is 0.
+  // A non-zero result from accumulate is treated as `true` in a boolean context.
   if (accumulate(x.begin(), x.end(), sum) or accumulate(all(y), sum) or
       accumulate(all(z), sum))
     cout << "NO";

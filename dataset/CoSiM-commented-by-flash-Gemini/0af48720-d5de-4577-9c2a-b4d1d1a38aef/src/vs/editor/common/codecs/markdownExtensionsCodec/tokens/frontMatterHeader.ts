@@ -12,6 +12,7 @@
  * such as those commonly found in Markdown files. This includes the distinct
  * start and end markers, as well as the content contained within, facilitating
  * structured access and manipulation of document metadata.
+ * Domain: Markdown Parsing, Text Editor, Tokenization, Document Structure.
  */
 
 import { Range } from '../../../core/range.js';
@@ -33,6 +34,8 @@ import { FrontMatterMarker, TMarkerToken } from './frontMatterMarker.js';
  * within the front matter, which is crucial for parsing and rendering
  * documents that utilize such constructs (e.g., Markdown files with YAML
  * front matter).
+ * Invariant: A `FrontMatterHeader` token's `range` always encompasses the ranges of its `startMarker`, `content`, and `endMarker`.
+ *            Its `startMarker` and `endMarker` are always `FrontMatterMarker` instances.
  */
 export class FrontMatterHeader extends MarkdownExtensionsToken {
 	/**
@@ -41,12 +44,14 @@ export class FrontMatterHeader extends MarkdownExtensionsToken {
 	 * @param startMarker The `FrontMatterMarker` token representing the opening delimiter.
 	 * @param content The `Text` token containing the actual content/metadata of the front matter.
 	 * @param endMarker The `FrontMatterMarker` token representing the closing delimiter.
-	 *
-	 * Functional Utility: This constructor assembles a complete `FrontMatterHeader`
-	 * token by taking its individual components—the overall `range`, the
-	 * `startMarker`, the `content` token, and the `endMarker`—and consolidating
-	 * them. This aggregation provides a unified object for interacting with
-	 * a parsed front matter block.
+	 * Functional Utility: Assembles a complete `FrontMatterHeader` token from its constituent parts,
+	 *                     providing a unified object for interacting with a parsed front matter block.
+	 *                     This composite token encapsulates the structural boundaries and the
+	 *                     metadata content, enabling cohesive processing.
+	 * Pre-condition: `startMarker`, `content`, and `endMarker` must be valid token instances
+	 *                with consistent ranges that form a contiguous front matter block.
+	 * Invariant: The `range` provided to the constructor must accurately span the collective
+	 *            ranges of `startMarker`, `content`, and `endMarker`.
 	 */
 	constructor(
 		range: Range,
@@ -65,6 +70,7 @@ export class FrontMatterHeader extends MarkdownExtensionsToken {
 	 * representation of the `FrontMatterHeader` token, including its start
 	 * marker, content, and end marker. It is useful for operations requiring
 	 * the entire textual block of the front matter as a single string.
+	 * Invariant: The returned string preserves the original formatting and content, including markers.
 	 */
 	public get text(): string {
 		const text: string[] = [
@@ -85,6 +91,7 @@ export class FrontMatterHeader extends MarkdownExtensionsToken {
 	 * the start and end markers. This is particularly useful for operations
 	 * that need to operate solely on the user-defined metadata, such as
 	 * parsing the content for key-value pairs.
+	 * Invariant: The returned `Range` is always a sub-range of the overall `FrontMatterHeader`'s `range`.
 	 */
 	public get contentRange(): Range {
 		return this.content.range;
@@ -98,6 +105,7 @@ export class FrontMatterHeader extends MarkdownExtensionsToken {
 	 * token that holds the raw content of the front matter block. This allows
 	 * for deeper inspection or processing of the content token itself, beyond
 	 * just its string value or range.
+	 * Invariant: The returned `Text` token's `range` is identical to the `contentRange` property.
 	 */
 	public get contentToken(): Text {
 		return this.content;
@@ -115,18 +123,27 @@ export class FrontMatterHeader extends MarkdownExtensionsToken {
 	 * content, ensuring that both position and content match for equality.
 	 */
 	public override equals<T extends BaseToken>(other: T): boolean {
+		// Block Logic: Checks if the tokens occupy the same textual range.
+		// Functional Utility: Efficiently prunes non-matching tokens based on their positional information.
 		if (!super.sameRange(other.range)) {
 			return false;
 		}
 
+		// Block Logic: Verifies that the `other` token is specifically an instance of `FrontMatterHeader`.
+		// Functional Utility: Ensures type compatibility for a semantic comparison.
+		// Invariant: Only two `FrontMatterHeader` tokens can be truly equal.
 		if (!(other instanceof FrontMatterHeader)) {
 			return false;
 		}
 
+		// Block Logic: Optimizes comparison by quickly ruling out tokens with different total text lengths.
+		// Functional Utility: Prevents more expensive string content comparison if lengths do not match.
 		if (this.text.length !== other.text.length) {
 			return false;
 		}
 
+		// Functional Utility: Performs a final, comprehensive comparison of the entire textual content
+		//                     of both front matter headers to confirm semantic equality.
 		return (this.text === other.text);
 	}
 
@@ -144,6 +161,10 @@ export class FrontMatterHeader extends MarkdownExtensionsToken {
 	 * fully-formed `FrontMatterHeader` object. This simplifies the creation
 	 * of `FrontMatterHeader` instances during parsing by abstracting away
 	 * the details of individual token aggregation.
+	 * Pre-condition: `startMarkerTokens`, `contentTokens`, and `endMarkerTokens` must contain valid `TMarkerToken`
+	 *                and `TSimpleDecoderToken` instances respectively, and represent a syntactically correct front matter block.
+	 * Post-condition: A new `FrontMatterHeader` instance is returned, whose overall `range` is correctly derived
+	 *                 from the constituent tokens, and whose internal token references are properly set.
 	 */
 	public static fromTokens(
 		startMarkerTokens: readonly TMarkerToken[],
@@ -171,6 +192,7 @@ export class FrontMatterHeader extends MarkdownExtensionsToken {
 	 * the `FrontMatterHeader` token by showing a shortened version of its
 	 * textual content and its `Range` information, aiding in quick
 	 * identification and analysis of the token's characteristics and location.
+	 * Invariant: The string representation accurately reflects the token's type, content (truncated), and location.
 	 */
 	public override toString(): string {
 		return `frontmatter("${this.shortText()}")${this.range}`;

@@ -1,3 +1,24 @@
+/**
+ * @file 1426C.cpp
+ * @brief Solution for Codeforces Problem 1426C, "Increase and Copy".
+ * @details The problem asks for the minimum number of moves to obtain at least 'n' elements,
+ * starting with one element. The allowed moves are: (1) increment the current number of elements by 1,
+ * and (2) copy all current elements, effectively doubling the count if you have 'x' elements and you copy them, you get '2x' elements.
+ *
+ * Algorithm:
+ * The solution iterates through possible strategies. A strategy consists of some number of "increase" moves followed by some number of "copy" moves.
+ * Let's say we perform `x-1` "increase" moves. This results in `x` elements. The number of moves so far is `x-1`.
+ * Now, we have `x` elements and we want to reach at least `n` elements by copying.
+ * Each copy operation adds the current number of elements. To reach `n` from `x`, we need to add `n-x` more elements.
+ * The number of copy operations required is `ceil((n-x)/x)`.
+ * In integer arithmetic, `ceil(a/b)` can be calculated as `(a + b - 1) / b`.
+ * So, the number of copies is `((n - x) + x - 1) / x`, which is equivalent to `(n-1)/x`.
+ * The total number of moves for a given `x` is `(x - 1) + ((n - x) + x - 1) / x`.
+ * The code iterates through `x` from 1 up to `sqrt(n)`. This is an optimization based on the fact that the minimum value of the function `f(x) = x + n/x` is at `x = sqrt(n)`. The expression for the number of moves is similar to this function.
+ *
+ * Time Complexity: O(sqrt(N)) for each test case, due to the loop.
+ * Space Complexity: O(1).
+ */
 /***************************************************
  * Problem Name : C.cpp
  * Problem Link : https://codeforces.com/contest/1426/problem/C
@@ -54,8 +75,8 @@ typedef unsigned long long ull;
 #define debug cout << "######\n"
 #define debug1(x) cout << "### " << x << " ###\n"
 #define debug2(x, y) cout << "# " << x << " : " << y << " #\n"
-#define nl cout << "\n";
-#define sp cout << " ";
+#define nl cout << "\n"
+#define sp cout << " "
 #define sl(n) scanf("%lld", &n)
 #define sf(n) scanf("%lf", &n)
 #define si(n) scanf("%d", &n)
@@ -118,6 +139,7 @@ ll lcm(ll a, ll b) { return (a / __gcd(a, b)) * b; }
 /************************************ Code Start Here
  * ******************************************************/
 
+// The following two functions are not used in the final solution.
 ll fun(ll n) { return (n * (n + 1LL)) / 2LL; }
 
 int bi(int n) {
@@ -151,6 +173,9 @@ int main() {
     cin >> n;
     int ans = 1e9;
 
+    // Iterate through possible numbers of "increase" moves.
+    // Let x-1 be the number of "increase" moves. This results in x elements.
+    // The number of copy moves needed is ceil((n-x)/x).
     for (int x = 1; x * x <= n; ++x) {
       ans = min(ans, x - 1 + ((n - x) + x - 1) / x);
     }

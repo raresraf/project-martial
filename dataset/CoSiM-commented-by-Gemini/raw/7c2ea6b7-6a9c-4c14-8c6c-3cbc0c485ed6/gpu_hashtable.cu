@@ -1,13 +1,33 @@
-
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
+/**
+ * @file gpu_hashtable.cu
+ * @brief A GPU-accelerated hash table with a multi-slot bucket design.
+ * @details This file implements a hash table on the GPU using a hybrid collision
+ * resolution strategy. Each hash index points to a bucket with multiple slots
+ * (`NO_SLOTS`). If all slots in a bucket are full, it resolves the collision
+ * by moving to the next bucket using linear probing.
+ *
+ * Algorithm: Open addressing with multi-slot buckets and linear probing.
+ * - Hashing: Multiplicative hashing with prime constants.
+ * - Buckets: Each hash index has `NO_SLOTS` (typically 2) available entries.
+ * - Collision Resolution: If all slots in a bucket are occupied, linear probing
+ *   is used to find the next available bucket.
+ * - Concurrency: Thread-safe writes are managed with atomicCAS operations.
+ */
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <errno.h>
+#include <iostream>
+#include <vector>
 
 #include "gpu_hashtable.hpp"
 
+/**
+ * @brief Computes a hash for a given key on the GPU.
+ * @param size The capacity of the hash table (number of buckets).
+ * @param key The integer key to hash.
+ * @return A hash value within the range [0, size-1].
+ */
 __device__ int hash_function(int size, int key) {
 	const size_t prime_number_1 = 13169977llu;
 	const size_t prime_number_2 = 5351951779llu;
@@ -17,14 +37,22 @@ __device__ int hash_function(int size, int key) {
 	return val;
 }
 
+/**
+ * @brief CUDA kernel to rehash elements from an old table to a new, larger one.
+ * @details Each thread processes one column of the old table. For each valid entry, it
+ * re-hashes it and uses an atomic multi-slot linear probe to insert it into the new table.
+ * @param newHash The destination hash table.
+ * @param hmap The source hash table.
+ */
 __global__ void  resize(my_hash newHash, my_hash hmap) {
 	unsigned int i = threadIdx.x + blockDim.x * blockIdx.x;
 	int idx, x, slot;
-	int once = 0;
+	int once = 0; // Used to control wrap-around logic.
 
 	if (!(i < hmap.hsize))
 		return;
 
+	// Invariant: Iterate through each slot (column) for the current thread's assigned index 'i'.
 	for (slot = 0; slot < NO_SLOTS; slot++) {
 		once = 0;
 
@@ -35,26 +63,25 @@ __global__ void  resize(my_hash newHash, my_hash hmap) {
 
 		once = 0;
 		int oldIdx = idx;
+		// Block Logic: Probe until the item is inserted or the table is fully scanned.
 		while(idx < newHash.hsize && once < 2) {
 			if (once == 1 && idx > oldIdx)
-				break;
+				break; // Stop after one full wrap-around.
 
+			// Try to insert into any of the available slots at the current hash index.
 			for(x = 0; x < NO_SLOTS; x++) {
-
 				int old = atomicCAS(&newHash.buckets[x][idx].key, KEY_INVALID, hmap.buckets[slot][i].key);
 				if (idx < newHash.hsize && (old == KEY_INVALID)) {
 					atomicExch(&newHash.buckets[x][idx].value, hmap.buckets[slot][i].value);
-
-					once = 3;
+					once = 3; // Signal that insertion is complete.
 					break;
-
 				}
 			}
 
 			idx++;
 			if (idx >= newHash.hsize) {
 				idx = 0;
-				once++;
+				once++; // Track that we have wrapped around.
 			}
 		}
 	}
@@ -62,12 +89,16 @@ __global__ void  resize(my_hash newHash, my_hash hmap) {
 	return;
 }
 
+/**
+ * @brief CUDA kernel for inserting a batch of key-value pairs.
+ * @details Each thread handles one key-value pair. It finds a hash bucket and then
+ * probes through the `NO_SLOTS` in that bucket. If all are full, it uses linear
+ * probing to move to the next bucket.
+ */
 __global__ void insert(int *keys, int *values, int numKeys, my_hash hmap) {
 	unsigned int i = threadIdx.x + blockDim.x * blockIdx.x;
 	int x = 0;
 	int idx = 0;
-	
-	
 	int once = 0;
 
 	if (!(i < numKeys))
@@ -80,12 +111,13 @@ __global__ void insert(int *keys, int *values, int numKeys, my_hash hmap) {
 
 	once = 0;
 	int oldIdx = idx;
+	// Block Logic: Probe until the key is inserted/updated or the table is scanned.
 	while(idx < hmap.hsize && once < 2) {
 		if (once == 1 && idx > oldIdx)
 			break;
 		for(x = 0; x < NO_SLOTS; x++) {
-
 			int old = atomicCAS(&hmap.buckets[x][idx].key, KEY_INVALID, keys[i]);
+			// If the slot was empty or already held our key, update value and return.
 			if (idx < hmap.hsize && (old == KEY_INVALID || old == keys[i])) {
 				atomicExch(&hmap.buckets[x][idx].value, values[i]);
 				return;
@@ -100,6 +132,13 @@ __global__ void insert(int *keys, int *values, int numKeys, my_hash hmap) {
 	}
 }
 
+/**
+ * @brief CUDA kernel to retrieve values for a batch of keys.
+ * @bug This function has a critical flaw. It uses `atomicCAS` for a read operation.
+ * If a thread searches for a key and encounters an empty slot (`KEY_INVALID`), it will
+ * unintentionally write the search key into that slot, corrupting the hash table.
+ * This is a side-effect in a function that should be read-only.
+ */
 __global__ void get(int *keys, int *values, int numKeys, my_hash hmap) {
 	unsigned int i = threadIdx.x + blockDim.x * blockIdx.x;
 	int x = 0;
@@ -116,12 +155,13 @@ __global__ void get(int *keys, int *values, int numKeys, my_hash hmap) {
 
 	once = 0;
 	int oldIdx = idx;
+	// Block Logic: Probe for the key.
 	while(idx < hmap.hsize && once < 2) {
 		if (once == 1 && idx > oldIdx)
 			break;
 
 		for(x = 0; x < NO_SLOTS; x++) {
-
+			// BUG: This atomicCAS will modify the table during a read operation.
 			int old = atomicCAS(&hmap.buckets[x][idx].key, KEY_INVALID, keys[i]);
 			if (idx < hmap.hsize &&  hmap.buckets[x][idx].key == keys[i]) {
 				values[i] = hmap.buckets[x][idx].value;
@@ -138,6 +178,10 @@ __global__ void get(int *keys, int *values, int numKeys, my_hash hmap) {
 }
 
 
+/**
+ * @brief Constructs a GpuHashTable.
+ * @details Allocates `NO_SLOTS` separate arrays on the GPU to form the columns of the hash table.
+ */
 GpuHashTable::GpuHashTable(int size) {
 	int i;
 	cudaError_t err;
@@ -156,6 +200,9 @@ GpuHashTable::GpuHashTable(int size) {
 }
 
 
+/**
+ * @brief Destroys the GpuHashTable, freeing all allocated bucket arrays.
+ */
 GpuHashTable::~GpuHashTable() {
 	int i;
 	no_insPairs = 0;
@@ -169,6 +216,9 @@ GpuHashTable::~GpuHashTable() {
 }
 
 
+/**
+ * @brief Resizes the hash table to a new capacity.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) {
 	int i;
 	cudaError_t err;
@@ -194,7 +244,7 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 		++blocks_no;
 
 	
-	resize>>(newHash, hmap);
+	resize<<<blocks_no, block_size>>>(newHash, hmap);
 	cudaDeviceSynchronize();
 
 	for (i = 0; i < NO_SLOTS; i++) {
@@ -207,6 +257,10 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 }
 
 
+/**
+ * @brief Inserts a batch of key-value pairs into the hash table.
+ * @return True on success, False on memory allocation failure.
+ */
 bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	int *device_keys = 0;
 	int *device_values = 0;
@@ -223,7 +277,8 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	DIE(err != cudaSuccess, "[INSERT] cudaMalloc");
 
 	if (device_keys == 0 || device_values == 0) {
-		printf("[HOST] Couldn't allocate memory\n");
+		printf("[HOST] Couldn't allocate memory
+");
 		return false;
 	}
 
@@ -235,8 +290,6 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	DIE(err != cudaSuccess, "[INSERT] cudaMemcpy");
 
 	
-	
-	
 	const size_t block_size = 256;
 	size_t blocks_no = numKeys / block_size;
 
@@ -244,7 +297,7 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 		++blocks_no;
 
 	
-	insert>>(device_keys, device_values, numKeys, hmap);
+	insert<<<blocks_no, block_size>>>(device_keys, device_values, numKeys, hmap);
 	cudaDeviceSynchronize();
 
 	err = cudaFree(device_values);
@@ -257,6 +310,10 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 }
 
 
+/**
+ * @brief Retrieves values for a batch of keys.
+ * @return A host pointer to a newly allocated array with the results. The caller must free this memory.
+ */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	int *host_values = 0;
 	int *device_keys = 0;
@@ -277,7 +334,8 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 
 
 	if (device_keys == 0 || device_values == 0) {
-		printf("[GET HOST] Couldn't allocate memory\n");
+		printf("[GET HOST] Couldn't allocate memory
+");
 		return NULL;
 	}
 
@@ -286,8 +344,6 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	DIE(err != cudaSuccess, "[GET] cudaMemcpy");
 
 	
-	
-	
 	const size_t block_size = 256;
 	size_t blocks_no = numKeys / block_size;
 
@@ -295,7 +351,7 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 		++blocks_no;
 
 	
-	get>>(device_keys, device_values, numKeys, hmap);
+	get<<<blocks_no, block_size>>>(device_keys, device_values, numKeys, hmap);
 	cudaDeviceSynchronize();
 
 	err = cudaMemcpy(host_values, device_values, num_bytes, cudaMemcpyDeviceToHost);
@@ -338,14 +394,14 @@ using namespace std;
 #define MIN_LOAD		0.8
 #define MAX_LOAD		0.9
 
-#define DIE(assertion, call_description) \
-	do {	\
-		if (assertion) {	\
-		fprintf(stderr, "(%s, %d): ",	\
-		__FILE__, __LINE__);	\
-		perror(call_description);	\
-		exit(errno);	\
-	}	\
+#define DIE(assertion, call_description) 
+	do {	
+		if (assertion) {	
+		fprintf(stderr, "(%s, %d): ",	
+		__FILE__, __LINE__);	
+		perror(call_description);	
+		exit(errno);	
+	}	
 } while (0)
 	
 const size_t primeList[] =
@@ -389,24 +445,33 @@ const size_t primeList[] =
 	359163406191658253llu, 452517535812813007llu, 570136368817120201llu,
 	718326812383316683llu, 905035071625626043llu, 1140272737634240411llu,
 	1436653624766633509llu, 1810070143251252131llu, 2280545475268481167llu,
-
-
 	2873307249533267101llu, 3620140286502504283llu, 4561090950536962147llu,
 	5746614499066534157llu, 7240280573005008577llu, 9122181901073924329llu,
 	11493228998133068689llu, 14480561146010017169llu, 18446744073709551557llu
 };
 
 
+/**
+ * @struct list
+ * @brief Represents a key-value pair entry in the hash table.
+ */
 struct list {
 	int key;
 	int value;
 };
 
 
+/**
+ * @struct my_hash
+ * @brief Represents the core data structure for the multi-slot GPU hash table.
+ */
 struct my_hash {
 	int hsize;
 
-
+	/**
+	 * @brief An array of pointers, where each pointer represents a column
+	 * or "slot" in a hash bucket. This creates a 2D-like structure.
+	 */
 	list *buckets[NO_SLOTS];
 };
 
@@ -445,4 +510,3 @@ class GpuHashTable
 };
 
 #endif
-

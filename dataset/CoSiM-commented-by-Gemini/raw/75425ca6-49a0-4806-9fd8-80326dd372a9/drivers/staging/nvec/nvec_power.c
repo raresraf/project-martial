@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0
-/*
- * nvec_power: power supply driver for a NVIDIA compliant embedded controller
+/**
+ * @file nvec_power.c
+ * @brief Power supply and battery driver for NVIDIA Embedded Controller (NVEC).
+ * @details This driver acts as a bridge between the low-level NVIDIA Embedded
+ * Controller (NVEC) interface and the standard Linux power supply subsystem. It
+ * registers two power supply devices, 'ac' and 'battery', and reports their
+ * status to the kernel. Data is received from the EC asynchronously via notifiers,
+ * and a polling mechanism is used to periodically request updated status information.
  *
  * Copyright (C) 2011 The AC100 Kernel Team <ac100@lists.launchpad.net>
  *
@@ -20,29 +26,40 @@
 
 #define GET_SYSTEM_STATUS 0x00
 
+/**
+ * @struct nvec_power
+ * @brief Holds the state of the power supply and battery devices.
+ * @details This structure contains cached data received from the NVEC. The
+ * `power_supply` callbacks read from this struct to report status to userspace.
+ */
 struct nvec_power {
-	struct notifier_block notifier;
-	struct delayed_work poller;
-	struct nvec_chip *nvec;
-	int on;
-	int bat_present;
-	int bat_status;
-	int bat_voltage_now;
-	int bat_current_now;
-	int bat_current_avg;
-	int time_remain;
-	int charge_full_design;
-	int charge_last_full;
-	int critical_capacity;
-	int capacity_remain;
-	int bat_temperature;
-	int bat_cap;
-	int bat_type_enum;
-	char bat_manu[30];
-	char bat_model[30];
-	char bat_type[30];
+	struct notifier_block notifier;      /**< For receiving async events from NVEC */
+	struct delayed_work poller;          /**< For periodically polling the EC */
+	struct nvec_chip *nvec;              /**< Pointer to the underlying NVEC device */
+
+	/* AC adapter state */
+	int on;                              /**< AC adapter online status */
+
+	/* Battery state */
+	int bat_present;                     /**< Whether the battery is present */
+	int bat_status;                      /**< e.g., CHARGING, DISCHARGING */
+	int bat_voltage_now;                 /**< Instantaneous voltage in microvolts */
+	int bat_current_now;                 /**< Instantaneous current in microamps */
+	int bat_current_avg;                 /**< Average current in microamps */
+	int time_remain;                     /**< Remaining time until empty in seconds */
+	int charge_full_design;              /**< Designed full charge capacity in microamp-hours */
+	int charge_last_full;                /**< Last measured full charge capacity */
+	int critical_capacity;               /**< Critical low capacity level */
+	int capacity_remain;                 /**< Remaining capacity in microamp-hours */
+	int bat_temperature;                 /**< Battery temperature in tenths of a degree Celsius */
+	int bat_cap;                         /**< Remaining capacity as a percentage (0-100) */
+	int bat_type_enum;                   /**< Battery technology (e.g., LION) */
+	char bat_manu[30];                   /**< Manufacturer name string */
+	char bat_model[30];                  /**< Model name string */
+	char bat_type[30];                   /**< Type name string */
 };
 
+/* EC command subtypes for requesting battery information */
 enum {
 	SLOT_STATUS,
 	VOLTAGE,
@@ -60,11 +77,16 @@ enum {
 	TYPE,
 };
 
+/* Device IDs for AC adapter and Battery */
 enum {
 	AC,
 	BAT,
 };
 
+/**
+ * @struct bat_response
+ * @brief Represents the data structure of a response from the NVEC.
+ */
 struct bat_response {
 	u8 event_type;
 	u8 length;
@@ -81,6 +103,10 @@ struct bat_response {
 static struct power_supply *nvec_bat_psy;
 static struct power_supply *nvec_psy;
 
+/**
+ * @brief Notifier callback for system-level power events (e.g., AC adapter status).
+ * @return NOTIFY_STOP if the event is handled, NOTIFY_DONE otherwise.
+ */
 static int nvec_power_notifier(struct notifier_block *nb,
 			       unsigned long event_type, void *data)
 {
@@ -91,21 +117,26 @@ static int nvec_power_notifier(struct notifier_block *nb,
 	if (event_type != NVEC_SYS)
 		return NOTIFY_DONE;
 
+	// sub_type 0 corresponds to AC adapter online status
 	if (res->sub_type == 0) {
 		if (power->on != res->plu) {
 			power->on = res->plu;
 			power_supply_changed(nvec_psy);
 		}
-		return NOTIFY_STOP;
+		return NOTIFY_STOP; // Event handled
 	}
 	return NOTIFY_OK;
 }
 
+// List of one-time battery information to fetch upon battery insertion.
 static const int bat_init[] = {
 	LAST_FULL_CHARGE_CAPACITY, DESIGN_CAPACITY, CRITICAL_CAPACITY,
 	MANUFACTURER, MODEL, TYPE,
 };
 
+/**
+ * @brief Sends requests to the NVEC to fetch static battery manufacturing data.
+ */
 static void get_bat_mfg_data(struct nvec_power *power)
 {
 	int i;
@@ -117,6 +148,13 @@ static void get_bat_mfg_data(struct nvec_power *power)
 	}
 }
 
+/**
+ * @brief Notifier callback for battery-specific events.
+ * @details This function is called when the NVEC sends an asynchronous message
+ * about the battery. It parses the message and updates the corresponding fields
+ * in the `nvec_power` struct.
+ * @return NOTIFY_STOP if the event is handled.
+ */
 static int nvec_power_bat_notifier(struct notifier_block *nb,
 				   unsigned long event_type, void *data)
 {
@@ -130,14 +168,16 @@ static int nvec_power_bat_notifier(struct notifier_block *nb,
 
 	switch (res->sub_type) {
 	case SLOT_STATUS:
-		if (res->plc[0] & 1) {
+		if (res->plc[0] & 1) { // Check if battery is present
 			if (power->bat_present == 0) {
 				status_changed = 1;
+				// If battery was just inserted, fetch static data like manufacturer.
 				get_bat_mfg_data(power);
 			}
 
 			power->bat_present = 1;
 
+			// Decode battery status (Charging, Discharging, etc.)
 			switch ((res->plc[0] >> 1) & 3) {
 			case 0:
 				power->bat_status =
@@ -154,14 +194,14 @@ static int nvec_power_bat_notifier(struct notifier_block *nb,
 			default:
 				power->bat_status = POWER_SUPPLY_STATUS_UNKNOWN;
 			}
-		} else {
+		} else { // Battery is not present
 			if (power->bat_present == 1)
 				status_changed = 1;
 
 			power->bat_present = 0;
 			power->bat_status = POWER_SUPPLY_STATUS_UNKNOWN;
 		}
-		power->bat_cap = res->plc[1];
+		power->bat_cap = res->plc[1]; // Update battery capacity percentage
 		if (status_changed)
 			power_supply_changed(nvec_bat_psy);
 		break;
@@ -190,6 +230,7 @@ static int nvec_power_bat_notifier(struct notifier_block *nb,
 		power->critical_capacity = res->plu * 1000;
 		break;
 	case TEMPERATURE:
+		// Convert from tenths of Kelvin to tenths of Celsius
 		power->bat_temperature = res->plu - 2732;
 		break;
 	case MANUFACTURER:
@@ -203,10 +244,7 @@ static int nvec_power_bat_notifier(struct notifier_block *nb,
 	case TYPE:
 		memcpy(power->bat_type, &res->plc, res->length - 2);
 		power->bat_type[res->length - 2] = '\0';
-		/*
-		 * This differs a little from the spec fill in more if you find
-		 * some.
-		 */
+		// Attempt to parse technology from the type string
 		if (!strncmp(power->bat_type, "Li", 30))
 			power->bat_type_enum = POWER_SUPPLY_TECHNOLOGY_LION;
 		else
@@ -219,6 +257,11 @@ static int nvec_power_bat_notifier(struct notifier_block *nb,
 	return NOTIFY_STOP;
 }
 
+/**
+ * @brief Callback for the power_supply framework to get AC adapter properties.
+ * @details This function is called by the kernel when userspace requests
+ * information about the AC adapter. It reads the cached value from the driver's state.
+ */
 static int nvec_power_get_property(struct power_supply *psy,
 				   enum power_supply_property psp,
 				   union power_supply_propval *val)
@@ -235,6 +278,11 @@ static int nvec_power_get_property(struct power_supply *psy,
 	return 0;
 }
 
+/**
+ * @brief Callback for the power_supply framework to get battery properties.
+ * @details This function is called by the kernel when userspace requests
+ * information about the battery. It reads the cached values from the driver's state.
+ */
 static int nvec_battery_get_property(struct power_supply *psy,
 				     enum power_supply_property psp,
 				     union power_supply_propval *val)
@@ -293,10 +341,12 @@ static int nvec_battery_get_property(struct power_supply *psy,
 	return 0;
 }
 
+// Properties exposed by the AC adapter power supply device.
 static enum power_supply_property nvec_power_props[] = {
 	POWER_SUPPLY_PROP_ONLINE,
 };
 
+// Properties exposed by the battery power supply device.
 static enum power_supply_property nvec_battery_props[] = {
 	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_PRESENT,
@@ -321,6 +371,7 @@ static char *nvec_power_supplied_to[] = {
 	"battery",
 };
 
+// Descriptor for the battery power supply.
 static const struct power_supply_desc nvec_bat_psy_desc = {
 	.name = "battery",
 	.type = POWER_SUPPLY_TYPE_BATTERY,
@@ -329,6 +380,7 @@ static const struct power_supply_desc nvec_bat_psy_desc = {
 	.get_property = nvec_battery_get_property,
 };
 
+// Descriptor for the AC adapter power supply.
 static const struct power_supply_desc nvec_psy_desc = {
 	.name = "ac",
 	.type = POWER_SUPPLY_TYPE_MAINS,
@@ -338,6 +390,7 @@ static const struct power_supply_desc nvec_psy_desc = {
 };
 
 static int counter;
+// List of battery properties to poll in a round-robin fashion.
 static const int bat_iter[] = {
 	SLOT_STATUS, VOLTAGE, CURRENT, CAPACITY_REMAINING,
 #ifdef EC_FULL_DIAG
@@ -345,6 +398,12 @@ static const int bat_iter[] = {
 #endif
 };
 
+/**
+ * @brief Work function for periodically polling power status.
+ * @details This function is scheduled to run periodically (every 5 seconds). It sends
+ * requests to the NVEC to get the latest AC status and one of the battery
+ * properties in a round-robin fashion.
+ */
 static void nvec_power_poll(struct work_struct *work)
 {
 	char buf[] = { NVEC_SYS, GET_SYSTEM_STATUS };
@@ -369,6 +428,14 @@ static void nvec_power_poll(struct work_struct *work)
 	schedule_delayed_work(to_delayed_work(work), msecs_to_jiffies(5000));
 };
 
+/**
+ * @brief Probe function called when a matching device is found.
+ * @details This function initializes the driver instance, allocates memory, registers
+ * notifiers for asynchronous events, sets up the periodic polling work, and
+ * registers the device with the Linux power supply subsystem.
+ * @param pdev The platform device being probed.
+ * @return 0 on success, or a negative error code on failure.
+ */
 static int nvec_power_probe(struct platform_device *pdev)
 {
 	struct power_supply **psy;
@@ -384,6 +451,7 @@ static int nvec_power_probe(struct platform_device *pdev)
 	dev_set_drvdata(&pdev->dev, power);
 	power->nvec = nvec;
 
+	// Block Logic: Differentiate initialization based on whether this is the AC or BAT device.
 	switch (pdev->id) {
 	case AC:
 		psy = &nvec_psy;
@@ -393,6 +461,7 @@ static int nvec_power_probe(struct platform_device *pdev)
 
 		power->notifier.notifier_call = nvec_power_notifier;
 
+		// Initialize and start the periodic polling work.
 		INIT_DELAYED_WORK(&power->poller, nvec_power_poll);
 		schedule_delayed_work(&power->poller, msecs_to_jiffies(5000));
 		break;
@@ -406,7 +475,7 @@ static int nvec_power_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	nvec_register_notifier(nvec, &power->notifier, NVEC_SYS);
+	nvec_register_notifier(nvec, &power->notifier, NVEC_SYS | NVEC_BAT);
 
 	if (pdev->id == BAT)
 		get_bat_mfg_data(power);
@@ -416,6 +485,12 @@ static int nvec_power_probe(struct platform_device *pdev)
 	return PTR_ERR_OR_ZERO(*psy);
 }
 
+/**
+ * @brief Remove function called when the device is removed or driver is unloaded.
+ * @details This function cleans up all resources allocated by the probe function,
+ * including unregistering the power supply devices, canceling polling work, and
+ * unregistering the notifier.
+ */
 static void nvec_power_remove(struct platform_device *pdev)
 {
 	struct nvec_power *power = platform_get_drvdata(pdev);

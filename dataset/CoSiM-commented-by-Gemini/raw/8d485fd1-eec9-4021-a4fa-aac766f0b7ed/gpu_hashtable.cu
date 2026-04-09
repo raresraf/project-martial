@@ -1,3 +1,12 @@
+/**
+ * @file gpu_hashtable.cu
+ * @brief A GPU-based hash table implementation using CUDA.
+ *
+ * This implementation uses open addressing with linear probing for collision resolution.
+ * It stores keys and values in separate, parallel arrays (Structure of Arrays - SoA),
+ * which can improve memory access patterns on the GPU. The number of elements
+ * is tracked atomically on the device.
+ */
 
 #include 
 #include 
@@ -8,6 +17,16 @@
 
 #include "gpu_hashtable.hpp"
 
+/**
+ * @brief CUDA kernel to insert a batch of key-value pairs into the hash table.
+ * @param hKeys Pointer to the device array of keys.
+ * @param hValues Pointer to the device array of values.
+ * @param numPairs Pointer to a single integer on the device, acting as an atomic counter for the number of elements.
+ * @param keys The input keys for the batch insertion.
+ * @param values The input values for the batch insertion.
+ * @param size The total capacity of the hash table.
+ * @param numKeys The number of pairs in this batch.
+ */
 __global__ void cuda_insert(int *hKeys, int *hValues, int *numPairs, int *keys, int *values, int size, int numKeys) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -24,23 +43,39 @@ __global__ void cuda_insert(int *hKeys, int *hValues, int *numPairs, int *keys, 
 	int hashVal = hash0(keys[idx], size);
 	int offset = hashVal;
 
+	// Invariant: Continue probing until an empty slot is found or the key is updated.
 	while (true) {
+		// Attempt to atomically claim an empty slot.
 		oldVal = atomicCAS(&hKeys[offset], 0, keys[idx]);
+
+		// Case 1: The slot was empty.
 		if (oldVal == 0) {
 			
 			hValues[offset] = values[idx];
+			// Atomically increment the total element counter.
 			atomicAdd(&numPairs[0], 1);
 			break;
+		// Case 2: The key already exists in this slot.
 		} else if (hKeys[offset] == keys[idx]) {
 			
 			hValues[offset] = values[idx];
 			break;	
+		// Case 3: Collision. Probe the next slot.
 		} else {
 			offset = (offset + 1) % size;
 		}
 	}
 }
 
+/**
+ * @brief CUDA kernel to retrieve values for a batch of keys.
+ * @param hKeys Pointer to the device array of keys.
+ * @param hValues Pointer to the device array of values.
+ * @param keys The input keys to look up.
+ * @param values The output array to store found values.
+ * @param size The capacity of the hash table.
+ * @param numKeys The number of keys to look up.
+ */
 __global__ void cuda_get(int *hKeys, int *hValues, int *keys, int *values, int size, int numKeys) {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -50,6 +85,7 @@ __global__ void cuda_get(int *hKeys, int *hValues, int *keys, int *values, int s
 	int hashVal = hash0(keys[idx], size);
 	int offset = hashVal;
 
+	// Invariant: Continue probing until the key is found or the table is fully scanned.
 	while (true) {
 		if (hKeys[offset] == keys[idx]) {
 			values[idx] = hValues[offset];
@@ -82,7 +118,14 @@ GpuHashTable::~GpuHashTable() {
 	cudaFree(numPairs);
 }
 
-
+/**
+ * @brief Resizes the hash table to a new capacity.
+ * @param numBucketsReshape The new capacity for the hash table.
+ * @warning This implementation is highly inefficient. It copies all elements
+ * from the device to the host, reallocates memory on the device, and then
+ * re-inserts all elements from the host. A device-to-device rehash kernel
+ * would be significantly faster.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) {
 	int *keys;
 	int *values;
@@ -94,6 +137,7 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 	values = (int *)malloc(oldSize * sizeof(int));
 
 	
+	// Copy all data from device to host.
 	cudaMemcpy(keys, hKeys, oldSize * sizeof(int), cudaMemcpyDeviceToHost);
 	cudaMemcpy(values, hValues, oldSize * sizeof(int), cudaMemcpyDeviceToHost);
 
@@ -101,6 +145,7 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 	cudaFree(hValues);
 	cudaFree(numPairs);
 
+	// Reallocate new, larger arrays on the device.
 	cudaMalloc((void **) &hKeys, size * (sizeof(int)));
 	cudaMalloc((void **) &hValues, size * (sizeof(int)));
 	cudaMalloc((void **) &numPairs, 1 * (sizeof(int)));
@@ -112,6 +157,7 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 	cudaMemset(numPairs, 0, 1 * sizeof(int));
 
 	
+	// Re-insert all elements from the host.
 	insertBatch(keys, values, oldSize);
 
 	free(keys);
@@ -127,6 +173,7 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	cudaMemcpy(&numElems, numPairs, sizeof(int), cudaMemcpyDeviceToHost);
 
 	
+	// If the load factor exceeds 90%, reshape the table.
 	if (numElems + numKeys > size * 0.90) {
 		reshape((numElems + numKeys) * 1.2);
 	}
@@ -181,6 +228,7 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 float GpuHashTable::loadFactor() {
 	int numElems;
 
+	// Copy the element count from device to host for calculation.
 	cudaMemcpy(&numElems, numPairs, sizeof(int), cudaMemcpyDeviceToHost);
 
 	return (float)numElems/size;
@@ -197,6 +245,8 @@ float GpuHashTable::loadFactor() {
 #define HASH_LOAD_FACTOR GpuHashTable.loadFactor()
 
 #include "test_map.cpp"
+// Note: This header guard block contains a class definition that is inconsistent
+// with the one implemented in this file. It seems to be a copy-paste error.
 #ifndef _HASHCPU_
 #define _HASHCPU_
 

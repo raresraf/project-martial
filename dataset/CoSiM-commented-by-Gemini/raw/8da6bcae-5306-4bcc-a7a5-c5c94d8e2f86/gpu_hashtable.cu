@@ -1,4 +1,13 @@
-
+/**
+ * @file gpu_hashtable.cu
+ * @brief A GPU-based hash table implementation using CUDA Managed Memory.
+ *
+ * This implementation uses open addressing with linear probing for collision resolution.
+ * A key feature is its reliance on CUDA Managed Memory (`cudaMallocManaged`), which
+ * allows both the host and device to access the hash table data via a unified
+ * pointer. The element count is also updated atomically on the device, ensuring
+ * thread-safe and accurate size tracking during concurrent insertions.
+ */
 #include 
 #include 
 #include 
@@ -17,10 +26,23 @@
 #define SND_PRIME 27619478504183llu
 
 
+/**
+ * @brief Computes a hash value for a given key on the device.
+ * @param data The key to hash.
+ * @param hashTableSize The capacity of the hash table.
+ * @return The computed hash index.
+ */
 __device__ int hashFunction(int data, int hashTableSize) {
 	return ((long)abs(data) * FST_PRIME) % SND_PRIME % hashTableSize;
 }
 
+/**
+ * @brief CUDA kernel to insert a batch of key-value pairs into the hash table.
+ * @param keys The input keys for the batch insertion.
+ * @param values The input values for the batch insertion.
+ * @param numKeys The number of pairs to process.
+ * @param ht A pointer to the hash table structure in managed memory.
+ */
 __global__ void kernel_insert(int *keys, int *values, int numKeys, HashTable *ht) {
 	
 	int newKey, hash, size, i, result;
@@ -33,18 +55,22 @@ __global__ void kernel_insert(int *keys, int *values, int numKeys, HashTable *ht
 	hash = hashFunction(newKey, ht->size);
 	size = ht->size;
 
+	// Linear probing: search from the hash index to the end.
 	for (i = hash; i < size; i++) {
 		result = atomicCAS(&ht->buckets[i].key, KEY_INVALID, newKey);
 		
+		// If the slot was empty or already held the same key, the operation is successful.
 		if (result == newKey || result == KEY_INVALID) {
 			
 			ht->buckets[i].value = values[idx];
+			// If the slot was empty, this is a new insertion, so atomically increment the element count.
 			if (result == KEY_INVALID)
 				atomicAdd(&ht->noElements, 1);
 			return;
 		}
 	}
 
+	// Wrap around and continue probing from the beginning of the table.
 	for (i = 0; i < hash; i++) {
 		result = atomicCAS(&ht->buckets[i].key, KEY_INVALID, newKey);
 		
@@ -59,6 +85,11 @@ __global__ void kernel_insert(int *keys, int *values, int numKeys, HashTable *ht
 
 }
 
+/**
+ * @brief CUDA kernel to rehash all elements from an old table into a new one.
+ * @param oldHt A pointer to the original hash table.
+ * @param newHt A pointer to the new, larger hash table.
+ */
 __global__ void kernel_reshape(HashTable *oldHt, HashTable *newHt) {
 	
 	int oldKey, oldVal, hash, size, i, result;
@@ -70,6 +101,7 @@ __global__ void kernel_reshape(HashTable *oldHt, HashTable *newHt) {
 
 
 	oldKey = oldHt->buckets[idx].key;
+	// Skip empty slots in the old table.
 	if (oldKey == KEY_INVALID)
 		return;
 	
@@ -77,6 +109,7 @@ __global__ void kernel_reshape(HashTable *oldHt, HashTable *newHt) {
 	hash = hashFunction(oldKey, newHt->size);
 	size = newHt->size;
 
+	// Linear probing to insert the old element into the new table.
 	for (i = hash; i < size; i++) {
 		result = atomicCAS(&newHt->buckets[i].key, KEY_INVALID, oldKey);
 		
@@ -97,6 +130,13 @@ __global__ void kernel_reshape(HashTable *oldHt, HashTable *newHt) {
 
 }
 
+/**
+ * @brief CUDA kernel to retrieve values for a batch of keys.
+ * @param keys The keys to look up.
+ * @param values An array to store the found values.
+ * @param numKeys The number of keys to process.
+ * @param ht A pointer to the hash table structure.
+ */
 __global__ void kernel_get(int *keys, int *values, int numKeys, HashTable *ht) {
 
 	int i, key, hash, size;
@@ -109,6 +149,7 @@ __global__ void kernel_get(int *keys, int *values, int numKeys, HashTable *ht) {
 	hash = hashFunction(key, ht->size);
 	size = ht->size;
 
+	// Linear probing to find the key.
 	for (i = hash; i < size; i++)
 		if (ht->buckets[i].key == key) {
 			values[idx] = ht->buckets[i].value;
@@ -122,13 +163,18 @@ __global__ void kernel_get(int *keys, int *values, int numKeys, HashTable *ht) {
 		}
 }
 
-
+/**
+ * @brief Constructs a GpuHashTable, allocating managed memory for its components.
+ * @param size The initial capacity of the hash table.
+ */
 GpuHashTable::GpuHashTable(int size) {
 
 	cudaError_t ret;
 	
+	// Allocate the main HashTable struct in managed memory.
 	ret = cudaMallocManaged(&ht, sizeof(HashTable));
 	DIE(ret != cudaSuccess, "Fail cudaMallocManaged");
+	// Allocate the array of buckets in managed memory.
 	ret = cudaMallocManaged(&ht->buckets, size * sizeof(Bucket));
 	DIE(ret != cudaSuccess, "Fail cudaMallocManaged");
 
@@ -139,7 +185,9 @@ GpuHashTable::GpuHashTable(int size) {
 
 }
 
-
+/**
+ * @brief Destroys the GpuHashTable, freeing all associated managed memory.
+ */
 GpuHashTable::~GpuHashTable() {
 
 	cudaFree(ht->buckets);
@@ -147,7 +195,10 @@ GpuHashTable::~GpuHashTable() {
 
 }
 
-
+/**
+ * @brief Resizes the hash table to a new capacity.
+ * @param numBucketsReshape The new capacity for the hash table.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) {
 
 	HashTable *newHt;
@@ -159,6 +210,7 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 		return;
 	}
 
+	// Allocate a new hash table structure and its buckets in managed memory.
 	ret = cudaMallocManaged(&newHt, sizeof(HashTable));
 	DIE(ret != cudaSuccess, "Fail cudaMallocManaged");
 	ret = cudaMallocManaged(&newHt->buckets, numBucketsReshape * sizeof(Bucket));
@@ -168,35 +220,47 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 	newHt->noElements = 0;
 	
 	numBlocks = (ht->size + NUM_THREADS - 1) / NUM_THREADS;
+	// Launch kernel to re-hash elements from the old table to the new one.
 	kernel_reshape>>(ht, newHt);
 	
 	cudaDeviceSynchronize();
 
+	// The kernel does not update the element count, so it's manually copied on the host.
 	newHt->noElements = ht->noElements;
 
+	// Free old memory and update the main pointer.
 	cudaFree(ht->buckets);
 	cudaFree(ht);
 	ht = newHt;
 
 }
 
-
+/**
+ * @brief Inserts a batch of key-value pairs into the hash table.
+ * @param keys A host pointer to an array of keys.
+ * @param values A host pointer to an array of values.
+ * @param numKeys The number of key-value pairs to insert.
+ * @return True on success, false otherwise.
+ */
 bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 
 	int *globalKeys, *globalValues;
 	int numBlocks;
 	cudaError_t ret;
 
+	// Allocate temporary managed memory for the batch keys and values.
 	ret = cudaMallocManaged(&globalKeys, numKeys * sizeof(int));
 	DIE(ret != cudaSuccess, "Fail cudaMallocManaged");
 	ret = cudaMallocManaged(&globalValues, numKeys * sizeof(int));
 	DIE(ret != cudaSuccess, "Fail cudaMallocManaged");
 
 	
+	// Because memory is managed, we can use standard memcpy on the host.
 	memcpy(globalKeys, keys, numKeys * sizeof(int));
 	memcpy(globalValues, values, numKeys * sizeof(int));
 
 	
+	// If the load factor will exceed the maximum, reshape the table.
 	if (float(ht->noElements + numKeys) / ht->size >= MAXIMUM_LOAD_FACTOR)
 		
 
@@ -213,7 +277,13 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	return true;
 }
 
-
+/**
+ * @brief Retrieves the values for a batch of keys.
+ * @param keys A host pointer to an array of keys to look up.
+ * @param numKeys The number of keys to retrieve.
+ * @return A pointer to managed memory containing the values. The caller can
+ *         access this memory directly from the host after the kernel synchronizes.
+ */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	
 	int *globalKeys, *globalValues, numBlocks;
@@ -239,7 +309,10 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	return globalValues;
 }
 
-
+/**
+ * @brief Calculates the current load factor of the hash table.
+ * @return The load factor as a float (number of elements / capacity).
+ */
 float GpuHashTable::loadFactor() {
 	return (float)ht->noElements / ht->size;
 }

@@ -1,11 +1,23 @@
-
+/**
+ * @file gpu_hashtable.hpp
+ * @brief Defines the GpuHashTable class and contains its CUDA implementation.
+ *
+ * @note This is a non-standard header file that appears to be a concatenation
+ * of a C++ header (.hpp) and a CUDA implementation file (.cu). It declares the
+ * GpuHashTable class and then immediately provides the kernel and method
+ * implementations.
+ */
 #ifndef _HASHCPU_
 #define _HASHCPU_
 
 using namespace std;
 
+// Represents an invalid or empty key slot in the hash table.
 #define	KEY_INVALID		0
 
+/**
+ * @brief A large list of prime numbers, likely for use in hashing functions.
+ */
 const size_t primeList[] = {
 	2llu, 3llu, 5llu, 7llu, 11llu, 13llu, 17llu, 23llu, 29llu, 37llu, 47llu,
 	59llu, 73llu, 97llu, 127llu, 151llu, 197llu, 251llu, 313llu, 397llu,
@@ -50,6 +62,9 @@ const size_t primeList[] = {
 	5746614499066534157llu, 7240280573005008577llu, 9122181901073924329llu,
 	11493228998133068689llu, 14480561146010017169llu, 18446744073709551557llu};
 
+/**
+ * @brief A macro for runtime error checking. Exits the program if an assertion fails.
+ */
 #define DIE(assertion, call_description) \
 	do {	\
 		if (assertion) {	\
@@ -64,15 +79,25 @@ typedef unsigned long long Entry;
 
 
 
-
+/**
+ * @class GpuHashTable
+ * @brief A host-side class providing an interface to a GPU-based hash table.
+ *
+ * This class manages the lifecycle of a hash table that resides in GPU memory,
+ * providing methods for insertion, retrieval, and resizing.
+ */
 class GpuHashTable
 {
 public:
+	// The total capacity of the hash table.
 	unsigned long size;
+	// A pointer to the count of elements, likely in device memory.
 	unsigned int *num_elements;
+	// A pointer to the hash table entries in device memory.
 	Entry *table;
 
 	
+	// Prime numbers for the hash function.
 	unsigned long a;
 	unsigned long b;
 
@@ -92,6 +117,11 @@ public:
 
 #endif
 
+// ============================================================================
+// @note The section below appears to be a concatenated CUDA implementation file (.cu)
+// and is not standard practice for a header file (.hpp).
+// ============================================================================
+
 #include 
 #include 
 #include 
@@ -103,11 +133,24 @@ public:
 #define FIRST 823117
 #define SECOND 3452434812973
 
+/**
+ * @brief Computes a hash value for a given key on the device.
+ * @param val The key to hash.
+ * @param limit The capacity of the hash table, used for the final modulo.
+ * @return The computed hash index.
+ */
 __device__ int getHash(int val, int limit)
 {
 	return ((long long) abs(val) * FIRST) % SECOND % limit;
 }
 
+/**
+ * @brief CUDA kernel to insert a batch of key-value pairs.
+ * @param keys The keys to insert.
+ * @param val The corresponding values to insert.
+ * @param max The number of pairs to process.
+ * @param hash The hash table structure containing the device pointer.
+ */
 __global__ void addInKern(int *keys, int *val, int max, hash_table hash)
 {
 
@@ -117,17 +160,20 @@ __global__ void addInKern(int *keys, int *val, int max, hash_table hash)
 	if (index >= max) return;
 	int actual_key, replacing_key;
 	replacing_key = keys[index];
-	int hash = getHash(replacing_key, hash.dim);
+	int hash_val = getHash(replacing_key, hash.dim);
 
-	for (int i = hash; i < hash.dim; i++) {
+	// Linear probing: search from the hash index to the end.
+	for (int i = hash_val; i < hash.dim; i++) {
 		actual_key = atomicCAS(&hash.map[i].key, KEY_INVALID, replacing_key);
 
+		// If the slot was empty or held the same key, insert/update and return.
 		if (actual_key == KEY_INVALID || actual_key == replacing_key) {
 			hash.map[i].value = val[index];
 			return;
 		}
 	}
-	for (int i = 0; i < hash; i++) {
+	// Wrap around and search from the beginning.
+	for (int i = 0; i < hash_val; i++) {
 		actual_key = atomicCAS(&hash.map[i].key, KEY_INVALID, replacing_key);
 
 		if (actual_key == KEY_INVALID || actual_key == replacing_key) {
@@ -137,6 +183,13 @@ __global__ void addInKern(int *keys, int *val, int max, hash_table hash)
 	}
 }
 
+/**
+ * @brief CUDA kernel to retrieve a batch of values corresponding to keys.
+ * @param keys The keys to look up.
+ * @param val An array to store the found values.
+ * @param max The number of keys to process.
+ * @param hash The hash table structure.
+ */
 __global__ void getFromKern(int *keys, int *val, int max, hash_table hash)
 {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
@@ -144,16 +197,17 @@ __global__ void getFromKern(int *keys, int *val, int max, hash_table hash)
 	if (index >= max) return;
 
 	int key = keys[index];
-	int hash = getHash(keys[index], hash.dim);
+	int hash_val = getHash(keys[index], hash.dim);
 
-	for (int i = hash; i < hash.dim; i++) {
+	// Linear probing to find the key.
+	for (int i = hash_val; i < hash.dim; i++) {
 		if (hash.map[i].key == key) {
 			val[index] = hash.map[i].value;
 			return;
 		}
 	}
 
-	for (int i = 0; i < hash; i++) {
+	for (int i = 0; i < hash_val; i++) {
 		if (hash.map[i].key == key) {
 			val[index] = hash.map[i].value;
 			return;
@@ -161,12 +215,18 @@ __global__ void getFromKern(int *keys, int *val, int max, hash_table hash)
 	}
 }
 
+/**
+ * @brief CUDA kernel to rehash elements from an old table into a new one.
+ * @param current_hash The original hash table.
+ * @param replacing_hash The new, larger hash table.
+ */
 __global__ void replaceHash(hash_table current_hash, hash_table replacing_hash)
 {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 
 	if (index >= current_hash.dim) return;
 
+	// Skip empty slots in the old table.
 	if (current_hash.map[index].key == KEY_INVALID) return;
 
 	int actual_key, replacing_key;
@@ -174,6 +234,7 @@ __global__ void replaceHash(hash_table current_hash, hash_table replacing_hash)
 
 	int hash = getHash(replacing_key, replacing_hash.dim);
 
+	// Linear probing to insert the old element into the new table.
 	for (int i = hash; i < replacing_hash.dim; i++) {
 		actual_key = atomicCAS(&replacing_hash.map[i].key, KEY_INVALID, replacing_key);
 
@@ -196,7 +257,7 @@ __global__ void replaceHash(hash_table current_hash, hash_table replacing_hash)
 GpuHashTable::GpuHashTable(int size)
 {
 	count = 0;
-	hashmap.dim = dim;
+	hashmap.dim = dim; // Note: `dim` is not defined here, seems to be a bug. `size` should be used.
 
 	cudaMalloc(&hashmap.map, dim * sizeof(Entity));
 	cudaMemset(hashmap.map, 0, dim * sizeof(Entity));
@@ -225,6 +286,11 @@ void GpuHashTable::reshape(int numBucketsReshape)
 	hashmap = hash;
 }
 
+/**
+ * @warning This method inaccurately updates the element count. It increments
+ * `count` by `numKeys`, failing to account for operations that update
+ * an existing key rather than inserting a new one.
+ */
 bool GpuHashTable::insertBatch(int *keys, int *values, int numKeys)
 {
 	int *batch_keys, *batch_values;
@@ -256,12 +322,18 @@ bool GpuHashTable::insertBatch(int *keys, int *values, int numKeys)
 	return true;
 }
 
+/**
+ * @brief Retrieves values for a batch of keys.
+ * @return A pointer to managed memory containing the values. The caller
+ *         is responsible for eventually freeing this memory.
+ */
 int *GpuHashTable::getBatch(int *keys, int numKeys)
 {
 	int *batch_keys, *batch_values;
 
 	size_t memSize = numKeys * sizeof(int);
 	cudaMalloc(&batch_keys, memSize);
+	// Using managed memory for the results, so host can access it directly after kernel launch.
 	cudaMallocManaged(&batch_values, memSize);
 
 	cudaMemcpy(batch_keys, keys, memSize, cudaMemcpyHostToDevice);

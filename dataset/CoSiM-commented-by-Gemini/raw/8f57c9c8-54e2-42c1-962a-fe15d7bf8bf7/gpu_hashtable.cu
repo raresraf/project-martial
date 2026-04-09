@@ -1,4 +1,13 @@
-
+/**
+ * @file gpu_hashtable.cu
+ * @brief A GPU-based hash table implementation using CUDA.
+ *
+ * This implementation uses open addressing with linear probing for collision
+ * resolution and features an efficient device-to-device reshape kernel. It
+ * attempts to accurately track the number of inserted elements by counting
+ * duplicates, but the kernel-side implementation of this counting is not
+ * thread-safe.
+ */
 #include 
 #include 
 #include 
@@ -8,10 +17,28 @@
 
 #include "gpu_hashtable.hpp"
 
+/**
+ * @brief Computes a hash value for a given key on the device.
+ * @param data The key to hash.
+ * @param limit The capacity of the hash table.
+ * @return The computed hash index.
+ */
 __device__ int myHash(int data, int limit) {
 	return ((long)abs(data) * 2654435761llu) % 4294967296llu % limit;
 }
 
+/**
+ * @brief CUDA kernel for inserting a batch of key-value pairs.
+ * @param keys The input keys for the batch insertion.
+ * @param values The input values for the batch insertion.
+ * @param limitBound The number of pairs to process in this batch.
+ * @param hashmap The hash table structure.
+ * @param duplicate A device pointer to an integer used to count updates.
+ *
+ * @warning The duplicate counting mechanism `*duplicate++` is not thread-safe.
+ * Multiple threads attempting to increment this value will lead to a race
+ * condition and an incorrect count. The correct implementation should use `atomicAdd`.
+ */
 __global__ void kernel_insert(int *keys, int *values, int limitBound, hashtable hashmap, int *duplicate) {
 	unsigned int i = threadIdx.x + blockDim.x * blockIdx.x;
 
@@ -22,17 +49,20 @@ __global__ void kernel_insert(int *keys, int *values, int limitBound, hashtable 
 	int extractKey = keys[i], size = hashmap.size, oldK, check = 0;
 	int hash = myHash(extractKey, size);
 
+	// Linear probing: search from the hash index to the end.
 	for (int k = hash; k < size; ++k) {
 		oldK = atomicCAS(&hashmap.list[k].key, KEY_INVALID, extractKey);
 		if (oldK == KEY_INVALID || oldK == extractKey) {
 			hashmap.list[k].value  = values[i];
 			check = 1;
+			// This is a race condition. It should be `atomicAdd(duplicate, 1);`
 			if (oldK == extractKey)
 				*duplicate++;
 			break;
 		}
 	}
 
+	// Wrap around and continue probing if the key was not inserted.
 	if (check == 0) {
 		for (int k = 0; k < hash; ++k) {
 			oldK = atomicCAS(&hashmap.list[k].key, KEY_INVALID, extractKey);
@@ -48,6 +78,13 @@ __global__ void kernel_insert(int *keys, int *values, int limitBound, hashtable 
 	return;
 }
 
+/**
+ * @brief CUDA kernel to retrieve values for a batch of keys.
+ * @param keys The keys to look up.
+ * @param values An array to store the found values.
+ * @param limitBound The number of keys to process.
+ * @param hashmap The hash table structure.
+ */
 __global__ void kernel_get(int *keys, int *values, int limitBound, hashtable hashmap) {
 	unsigned int i = threadIdx.x + blockDim.x * blockIdx.x;
 
@@ -58,6 +95,7 @@ __global__ void kernel_get(int *keys, int *values, int limitBound, hashtable has
 	int extractKey = keys[i], size = hashmap.size, check = 0;
 	int hash = myHash(extractKey, size);
 
+	// Linear probing to find the key.
 	for (int k = hash; k < size; ++k) {
 		if (hashmap.list[k].key == extractKey) {
 			values[i] = hashmap.list[k].value;
@@ -77,6 +115,11 @@ __global__ void kernel_get(int *keys, int *values, int limitBound, hashtable has
 
 }
 
+/**
+ * @brief CUDA kernel to rehash all elements from an old table into a new one.
+ * @param hashmap The original hash table.
+ * @param newHashmap The new, larger hash table.
+ */
 __global__ void kernel_reshape(hashtable hashmap, hashtable newHashmap) {
 	unsigned int i = threadIdx.x + blockDim.x * blockIdx.x;
 
@@ -84,10 +127,12 @@ __global__ void kernel_reshape(hashtable hashmap, hashtable newHashmap) {
 		return;
 	}
 
+	// Skip empty slots in the old table.
 	if (hashmap.list[i].key != KEY_INVALID) {
 		int extractKey = hashmap.list[i].key, oldK, isInserted = 0, size = newHashmap.size;
 		int hash = myHash(extractKey, size);
 
+		// Linear probing to insert the old element into the new table.
 		for (int k = hash; k < size && !isInserted; ++k) {
 
 
@@ -115,7 +160,10 @@ __global__ void kernel_reshape(hashtable hashmap, hashtable newHashmap) {
 
 }
 
-
+/**
+ * @brief Constructs a GpuHashTable.
+ * @param size Initial capacity of the hash table.
+ */
 GpuHashTable::GpuHashTable(int size) {
 	length = 0;
 	hashmap.size = size;
@@ -127,12 +175,18 @@ GpuHashTable::GpuHashTable(int size) {
 	cudaMemset(hashmap.list, 0, size * sizeof(entry));  
 }
 
-
+/**
+ * @brief Destroys the GpuHashTable, freeing its device memory.
+ */
 GpuHashTable::~GpuHashTable() {
 	cudaFree(hashmap.list);
 }
 
-
+/**
+ * @brief Resizes the hash table to a new, larger capacity using an efficient
+ * device-to-device rehash kernel.
+ * @param numBucketsReshape The new capacity for the hash table.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) {
 	hashtable newHashmap;
 	newHashmap.size = numBucketsReshape;
@@ -152,7 +206,18 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 	hashmap = newHashmap;
 }
 
-
+/**
+ * @brief Inserts a batch of key-value pairs into the hash table.
+ *
+ * @warning This method attempts to count duplicate keys to maintain an accurate
+ * element count, but the underlying kernel implementation (`*duplicate++`) is not
+ * thread-safe and will produce incorrect results under concurrency.
+ *
+ * @param keys A host pointer to an array of keys.
+ * @param values A host pointer to an array of values.
+ * @param numKeys The number of key-value pairs to insert.
+ * @return True on success, false on memory allocation failure.
+ */
 bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	int *deviceKeys, *deviceValues, *duplicate;
 	int dupl;
@@ -176,6 +241,8 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	int dup = dupl;
 
 	cudaDeviceSynchronize();
+	// Attempt to get an accurate count by subtracting duplicates, though the
+	// duplicate count itself is likely wrong due to the kernel bug.
 	length += numKeys;
 	length -= dup;
 
@@ -185,10 +252,15 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	return true;
 }
 
-
+/**
+ * @brief Retrieves the values for a batch of keys.
+ * @return A pointer to managed memory containing the values. The caller can
+ *         access this memory directly from the host after the kernel synchronizes.
+ */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	int *deviceKeys, *values;
 	cudaMalloc(&deviceKeys, numKeys * sizeof(int));
+	// Note: using managed memory for the return values.
 	cudaMallocManaged(&values, numKeys * sizeof(int));
 
 	cudaMemcpy(deviceKeys, keys, numKeys * sizeof(int), cudaMemcpyHostToDevice);
@@ -332,4 +404,3 @@ class GpuHashTable
 };
 
 #endif
-

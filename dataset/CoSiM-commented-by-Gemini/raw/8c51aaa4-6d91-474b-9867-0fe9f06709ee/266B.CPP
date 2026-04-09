@@ -1,3 +1,14 @@
+/**
+ * @file 266B.CPP
+ * @brief Solution for Codeforces Problem 266B - Queue at the School.
+ *
+ * This program simulates a discrete-time process where adjacent 'B' (boy) and 'G' (girl)
+ * characters in a queue swap positions over a series of time steps.
+ *
+ * @algorithm Iterative single-pass swap simulation.
+ * @time_complexity O(T * N), where T is the number of time steps and N is the length of the queue.
+ * @space_complexity O(N) to store the queue string.
+ */
 #include <bits/stdc++.h>
 using namespace std;
 
@@ -168,18 +179,35 @@ template <typename Heads, typename... Tails> void dbgs(Heads H, Tails... T) {
 #define n_l '\n'
 
 int main() {
+  /**
+   * @brief Functional Utility: Decouples C++ streams from C standard streams
+   * and unties cin from cout for faster I/O in competitive programming.
+   */
   ios_base::sync_with_stdio(false);
   cin.tie(NULL);
   cout.tie(NULL);
-  // printf("%I64d", n)
+
   ll n, ans = 0, t;
   cin >> n >> t;
   string s;
   cin >> s;
+
+  /**
+   * @brief Block Logic: Orchestrates the temporal progression of the simulation for 't' seconds.
+   * @invariant At the beginning of each iteration, 's' represents the state of the queue
+   * after one second of simulation has passed.
+   */
   for (int i = 0; i < t; i++) {
+    /**
+     * @brief Block Logic: Performs a single-pass sweep over the queue to resolve adjacent 'BG' pairs.
+     * @invariant At each step 'j', all positions before 'j' have been resolved for the current time step.
+     */
     for (int j = 0; j < n - 1; j++) {
+      // Pre-condition: Check for a 'B' followed immediately by a 'G'.
       if (s[j] == 'B' and s[j + 1] == 'G') {
         swap(s[j], s[j + 1]);
+        // Inline: Skip the next index to ensure a swapped 'G' is not re-evaluated,
+        // and a swapped 'B' does not move again in the same time step (atomic movement).
         j++;
       }
     }

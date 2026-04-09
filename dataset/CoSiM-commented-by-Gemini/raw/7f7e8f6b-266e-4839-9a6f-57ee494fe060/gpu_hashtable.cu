@@ -1,4 +1,16 @@
-
+/**
+ * @file gpu_hashtable.cu
+ * @brief Implements a GPU-accelerated hash table using CUDA with Quadratic Probing.
+ *
+ * This implementation uses open addressing with a quadratic probing collision
+ * resolution strategy. The hash table's state (element pointer, size, etc.)
+ * is managed by a `my_hashTable` struct that resides in device memory.
+ * This is a key difference from implementations that use host-side state or
+ * global variables.
+ *
+ * @note This implementation contains several unconventional and inefficient
+ * design patterns, particularly in its initialization and reshaping logic.
+ */
 #include 
 #include 
 #include 
@@ -8,16 +20,34 @@
 
 #include "gpu_hashtable.hpp"
 
+/**
+ * @brief Computes the hash for a given key.
+ * @param key The integer key to hash.
+ * @param table_capacity The capacity of the hash table.
+ * @return The calculated hash index.
+ *
+ * This is a device function that uses multiplicative hashing with large primes.
+ */
 __device__ int hash_function(int key, unsigned long long table_capacity) {
 	return (((key * 350745513859007llu) % 3452434812973llu) % table_capacity);
 }
 
-
+/**
+ * @brief CUDA kernel to initialize the hash table structure in device memory.
+ * @param hashtable Pointer to the `my_hashTable` struct on the device.
+ * @param table Pointer to the allocated storage for hash elements on the device.
+ * @param size The capacity of the hash table.
+ *
+ * @warning The use of a loop within a single-threaded kernel launch to zero out
+ * memory is highly inefficient. The standard and correct approach is to use
+ * `cudaMemset` from the host to initialize the device memory.
+ */
 __global__ void kernel_init_table(my_hashTable* hashtable, my_hashElem* table, int size) {
 	hashtable->table = table;
 	hashtable->max_items = size;
 
 	printf("SUS DE TOT MAX : %d \n", hashtable->max_items);
+	// This loop is inefficient and should be replaced with cudaMemset.
 	for (int i = 0; i < size; i++) {
 		hashtable->table[i].elem_key = 0;
 		hashtable->table[i].elem_value = 0;
@@ -26,7 +56,13 @@ __global__ void kernel_init_table(my_hashTable* hashtable, my_hashElem* table, i
 	hashtable->curr_nr_items = 0;
 }
 
-
+/**
+ * @brief Constructs a GpuHashTable.
+ * @param size The initial capacity of the hash table.
+ *
+ * This constructor allocates memory on the device and then launches a kernel
+ * (`kernel_init_table`) to initialize the main hash table struct.
+ */
 GpuHashTable::GpuHashTable(int size) {
 
 	my_hashElem* table = NULL;
@@ -40,12 +76,23 @@ GpuHashTable::GpuHashTable(int size) {
 
 }
 
-
+/**
+ * @brief Destroys the GpuHashTable, freeing its device memory.
+ */
 GpuHashTable::~GpuHashTable() {
 
 	cudaFree(dev_hash);
 }
 
+/**
+ * @brief CUDA kernel to rehash elements into a new, larger table.
+ * @param hash The main hash table struct (device pointer).
+ * @param new_hash Pointer to the newly allocated storage (device pointer).
+ * @param new_max_items The capacity of the new table.
+ *
+ * Each thread processes one element from the old table and re-inserts it
+ * into the new table using a quadratic probing sequence.
+ */
 __global__ void kernel_rehash(my_hashTable* hash, my_hashElem* new_hash, unsigned long long new_max_items) {
 	int index = threadIdx.x + blockDim.x * blockIdx.x;
 
@@ -56,6 +103,7 @@ __global__ void kernel_rehash(my_hashTable* hash, my_hashElem* new_hash, unsigne
 	int hashed = hash_function(key, new_max_items);
 	int i = new_max_items;
 
+	// Invariant: Continue probing until an empty slot is found or all slots are checked.
 	while (i != 0) {
 
 		int aux = atomicCAS(&new_hash[index].elem_key, 0, item.elem_key);
@@ -63,11 +111,20 @@ __global__ void kernel_rehash(my_hashTable* hash, my_hashElem* new_hash, unsigne
 			new_hash[index].elem_value = item.elem_value;
 			return;
 		}
+		// Collision: move to the next slot using a quadratic step.
 		hashed = (hashed + i * i) % new_max_items;
 	}
 }
 
-
+/**
+ * @brief Resizes the hash table to a new capacity.
+ * @param numBucketsReshape The new desired number of buckets.
+ *
+ * @warning The logic here is complex and potentially fragile. It involves
+ * copying the main hash table struct to the host, manipulating its pointers,
+ * and copying it back. This is not a standard or recommended pattern for
+ * managing CUDA device memory.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) {
 
 	int new_size;
@@ -108,7 +165,16 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 }
 
 
-
+/**
+ * @brief CUDA kernel for inserting a batch of key-value pairs.
+ * @param hash The main hash table struct (device pointer).
+ * @param keys Array of keys to insert (device memory).
+ * @param values Array of values to insert (device memory).
+ * @param numKeys The number of pairs to process.
+ *
+ * Each thread handles one key-value pair, using quadratic probing to find an
+ * empty slot. `atomicCAS` ensures thread-safe insertion and updates.
+ */
 __global__ void kernel_insert(my_hashTable* hash, int* keys, int* values, int numKeys) {
 
 	int index = threadIdx.x + blockDim.x * blockIdx.x;
@@ -125,17 +191,18 @@ __global__ void kernel_insert(my_hashTable* hash, int* keys, int* values, int nu
 
 	int i = hash->max_items;
 	
-
+	// Invariant: Probe until an empty slot is found or the key is updated.
 	while (i != 0) {
 		
 		int aux = atomicCAS(&(hash->table[hashed].elem_key), 0, item.elem_key);
 		
-		
+		// Case 1: The key already exists. Update the value.
 		if (aux == keys[index]) {
 			hash->table[hashed].elem_value = value;
 			
 			return;
 		}
+		// Case 2: The slot was empty. Claim it and set the value.
 		else if (aux == 0) {
 			atomicAdd(&hash->curr_nr_items, 1);
 			hash->table[hashed].elem_value = value;
@@ -143,11 +210,17 @@ __global__ void kernel_insert(my_hashTable* hash, int* keys, int* values, int nu
 			return;
 		}
 
+		// Case 3: Collision. Move to the next slot in the quadratic probe sequence.
 		hashed = (hashed + i * i) % hash->max_items;
 		i--;
 	}
 }
 
+/**
+ * @brief Checks if adding a new batch would exceed the maximum load factor.
+ * @param batchSize The size of the incoming batch.
+ * @return True if the load factor is acceptable, false otherwise.
+ */
 bool GpuHashTable::check_l(unsigned long long batchSize) {
 
 	float loadFactor;
@@ -171,6 +244,7 @@ bool GpuHashTable::insertBatch(int* keys, int* values, int numKeys) {
 	cudaMemcpy(&max_items, &(dev_hash->max_items), sizeof(unsigned long long), cudaMemcpyDeviceToHost);
 	printf("ORIGINAL MAX ITEMS %d\n", max_items);
 
+	// Pre-condition: Check load factor and reshape if necessary.
 	if (!check_l(numKeys)) {
 		OK = 1;
 		reshape((max_items + numKeys));
@@ -196,6 +270,16 @@ bool GpuHashTable::insertBatch(int* keys, int* values, int numKeys) {
 	return true;
 }
 
+/**
+ * @brief CUDA kernel to retrieve values for a batch of keys.
+ * @param hash The main hash table struct (device pointer).
+ * @param keys Array of keys to look up (device memory).
+ * @param values Array where found values will be stored (device memory).
+ * @param numKeys The number of keys to look up.
+ *
+ * Each thread searches for one key using the same quadratic probing logic
+ * as insertion.
+ */
 __global__ void kernel_get_batch(my_hashTable* hash, int* keys, int* values, int numKeys) {
 	int index = threadIdx.x + blockDim.x * blockIdx.x;
 
@@ -204,6 +288,7 @@ __global__ void kernel_get_batch(my_hashTable* hash, int* keys, int* values, int
 	my_hashElem item;
 
 	int i = hash->max_items;
+	// Invariant: Probe until the key is found or all slots are checked.
 	while (i != 0) {
 		item = hash->table[hashed];
 		if (item.elem_key == key) {
@@ -212,13 +297,18 @@ __global__ void kernel_get_batch(my_hashTable* hash, int* keys, int* values, int
 			return;
 		}
 
-		
+		// Move to the next slot in the quadratic probe sequence.
 		hashed = (hashed + i * i) % hash->max_items;
 		i--;
 	}
 }
 
-
+/**
+ * @brief Retrieves the values for a batch of keys.
+ * @param keys Pointer to a host array of keys.
+ * @param numKeys The number of keys to look up.
+ * @return A host pointer to an array of found values. The caller must free this memory.
+ */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
 
 	int* dev_keys;
@@ -245,11 +335,15 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	return local_values;
 }
 
-
+/**
+ * @brief Calculates the current load factor of the hash table.
+ * @return The load factor as a float (elements / capacity).
+ */
 float GpuHashTable::loadFactor() {
 	float loadFactor;
 	unsigned long long max_items, curr_nr_items;
 
+	// Copy state from device to host for calculation.
 	cudaMemcpy(&max_items, &dev_hash->max_items, sizeof(unsigned long long), cudaMemcpyDeviceToHost);
 	cudaMemcpy(&curr_nr_items, &dev_hash->curr_nr_items, sizeof(unsigned long long), cudaMemcpyDeviceToHost);
 

@@ -1,4 +1,16 @@
-
+/**
+ * @file gpu_hashtable.cu
+ * @brief A GPU-based hash table implementation using CUDA.
+ *
+ * This implementation uses open addressing with linear probing for collision resolution.
+ * The state of the hash table is managed by a host-side C++ class, `GpuHashTable`,
+ * which orchestrates device memory and kernel launches. A key feature of this
+ * version is an efficient, fully device-to-device `kernel_reshape` for resizing.
+ *
+ * @warning The element count (`numAssocs`) is handled on the host and inaccurately
+ * assumes every operation in `insertBatch` is a new insertion. This can lead to
+ * an incorrect load factor calculation and flawed resizing behavior.
+ */
 #include 
 #include 
 #include 
@@ -12,6 +24,12 @@
 #define B 16991387857 
 
 
+/**
+ * @brief Computes a hash value for a given key on the device.
+ * @param data The key to hash.
+ * @param limit The capacity of the hash table, used for the final modulo.
+ * @return The computed hash index.
+ */
 __device__ int myHash(int data, int limit) {
     return ((long)abs(data) * A) % B % limit;
 }
@@ -19,6 +37,17 @@ __device__ int myHash(int data, int limit) {
 
 
 
+/**
+ * @brief CUDA kernel to rehash all elements from an old table into a new, larger one.
+ *
+ * This kernel executes entirely on the device, providing an efficient way to
+ * resize the hash table without transferring data back to the host.
+ *
+ * @param oldHashTable Pointer to the old hash table's storage.
+ * @param oldSize The capacity of the old table.
+ * @param newHashTable Pointer to the new hash table's storage.
+ * @param newSize The capacity of the new table.
+ */
 __global__ void kernel_reshape(Pair *oldHashTable, int oldSize, Pair *newHashTable, int newSize) {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	int key, tryKey, hash, val;
@@ -29,6 +58,7 @@ __global__ void kernel_reshape(Pair *oldHashTable, int oldSize, Pair *newHashTab
 
 	
 	key = oldHashTable[idx].key;
+	// Skip empty slots in the old table.
 	if (key == KEY_INVALID)
 		return;
 
@@ -36,6 +66,7 @@ __global__ void kernel_reshape(Pair *oldHashTable, int oldSize, Pair *newHashTab
 	hash = myHash(key, newSize);
 	val = oldHashTable[idx].value;
 	
+	// Linear probing (part 1): Search from the hash position to the end of the new table.
 	for (int i = hash; i < newSize; i++) {
 		
 		tryKey = atomicCAS(&newHashTable[i].key, KEY_INVALID, key);
@@ -46,6 +77,7 @@ __global__ void kernel_reshape(Pair *oldHashTable, int oldSize, Pair *newHashTab
 		}
 	}
 	
+	// Linear probing (part 2): Wrap around and search from the beginning.
 	for (int i = 0; i < hash; i++) {
 		tryKey = atomicCAS(&newHashTable[i].key, KEY_INVALID, key);
 		if (tryKey == KEY_INVALID) {
@@ -55,7 +87,18 @@ __global__ void kernel_reshape(Pair *oldHashTable, int oldSize, Pair *newHashTab
 	}	
 }	
 
-
+/**
+ * @brief CUDA kernel for inserting a batch of key-value pairs into the hash table.
+ *
+ * @warning This kernel does not provide feedback on whether an operation was a
+ * new insertion or an update of an existing key.
+ *
+ * @param hashTable Pointer to the hash table's storage on the device.
+ * @param size The total capacity of the hash table.
+ * @param keys The keys to be inserted.
+ * @param values The corresponding values to be inserted.
+ * @param numKeys The number of pairs to process.
+ */
 __global__ void kernel_insert(Pair *hashTable, int size, int *keys, int *values, int numKeys) {
 
 
@@ -71,10 +114,12 @@ __global__ void kernel_insert(Pair *hashTable, int size, int *keys, int *values,
 	
 	hash = myHash(key, size);
 	
+	// Linear probing to find a slot.
 	for (int i = hash; i < size; i++) {
 		
 		tryKey = atomicCAS(&hashTable[i].key, KEY_INVALID, key);
 		
+		// If the slot was empty or already held the same key, insert/update value and exit.
 		if (tryKey == KEY_INVALID || tryKey == key) {
 			hashTable[i].value = val;
 			return;
@@ -92,7 +137,14 @@ __global__ void kernel_insert(Pair *hashTable, int size, int *keys, int *values,
 
 
 
-
+/**
+ * @brief CUDA kernel to retrieve values for a batch of keys.
+ * @param hashTable Pointer to the hash table storage.
+ * @param size The capacity of the hash table.
+ * @param keys The keys to look up.
+ * @param values An array to store the found values.
+ * @param numKeys The number of keys to process.
+ */
 __global__ void kernel_get(Pair *hashTable, int size, int *keys, int *values, int numKeys) {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	int key, hash;
@@ -105,6 +157,7 @@ __global__ void kernel_get(Pair *hashTable, int size, int *keys, int *values, in
 	
 	hash = myHash(key, size);
 	
+	// Linear probing to find the matching key.
 	for (int i = hash; i < size; i++) {
 		
 		if (hashTable[i].key == key) {
@@ -121,7 +174,10 @@ __global__ void kernel_get(Pair *hashTable, int size, int *keys, int *values, in
     }
 }
 
-
+/**
+ * @brief Constructs a GpuHashTable.
+ * @param size Initial capacity of the hash table.
+ */
 GpuHashTable::GpuHashTable(int size) {
 	size_t numBytes = size * sizeof(Pair); 
 
@@ -132,14 +188,20 @@ GpuHashTable::GpuHashTable(int size) {
 	numAssocs = 0;
 }
 
-
+/**
+ * @brief Destroys the GpuHashTable, freeing its device memory.
+ */
 GpuHashTable::~GpuHashTable() {
 	cudaFree(assocs);
 	size = 0;
 	numAssocs = 0;
 }
 
-
+/**
+ * @brief Resizes the hash table to a new, larger capacity using an efficient
+ * device-to-device rehash kernel.
+ * @param numBucketsReshape The new capacity for the hash table.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) {
 	Pair *newHashTable;
 	int newSize = numBucketsReshape;
@@ -154,6 +216,7 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 	
 	int numBlocks = (newSize + blockSize - 1) / blockSize;
 	
+	// Launch the kernel to perform rehashing entirely on the device.
 	kernel_reshape>>(
 		assocs,
 		size,
@@ -170,6 +233,18 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 }
 
 
+/**
+ * @brief Inserts a batch of key-value pairs into the hash table.
+ *
+ * @warning This method inaccurately updates the element count. It increments
+ * `numAssocs` by `numKeys`, failing to account for operations that update
+ * an existing key rather than inserting a new one.
+ *
+ * @param keys A host pointer to an array of keys.
+ * @param values A host pointer to an array of values.
+ * @param numKeys The number of key-value pairs to insert.
+ * @return True on success.
+ */
 bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	int *deviceKeys, *deviceValues;
 	int totalKeys, numBytes, numBlocks;
@@ -177,6 +252,7 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	
 	totalKeys = numAssocs + numKeys;
 	
+	// If the projected load factor exceeds the maximum, reshape.
 	if (float(totalKeys) / float(size) >= maxLoadFactor)
 		reshape(int(totalKeys / minLoadFactor));
 
@@ -207,12 +283,20 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	cudaFree(deviceKeys);
 	cudaFree(deviceValues);
 
+	// This is an inaccurate update, as it doesn't distinguish between
+	// new insertions and updates of existing keys.
 	numAssocs = totalKeys; 
 
 	return true;
 }
 
-
+/**
+ * @brief Retrieves the values for a batch of keys.
+ * @param keys A host pointer to an array of keys to look up.
+ * @param numKeys The number of keys to retrieve.
+ * @return A host pointer to an array of found values. The caller is responsible
+ *         for freeing this memory. Returns NULL on failure.
+ */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	int *values, *deviceKeys, *deviceValues;
 	size_t numBytes = numKeys * sizeof(int); 
@@ -248,7 +332,10 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	return values;	
 }
 
-
+/**
+ * @brief Calculates the current load factor of the hash table.
+ * @return The load factor as a float (number of elements / capacity).
+ */
 float GpuHashTable::loadFactor() {
 	if (size > 0)
 		return float(numAssocs) / float(size);

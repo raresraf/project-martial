@@ -14,6 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package v1 contains API types that are common to all versions.
+//
+// The package contains conversion functions for the types defined here.
 package v1
 
 import (
@@ -29,6 +32,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
+// AddConversionFuncs registers conversion functions for the meta/v1 package.
+// This allows the runtime.Scheme to convert between internal and external types,
+// and to handle special cases like converting string representations from URL
+// parameters into structured types.
 func AddConversionFuncs(scheme *runtime.Scheme) error {
 	return scheme.AddConversionFuncs(
 		Convert_v1_TypeMeta_To_v1_TypeMeta,
@@ -86,6 +93,8 @@ func AddConversionFuncs(scheme *runtime.Scheme) error {
 	)
 }
 
+// Convert_Pointer_float64_To_float64 converts a pointer to a float64 into a float64.
+// It handles `nil` pointers by converting them to a zero value.
 func Convert_Pointer_float64_To_float64(in **float64, out *float64, s conversion.Scope) error {
 	if *in == nil {
 		*out = 0
@@ -95,12 +104,15 @@ func Convert_Pointer_float64_To_float64(in **float64, out *float64, s conversion
 	return nil
 }
 
+// Convert_float64_To_Pointer_float64 converts a float64 into a pointer to a float64.
 func Convert_float64_To_Pointer_float64(in *float64, out **float64, s conversion.Scope) error {
 	temp := float64(*in)
 	*out = &temp
 	return nil
 }
 
+// Convert_Pointer_int32_To_int32 converts a pointer to an int32 into an int32.
+// It handles `nil` pointers by converting them to a zero value.
 func Convert_Pointer_int32_To_int32(in **int32, out *int32, s conversion.Scope) error {
 	if *in == nil {
 		*out = 0
@@ -110,12 +122,15 @@ func Convert_Pointer_int32_To_int32(in **int32, out *int32, s conversion.Scope) 
 	return nil
 }
 
+// Convert_int32_To_Pointer_int32 converts an int32 into a pointer to an int32.
 func Convert_int32_To_Pointer_int32(in *int32, out **int32, s conversion.Scope) error {
 	temp := int32(*in)
 	*out = &temp
 	return nil
 }
 
+// Convert_Pointer_int64_To_int64 converts a pointer to an int64 into an int64.
+// It handles `nil` pointers by converting them to a zero value.
 func Convert_Pointer_int64_To_int64(in **int64, out *int64, s conversion.Scope) error {
 	if *in == nil {
 		*out = 0
@@ -125,12 +140,15 @@ func Convert_Pointer_int64_To_int64(in **int64, out *int64, s conversion.Scope) 
 	return nil
 }
 
+// Convert_int64_To_Pointer_int64 converts an int64 into a pointer to an int64.
 func Convert_int64_To_Pointer_int64(in *int64, out **int64, s conversion.Scope) error {
 	temp := int64(*in)
 	*out = &temp
 	return nil
 }
 
+// Convert_Pointer_int64_To_int converts a pointer to an int64 into an int.
+// It handles `nil` pointers by converting them to a zero value.
 func Convert_Pointer_int64_To_int(in **int64, out *int, s conversion.Scope) error {
 	if *in == nil {
 		*out = 0
@@ -140,12 +158,15 @@ func Convert_Pointer_int64_To_int(in **int64, out *int, s conversion.Scope) erro
 	return nil
 }
 
+// Convert_int_To_Pointer_int64 converts an int into a pointer to an int64.
 func Convert_int_To_Pointer_int64(in *int, out **int64, s conversion.Scope) error {
 	temp := int64(*in)
 	*out = &temp
 	return nil
 }
 
+// Convert_Pointer_string_To_string converts a pointer to a string into a string.
+// It handles `nil` pointers by converting them to an empty string.
 func Convert_Pointer_string_To_string(in **string, out *string, s conversion.Scope) error {
 	if *in == nil {
 		*out = ""
@@ -155,6 +176,7 @@ func Convert_Pointer_string_To_string(in **string, out *string, s conversion.Sco
 	return nil
 }
 
+// Convert_string_To_Pointer_string converts a string into a pointer to a string.
 func Convert_string_To_Pointer_string(in *string, out **string, s conversion.Scope) error {
 	if in == nil {
 		stringVar := ""
@@ -165,6 +187,8 @@ func Convert_string_To_Pointer_string(in *string, out **string, s conversion.Sco
 	return nil
 }
 
+// Convert_Pointer_bool_To_bool converts a pointer to a bool into a bool.
+// It handles `nil` pointers by converting them to `false`.
 func Convert_Pointer_bool_To_bool(in **bool, out *bool, s conversion.Scope) error {
 	if *in == nil {
 		*out = false
@@ -174,6 +198,7 @@ func Convert_Pointer_bool_To_bool(in **bool, out *bool, s conversion.Scope) erro
 	return nil
 }
 
+// Convert_bool_To_Pointer_bool converts a bool into a pointer to a bool.
 func Convert_bool_To_Pointer_bool(in *bool, out **bool, s conversion.Scope) error {
 	if in == nil {
 		boolVar := false
@@ -184,6 +209,8 @@ func Convert_bool_To_Pointer_bool(in *bool, out **bool, s conversion.Scope) erro
 	return nil
 }
 
+// Convert_v1_TypeMeta_To_v1_TypeMeta is a no-op conversion.
+// The APIVersion and Kind fields are populated by the serializer, not by conversion.
 // +k8s:conversion-fn=drop
 func Convert_v1_TypeMeta_To_v1_TypeMeta(in, out *TypeMeta, s conversion.Scope) error {
 	// These values are explicitly not copied
@@ -192,24 +219,32 @@ func Convert_v1_TypeMeta_To_v1_TypeMeta(in, out *TypeMeta, s conversion.Scope) e
 	return nil
 }
 
+// Convert_v1_ListMeta_To_v1_ListMeta is a copy-only conversion.
+// It performs a shallow copy of the struct.
 // +k8s:conversion-fn=copy-only
 func Convert_v1_ListMeta_To_v1_ListMeta(in, out *ListMeta, s conversion.Scope) error {
 	*out = *in
 	return nil
 }
 
+// Convert_v1_DeleteOptions_To_v1_DeleteOptions is a copy-only conversion.
+// It performs a shallow copy of the struct.
 // +k8s:conversion-fn=copy-only
 func Convert_v1_DeleteOptions_To_v1_DeleteOptions(in, out *DeleteOptions, s conversion.Scope) error {
 	*out = *in
 	return nil
 }
 
+// Convert_intstr_IntOrString_To_intstr_IntOrString is a copy-only conversion.
+// It performs a shallow copy of the struct.
 // +k8s:conversion-fn=copy-only
 func Convert_intstr_IntOrString_To_intstr_IntOrString(in, out *intstr.IntOrString, s conversion.Scope) error {
 	*out = *in
 	return nil
 }
 
+// Convert_Pointer_intstr_IntOrString_To_intstr_IntOrString converts a pointer to an IntOrString
+// into an IntOrString.
 func Convert_Pointer_intstr_IntOrString_To_intstr_IntOrString(in **intstr.IntOrString, out *intstr.IntOrString, s conversion.Scope) error {
 	if *in == nil {
 		*out = intstr.IntOrString{} // zero value
@@ -219,12 +254,16 @@ func Convert_Pointer_intstr_IntOrString_To_intstr_IntOrString(in **intstr.IntOrS
 	return nil
 }
 
+// Convert_intstr_IntOrString_To_Pointer_intstr_IntOrString converts an IntOrString into a
+// pointer to an IntOrString.
 func Convert_intstr_IntOrString_To_Pointer_intstr_IntOrString(in *intstr.IntOrString, out **intstr.IntOrString, s conversion.Scope) error {
 	temp := *in // copy
 	*out = &temp
 	return nil
 }
 
+// Convert_v1_Time_To_v1_Time is a copy-only conversion.
+// A deep copy is not possible because the underlying time.Time struct contains unexported fields.
 // +k8s:conversion-fn=copy-only
 func Convert_v1_Time_To_v1_Time(in *Time, out *Time, s conversion.Scope) error {
 	// Cannot deep copy these, because time.Time has unexported fields.
@@ -232,6 +271,8 @@ func Convert_v1_Time_To_v1_Time(in *Time, out *Time, s conversion.Scope) error {
 	return nil
 }
 
+// Convert_v1_MicroTime_To_v1_MicroTime is a copy-only conversion.
+// A deep copy is not possible because the underlying time.Time struct contains unexported fields.
 // +k8s:conversion-fn=copy-only
 func Convert_v1_MicroTime_To_v1_MicroTime(in *MicroTime, out *MicroTime, s conversion.Scope) error {
 	// Cannot deep copy these, because time.Time has unexported fields.
@@ -239,6 +280,7 @@ func Convert_v1_MicroTime_To_v1_MicroTime(in *MicroTime, out *MicroTime, s conve
 	return nil
 }
 
+// Convert_Pointer_v1_Duration_To_v1_Duration converts a pointer to a Duration into a Duration.
 func Convert_Pointer_v1_Duration_To_v1_Duration(in **Duration, out *Duration, s conversion.Scope) error {
 	if *in == nil {
 		*out = Duration{} // zero duration
@@ -248,13 +290,15 @@ func Convert_Pointer_v1_Duration_To_v1_Duration(in **Duration, out *Duration, s 
 	return nil
 }
 
+// Convert_v1_Duration_To_Pointer_v1_Duration converts a Duration into a pointer to a Duration.
 func Convert_v1_Duration_To_Pointer_v1_Duration(in *Duration, out **Duration, s conversion.Scope) error {
 	temp := *in //copy
 	*out = &temp
 	return nil
 }
 
-// Convert_Slice_string_To_v1_Time allows converting a URL query parameter value
+// Convert_Slice_string_To_v1_Time allows converting a URL query parameter value (a slice of strings)
+// into a Time object. It uses the first string in the slice.
 func Convert_Slice_string_To_v1_Time(in *[]string, out *Time, s conversion.Scope) error {
 	str := ""
 	if len(*in) > 0 {
@@ -263,6 +307,8 @@ func Convert_Slice_string_To_v1_Time(in *[]string, out *Time, s conversion.Scope
 	return out.UnmarshalQueryParameter(str)
 }
 
+// Convert_string_To_labels_Selector parses a string into a labels.Selector object.
+// This is used to convert label selector strings from API requests into a structured type.
 func Convert_string_To_labels_Selector(in *string, out *labels.Selector, s conversion.Scope) error {
 	selector, err := labels.Parse(*in)
 	if err != nil {
@@ -272,6 +318,8 @@ func Convert_string_To_labels_Selector(in *string, out *labels.Selector, s conve
 	return nil
 }
 
+// Convert_string_To_fields_Selector parses a string into a fields.Selector object.
+// This is used to convert field selector strings from API requests into a structured type.
 func Convert_string_To_fields_Selector(in *string, out *fields.Selector, s conversion.Scope) error {
 	selector, err := fields.ParseSelector(*in)
 	if err != nil {
@@ -281,6 +329,7 @@ func Convert_string_To_fields_Selector(in *string, out *fields.Selector, s conve
 	return nil
 }
 
+// Convert_labels_Selector_To_string converts a labels.Selector object into its string representation.
 func Convert_labels_Selector_To_string(in *labels.Selector, out *string, s conversion.Scope) error {
 	if *in == nil {
 		return nil
@@ -289,6 +338,7 @@ func Convert_labels_Selector_To_string(in *labels.Selector, out *string, s conve
 	return nil
 }
 
+// Convert_fields_Selector_To_string converts a fields.Selector object into its string representation.
 func Convert_fields_Selector_To_string(in *fields.Selector, out *string, s conversion.Scope) error {
 	if *in == nil {
 		return nil
@@ -297,12 +347,15 @@ func Convert_fields_Selector_To_string(in *fields.Selector, out *string, s conve
 	return nil
 }
 
+// Convert_resource_Quantity_To_resource_Quantity is a copy-only conversion.
 // +k8s:conversion-fn=copy-only
 func Convert_resource_Quantity_To_resource_Quantity(in *resource.Quantity, out *resource.Quantity, s conversion.Scope) error {
 	*out = *in
 	return nil
 }
 
+// Convert_Map_string_To_string_To_v1_LabelSelector converts a map[string]string into a LabelSelector struct.
+// This is a helper for building structured label selectors from simple maps.
 func Convert_Map_string_To_string_To_v1_LabelSelector(in *map[string]string, out *LabelSelector, s conversion.Scope) error {
 	if in == nil {
 		return nil
@@ -313,15 +366,16 @@ func Convert_Map_string_To_string_To_v1_LabelSelector(in *map[string]string, out
 	return nil
 }
 
+// Convert_v1_LabelSelector_To_Map_string_To_string converts a LabelSelector struct into a map[string]string.
 func Convert_v1_LabelSelector_To_Map_string_To_string(in *LabelSelector, out *map[string]string, s conversion.Scope) error {
 	var err error
 	*out, err = LabelSelectorAsMap(in)
 	return err
 }
 
-// Convert_Slice_string_To_Slice_int32 converts multiple query parameters or
-// a single query parameter with a comma delimited value to multiple int32.
-// This is used for port forwarding which needs the ports as int32.
+// Convert_Slice_string_To_Slice_int32 converts a slice of strings into a slice of int32s.
+// It handles both multiple query parameters (e.g., "?port=80&port=443") and single,
+// comma-delimited parameters (e.g., "?port=80,443"). This is used for port forwarding.
 func Convert_Slice_string_To_Slice_int32(in *[]string, out *[]int32, s conversion.Scope) error {
 	for _, s := range *in {
 		for _, v := range strings.Split(s, ",") {
@@ -335,7 +389,8 @@ func Convert_Slice_string_To_Slice_int32(in *[]string, out *[]int32, s conversio
 	return nil
 }
 
-// Convert_Slice_string_To_v1_DeletionPropagation allows converting a URL query parameter propagationPolicy
+// Convert_Slice_string_To_v1_DeletionPropagation allows converting a URL query parameter
+// (e.g., `?propagationPolicy=...`) into the DeletionPropagation type.
 func Convert_Slice_string_To_v1_DeletionPropagation(in *[]string, out *DeletionPropagation, s conversion.Scope) error {
 	if len(*in) > 0 {
 		*out = DeletionPropagation((*in)[0])
@@ -345,7 +400,8 @@ func Convert_Slice_string_To_v1_DeletionPropagation(in *[]string, out *DeletionP
 	return nil
 }
 
-// Convert_Slice_string_To_v1_IncludeObjectPolicy allows converting a URL query parameter value
+// Convert_Slice_string_To_v1_IncludeObjectPolicy allows converting a URL query parameter
+// into the IncludeObjectPolicy type.
 func Convert_Slice_string_To_v1_IncludeObjectPolicy(in *[]string, out *IncludeObjectPolicy, s conversion.Scope) error {
 	if len(*in) > 0 {
 		*out = IncludeObjectPolicy((*in)[0])

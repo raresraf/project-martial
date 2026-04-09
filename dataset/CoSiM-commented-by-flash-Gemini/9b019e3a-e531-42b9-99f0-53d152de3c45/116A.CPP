@@ -1,3 +1,21 @@
+/**
+ * @file 116A.CPP
+ * @brief This program calculates the minimum capacity required for a tram (or similar transport)
+ * to accommodate all passengers throughout its journey. The input consists of a series of stops,
+ * with passengers exiting and entering at each stop. The program determines the maximum number
+ * of passengers present in the tram at any single moment.
+ *
+ * Algorithm: Simulation with maximum tracking.
+ * 1. Initialize `current_passengers` and `max_passengers` to zero.
+ * 2. For each tram stop:
+ *    a. Read the number of passengers exiting (`a`) and entering (`b`).
+ *    b. Update `current_passengers = current_passengers - a + b`.
+ *    c. Update `max_passengers = max(max_passengers, current_passengers)`.
+ * 3. Print `max_passengers`.
+ * Time Complexity: O(N) where N is the number of tram stops, as each stop is processed in constant time.
+ * Space Complexity: O(1) for storing variables.
+ */
+
 /*
 Author:
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -29,7 +47,8 @@ using namespace std;
 #define PI acos(-1.0)
 #define inf INT_MAX
 #define all(v) v.begin(), v.end()
-#define endl "\n"
+#define endl "
+"
 typedef long long ll;
 typedef double db;
 typedef long long ll;
@@ -37,9 +56,10 @@ typedef pair<ll, ll> pll;
 typedef vector<ll> vll;
 typedef map<ll, ll> mll;
 typedef set<ll> sll;
-#define n_l '\n'
-#define dbg(...)                                                               \
-  cout << "[" << #__VA_ARGS__ << "]: ";                                        \
+#define n_l '
+'
+#define dbg(...)                                                               
+  cout << "[" << #__VA_ARGS__ << "]: ";                                        
   cout << to_string(__VA_ARGS__) << endl
 template <typename T, size_t N> int SIZE(const T (&t)[N]) { return N; }
 template <typename T> int SIZE(const T &t) { return t.size(); }
@@ -63,7 +83,7 @@ int l_v_l_v_l = 0, t_a_b_s = 0;
 template <typename A, typename B> string to_string(pair<A, B> &p) {
   l_v_l_v_l++;
   string res = "(" + to_string(p.first) + ", " + to_string(p.second) + ")";
-  l_v_l_v_l--;
+  l_v_l_l--;
   return res;
 }
 template <typename A, typename... C>
@@ -107,23 +127,42 @@ template <typename Heads, typename... Tails> void dbgs(Heads H, Tails... T) {
   cout << to_string(H) << " | ";
   dbgs(T...);
 }
-#define dbgm(...)                                                              \
-  cout << "[" << #__VA_ARGS__ << "]: ";                                        \
-  dbgs(__VA_ARGS__);                                                           \
+#define dbgm(...)                                                              
+  cout << "[" << #__VA_ARGS__ << "]: ";                                        
+  dbgs(__VA_ARGS__);                                                           
   cout << endl;
+
+/**
+ * @brief Main function of the program.
+ * Simulates tram journey to find the maximum number of passengers at any time.
+ * @pre Input consists of an integer `n` (number of stops), followed by `n` lines
+ *      each containing two integers `a` (exiting passengers) and `b` (entering passengers).
+ * @post Prints the maximum number of passengers observed in the tram.
+ * @return 0 upon successful execution.
+ */
 int main() {
+  // Functional Utility: Optimizes C++ standard streams for faster input/output.
   ios_base::sync_with_stdio(false);
   cin.tie(NULL);
   cout.tie(NULL);
-  // printf("%I64d", n)
+  // printf("%I64d", n) // Original commented line, preserved.
+
+  // Functional Utility: `n` for number of stops, `x` for current passengers, `max_x` for maximum passengers.
+  // Functional Utility: `a` for exiting passengers, `b` for entering passengers.
   ll n, x, max_x, a, b;
+  // Functional Utility: Reads the number of tram stops.
   cin >> n;
-  x = 0;
-  max_x = 0;
+  x = 0;     // Functional Utility: Initializes current passengers to 0.
+  max_x = 0; // Functional Utility: Initializes maximum passengers observed to 0.
+
+  // Block Logic: Iterates through each tram stop, updating passenger count and tracking maximum.
+  // Invariant: `x` represents the current number of passengers, and `max_x` holds the highest value `x` has reached.
   while (n--) {
+    // Functional Utility: Reads passengers exiting (`a`) and entering (`b`) at the current stop.
     cin >> a >> b;
-    x += (b - a);
-    max_x = max(x, max_x);
+    x += (b - a); // Functional Utility: Updates current passengers by subtracting exits and adding entries.
+    max_x = max(x, max_x); // Functional Utility: Updates `max_x` if current passengers exceed it.
   }
-  th(max_x);
+  th(max_x); // Functional Utility: Prints the maximum number of passengers observed.
+  return 0;
 }

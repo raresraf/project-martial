@@ -1,14 +1,15 @@
 /**
  * @file 116A.CPP
  * @author ANMOL GUPTA
- * @brief Solution for a competitive programming problem (Codeforces "Tram").
- * This program finds the minimum required capacity for a tram by simulating
- * passenger flow across several stops.
+ * @brief Solution for a competitive programming problem (Codeforces 116A "Tram").
+ * @details This program calculates the minimum required capacity for a tram by simulating
+ * passenger flow across several stops. It tracks the maximum number of passengers
+ * inside the tram at any given moment.
  *
- * NOTE: The vast majority of this file consists of a personal boilerplate
+ * @note The vast majority of this file consists of a personal boilerplate
  * template for competitive programming, including complex debugging macros,
  * type definitions, and I/O optimizations. The core problem-solving logic
- * is confined to the last few lines of the `main` function.
+ * is confined to the `main` function.
  */
 /*
 Author:
@@ -42,7 +43,8 @@ using namespace std;
 #define PI acos(-1.0)
 #define inf INT_MAX
 #define all(v) v.begin(), v.end()
-#define endl "\n"
+#define endl "
+"
 typedef long long ll;
 typedef double db;
 typedef long long ll;
@@ -50,9 +52,10 @@ typedef pair<ll, ll> pll;
 typedef vector<ll> vll;
 typedef map<ll, ll> mll;
 typedef set<ll> sll;
-#define n_l '\n'
-#define dbg(...)                                                               \
-  cout << "[" << #__VA_ARGS__ << "]: ";                                        \
+#define n_l '
+'
+#define dbg(...)                                                               
+  cout << "[" << #__VA_ARGS__ << "]: ";                                        
   cout << to_string(__VA_ARGS__) << endl
 template <typename T, size_t N> int SIZE(const T (&t)[N]) { return N; }
 template <typename T> int SIZE(const T &t) { return t.size(); }
@@ -120,37 +123,51 @@ template <typename Heads, typename... Tails> void dbgs(Heads H, Tails... T) {
   cout << to_string(H) << " | ";
   dbgs(T...);
 }
-#define dbgm(...)                                                              \
-  cout << "[" << #__VA_ARGS__ << "]: ";                                        \
-  dbgs(__VA_ARGS__);                                                           \
+#define dbgm(...)                                                              
+  cout << "[" << #__VA_ARGS__ << "]: ";                                        
+  dbgs(__VA_ARGS__);                                                           
   cout << endl;
 // --- END BOILERPLATE ---
 
 /**
- * @brief Main function containing the core logic.
- * @algorithm Simulation with Maximum Tracking.
- * @time_complexity O(N), where N is the number of stops.
- * @space_complexity O(1).
+ * @brief Main function containing the core logic for the "Tram" problem.
+ * @details This function reads the number of tram stops and then iterates through
+ * each stop, updating the current passenger count and tracking the maximum
+ * count observed.
+ *
+ * @algorithm Simulation with Maximum Tracking
+ * @time_complexity O(N), where N is the number of stops, because it processes each
+ *                  stop in constant time.
+ * @space_complexity O(1), as it only uses a few variables to store the current
+ *                   and maximum passenger counts.
  */
 int main() {
+  // Functional Utility: Optimizes I/O operations.
   ios_base::sync_with_stdio(false);
   cin.tie(NULL);
   cout.tie(NULL);
-  // printf("%I64d", n)
+
   ll n, x, max_x, a, b;
-  cin >> n;
-  x = 0;     // Tracks current number of passengers.
-  max_x = 0; // Tracks the maximum number of passengers seen so far.
-  
+  cin >> n; // Read the total number of stops.
+
+  x = 0;     // Variable to track the current number of passengers on the tram.
+  max_x = 0; // Variable to track the maximum number of passengers at any point.
+
   /**
    * @block
    * @brief Simulates passenger flow stop by stop.
-   * Invariant: `x` holds the current passenger count, `max_x` holds the peak count.
+   * @details In each iteration, it reads the number of passengers exiting (a) and
+   * entering (b), updates the current passenger count, and then updates the
+   * maximum capacity required so far.
+   * @invariant `x` holds the current passenger count after the exchange at a stop.
+   * @invariant `max_x` holds the peak passenger count observed up to the current stop.
    */
   while (n--) {
-    cin >> a >> b; // a: exiting, b: entering
-    x += (b - a);
-    max_x = max(x, max_x);
+    cin >> a >> b; // Read passengers exiting (a) and entering (b).
+    x += (b - a); // Update the current passenger count.
+    max_x = max(x, max_x); // Update the maximum capacity required.
   }
-  th(max_x); // `th` is a macro for `cout << n << endl`
+
+  // `th` is a macro for `cout << n << endl`. Print the final result.
+  th(max_x);
 }

@@ -1,3 +1,27 @@
+/**
+ * @file 263A.CPP
+ * @brief Solution for a competitive programming problem (Codeforces 263A "Beautiful Matrix").
+ * @author Mehul Chaturvedi, IIT-Guwahati
+ *
+ * @details
+ * This program calculates the minimum number of moves required to move a single '1'
+ * in a 5x5 matrix to the center position (3,3). A move consists of swapping
+ * the '1' with an adjacent element (up, down, left, or right).
+ *
+ * @algorithm
+ * The problem is equivalent to finding the Manhattan distance between the position
+ * of the '1' and the center of the matrix. The algorithm iterates through the
+ * 5x5 grid to find the row (p) and column (q) of the '1'. The center of the
+ * 0-indexed grid is at (2,2). The number of moves is then calculated as
+ * `abs(2 - p) + abs(2 - q)`.
+ *
+ * @time_complexity O(1), as the matrix size is fixed at 5x5 (25 elements).
+ * @space_complexity O(1), as it only uses a few variables to store the coordinates.
+ *
+ * @note The file includes a large template of helper functions, data structures,
+ * and macros commonly used in competitive programming, though most are not used
+ * for this specific problem.
+ */
 /*
 
                 Name: Mehul Chaturvedi
@@ -58,8 +82,8 @@ template <typename T, typename U> inline bool exist(T &cont, U &val) {
 #define repr(i, n) for (int i = n; i >= 0; i--)
 #define frr(i, a, b) for (int i = (a), _b = (b); i >= _b; i--)
 #define trav(a, x) for (auto &a : x)
-#define fil(ar, val)                                                           \
-  memset(ar, val,                                                              \
+#define fil(ar, val)                                                           
+  memset(ar, val,                                                              
          sizeof(ar)) // 0x3f for inf, 0x80 for -INF can also use with pairs
 
 #ifdef mehul
@@ -107,36 +131,28 @@ void __f(const char *names, Arg1 &&arg1, Args &&...args) {
   cout << "| ";
   __f(comma + 1, args...);
 }
-#define trace(...)                                                             \
-  cout << "Line:" << __LINE__ << " ";                                          \
+#define trace(...)                                                             
+  cout << "Line:" << __LINE__ << " ";                                          
   __f(#__VA_ARGS__, __VA_ARGS__)
 int begtime = clock();
-#define end_routine()                                                          \
-  cout << "\n\nTime elapsed: " << fixed                                        \
-       << double(clock() - begtime) * 1000 / CLOCKS_PER_SEC                    \
-       << setprecision(12) << " ms\n\n";
+#define end_routine()                                                          
+  cout << "
+
+Time elapsed: " << fixed                                        
+       << double(clock() - begtime) * 1000 / CLOCKS_PER_SEC                    
+       << setprecision(12) << " ms
+
+";
 #else
-#define endl '\n'
+#define endl '
+'
 #define trace(...)
 #define end_routine()
 #endif
 
-/*
-Using of set
-O(log(n))
-
-ordered_set<int>  s;
-s.insert(1);
-s.insert(3);
-cout << s.order_of_key(2) << endl; // the number of elements in the s less than
-2 cout << *s.find_by_order(0) << endl; // print the 0-th smallest number in
-s(0-based)
-*/
-
 // Custom hash for unordered map
 struct custom_hash {
   static uint64_t splitmix64(uint64_t x) {
-    // http://xorshift.di.unimi.it/splitmix64.c
     x += 0x9e3779b97f4a7c15;
     x = (x ^ (x >> 30)) * 0xbf58476d1ce4e5b9;
     x = (x ^ (x >> 27)) * 0x94d049bb133111eb;
@@ -160,33 +176,45 @@ ll poww(ll a, ll b, ll mod) {
   return (((ans * ans) % mod) * a) % mod;
 }
 
+/**
+ * @brief Solves a single test case for the "Beautiful Matrix" problem.
+ */
 void solve() {
-  ll p, q;
+  ll p, q; // Variables to store the 0-indexed coordinates of the '1'.
+
+  // Block Logic: Iterate through the 5x5 matrix to find the '1'.
+  // The loops are 0-indexed (i from 0 to 4, j from 0 to 4).
   rep(i, 5) {
     rep(j, 5) {
       ll a;
       cin >> a;
       if (a == 1) {
-        p = i;
-        q = j;
+        p = i; // Store row index.
+        q = j; // Store column index.
       }
     }
   }
 
+  // Calculate the Manhattan distance to the center (2,2).
+  // The number of row moves is |2 - p| and column moves is |2 - q|.
   ll ans = abs(2 - p) + abs(2 - q);
-  cout << ans << '\n';
+  cout << ans << '
+';
 }
 
+/**
+ * @brief Main function, entry point of the program.
+ */
 int main(int argc, char **argv) {
+  // Functional Utility: Decouples C++ streams from C streams for faster I/O.
   ios_base::sync_with_stdio(false);
   cin.tie(NULL);
 #ifdef mehul
+  // Enables reading from a file instead of stdin for local debugging.
   freopen("input.txt", "r", stdin);
 #endif
 
-  // Code Goes here
   ll t = 1;
-
   while (t--) {
     solve();
   }

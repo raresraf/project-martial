@@ -1,3 +1,16 @@
+/**
+ * @file meta.go
+ * @brief Provides interfaces and helper functions for accessing metadata of Kubernetes API objects.
+ * @author The Kubernetes Authors
+ *
+ * @details
+ * This file is crucial for Kubernetes's ability to handle different kinds of API
+ * objects (like Pods, Services, etc.) in a generic way. It provides reflection-based
+ * helpers (`ObjectMetaFor`, `ListMetaFor`) to extract metadata from any object that
+ * embeds `ObjectMeta` or `ListMeta`. It also defines methods on `ObjectMeta` itself,
+ * allowing it to satisfy a common interface for metadata manipulation, which is a
+* fundamental aspect of the client-go `meta` package and Kubernetes controllers.
+*/
 /*
 Copyright 2014 The Kubernetes Authors All rights reserved.
 
@@ -24,34 +37,41 @@ import (
 	"k8s.io/kubernetes/pkg/util"
 )
 
-// FillObjectMetaSystemFields populates fields that are managed by the system on ObjectMeta.
+// FillObjectMetaSystemFields populates fields on an ObjectMeta struct that are
+// managed by the system. This is typically called when a new object is created.
 func FillObjectMetaSystemFields(ctx Context, meta *ObjectMeta) {
 	meta.CreationTimestamp = unversioned.Now()
 	meta.UID = util.NewUUID()
 	meta.SelfLink = ""
 }
 
-// HasObjectMetaSystemFieldValues returns true if fields that are managed by the system on ObjectMeta have values.
+// HasObjectMetaSystemFieldValues returns true if system-managed fields on an
+// ObjectMeta struct have been populated with non-zero values.
 func HasObjectMetaSystemFieldValues(meta *ObjectMeta) bool {
 	return !meta.CreationTimestamp.Time.IsZero() ||
 		len(meta.UID) != 0
 }
 
-// ObjectMetaFor returns a pointer to a provided object's ObjectMeta.
-// TODO: allow runtime.Unknown to extract this object
+// ObjectMetaFor returns a pointer to a provided object's ObjectMeta field.
+// It uses reflection to find the "ObjectMeta" field on any arbitrary runtime.Object,
+// allowing generic clients and controllers to access metadata without needing to
+// know the concrete type of the object.
 func ObjectMetaFor(obj runtime.Object) (*ObjectMeta, error) {
 	v, err := conversion.EnforcePtr(obj)
 	if err != nil {
 		return nil, err
 	}
 	var meta *ObjectMeta
+	// Architectural Pattern: Use reflection to access a known field by name.
+	// This is key to Kubernetes's generic object handling capabilities.
 	err = runtime.FieldPtr(v, "ObjectMeta", &meta)
 	return meta, err
 }
 
-// ListMetaFor returns a pointer to a provided object's ListMeta,
-// or an error if the object does not have that pointer.
-// TODO: allow runtime.Unknown to extract this object
+// ListMetaFor returns a pointer to a provided object's ListMeta field.
+// Similar to ObjectMetaFor, this function uses reflection to extract the metadata
+// from a list object (e.g., PodList, ServiceList), which is essential for handling
+// pagination and resource versions of collections.
 func ListMetaFor(obj runtime.Object) (*unversioned.ListMeta, error) {
 	v, err := conversion.EnforcePtr(obj)
 	if err != nil {
@@ -62,8 +82,10 @@ func ListMetaFor(obj runtime.Object) (*unversioned.ListMeta, error) {
 	return meta, err
 }
 
-// Namespace implements meta.Object for any object with an ObjectMeta typed field. Allows
-// fast, direct access to metadata fields for API objects.
+// The following methods implement the `meta.Object` interface for `ObjectMeta`.
+// This allows any object that embeds `ObjectMeta` to be treated as a `meta.Object`,
+// enabling generic, polymorphic access to its core metadata fields.
+
 func (meta *ObjectMeta) GetNamespace() string                         { return meta.Namespace }
 func (meta *ObjectMeta) SetNamespace(namespace string)                { meta.Namespace = namespace }
 func (meta *ObjectMeta) GetName() string                              { return meta.Name }

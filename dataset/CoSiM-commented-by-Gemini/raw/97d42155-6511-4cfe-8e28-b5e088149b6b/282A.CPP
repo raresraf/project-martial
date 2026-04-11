@@ -1,3 +1,28 @@
+/**
+ * @file 282A.CPP
+ * @brief Solution for a simple simulation problem.
+ * @author Mehul Chaturvedi, IIT-Guwahati
+ *
+ * @details
+ * This program calculates the final value of a variable 'x' after a series of
+ * increment and decrement operations. The initial value of x is 0. The operations
+ * are given as strings like "++X", "X++", "--X", and "X--".
+ *
+ * @algorithm
+ * The algorithm is a direct simulation. It initializes a counter to zero. It then
+ * iterates through each input operation string. For each string, it checks for the
+ * presence of a '+' or '-' character. If a '+' is found, the counter is incremented.
+ * If a '-' is found, the counter is decremented. The middle character 'X' is ignored.
+ *
+ * @time_complexity O(N), where N is the number of operations. Each operation string has a constant length (3), so processing each one takes constant time.
+ * @space_complexity O(1), as it only uses a single counter to store the result.
+ *
+ * @note The file includes a large template of helper functions, data structures,
+ * and macros commonly used in competitive programming, though most are not used
+ * for this specific problem.
+ */
+
+
 /*
 
                 Name: Mehul Chaturvedi
@@ -58,8 +83,8 @@ template <typename T, typename U> inline bool exist(T &cont, U &val) {
 #define repr(i, n) for (int i = n; i >= 0; i--)
 #define frr(i, a, b) for (int i = (a), _b = (b); i >= _b; i--)
 #define trav(a, x) for (auto &a : x)
-#define fil(ar, val)                                                           \
-  memset(ar, val,                                                              \
+#define fil(ar, val)                                                           
+  memset(ar, val,                                                              
          sizeof(ar)) // 0x3f for inf, 0x80 for -INF can also use with pairs
 
 #ifdef mehul
@@ -107,16 +132,21 @@ void __f(const char *names, Arg1 &&arg1, Args &&...args) {
   cout << "| ";
   __f(comma + 1, args...);
 }
-#define trace(...)                                                             \
-  cout << "Line:" << __LINE__ << " ";                                          \
+#define trace(...)                                                             
+  cout << "Line:" << __LINE__ << " ";                                          
   __f(#__VA_ARGS__, __VA_ARGS__)
 int begtime = clock();
-#define end_routine()                                                          \
-  cout << "\n\nTime elapsed: " << fixed                                        \
-       << double(clock() - begtime) * 1000 / CLOCKS_PER_SEC                    \
-       << setprecision(12) << " ms\n\n";
+#define end_routine()                                                          
+  cout << "
+
+Time elapsed: " << fixed                                        
+       << double(clock() - begtime) * 1000 / CLOCKS_PER_SEC                    
+       << setprecision(12) << " ms
+
+";
 #else
-#define endl '\n'
+#define endl '
+'
 #define trace(...)
 #define end_routine()
 #endif
@@ -160,36 +190,54 @@ ll poww(ll a, ll b, ll mod) {
   return (((ans * ans) % mod) * a) % mod;
 }
 
+/**
+ * @brief Solves a single test case.
+ * @details Reads the number of operations, then iterates through them,
+ * adjusting a counter based on the operation type.
+ */
 void solve() {
   ll n;
   cin >> n;
-  ll ans = 0;
+  ll ans = 0; // Initialize the counter for 'x' to 0.
 
+  // Pre-condition: Loop n times to process each operation.
   rep(i, n) {
     string s;
     cin >> s;
+    // Invariant: Iterate through the characters of the operation string.
     trav(chara, s) {
       if (chara == '+') {
-        ans++;
+        ans++; // Increment for '+'.
+        break; // Optimization: only one '+' or '-' per string matters.
       } else if (chara == '-') {
-        ans--;
+        ans--; // Decrement for '-'.
+        break; // Optimization: only one '+' or '-' per string matters.
       }
     }
   }
-  cout << ans << '\n';
+  // Post-condition: Print the final value of the counter.
+  cout << ans << '
+';
   return;
 }
 
+/**
+ * @brief Main function, entry point of the program.
+ * @details Sets up fast I/O and handles test case execution.
+ */
 int main(int argc, char **argv) {
+  // Functional Utility: Decouples C++ streams from C streams for faster I/O.
   ios_base::sync_with_stdio(false);
   cin.tie(NULL);
 #ifdef mehul
+  // Enables reading from a file instead of stdin for local debugging.
   freopen("input.txt", "r", stdin);
 #endif
 
   // Code Goes here
   ll t = 1;
 
+  // Loop to handle multiple test cases if needed (here, t=1).
   while (t--) {
     solve();
   }

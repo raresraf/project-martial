@@ -7,6 +7,19 @@
 # option. This file may not be copied, modified, or distributed
 # except according to those terms.
 
+"""
+Build script for packaging GStreamer dependencies for the Servo browser engine.
+
+This script is not a runtime library but a tool used during the build process.
+Its primary responsibilities are:
+1. Generating a Rust source file that lists the required GStreamer plugins,
+   allowing Servo to load them dynamically.
+2. On macOS, finding all necessary GStreamer dynamic libraries (.dylib), copying
+   them into the application bundle, and rewriting their internal paths to be
+   relative to the main executable. This makes the application self-contained.
+3. On Windows, defining the set of required DLLs for packaging.
+"""
+
 import os.path
 import shutil
 import subprocess
@@ -45,9 +58,8 @@ GSTREAMER_BASE_LIBS = [
     "gstwebrtcnice",
 ]
 """
-These are the GStreamer base libraries used by both MacOS and Windows
-platforms. These are distinct from GStreamer plugins, but GStreamer plugins
-may have shared object dependencies on them.
+A list of core GStreamer libraries. These are not plugins themselves but are
+dependencies for many plugins and GStreamer applications.
 """
 
 GSTREAMER_PLUGIN_LIBS = [
@@ -93,7 +105,9 @@ GSTREAMER_PLUGIN_LIBS = [
     "gstlibav",
 ]
 """
-The list of plugin libraries themselves, used for both MacOS and Windows.
+The list of GStreamer plugin libraries required by Servo, common to both
+macOS and Windows platforms. These provide the actual media processing
+capabilities like decoding, encoding, and rendering.
 """
 
 GSTREAMER_MAC_PLUGIN_LIBS = [
@@ -104,7 +118,8 @@ GSTREAMER_MAC_PLUGIN_LIBS = [
     "gstapplemedia",
 ]
 """
-Plugins that are only used for MacOS.
+A list of GStreamer plugin libraries that are specific to the macOS platform,
+providing integration with native media frameworks like AVFoundation.
 """
 
 GSTREAMER_WIN_PLUGIN_LIBS = [
@@ -112,7 +127,8 @@ GSTREAMER_WIN_PLUGIN_LIBS = [
     "gstwasapi"
 ]
 """
-Plugins that are only used for Windows.
+A list of GStreamer plugin libraries specific to the Windows platform,
+such as the WASAPI audio sink.
 """
 
 GSTREAMER_WIN_DEPENDENCY_LIBS = [
@@ -147,28 +163,41 @@ GSTREAMER_WIN_DEPENDENCY_LIBS = [
     "z-1.dll",
 ]
 """
-DLLs that GStreamer ships in the Windows distribution that are necessary for
-using the plugin selection that we have. This list is curated by a combination
-of using `dumpbin` and the errors that appear when starting Servo.
+A curated list of third-party DLLs that are dependencies of the selected
+GStreamer plugins on Windows. These must be packaged with the application
+for it to function correctly.
 """
 
 
 def windows_dlls():
+    """Constructs the full list of necessary GStreamer-related DLLs for Windows."""
     return GSTREAMER_WIN_DEPENDENCY_LIBS + [f"{lib}-1.0-0.dll" for lib in GSTREAMER_BASE_LIBS]
 
 
 def windows_plugins():
+    """Constructs the full list of GStreamer plugin DLLs for Windows."""
     libs = [*GSTREAMER_PLUGIN_LIBS, *GSTREAMER_WIN_PLUGIN_LIBS]
     return [f"{lib}.dll" for lib in libs]
 
 
 def macos_plugins():
+    """Constructs the full list of GStreamer plugin dylibs for macOS."""
     plugins = [*GSTREAMER_PLUGIN_LIBS, *GSTREAMER_MAC_PLUGIN_LIBS]
-
     return [f"lib{plugin}.dylib" for plugin in plugins]
 
 
 def write_plugin_list(target):
+    """
+    Generates and prints a Rust source file containing a static list of plugin filenames.
+
+    This function determines the correct plugin set based on the build target
+    (macOS or Windows) and prints a Rust array definition to stdout, which is
+    then redirected into a source file by the build system. This allows the Servo
+    application to know which plugins it should attempt to load at runtime.
+
+    Args:
+        target: A string identifying the build target platform (e.g., "aarch64-apple-darwin").
+    """
     plugins = []
     if "apple-" in target:
         plugins = macos_plugins()
@@ -181,20 +210,38 @@ pub(crate) static GSTREAMER_PLUGINS: &[&str] = &[
 %s
 ];
 """
-        % ",\n".join(map(lambda x: '"' + x + '"', plugins))
+        % ",
+".join(map(lambda x: '"' + x + '"', plugins))
     )
 
 
 def is_macos_system_library(library_path: str) -> bool:
-    """Returns true if if the given dependency line from otool refers to
-    a system library that should not be packaged."""
+    """
+    Checks if a given library path refers to a macOS system library.
+
+    System libraries (e.g., in /usr/lib) should not be packaged with the
+    application, as they are assumed to be present on the target system.
+
+    Returns:
+        True if the path is a system library, False otherwise.
+    """
     return library_path.startswith("/System/Library") or library_path.startswith("/usr/lib") or ".asan." in library_path
 
 
 def rewrite_dependencies_to_be_relative(binary: str, dependency_lines: Set[str], relative_path: str):
-    """Given a path to a binary (either an executable or a dylib), rewrite the
-    the given dependency lines to be found at the given relative path to
-    the executable in which they are used. In our case, this is typically servoshell."""
+    """
+    Uses `install_name_tool` to change the dependency paths within a binary.
+
+    This function iterates through a set of dependency paths found in a binary
+    and rewrites them to be relative to the application's executable path
+    (using `@executable_path`). This is a crucial step for creating a portable
+    macOS application bundle.
+
+    Args:
+        binary: The path to the binary (executable or dylib) to modify.
+        dependency_lines: A set of original dependency paths to find and replace.
+        relative_path: The new relative path to prepend to the dependency filename.
+    """
     for dependency_line in dependency_lines:
         if is_macos_system_library(dependency_line) or dependency_line.startswith("@rpath/"):
             continue
@@ -208,13 +255,23 @@ def rewrite_dependencies_to_be_relative(binary: str, dependency_lines: Set[str],
 
 
 def make_rpath_path_absolute(dylib_path_from_otool: str, rpath: str):
-    """Given a dylib dependency from otool, resolve the path into a full path if it
-    contains `@rpath`."""
+    """
+    Resolves a dylib path containing `@rpath` into an absolute path.
+
+    `@rpath` is a placeholder that tells the dynamic linker to search in a list
+    of runtime search paths. This function emulates that search to find the
+    actual location of the library on the build machine.
+
+    Args:
+        dylib_path_from_otool: The dependency path as reported by `otool`.
+        rpath: The base runtime path to search within.
+
+    Returns:
+        The resolved absolute path to the dylib.
+    """
     if not dylib_path_from_otool.startswith("@rpath/"):
         return dylib_path_from_otool
 
-    # Not every dependency is in the same directory as the binary that is references. For
-    # instance, plugins dylibs can be found in "gstreamer-1.0".
     path_relative_to_rpath = dylib_path_from_otool.replace("@rpath/", "")
     for relative_directory in ["", "..", "gstreamer-1.0"]:
         full_path = os.path.join(rpath, relative_directory, path_relative_to_rpath)
@@ -225,45 +282,49 @@ def make_rpath_path_absolute(dylib_path_from_otool: str, rpath: str):
 
 
 def find_non_system_dependencies_with_otool(binary_path: str) -> Set[str]:
-    """Given a binary path, find all dylib dependency lines that do not refer to
-    system libraries."""
+    """
+    Uses the `otool -L` command to find all non-system dynamic library dependencies.
+
+    Args:
+        binary_path: The path to the binary to inspect.
+
+    Returns:
+        A set of strings, where each string is a dependency path.
+    """
     process = subprocess.Popen(["/usr/bin/otool", "-L", binary_path], stdout=subprocess.PIPE)
     output = set()
 
     for line in map(lambda line: line.decode("utf8"), process.stdout):
-        if not line.startswith("\t"):
+        if not line.startswith("	"):
             continue
         dependency = line.split(" ", 1)[0][1:]
 
-        # No need to do any processing for system libraries. They should be
-        # present on all macOS systems.
         if not (is_macos_system_library(dependency) or 'librustc-stable_rt' in dependency):
             output.add(dependency)
     return output
 
 
 def package_gstreamer_dylibs(binary_path: str, library_target_directory: str, target: BuildTarget):
-    """Copy all GStreamer dependencies to the "lib" subdirectory of a built version of
-    Servo. Also update any transitive shared library paths so that they are relative to
-    this subdirectory."""
+    """
+    The main function for packaging GStreamer dependencies on macOS.
 
-    # This import only works when called from `mach`.
+    This function orchestrates the entire process of finding, copying, and
+    rewriting GStreamer dylibs to create a self-contained application bundle.
+    It recursively traverses the dependency graph of the main executable and
+    all required plugins.
+    """
     import servo.platform
 
     gstreamer_root = servo.platform.get().gstreamer_root(target)
     gstreamer_version = servo.platform.macos.GSTREAMER_PLUGIN_VERSION
     gstreamer_root_libs = os.path.join(gstreamer_root, "lib")
 
-    # This is the relative path from the directory we are packaging the dylibs into and
-    # the binary we are packaging them for.
     relative_path = os.path.relpath(library_target_directory, os.path.dirname(binary_path)) + "/"
 
-    # This might be None if we are cross-compiling.
     if not gstreamer_root:
         return True
 
-    # Detect when the packaged library versions do not reflect our current version of GStreamer,
-    # by writing a marker file with the packaged GStreamer version into the target directory.
+    # Use a marker file to avoid repackaging if the GStreamer version hasn't changed.
     marker_file = os.path.join(library_target_directory, f".gstreamer-{gstreamer_version}")
 
     print()
@@ -272,15 +333,14 @@ def package_gstreamer_dylibs(binary_path: str, library_target_directory: str, ta
         return True
 
     if os.path.exists(library_target_directory):
-        print(f" • Packaged GStreamer is out of date. Rebuilding into {library_target_directory}")
         shutil.rmtree(library_target_directory)
     else:
         print(f" • Packaging GStreamer into {library_target_directory}")
 
     os.makedirs(library_target_directory, exist_ok=True)
     try:
-        # Collect all the initial binary dependencies for Servo and the plugins that it uses,
-        # which are loaded dynmically at runtime and don't appear in `otool` output.
+        # Block Logic: This is a breadth-first traversal of the dependency graph.
+        # `pending_to_be_copied` acts as a queue of dependencies to process.
         binary_dependencies = set(find_non_system_dependencies_with_otool(binary_path))
         binary_dependencies.update(
             [os.path.join(gstreamer_root_libs, "gstreamer-1.0", plugin) for plugin in macos_plugins()]
@@ -292,6 +352,7 @@ def package_gstreamer_dylibs(binary_path: str, library_target_directory: str, ta
         pending_to_be_copied = binary_dependencies
         already_copied = set()
 
+        # Invariant: Continue as long as there are new, unprocessed dependencies.
         while pending_to_be_copied:
             checking = set(pending_to_be_copied)
             pending_to_be_copied.clear()
@@ -302,16 +363,14 @@ def package_gstreamer_dylibs(binary_path: str, library_target_directory: str, ta
                 original_dylib_path = make_rpath_path_absolute(otool_dependency, gstreamer_root_libs)
                 transitive_dependencies = set(find_non_system_dependencies_with_otool(original_dylib_path))
 
-                # First copy the dylib into the directory where we are collecting them all for
-                # packaging, and rewrite its dependencies to be relative to the executable we
-                # are packaging them for.
+                # Copy the dylib and rewrite its internal dependency paths.
                 new_dylib_path = os.path.join(library_target_directory, os.path.basename(original_dylib_path))
                 if not os.path.exists(new_dylib_path):
                     number_copied += 1
                     shutil.copyfile(original_dylib_path, new_dylib_path)
                     rewrite_dependencies_to_be_relative(new_dylib_path, transitive_dependencies, relative_path)
 
-                # Now queue up any transitive dependencies for processing in further iteration loops.
+                # Add newly discovered transitive dependencies to the queue for the next iteration.
                 transitive_dependencies.difference_update(already_copied)
                 pending_to_be_copied.update(transitive_dependencies)
 
@@ -329,4 +388,11 @@ def package_gstreamer_dylibs(binary_path: str, library_target_directory: str, ta
 
 
 if __name__ == "__main__":
+    """
+    Entry point for the script.
+
+    When called from the command line, this script takes a build target as an
+    argument and calls `write_plugin_list` to generate the Rust source file
+    containing the list of GStreamer plugins.
+    """
     write_plugin_list(sys.argv[1])

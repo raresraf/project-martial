@@ -1,3 +1,18 @@
+/**
+ * @file scale_int.go
+ * @brief Provides functionality for scaled integer arithmetic.
+ * @author The Kubernetes Authors
+ *
+ * @details
+ * This file contains utility functions for handling arithmetic on scaled integers,
+ * a technique used to represent decimal values with high precision without using
+ * floating-point numbers. This is particularly useful for representing resource
+ * quantities in systems like Kubernetes where precision is critical.
+ *
+ * The core logic revolves around a `scaledValue` function that converts a value
+ * from one decimal scale to another, using `math/big` for arbitrary-precision
+ * arithmetic to prevent overflow and a `sync.Pool` to reduce memory allocations.
+ */
 /*
 Copyright 2015 The Kubernetes Authors All rights reserved.
 
@@ -23,7 +38,8 @@ import (
 )
 
 var (
-	// A sync pool to reduce allocation.
+	// intPool is a sync.Pool used to reduce memory allocations by reusing
+	// `big.Int` objects. This is a performance optimization for a high-throughput system.
 	intPool  sync.Pool
 	maxInt64 = big.NewInt(math.MaxInt64)
 )
@@ -34,41 +50,55 @@ func init() {
 	}
 }
 
-// scaledValue scales given unscaled value from scale to new Scale and returns
-// an int64. It ALWAYS rounds up the result when scale down. The final result might
-// overflow.
+// scaledValue scales a given unscaled value from its current scale to a new scale
+// and returns the result as an int64. The mathematical value of the decimal is
+// represented as `unscaled * 10**(-scale)`.
 //
-// scale, newScale represents the scale of the unscaled decimal.
-// The mathematical value of the decimal is unscaled * 10**(-scale).
+// Key Behaviors:
+// - Rounding: It ALWAYS rounds up the result when scaling down (i.e., when precision is lost).
+//   For example, scaling 999 with a scale of 3 down to a scale of 0 results in 1 (0.999 rounded up).
+// - Overflow: The final result might overflow an int64 if the scaled value is too large.
+//
+// Parameters:
+//   unscaled: A `*big.Int` representing the value without its decimal scaling.
+//   scale: The original exponent of the decimal value (e.g., 3 for milli).
+//   newScale: The target exponent for the new value.
+//
+// Returns:
+//   An int64 representing the value at the new scale, rounded up if necessary.
 func scaledValue(unscaled *big.Int, scale, newScale int) int64 {
+	// The difference in scale determines whether we are scaling up or down.
 	dif := scale - newScale
 	if dif == 0 {
 		return unscaled.Int64()
 	}
 
-	// Handle scale up
-	// This is an easy case, we do not need to care about rounding and overflow.
-	// If any intermediate operation causes overflow, the result will overflow.
+	// Handle scale up (e.g., from milli to nano).
+	// This is a simple multiplication. Overflow is possible but handled by standard integer overflow.
 	if dif < 0 {
 		return unscaled.Int64() * int64(math.Pow10(-dif))
 	}
 
-	// Handle scale down
-	// We have to be careful about the intermediate operations.
+	// Handle scale down (e.g., from nano to milli).
+	// This requires careful handling of division and rounding.
 
-	// fast path when unscaled < max.Int64 and exp(10,dif) < max.Int64
-	const log10MaxInt64 = 19
+	// A fast path for common cases where the numbers fit within standard int64 and
+	// the divisor (10^dif) is within pre-calculated math.Pow10 limits. This avoids
+	// the overhead of `big.Int` arithmetic.
+	const log10MaxInt64 = 18 // math.Pow10 is pre-calculated up to 10^18
 	if unscaled.Cmp(maxInt64) < 0 && dif < log10MaxInt64 {
 		divide := int64(math.Pow10(dif))
 		result := unscaled.Int64() / divide
 		mod := unscaled.Int64() % divide
+		// Invariant: If there is any remainder, always round up.
 		if mod != 0 {
 			return result + 1
 		}
 		return result
 	}
 
-	// We should only convert back to int64 when getting the result.
+	// Slow path for large numbers that require arbitrary-precision arithmetic.
+	// We use a pool of `big.Int` objects to avoid allocations.
 	divisor := intPool.Get().(*big.Int)
 	exp := intPool.Get().(*big.Int)
 	result := intPool.Get().(*big.Int)
@@ -79,14 +109,13 @@ func scaledValue(unscaled *big.Int, scale, newScale int) int64 {
 	}()
 
 	// divisor = 10^(dif)
-	// TODO: create loop up table if exp costs too much.
 	divisor.Exp(bigTen, exp.SetInt64(int64(dif)), nil)
-	// reuse exp
-	remainder := exp
+	remainder := exp // Reuse the 'exp' object to store the remainder.
 
 	// result = unscaled / divisor
 	// remainder = unscaled % divisor
 	result.DivMod(unscaled, divisor, remainder)
+	// Invariant: If the remainder is not zero, round up by adding 1.
 	if remainder.Sign() != 0 {
 		return result.Int64() + 1
 	}

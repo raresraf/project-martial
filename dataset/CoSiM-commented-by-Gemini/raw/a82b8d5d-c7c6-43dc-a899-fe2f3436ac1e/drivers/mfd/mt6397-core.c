@@ -1,3 +1,20 @@
+/**
+ * @file mt6397-core.c
+ * @brief Core driver for MediaTek Multi-Function Devices (MFDs).
+ * @author Flora Fu, MediaTek
+ *
+ * @details
+ * This file implements a generic MFD core driver for a family of MediaTek
+ * Power Management ICs (PMICs), including MT6323, MT6328, MT6357, MT6397, and others.
+ * As an MFD driver, its primary responsibility is not to control the end-functionality
+ * itself, but to initialize the main chip and register the various sub-devices
+ * (e.g., RTC, regulator, audio codec) that reside on it. These sub-devices are
+ * then handled by their own respective drivers.
+ *
+ * The driver uses the device tree's "compatible" property to identify the specific
+ * PMIC model and load the appropriate configuration for its child devices and
+ * interrupt controller.
+ */
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2014 MediaTek Inc.
@@ -27,6 +44,12 @@
 #include <linux/mfd/mt6359/registers.h>
 #include <linux/mfd/mt6397/registers.h>
 
+/*
+ * The following resource definitions specify the memory-mapped register regions
+ * and the interrupt lines for the various child devices (like RTC, keys) on
+ * different PMIC models. These resources are passed to the child drivers when
+ * they are probed.
+ */
 #define MT6323_RTC_BASE		0x8000
 #define MT6323_RTC_SIZE		0x40
 
@@ -123,6 +146,12 @@ static const struct resource mt6323_pwrc_resources[] = {
 	DEFINE_RES_MEM(MT6323_PWRC_BASE, MT6323_PWRC_SIZE),
 };
 
+
+/**
+ * @brief An array of `mfd_cell` structs defines the child devices for a specific
+ * MFD. Each cell describes a single function on the chip, such as an RTC,
+ * a regulator controller, or a keypad interface.
+ */
 static const struct mfd_cell mt6323_devs[] = {
 	{
 		.name = "mt6323-rtc",
@@ -279,13 +308,23 @@ static const struct mfd_cell mt6397_devs[] = {
 	}
 };
 
+/**
+ * @struct chip_data
+ * @brief A structure to hold chip-specific data.
+ *
+ * This allows the driver to be generic by abstracting the differences
+ * between the various supported PMIC models. An instance of this struct
+ * is associated with each "compatible" string.
+ */
 struct chip_data {
-	u32 cid_addr;
-	u32 cid_shift;
-	const struct mfd_cell *cells;
-	int cell_size;
-	int (*irq_init)(struct mt6397_chip *chip);
+	u32 cid_addr;     /**< Register address for the chip ID. */
+	u32 cid_shift;    /**< Bit shift needed to extract the chip ID from the register. */
+	const struct mfd_cell *cells; /**< Pointer to the array of child devices for this chip. */
+	int cell_size;    /**< The number of child devices in the `cells` array. */
+	int (*irq_init)(struct mt6397_chip *chip); /**< Function pointer to the chip-specific IRQ initializer. */
 };
+
+/* Data structures defining the specific properties for each PMIC variant. */
 
 static const struct chip_data mt6323_core = {
 	.cid_addr = MT6323_CID,
@@ -343,6 +382,21 @@ static const struct chip_data mt6397_core = {
 	.irq_init = mt6397_irq_init,
 };
 
+/**
+ * @brief The probe function, called when a matching device is found in the device tree.
+ *
+ * @param pdev The platform device structure.
+ * @return 0 on success, or a negative error code on failure.
+ *
+ * @details This function is the main entry point for the driver. It performs
+ * the following steps:
+ * 1. Allocates a private data structure for the device.
+ * 2. Gets the `regmap` from the parent bus device (e.g., I2C).
+ * 3. Matches the device's "compatible" string to get the correct `chip_data`.
+ * 4. Reads the chip ID from the hardware to verify the model.
+ * 5. Initializes the chip's interrupt controller via the `irq_init` function pointer.
+ * 6. Calls `devm_mfd_add_devices` to register all the child devices with the kernel.
+ */
 static int mt6397_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -356,24 +410,24 @@ static int mt6397_probe(struct platform_device *pdev)
 
 	pmic->dev = &pdev->dev;
 
-	/*
-	 * mt6397 MFD is child device of soc pmic wrapper.
-	 * Regmap is set from its parent.
-	 */
+	// The `regmap` provides a unified way to access device registers, abstracting
+	// the underlying bus (e.g., I2C or SPI).
 	pmic->regmap = dev_get_regmap(pdev->dev.parent, NULL);
 	if (!pmic->regmap)
 		return -ENODEV;
 
+	// Get the chip-specific data based on the device tree "compatible" string.
 	pmic_core = of_device_get_match_data(&pdev->dev);
 	if (!pmic_core)
 		return -ENODEV;
 
+	// Read the chip ID register to confirm we are talking to the correct hardware.
 	ret = regmap_read(pmic->regmap, pmic_core->cid_addr, &id);
 	if (ret) {
-		dev_err(&pdev->dev, "Failed to read chip id: %d\n", ret);
+		dev_err(&pdev->dev, "Failed to read chip id: %d
+", ret);
 		return ret;
 	}
-
 	pmic->chip_id = (id >> pmic_core->cid_shift) & 0xff;
 
 	platform_set_drvdata(pdev, pmic);
@@ -382,21 +436,29 @@ static int mt6397_probe(struct platform_device *pdev)
 	if (pmic->irq <= 0)
 		return pmic->irq;
 
+	// Call the chip-specific IRQ initialization function.
 	ret = pmic_core->irq_init(pmic);
 	if (ret)
 		return ret;
 
+	// Register all the child devices defined in the `mfd_cell` array.
 	ret = devm_mfd_add_devices(&pdev->dev, PLATFORM_DEVID_NONE,
 				   pmic_core->cells, pmic_core->cell_size,
 				   NULL, 0, pmic->irq_domain);
 	if (ret) {
 		irq_domain_remove(pmic->irq_domain);
-		dev_err(&pdev->dev, "failed to add child devices: %d\n", ret);
+		dev_err(&pdev->dev, "failed to add child devices: %d
+", ret);
 	}
 
 	return ret;
 }
 
+/**
+ * @brief An array that maps device tree "compatible" strings to the `chip_data`
+ * for each supported PMIC. This is how the kernel's driver model knows which
+ * data to pass to the probe function for a given device.
+ */
 static const struct of_device_id mt6397_of_match[] = {
 	{
 		.compatible = "mediatek,mt6323",

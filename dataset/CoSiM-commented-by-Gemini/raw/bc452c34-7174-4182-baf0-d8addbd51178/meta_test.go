@@ -1,3 +1,13 @@
+/**
+ * @file meta_test.go
+ * @brief Unit tests for the metadata helper functions.
+ * @author The Kubernetes Authors
+ *
+ * @details
+ * This file contains unit tests for the functions in `meta.go`. It includes a
+ * compile-time check to ensure `api.ObjectMeta` implements the `meta.Object`
+ * interface and provides test cases for the system field manipulation functions.
+ */
 /*
 Copyright 2014 The Kubernetes Authors All rights reserved.
 
@@ -23,9 +33,14 @@ import (
 	"k8s.io/kubernetes/pkg/api/meta"
 )
 
+// This is a compile-time check to ensure that api.ObjectMeta satisfies the
+// meta.Object interface. If the Get/Set methods on api.ObjectMeta were to
+// change or be removed, this line would fail to compile, providing an early
+// warning that the contract has been broken.
 var _ meta.Object = &api.ObjectMeta{}
 
-// TestFillObjectMetaSystemFields validates that system populated fields are set on an object
+// TestFillObjectMetaSystemFields validates that system-populated fields
+// (CreationTimestamp, UID) are correctly set on an ObjectMeta instance.
 func TestFillObjectMetaSystemFields(t *testing.T) {
 	ctx := api.NewDefaultContext()
 	resource := api.ObjectMeta{}
@@ -37,14 +52,17 @@ func TestFillObjectMetaSystemFields(t *testing.T) {
 	}
 }
 
-// TestHasObjectMetaSystemFieldValues validates that true is returned if and only if all fields are populated
+// TestHasObjectMetaSystemFieldValues validates that the function correctly
+// reports whether system fields have been populated.
 func TestHasObjectMetaSystemFieldValues(t *testing.T) {
 	ctx := api.NewDefaultContext()
 	resource := api.ObjectMeta{}
+	// Pre-condition: Before filling, the function should return false.
 	if api.HasObjectMetaSystemFieldValues(&resource) {
 		t.Errorf("the resource does not have all fields yet populated, but incorrectly reports it does")
 	}
 	api.FillObjectMetaSystemFields(ctx, &resource)
+	// Post-condition: After filling, the function should return true.
 	if !api.HasObjectMetaSystemFieldValues(&resource) {
 		t.Errorf("the resource does have all fields populated, but incorrectly reports it does not")
 	}

@@ -1,6 +1,22 @@
 
 
-
+/**
+ * @file gpu_hashtable.cu
+ * @brief This file contains a CUDA implementation of a GPU-based hash table.
+ * @raw/dabc7569-a3e3-4315-a67a-fd2d97d99943/gpu_hashtable.cu
+ *
+ * This implementation uses open addressing with linear probing for collision resolution.
+ * Key-value pairs are stored in a struct called `Celula`. The main operations (insert, get, reshape)
+ * are parallelized on the GPU using CUDA kernels. Variable names such as `Celula`, `cheie`, and `valoare`
+ * are in Romanian, meaning "cell", "key", and "value" respectively.
+ *
+ * Algorithm: Open Addressing with Linear Probing
+ * Time Complexity:
+ *  - Insertion: Average O(1), Worst O(N)
+ *  - Retrieval: Average O(1), Worst O(N)
+ *  - Reshape: O(N)
+ * Space Complexity: O(N)
+ */
 #include 
 #include 
 #include 
@@ -10,10 +26,16 @@
 
 #include "gpu_hashtable.hpp"
 
-
+/**
+ * @brief Constructor for the GpuHashTable class.
+ * @param siz The initial capacity of the hash table.
+ *
+ * Allocates an array of `Celula` structs on the GPU and initializes memory to zero.
+ */
 GpuHashTable::GpuHashTable(int siz) {
 	if (siz <= 0){
-		std::cerr <<"size < 0\n";
+		std::cerr <<"size < 0
+";
 		exit(-1);
 	}
 	int err;
@@ -24,18 +46,24 @@ GpuHashTable::GpuHashTable(int siz) {
 	
 	err = cudaMalloc(&vect, size * sizeof(Celula));
 	if (err != cudaSuccess || vect == NULL){
-		std::cerr << "Memoria init\n";
+		std::cerr << "Memoria init
+";
 		exit(-1);
 	}
 	err = cudaMemset(vect, 0, size * sizeof(Celula));
 	if (err != cudaSuccess) {
-		std::cerr<<"Memset\n";
+		std::cerr<<"Memset
+";
 		exit(-1);
 	}
 }
 
 
-
+/**
+ * @brief Destructor for the GpuHashTable class.
+ *
+ * Frees the GPU memory allocated for the hash table vector.
+ */
 GpuHashTable::~GpuHashTable() {
 	int err;
 	
@@ -46,25 +74,42 @@ GpuHashTable::~GpuHashTable() {
 }
 
 
-
+/**
+ * @brief Computes the hash of a given key using a multiplicative method.
+ * @param data The key to hash.
+ * @param limit The size of the hash table, used to wrap the hash value.
+ * @return The hash value for the given key.
+ */
 __device__ int dhash1(int data, int limit) {
 
 
 	return ((long long)abs(data) * 10453007) % 3452434812973 % limit;
 }
 
-
+/**
+ * @brief CUDA kernel for resizing and re-hashing the hash table.
+ * @param vect Pointer to the old `Celula` array on the device.
+ * @param newvect Pointer to the new `Celula` array on the device.
+ * @param size The size of the old hash table.
+ * @param newsize The size of the new hash table.
+ *
+ * Each thread processes one entry from the old hash table. If the entry is valid,
+ * it re-hashes the key and inserts the `Celula` into the new table using linear probing
+ * and `atomicCAS` for thread-safe insertion.
+ */
 __global__ void reshapeAux(Celula *vect, Celula *newvect, int size, int newsize) {
 	unsigned int i = threadIdx.x + blockDim.x * blockIdx.x;
 	int j;
 	
+	// Each thread checks one cell from the old vector.
 	if (i < size && vect[i].cheie != 0) {
 		int cheie = vect[i].cheie;
 		
+		// Re-hash the key for the new table size and start linear probing.
 		int begin = dhash1(cheie, newsize), cc;
 		for (j = begin; j < newsize; j++){
 			
-			
+			// Attempt to atomically claim an empty slot.
 			cc = atomicCAS(&newvect[j].cheie, 0, cheie);
 			if (cc == 0){
 				
@@ -73,7 +118,7 @@ __global__ void reshapeAux(Celula *vect, Celula *newvect, int size, int newsize)
 			}
 		}
 		
-		
+		// If not inserted, wrap around and continue probing from the start.
 		for (j = 0; j < begin; j++) {
 			cc = atomicCAS(&newvect[j].cheie, 0, cheie);
 			if (cc == 0){
@@ -84,12 +129,19 @@ __global__ void reshapeAux(Celula *vect, Celula *newvect, int size, int newsize)
 	}
 }
 
-
+/**
+ * @brief Resizes the hash table to a new capacity.
+ * @param numBucketsReshape The new capacity of the hash table.
+ *
+ * This host function orchestrates the resize operation. It allocates a new `Celula`
+ * vector on the GPU and launches the `reshapeAux` kernel to re-hash the elements.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) {
 	if(numBucketsReshape <= 0)
 		exit(-1);
 	if(vect == NULL){
-		std::cerr << "null vect\n";
+		std::cerr << "null vect
+";
 		exit(-1);
 	}
 	int err;
@@ -99,12 +151,14 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 	
 	err = cudaMalloc(&newvect, numBucketsReshape * sizeof(Celula));
 	if (err != cudaSuccess || newvect == NULL){
-		std::cerr << "Memoria reshape\n";
+		std::cerr << "Memoria reshape
+";
 		exit(-1);
 	}
 	err = cudaMemset(newvect, 0, numBucketsReshape * sizeof(Celula));
 	if (err != cudaSuccess) {
-		std::cerr << "Memset reshape\n";
+		std::cerr << "Memset reshape
+";
 		exit(-1);
 	}
 
@@ -113,7 +167,8 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 	cudaDeviceSynchronize();
 	err = cudaFree(vect);
 	if (err != cudaSuccess) {
-		std::cerr <<size<< " free reshape\n";
+		std::cerr <<size<< " free reshape
+";
 		exit(-1);
 	}
 
@@ -124,7 +179,17 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 
 
 
-
+/**
+ * @brief CUDA kernel for inserting a batch of key-value pairs.
+ * @param sent_keys Pointer to the batch of keys to insert (on the device).
+ * @param sent_values Pointer to the batch of values to insert (on the device).
+ * @param vect The hash table's `Celula` array.
+ * @param nr The number of key-value pairs in the batch.
+ * @param size The total capacity of the hash table.
+ *
+ * Each thread handles one key-value pair, using linear probing and `atomicCAS`
+ * to find an empty slot or update an existing key.
+ */
 __global__ void insert(int *sent_keys, int *sent_values, Celula *vect, int nr, int size) {
 	unsigned int i = threadIdx.x + blockDim.x * blockIdx.x;
 	int j;
@@ -133,7 +198,9 @@ __global__ void insert(int *sent_keys, int *sent_values, Celula *vect, int nr, i
 		int key = sent_keys[i], cc; 
 		int begin = dhash1(key, size);
 
+		// Start linear probing from the hashed index.
 		for(j = begin; j < size; j++) {
+			// Atomically check if the slot is empty (0) or contains the same key.
 			cc = atomicCAS(&vect[j].cheie, 0, key);
 			if(cc == 0 || cc == key) {
 				vect[j].valoare = sent_values[i];
@@ -141,6 +208,7 @@ __global__ void insert(int *sent_keys, int *sent_values, Celula *vect, int nr, i
 			}
 		}
 		
+		// Wrap around and continue probing from the beginning.
 		for (j = 0; j < begin; j++) {
 			cc = atomicCAS(&vect[j].cheie, 0, key);
 			if (cc == 0 || cc == key) {
@@ -151,7 +219,18 @@ __global__ void insert(int *sent_keys, int *sent_values, Celula *vect, int nr, i
 	}
 }
 
-
+/**
+ * @brief CUDA kernel for retrieving a batch of values.
+ * @param sent_keys Pointer to the batch of keys to search for (on the device).
+ * @param vect The hash table's `Celula` array.
+ * @param nr The number of keys in the batch.
+ * @param size The total capacity of the hash table.
+ * @param ret_values Pointer to an array where the results will be stored.
+ *
+ * Each thread searches for one key using linear probing.
+ * @warning This kernel may enter an infinite loop if a key is not present in the table,
+ * as there is no stop condition for the search if the key is not found.
+ */
 __global__ void bashget(int *sent_keys, Celula *vect, int nr, int size, int *ret_values) {
 	unsigned int i = threadIdx.x + blockDim.x * blockIdx.x;
 	int j;
@@ -160,6 +239,7 @@ __global__ void bashget(int *sent_keys, Celula *vect, int nr, int size, int *ret
 		int key = sent_keys[i];
 		int begin = dhash1(key, size);
 
+		// Linearly probe for the key.
 		for (j = begin; j < size; j++) {
 			
 			if (key == vect[j].cheie) {
@@ -169,6 +249,7 @@ __global__ void bashget(int *sent_keys, Celula *vect, int nr, int size, int *ret
 			}
 		}
 		
+		// Wrap around and continue probing.
 		for(j = 0; j < begin; j++) {
 			if(key == vect[j].cheie) {
 				ret_values[i] = vect[j].valoare;
@@ -178,7 +259,16 @@ __global__ void bashget(int *sent_keys, Celula *vect, int nr, int size, int *ret
 	}
 }
 
-
+/**
+ * @brief Inserts a batch of key-value pairs into the hash table.
+ * @param keys Pointer to the host array of keys.
+ * @param values Pointer to the host array of values.
+ * @param numKeys The number of key-value pairs to insert.
+ * @return `true` if the insertion process was initiated successfully.
+ *
+ * This function handles host-to-device memory transfers, triggers a `reshape`
+ * if the load factor exceeds a threshold (0.9), and launches the `insert` kernel.
+ */
 bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	if (!keys || !values || numKeys <= 0)
 		return false;
@@ -187,28 +277,32 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 
 	err = cudaMalloc(&sent_keys, numKeys * sizeof(int));
 	if (err != cudaSuccess || sent_keys == NULL) {
-		std::cerr << "Memoria insert 1\n";
+		std::cerr << "Memoria insert 1
+";
 		exit(-1);
 	}
 	err = cudaMalloc(&sent_values, numKeys * sizeof(int));
 	if (err != cudaSuccess || sent_values == NULL){
-		std::cerr << "Memoria insert 2\n";
+		std::cerr << "Memoria insert 2
+";
 		exit(-1);
 	}
 
 	err = cudaMemcpy(sent_keys, keys, numKeys * sizeof(int), cudaMemcpyHostToDevice);
 	if (err != cudaSuccess){
-		std::cerr << "Memcpy insert\n";
+		std::cerr << "Memcpy insert
+";
 		exit(-1);
 	}
 	err = cudaMemcpy(sent_values, values, numKeys * sizeof(int), cudaMemcpyHostToDevice);
 	if (err != cudaSuccess){
-		std::cerr << "memcpy insert\n";
+		std::cerr << "memcpy insert
+";
 		exit(-1);
 	}
 	
 	
-	
+	// Check load factor and reshape if it exceeds the threshold.
 	int next = inserari + numKeys;
 	int newSize = (int) (next / 0.8);
 	if(((float)next) / size >= 0.9)
@@ -220,19 +314,28 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	inserari += numKeys;
 	err = cudaFree(sent_values);
 	if (err != cudaSuccess){
-		std::cerr << "free insert 1\n";
+		std::cerr << "free insert 1
+";
 		exit(-1);
 	}
 	err = cudaFree(sent_keys);
 	if (err != cudaSuccess){
-		std::cerr << "free insert 2\n";
+		std::cerr << "free insert 2
+";
 		exit(-1);
 	}
 	return true;
 }
 
 
-
+/**
+ * @brief Retrieves the values for a batch of keys.
+ * @param keys Pointer to the host array of keys to search for.
+ * @param numKeys The number of keys in the batch.
+ * @return A pointer to a host array containing the retrieved values.
+ *
+ * This function handles memory transfers and launches the `bashget` kernel.
+ */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	if (!keys || numKeys <= 0)
 		return NULL;
@@ -241,12 +344,14 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 
 	err = cudaMalloc(&sent_keys, numKeys * sizeof(int));
 	if (err != cudaSuccess || sent_keys == NULL){
-		std::cerr << "Memoria get\n";
+		std::cerr << "Memoria get
+";
 		exit(-1);
 	}
 	err = cudaMalloc(&ret_values, numKeys * sizeof(int));
 	if (err != cudaSuccess || ret_values == NULL){
-		std::cerr << "calloc get\n";
+		std::cerr << "calloc get
+";
 		exit(-1);
 	}
 	err = cudaMemset(ret_values, 0, numKeys * sizeof(int));
@@ -256,7 +361,8 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	}
 	err = cudaMemcpy(sent_keys, keys, numKeys * sizeof(int), cudaMemcpyHostToDevice);
 	if (err != cudaSuccess){
-		std::cerr << "memcpy get\n";
+		std::cerr << "memcpy get
+";
 		exit(-1);
 	}
 	Celula *vl = (Celula *)calloc(size, sizeof(Celula));
@@ -266,7 +372,8 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	cudaDeviceSynchronize();
 	err = cudaFree(sent_keys);
 	if (err != cudaSuccess){
-		std::cerr << "free get\n";
+		std::cerr << "free get
+";
 		exit(-1);
 	}
 
@@ -280,7 +387,10 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 }
 
 
-
+/**
+ * @brief Calculates the current load factor of the hash table.
+ * @return The load factor as a float.
+ */
 float GpuHashTable::loadFactor() {
 	if (size == 0)
 		return 0.f;
@@ -307,14 +417,14 @@ using namespace std;
 
 #define	KEY_INVALID		0
 
-#define DIE(assertion, call_description) \
-	do {	\
-		if (assertion) {	\
-		fprintf(stderr, "(%s, %d): ",	\
-		__FILE__, __LINE__);	\
-		perror(call_description);	\
-		exit(errno);	\
-	}	\
+#define DIE(assertion, call_description) 
+	do {	
+		if (assertion) {	
+		fprintf(stderr, "(%s, %d): ",	
+		__FILE__, __LINE__);	
+		perror(call_description);	
+		exit(errno);	
+	}	
 } while (0)
 	
 const size_t primeList[] =
@@ -365,7 +475,7 @@ const size_t primeList[] =
 
 
 
-
+// Alternative hash functions, not used in the current implementation.
 int hash1(int data, int limit) {
 	return ((long)abs(data) * primeList[64]) % primeList[90] % limit;
 }
@@ -380,7 +490,11 @@ int hash3(int data, int limit) {
 
 
 
-
+/**
+ * @brief Defines the structure for a hash table entry.
+ * 'cheie' is Romanian for 'key'.
+ * 'valoare' is Romanian for 'value'.
+ */
 typedef struct
 {
 	int cheie;
@@ -407,4 +521,3 @@ class GpuHashTable
 };
 
 #endif
-

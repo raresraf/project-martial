@@ -1,24 +1,15 @@
-/*
-58A
-Chat room
-Vasya has recently learned to type and log on to the Internet. He immediately
-entered a chat room and decided to say hello to everybody. Vasya typed the word
-s. It is considered that Vasya managed to say hello if several letters can be
-deleted from the typed word so that it resulted in the word "hello". For
-example, if Vasya types the word "ahhellllloou", it will be considered that he
-said hello, and if he types "hlelo", it will be considered that Vasya got
-misunderstood and he didn't manage to say hello. Determine whether Vasya managed
-to say hello by the given word s.
-
-Input
-The first and only line contains the word s, which Vasya typed. This word
-consisits of small Latin letters, its length is no less that 1 and no more than
-100 letters.
-
-Output
-If Vasya managed to say hello, print "YES", otherwise print "NO".
-*/
-/* Accepted 15 ms 2152 KB */
+/**
+ * @file 58A.CPP
+ * @brief Logic for subsequence detection in a noisy character sequence.
+ * 
+ * Logic: Determines if the target sequence "hello" exists as a subsequence within 
+ * an input string, meaning the characters 'h', 'e', 'l', 'l', 'o' appear in that 
+ * specific order, possibly with intermediate noise characters.
+ * 
+ * Algorithm: Two-pointer greedy subsequence matching.
+ * Time Complexity: $O(N)$ where N is the length of the input string.
+ * Space Complexity: $O(N)$ for string storage.
+ */
 
 #include <iostream>
 #include <string>
@@ -26,12 +17,25 @@ If Vasya managed to say hello, print "YES", otherwise print "NO".
 int main() {
   std::string inputStr, hello, outputStr;
   unsigned int i, j;
+  
+  // The target pattern to be identified within the source stream.
   hello = "hello";
+  // Default classification state (Failure).
   outputStr = "NO";
+  
   std::cin >> inputStr;
 
+  /**
+   * Block Logic: Single-pass scan of the input string to match the target pattern.
+   * Invariant: 'j' represents the current progress index in the "hello" sequence.
+   */
   for (i = j = 0; i < inputStr.length(); i++) {
+    // Logic: If the current character matches the expected character in the pattern.
     if (inputStr.at(i) == hello.at(j)) {
+      /**
+       * Functional Utility: Increments pattern pointer and checks for early termination 
+       * once all 5 characters are successfully identified in order.
+       */
       if (++j == 5) {
         outputStr = "YES";
         break;
@@ -39,6 +43,8 @@ int main() {
     }
   }
 
+  // Output the final classification based on the success of the pattern match.
   std::cout << outputStr << '\n';
+  
   return 0;
 }

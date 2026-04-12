@@ -1,67 +1,78 @@
-
 """
 This module implements a multi-threaded simulation of a distributed system of devices.
-
-This version uses a custom `ReusableBarrier` for synchronization and creates a new
-thread for each script to be executed.
+It features a custom two-phase reusable barrier for temporal synchronization and 
+a lazy initialization strategy for location-specific locks to ensure data consistency 
+during concurrent script execution.
 """
 
 from threading import Event, Thread, Lock, Semaphore
 
 class ReusableBarrier():
     """
-    A reusable barrier for synchronizing a fixed number of threads.
-
-    This barrier implementation uses a two-phase protocol to ensure that all
-    threads wait at the barrier before any of them are allowed to proceed.
+    A software-defined synchronization barrier designed for cyclic execution.
+    
+    Implements a two-phase (double-lock) protocol using semaphores to ensure that 
+    all threads reach the synchronization point before any are permitted to 
+    transition to the next cycle. This prevents threads from 'racing ahead' and 
+    re-entering the first phase of the next cycle before others have finished the 
+    current one.
     """
     def __init__(self, num_threads):
+        """
+        Args:
+            num_threads (int): Total number of participants in the synchronization.
+        """
         self.num_threads = num_threads
+        # State: Atomic counters for each phase.
         self.count_threads1 = [self.num_threads]
         self.count_threads2 = [self.num_threads]
         self.count_lock = Lock()
+        # Signaling: Semaphores to block threads until the arrival quota is met.
         self.threads_sem1 = Semaphore(0)
         self.threads_sem2 = Semaphore(0)
 
     def wait(self):
         """
-        Causes a thread to wait at the barrier until all threads have arrived.
+        Main synchronization entry point.
+        Blocks the calling thread through two distinct phases to ensure full participation.
         """
         self.phase(self.count_threads1, self.threads_sem1)
         self.phase(self.count_threads2, self.threads_sem2)
 
     def phase(self, count_threads, threads_sem):
         """
-        Implements one phase of the barrier.
+        Executes a single phase of the barrier protocol.
 
-        Args:
-            count_threads (list[int]): A list containing the count of remaining threads.
-            threads_sem (Semaphore): The semaphore to signal when all threads have arrived.
+        Logic: 
+        1. Decrement the local participant counter atomically.
+        2. If last thread to arrive, release the semaphore N times to wake all participants.
+        3. Reset the phase counter for the next simulation cycle.
         """
         with self.count_lock:
             count_threads[0] -= 1
             if count_threads[0] == 0:
+                # Release Block: Wake up all waiting threads simultaneously.
                 for i in range(self.num_threads):
                     threads_sem.release()
+                # Cycle Reset: Prepare state for the next timepoint.
                 count_threads[0] = self.num_threads
         threads_sem.acquire()
 
 class Device(object):
     """
-    Represents a device in the distributed system.
+    Represents a discrete computational node in the distributed environment.
     
-    Each device has an ID, sensor data, and can execute scripts. It runs in its
-    own thread and communicates with other devices.
+    Each device manages its own sensor data and can execute assigned logic scripts.
+    It utilizes a lazy lock discovery mechanism to share synchronization primitives 
+    with peer nodes that access the same physical data locations.
     """
 
     def __init__(self, device_id, sensor_data, supervisor):
         """
-        Initializes a Device.
-
         Args:
-            device_id (int): The unique identifier for the device.
-            sensor_data (dict): A dictionary of sensor data for the device.
-            supervisor (Supervisor): The supervisor object that manages the device.
+            device_id (int): Node identifier.
+            sensor_data (dict): Mapping of data location IDs to values.
+            supervisor: Registry for neighborhood discovery.
         """
         self.device_id = device_id
         self.sensor_data = sensor_data
@@ -71,32 +82,24 @@ class Device(object):
         self.devices = []
         self.timepoint_done = Event()
 
-
+        # Lifecycle: Spawns the main control thread for this node.
         self.thread = DeviceThread(self)
         self.barrier = None
         self.list_thread = []
         self.thread.start()
+        
+        # Concurrency control: Cache for location-specific data locks.
         self.location_lock = [None] * 100
 
     def __str__(self):
-        """
-        Returns a string representation of the device.
-        """
         return "Device %d" % self.device_id
 
     def setup_devices(self, devices):
         """
-        Sets up the device with a list of other devices in the system.
-
-        Initializes and shares a single barrier instance among all devices.
-
-        Args:
-            devices (list[Device]): A list of all devices in the system.
+        Bootstrap Logic: Initializes and distributes the global synchronization barrier.
+        Ensures all devices in the cluster reference the same ReusableBarrier instance.
         """
-        
         if self.barrier is None:
-
-
             barrier = ReusableBarrier(len(devices))
             self.barrier = barrier
             for device in devices:
@@ -109,74 +112,50 @@ class Device(object):
 
     def assign_script(self, script, location):
         """
-        Assigns a script to be executed by the device.
+        Task Enqueueing: Sets up a processing script for the current timepoint.
 
-        This method also handles the complex logic of sharing locks for specific
-        locations among devices.
-
-        Args:
-            script: The script to be executed.
-            location: The location associated with the script.
+        Lock Management: Implements a distributed lazy-initialization pattern.
+        If a lock for the requested 'location' doesn't exist locally, it searches 
+        neighboring devices to reuse their existing lock, ensuring that any two nodes 
+        accessing the same location are synchronized by the same Lock object.
         """
-
         ok = 0
         if script is not None:
             self.scripts.append((script, location))
+            # Block Logic: Distributed Lock Discovery.
             if self.location_lock[location] is None:
                 for device in self.devices:
                     if device.location_lock[location] is not None:
+                        # Shared reference: Sync with peers already tracking this location.
                         self.location_lock[location] = device.location_lock[location]
                         ok = 1
                         break
                 if ok == 0:
+                    # Origin: Create new lock if this is the first device to access the location.
                     self.location_lock[location] = Lock()
             self.script_received.set()
         else:
+            # Termination: Signals end of the current simulation step.
             self.timepoint_done.set()
 
     def get_data(self, location):
-        """
-        Retrieves sensor data from a specific location.
-
-        Args:
-            location: The location from which to retrieve data.
-
-        Returns:
-            The sensor data at the given location, or None if not found.
-        """
+        """Atomic access to local sensor state."""
         return self.sensor_data[location] if location in self.sensor_data else None
 
     def set_data(self, location, data):
-        """
-        Updates sensor data at a specific location.
-
-        Args:
-            location: The location to update.
-            data: The new data to be set.
-        """
+        """Atomic update of local sensor state."""
         if location in self.sensor_data:
             self.sensor_data[location] = data
 
     def shutdown(self):
-        """
-        Shuts down the device by joining its thread.
-        """
+        """Graceful termination of the control thread."""
         self.thread.join()
 
 class NewThread(Thread):
     """
-    A thread for executing a single script on a device.
+    Worker Thread: Executes a single algorithmic script on aggregated sensor data.
     """
     def __init__(self, device, location, script, neighbours):
-        """
-        Initializes the NewThread.
-
-        Args:
-            device (Device): The device executing the script.
-            location: The location associated with the script.
-            script: The script to execute.
-            neighbours (list[Device]): A list of neighboring devices.
-        """
         Thread.__init__(self)
         self.device = device
         self.location = location
@@ -185,14 +164,17 @@ class NewThread(Thread):
 
     def run(self):
         """
-        Executes the script.
-
-        It acquires a lock for the script's location, gathers data from
-        neighboring devices, runs the script, and then updates the data on all neighbors.
+        Execution Lifecycle:
+        1. Acquire the shared lock for the specific data location.
+        2. Pull current data from all topological neighbors.
+        3. Execute the script's logic.
+        4. Push resulting values back to neighbors and local storage.
         """
         script_data = []
+        # Critical Section: Ensure exclusive access to the distributed data location.
         self.device.location_lock[self.location].acquire()
         
+        # Block Logic: Data Aggregation.
         for device in self.neighbours:
             data = device.get_data(self.location)
             if data is not None:
@@ -202,58 +184,56 @@ class NewThread(Thread):
         if data is not None:
             script_data.append(data)
 
+        # Block Logic: Computation.
         if script_data != []:
-            
+            # Action: Transform the collected set of sensor readings.
             result = self.script.run(script_data)
             
+            # Action: Distributed state update.
             for device in self.neighbours:
                 device.set_data(self.location, result)
-                
             self.device.set_data(self.location, result)
+            
         self.device.location_lock[self.location].release()
 
 class DeviceThread(Thread):
     """
-    The main thread of execution for a Device.
+    Main Orchestrator: Manages the temporal progression of a single Node.
     """
 
     def __init__(self, device):
-        """
-        Initializes the DeviceThread.
-
-        Args:
-            device (Device): The device this thread belongs to.
-        """
         Thread.__init__(self, name="Device Thread %d" % device.device_id)
         self.device = device
 
     def run(self):
         """
-        The main loop of the device thread.
-
-        It waits for a timepoint to end, then creates and starts a new thread
-        for each assigned script. After all script threads have completed, it
-        synchronizes with other devices using a barrier.
+        Temporal Loop:
+        1. Poll for neighbor topology.
+        2. Wait for work assignment.
+        3. Execute assigned scripts in parallel.
+        4. Participate in the global synchronization barrier.
         """
         while True:
-            
             neighbours = self.device.supervisor.get_neighbours()
             if neighbours is None:
+                # Terminal condition: Supervisor signaled end of simulation.
                 break
 
+            # Wait Logic: Wait for the trigger to start processing the current timepoint.
             self.device.timepoint_done.wait()
 
-            
+            # Concurrency Logic: Parallel script execution.
             for (script, location) in self.device.scripts:
                 thread = NewThread(self.device, location, script, neighbours)
                 self.device.list_thread.append(thread)
 
+            # Execution Barrier (Local): Join all internal workers before moving to global sync.
             for thread_elem in self.device.list_thread:
                 thread_elem.start()
             for thread_elem in self.device.list_thread:
                 thread_elem.join()
             self.device.list_thread = []
 
-            
+            # Global Synchronization: Align with the entire network before starting next iteration.
             self.device.timepoint_done.clear()
             self.device.barrier.wait()

@@ -1,7 +1,21 @@
+/**
+ * @file 158A.CPP
+ * @brief Logic for qualification counting in a competitive programming context.
+ * 
+ * Logic: Calculates the number of participants who qualify for the next round. 
+ * Advancement is contingent on meeting or exceeding the score of the k-th 
+ * rank finisher, provided the score is strictly positive.
+ * 
+ * Algorithm: Single-pass scan with threshold filtering.
+ * Time Complexity: $O(N)$ where N is the participant count.
+ * Space Complexity: $O(N)$ for the score buffer.
+ */
+
 #include <bits/stdc++.h>
 #include <ext/pb_ds/assoc_container.hpp>
 #include <ext/pb_ds/tree_policy.hpp>
 
+// Functional Utility: Redefines standard integer to 64-bit for precision safety.
 #define int long long
 #define ld long double
 #define mod 1000000007
@@ -27,6 +41,10 @@
 #define sot(v) sort(v.begin(), v.end())
 #define maxheap priority_queue<int>
 #define mp make_pair
+
+/**
+ * Functional Utility: Decouples C++ and C streams for high-throughput I/O optimization.
+ */
 #define fast_io()                                                              \
   cin.sync_with_stdio(false);                                                  \
   cout.sync_with_stdio(false);
@@ -68,16 +86,33 @@ inline int sub(int a, int b, int m = mod) { return (a - b + m) % m; }
 int32_t main() {
   fast_io();
   int n, k;
+  // Functional Utility: Reads total headcount and target qualification rank.
   cin >> n >> k;
-  int a[n];
+  
+  // Data Structure: Sequence of participant scores (1-based indexing used in logic).
+  int a[n + 1];
   int c = 0;
   for (int i = 1; i <= n; i++) {
     cin >> a[i];
   }
-  int re = a[k];
+
+  /**
+   * Functional Utility: Extracts the reference score benchmark from rank k.
+   */
+  int reference_score = a[k];
+
+  /**
+   * Block Logic: Evaluates participants against the dual advancement constraints.
+   * Condition 1: Score must be greater than or equal to the reference benchmark.
+   * Condition 2: Score must be strictly positive.
+   */
   for (int i = 1; i <= n; i++) {
-    if (a[i] >= re && a[i] > 0)
+    if (a[i] >= reference_score && a[i] > 0)
       c++;
   }
+  
+  // Output: Total count of qualified individuals.
   cout << c << endl;
+  
+  return 0;
 }

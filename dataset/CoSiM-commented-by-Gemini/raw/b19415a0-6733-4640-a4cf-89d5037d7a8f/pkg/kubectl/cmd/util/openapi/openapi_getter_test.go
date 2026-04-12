@@ -14,6 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package openapi_test validates the behavior of the OpenAPI client components.
+// It focuses on ensuring that schema retrieval is efficient, idempotent, and 
+// correctly handles both transient and terminal server states.
 package openapi_test
 
 import (
@@ -26,11 +29,15 @@ import (
 	tst "k8s.io/kubernetes/pkg/kubectl/cmd/util/openapi/testing"
 )
 
+// Describe block for testing the resource retrieval logic.
+// Focus: Validation of the lazy-loading and memoization pattern implemented in openapi.Getter.
 var _ = Describe("Getting the Resources", func() {
 	var client *tst.FakeClient
 	var expectedData openapi.Resources
 	var instance openapi.Getter
 
+	// Setup: Orchestrates the test environment before each specification.
+	// Logic: Pre-parses a fake schema and wraps a stateful mock client with the target getter.
 	BeforeEach(func() {
 		client = tst.NewFakeClient(&fakeSchema)
 		d, err := fakeSchema.OpenAPISchema()
@@ -42,35 +49,50 @@ var _ = Describe("Getting the Resources", func() {
 		instance = openapi.NewOpenAPIGetter(client)
 	})
 
+	// Context: Happy-path scenario for schema acquisition.
 	Context("when the server returns a successful result", func() {
+		// Specification: Verifies the internal memoization/caching mechanism.
+		// Invariant: The backend client should only be invoked once, regardless of 
+		// how many times the getter's public Get() method is called.
 		It("should return the same data for multiple calls", func() {
+			// Pre-condition: No calls made yet.
 			Expect(client.Calls).To(Equal(0))
 
+			// Action: First retrieval triggers network simulation.
 			result, err := instance.Get()
 			Expect(err).To(BeNil())
 			Expect(result).To(Equal(expectedData))
 			Expect(client.Calls).To(Equal(1))
 
+			// Action: Second retrieval should hit the internal cache.
 			result, err = instance.Get()
 			Expect(err).To(BeNil())
 			Expect(result).To(Equal(expectedData))
-			// No additional client calls expected
+			
+			// Verification: Client call count remains 1, confirming memoization.
 			Expect(client.Calls).To(Equal(1))
 		})
 	})
 
+	// Context: Error-handling scenario for schema acquisition.
 	Context("when the server returns an unsuccessful result", func() {
+		// Specification: Verifies consistency in error propagation and caching.
+		// Logic: If the first call fails, subsequent calls should not re-attempt 
+		// the request if the implementation caches the failure state.
 		It("should return the same instance for multiple calls.", func() {
 			Expect(client.Calls).To(Equal(0))
 
+			// Fault Injection: Simulate a server-side or connection error.
 			client.Err = fmt.Errorf("expected error")
 			_, err := instance.Get()
 			Expect(err).To(Equal(client.Err))
 			Expect(client.Calls).To(Equal(1))
 
+			// Action: Repeat call.
 			_, err = instance.Get()
 			Expect(err).To(Equal(client.Err))
-			// No additional client calls expected
+			
+			// Verification: Ensures the error state is also handled idempotently.
 			Expect(client.Calls).To(Equal(1))
 		})
 	})

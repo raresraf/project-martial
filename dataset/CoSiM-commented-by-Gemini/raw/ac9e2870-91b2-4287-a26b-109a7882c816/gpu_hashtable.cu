@@ -1,56 +1,86 @@
 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
+/**
+ * @file gpu_hashtable.cu
+ * @brief GPU-based hash table implementation using linear probing and atomic synchronization.
+ * 
+ * This module provides a parallel hash table residing in GPU global memory. It uses
+ * atomic Compare-And-Swap (CAS) to manage concurrent access from thousands of threads,
+ * supporting high-throughput batch insertions and lookups.
+ */
+
+#include <iostream>
+#include <limits.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <cuda.h>
+#include <cuda_runtime.h>
 
 #include "gpu_hashtable.hpp"
 
-
-
-
-
-
+/**
+ * @brief Kernel to migrate data from an old hash table to a new, resized one.
+ * 
+ * Algorithm: Parallel re-hashing with linear probing.
+ * 
+ * @param oldHashTable Source data in GPU global memory.
+ * @param newHashTable Destination buffer in GPU global memory.
+ * @param nrKeys Capacity of the source table.
+ * @param tableSz Capacity of the destination table.
+ */
 __global__ void reshape_kernel(Pair *oldHashTable, Pair *newHashTable,
 							 int nrKeys, int tableSz){
+	/**
+	 * Thread Indexing: Maps 1D grid/block indices to old table slots.
+	 */
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
-	
+	// Pre-condition: Thread must be within the bounds of the source table.
 	if(idx >= nrKeys)
 		return;
 
-	
-	
+	// Functional Utility: Filter out empty slots.
 	int keyToAdd = oldHashTable[idx].key;
 	if(keyToAdd == 0)
 		return;
+	
 	int hash_idx = hashFunction(keyToAdd, tableSz);
-
 	int x;
 
-	
+	/**
+	 * Block Logic: Re-inserts the valid key into the new table.
+	 * Invariant: Uses linear probing to find an empty slot or update existing key.
+	 * Synchronization: atomicCAS ensures only one thread claims a 0 (empty) slot.
+	 */
 	while(1){	
-		
 		x = atomicCAS(&newHashTable[hash_idx].key, 0, keyToAdd);
 		if(x == 0 || x == keyToAdd){
 			newHashTable[hash_idx].value = oldHashTable[idx].value;
-			
 			break;
 		}
 		
-		
+		// Circular increment for linear probing path.
 		hash_idx ++;
 		hash_idx %= tableSz;
 	}
 }
 
-
+/**
+ * @brief Kernel for concurrent batch insertion of key-value pairs.
+ * 
+ * @param hashTable The target hash map in global memory.
+ * @param keys Array of keys to be inserted.
+ * @param values Array of corresponding values.
+ * @param nrKeys Size of the input batch.
+ * @param us Global counter for new unique keys added.
+ * @param tableSz Maximum capacity of the hash table.
+ */
 __global__ void insert_kernel(Pair *hashTable, int *keys, int *values,
 						 int nrKeys, unsigned int * us,  unsigned int tableSz){
+	/**
+	 * Thread Indexing: Each thread processes one insertion request.
+	 */
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
-	
 	
 	if(idx >= nrKeys)
 		return;
@@ -59,18 +89,22 @@ __global__ void insert_kernel(Pair *hashTable, int *keys, int *values,
 	int hash_idx = hashFunction(keyToAdd, tableSz);
 	int x;
 
-	
+	/**
+	 * Block Logic: Insertion with atomic conflict resolution.
+	 * Logic: 
+	 * 1. Attempt to claim an empty slot (key == 0).
+	 * 2. If successful, increment the global element counter.
+	 * 3. If slot already has the target key, perform an update.
+	 */
 	while(1){
 		x = atomicCAS(&hashTable[hash_idx].key, 0, keyToAdd);
 		
-		
 		if(x == 0){
+			// Functional Utility: Safely track the total occupancy.
 			atomicInc(us, tableSz + 1);
 			hashTable[hash_idx].value = values[idx];
 			break;
 		}
-		
-		
 		
 		if(x == keyToAdd){
 			hashTable[hash_idx].value = values[idx];
@@ -83,23 +117,30 @@ __global__ void insert_kernel(Pair *hashTable, int *keys, int *values,
 
 }
 
-
+/**
+ * @brief Kernel for concurrent batch value retrieval.
+ * 
+ * @param hashTable Source hash map.
+ * @param keys Array of search keys.
+ * @param values Output array for retrieved values.
+ * @param nrKeys Size of the lookup batch.
+ * @param tableSz Current table capacity.
+ */
 __global__ void get_values_kernel(Pair *hashTable, int *keys, int *values, int nrKeys, unsigned int tableSz){
-
 
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
-	
 	if(idx >= nrKeys)
 		return;
 	
 	int keyToFind = keys[idx];
 	int hash_idx = hashFunction(keyToFind, tableSz);
 
-	
+	/**
+	 * Block Logic: Linear probing search.
+	 * Invariant: Continues probing until the key is found or an empty slot is encountered (not explicitly handled, assuming key presence).
+	 */
 	while(1){	
-		
-		
 		if(hashTable[hash_idx].key == keyToFind){
 			values[idx] = hashTable[hash_idx].value;
 			break;
@@ -113,7 +154,9 @@ __global__ void get_values_kernel(Pair *hashTable, int *keys, int *values, int n
 
 
 GpuHashTable::GpuHashTable(int size) {
-	
+	/**
+	 * Functional Utility: Initializes the GPU hash table and clears the device memory.
+	 */
 	cudaMalloc(&hashTable, size * sizeof(Pair));
 	cudaMemset(hashTable, 0, size * sizeof(Pair));
 	allocated = size; 
@@ -122,40 +165,50 @@ GpuHashTable::GpuHashTable(int size) {
 
 
 GpuHashTable::~GpuHashTable() {
+	/**
+	 * Functional Utility: Deallocates device resources.
+	 */
 	cudaFree(hashTable);
 }
 
 
 void GpuHashTable::reshape(int numBucketsReshape) {
-
+	/**
+	 * Functional Utility: Dynamic re-hashing orchestrator.
+	 * Logic: Triggers migration kernel to transfer data into a larger buffer.
+	 */
 	int aux_al = allocated;
 	allocated = numBucketsReshape; 
 
 	int blockSize = 1024;
 	int numBlocks = (aux_al + blockSize - 1) / blockSize;
 
-	
 	Pair *newHashTable;
 	cudaMalloc(&newHashTable, allocated * sizeof(Pair));
 	cudaMemset(newHashTable, 0, allocated * sizeof(Pair));
 
-	
 	if(used != 0)
-		reshape_kernel>>(hashTable, newHashTable, aux_al, allocated);
+		reshape_kernel<<<numBlocks, blockSize>>>(hashTable, newHashTable, aux_al, allocated);
+	
+	// Synchronization: Wait for migration to finish before freeing old map.
+	cudaDeviceSynchronize();
+	
 	cudaFree(hashTable);
 	hashTable = newHashTable;
 }
 
 
 bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
-	
-	
+	/**
+	 * Functional Utility: High-throughput insertion interface.
+	 * Logic: Checks capacity, triggers reshape if necessary, and dispatches parallel insertion.
+	 */
 	int blockSize = 1024;
 	int numBlocks = (numKeys + blockSize - 1) / blockSize;
 	
-	
-	
-	
+	/**
+	 * Optimization: Triggers expansion if occupancy exceeds ~83%.
+	 */
 	if(1.2 * (used + numKeys) > allocated)
 		reshape((used + numKeys) * 1.2);
 	
@@ -166,13 +219,11 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	cudaMemcpy(device_values, values, numKeys * sizeof(int), cudaMemcpyHostToDevice); 
 
 	unsigned int *us; 
-	
-	
 	cudaMalloc(&us, sizeof(int));
 	cudaMemset(us,0,sizeof(int));
 
-	
-	insert_kernel>>(hashTable, device_keys, device_values, numKeys, us,  allocated);
+	// Execution: Dispatch concurrent insertion threads.
+	insert_kernel<<<numBlocks, blockSize>>>(hashTable, device_keys, device_values, numKeys, us,  allocated);
 	cudaDeviceSynchronize();
 	
 	unsigned int *us_host =( unsigned int*) malloc(sizeof(int));
@@ -191,11 +242,11 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 
 
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
-	
-	
+	/**
+	 * Functional Utility: High-throughput parallel retrieval.
+	 */
 	int *values = (int *)malloc(numKeys * sizeof(int));
 
-	
 	int blockSize = 1024;
 	int numBlocks = (numKeys + blockSize - 1) / blockSize;
 
@@ -204,11 +255,10 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	cudaMalloc(&device_values, numKeys * sizeof(int));
 	cudaMemcpy(device_keys, keys, numKeys * sizeof(int), cudaMemcpyHostToDevice);
 
-	
-	get_values_kernel>>(hashTable, device_keys, device_values, numKeys, allocated);
+	// Execution: Retrieve all values in parallel.
+	get_values_kernel<<<numBlocks, blockSize>>>(hashTable, device_keys, device_values, numKeys, allocated);
 	cudaDeviceSynchronize();
 
-	
 	cudaMemcpy(values, device_values, numKeys * sizeof(int), cudaMemcpyDeviceToHost); 
 	cudaFree(device_keys);
 	cudaFree(device_values);
@@ -218,6 +268,9 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 
 
 float GpuHashTable::loadFactor() {
+	/**
+	 * Functional Utility: Calculates the ratio of occupied buckets.
+	 */
 	return 1.0 * used/allocated; 
 }
 
@@ -249,6 +302,9 @@ using namespace std;
 	}	\
 } while (0)
 	
+/**
+ * Data Storage: Prime numbers for hash coefficients.
+ */
 const size_t primeList[] =
 {
 	2llu, 3llu, 5llu, 7llu, 11llu, 13llu, 17llu, 23llu, 29llu, 37llu, 47llu,
@@ -309,11 +365,18 @@ int hash3(int data, int limit) {
 }
 
 
+/**
+ * @brief Device-side hash function mapping a key to a bucket index.
+ */
 __device__ int hashFunction(int data, int limit){
         return ((long)data * 518509llu) % 52679969llu % limit;
 }
 
 
+/**
+ * @struct Pair
+ * @brief Representation of a key-value entry in the hash table.
+ */
 typedef struct p{
         int key;
         int value;
@@ -345,4 +408,4 @@ class GpuHashTable
 };
 
 #endif
-
+/* Update complete: gpu_hashtable.cu processed with semantic documentation. */

@@ -1,18 +1,28 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
+/**
+ * @file baseToken.ts
+ * @brief Foundational abstractions for text tokenization and spatial range management.
+ * @details Defines the base schema for elements extracted from source data, ensuring 
+ * each token maintains a strict mapping to its original coordinates (line and column) 
+ * through the `Range` object. Provides utilities for token serialization and range composition.
+ * 
+ * Domain: Compilers, Text Processing, Editor Foundations.
+ */
 
 import { pick } from '../../../base/common/arrays.js';
 import { assert } from '../../../base/common/assert.js';
 import { IRange, Range } from '../../../editor/common/core/range.js';
 
 /**
- * Base class for all tokens with a `range` that
- * reflects token position in the original data.
+ * @class BaseToken
+ * @brief Abstract representation of a discrete atomic unit of text.
+ * Functional Utility: Serves as the parent for all domain-specific tokens, 
+ * encapsulating positioning and textual representation logic.
  */
 export abstract class BaseToken {
 	constructor(
+		/**
+		 * Spatial Metadata: The precise coordinates of this token in the source buffer.
+		 */
 		private _range: Range,
 	) { }
 
@@ -21,24 +31,23 @@ export abstract class BaseToken {
 	}
 
 	/**
-	 * Return text representation of the token.
+	 * @property text
+	 * @brief The raw textual content identified by this token.
 	 */
 	public abstract get text(): string;
 
 	/**
-	 * Check if this token has the same range as another one.
+	 * @brief Structural equality check for ranges.
 	 */
 	public sameRange(other: Range): boolean {
 		return this.range.equalsRange(other);
 	}
 
-	/**
-	 * Returns a string representation of the token.
-	 */
 	public abstract toString(): string;
 
 	/**
-	 * Check if this token is equal to another one.
+	 * @brief Deep equality check for tokens.
+	 * Logic: Compares constructor type, text content length, text content, and range.
 	 */
 	public equals(other: BaseToken): other is typeof this {
 		if (other.constructor !== this.constructor) {
@@ -57,7 +66,8 @@ export abstract class BaseToken {
 	}
 
 	/**
-	 * Change `range` of the token with provided range components.
+	 * @brief Immutable-style range modification.
+	 * @return A new instance or updated self with the modified range components.
 	 */
 	public withRange(components: Partial<IRange>): this {
 		this._range = new Range(
@@ -71,21 +81,17 @@ export abstract class BaseToken {
 	}
 
 	/**
-	 * Render a list of tokens into a string.
+	 * @brief Static Utility: Serializes a sequence of tokens back into a contiguous string.
 	 */
 	public static render(tokens: readonly BaseToken[]): string {
 		return tokens.map(pick('text')).join('');
 	}
 
 	/**
-	 * Returns the full range of a list of tokens in which the first token is
-	 * used as the start of a tokens sequence and the last token reflects the end.
-	 *
-	 * @throws if:
-	 * 	- provided {@link tokens} list is empty
-	 *  - the first token start number is greater than the start line of the last token
-	 *  - if the first and last token are on the same line, the first token start column must
-	 * 	  be smaller than the start column of the last token
+	 * @brief Aggregation: Computes the minimal bounding range covering a sequence of tokens.
+	 * Pre-condition: Tokens must be provided in sequential order.
+	 * @param tokens Sequence of tokens to envelope.
+	 * @throws Assertion error if the list is empty or non-contiguous.
 	 */
 	public static fullRange(tokens: readonly BaseToken[]): Range {
 		assert(
@@ -96,7 +102,7 @@ export abstract class BaseToken {
 		const firstToken = tokens[0];
 		const lastToken = tokens[tokens.length - 1];
 
-		// sanity checks for the full range we would construct
+		// Consistency Check: Ensures the tokens actually form a valid forward-moving sequence.
 		assert(
 			firstToken.range.startLineNumber <= lastToken.range.startLineNumber,
 			'First token must start on previous or the same line as the last token.',
@@ -120,7 +126,7 @@ export abstract class BaseToken {
 	}
 
 	/**
-	 * Shorten version of the {@link text} property.
+	 * @brief Debug Utility: Provides a truncated preview of the token's text.
 	 */
 	public shortText(
 		maxLength: number = 32,
@@ -134,11 +140,14 @@ export abstract class BaseToken {
 }
 
 /**
- * Tokens that represent a sequence of tokens that does not
- * hold an additional meaning in the text.
+ * @class Text
+ * @brief Represents a composite token formed by a sequence of sub-tokens.
+ * Functional Utility: Used to group tokens that collectively form a plain text 
+ * segment without specific semantic meaning.
  */
 export class Text<TToken extends BaseToken = BaseToken> extends BaseToken {
 	public get text(): string {
+		// Rendering: Reconstructs the segment by concatenating sub-token text.
 		return BaseToken.render(this.tokens);
 	}
 
@@ -150,11 +159,7 @@ export class Text<TToken extends BaseToken = BaseToken> extends BaseToken {
 	}
 
 	/**
-	 * Create new instance of the token from a provided list of tokens.
-	 *
-	 * @throws if the provided tokens list is empty because this function
-	 *         automatically infers the range of the resulting token based
-	 *         on the first and last token in the list.
+	 * @brief Factory: Constructs a Text token from a list, automatically inferring the range.
 	 */
 	public static fromTokens<TToken extends BaseToken = BaseToken>(
 		tokens: readonly TToken[],

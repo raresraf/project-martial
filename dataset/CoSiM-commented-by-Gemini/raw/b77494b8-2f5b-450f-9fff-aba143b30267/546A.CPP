@@ -1,3 +1,15 @@
+/**
+ * @file 546A.CPP
+ * @brief Solution for the 'Soldier and Bananas' problem.
+ * 
+ * Algorithm: Closed-form arithmetic series summation.
+ * The problem requires calculating the total cost of buying 'w' bananas, where
+ * the i-th banana costs (i * k) dollars. This is an arithmetic progression.
+ * 
+ * Time Complexity: $O(1)$ due to the mathematical formula.
+ * Space Complexity: $O(1)$ as it only uses a constant amount of extra memory.
+ */
+
 // Igorjan94, template version from 19 March 2015
 #include <bits/stdc++.h>
 
@@ -95,12 +107,27 @@ vector<string> split(const string &s, char c) {
 ///-------------------------------------------------------------------------------------------------------------------------------------
 // Igorjan
 
+/**
+ * @brief Core execution logic for the problem.
+ * Input:
+ *  k: Cost of the first banana.
+ *  n: Initial amount of money the soldier has.
+ *  w: Number of bananas the soldier wants to buy.
+ */
 void run() {
   ints(k, n, w);
+  /**
+   * Formula: Total cost = k + 2k + 3k + ... + wk = k * (1 + 2 + 3 + ... + w).
+   * The sum of first 'w' integers is w*(w+1)/2.
+   * Final result: Borrow amount = max(0, total_cost - initial_money).
+   */
   writeln(max(0ll, k * 1ll * w * (w + 1) / 2 - n));
 }
 
 int main() {
+  /**
+   * Functional Utility: Optimizes standard I/O for faster processing.
+   */
 #ifndef ONLINE_JUDGE
   double time = clock();
 #endif

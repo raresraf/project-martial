@@ -1,9 +1,25 @@
+/**
+ * @file 266B.CPP
+ * @brief Discrete-time simulation of queue reordering based on local adjacency rules.
+ * 
+ * Logic: Simulates a queue where entities of type 'B' move behind entities of 
+ * type 'G' if they are adjacent. Each time-step 't' allows each 'B' to migrate 
+ * at most one position.
+ * 
+ * Algorithm: Iterative single-pass swap simulation.
+ * Time Complexity: $O(T \times N)$ where T is the simulation duration and N is the queue length.
+ * Space Complexity: $O(N)$ for the character sequence buffer.
+ */
+
 #include <bits/stdc++.h>
 using namespace std;
+
 typedef long long ll;
 typedef pair<ll, ll> pii;
 typedef pair<double, ll> pdl;
 typedef vector<ll> vll;
+
+// Functional Utility: Standardized competitive programming macros for I/O and loops.
 #define ff first
 #define ss second
 #define pb(x) push_back()
@@ -23,6 +39,11 @@ const ll INF = (ll)1e18;
 #define FOR(i, j, n) for (ll i = j; i < n; i++)
 #define ig cin.ignore()
 #define fast_cin ios_base::sync_with_stdio(false)
+
+/**
+ * @brief Functional Utility: Modular exponentiation.
+ * Note: Not utilized in the core queue logic but present in the source.
+ */
 ll power(ll a, ll b) {
   ll ret = 1;
   while (b) {
@@ -37,32 +58,43 @@ ll power(ll a, ll b) {
   }
   return ret;
 }
-ll inv(ll x) { return power(x, mod - 2); }
-#define run(m) for (auto it = m.begin(); it != m.end(); it++)
-/*---------------------------------------------------------//
-const int MAXM = 1e7+3010;   ll fact[MAXM];
-void factorial(){ fact[0]=1;FOR(i,1,MAXM) fact[i]=(fact[i-1]*i)%mod;}
-ll nCr(ll n,ll r){return
-((fact[n])*(((inv(fact[r]))*(inv(fact[n-r])))%mod))%mod;}
-// freopen("Task.in","r",stdin);freopen("Task.out","w",stdout);
-//-------------------------------------------------------------------/*/
 
 int main() {
+  /**
+   * Functional Utility: Optimizes standard I/O throughput.
+   */
   fast_cin;
 
   ll n, t;
-  cin >> n >> t;
+  // Reads total headcount (n) and temporal limit (t).
+  if (!(cin >> n >> t)) return 0;
+  
   string s;
   cin >> s;
 
+  /**
+   * Block Logic: Orchestrates the temporal progression of the simulation.
+   * Invariant: Each while loop iteration represents one discrete time unit.
+   */
   while (t--) {
-
-    FOR(i, 0, n - 1) {
+    /**
+     * Block Logic: Performs a single-pass sweep to resolve priority inversions.
+     * Logic: Identifies 'B' preceding 'G' and performs a local state transition (swap).
+     */
+    for (ll i = 0; i < n - 1; i++) {
       if (s[i] == 'B' && s[i + 1] == 'G') {
         swap(s[i], s[i + 1]);
+        /**
+         * Inline: Skips the next index to prevent a single 'B' from migrating 
+         * through multiple 'G's in a single time step (atomic movement).
+         */
         i++;
       }
     }
   }
+  
+  // Output the final state of the queue sequence.
   cout << s << "\n";
+  
+  return 0;
 }

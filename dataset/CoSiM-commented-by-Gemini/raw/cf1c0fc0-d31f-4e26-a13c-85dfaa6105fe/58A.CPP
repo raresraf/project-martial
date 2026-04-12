@@ -1,3 +1,28 @@
+/**
+ * @file 58A.CPP
+ * @brief Solution for Codeforces Problem 58A - "Chat room".
+ * @author The solution is submitted by a competitive programmer (Mehul Chaturvedi).
+ *
+ * @section Algorithm
+ * The problem is to determine if the string "hello" exists as a subsequence within a
+ * given input string. This means the characters 'h', 'e', 'l', 'l', 'o' must appear
+ * in the correct order, but not necessarily contiguously.
+ *
+ * The implemented algorithm uses a brute-force approach with five nested loops. Each
+ * loop searches for the next character of "hello" in the substring that follows the
+ * previously found character.
+ *
+ * @section Complexity
+ * - Time Complexity: O(L), where L is the length of the input string. Despite the
+ *   five nested loops, each character of the input string is visited only a small,
+ *   constant number of times. The algorithm is effectively a single linear scan.
+ * - Space Complexity: O(L) to store the input string.
+ *
+ * @note This file contains a large amount of boilerplate code (macros, type aliases,
+ * custom hash functions, etc.) typical of competitive programming templates. Most of
+ * this code is not used for solving this specific problem.
+ */
+
 /*
 
                 Name: Mehul Chaturvedi
@@ -14,6 +39,11 @@
 #include <ext/pb_ds/tree_policy.hpp>
 using namespace std;
 using namespace __gnu_pbds;
+
+// --- Boilerplate and Unused Code Section ---
+// The following is a large collection of pre-written templates, macros, and
+// utility functions for competitive programming. These are not used in this solution.
+
 template <typename T>
 using ordered_set =
     tree<T, null_type, less<T>, rb_tree_tag, tree_order_statistics_node_update>;
@@ -43,12 +73,10 @@ typedef unordered_set<int> useti;
 #define all(x) (x).begin(), (x).end()
 #define f first
 #define s second
-
 #define INF 4557430888798830399ll
 #define MOD 1000000007
 #define EPS 1e-7
 #define PI acos(-1)
-
 #define sz(x) (int)(x).size()
 template <typename T, typename U> inline bool exist(T &cont, U &val) {
   return cont.find(val) != cont.end();
@@ -58,11 +86,12 @@ template <typename T, typename U> inline bool exist(T &cont, U &val) {
 #define repr(i, n) for (int i = n; i >= 0; i--)
 #define frr(i, a, b) for (int i = (a), _b = (b); i >= _b; i--)
 #define trav(a, x) for (auto &a : x)
-#define fil(ar, val)                                                           \
-  memset(ar, val,                                                              \
-         sizeof(ar)) // 0x3f for inf, 0x80 for -INF can also use with pairs
+#define fil(ar, val)                                                           
+  memset(ar, val,                                                              
+         sizeof(ar))
 
 #ifdef mehul
+// Debugging templates
 template <typename T> void __p(T a) { cout << a << " "; }
 template <typename T> void __p(std::vector<T> a) {
   cout << "{ ";
@@ -107,36 +136,29 @@ void __f(const char *names, Arg1 &&arg1, Args &&...args) {
   cout << "| ";
   __f(comma + 1, args...);
 }
-#define trace(...)                                                             \
-  cout << "Line:" << __LINE__ << " ";                                          \
+#define trace(...)                                                             
+  cout << "Line:" << __LINE__ << " ";                                          
   __f(#__VA_ARGS__, __VA_ARGS__)
 int begtime = clock();
-#define end_routine()                                                          \
-  cout << "\n\nTime elapsed: " << fixed                                        \
-       << double(clock() - begtime) * 1000 / CLOCKS_PER_SEC                    \
-       << setprecision(12) << " ms\n\n";
+#define end_routine()                                                          
+  cout << "
+
+Time elapsed: " << fixed                                        
+       << double(clock() - begtime) * 1000 / CLOCKS_PER_SEC                    
+       << setprecision(12) << " ms
+
+";
 #else
-#define endl '\n'
+#define endl '
+'
 #define trace(...)
 #define end_routine()
 #endif
 
-/*
-Using of set
-O(log(n))
 
-ordered_set<int>  s;
-s.insert(1);
-s.insert(3);
-cout << s.order_of_key(2) << endl; // the number of elements in the s less than
-2 cout << *s.find_by_order(0) << endl; // print the 0-th smallest number in
-s(0-based)
-*/
-
-// Custom hash for unordered map
+// (Unused) Custom hash for unordered_map
 struct custom_hash {
   static uint64_t splitmix64(uint64_t x) {
-    // http://xorshift.di.unimi.it/splitmix64.c
     x += 0x9e3779b97f4a7c15;
     x = (x ^ (x >> 30)) * 0xbf58476d1ce4e5b9;
     x = (x ^ (x >> 27)) * 0x94d049bb133111eb;
@@ -150,7 +172,7 @@ struct custom_hash {
   }
 };
 
-// Power Function O(log(n))
+// (Unused) Modular exponentiation
 ll poww(ll a, ll b, ll mod) {
   if (b == 0)
     return 1;
@@ -160,56 +182,86 @@ ll poww(ll a, ll b, ll mod) {
   return (((ans * ans) % mod) * a) % mod;
 }
 
+/**
+ * @brief Solves the "Chat room" problem.
+ */
 void solve() {
   string s;
   cin >> s;
 
   ll n = s.size();
+
+  // Block Logic: This series of nested loops implements a state machine to find
+  // the subsequence "hello". Each level of nesting corresponds to finding the
+  // next character in the target word.
+  
+  // State 1: Find 'h'
   rep(i, n) {
     if (s[i] == 'h') {
+      // State 2: Find 'e' after 'h'
       fr(j, i + 1, n - 1) {
         if (s[j] == 'e') {
+          // State 3: Find first 'l' after 'e'
           fr(k, j + 1, n - 1) {
             if (s[k] == 'l') {
+              // State 4: Find second 'l' after first 'l'
               fr(l, k + 1, n - 1) {
                 if (s[l] == 'l') {
+                  // State 5: Find 'o' after second 'l'
                   fr(o, l + 1, n - 1) {
                     if (s[o] == 'o') {
-                      cout << "YES" << '\n';
+                      // Subsequence found, print "YES" and terminate.
+                      cout << "YES" << '
+';
                       return;
                     }
                   }
-                  cout << "NO" << '\n';
+                  // If 'o' is not found after the second 'l', the subsequence is impossible.
+                  cout << "NO" << '
+';
                   return;
                 }
               }
-              cout << "NO" << '\n';
+              // If second 'l' is not found...
+              cout << "NO" << '
+';
               return;
             }
           }
-          cout << "NO" << '\n';
+          // If first 'l' is not found...
+          cout << "NO" << '
+';
           return;
         }
       }
-      cout << "NO" << '\n';
+      // If 'e' is not found...
+      cout << "NO" << '
+';
       return;
     }
   }
 
-  cout << "NO" << '\n';
+  // If 'h' is never found in the first place.
+  cout << "NO" << '
+';
   return;
 }
 
+/**
+ * @brief Main function, entry point of the program.
+ */
 int main(int argc, char **argv) {
+  // Fast I/O setup
   ios_base::sync_with_stdio(false);
   cin.tie(NULL);
+
 #ifdef mehul
+  // Redirecting I/O for local testing
   freopen("input.txt", "r", stdin);
 #endif
 
-  // Code Goes here
+  // The problem has a single test case.
   ll t = 1;
-
   while (t--) {
     solve();
   }

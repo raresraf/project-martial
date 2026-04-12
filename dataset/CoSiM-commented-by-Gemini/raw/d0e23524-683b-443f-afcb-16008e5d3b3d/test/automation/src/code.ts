@@ -1,7 +1,12 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
+/**
+ * @file This file is the entry point for launching and controlling instances of VS Code
+ * for smoke testing. It provides a high-level `Code` class that acts as a driver for
+ * interacting with the application, whether it's running as a desktop Electron app
+ * or in a web browser.
+ *
+ * It manages the lifecycle of the VS Code processes and uses Playwright for low-level
+ * browser and Electron automation.
+ */
 
 import * as cp from 'child_process';
 import * as os from 'os';
@@ -13,31 +18,93 @@ import { launch as launchPlaywrightElectron } from './playwrightElectron';
 import { teardown } from './processes';
 import { Quality } from './application';
 
+/**
+ * Defines the options for launching a VS Code instance for testing.
+ */
 export interface LaunchOptions {
+	/**
+	 * The path to the VS Code executable or server script.
+	 */
 	codePath?: string;
+	/**
+	 * The path to the workspace to open.
+	 */
 	readonly workspacePath: string;
+	/**
+	 * The path to the user data directory.
+	 */
 	userDataDir: string;
+	/**
+	 * The path to the extensions directory.
+	 */
 	readonly extensionsPath: string;
+	/**
+	 * A logger instance for recording test output.
+	 */
 	readonly logger: Logger;
+	/**
+	 * The path where log files should be stored.
+	 */
 	logsPath: string;
+	/**
+	 * The path where crash dumps should be stored.
+	 */
 	crashesPath: string;
+	/**
+	 * Enable verbose logging.
+	 */
 	verbose?: boolean;
+	/**
+	 * Extra command-line arguments to pass to the VS Code executable.
+	 */
 	readonly extraArgs?: string[];
+	/**
+	 * Whether to launch in remote mode.
+	 */
 	readonly remote?: boolean;
+	/**
+	 * Whether to launch the web version of VS Code.
+	 */
 	readonly web?: boolean;
+	/**
+	 * Whether to enable Playwright's tracing capabilities.
+	 */
 	readonly tracing?: boolean;
+	/**
+	 * Whether to capture snapshots on failure.
+	 */
 	snapshots?: boolean;
+	/**
+	 * Whether to run the browser in headless mode.
+	 */
 	readonly headless?: boolean;
+	/**
+	 * The specific browser to use for web tests.
+	 */
 	readonly browser?: 'chromium' | 'webkit' | 'firefox' | 'chromium-msedge' | 'chromium-chrome';
+	/**
+	 * The quality of the VS Code build (e.g., 'stable', 'insider').
+	 */
 	readonly quality: Quality;
 }
 
+/**
+ * Interface representing a launched VS Code instance for lifecycle management.
+ */
 interface ICodeInstance {
 	kill: () => Promise<void>;
 }
 
+// A set to keep track of all running VS Code child processes.
 const instances = new Set<ICodeInstance>();
 
+/**
+ * Registers a child process to be tracked for cleanup. It logs stdout/stderr
+ * and ensures the process is removed from the tracking set upon exit.
+ * @param process The child process to register.
+ * @param logger The logger for output.
+ * @param type A string identifier for the process type (e.g., 'server', 'electron').
+ */
 function registerInstance(process: cp.ChildProcess, logger: Logger, type: string) {
 	const instance = { kill: () => teardown(process, logger) };
 	instances.add(instance);
@@ -47,11 +114,15 @@ function registerInstance(process: cp.ChildProcess, logger: Logger, type: string
 
 	process.once('exit', (code, signal) => {
 		logger.log(`[${type}] Process terminated (pid: ${process.pid}, code: ${code}, signal: ${signal})`);
-
 		instances.delete(instance);
 	});
 }
 
+/**
+ * Tears down all registered VS Code instances. This is hooked into the process
+ * exit events to ensure no orphaned processes are left.
+ * @param signal The exit signal code, if any.
+ */
 async function teardownAll(signal?: number) {
 	stopped = true;
 
@@ -64,29 +135,33 @@ async function teardownAll(signal?: number) {
 	}
 }
 
+// Set up global process listeners to ensure cleanup on exit.
 let stopped = false;
 process.on('exit', () => teardownAll());
-process.on('SIGINT', () => teardownAll(128 + 2)); 	 // https://nodejs.org/docs/v14.16.0/api/process.html#process_signal_events
-process.on('SIGTERM', () => teardownAll(128 + 15)); // same as above
+process.on('SIGINT', () => teardownAll(128 + 2)); 	 // Standard exit code for SIGINT
+process.on('SIGTERM', () => teardownAll(128 + 15)); // Standard exit code for SIGTERM
 
+/**
+ * Launches an instance of VS Code (web or Electron) and returns a `Code` driver object.
+ * @param options The launch options.
+ * @returns A Promise that resolves to a `Code` instance for interacting with the application.
+ */
 export async function launch(options: LaunchOptions): Promise<Code> {
 	if (stopped) {
 		throw new Error('Smoke test process has terminated, refusing to spawn Code');
 	}
 
-	// Browser smoke tests
+	// Architectural Choice: Branch between launching a web server for browser-based
+	// tests or a standalone Electron application.
 	if (options.web) {
 		const { serverProcess, driver } = await measureAndLog(() => launchPlaywrightBrowser(options), 'launch playwright (browser)', options.logger);
 		registerInstance(serverProcess, options.logger, 'server');
-
 		return new Code(driver, options.logger, serverProcess, undefined, options.quality);
-	}
-
-	// Electron smoke tests (playwright)
-	else {
+	} else {
 		const { electronProcess, driver } = await measureAndLog(() => launchPlaywrightElectron(options), 'launch playwright (electron)', options.logger);
 		registerInstance(electronProcess, options.logger, 'electron');
 
+		// A promise that resolves when it's safe to forcefully kill the Electron process.
 		const safeToKill = new Promise<void>(resolve => {
 			process.stdout?.on('data', data => {
 				if (data.toString().includes('Lifecycle#app.on(will-quit) - calling app.quit()')) {
@@ -99,6 +174,11 @@ export async function launch(options: LaunchOptions): Promise<Code> {
 	}
 }
 
+/**
+ * The main class for interacting with a running instance of VS Code.
+ * It provides a high-level API for actions like clicking elements, typing text,
+ * and waiting for UI state changes.
+ */
 export class Code {
 
 	readonly driver: PlaywrightDriver;
@@ -110,6 +190,11 @@ export class Code {
 		private readonly safeToKill: Promise<void> | undefined,
 		readonly quality: Quality
 	) {
+		/**
+		 * Architectural Pattern: Use a JavaScript Proxy to intercept all calls to the
+		 * underlying driver. This allows for transparent logging of every action
+		 * performed during the test, which is invaluable for debugging.
+		 */
 		this.driver = new Proxy(driver, {
 			get(target, prop) {
 				if (typeof prop === 'symbol') {
@@ -121,6 +206,7 @@ export class Code {
 					return targetProp;
 				}
 
+				// Wrap the original driver function to add logging.
 				return function (this: any, ...args: any[]) {
 					logger.log(`${prop}`, ...args.filter(a => typeof a === 'string'));
 					return targetProp.apply(this, args);
@@ -145,19 +231,21 @@ export class Code {
 		return this.driver.didFinishLoad();
 	}
 
+	/**
+	 * Exits the application gracefully with a robust, multi-stage shutdown sequence.
+	 */
 	async exit(): Promise<void> {
 		return measureAndLog(() => new Promise<void>(resolve => {
 			const pid = this.mainProcess.pid!;
-
 			let done = false;
 
-			// Start the exit flow via driver
+			// 1. Attempt a graceful shutdown via the driver's close command.
 			this.driver.close();
 
 			let safeToKill = false;
 			this.safeToKill?.then(() => safeToKill = true);
 
-			// Await the exit of the application
+			// 2. Poll for process termination and escalate to forceful killing if needed.
 			(async () => {
 				let retries = 0;
 				while (!done) {
@@ -169,15 +257,13 @@ export class Code {
 					}
 
 					switch (retries) {
-
-						// after 10 seconds: forcefully kill
+						// 3. After 10 seconds, forcefully kill the process.
 						case 20: {
 							this.logger.log('Smoke test exit() call did not terminate process after 10s, forcefully exiting the application...');
 							process.kill(pid);
 							break;
 						}
-
-						// after 20 seconds: give up
+						// 4. After 20 seconds, give up and resolve the promise.
 						case 40: {
 							this.logger.log('Smoke test exit() call did not terminate process after 20s, giving up');
 							process.kill(pid);
@@ -187,12 +273,11 @@ export class Code {
 					}
 
 					try {
-						process.kill(pid, 0); // throws an exception if the process doesn't exist anymore.
+						process.kill(pid, 0); // Throws an exception if the process doesn't exist.
 						await this.wait(500);
 					} catch (error) {
 						this.logger.log('Smoke test exit() call terminated process successfully');
 						done = true;
-
 						resolve();
 					}
 				}
@@ -210,7 +295,6 @@ export class Code {
 
 	async waitForTextContent(selector: string, textContent?: string, accept?: (result: string) => boolean, retryCount?: number): Promise<string> {
 		accept = accept || (result => textContent !== undefined ? textContent === result : !!result);
-
 		return await this.poll(
 			() => this.driver.getElements(selector).then(els => els.length > 0 ? Promise.resolve(els[0].textContent) : Promise.reject(new Error('Element not found for textContent'))),
 			s => accept!(typeof s === 'string' ? s : ''),
@@ -279,6 +363,18 @@ export class Code {
 		return this.driver.wait(millis);
 	}
 
+	/**
+	 * A generic polling utility function. It repeatedly executes an async function
+	 * until its result is satisfactory or a timeout is reached. This is the foundation
+	 * for most `waitFor...` methods in this class.
+	 *
+	 * @param fn The async function to execute in each attempt.
+	 * @param acceptFn A function that evaluates the result of `fn` and returns true if it's acceptable.
+	 * @param timeoutMessage A message to display on timeout.
+	 * @param retryCount The maximum number of retries.
+	 * @param retryInterval The interval in milliseconds between retries.
+	 * @returns A Promise that resolves with the first acceptable result.
+	 */
 	private async poll<T>(
 		fn: () => Promise<T>,
 		acceptFn: (result: T) => boolean,
@@ -316,33 +412,43 @@ export class Code {
 	}
 }
 
+/**
+ * Helper function to find the first element in a UI tree that satisfies a predicate.
+ * Uses a Breadth-First Search (BFS) traversal.
+ * @param element The root element to start the search from.
+ * @param fn The predicate function to apply to each element.
+ * @returns The first matching element, or null if not found.
+ */
 export function findElement(element: IElement, fn: (element: IElement) => boolean): IElement | null {
 	const queue = [element];
 
 	while (queue.length > 0) {
 		const element = queue.shift()!;
-
 		if (fn(element)) {
 			return element;
 		}
-
 		queue.push(...element.children);
 	}
 
 	return null;
 }
 
+/**
+ * Helper function to find all elements in a UI tree that satisfy a predicate.
+ * Uses a Breadth-First Search (BFS) traversal.
+ * @param element The root element to start the search from.
+ * @param fn The predicate function to apply to each element.
+ * @returns An array of all matching elements.
+ */
 export function findElements(element: IElement, fn: (element: IElement) => boolean): IElement[] {
 	const result: IElement[] = [];
 	const queue = [element];
 
 	while (queue.length > 0) {
 		const element = queue.shift()!;
-
 		if (fn(element)) {
 			result.push(element);
 		}
-
 		queue.push(...element.children);
 	}
 

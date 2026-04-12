@@ -27,7 +27,13 @@ import java.util.Objects;
 import static org.elasticsearch.common.xcontent.XContentParserUtils.ensureExpectedToken;
 import static org.elasticsearch.core.Strings.format;
 
+/**
+ * Represents the request entity for a Google Vertex AI chat completion request.
+ * This class is responsible for transforming a generic {@link UnifiedChatInput}
+ * into the specific JSON format expected by the Vertex AI API.
+ */
 public class GoogleVertexAiUnifiedChatCompletionRequestEntity implements ToXContentObject {
+    // JSON field names for the Vertex AI API
     private static final String CONTENTS = "contents";
     private static final String ROLE = "role";
     private static final String PARTS = "parts";
@@ -56,6 +62,7 @@ public class GoogleVertexAiUnifiedChatCompletionRequestEntity implements ToXCont
 
     private final UnifiedChatInput unifiedChatInput;
 
+    // Standard roles used in chat models
     private static final String USER_ROLE = "user";
     private static final String MODEL_ROLE = "model";
     private static final String ASSISTANT_ROLE = "assistant";
@@ -64,10 +71,20 @@ public class GoogleVertexAiUnifiedChatCompletionRequestEntity implements ToXCont
 
     private static final String SYSTEM_INSTRUCTION = "systemInstruction";
 
+    /**
+     * Constructs a new request entity from the given unified chat input.
+     * @param unifiedChatInput The generic chat input to be transformed.
+     */
     public GoogleVertexAiUnifiedChatCompletionRequestEntity(UnifiedChatInput unifiedChatInput) {
         this.unifiedChatInput = Objects.requireNonNull(unifiedChatInput);
     }
 
+    /**
+     * Translates a standard message role (e.g., "assistant") to the role expected by the Google Vertex AI API (e.g., "model").
+     * @param messageRole The role from the generic message.
+     * @return The corresponding role for the Vertex AI API.
+     * @throws ElasticsearchStatusException if the role is not supported.
+     */
     private String messageRoleToGoogleVertexAiSupportedRole(String messageRole) {
         var messageRoleLowered = messageRole.toLowerCase();
 
@@ -87,6 +104,10 @@ public class GoogleVertexAiUnifiedChatCompletionRequestEntity implements ToXCont
         throw new ElasticsearchStatusException(errorMessage, RestStatus.BAD_REQUEST);
     }
 
+    /**
+     * Validates and adds content objects (e.g., text parts) to the XContentBuilder.
+     * Currently, only "text" type content is supported.
+     */
     private void validateAndAddContentObjectsToBuilder(XContentBuilder builder, UnifiedCompletionRequest.ContentObjects contentObjects)
         throws IOException {
 
@@ -111,6 +132,9 @@ public class GoogleVertexAiUnifiedChatCompletionRequestEntity implements ToXCont
 
     }
 
+    /**
+     * Utility method to parse a JSON string into a Map.
+     */
     private static Map<String, String> jsonStringToMap(String jsonString) throws IOException {
         if (jsonString == null || jsonString.isEmpty()) {
             return null;
@@ -126,6 +150,9 @@ public class GoogleVertexAiUnifiedChatCompletionRequestEntity implements ToXCont
         }
     }
 
+    /**
+     * Builds the `systemInstruction` part of the Vertex AI request from messages with the "system" role.
+     */
     private void buildSystemInstruction(XContentBuilder builder) throws IOException {
         var messages = unifiedChatInput.getRequest().messages();
         var systemMessages = messages.stream().filter(message -> message.role().equalsIgnoreCase(SYSTEM_ROLE)).toList();
@@ -163,6 +190,10 @@ public class GoogleVertexAiUnifiedChatCompletionRequestEntity implements ToXCont
 
     }
 
+    /**
+     * Builds the `contents` array of the request, which contains the main chat conversation.
+     * System messages are excluded as they are handled by `buildSystemInstruction`.
+     */
     private void buildContents(XContentBuilder builder) throws IOException {
         var messages = unifiedChatInput.getRequest().messages();
 
@@ -210,6 +241,9 @@ public class GoogleVertexAiUnifiedChatCompletionRequestEntity implements ToXCont
         builder.endArray();
     }
 
+    /**
+     * Builds the `tools` array for function calling, based on the tools provided in the request.
+     */
     private void buildTools(XContentBuilder builder) throws IOException {
         var request = unifiedChatInput.getRequest();
 
@@ -254,6 +288,9 @@ public class GoogleVertexAiUnifiedChatCompletionRequestEntity implements ToXCont
         builder.endArray();
     }
 
+    /**
+     * Builds the `toolConfig` object, which controls how the model uses the provided tools.
+     */
     private void buildToolConfig(XContentBuilder builder) throws IOException {
         var request = unifiedChatInput.getRequest();
 
@@ -305,6 +342,9 @@ public class GoogleVertexAiUnifiedChatCompletionRequestEntity implements ToXCont
         }
     }
 
+    /**
+     * Builds the `generationConfig` object, which includes parameters like temperature, max tokens, etc.
+     */
     private void buildGenerationConfig(XContentBuilder builder) throws IOException {
         var request = unifiedChatInput.getRequest();
 
@@ -335,6 +375,10 @@ public class GoogleVertexAiUnifiedChatCompletionRequestEntity implements ToXCont
         builder.endObject();
     }
 
+    /**
+     * Serializes this request entity to XContent.
+     * This is the main method that orchestrates the building of the entire JSON request body.
+     */
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         builder.startObject();

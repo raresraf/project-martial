@@ -1,49 +1,75 @@
+"""
+This module defines the Consumer thread for a marketplace simulation.
 
-
+The Consumer class simulates a customer that processes a list of shopping
+actions from a list of carts, using a semaphore for synchronization.
+"""
 
 from threading import Thread, Semaphore
 import time
 
 class Consumer(Thread):
-    
+    """
+    Represents a consumer that interacts with a marketplace in a separate thread.
+
+    This consumer uses a semaphore to control access to shared resources when
+    creating a new cart. It processes a list of actions for various carts,
+    handling retries for failed operations.
+    """
 
     def __init__(self, carts, marketplace, retry_wait_time, **kwargs):
-        
+        """
+        Initializes a Consumer thread.
+
+        :param carts: A list of carts, where each cart is a list of actions.
+        :param marketplace: The marketplace object to interact with.
+        :param retry_wait_time: The time in seconds to wait before retrying a failed action.
+        :param kwargs: Keyword arguments for the Thread constructor.
+        """
         Thread.__init__(self, **kwargs)
 
         self.carts = carts
         self.marketplace = marketplace
         self.retry_wait_time = retry_wait_time
 
-        
+        # A semaphore to ensure thread-safe operations, such as creating a new cart.
         self.consumer_sem = Semaphore(1)
 
     def halt_consumer(self, halt_period):
+        """
+        Pauses the consumer thread for a specified period.
+        
+        :param halt_period: The duration to sleep, in seconds.
+        """
         time.sleep(halt_period)
 
     def run(self):
-        
+        """
+        The main execution method for the consumer thread.
+
+        It iterates through each assigned cart, acquires a new cart ID under a
+        semaphore lock, and processes all actions. Failed operations are retried
+        after a delay. After all actions for a cart are complete, an order is placed.
+        """
+        # Process each cart in the assigned list.
         for cart in self.carts:
             
-            
+            # Use a semaphore to ensure that creating a new cart is an atomic operation.
             self.consumer_sem.acquire()
             cart_id = self.marketplace.new_cart()
             self.consumer_sem.release()
 
-            
+            # Process each operation (add/remove) in the cart.
             for operation in cart:
 
-                
                 actual_quantity = int(operation['quantity'])
+                # Invariant: The inner loop runs until the desired quantity for the operation is met.
                 for _ in range(actual_quantity):
 
-                    
                     selected_operation = operation['type']
-
-                    
                     requested_item = operation['product']
 
-                    
+                    # Block Logic: This loop will retry the operation until it succeeds.
                     while True:
 
                         if selected_operation == 'add':
@@ -51,11 +77,11 @@ class Consumer(Thread):
                             add_op = self.marketplace.add_to_cart(cart_id, requested_item)
                             self.consumer_sem.release()
 
-                            
+                            # If the add operation was successful, exit the retry loop.
                             if add_op:
                                 break
 
-                            
+                            # If the operation failed, wait before retrying.
                             self.halt_consumer(self.retry_wait_time)
 
                         elif selected_operation == 'remove':
@@ -63,14 +89,14 @@ class Consumer(Thread):
                             rem_op = self.marketplace.remove_from_cart(cart_id, requested_item)
                             self.consumer_sem.release()
 
-                            
+                            # If the remove operation was successful (indicated by None), exit the retry loop.
                             if rem_op is None:
                                 break
 
-                            
+                            # If the operation failed, wait before retrying.
                             self.halt_consumer(self.retry_wait_time)
 
-            
+            # After processing all operations, place the order for the current cart.
             self.marketplace.place_order(cart_id)
 
 

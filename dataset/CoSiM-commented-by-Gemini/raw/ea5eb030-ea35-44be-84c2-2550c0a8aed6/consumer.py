@@ -1,14 +1,33 @@
+"""
+This module defines the Consumer thread for a marketplace simulation.
 
-
+The Consumer class simulates a customer that processes a list of shopping
+actions from a list of carts.
+"""
 
 from threading import Thread
 import time
 
 class Consumer(Thread):
-    
+    """
+    Represents a consumer that interacts with a marketplace in a separate thread.
+
+    This consumer acquires a single cart ID upon initialization and uses it for
+    all subsequent shopping operations defined in the carts list.
+    """
 
     def __init__(self, carts, marketplace, retry_wait_time, **kwargs):
-        
+        """
+        Initializes a Consumer thread.
+
+        A unique cart ID is acquired from the marketplace and stored for the
+        lifetime of this consumer instance.
+
+        :param carts: A list of carts, where each cart is a list of actions.
+        :param marketplace: The marketplace object to interact with.
+        :param retry_wait_time: The time in seconds to wait before retrying a failed 'add' action.
+        :param kwargs: Keyword arguments for the Thread constructor.
+        """
         Thread.__init__(self, **kwargs)
         self.carts = carts
         self.marketplace = marketplace
@@ -16,19 +35,31 @@ class Consumer(Thread):
         self.cart_id = marketplace.new_cart()
 
     def run(self):
+        """
+        The main execution method for the consumer thread.
+
+        It iterates through all assigned carts and processes the actions within each.
+        'add' actions are retried until successful, while 'remove' actions are
+        executed once per specified quantity. Finally, an order is placed for all
+        accumulated items.
+        """
+        # Process each list of actions (cart).
         for k in range(len(self.carts)):
             for elem in self.carts[k]:
+                # Pre-condition: Check if the action type is 'add' or 'remove'.
                 if elem['type'] == 'add':
+                    # Invariant: Loop to ensure the desired quantity is added.
                     for i in range(elem['quantity']):
+                        # Block Logic: If adding to the cart fails, wait and retry.
                         while not self.marketplace.add_to_cart(self.cart_id, elem['product']):
                             time.sleep(self.retry_wait_time)
 
                 if elem['type'] == 'remove':
+                    # Invariant: Loop to remove the specified quantity.
                     for i in range(elem['quantity']):
-
-
                         self.marketplace.remove_from_cart(self.cart_id, elem['product'])
 
+        # After processing all carts, place a single order for all items.
         self.marketplace.place_order(self.cart_id)
 
 from threading import Lock

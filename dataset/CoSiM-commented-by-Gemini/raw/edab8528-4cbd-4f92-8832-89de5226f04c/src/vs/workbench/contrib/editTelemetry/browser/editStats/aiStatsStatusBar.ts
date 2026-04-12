@@ -1,3 +1,7 @@
+/**
+ * @file This file defines the `AiStatsStatusBar` class, which is responsible for creating and managing a status bar
+ * item in the editor to display AI-assisted typing statistics.
+ */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -18,9 +22,20 @@ import { AI_STATS_SETTING_ID } from '../settingIds.js';
 import type { AiStatsFeature } from './aiStatsFeature.js';
 import './media.css';
 
+/**
+ * @class AiStatsStatusBar
+ * @description Creates a status bar entry to visualize AI usage statistics.
+ * This includes a progress-bar-like indicator in the status bar and a detailed
+ * hover view with more information and actions.
+ */
 export class AiStatsStatusBar extends Disposable {
 	public static readonly hot = createHotClass(AiStatsStatusBar);
 
+	/**
+	 * @param _aiStatsFeature The feature providing the AI statistics data.
+	 * @param _statusbarService The service for adding items to the status bar.
+	 * @param _commandService The service for executing commands.
+	 */
 	constructor(
 		private readonly _aiStatsFeature: AiStatsFeature,
 		@IStatusbarService private readonly _statusbarService: IStatusbarService,
@@ -28,11 +43,14 @@ export class AiStatsStatusBar extends Disposable {
 	) {
 		super();
 
+		// This autorun block creates and maintains the status bar item.
+		// It will re-run whenever an observable it reads changes.
 		this._register(autorun((reader) => {
 			const statusBarItem = this._createStatusBar().keepUpdated(reader.store);
 
 			const store = this._register(new DisposableStore());
 
+			// Adds the status bar entry to the UI.
 			reader.store.add(this._statusbarService.addEntry({
 				name: localize('inlineSuggestions', "Inline Suggestions"),
 				ariaLabel: localize('inlineSuggestionsStatusBar', "Inline suggestions status bar"),
@@ -51,6 +69,11 @@ export class AiStatsStatusBar extends Disposable {
 	}
 
 
+	/**
+	 * @description Builds the DOM structure for the status bar item itself.
+	 * This renders a visual indicator (a progress bar) representing the AI contribution rate.
+	 * @returns A DOM node to be rendered in the status bar.
+	 */
 	private _createStatusBar() {
 		return n.div({
 			style: {
@@ -98,6 +121,12 @@ export class AiStatsStatusBar extends Disposable {
 		]);
 	}
 
+	/**
+	 * @description Builds the DOM structure for the detailed hover view of the status bar item.
+	 * This view shows the AI usage ratio, the number of accepted suggestions, and an
+	 * action button to open relevant settings.
+	 * @returns A DOM node to be rendered in the hover view.
+	 */
 	private _createStatusBarHover() {
 		const aiRatePercent = this._aiStatsFeature.aiRate.map(r => `${Math.round(r * 100)}%`);
 
@@ -115,6 +144,7 @@ export class AiStatsStatusBar extends Disposable {
 			},
 				[
 					n.div({ style: { flex: 1 } }, [localize('aiStatsStatusBarHeader', "AI Usage Statistics")]),
+					// Action bar with a settings gear icon
 					n.div({ style: { marginLeft: 'auto' } }, actionBar([
 						{
 							action: {
@@ -158,6 +188,12 @@ export class AiStatsStatusBar extends Disposable {
 	}
 }
 
+/**
+ * @description A helper function to create a generic ActionBar component with a set of actions.
+ * @param actions An array of actions and their options to be added to the action bar.
+ * @param options Optional configuration for the ActionBar itself.
+ * @returns A derived observable that builds and manages the ActionBar's DOM element.
+ */
 function actionBar(actions: { action: IAction; options: IActionOptions }[], options?: IActionBarOptions) {
 	return derived((_reader) => n.div({
 		class: [],
@@ -172,17 +208,30 @@ function actionBar(actions: { action: IAction; options: IActionOptions }[], opti
 	}));
 }
 
+/**
+ * @class CommandWithArgs
+ * @description A simple class to encapsulate a command ID and its arguments for easier execution.
+ */
 class CommandWithArgs {
 	constructor(
 		public readonly commandId: string,
 		public readonly args: unknown[] = [],
 	) { }
 
+	/**
+	 * @description Executes the command using the provided command service.
+	 * @param commandService The service to use for command execution.
+	 */
 	public run(commandService: ICommandService): void {
 		commandService.executeCommand(this.commandId, ...this.args);
 	}
 }
 
+/**
+ * @description Creates a `CommandWithArgs` instance specifically for opening the settings UI.
+ * @param options Allows specifying a list of setting IDs to filter the settings UI.
+ * @returns A `CommandWithArgs` object configured to open the settings view.
+ */
 function openSettingsCommand(options: { ids?: string[] } = {}) {
 	return new CommandWithArgs('workbench.action.openSettings', [{
 		query: options.ids ? options.ids.map(id => `@id:${id}`).join(' ') : undefined,

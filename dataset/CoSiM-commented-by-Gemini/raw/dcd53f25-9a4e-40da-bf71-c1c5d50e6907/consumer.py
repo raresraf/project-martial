@@ -1,16 +1,35 @@
 
 
 
+"""
+This module defines the Consumer thread for a marketplace simulation.
+
+The Consumer class simulates a customer interacting with the marketplace,
+processing a list of shopping actions like adding and removing products
+from a cart, and finally placing an order.
+"""
+
 from threading import Thread
 import time
 
 
 class Consumer(Thread):
-    
+    """
+    Represents a consumer that interacts with a marketplace in a separate thread.
+
+    Each consumer is initialized with a set of actions to perform on a series of carts.
+    It simulates adding and removing products and then places an order.
+    """
 
     def __init__(self, carts, marketplace, retry_wait_time, **kwargs):
-        
+        """
+        Initializes a Consumer thread.
 
+        :param carts: A list of carts, where each cart is a list of actions to perform.
+        :param marketplace: The marketplace object with which the consumer interacts.
+        :param retry_wait_time: The time in seconds to wait before retrying a failed action.
+        :param kwargs: Keyword arguments for the Thread constructor, including the consumer's name.
+        """
         Thread.__init__(self, **kwargs)
         self.carts = carts
         self.marketplace = marketplace
@@ -18,28 +37,46 @@ class Consumer(Thread):
         self.name = kwargs["name"]
 
     def run(self):
+        """
+        The main execution method for the consumer thread.
+
+        Acquires a new cart, iterates through the predefined shopping actions,
+        and places the final order. It handles failed attempts to add products
+        by waiting and retrying.
+        """
+        # Acquire a unique cart ID from the marketplace for this consumer session.
         cart_id = self.marketplace.new_cart()
 
+        # Process each cart provided during initialization.
         for cart in self.carts:
+            # Execute each action (add/remove) specified in the cart.
             for action in cart:
                 action_type = action["type"]
                 product_name = action["product"]
                 quantity = int(action["quantity"])
 
+                # Pre-condition: Determine if the action is to add or remove a product.
                 if action_type == "add":
+                    # Invariant: Continue until the desired quantity of the product has been added.
                     while quantity > 0:
+                        # Attempt to add the product to the cart.
                         if self.marketplace.add_to_cart(cart_id, product_name) == True:
                             quantity -= 1
                         else:
+                            # If adding fails (e.g., product unavailable), wait and retry.
                             time.sleep(self.retry_wait_time)
                 elif action_type == "remove":
+                    # Invariant: Continue until the desired quantity has been removed.
                     while quantity > 0:
                         self.marketplace.remove_from_cart(cart_id, product_name)
                         quantity -= 1
 
+        # After all actions are performed, place the final order.
         orders = self.marketplace.place_order(cart_id)
+        # Print the final list of products purchased by the consumer.
         for order in orders:
-            print(str(self.name) + " bought " + str(order))>>>> file: marketplace.py
+            print(str(self.name) + " bought " + str(order))
+>>>> file: marketplace.py
 
 
 

@@ -1,11 +1,30 @@
+/**
+ * @file gpu_hashtable.hpp
+ * @brief Defines the structures and classes for CPU and GPU hash table implementations.
+ * @details This header file contains a mix of definitions for both a CPU-based hash table
+ * and a GPU-accelerated one using CUDA. It defines the main GpuHashTable class interface,
+ * data structures, and includes kernel definitions that should typically reside in a .cu file.
+ */
 
 #ifndef _HASHCPU_
 #define _HASHCPU_
 
+#include <string>
+#include <cstdio>
+#include <cstdlib>
+#include <iostream>
+
+// The 'using namespace std;' is part of the original code and is preserved.
 using namespace std;
 
+/// @brief Defines the value representing an empty or invalid key slot in the hash table.
 #define	KEY_INVALID		0
 
+/**
+ * @brief A list of large prime numbers.
+ * @details This array provides a selection of prime numbers, likely intended for use in
+ * various hashing algorithms to ensure good key distribution and reduce collisions.
+ */
 const size_t primeList[] = {
 	2llu, 3llu, 5llu, 7llu, 11llu, 13llu, 17llu, 23llu, 29llu, 37llu, 47llu,
 	59llu, 73llu, 97llu, 127llu, 151llu, 197llu, 251llu, 313llu, 397llu,
@@ -50,6 +69,11 @@ const size_t primeList[] = {
 	5746614499066534157llu, 7240280573005008577llu, 9122181901073924329llu,
 	11493228998133068689llu, 14480561146010017169llu, 18446744073709551557llu};
 
+/**
+ * @brief A macro for basic error handling.
+ * @details If the assertion is true, it prints a formatted error message
+ * to stderr, including file and line number, and then exits the program.
+ */
 #define DIE(assertion, call_description) \
 	do {	\
 		if (assertion) {	\
@@ -60,37 +84,46 @@ const size_t primeList[] = {
 		}	\
 	} while (0)
 
+/// @brief Defines a hash table entry as an unsigned long long.
 typedef unsigned long long Entry;
 
 
-
-
+/**
+ * @class GpuHashTable
+ * @brief Provides a host-side interface for managing a GPU-based hash table.
+ * @details This class abstracts the complexities of CUDA memory management and
+ * kernel launches, providing a cleaner API for hash table operations.
+ */
 class GpuHashTable
 {
 public:
+	/// The total capacity of the hash table.
 	unsigned long size;
+	/// A pointer to a device memory location holding the count of elements.
 	unsigned int *num_elements;
+	/// A device pointer to the array of hash table entries.
 	Entry *table;
 
 	
+	/// A parameter for the hash function, likely a multiplicative constant.
 	unsigned long a;
+	/// A parameter for the hash function, likely a prime modulus.
 	unsigned long b;
 
 	GpuHashTable(int size);
-	void reshape(int sizeReshape);
+	~GpuHashTable();
 
+	void reshape(int sizeReshape);
 	bool insertBatch(int *keys, int* values, int numKeys);
 	int* getBatch(int* key, int numItems);
-
 	float loadFactor();
 	void occupancy();
 	void print(string info);
 	void printTable();
-
-	~GpuHashTable();
 };
 
 #endif
+
 
 #include 
 #include 

@@ -25,29 +25,32 @@ import (
 // GroupName is the group name for this API.
 const GroupName = "meta.k8s.io"
 
-// SchemeGroupVersion is group version used to register these objects
+// SchemeGroupVersion is the group version used to register these objects.
 var SchemeGroupVersion = schema.GroupVersion{Group: GroupName, Version: "v1"}
 
-// Unversioned is group version for unversioned API objects
-// TODO: this should be v1 probably
+// Unversioned is the group version for unversioned API objects.
+// TODO: this should be v1 probably.
 var Unversioned = schema.GroupVersion{Group: "", Version: "v1"}
 
-// WatchEventKind is name reserved for serializing watch events.
+// WatchEventKind is a name reserved for serializing watch events.
 const WatchEventKind = "WatchEvent"
 
-// Kind takes an unqualified kind and returns a Group qualified GroupKind
+// Kind takes an unqualified kind and returns a Group qualified GroupKind.
 func Kind(kind string) schema.GroupKind {
 	return SchemeGroupVersion.WithKind(kind).GroupKind()
 }
 
-// AddToGroupVersion registers common meta types into schemas.
+// AddToGroupVersion registers common meta types into a scheme.
 func AddToGroupVersion(scheme *runtime.Scheme, groupVersion schema.GroupVersion) {
+	// Adds a known type for watch events, which are fundamental to the Kubernetes watch mechanism.
 	scheme.AddKnownTypeWithName(groupVersion.WithKind(WatchEventKind), &WatchEvent{})
+	// Adds an internal version of the watch event for internal-to-external conversions.
 	scheme.AddKnownTypeWithName(
 		schema.GroupVersion{Group: groupVersion.Group, Version: runtime.APIVersionInternal}.WithKind(WatchEventKind),
 		&InternalEvent{},
 	)
-	// Supports legacy code paths, most callers should use metav1.ParameterCodec for now
+	// Registers common option types used across different API operations (list, get, delete, etc.).
+	// This ensures that they can be correctly handled by the API server.
 	scheme.AddKnownTypes(groupVersion,
 		&ListOptions{},
 		&ExportOptions{},
@@ -57,13 +60,15 @@ func AddToGroupVersion(scheme *runtime.Scheme, groupVersion schema.GroupVersion)
 		&UpdateOptions{},
 		&PatchOptions{},
 	)
+	// Registers conversion functions for watch events between different versions (internal and v1).
 	utilruntime.Must(scheme.AddConversionFuncs(
 		Convert_v1_WatchEvent_To_watch_Event,
 		Convert_v1_InternalEvent_To_v1_WatchEvent,
 		Convert_watch_Event_To_v1_WatchEvent,
 		Convert_v1_WatchEvent_To_v1_InternalEvent,
 	))
-	// Register Unversioned types under their own special group
+	// Registers unversioned types (like Status and APIGroup) under a special group.
+	// These types are used across different API groups and versions.
 	scheme.AddUnversionedTypes(Unversioned,
 		&Status{},
 		&APIVersions{},
@@ -72,7 +77,8 @@ func AddToGroupVersion(scheme *runtime.Scheme, groupVersion schema.GroupVersion)
 		&APIResourceList{},
 	)
 
-	// register manually. This usually goes through the SchemeBuilder, which we cannot use here.
+	// Manually register conversion and default functions. This is typically handled
+	// by a SchemeBuilder, but is done directly here for this core package.
 	utilruntime.Must(AddConversionFuncs(scheme))
 	utilruntime.Must(RegisterDefaults(scheme))
 }
@@ -81,8 +87,11 @@ func AddToGroupVersion(scheme *runtime.Scheme, groupVersion schema.GroupVersion)
 var scheme = runtime.NewScheme()
 
 // ParameterCodec knows about query parameters used with the meta v1 API spec.
+// It is used for encoding and decoding query parameters into the option types.
 var ParameterCodec = runtime.NewParameterCodec(scheme)
 
+// The init function is automatically called when the package is loaded.
+// It registers the meta v1 types with the local scheme.
 func init() {
 	scheme.AddUnversionedTypes(SchemeGroupVersion,
 		&ListOptions{},
@@ -98,11 +107,13 @@ func init() {
 		panic(err)
 	}
 
-	// register manually. This usually goes through the SchemeBuilder, which we cannot use here.
+	// Manually register conversion and default functions for the local scheme.
 	utilruntime.Must(RegisterDefaults(scheme))
 }
 
+// AddMetaToScheme adds the meta-related types to the given scheme.
 func AddMetaToScheme(scheme *runtime.Scheme) error {
+	// Registers types used for tabular output from the API server.
 	scheme.AddKnownTypes(SchemeGroupVersion,
 		&Table{},
 		&TableOptions{},
@@ -110,6 +121,7 @@ func AddMetaToScheme(scheme *runtime.Scheme) error {
 		&PartialObjectMetadataList{},
 	)
 
+	// Registers a conversion function for IncludeObjectPolicy.
 	return scheme.AddConversionFuncs(
 		Convert_Slice_string_To_v1_IncludeObjectPolicy,
 	)

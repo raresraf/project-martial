@@ -1,47 +1,76 @@
+"""
+This module defines the Consumer thread for a marketplace simulation.
 
-
+The Consumer class simulates a customer that processes a list of shopping
+actions (e.g., adding/removing products) and places an order.
+"""
 
 from threading import Thread
 import time
 
 class Consumer(Thread):
-    
+    """
+    Represents a consumer that interacts with a marketplace in a separate thread.
+
+    Each consumer is initialized with a set of actions to perform on a series of carts.
+    It simulates adding and removing products and then places an order.
+    """
 
     def __init__(self, carts, marketplace, retry_wait_time, **kwargs):
-        
+        """
+        Initializes a Consumer thread.
+
+        :param carts: A list of carts, where each cart is a list of commands.
+        :param marketplace: The marketplace object with which the consumer interacts.
+        :param retry_wait_time: The time in seconds to wait before retrying a failed 'add' action.
+        :param kwargs: Keyword arguments for the Thread constructor.
+        """
         self.carts = carts
         self.marketplace = marketplace
         self.retry_wait_time = retry_wait_time
         Thread.__init__(self, **kwargs)
 
     def run(self):
+        """
+        The main execution method for the consumer thread.
+
+        It processes each cart, executing 'add' and 'remove' commands for products.
+        If an 'add' command fails, it retries until successful. Finally, it places
+        the order for each cart and prints the purchased items.
+        """
+        # Process each cart assigned to this consumer.
         for cart in self.carts:
-            
+            # Acquire a new cart ID from the marketplace for each set of commands.
             id_cart = self.marketplace.new_cart()
 
+            # Execute each command within the cart.
             for command in cart:
                 com_type = command['type']
                 product = command['product']
                 quantity = command['quantity']
 
+                # Pre-condition: The loop runs for the specified quantity of the product.
                 for _ in range(0, quantity):
                     okk = False
 
+                    # Block Logic: Handle the 'add' command.
                     if com_type == "add":
                         okk = self.marketplace.add_to_cart(id_cart, product)
 
-                        
+                        # Invariant: If the initial add fails, retry until successful.
+                        # This models a persistent consumer waiting for a product to become available.
                         while not okk:
                             time.sleep(self.retry_wait_time)
                             okk = self.marketplace.add_to_cart(id_cart, product)
 
+                    # Block Logic: Handle the 'remove' command.
                     if com_type == "remove":
                         self.marketplace.remove_from_cart(id_cart, product)
 
-            
+            # After processing all commands for a cart, place the order.
             checkout = self.marketplace.place_order(id_cart)
 
-            
+            # Print each item that was successfully bought.
             for item in checkout:
                 print("{0} bought {1}".format(self.name, item))
 

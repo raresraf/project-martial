@@ -1,3 +1,8 @@
+//! This module provides an interface between the DOM and the core Content Security Policy (CSP) engine.
+//! It contains functions to check whether specific actions (like script evaluation, navigation, or inline
+//! script execution) are permitted by the policies of a given global scope. It is also responsible
+//! for initiating the reporting of any CSP violations that occur.
+
 /* This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
@@ -23,7 +28,10 @@ use crate::dom::node::{Node, NodeTraits};
 use crate::dom::window::Window;
 use crate::security_manager::CSPViolationReportTask;
 
-/// <https://www.w3.org/TR/CSP/#can-compile-strings>
+/// Checks if evaluation of JavaScript from strings (e.g., `eval` or `new Function`) is allowed.
+///
+/// This function consults the `script-src` directive of the document's Content Security Policy.
+/// See <https://www.w3.org/TR/CSP/#can-compile-strings>
 pub(crate) fn is_js_evaluation_allowed(global: &GlobalScope, source: &str) -> bool {
     let Some(csp_list) = global.get_csp_list() else {
         return true;
@@ -36,7 +44,11 @@ pub(crate) fn is_js_evaluation_allowed(global: &GlobalScope, source: &str) -> bo
     is_js_evaluation_allowed == CheckResult::Allowed
 }
 
-/// <https://www.w3.org/TR/CSP/#can-compile-wasm-bytes>
+/// Checks if the evaluation of WebAssembly bytes is permitted.
+///
+/// This function consults the `script-src` directive of the document's Content Security Policy,
+/// specifically looking for the `wasm-eval` keyword.
+/// See <https://www.w3.org/TR/CSP/#can-compile-wasm-bytes>
 pub(crate) fn is_wasm_evaluation_allowed(global: &GlobalScope) -> bool {
     let Some(csp_list) = global.get_csp_list() else {
         return true;
@@ -49,7 +61,10 @@ pub(crate) fn is_wasm_evaluation_allowed(global: &GlobalScope) -> bool {
     is_wasm_evaluation_allowed == CheckResult::Allowed
 }
 
-/// <https://www.w3.org/TR/CSP/#should-block-navigation-request>
+/// Determines if a navigation request should be blocked by CSP.
+///
+/// This function consults the `navigate-to` directive (and `form-action` for form submissions).
+/// See <https://www.w3.org/TR/CSP/#should-block-navigation-request>
 pub(crate) fn should_navigation_request_be_blocked(
     global: &GlobalScope,
     load_data: &LoadData,
@@ -81,10 +96,13 @@ pub(crate) fn should_navigation_request_be_blocked(
     result == CheckResult::Blocked
 }
 
-/// Used to determine which inline check to run
+/// Used to determine which inline check to run. Re-exported from the `content-security-policy` crate.
 pub use content_security_policy::InlineCheckType;
 
-/// <https://www.w3.org/TR/CSP/#should-block-inline>
+/// Checks if an element's inline behavior (e.g., inline script, style attribute) should be blocked.
+///
+/// This function consults directives like `script-src-elem`, `style-src-attr`, etc.
+/// See <https://www.w3.org/TR/CSP/#should-block-inline>
 pub(crate) fn should_elements_inline_type_behavior_be_blocked(
     global: &GlobalScope,
     el: &Element,
@@ -105,7 +123,10 @@ pub(crate) fn should_elements_inline_type_behavior_be_blocked(
     result == CheckResult::Blocked
 }
 
-/// <https://w3c.github.io/trusted-types/dist/spec/#should-block-create-policy>
+/// Checks if the creation of a Trusted Types policy is allowed.
+///
+/// This function consults the `trusted-types` directive.
+/// See <https://w3c.github.io/trusted-types/dist/spec/#should-block-create-policy>
 pub(crate) fn is_trusted_type_policy_creation_allowed(
     global: &GlobalScope,
     policy_name: String,
@@ -123,7 +144,10 @@ pub(crate) fn is_trusted_type_policy_creation_allowed(
     allowed_by_csp == CheckResult::Allowed
 }
 
-/// <https://w3c.github.io/trusted-types/dist/spec/#abstract-opdef-does-sink-type-require-trusted-types>
+/// Checks if a given sink (e.g., `innerHTML`) requires a Trusted Type object.
+///
+/// This function consults the `require-trusted-types-for` directive.
+/// See <https://w3c.github.io/trusted-types/dist/spec/#abstract-opdef-does-sink-type-require-trusted-types>
 pub(crate) fn does_sink_type_require_trusted_types(
     global: &GlobalScope,
     sink_group: &str,
@@ -136,7 +160,9 @@ pub(crate) fn does_sink_type_require_trusted_types(
     csp_list.does_sink_type_require_trusted_types(sink_group, include_report_only_policies)
 }
 
-/// <https://w3c.github.io/trusted-types/dist/spec/#should-block-sink-type-mismatch>
+/// Checks if assigning a plain string to a sink that requires a Trusted Type should be blocked.
+///
+/// See <https://w3c.github.io/trusted-types/dist/spec/#should-block-sink-type-mismatch>
 pub(crate) fn should_sink_type_mismatch_violation_be_blocked_by_csp(
     global: &GlobalScope,
     sink: &str,
@@ -155,10 +181,14 @@ pub(crate) fn should_sink_type_mismatch_violation_be_blocked_by_csp(
     allowed_by_csp == CheckResult::Blocked
 }
 
-/// Used to determine which inline check to run
+/// A CSP violation. Re-exported from the `content-security-policy` crate.
 pub use content_security_policy::Violation;
 
-/// <https://www.w3.org/TR/CSP/#report-violation>
+/// Takes a list of violations from the CSP engine, constructs reports, and queues tasks to dispatch them.
+///
+/// For each violation, this function builds a `CSPViolationReport` and queues a `CSPViolationReportTask`
+/// on the DOM manipulation task source to fire a `securitypolicyviolation` event at the appropriate target.
+/// See <https://www.w3.org/TR/CSP/#report-violation>
 #[allow(unsafe_code)]
 pub(crate) fn report_csp_violations(
     global: &GlobalScope,
@@ -229,7 +259,11 @@ pub(crate) fn report_csp_violations(
     }
 }
 
-/// <https://www.w3.org/TR/CSP/#initialize-document-csp>
+/// Parses a `CspList` from HTTP headers.
+///
+/// It reads `Content-Security-Policy` and `Content-Security-Policy-Report-Only` headers
+/// and constructs a `CspList` object representing the combined policies.
+/// See <https://www.w3.org/TR/CSP/#initialize-document-csp>
 pub(crate) fn parse_csp_list_from_metadata(headers: &Option<Serde<HeaderMap>>) -> Option<CspList> {
     // TODO: Implement step 1 (local scheme special case)
     let headers = headers.as_ref()?;

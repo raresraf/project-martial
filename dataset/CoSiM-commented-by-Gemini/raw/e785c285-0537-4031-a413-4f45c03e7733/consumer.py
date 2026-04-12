@@ -1,23 +1,49 @@
+"""
+This module defines the Consumer thread for a marketplace simulation.
 
-
+The Consumer class simulates a customer processing a list of shopping actions,
+handling retries for failed operations.
+"""
 
 import time
 from threading import Thread
 
 
 class Consumer(Thread):
-    
+    """
+    Represents a consumer that interacts with a marketplace in a separate thread.
+
+    This consumer processes a list of carts, with each cart containing a set of
+    'add' or 'remove' requests for products.
+    """
 
     def __init__(self, carts, marketplace, retry_wait_time, **kwargs):
-        
+        """
+        Initializes a Consumer thread.
+
+        :param carts: A list of carts, where each cart is a list of product requests.
+        :param marketplace: The marketplace object to interact with.
+        :param retry_wait_time: The time in seconds to wait before retrying a failed action.
+        :param kwargs: Keyword arguments for the Thread constructor.
+        """
         Thread.__init__(self, **kwargs)
         self.carts = carts
         self.marketplace = marketplace
         self.retry_wait_time = retry_wait_time
 
     def add_request(self, requests, new_cart_id):
-        
+        """
+        Handles the process of adding a specified quantity of a product to a cart.
+
+        If the marketplace cannot add the item (e.g., it's out of stock), the method
+        will wait for `retry_wait_time` and then try again, continuing until the
+        request is fulfilled.
+
+        :param requests: A dictionary containing the product and quantity to add.
+        :param new_cart_id: The ID of the cart to add the product to.
+        """
         requests_made = 1
+        # Invariant: Loop until the desired quantity of the product has been successfully added.
         while True:
 
             if requests_made > requests["quantity"]:
@@ -27,11 +53,20 @@ class Consumer(Thread):
                     new_cart_id, requests["product"]):
                 requests_made += 1
             else:
+                # If adding fails, wait before retrying.
                 time.sleep(self.retry_wait_time)
 
     def rm_request(self, requests, new_cart_id):
-        
+        """
+        Handles the process of removing a specified quantity of a product from a cart.
+
+        If the marketplace cannot remove the item, it will wait and retry.
+
+        :param requests: A dictionary containing the product and quantity to remove.
+        :param new_cart_id: The ID of the cart to remove the product from.
+        """
         requests_made = 1
+        # Invariant: Loop until the desired quantity has been removed.
         while True:
 
             if requests_made > requests["quantity"]:
@@ -40,26 +75,35 @@ class Consumer(Thread):
             error_code = self.marketplace.remove_from_cart(
                 new_cart_id, requests["product"])
 
+            # An error code of None indicates a successful removal.
             if error_code is None:
                 requests_made += 1
             else:
+                # If removing fails, wait before retrying.
                 time.sleep(self.retry_wait_time)
 
     def run(self):
-        
+        """
+        The main execution method for the consumer thread.
+
+        For each cart, it acquires a new cart ID from the marketplace and then
+        processes all 'add' or 'remove' requests associated with it before
+        placing the final order.
+        """
+        # Process each cart in the consumer's list of tasks.
         for new_cart in self.carts:
 
             new_cart_id = self.marketplace.new_cart()
 
-            
+            # Delegate each request to the appropriate handler method.
             for requests in new_cart:
+                # Pre-condition: Check if the request is to add or remove.
                 if requests["type"] == "add":
                     self.add_request(requests, new_cart_id)
                 else:
                     self.rm_request(requests, new_cart_id)
 
-            
-            
+            # After all requests in a cart are processed, place the order.
             for product in self.marketplace.place_order(new_cart_id):
                 print(self.name + " bought " + str(product))
 

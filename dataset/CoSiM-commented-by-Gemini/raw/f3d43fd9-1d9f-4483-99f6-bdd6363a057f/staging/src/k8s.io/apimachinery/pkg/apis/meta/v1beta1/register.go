@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package v1beta1 contains the v1beta1 version of the API machinery meta types.
 package v1beta1
 
 import (
@@ -24,10 +25,10 @@ import (
 // GroupName is the group name for this API.
 const GroupName = "meta.k8s.io"
 
-// SchemeGroupVersion is group version used to register these objects
+// SchemeGroupVersion is group version used to register these objects.
 var SchemeGroupVersion = schema.GroupVersion{Group: GroupName, Version: "v1beta1"}
 
-// Kind takes an unqualified kind and returns a Group qualified GroupKind
+// Kind takes an unqualified kind and returns a Group qualified GroupKind.
 func Kind(kind string) schema.GroupKind {
 	return SchemeGroupVersion.WithKind(kind).GroupKind()
 }
@@ -38,13 +39,18 @@ var scheme = runtime.NewScheme()
 // ParameterCodec knows about query parameters used with the meta v1beta1 API spec.
 var ParameterCodec = runtime.NewParameterCodec(scheme)
 
+// init is called automatically when the package is loaded. It registers the
+// meta v1beta1 types with the local scheme.
 func init() {
 	if err := AddMetaToScheme(scheme); err != nil {
 		panic(err)
 	}
 }
 
+// AddMetaToScheme adds the meta-related types to the given scheme.
 func AddMetaToScheme(scheme *runtime.Scheme) error {
+	// Registers the Table and PartialObjectMetadata types, which are often used
+	// for server-side printing and efficient object retrieval.
 	scheme.AddKnownTypes(SchemeGroupVersion,
 		&Table{},
 		&TableOptions{},
@@ -52,6 +58,7 @@ func AddMetaToScheme(scheme *runtime.Scheme) error {
 		&PartialObjectMetadataList{},
 	)
 
+	// Registers conversion functions for the types in this package.
 	return scheme.AddConversionFuncs(
 		Convert_Slice_string_To_v1beta1_IncludeObjectPolicy,
 	)

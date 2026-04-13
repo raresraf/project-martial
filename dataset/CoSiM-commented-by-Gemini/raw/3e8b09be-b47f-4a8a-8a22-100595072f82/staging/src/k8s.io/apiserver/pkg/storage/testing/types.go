@@ -22,8 +22,18 @@ import (
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
+// TestResource is a minimalist API object type that is used for testing
+// the storage layer. It embeds the standard Kubernetes object metadata and
+// includes a single integer value for test purposes.
 type TestResource struct {
-	metav1.TypeMeta   `json:",inline"`
+	// TypeMeta provides the Kind and APIVersion fields, which are fundamental
+	// for Kubernetes object serialization.
+	metav1.TypeMeta `json:",inline"`
+
+	// ObjectMeta contains the standard metadata for any Kubernetes object,
+	// such as Name, Namespace, and ResourceVersion.
 	metav1.ObjectMeta `json:"metadata"`
-	Value             int `json:"value"`
+
+	// Value is a simple integer field used for testing data storage and retrieval.
+	Value int `json:"value"`
 }

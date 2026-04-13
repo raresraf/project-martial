@@ -13,18 +13,21 @@ import { TextModelPromptParser } from '../parsers/textModelPromptParser.js';
 import { IInstantiationService } from '../../../../../../platform/instantiation/common/instantiation.js';
 
 /**
- * Provides prompt services.
+ * Implements the {@link IPromptsService} interface, providing services for
+ * discovering and parsing chat prompts within the workspace.
  */
 export class PromptsService extends Disposable implements IPromptsService {
 	declare readonly _serviceBrand: undefined;
 
 	/**
 	 * Cache of text model content prompt parsers.
+	 * This cache ensures that only one parser is created per text model, optimizing
+	 * resource usage. The parser is created on-demand when first requested.
 	 */
 	private readonly cache: ObjectCache<TextModelPromptParser, ITextModel>;
 
 	/**
-	 * Prompt files locator utility.
+	 * A utility class instance for locating prompt files in the filesystem.
 	 */
 	private readonly fileLocator = this.initService.createInstance(PromptFilesLocator);
 
@@ -33,8 +36,9 @@ export class PromptsService extends Disposable implements IPromptsService {
 	) {
 		super();
 
-		// the factory function below creates a new prompt parser object
-		// for the provided model, if no active non-disposed parser exists
+		// Block Logic: Initialize the ObjectCache for parsers.
+		// The factory function is called by the cache when a parser for a new model
+		// is requested. It creates a new parser, starts it, and returns it.
 		this.cache = this._register(
 			new ObjectCache((model) => {
 				/**
@@ -48,6 +52,7 @@ export class PromptsService extends Disposable implements IPromptsService {
 					[],
 				);
 
+				// Kicks off the parsing process for the model.
 				parser.start();
 
 				// this is a sanity check and the contract of the object cache,
@@ -62,9 +67,13 @@ export class PromptsService extends Disposable implements IPromptsService {
 	}
 
 	/**
+	 * Retrieves a cached or creates a new syntax parser for the given text model.
+	 * @param model The text model for which to get the parser.
+	 * @returns An active and non-disposed {@link TextModelPromptParser}.
+	 *
 	 * @throws {Error} if:
 	 * 	- the provided model is disposed
-	 * 	- newly created parser is disposed immediately on initialization.
+	 * 	- a newly created parser is disposed immediately on initialization.
 	 * 	  See factory function in the {@link constructor} for more info.
 	 */
 	public getSyntaxParserFor(
@@ -78,6 +87,10 @@ export class PromptsService extends Disposable implements IPromptsService {
 		return this.cache.get(model);
 	}
 
+	/**
+	 * Discovers all `.prompt` files within the workspace.
+	 * @returns A promise that resolves to an array of {@link IPrompt} objects.
+	 */
 	public async listPromptFiles(): Promise<readonly IPrompt[]> {
 		const promptFiles = await this.fileLocator.listFiles([]);
 

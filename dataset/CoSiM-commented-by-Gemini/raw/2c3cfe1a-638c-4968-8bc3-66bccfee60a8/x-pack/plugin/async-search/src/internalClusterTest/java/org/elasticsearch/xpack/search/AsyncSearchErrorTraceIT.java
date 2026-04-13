@@ -31,6 +31,14 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.function.BooleanSupplier;
 
+/**
+ * Integration tests for the `error_trace` parameter in asynchronous search.
+ *
+ * This class verifies that the inclusion of stack traces in error responses for
+ * async searches is correctly controlled by the `error_trace` parameter. It
+ * specifically checks whether a detailed stack trace is transmitted from a data
+ * node to the coordinating node when a query shard failure occurs.
+ */
 public class AsyncSearchErrorTraceIT extends ESIntegTestCase {
     private BooleanSupplier transportMessageHasStackTrace;
 
@@ -45,11 +53,18 @@ public class AsyncSearchErrorTraceIT extends ESIntegTestCase {
         return CollectionUtils.appendToCopyNoNullElements(super.nodePlugins(), AsyncSearch.class, MockTransportService.TestPlugin.class);
     }
 
+    /**
+     * Sets a debug log level for the SearchService to enable detailed logging for tests.
+     */
     @BeforeClass
     public static void setDebugLogLevel() {
         Configurator.setLevel(SearchService.class, Level.DEBUG);
     }
 
+    /**
+     * Sets up a listener on the transport layer before each test to detect if
+     * any inter-node communication contains a stack trace.
+     */
     @Before
     public void setupMessageListener() {
         transportMessageHasStackTrace = ErrorTraceHelper.setupErrorTraceListener(internalCluster());
@@ -57,11 +72,19 @@ public class AsyncSearchErrorTraceIT extends ESIntegTestCase {
         updateClusterSettings(Settings.builder().put(SearchService.BATCHED_QUERY_PHASE.getKey(), false));
     }
 
+    /**
+     * Resets cluster settings after each test.
+     */
     @After
     public void resetSettings() {
         updateClusterSettings(Settings.builder().putNull(SearchService.BATCHED_QUERY_PHASE.getKey()));
     }
 
+    /**
+     * Sets up a consistent index state for tests. It creates two indices, where
+     * a query on the "field" will succeed on `test1` (string) but fail on `test2` (integer),
+     * reliably triggering a partial failure for testing error traces.
+     */
     private void setupIndexWithDocs() {
         createIndex("test1", "test2");
         indexRandom(
@@ -72,6 +95,10 @@ public class AsyncSearchErrorTraceIT extends ESIntegTestCase {
         refresh();
     }
 
+    /**
+     * Tests that a failing async search does NOT include a stack trace in the transport
+     * layer by default (when `error_trace` is not specified).
+     */
     public void testAsyncSearchFailingQueryErrorTraceDefault() throws Exception {
         setupIndexWithDocs();
 
@@ -98,6 +125,10 @@ public class AsyncSearchErrorTraceIT extends ESIntegTestCase {
         assertFalse(transportMessageHasStackTrace.getAsBoolean());
     }
 
+    /**
+     * Tests that a failing async search DOES include a stack trace in the transport
+     * layer when `error_trace=true` is specified.
+     */
     public void testAsyncSearchFailingQueryErrorTraceTrue() throws Exception {
         setupIndexWithDocs();
 
@@ -126,6 +157,10 @@ public class AsyncSearchErrorTraceIT extends ESIntegTestCase {
         assertTrue(transportMessageHasStackTrace.getAsBoolean());
     }
 
+    /**
+     * Tests that a failing async search does NOT include a stack trace in the transport
+     * layer when `error_trace=false` is specified.
+     */
     public void testAsyncSearchFailingQueryErrorTraceFalse() throws Exception {
         setupIndexWithDocs();
 
@@ -154,6 +189,12 @@ public class AsyncSearchErrorTraceIT extends ESIntegTestCase {
         assertFalse(transportMessageHasStackTrace.getAsBoolean());
     }
 
+    /**
+     * Verifies that the data node where a shard query fails always logs the stack trace
+     * locally, regardless of the `error_trace` parameter value. This ensures that
+     * detailed error information is available in logs for debugging even if it's not
+     * sent over the network.
+     */
     public void testDataNodeLogsStackTrace() throws Exception {
         setupIndexWithDocs();
 
@@ -204,6 +245,11 @@ public class AsyncSearchErrorTraceIT extends ESIntegTestCase {
         }
     }
 
+    /**
+     * Tests that if a search is submitted with `error_trace=false` but retrieved
+     * with `error_trace=true`, the stack trace is NOT transmitted. This confirms that
+     * the decision to capture the trace is made at execution time.
+     */
     public void testAsyncSearchFailingQueryErrorTraceFalseOnSubmitAndTrueOnGet() throws Exception {
         setupIndexWithDocs();
 
@@ -235,6 +281,12 @@ public class AsyncSearchErrorTraceIT extends ESIntegTestCase {
         assertFalse(transportMessageHasStackTrace.getAsBoolean());
     }
 
+    /**
+     * Tests that if a search is submitted with `error_trace=true` but retrieved
+     * with `error_trace=false`, the stack trace IS transmitted. This confirms that
+     * the decision to capture the trace is made at execution time and cannot be
+     * undone at retrieval time.
+     */
     public void testAsyncSearchFailingQueryErrorTraceTrueOnSubmitAndFalseOnGet() throws Exception {
         setupIndexWithDocs();
 
@@ -266,6 +318,10 @@ public class AsyncSearchErrorTraceIT extends ESIntegTestCase {
         assertTrue(transportMessageHasStackTrace.getAsBoolean());
     }
 
+    /**
+     * Helper method to perform a client request and parse the JSON response body into a map.
+     * Includes an optional delay before sending the request.
+     */
     private Map<String, Object> performRequestAndGetResponseEntityAfterDelay(Request r, TimeValue sleep) throws IOException,
         InterruptedException {
         Thread.sleep(sleep.millis());
@@ -274,6 +330,9 @@ public class AsyncSearchErrorTraceIT extends ESIntegTestCase {
         return XContentHelper.convertToMap(entityContentType.xContent(), response.getEntity().getContent(), false);
     }
 
+    /**
+     * Helper method to poll the async search GET endpoint until the search is no longer running.
+     */
     private void awaitAsyncRequestDoneRunning(Request getAsyncRequest) throws Exception {
         assertBusy(() -> {
             Map<String, Object> getAsyncResponseEntity = performRequestAndGetResponseEntityAfterDelay(

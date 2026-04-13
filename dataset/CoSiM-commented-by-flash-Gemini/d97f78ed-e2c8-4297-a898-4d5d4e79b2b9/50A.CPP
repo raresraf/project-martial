@@ -1,32 +1,65 @@
-#include <cstdio>
+/**
+ * @file 50A.CPP
+ * @brief This program solves the "Domino Piling" problem. Given a rectangular
+ * board of size N x M, it attempts to place the maximum number of 1x2 dominoes
+ * without overlapping, using a specific greedy placement strategy.
+ * Algorithm: Greedy placement of dominoes by iterating through the board.
+ * Prioritizes horizontal placement when possible, and a specific vertical placement
+ * at the end of a row.
+ * Time Complexity: O(N * M) due to iterating through each cell of the board multiple times.
+ * Space Complexity: O(N * M) for storing the board state in a 2D array.
+ */
+#include <cstdio> // Required for standard input/output functions like fscanf and fprintf.
 
 using namespace std;
 
 int main() {
-  int N, M;
+  int N, M; // N: number of rows, M: number of columns for the board.
 
+  // Reads the dimensions of the board (N and M) from standard input.
   fscanf(stdin, "%d%d", &N, &M);
+  // Declares a Variable Length Array (VLA) to represent the board.
+  // A[i][j] = 0 means the cell is empty, 1 means it's occupied by a domino.
+  // Note: VLAs are a C99 feature and a GNU extension in C++, not standard C++.
   int A[N][M];
 
-  int i, j, count = 0;
+  int i, j;   // Loop counters.
+  int count = 0; // Counts the number of dominoes successfully placed.
 
+  /**
+   * Block Logic: Initializes all cells of the board to 0 (empty).
+   * Invariant: After this loop, every cell A[i][j] is marked as empty.
+   */
   for (i = 0; i < N; ++i) {
     for (j = 0; j < M; ++j) {
-      A[i][j] = 0;
+      A[i][j] = 0; // Mark cell as empty.
     }
   }
 
+  /**
+   * Block Logic: Iterates through the board to place dominoes using a greedy strategy.
+   * For each empty cell, it first attempts to place a horizontal domino (1x2) to its right.
+   * If not possible, and it's at the end of a row, it attempts to place a vertical domino (2x1) below it.
+   */
   for (i = 0; i < N; ++i) {
     for (j = 0; j < M; ++j) {
+      // Condition 1: Attempt to place a horizontal domino.
+      // Checks if the current cell and the cell to its right are empty and within bounds.
       if (A[i][j] == 0 && j + 1 < M && A[i][j + 1] == 0) {
-        ++count;
-        A[i][j] = A[i][j + 1] = 1;
-      } else if (A[i][j] == 0 && j + 1 == M && i + 1 < N && A[i + 1][j] == 0) {
-        ++count;
-        A[i][j] = A[i + 1][j] = 1;
+        ++count;                // Increment domino count.
+        A[i][j] = A[i][j + 1] = 1; // Mark both cells as occupied.
+      }
+      // Condition 2: Attempt to place a vertical domino (unusual condition).
+      // Checks if the current cell is empty, is the last cell in its row, and the cell directly below it is empty.
+      // This logic appears to specifically handle vertical placements only when at the end of a row, which may not be optimal.
+      else if (A[i][j] == 0 && j + 1 == M && i + 1 < N && A[i + 1][j] == 0) {
+        ++count;                // Increment domino count.
+        A[i][j] = A[i + 1][j] = 1; // Mark both cells as occupied.
       }
     }
   }
+  // Prints the total number of dominoes successfully placed to standard output.
   fprintf(stdout, "%d", count);
+  // Standard program exit.
   return 0;
 }

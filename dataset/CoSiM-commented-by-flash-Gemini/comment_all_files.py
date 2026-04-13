@@ -30,7 +30,7 @@ def find_uuid_dirs(base_path="."):
     return uuid_dirs
 
 # Step 2: Filter out processed directories and calculate sizes
-def get_smallest_unprocessed_dirs(uuid_dirs, num_to_select=100):
+def get_smallest_unprocessed_dirs(uuid_dirs, num_to_select=50):
     unprocessed_dirs_with_size = []
     for dir_name in uuid_dirs:
         checkpoint_path = os.path.join(dir_name, ".checkpoint")
@@ -46,7 +46,7 @@ def main():
     all_dirs = find_uuid_dirs(base_path)
     print(f"Found {len(all_dirs)} UUID directories.", file=sys.stderr)
 
-    smallest_unprocessed = get_smallest_unprocessed_dirs(all_dirs, num_to_select=100)
+    smallest_unprocessed = get_smallest_unprocessed_dirs(all_dirs, num_to_select=50)
     print(f"Identified {len(smallest_unprocessed)} smallest unprocessed directories.", file=sys.stderr)
 
     # Use a separate mechanism to write the file, or print to stdout and redirect

@@ -16,4 +16,7 @@ limitations under the License.
 
 // +k8s:deepcopy-gen=package
 
+// Package testing provides mock and helper types for testing the Kubernetes
+// storage layer. This includes simple structs that can be used as API objects
+// in unit tests for storage-related components.
 package testing // import "k8s.io/apiserver/pkg/storage/testing"

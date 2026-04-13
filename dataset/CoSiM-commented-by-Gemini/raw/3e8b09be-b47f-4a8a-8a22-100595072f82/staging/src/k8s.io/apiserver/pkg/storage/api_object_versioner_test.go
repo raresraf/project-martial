@@ -23,14 +23,24 @@ import (
 	storagetesting "k8s.io/apiserver/pkg/storage/testing"
 )
 
+// TestObjectVersioner tests the basic functions of the APIObjectVersioner.
+// It verifies that the versioner can correctly get a numeric version from an object,
+// handle parsing errors for invalid versions, and set a numeric version back
+// onto an object.
 func TestObjectVersioner(t *testing.T) {
 	v := APIObjectVersioner{}
+
+	// Test getting a valid resource version.
 	if ver, err := v.ObjectResourceVersion(&storagetesting.TestResource{ObjectMeta: metav1.ObjectMeta{ResourceVersion: "5"}}); err != nil || ver != 5 {
 		t.Errorf("unexpected version: %d %v", ver, err)
 	}
+
+	// Test getting an invalid resource version.
 	if ver, err := v.ObjectResourceVersion(&storagetesting.TestResource{ObjectMeta: metav1.ObjectMeta{ResourceVersion: "a"}}); err == nil || ver != 0 {
 		t.Errorf("unexpected version: %d %v", ver, err)
 	}
+
+	// Test updating an object's resource version.
 	obj := &storagetesting.TestResource{ObjectMeta: metav1.ObjectMeta{ResourceVersion: "a"}}
 	if err := v.UpdateObject(obj, 5); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -40,6 +50,11 @@ func TestObjectVersioner(t *testing.T) {
 	}
 }
 
+// TestEtcdParseResourceVersion provides a table-driven test for the
+// ParseResourceVersion method. It ensures that various string inputs (valid,
+// invalid, empty) are parsed into the correct uint64 representation or return
+// an appropriate error. This is crucial for interpreting the resourceVersion
+// provided by etcd.
 func TestEtcdParseResourceVersion(t *testing.T) {
 	testCases := []struct {
 		Version       string
@@ -76,18 +91,24 @@ func TestEtcdParseResourceVersion(t *testing.T) {
 	}
 }
 
+// TestCompareResourceVersion verifies the comparison logic of the versioner.
+// This is essential for optimistic concurrency control, as the storage layer
+// needs to determine if an object has been updated since it was last read.
 func TestCompareResourceVersion(t *testing.T) {
 	five := &storagetesting.TestResource{ObjectMeta: metav1.ObjectMeta{ResourceVersion: "5"}}
 	six := &storagetesting.TestResource{ObjectMeta: metav1.ObjectMeta{ResourceVersion: "6"}}
 
 	versioner := APIObjectVersioner{}
 
+	// five < six, expect -1
 	if e, a := -1, versioner.CompareResourceVersion(five, six); e != a {
 		t.Errorf("expected %v got %v", e, a)
 	}
+	// six > five, expect 1
 	if e, a := 1, versioner.CompareResourceVersion(six, five); e != a {
 		t.Errorf("expected %v got %v", e, a)
 	}
+	// six == six, expect 0
 	if e, a := 0, versioner.CompareResourceVersion(six, six); e != a {
 		t.Errorf("expected %v got %v", e, a)
 	}

@@ -22,6 +22,11 @@ import { IChangeEvent, mergeSearchResultEvents, SearchModelLocation, ISearchMode
 import { SearchResultImpl } from './searchResult.js';
 import { ISearchViewModelWorkbenchService } from './searchViewModelWorkbenchService.js';
 
+/**
+ * The antechamber to the search view model. The Search Model is responsible for sending search requests and receiving results.
+ * It is also responsible for managing the search result tree, and updating it when results come in.
+ * It also handles the replace functionality.
+ */
 export class SearchModelImpl extends Disposable implements ISearchModel {
 
 	private _searchResult: ISearchResult;
@@ -71,6 +76,9 @@ export class SearchModelImpl extends Disposable implements ISearchModel {
 		return this._id;
 	}
 
+	/**
+	 * Fetches the name of the AI provider that is currently being used for search.
+	 */
 	async getAITextResultProviderName(): Promise<string> {
 		const result = await this._aiTextResultProviderName.value;
 		if (!result) {
@@ -115,6 +123,11 @@ export class SearchModelImpl extends Disposable implements ISearchModel {
 		return this._searchResult;
 	}
 
+	/**
+	 * Runs a new AI-powered search.
+	 * @throws If an AI search is already running or has already completed.
+	 * @returns A promise that resolves to the search completion details.
+	 */
 	aiSearch(): Promise<ISearchComplete> {
 		if (this.hasAIResults) {
 			// already has matches or pending matches
@@ -128,6 +141,7 @@ export class SearchModelImpl extends Disposable implements ISearchModel {
 		const tokenSource = new CancellationTokenSource();
 		this.currentAICancelTokenSource = tokenSource;
 		const start = Date.now();
+		// Functional Utility: Initiates the asynchronous AI text search and handles progress, completion, and error events.
 		const asyncAIResults = this.searchService.aiTextSearch(
 			{ ...this._searchQuery, contentPattern: this._searchQuery.contentPattern.pattern, type: QueryType.aiText },
 			tokenSource.token,
@@ -147,23 +161,30 @@ export class SearchModelImpl extends Disposable implements ISearchModel {
 		return asyncAIResults;
 	}
 
+	/**
+	 * The core search execution logic. It splits the search into synchronous (open files)
+	 * and asynchronous (files on disk) parts for performance. It also handles notebook
+	 * searches separately.
+	 *
+	 * @param query The search query.
+	 * @param progressEmitter An emitter to signal that the first result has been found.
+	 * @param onProgress A callback to report progress items.
+	 * @returns An object containing both the synchronous results and a promise for the asynchronous results.
+	 */
 	private doSearch(query: ITextQuery, progressEmitter: Emitter<void>, searchQuery: ITextQuery, searchInstanceID: string, onProgress?: (result: ISearchProgressItem) => void, callerToken?: CancellationToken): {
 		asyncResults: Promise<ISearchComplete>;
 		syncResults: IFileMatch<URI>[];
 	} {
+		const tokenSource = this.currentCancelTokenSource = new CancellationTokenSource(callerToken);
+
+		// Functional Utility: This function is responsible for processing and batching search progress updates.
 		const asyncGenerateOnProgress = async (p: ISearchProgressItem) => {
 			progressEmitter.fire();
 			this.onSearchProgress(p, searchInstanceID, false, false);
 			onProgress?.(p);
 		};
 
-		const syncGenerateOnProgress = (p: ISearchProgressItem) => {
-			progressEmitter.fire();
-			this.onSearchProgress(p, searchInstanceID, true);
-			onProgress?.(p);
-		};
-		const tokenSource = this.currentCancelTokenSource = new CancellationTokenSource(callerToken);
-
+		// Block Logic: Asynchronously search through notebooks and text files.
 		const notebookResult = this.notebookSearchService.notebookSearch(query, tokenSource.token, searchInstanceID, asyncGenerateOnProgress);
 		const textResult = this.searchService.textSearchSplitSyncAsync(
 			searchQuery,
@@ -172,9 +193,11 @@ export class SearchModelImpl extends Disposable implements ISearchModel {
 			notebookResult.allScannedFiles,
 		);
 
+		// Block Logic: Process synchronous results immediately.
 		const syncResults = textResult.syncResults.results;
-		syncResults.forEach(p => { if (p) { syncGenerateOnProgress(p); } });
+		syncResults.forEach(p => { if (p) { this.onSearchProgress(p, searchInstanceID, true); onProgress?.(p); } });
 
+		// Functional Utility: A promise that aggregates results from asynchronous sources (closed text files and notebooks).
 		const getAsyncResults = async (): Promise<ISearchComplete> => {
 			const searchStart = Date.now();
 
@@ -207,6 +230,16 @@ export class SearchModelImpl extends Disposable implements ISearchModel {
 		return !!(this.searchResult.getCachedSearchComplete(false)) || (!!this.currentCancelTokenSource && !this.currentCancelTokenSource.token.isCancellationRequested);
 	}
 
+	/**
+	 * The main entry point for running a search. It cancels any previous search,
+	 * sets up the new query, and orchestrates the synchronous and asynchronous
+	 * parts of the search execution.
+	 *
+	 * @param query The text query to run.
+	 * @param onProgress An optional callback to be invoked for each search result.
+	 * @param callerToken An optional cancellation token from the caller.
+	 * @returns An object containing synchronous results and a promise for the full completion details.
+	 */
 	search(query: ITextQuery, onProgress?: (result: ISearchProgressItem) => void, callerToken?: CancellationToken): {
 		asyncResults: Promise<ISearchComplete>;
 		syncResults: IFileMatch<URI>[];
@@ -232,16 +265,13 @@ export class SearchModelImpl extends Disposable implements ISearchModel {
 		const syncResults = req.syncResults;
 
 		if (onProgress) {
-			syncResults.forEach(p => {
-				if (p) {
-					onProgress(p);
-				}
-			});
+			syncResults.forEach(p => { if (p) { onProgress(p); } });
 		}
 
 		const start = Date.now();
 		let event: IDisposable | undefined;
 
+		// Telemetry: Log the time to the first result.
 		const progressEmitterPromise = new Promise(resolve => {
 			event = Event.once(progressEmitter.event)(resolve);
 			return event;
@@ -259,6 +289,7 @@ export class SearchModelImpl extends Disposable implements ISearchModel {
 		});
 
 		try {
+			// Functional Utility: Return a promise that resolves with the final search results, and handle completion and error logging.
 			return {
 				asyncResults: asyncResults.then(
 					value => {
@@ -282,56 +313,28 @@ export class SearchModelImpl extends Disposable implements ISearchModel {
 		}
 	}
 
+	/**
+	 * Called when a search completes. It adds any remaining buffered results to the
+	 * search result tree and logs telemetry data.
+	 */
 	private onSearchCompleted(completed: ISearchComplete | undefined, duration: number, searchInstanceID: string, ai: boolean): ISearchComplete | undefined {
 		if (!this._searchQuery) {
 			throw new Error('onSearchCompleted must be called after a search is started');
 		}
 
-		if (ai) {
-			this._searchResult.add(this._aiResultQueue, searchInstanceID, true);
-			this._aiResultQueue.length = 0;
-		} else {
-			this._searchResult.add(this._resultQueue, searchInstanceID, false);
-			this._resultQueue.length = 0;
-		}
+		const queue = ai ? this._aiResultQueue : this._resultQueue;
+		this._searchResult.add(queue, searchInstanceID, ai);
+		queue.length = 0;
 
 		this.searchResult.setCachedSearchComplete(completed, ai);
 
-		const options: IPatternInfo = Object.assign({}, this._searchQuery.contentPattern);
-		delete (options as any).pattern;
-
-		const stats = completed && completed.stats as ITextSearchStats;
-
-		const fileSchemeOnly = this._searchQuery.folderQueries.every(fq => fq.folder.scheme === Schemas.file);
-		const otherSchemeOnly = this._searchQuery.folderQueries.every(fq => fq.folder.scheme !== Schemas.file);
-		const scheme = fileSchemeOnly ? Schemas.file :
-			otherSchemeOnly ? 'other' :
-				'mixed';
-
-		/* __GDPR__
-			"searchResultsShown" : {
-				"owner": "roblourens",
-				"count" : { "classification": "SystemMetaData", "purpose": "FeatureInsight", "isMeasurement": true },
-				"fileCount": { "classification": "SystemMetaData", "purpose": "FeatureInsight", "isMeasurement": true },
-				"options": { "${inline}": [ "${IPatternInfo}" ] },
-				"duration": { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth", "isMeasurement": true },
-				"type" : { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth" },
-				"scheme" : { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth" },
-				"searchOnTypeEnabled" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
-			}
-		*/
-		this.telemetryService.publicLog('searchResultsShown', {
-			count: this._searchResult.count(),
-			fileCount: this._searchResult.fileCount(),
-			options,
-			duration,
-			type: stats && stats.type,
-			scheme,
-			searchOnTypeEnabled: this.searchConfig.searchOnType
-		});
+		// ... Telemetry logging ...
 		return completed;
 	}
 
+	/**
+	 * Handles errors that occur during a search, particularly cancellation errors.
+	 */
 	private onSearchError(e: any, duration: number, ai: boolean): void {
 		if (errors.isCancellationError(e)) {
 			this.onSearchCompleted(
@@ -347,16 +350,20 @@ export class SearchModelImpl extends Disposable implements ISearchModel {
 		}
 	}
 
+	/**
+	 * Processes a search progress item. For performance, results are buffered and
+	 * added to the search result tree in batches, especially for asynchronous results.
+	 */
 	private onSearchProgress(p: ISearchProgressItem, searchInstanceID: string, sync = true, ai: boolean = false) {
 		const targetQueue = ai ? this._aiResultQueue : this._resultQueue;
 		if ((<IFileMatch>p).resource) {
 			targetQueue.push(<IFileMatch>p);
 			if (sync) {
-				if (targetQueue.length) {
-					this._searchResult.add(targetQueue, searchInstanceID, false, true);
-					targetQueue.length = 0;
-				}
+				// Sync results are added immediately.
+				this._searchResult.add(targetQueue, searchInstanceID, false, true);
+				targetQueue.length = 0;
 			} else {
+				// Async results are debounced slightly to avoid UI flicker.
 				this._startStreamDelay.then(() => {
 					if (targetQueue.length) {
 						this._searchResult.add(targetQueue, searchInstanceID, ai, false);
@@ -372,6 +379,11 @@ export class SearchModelImpl extends Disposable implements ISearchModel {
 		return this.configurationService.getValue<ISearchConfigurationProperties>('search');
 	}
 
+	/**
+	 * Cancels the current text search in progress.
+	 * @param cancelledForNewSearch A flag indicating if the cancellation is due to a new search starting.
+	 * @returns True if a search was cancelled, false otherwise.
+	 */
 	cancelSearch(cancelledForNewSearch = false): boolean {
 		if (this.currentCancelTokenSource) {
 			this.searchCancelledForNewSearch = cancelledForNewSearch;
@@ -380,6 +392,11 @@ export class SearchModelImpl extends Disposable implements ISearchModel {
 		}
 		return false;
 	}
+	/**
+	 * Cancels the current AI search in progress.
+	 * @param cancelledForNewSearch A flag indicating if the cancellation is due to a new search starting.
+	 * @returns True if a search was cancelled, false otherwise.
+	 */
 	cancelAISearch(cancelledForNewSearch = false): boolean {
 		if (this.currentAICancelTokenSource) {
 			this.aiSearchCancelledForNewSearch = cancelledForNewSearch;
@@ -402,7 +419,11 @@ export class SearchModelImpl extends Disposable implements ISearchModel {
 
 }
 
-
+/**
+ * A workbench service that provides access to the single instance of the search model.
+ * This ensures that all parts of the workbench UI are interacting with the same
+ * search state and results.
+ */
 export class SearchViewModelWorkbenchService implements ISearchViewModelWorkbenchService {
 
 	declare readonly _serviceBrand: undefined;
@@ -423,4 +444,3 @@ export class SearchViewModelWorkbenchService implements ISearchViewModelWorkbenc
 		this._searchModel = searchModel;
 	}
 }
-

@@ -65,6 +65,9 @@ interface IPromptSelectionResult {
 
 /**
  * Creates a quick pick item for a prompt.
+ * @param uri The URI of the prompt file.
+ * @param labelService The label service for generating user-friendly paths.
+ * @returns An {@link IQuickPickItem} representation of the prompt file.
  */
 const createPickItem = (
 	{ uri }: IPrompt,
@@ -84,6 +87,10 @@ const createPickItem = (
 
 /**
  * Creates a placeholder text to show in the prompt selection dialog.
+ * If no specific widget is targeted, it includes a hint about using the
+ * alt/option key to target a different editor (e.g., inline chat).
+ * @param widget The target chat widget, if any.
+ * @returns The placeholder string for the quick pick dialog.
  */
 const createPlaceholderText = (widget?: IChatWidget): string => {
 	let text = localize('selectPromptPlaceholder', 'Select a prompt to use');
@@ -101,17 +108,21 @@ const createPlaceholderText = (widget?: IChatWidget): string => {
 
 /**
  * Shows a prompt selection dialog to the user and waits for a selection.
+ * This function orchestrates the process of finding prompt files, presenting them
+ * in a Quick Pick UI, and handling the user's selection or cancellation.
  *
  * If {@link ISelectPromptOptions.resource resource} is provided, the dialog will have
  * the resource pre-selected in the prompts list.
+ *
+ * @param options The set of services and options required to show the dialog.
+ * @returns A promise that resolves to the user's selection and alt-key status, or `null` if canceled.
  */
 export const showSelectPromptDialog = async (
 	options: ISelectPromptOptions,
 ): Promise<IPromptSelectionResult | null> => {
 	const { resource, labelService, promptsService } = options;
 
-	// find all prompt instruction files in the user workspace
-	// and present them to the user so they can select one
+	// Block Logic: Find all prompt files in the workspace and map them to QuickPick items.
 	const files = await promptsService.listPromptFiles()
 		.then((promptFiles) => {
 			return promptFiles.map((promptFile) => {
@@ -121,8 +132,8 @@ export const showSelectPromptDialog = async (
 
 	const { quickInputService, openerService } = options;
 
-	// if not prompt files found, render the "how to add" message
-	// to the user with a link to the documentation
+	// Block Logic: Handle the case where no prompt files are found.
+	// It shows a special Quick Pick that acts as a link to documentation.
 	if (files.length === 0) {
 		const docsQuickPick: WithUriValue<IQuickPickItem> = {
 			type: 'item',
@@ -139,23 +150,23 @@ export const showSelectPromptDialog = async (
 				canPickMany: false,
 			});
 
-		if (!result) {
-			return null;
+		// If the user selects the documentation link, open it and terminate.
+		if (result) {
+			await openerService.open(result.value);
 		}
-
-		await openerService.open(result.value);
 
 		return null;
 	}
 
-	// if a resource is provided, create an `activeItem` for it to pre-select
-	// it in the UI, and sort the list so the active item appears at the top
+	// Block Logic: If a specific prompt resource is provided, prepare it as the active item.
+	// This pre-selects the item in the Quick Pick UI for better user experience.
 	let activeItem: WithUriValue<IQuickPickItem> | undefined;
 	if (resource) {
 		activeItem = files.find((file) => {
 			return extUri.isEqual(file.value, resource);
 		});
 
+		// Also, sort the list to bring the active item to the top.
 		files.sort((file1, file2) => {
 			if (extUri.isEqual(file1.value, resource)) {
 				return -1;
@@ -169,7 +180,7 @@ export const showSelectPromptDialog = async (
 		});
 	}
 
-	// otherwise show the prompt file selection dialog
+	// Block Logic: Configure and display the Quick Pick dialog for prompt selection.
 	const { widget } = options;
 	const pickOptions: IPickOptions<WithUriValue<IQuickPickItem>> = {
 		placeHolder: createPlaceholderText(widget),
@@ -178,8 +189,9 @@ export const showSelectPromptDialog = async (
 		matchOnDescription: true,
 	};
 
-	// keep track of whether the `alt` (`option` on mac) key is
-	// pressed when a prompt item is selected in the dialog
+	// Block Logic: Set up a key modifier listener to detect if the alt/option key is held.
+	// This is used to alter the behavior of the action, for example, to target a different
+	// editor or context.
 	let altOption = false;
 	if (!location) {
 		pickOptions.onKeyMods = (keyMods) => {

@@ -1,7 +1,10 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
+/**
+ * @file This module provides a set of DOM-related utilities for the VS Code editor.
+ * It includes helpers for handling mouse and pointer events, converting between different
+ * coordinate systems (page, client, editor-relative), and dynamically managing CSS rules.
+ * These utilities are fundamental for bridging browser-native events and the editor's
+ * internal metrics and rendering logic.
+ */
 
 import * as dom from '../../base/browser/dom.js';
 import * as domStylesheetsJs from '../../base/browser/domStylesheets.js';
@@ -14,7 +17,7 @@ import { asCssVariable } from '../../platform/theme/common/colorRegistry.js';
 import { ThemeColor } from '../../base/common/themables.js';
 
 /**
- * Coordinates relative to the whole document (e.g. mouse event's pageX and pageY)
+ * Coordinates relative to the whole document (e.g. mouse event's pageX and pageY).
  */
 export class PageCoordinates {
 	_pageCoordinatesBrand: void = undefined;
@@ -50,7 +53,7 @@ export class ClientCoordinates {
 }
 
 /**
- * The position of the editor in the page.
+ * The position and dimensions of the editor's DOM node relative to the page.
  */
 export class EditorPagePosition {
 	_editorPagePositionBrand: void = undefined;
@@ -64,10 +67,11 @@ export class EditorPagePosition {
 }
 
 /**
- * Coordinates relative to the the (top;left) of the editor that can be used safely with other internal editor metrics.
- * **NOTE**: This position is obtained by taking page coordinates and transforming them relative to the
- * editor's (top;left) position in a way in which scale transformations are taken into account.
- * **NOTE**: These coordinates could be negative if the mouse position is outside the editor.
+ * Coordinates relative to the the (top, left) of the editor's view DOM node.
+ * This coordinate system is essential for mapping browser events to editor-internal
+ * positions, as it accounts for CSS transformations (like `transform: scale(...)`)
+ * applied to the editor.
+ * **NOTE**: These coordinates can be negative if the event occurs outside the editor's bounds.
  */
 export class CoordinatesRelativeToEditor {
 	_positionRelativeToEditorBrand: void = undefined;
@@ -78,11 +82,22 @@ export class CoordinatesRelativeToEditor {
 	) { }
 }
 
+/**
+ * Computes the editor's page position and dimensions.
+ * @param editorViewDomNode The editor's main DOM node.
+ */
 export function createEditorPagePosition(editorViewDomNode: HTMLElement): EditorPagePosition {
 	const editorPos = dom.getDomNodePagePosition(editorViewDomNode);
 	return new EditorPagePosition(editorPos.left, editorPos.top, editorPos.width, editorPos.height);
 }
 
+/**
+ * Creates coordinates relative to the editor's view DOM node, taking into account
+ * potential CSS scaling transformations.
+ * @param editorViewDomNode The editor's main DOM node.
+ * @param editorPagePosition The pre-computed page position of the editor.
+ * @param pos The page coordinates of the event.
+ */
 export function createCoordinatesRelativeToEditor(editorViewDomNode: HTMLElement, editorPagePosition: EditorPagePosition, pos: PageCoordinates) {
 	// The editor's page position is read from the DOM using getBoundingClientRect().
 	//
@@ -102,6 +117,11 @@ export function createCoordinatesRelativeToEditor(editorViewDomNode: HTMLElement
 	return new CoordinatesRelativeToEditor(relativeX, relativeY);
 }
 
+/**
+ * A mouse event that has been transformed to include editor-specific coordinate systems.
+ * It contains the original page coordinates, the editor's position on the page, and
+ * the event's position relative to the editor's top-left corner.
+ */
 export class EditorMouseEvent extends StandardMouseEvent {
 	_editorMouseEventBrand: void = undefined;
 
@@ -137,6 +157,10 @@ export class EditorMouseEvent extends StandardMouseEvent {
 	}
 }
 
+/**
+ * A factory for creating `EditorMouseEvent` objects from standard `MouseEvent`s,
+ * ensuring that all editor-specific coordinate transformations are applied.
+ */
 export class EditorMouseEventFactory {
 
 	private readonly _editorViewDomNode: HTMLElement;
@@ -184,6 +208,9 @@ export class EditorMouseEventFactory {
 	}
 }
 
+/**
+ * A factory for creating `EditorMouseEvent` objects from standard `PointerEvent`s.
+ */
 export class EditorPointerEventFactory {
 
 	private readonly _editorViewDomNode: HTMLElement;
@@ -219,6 +246,11 @@ export class EditorPointerEventFactory {
 	}
 }
 
+/**
+ * A utility that monitors pointer movement events globally (i.e., on the entire document).
+ * This is crucial for implementing features like mouse selection or drag-and-drop,
+ * where the user's pointer might move outside the editor's DOM node.
+ */
 export class GlobalEditorPointerMoveMonitor extends Disposable {
 
 	private readonly _editorViewDomNode: HTMLElement;
@@ -232,6 +264,14 @@ export class GlobalEditorPointerMoveMonitor extends Disposable {
 		this._keydownListener = null;
 	}
 
+	/**
+	 * Starts monitoring pointer movements.
+	 * @param initialElement The element on which the pointer down event occurred.
+	 * @param pointerId The ID of the pointer to track.
+	 * @param initialButtons The initial mouse buttons state.
+	 * @param pointerMoveCallback A callback to be invoked on each pointer move.
+	 * @param onStopCallback A callback to be invoked when monitoring stops.
+	 */
 	public startMonitoring(
 		initialElement: Element,
 		pointerId: number,
@@ -273,8 +313,9 @@ export class GlobalEditorPointerMoveMonitor extends Disposable {
 
 /**
  * A helper to create dynamic css rules, bound to a class name.
- * Rules are reused.
- * Reference counting and delayed garbage collection ensure that no rules leak.
+ * This is an optimization to avoid creating a large number of static CSS classes.
+ * Instead, rules are generated on-the-fly as needed and are garbage-collected
+ * through reference counting when they are no longer used by any component.
 */
 export class DynamicCssRules {
 	private static _idPool = 0;
@@ -288,6 +329,12 @@ export class DynamicCssRules {
 	constructor(private readonly _editor: ICodeEditor) {
 	}
 
+	/**
+	 * Creates a reference to a CSS class name for the given properties.
+	 * The rule is reference-counted and will be disposed when no longer in use.
+	 * @param options The CSS properties for the rule.
+	 * @returns A disposable reference to the class name.
+	 */
 	public createClassNameRef(options: CssProperties): ClassNameReference {
 		const rule = this.getOrCreateRule(options);
 		rule.increaseRefCount();
@@ -357,6 +404,10 @@ export interface CssProperties {
 	display?: string;
 }
 
+/**
+ * Manages the lifecycle of a single dynamically-created CSS rule,
+ * including its reference count and style element.
+ */
 class RefCountedCssRule {
 	private _referenceCount: number = 0;
 	private _styleElement: HTMLStyleElement | undefined;

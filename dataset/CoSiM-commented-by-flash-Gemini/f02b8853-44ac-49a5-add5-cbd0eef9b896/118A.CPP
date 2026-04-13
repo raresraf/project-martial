@@ -50,27 +50,77 @@ output
  *  Filename : 118A_stringtask.cpp
  */
 
-#include <iostream>
-#include <string.h>
-#include <string>
+/**
+ * @file 118A.CPP
+ * @brief Solution to a competitive programming problem: "A. String Task".
+ *
+ * This program transforms an input string by applying a set of rules:
+ * 1. Deletes all vowels (A, O, Y, E, U, I, case-insensitive).
+ * 2. Inserts a period ('.') character before each consonant.
+ * 3. Replaces all uppercase consonants with their corresponding lowercase ones.
+ *
+ * Algorithm: Character-by-character processing with conditional logic to identify
+ *            vowels/consonants and apply transformations.
+ * Time Complexity: O(L), where L is the length of the input string. The algorithm
+ *                  iterates through the string once.
+ * Space Complexity: O(L) for the input string storage. The output string is generated
+ *                   character by character, contributing effectively O(L) to overall space.
+ */
+#include <iostream> // Required for input/output operations (cin, cout).
+#include <string.h> // Includes C-style string functions (though std::string is used).
+#include <string>   // Required for std::string and its functionalities.
 
+/**
+ * @brief Standard namespace usage.
+ * In competitive programming, 'using namespace std;' is common practice to avoid
+ * repeatedly prefixing standard library elements with 'std::'.
+ */
 using namespace std;
 
+/**
+ * @brief Main function: entry point of the program.
+ * Reads an input string and applies a series of transformations
+ * (vowel deletion, consonant prefixing, uppercase to lowercase conversion)
+ * before printing the modified string.
+ */
 int main() {
-  string input;
-  cin >> input;
+  string input; // Declares a string variable to store the input.
+  cin >> input; // Reads the input string from standard input.
+
+  /**
+   * @brief Processes each character of the input string to apply transformation rules.
+   * Block Logic: Iterates through the input string. For each character, it first
+   * checks if it's a vowel (case-insensitive). If it is, the character is skipped.
+   * If it's a consonant, a period is printed, and then the consonant itself is
+   * printed, converted to lowercase if it was originally uppercase.
+   * Pre-condition: `input` contains the string to be transformed.
+   */
   for (int i = 0; i < input.size(); i++) {
+    // Check for uppercase vowels and skip them.
     if (input[i] == 'A' || input[i] == 'O' || input[i] == 'Y' ||
         input[i] == 'E' || input[i] == 'U' || input[i] == 'I')
-      continue;
+      continue; // Inline: Skips processing for uppercase vowels.
+    // Check for lowercase vowels and skip them.
     if (input[i] == 'a' || input[i] == 'o' || input[i] == 'y' ||
         input[i] == 'e' || input[i] == 'u' || input[i] == 'i')
-      continue;
-    if (input[i] - 'A' >= 26)
-      cout << '.' << input[i];
-    else
-      cout << '.' << (char)(input[i] + ('a' - 'A'));
+      continue; // Inline: Skips processing for lowercase vowels.
+
+    // If the character is not a vowel, it must be a consonant.
+    // Insert a period before the consonant.
+    cout << '.';
+
+    // Check if the consonant is uppercase. 'input[i] - 'A' >= 26' effectively
+    // checks if `input[i]` is a lowercase letter by comparing its ASCII value
+    // offset from 'A'. For example, 'a' - 'A' = 32, which is >= 26.
+    if (input[i] - 'A' >= 26) // If true, the character is already lowercase.
+      cout << input[i];       // Prints the lowercase consonant as is.
+    else // The character is an uppercase consonant, convert it to lowercase.
+      // Inline: Converts the uppercase consonant to lowercase using ASCII arithmetic.
+      // 'a' - 'A' gives the difference in ASCII values between corresponding
+      // lowercase and uppercase letters. Adding this difference to an uppercase
+      // letter yields its lowercase equivalent.
+      cout << (char)(input[i] + ('a' - 'A'));
   }
-  cout << endl;
-  return 0;
+  cout << endl; // Prints a final newline character.
+  return 0;     // Indicates successful program execution.
 }

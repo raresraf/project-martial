@@ -14,19 +14,30 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package main provides the entry point for the Kubernetes kube-proxy command.
+// It initializes and executes the kube-proxy command-line application,
+// handling metric registration and command execution.
 package main
 
 import (
 	"os"
 
 	"k8s.io/component-base/cli"
-	_ "k8s.io/component-base/metrics/prometheus/restclient" // for client metric registration
-	_ "k8s.io/component-base/metrics/prometheus/version"    // for version metric registration
+	// Blank import for client metric registration:
+	// This import ensures that the `restclient` package's `init()` function is called,
+	// registering Prometheus metrics related to client operations.
+	_ "k8s.io/component-base/metrics/prometheus/restclient"
+	// Blank import for version metric registration:
+	// This import ensures that the `version` package's `init()` function is called,
+	// registering Prometheus metrics related to the application's version.
+	_ "k8s.io/component-base/metrics/prometheus/version"
 	"k8s.io/kubernetes/cmd/kube-proxy/app"
 )
 
+// main is the entry point for the kube-proxy command-line application.
+// It sets up the command, runs it, and exits with the appropriate status code.
 func main() {
-	command := app.NewProxyCommand()
-	code := cli.Run(command)
-	os.Exit(code)
+	command := app.NewProxyCommand() // Creates a new kube-proxy command instance.
+	code := cli.Run(command)         // Executes the command and captures its exit code.
+	os.Exit(code)                    // Exits the application with the captured code.
 }

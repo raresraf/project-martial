@@ -47,15 +47,9 @@ import static org.elasticsearch.xpack.inference.services.ServiceUtils.extractReq
 import static org.elasticsearch.xpack.inference.services.ServiceUtils.extractSimilarity;
 
 /**
- * TextEmbedding needs to differentiate between Bit, Byte, and Float types. Users must specify the
- * {@link org.elasticsearch.index.mapper.vectors.DenseVectorFieldMapper.ElementType} in the Service Settings,
- * and Elastic will use that to parse the request/response. {@link SimilarityMeasure} and Dimensions are also needed, though Dimensions can
- * be guessed and set during the validation call.
- * At the very least, Service Settings must look like:
- * {
- *     "element_type": "bit|byte|float",
- *     "similarity": "cosine|dot_product|l2_norm"
- * }
+ * Defines the payload for text embedding requests to AWS SageMaker for models that use the "elastic" schema.
+ * This class handles the serialization of requests and deserialization of responses, supporting different
+ * embedding types (bit, byte, float).
  */
 public class ElasticTextEmbeddingPayload implements ElasticPayload {
     private static final EnumSet<TaskType> SUPPORTED_TASKS = EnumSet.of(TaskType.TEXT_EMBEDDING);
@@ -90,6 +84,14 @@ public class ElasticTextEmbeddingPayload implements ElasticPayload {
         );
     }
 
+    /**
+     * Parses the response from a SageMaker endpoint into a {@link TextEmbeddingResults} object.
+     * The parsing logic depends on the `elementType` defined in the model's service settings.
+     * @param model The SageMaker model configuration.
+     * @param response The response from the SageMaker endpoint.
+     * @return The parsed text embedding results.
+     * @throws Exception if parsing fails.
+     */
     @Override
     public TextEmbeddingResults<?> responseBody(SageMakerModel model, InvokeEndpointResponse response) throws Exception {
         try (var p = jsonXContent.createParser(XContentParserConfiguration.EMPTY, response.body().asInputStream())) {
@@ -102,21 +104,9 @@ public class ElasticTextEmbeddingPayload implements ElasticPayload {
     }
 
     /**
-     * Reads binary format (it says bytes, but the lengths are different)
-     * {
-     *     "text_embedding_bits": [
-     *         {
-     *             "embedding": [
-     *                 23
-     *             ]
-     *         },
-     *         {
-     *             "embedding": [
-     *                 -23
-     *             ]
-     *         }
-     *     ]
-     * }
+     * Parser for binary (bit) text embeddings.
+     * Expects a JSON structure like:
+     * { "text_embedding_bits": [ { "embedding": [ 23 ] } ] }
      */
     private static class TextEmbeddingBinary {
         private static final ParseField TEXT_EMBEDDING_BITS = new ParseField(TextEmbeddingBitResults.TEXT_EMBEDDING_BITS);
@@ -133,21 +123,9 @@ public class ElasticTextEmbeddingPayload implements ElasticPayload {
     }
 
     /**
-     * Reads byte format from
-     * {
-     *     "text_embedding_bytes": [
-     *         {
-     *             "embedding": [
-     *                 23
-     *             ]
-     *         },
-     *         {
-     *             "embedding": [
-     *                 -23
-     *             ]
-     *         }
-     *     ]
-     * }
+     * Parser for byte text embeddings.
+     * Expects a JSON structure like:
+     * { "text_embedding_bytes": [ { "embedding": [ 23 ] } ] }
      */
     private static class TextEmbeddingBytes {
         private static final ParseField TEXT_EMBEDDING_BYTES = new ParseField("text_embedding_bytes");
@@ -167,6 +145,7 @@ public class ElasticTextEmbeddingPayload implements ElasticPayload {
             );
 
         static {
+            // Parses numbers as bytes, with validation for the byte range.
             BYTE_PARSER.declareObjectArray(constructorArg(), (p, c) -> {
                 var byteVal = p.shortValue();
                 if (byteVal < Byte.MIN_VALUE || byteVal > Byte.MAX_VALUE) {
@@ -179,21 +158,9 @@ public class ElasticTextEmbeddingPayload implements ElasticPayload {
     }
 
     /**
-     * Reads float format from
-     * {
-     *     "text_embedding": [
-     *         {
-     *             "embedding": [
-     *                 0.1
-     *             ]
-     *         },
-     *         {
-     *             "embedding": [
-     *                 0.2
-     *             ]
-     *         }
-     *     ]
-     * }
+     * Parser for float text embeddings.
+     * Expects a JSON structure like:
+     * { "text_embedding": [ { "embedding": [ 0.1 ] } ] }
      */
     private static class TextEmbeddingFloat {
         private static final ParseField TEXT_EMBEDDING_FLOAT = new ParseField("text_embedding");
@@ -219,7 +186,12 @@ public class ElasticTextEmbeddingPayload implements ElasticPayload {
     }
 
     /**
-     * Element Type is required. It is used to disambiguate between binary embeddings and byte embeddings.
+     * Defines the service settings for the elastic text embedding payload.
+     * These settings are stored as part of the model configuration.
+     * @param dimensions The number of dimensions in the embedding vector.
+     * @param dimensionsSetByUser Whether the dimensions were explicitly set by the user.
+     * @param similarity The similarity measure to be used.
+     * @param elementType The data type of the embedding vector elements (bit, byte, or float).
      */
     record ApiServiceSettings(
         @Nullable Integer dimensions,

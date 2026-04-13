@@ -1,6 +1,13 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/*
- * Functions to access TPS65215/TPS65219 Power Management Integrated Chips
+/**
+ * @file
+ * @brief Register map and definitions for the TPS65219 family of PMICs.
+ *
+ * This header file provides the register address map, bit field definitions,
+ * and shared data structures for the Texas Instruments TPS65219, TPS65215,
+ * and TPS65214 Power Management Integrated Circuits (PMICs). It is intended
+ * to be used by the MFD (Multi-Function Device) core driver and sub-drivers
+ * (e.g., regulator, IRQ) for these chips.
  *
  * Copyright (C) 2022 BayLibre Incorporated - https://www.baylibre.com/
  * Copyright (C) 2024 Texas Instruments Incorporated - https://www.ti.com/
@@ -14,7 +21,12 @@
 #include <linux/regmap.h>
 #include <linux/regulator/driver.h>
 
-/* Chip id list*/
+/**
+ * enum pmic_id - Defines the supported chip variants.
+ * @TPS65214: Identifier for the TPS65214 PMIC.
+ * @TPS65215: Identifier for the TPS65215 PMIC.
+ * @TPS65219: Identifier for the TPS65219 PMIC.
+ */
 enum pmic_id {
 	TPS65214,
 	TPS65215,
@@ -24,7 +36,7 @@ enum pmic_id {
 /* I2C ID for TPS65219 part */
 #define TPS65219_I2C_ID					0x24
 
-/* All register addresses */
+/* Register Address Map */
 #define TPS65219_REG_TI_DEV_ID				0x00
 #define TPS65219_REG_NVM_ID				0x01
 #define TPS65219_REG_ENABLE_CTRL			0x02
@@ -106,8 +118,9 @@ enum pmic_id {
 #define TPS65219_REG_INT_TIMEOUT_RV_SD			0x32
 #define TPS65219_REG_INT_PB				0x33
 
+/* Bit positions in the main interrupt source register (INT_SOURCE) */
 #define TPS65219_REG_INT_LDO_3_4_POS			0
-#define TPS65219_REG_INT_LDO_1_2_POS			1
+#define TPS65219_REG_INT_LDO_1_2_pos			1
 #define TPS65219_REG_INT_BUCK_3_POS			2
 #define TPS65219_REG_INT_BUCK_1_2_POS			3
 #define TPS65219_REG_INT_SYS_POS			4
@@ -132,15 +145,21 @@ enum pmic_id {
 #define TPS65219_REG_SPARE_3				0x37
 #define TPS65219_REG_FACTORY_CONFIG_2			0x41
 
-/* Register field definitions */
+/*
+ * Register Field Definitions
+ */
+
+/* TI_DEV_ID Register (0x00) */
 #define TPS65219_DEVID_REV_MASK				GENMASK(7, 0)
+/* BUCKS_CONFIG Register (0x03) */
 #define TPS65219_BUCKS_LDOS_VOUT_VSET_MASK		GENMASK(5, 0)
 #define TPS65219_BUCKS_UV_THR_SEL_MASK			BIT(6)
 #define TPS65219_BUCKS_BW_SEL_MASK			BIT(7)
 #define LDO_BYP_SHIFT					6
 #define TPS65219_LDOS_BYP_CONFIG_MASK			BIT(LDO_BYP_SHIFT)
 #define TPS65219_LDOS_LSW_CONFIG_MASK			BIT(7)
-/* Regulators enable control */
+
+/* ENABLE_CTRL Register (0x02) - Regulator enable control */
 #define TPS65219_ENABLE_BUCK1_EN_MASK			BIT(0)
 #define TPS65219_ENABLE_BUCK2_EN_MASK			BIT(1)
 #define TPS65219_ENABLE_BUCK3_EN_MASK			BIT(2)
@@ -150,10 +169,12 @@ enum pmic_id {
 #define TPS65215_ENABLE_LDO2_EN_MASK                    BIT(5)
 #define TPS65214_ENABLE_LDO1_EN_MASK			BIT(5)
 #define TPS65219_ENABLE_LDO4_EN_MASK			BIT(6)
-/* power ON-OFF sequence slot */
+
+/* Sequence Slot Registers (0x0B - 0x15) - Power ON/OFF sequence slot */
 #define TPS65219_BUCKS_LDOS_SEQUENCE_OFF_SLOT_MASK	GENMASK(3, 0)
 #define TPS65219_BUCKS_LDOS_SEQUENCE_ON_SLOT_MASK	GENMASK(7, 4)
-/* TODO: Not needed, same mapping as TPS65219_ENABLE_REGNAME_EN, factorize */
+
+/* STBY_1_CONFIG Register (0x21) - Standby enable for regulators */
 #define TPS65219_STBY1_BUCK1_STBY_EN_MASK		BIT(0)
 #define TPS65219_STBY1_BUCK2_STBY_EN_MASK		BIT(1)
 #define TPS65219_STBY1_BUCK3_STBY_EN_MASK		BIT(2)
@@ -161,21 +182,25 @@ enum pmic_id {
 #define TPS65219_STBY1_LDO2_STBY_EN_MASK		BIT(4)
 #define TPS65219_STBY1_LDO3_STBY_EN_MASK		BIT(5)
 #define TPS65219_STBY1_LDO4_STBY_EN_MASK		BIT(6)
-/* STBY_2 config */
+
+/* STBY_2_CONFIG Register (0x22) - Standby enable for GPOs */
 #define TPS65219_STBY2_GPO1_STBY_EN_MASK		BIT(0)
 #define TPS65219_STBY2_GPO2_STBY_EN_MASK		BIT(1)
 #define TPS65219_STBY2_GPIO_STBY_EN_MASK		BIT(2)
-/* MFP Control */
+
+/* MFP_CTRL Register (0x29) - Multi-Function Pin Control */
 #define TPS65219_MFP_I2C_OFF_REQ_MASK			BIT(0)
 #define TPS65219_MFP_STBY_I2C_CTRL_MASK			BIT(1)
 #define TPS65219_MFP_COLD_RESET_I2C_CTRL_MASK		BIT(2)
 #define TPS65219_MFP_WARM_RESET_I2C_CTRL_MASK		BIT(3)
 #define TPS65219_MFP_GPIO_STATUS_MASK			BIT(4)
-/* MFP_1 Config */
+
+/* MFP_1_CONFIG Register (0x1F) */
 #define TPS65219_MFP_1_VSEL_DDR_SEL_MASK		BIT(0)
 #define TPS65219_MFP_1_VSEL_SD_POL_MASK			BIT(1)
 #define TPS65219_MFP_1_VSEL_RAIL_MASK			BIT(2)
-/* MFP_2 Config */
+
+/* MFP_2_CONFIG Register (0x20) */
 #define TPS65219_MFP_2_MODE_STBY_MASK			GENMASK(1, 0)
 #define TPS65219_MFP_2_MODE_RESET_MASK			BIT(2)
 #define TPS65219_MFP_2_EN_PB_VSENSE_DEGL_MASK		BIT(3)
@@ -185,7 +210,8 @@ enum pmic_id {
 #define TPS65219_MFP_2_EN				0
 #define TPS65219_MFP_2_PB				BIT(4)
 #define TPS65219_MFP_2_VSENSE				BIT(5)
-/* MASK_UV Config */
+
+/* INT_MASK_UV Register (0x24) - Undervoltage Interrupt Mask */
 #define TPS65219_REG_MASK_UV_LDO1_UV_MASK		BIT(0)
 #define TPS65219_REG_MASK_UV_LDO2_UV_MASK		BIT(1)
 #define TPS65219_REG_MASK_UV_LDO3_UV_MASK		BIT(2)
@@ -194,39 +220,42 @@ enum pmic_id {
 #define TPS65219_REG_MASK_UV_BUCK2_UV_MASK		BIT(5)
 #define TPS65219_REG_MASK_UV_BUCK3_UV_MASK		BIT(6)
 #define TPS65219_REG_MASK_UV_RETRY_MASK			BIT(7)
-/* MASK Config */
-// SENSOR_N_WARM_MASK already defined in Thermal
+
+/* MASK_CONFIG Register (0x25) */
 #define TPS65219_REG_MASK_INT_FOR_RV_MASK		BIT(4)
 #define TPS65219_REG_MASK_EFFECT_MASK			GENMASK(2, 1)
 #define TPS65219_REG_MASK_INT_FOR_PB_MASK		BIT(7)
-/* UnderVoltage - Short to GND - OverCurrent*/
-/* LDO3-4: only for TPS65219*/
+
+/*
+ * Sub-Interrupt Registers for Fault Conditions (Short-to-GND, Over-Current, Under-Voltage)
+ */
+/* INT_LDO_3_4 Register (0x2C) - for TPS65219 only */
 #define TPS65219_INT_LDO3_SCG_MASK			BIT(0)
 #define TPS65219_INT_LDO3_OC_MASK			BIT(1)
 #define TPS65219_INT_LDO3_UV_MASK			BIT(2)
 #define TPS65219_INT_LDO4_SCG_MASK			BIT(3)
 #define TPS65219_INT_LDO4_OC_MASK			BIT(4)
 #define TPS65219_INT_LDO4_UV_MASK			BIT(5)
-/* LDO1-2: TPS65214 & TPS65219 */
+/* INT_LDO_1_2 Register (0x2D) - for TPS65214 & TPS65219 */
 #define TPS65219_INT_LDO1_SCG_MASK			BIT(0)
 #define TPS65219_INT_LDO1_OC_MASK			BIT(1)
 #define TPS65219_INT_LDO1_UV_MASK			BIT(2)
 #define TPS65219_INT_LDO2_SCG_MASK			BIT(3)
 #define TPS65219_INT_LDO2_OC_MASK			BIT(4)
 #define TPS65219_INT_LDO2_UV_MASK			BIT(5)
-/* TPS65215 LDO1-2*/
+/* INT_LDO1 & INT_LDO2 Registers (0x2C, 0x2D) - for TPS65215 only */
 #define TPS65215_INT_LDO1_SCG_MASK			BIT(0)
 #define TPS65215_INT_LDO1_OC_MASK			BIT(1)
 #define TPS65215_INT_LDO1_UV_MASK			BIT(2)
 #define TPS65215_INT_LDO2_SCG_MASK			BIT(0)
 #define TPS65215_INT_LDO2_OC_MASK			BIT(1)
 #define TPS65215_INT_LDO2_UV_MASK			BIT(2)
-/* BUCK3 */
+/* INT_BUCK_3 Register (0x2E) */
 #define TPS65219_INT_BUCK3_SCG_MASK			BIT(0)
 #define TPS65219_INT_BUCK3_OC_MASK			BIT(1)
 #define TPS65219_INT_BUCK3_NEG_OC_MASK			BIT(2)
 #define TPS65219_INT_BUCK3_UV_MASK			BIT(3)
-/* BUCK1-2 */
+/* INT_BUCK_1_2 Register (0x2F) */
 #define TPS65219_INT_BUCK1_SCG_MASK			BIT(0)
 #define TPS65219_INT_BUCK1_OC_MASK			BIT(1)
 #define TPS65219_INT_BUCK1_NEG_OC_MASK			BIT(2)
@@ -235,17 +264,16 @@ enum pmic_id {
 #define TPS65219_INT_BUCK2_OC_MASK			BIT(5)
 #define TPS65219_INT_BUCK2_NEG_OC_MASK			BIT(6)
 #define TPS65219_INT_BUCK2_UV_MASK			BIT(7)
-/* Thermal Sensor: TPS65219/TPS65215 */
+/* INT_SYSTEM Register (0x30) - Thermal Sensor Interrupts */
 #define TPS65219_INT_SENSOR_3_WARM_MASK			BIT(0)
 #define TPS65219_INT_SENSOR_3_HOT_MASK			BIT(4)
-/* Thermal Sensor: TPS65219/TPS65215/TPS65214 */
 #define TPS65219_INT_SENSOR_2_WARM_MASK			BIT(1)
 #define TPS65219_INT_SENSOR_1_WARM_MASK			BIT(2)
 #define TPS65219_INT_SENSOR_0_WARM_MASK			BIT(3)
 #define TPS65219_INT_SENSOR_2_HOT_MASK			BIT(5)
 #define TPS65219_INT_SENSOR_1_HOT_MASK			BIT(6)
 #define TPS65219_INT_SENSOR_0_HOT_MASK			BIT(7)
-/* Residual Voltage */
+/* INT_RV Register (0x31) - Residual Voltage Interrupts */
 #define TPS65219_INT_BUCK1_RV_MASK			BIT(0)
 #define TPS65219_INT_BUCK2_RV_MASK			BIT(1)
 #define TPS65219_INT_BUCK3_RV_MASK			BIT(2)
@@ -255,7 +283,7 @@ enum pmic_id {
 #define TPS65215_INT_LDO2_RV_MASK			BIT(5)
 #define TPS65214_INT_LDO2_RV_MASK			BIT(5)
 #define TPS65219_INT_LDO4_RV_MASK			BIT(6)
-/* Residual Voltage ShutDown */
+/* INT_TIMEOUT_RV_SD Register (0x32) - Residual Voltage Shutdown Interrupts */
 #define TPS65219_INT_BUCK1_RV_SD_MASK			BIT(0)
 #define TPS65219_INT_BUCK2_RV_SD_MASK			BIT(1)
 #define TPS65219_INT_BUCK3_RV_SD_MASK			BIT(2)
@@ -266,7 +294,7 @@ enum pmic_id {
 #define TPS65214_INT_LDO1_RV_SD_MASK			BIT(5)
 #define TPS65219_INT_LDO4_RV_SD_MASK			BIT(6)
 #define TPS65219_INT_TIMEOUT_MASK			BIT(7)
-/* Power Button */
+/* INT_PB Register (0x33) - Power Button Interrupts */
 #define TPS65219_INT_PB_FALLING_EDGE_DETECT_MASK	BIT(0)
 #define TPS65219_INT_PB_RISING_EDGE_DETECT_MASK		BIT(1)
 #define TPS65219_INT_PB_REAL_TIME_STATUS_MASK		BIT(2)
@@ -280,7 +308,10 @@ enum pmic_id {
 #define TPS65219_LDO_1_2_POS				1
 #define TPS65219_LDO_3_4_POS				0
 
-/* IRQs */
+/*
+ * This enum defines the linear IRQ numbers used by the regmap-irq chip.
+ * Each entry corresponds to a specific interrupt source within the PMIC.
+ */
 enum {
 	/* LDO3-4 register IRQs */
 	TPS65219_INT_LDO3_SCG,
@@ -353,6 +384,10 @@ enum {
 	TPS65219_INT_PB_RISING_EDGE_DETECT,
 };
 
+/**
+ * enum tps65214_regulator_id - Regulator IDs for TPS65214
+ * Note the mapping to different LDOs compared to TPS65219.
+ */
 enum tps65214_regulator_id {
 	/*
 	 * DCDC's same as TPS65219
@@ -364,12 +399,18 @@ enum tps65214_regulator_id {
 	TPS65214_LDO_2 = 4,
 };
 
+/**
+ * enum tps65215_regulator_id - Regulator IDs for TPS65215
+ */
 enum tps65215_regulator_id {
 	/* DCDC's same as TPS65219 */
 	/* LDO1 is the same as TPS65219 */
 	TPS65215_LDO_2 = 4,
 };
 
+/**
+ * enum tps65219_regulator_id - Regulator IDs for TPS65219
+ */
 enum tps65219_regulator_id {
 	/* DCDC's */
 	TPS65219_BUCK_1,
@@ -393,7 +434,10 @@ enum tps65219_regulator_id {
 #define TPS65215_NUM_REGULATOR		(TPS6521X_NUM_BUCKS + TPS65215_NUM_LDO)
 #define TPS65214_NUM_REGULATOR		(TPS6521X_NUM_BUCKS + TPS65214_NUM_LDO)
 
-/* Define the TPS65214 IRQ numbers */
+/**
+ * enum tps65214_irqs - Hierarchical IRQ numbers for TPS65214
+ * These correspond to the bits in the main INT_SOURCE register.
+ */
 enum tps65214_irqs {
 	/* INT source registers */
 	TPS65214_TO_RV_SD_SET_IRQ,
@@ -405,7 +449,9 @@ enum tps65214_irqs {
 	TPS65214_PB_SET_IRQ = 7,
 };
 
-/* Define the TPS65215 IRQ numbers */
+/**
+ * enum tps65215_irqs - Hierarchical IRQ numbers for TPS65215
+ */
 enum tps65215_irqs {
 	/* INT source registers */
 	TPS65215_TO_RV_SD_SET_IRQ,
@@ -418,7 +464,9 @@ enum tps65215_irqs {
 	TPS65215_PB_SET_IRQ,
 };
 
-/* Define the TPS65219 IRQ numbers */
+/**
+ * enum tps65219_irqs - Hierarchical IRQ numbers for TPS65219
+ */
 enum tps65219_irqs {
 	/* INT source registers */
 	TPS65219_TO_RV_SD_SET_IRQ,
@@ -432,15 +480,16 @@ enum tps65219_irqs {
 };
 
 /**
- * struct tps65219 - tps65219 sub-driver chip access routines
+ * struct tps65219 - Driver private data structure.
  *
- * Device data may be used to access the TPS65219 chip
+ * This structure holds the core data for the TPS65219 MFD driver,
+ * providing shared access to device resources for all sub-drivers.
  *
- * @dev: MFD device
- * @regmap: Regmap for accessing the device registers
- * @chip_id: Chip ID
- * @irq_data: Regmap irq data used for the irq chip
- * @nb: notifier block for the restart handler
+ * @dev: Pointer to the MFD device structure.
+ * @regmap: Pointer to the regmap instance for register access.
+ * @chip_id: The identifier for the specific PMIC variant (e.g., TPS65219).
+ * @irq_data: Pointer to the regmap IRQ chip data for interrupt handling.
+ * @nb: A notifier block for registering a restart handler.
  */
 struct tps65219 {
 	struct device *dev;

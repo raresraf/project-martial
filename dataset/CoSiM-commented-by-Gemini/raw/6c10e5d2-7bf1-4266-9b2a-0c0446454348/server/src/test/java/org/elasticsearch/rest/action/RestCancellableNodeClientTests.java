@@ -1,12 +1,10 @@
-/*
- * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
- * or more contributor license agreements. Licensed under the "Elastic License
- * 2.0", the "GNU Affero General Public License v3.0 only", and the "Server Side
- * Public License v 1"; you may not use this file except in compliance with, at
- * your election, the "Elastic License 2.0", the "GNU Affero General Public
- * License v3.0 only", or the "Server Side Public License, v 1".
+/**
+ * This file contains the test suite for the {@link RestCancellableNodeClient} class.
+ * These tests verify the client's behavior in managing and cancelling tasks
+ * associated with REST requests, especially in scenarios involving channel closure
+ * and concurrency. The core functionality being tested is the prevention of
+ * orphaned tasks when an HTTP connection is terminated.
  */
-
 package org.elasticsearch.rest.action;
 
 import org.elasticsearch.action.ActionListener;
@@ -47,6 +45,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.LongSupplier;
 
+/**
+ * Unit tests for the {@link RestCancellableNodeClient} class, ensuring correct
+ * task cancellation and resource cleanup when REST channels are closed.
+ */
 public class RestCancellableNodeClientTests extends ESTestCase {
 
     private ThreadPool threadPool;
@@ -152,6 +154,11 @@ public class RestCancellableNodeClientTests extends ESTestCase {
         assertEquals(totalSearches, testClient.cancelledTasks.size());
     }
 
+    /**
+     * Tests a race condition where a task is executed concurrently with the closing of its associated channel.
+     * This ensures that the cancellation mechanism is thread-safe and correctly cancels the task
+     * regardless of the timing of the channel closure.
+     */
     public void testConcurrentExecuteAndClose() {
         final var testClient = new TestClient(Settings.EMPTY, threadPool, true);
         int initialHttpChannels = RestCancellableNodeClient.getNumChannels();
@@ -185,6 +192,10 @@ public class RestCancellableNodeClientTests extends ESTestCase {
         assertEquals(expectedTasks, testClient.cancelledTasks);
     }
 
+    /**
+     * A mock {@link NodeClient} for testing purposes. It intercepts calls to `executeLocally`
+     * to simulate task execution and cancellation without needing a full cluster.
+     */
     private static class TestClient extends NodeClient {
         private final LongSupplier searchTaskIdGenerator = new AtomicLong(0)::getAndIncrement;
         private final LongSupplier cancelTaskIdGenerator = new AtomicLong(1000)::getAndIncrement;
@@ -254,6 +265,10 @@ public class RestCancellableNodeClientTests extends ESTestCase {
         }
     }
 
+    /**
+     * A mock {@link HttpChannel} that allows for simulating channel closure and
+     * managing close listeners for testing cancellation logic.
+     */
     private class TestHttpChannel implements HttpChannel {
         private final AtomicBoolean open = new AtomicBoolean(true);
         private final SubscribableListener<ActionListener<Void>> closeListener = new SubscribableListener<>();

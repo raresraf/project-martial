@@ -1,6 +1,6 @@
 /* Problem Statements
 *  A. Bit++
-time limit per test1 second
+time limit per test2 seconds
 memory limit per test256 megabytes
 inputstandard input
 outputstandard output
@@ -60,23 +60,62 @@ output
  *  Filename : 282A_bit++.cpp
  */
 
-#include <iostream>
-#include <string.h>
-#include <string>
+/**
+ * @file 282A.CPP
+ * @brief Solution to a competitive programming problem: "A. Bit++".
+ *
+ * This program simulates the execution of a simple programming language called Bit++.
+ * The language operates on a single variable 'x', initially 0, and supports two operations:
+ * '++' (increment 'x' by 1) and '--' (decrement 'x' by 1). Statements are
+ * 3-character strings like "++X", "X++", "--X", or "X--". The program reads
+ * a sequence of these statements and outputs the final value of 'x' after
+ * all statements are executed.
+ *
+ * Algorithm: Iterative statement processing with conditional value update.
+ * Time Complexity: O(N), where N is the number of statements. Each statement
+ *                  is processed in constant time.
+ * Space Complexity: O(1) for storing variables, plus O(S_max) for the maximum
+ *                   length of a statement string (which is constant, 3).
+ */
+#include <iostream> // Required for input/output operations (cin, cout).
+#include <string.h> // Includes C-style string functions (though std::string is used).
+#include <string>   // Required for std::string and its functionalities.
 
+/**
+ * @brief Standard namespace usage.
+ * In competitive programming, 'using namespace std;' is common practice to avoid
+ * repeatedly prefixing standard library elements with 'std::'.
+ */
 using namespace std;
 
+/**
+ * @brief Main function: entry point of the program.
+ * Reads the number of statements, then iteratively processes each statement
+ * to update the value of 'x', and finally prints the accumulated value of 'x'.
+ */
 int main() {
-  int N, cnt = 0;
-  cin >> N;
+  int N;       // Declares 'N' to store the number of statements in the program.
+  int cnt = 0; // Declares 'cnt' to store the current value of variable 'x', initialized to 0.
+  cin >> N;    // Reads the total number of statements.
+
+  /**
+   * @brief Processes each statement in the Bit++ program.
+   * Block Logic: Reads each statement as a string. Based on the presence of
+   * a '+' character, it increments or decrements the 'cnt' variable.
+   * Pre-condition: 'N' is the total number of statements.
+   * Invariant: 'cnt' reflects the value of 'x' after processing all statements up to the current iteration.
+   */
   for (int i = 0; i < N; i++) {
-    string tmp;
-    cin >> tmp;
+    string tmp;   // Declares a temporary string to store the current statement.
+    cin >> tmp;   // Reads the current statement.
+    // Checks if the statement contains an increment operation.
+    // A statement is always 3 characters long (e.g., "++X" or "X++").
+    // Checking `tmp[0]` or `tmp[2]` for '+' is sufficient to determine the operation.
     if (tmp[0] == '+' || tmp[2] == '+')
-      cnt++;
+      cnt++; // If it's an increment operation, increment 'cnt'.
     else
-      cnt--;
+      cnt--; // Otherwise (if it contains '--'), it's a decrement operation, decrement 'cnt'.
   }
-  cout << cnt << endl;
-  return 0;
+  cout << cnt << endl; // Prints the final value of 'x' after executing all statements.
+  return 0;            // Indicates successful program execution.
 }

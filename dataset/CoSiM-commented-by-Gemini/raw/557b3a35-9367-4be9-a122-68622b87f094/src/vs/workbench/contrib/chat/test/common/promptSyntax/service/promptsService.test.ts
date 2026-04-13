@@ -1,7 +1,10 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
+/**
+ * @file This file contains unit tests for the `PromptsService`.
+ * The tests focus on the service's ability to correctly manage and cache
+ * `TextModelPromptParser` instances for different text models. It verifies
+ * caching behavior, parser lifecycle management (creation, disposal), and
+ * the parser's reactivity to changes in the underlying text model.
+ */
 
 import assert from 'assert';
 import { createURI } from '../testUtils/createUri.js';
@@ -23,7 +26,9 @@ import { TestInstantiationService } from '../../../../../../../platform/instanti
 import { TestConfigurationService } from '../../../../../../../platform/configuration/test/common/testConfigurationService.js';
 
 /**
- * Helper class to assert the properties of a link.
+ * A helper class for defining the expected properties of a parsed file link.
+ * This simplifies the process of asserting that the parser correctly identifies
+ * file references within a prompt.
  */
 class ExpectedLink {
 	constructor(
@@ -33,7 +38,8 @@ class ExpectedLink {
 	) { }
 
 	/**
-	 * Assert a provided link has the same properties as this object.
+	 * Asserts that a given `IPromptFileReference` matches the expected properties of this instance.
+	 * @param link The parsed link to validate.
 	 */
 	public assertEqual(link: IPromptFileReference) {
 		assert.strictEqual(
@@ -66,9 +72,10 @@ class ExpectedLink {
 }
 
 /**
- * Asserts that provided links are equal to the expected links.
- * @param links Links to assert.
- * @param expectedLinks Expected links to compare against.
+ * Asserts that an array of parsed links matches an array of expected links.
+ * It iterates through both arrays and compares each link pair.
+ * @param links The actual links produced by the parser.
+ * @param expectedLinks The expected links to assert against.
  */
 const assertLinks = (
 	links: readonly IPromptFileReference[],
@@ -105,6 +112,15 @@ suite('PromptSyntaxService', () => {
 	});
 
 	suite('getParserFor', () => {
+		/**
+		 * This test verifies the core caching and lifecycle management logic of the `getSyntaxParserFor` method.
+		 * It ensures that:
+		 * 1. A parser is correctly created for a new text model.
+		 * 2. The same parser instance is returned for subsequent requests for the same model (caching).
+		 * 3. A different parser is created for a different model.
+		 * 4. Disposing a parser and then requesting it again for the same model yields a new instance.
+		 * 5. Disposing a text model also disposes its associated parser.
+		 */
 		test('provides cached parser instance', async () => {
 			const langId = 'fooLang';
 
@@ -427,6 +443,10 @@ suite('PromptSyntaxService', () => {
 			);
 		});
 
+		/**
+		 * This test ensures that when the content of a text model changes, the associated
+		 * prompt parser automatically re-parses the content and updates its list of references.
+		 */
 		test('auto-updated on model changes', async () => {
 			const langId = 'bazLang';
 
@@ -467,6 +487,7 @@ suite('PromptSyntaxService', () => {
 				],
 			);
 
+			// Apply an edit to the model, changing one of the file paths.
 			model.applyEdits([
 				{
 					range: new Range(4, 18, 4, 18 + 25),
@@ -474,6 +495,7 @@ suite('PromptSyntaxService', () => {
 				},
 			]);
 
+			// Wait for the parser to update and then assert the new state.
 			await parser.settled();
 
 			assertLinks(
@@ -495,6 +517,11 @@ suite('PromptSyntaxService', () => {
 			);
 		});
 
+		/**
+		 * Verifies that the service throws an error when attempting to get a parser
+		 * for a text model that has already been disposed. This is important for
+		 * preventing memory leaks and use-after-free errors.
+		 */
 		test('throws if disposed model provided', async function () {
 			const model = disposables.add(createTextModel(
 				'test1\ntest2\n\ntest3\t\n',

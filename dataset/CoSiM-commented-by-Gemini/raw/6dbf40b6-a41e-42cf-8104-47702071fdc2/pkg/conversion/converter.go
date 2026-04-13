@@ -14,6 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package conversion provides a general-purpose deep-copy and conversion
+// utility. It uses reflection to copy compatible fields between structs and
+// allows for the registration of custom conversion functions to handle specific
+// type conversions.
 package conversion
 
 import (
@@ -21,11 +25,13 @@ import (
 	"reflect"
 )
 
+// typePair is used as a key for the conversion function map.
 type typePair struct {
 	source reflect.Type
 	dest   reflect.Type
 }
 
+// typeNamePair is used as a key for the struct field mapping.
 type typeNamePair struct {
 	fieldType reflect.Type
 	fieldName string
@@ -36,10 +42,11 @@ type DebugLogger interface {
 	Logf(format string, args ...interface{})
 }
 
-// Converter knows how to convert one type to another.
+// Converter knows how to convert one type to another. It holds a map of
+// custom conversion functions and mappings for struct fields.
 type Converter struct {
-	// Map from the conversion pair to a function which can
-	// do the conversion.
+	// Map from a source-destination type pair to a function that can perform
+	// the conversion.
 	funcs map[typePair]reflect.Value
 
 	// This is a map from a source field type and name, to a list of destination
@@ -60,7 +67,7 @@ type Converter struct {
 	NameFunc func(t reflect.Type) string
 }
 
-// NewConverter creates a new Converter object.
+// NewConverter creates a new Converter object with initialized maps.
 func NewConverter() *Converter {
 	return &Converter{
 		funcs:              map[typePair]reflect.Value{},
@@ -90,7 +97,8 @@ type Scope interface {
 	Meta() *Meta
 }
 
-// Meta is supplied by Scheme, when it calls Convert.
+// Meta is supplied by Scheme, when it calls Convert. It allows for passing
+// versioning or other contextual information to conversion functions.
 type Meta struct {
 	SrcVersion  string
 	DestVersion string
@@ -240,12 +248,11 @@ func (c *Converter) Register(conversionFunc interface{}) error {
 	return nil
 }
 
-// SetStructFieldCopy registers a correspondence. Whenever a struct field is encountered
-// which has a type and name matching srcFieldType and srcFieldName, it wil be copied
-// into the field in the destination struct matching destFieldType & Name, if such a
-// field exists.
-// May be called multiple times, even for the same source field & type--all applicable
-// copies will be performed.
+// SetStructFieldCopy registers a correspondence between struct fields.
+// Whenever a struct field is encountered which has a type and name matching
+// srcFieldType and srcFieldName, it will be copied into the field in the
+// destination struct matching destFieldType & Name, if such a field exists.
+// This is useful for renaming fields across different API versions.
 func (c *Converter) SetStructFieldCopy(srcFieldType interface{}, srcFieldName string, destFieldType interface{}, destFieldName string) error {
 	st := reflect.TypeOf(srcFieldType)
 	dt := reflect.TypeOf(destFieldType)
@@ -261,20 +268,19 @@ func (c *Converter) SetStructFieldCopy(srcFieldType interface{}, srcFieldName st
 type FieldMatchingFlags int
 
 const (
-	// Loop through destination fields, search for matching source
-	// field to copy it from. Source fields with no corresponding
-	// destination field will be ignored. If SourceToDest is
-	// specified, this flag is ignored. If niether is specified,
-	// or no flags are passed, this flag is the default.
+	// DestFromSource loops through destination fields and searches for matching
+	// source fields to copy from. Source fields with no corresponding
+	// destination field are ignored. This is the default behavior.
 	DestFromSource FieldMatchingFlags = 0
-	// Loop through source fields, search for matching dest field
-	// to copy it into. Destination fields with no corresponding
-	// source field will be ignored.
+	// SourceToDest loops through source fields and searches for matching
+	// destination fields to copy into. Destination fields with no
+	// corresponding source field are ignored.
 	SourceToDest FieldMatchingFlags = 1 << iota
-	// Don't treat it as an error if the corresponding source or
-	// dest field can't be found.
+	// IgnoreMissingFields prevents an error from being returned if a
+	// corresponding source or destination field cannot be found.
 	IgnoreMissingFields
-	// Don't require type names to match.
+	// AllowDifferentFieldTypeNames allows fields to be copied even if their
+	// type names are different, as long as one is convertible to the other.
 	AllowDifferentFieldTypeNames
 )
 
@@ -290,11 +296,9 @@ func (f FieldMatchingFlags) IsSet(flag FieldMatchingFlags) bool {
 // Convert will translate src to dest if it knows how. Both must be pointers.
 // If no conversion func is registered and the default copying mechanism
 // doesn't work on this type pair, an error will be returned.
-// Read the comments on the various FieldMatchingFlags constants to understand
-// what the 'flags' parameter does.
 // 'meta' is given to allow you to pass information to conversion functions,
 // it is not used by Convert() other than storing it in the scope.
-// Not safe for objects with cyclic references!
+// This method is not safe for objects with cyclic references.
 func (c *Converter) Convert(src, dest interface{}, flags FieldMatchingFlags, meta *Meta) error {
 	dv, err := EnforcePtr(dest)
 	if err != nil {
@@ -322,6 +326,8 @@ func (c *Converter) Convert(src, dest interface{}, flags FieldMatchingFlags, met
 // one is registered.
 func (c *Converter) convert(sv, dv reflect.Value, scope *scope) error {
 	dt, st := dv.Type(), sv.Type()
+
+	// Use a custom conversion function if one is registered for this type pair.
 	if fv, ok := c.funcs[typePair{st, dt}]; ok {
 		if c.Debug != nil {
 			c.Debug.Logf("Calling custom conversion of '%v' to '%v'", st, dt)
@@ -408,6 +414,8 @@ func (c *Converter) convert(sv, dv reflect.Value, scope *scope) error {
 	return nil
 }
 
+// convertStruct handles the recursive conversion of struct types. It iterates
+// through fields and attempts to convert them.
 func (c *Converter) convertStruct(sv, dv reflect.Value, scope *scope) error {
 	dt, st := dv.Type(), sv.Type()
 
@@ -417,12 +425,14 @@ func (c *Converter) convertStruct(sv, dv reflect.Value, scope *scope) error {
 	}
 	for i := 0; i < listType.NumField(); i++ {
 		f := listType.Field(i)
+		// First, check if a custom field mapping exists for this field.
 		if found, err := c.checkStructField(f.Name, sv, dv, scope); found {
 			if err != nil {
 				return err
 			}
 			continue
 		}
+		// If no custom mapping, try to match by name.
 		df := dv.FieldByName(f.Name)
 		sf := sv.FieldByName(f.Name)
 		if sf.IsValid() {
@@ -434,14 +444,11 @@ func (c *Converter) convertStruct(sv, dv reflect.Value, scope *scope) error {
 			field, _ := dt.FieldByName(f.Name)
 			scope.destStack.top().tag = field.Tag
 		}
-		// TODO: set top level of scope.src/destTagStack with these field tags here.
 		if !df.IsValid() || !sf.IsValid() {
-			switch {
-			case scope.flags.IsSet(IgnoreMissingFields):
-				// No error.
-			case scope.flags.IsSet(SourceToDest):
-				return scope.error("%v not present in dest (%v to %v)", f.Name, st, dt)
-			default:
+			if !scope.flags.IsSet(IgnoreMissingFields) {
+				if scope.flags.IsSet(SourceToDest) {
+					return scope.error("%v not present in dest (%v to %v)", f.Name, st, dt)
+				}
 				return scope.error("%v not present in src (%v to %v)", f.Name, st, dt)
 			}
 			continue

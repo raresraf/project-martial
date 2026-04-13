@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package app provides the main entry point for the kubectl command-line tool.
+// It initializes and executes the kubectl command, routing standard I/O streams.
 package app
 
 import (
@@ -23,6 +25,9 @@ import (
 	cmdutil "k8s.io/kubernetes/pkg/kubectl/cmd/util"
 )
 
+// Run initializes and executes the Kubectl command-line interface.
+// This function acts as the primary entry point for the kubectl application,
+// setting up the command factory and standard I/O for command execution.
 func Run() error {
 	cmd := cmd.NewKubectlCommand(cmdutil.NewFactory(nil), os.Stdin, os.Stdout, os.Stderr)
 	return cmd.Execute()

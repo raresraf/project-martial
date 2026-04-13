@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// This file contains unit tests for the APIObjectVersioner, which is responsible
+// for extracting, comparing, and updating the resource version of API objects.
 package storage
 
 import (
@@ -23,14 +25,19 @@ import (
 	"k8s.io/apiserver/pkg/storage/testresource"
 )
 
+// TestObjectVersioner tests the basic functions of the APIObjectVersioner,
+// including retrieving a resource version from an object and setting it.
 func TestObjectVersioner(t *testing.T) {
 	v := APIObjectVersioner{}
+	// Test extraction of a valid resource version.
 	if ver, err := v.ObjectResourceVersion(&testresource.TestResource{ObjectMeta: metav1.ObjectMeta{ResourceVersion: "5"}}); err != nil || ver != 5 {
 		t.Errorf("unexpected version: %d %v", ver, err)
 	}
+	// Test that an invalid resource version returns an error.
 	if ver, err := v.ObjectResourceVersion(&testresource.TestResource{ObjectMeta: metav1.ObjectMeta{ResourceVersion: "a"}}); err == nil || ver != 0 {
 		t.Errorf("unexpected version: %d %v", ver, err)
 	}
+	// Test updating an object's resource version.
 	obj := &testresource.TestResource{ObjectMeta: metav1.ObjectMeta{ResourceVersion: "a"}}
 	if err := v.UpdateObject(obj, 5); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -40,6 +47,9 @@ func TestObjectVersioner(t *testing.T) {
 	}
 }
 
+// TestEtcdParseResourceVersion tests the parsing logic for resource version strings.
+// It ensures that valid numeric strings are parsed into uint64 values and that
+// invalid or non-numeric strings result in an error.
 func TestEtcdParseResourceVersion(t *testing.T) {
 	testCases := []struct {
 		Version       string
@@ -76,6 +86,9 @@ func TestEtcdParseResourceVersion(t *testing.T) {
 	}
 }
 
+// TestCompareResourceVersion verifies the comparison logic of the versioner.
+// It ensures that it correctly determines if one object's resource version is
+// less than, greater than, or equal to another's.
 func TestCompareResourceVersion(t *testing.T) {
 	five := &testresource.TestResource{ObjectMeta: metav1.ObjectMeta{ResourceVersion: "5"}}
 	six := &testresource.TestResource{ObjectMeta: metav1.ObjectMeta{ResourceVersion: "6"}}

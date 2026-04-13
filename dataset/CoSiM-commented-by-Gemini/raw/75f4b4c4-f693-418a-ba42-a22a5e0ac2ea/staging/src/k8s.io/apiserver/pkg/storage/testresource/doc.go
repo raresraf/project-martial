@@ -16,4 +16,7 @@ limitations under the License.
 
 // +k8s:deepcopy-gen=package
 
+// Package testresource provides a simple, versioned API object that is used
+// exclusively for testing the Kubernetes storage layer. It includes the
+// necessary metadata and type definitions to simulate a real API resource.
 package testresource // import "k8s.io/apiserver/pkg/storage/testresource"

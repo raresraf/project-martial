@@ -1,5 +1,18 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
-/*
+/**
+ * @file
+ * @brief MTD (Memory Technology Device) map driver interface
+ *
+ * This header file provides a generic interface for memory-mapped MTD (flash)
+ * devices. It defines the structures and functions necessary to abstract the
+ * hardware mapping details from the MTD chip drivers (e.g., CFI, JEDEC).
+ *
+ * A board driver provides a `struct map_info` describing the physical
+ * mapping of the flash device(s), and this map driver layer uses that
+ * information to present a consistent interface to the MTD chip drivers.
+ * This allows chip drivers to focus on the flash command set without
+ * worrying about bus width, interleaving, or virtual memory mapping.
+ *
  * Copyright © 2000-2010 David Woodhouse <dwmw2@infradead.org> et al.
  */
 
@@ -18,6 +31,15 @@
 #include <linux/unaligned.h>
 #include <asm/barrier.h>
 
+/*
+ * The following preprocessor macros are used to handle different bus widths
+ * (bank widths) of the flash memory mapping. Depending on the kernel
+ * configuration (e.g., CONFIG_MTD_MAP_BANK_WIDTH_1), these macros resolve
+ * to either constants or expressions that access the `bankwidth` field of
+ * `struct map_info`. This allows for compile-time optimization when only a
+ * single bank width is supported, while retaining flexibility for runtime
+ * configuration.
+ */
 #ifdef CONFIG_MTD_MAP_BANK_WIDTH_1
 #define map_bankwidth(map) 1
 #define map_bankwidth_is_1(map) (map_bankwidth(map) == 1)
@@ -166,28 +188,55 @@ static inline int map_bankwidth_supported(int w)
 
 #define MAX_MAP_LONGS (((MAX_MAP_BANKWIDTH * 8) + BITS_PER_LONG - 1) / BITS_PER_LONG)
 
+/**
+ * @typedef map_word
+ * @brief A data type for holding a single word read from or written to the flash.
+ *
+ * This union is sized to hold the largest possible bus width, allowing a single
+ * data type to be used for flash access regardless of the underlying hardware
+ * configuration. The actual number of `unsigned long` elements used depends on
+ * the configured `MAX_MAP_BANKWIDTH`.
+ */
 typedef union {
 	unsigned long x[MAX_MAP_LONGS];
 } map_word;
 
-/* The map stuff is very simple. You fill in your struct map_info with
-   a handful of routines for accessing the device, making sure they handle
-   paging etc. correctly if your device needs it. Then you pass it off
-   to a chip probe routine -- either JEDEC or CFI probe or both -- via
-   do_map_probe(). If a chip is recognised, the probe code will invoke the
-   appropriate chip driver (if present) and return a struct mtd_info.
-   At which point, you fill in the mtd->module with your own module
-   address, and register it with the MTD core code. Or you could partition
-   it and register the partitions instead, or keep it for your own private
-   use; whatever.
-
-   The mtd->priv field will point to the struct map_info, and any further
-   private data required by the chip driver is linked from the
-   mtd->priv->fldrv_priv field. This allows the map driver to get at
-   the destructor function map->fldrv_destroy() when it's tired
-   of living.
-*/
-
+/**
+ * struct map_info - describes a memory-mapped device
+ *
+ * @name: A string identifier for this mapping.
+ * @size: The total size of the mapped region.
+ * @phys: The physical address of the mapping. If set to NO_XIP, it indicates
+ *        that the mapping is not linear and cannot be used for eXecute-In-Place.
+ * @virt: The kernel virtual address of the mapped region, obtained via ioremap().
+ * @cached: A pointer to a cached copy of the flash content in system RAM. This
+ *          is used by some drivers to improve read performance.
+ * @swap: Specifies the byte-swapping behavior required for the mapping.
+ * @bankwidth: The interleave of the flash chips, in bytes. This defines the
+ *             stride before addressing wraps around to the first chip again.
+ *             It is not necessarily the same as the bus width.
+ * @read: A function pointer for reading data from the flash. Used for complex
+ *        (non-linear) mappings where a direct `memcpy_fromio` is insufficient.
+ * @copy_from: A function pointer for copying a block of data from the flash.
+ * @write: A function pointer for writing data to the flash. Used for complex mappings.
+ * @copy_to: A function pointer for copying a block of data to the flash.
+ * @inval_cache: A function pointer to a routine that invalidates a region of the
+ *               cached memory (`@cached`). This is called by chip drivers when
+ *               the flash content has been modified.
+ * @set_vpp: A function pointer to control the Vpp (programming voltage). The map
+ *           core calls this with `1` to enable Vpp and `0` to disable it.
+ * @pfow_base: Physical address for "Power-Fail-On-Write" operations.
+ * @map_priv_1: Private data for the map driver's use.
+ * @map_priv_2: More private data for the map driver.
+ * @device_node: Pointer to the device tree node for this mapping.
+ * @fldrv_priv: Private data used by the flash chip driver (`fldrv`).
+ * @fldrv: A pointer to the `mtd_chip_driver` that has successfully probed this map.
+ *
+ * This structure is the central point of information for a memory-mapped MTD
+ * device. A board-specific driver populates this structure and passes it to
+ * the map probe functions (`do_map_probe`) to detect and initialize the
+ * underlying flash chip(s).
+ */
 struct map_info {
 	const char *name;
 	unsigned long size;
@@ -197,11 +246,8 @@ struct map_info {
 	void __iomem *virt;
 	void *cached;
 
-	int swap; /* this mapping's byte-swapping requirement */
-	int bankwidth; /* in octets. This isn't necessarily the width
-		       of actual bus cycles -- it's the repeat interval
-		      in bytes, before you are talking to the first chip again.
-		      */
+	int swap;
+	int bankwidth;
 
 #ifdef CONFIG_MTD_COMPLEX_MAPPINGS
 	map_word (*read)(struct map_info *, unsigned long);
@@ -209,23 +255,8 @@ struct map_info {
 
 	void (*write)(struct map_info *, const map_word, unsigned long);
 	void (*copy_to)(struct map_info *, unsigned long, const void *, ssize_t);
-
-	/* We can perhaps put in 'point' and 'unpoint' methods, if we really
-	   want to enable XIP for non-linear mappings. Not yet though. */
 #endif
-	/* It's possible for the map driver to use cached memory in its
-	   copy_from implementation (and _only_ with copy_from).  However,
-	   when the chip driver knows some flash area has changed contents,
-	   it will signal it to the map driver through this routine to let
-	   the map driver invalidate the corresponding cache as needed.
-	   If there is no cache to care about this can be set to NULL. */
 	void (*inval_cache)(struct map_info *, unsigned long, ssize_t);
-
-	/* This will be called with 1 as parameter when the first map user
-	 * needs VPP, and called with 0 when the last user exits. The map
-	 * core maintains a reference counter, and assumes that VPP is a
-	 * global resource applying to all mapped flash chips on the system.
-	 */
 	void (*set_vpp)(struct map_info *, int);
 
 	unsigned long pfow_base;
@@ -236,6 +267,18 @@ struct map_info {
 	struct mtd_chip_driver *fldrv;
 };
 
+/**
+ * struct mtd_chip_driver - describes a driver for a particular family of MTD chips
+ *
+ * @probe: A function pointer that attempts to probe for a supported chip on a
+ *         given `map_info`. If successful, it returns a new `mtd_info` struct.
+ * @destroy: A function pointer to clean up and free resources allocated by the
+ *           probe function when the MTD device is destroyed.
+ * @module: A pointer to the kernel module that owns this driver.
+ * @name: A string identifier for this chip driver.
+ * @list: A list head for linking this driver into the kernel's list of
+ *        registered MTD chip drivers.
+ */
 struct mtd_chip_driver {
 	struct mtd_info *(*probe)(struct map_info *map);
 	void (*destroy)(struct mtd_info *);
@@ -386,6 +429,14 @@ static inline map_word map_word_ff(struct map_info *map)
 	return r;
 }
 
+/**
+ * The following `inline_map_*` functions provide default implementations
+ * for accessing the flash memory on simple, linearly mapped devices.
+ * They are used when `CONFIG_MTD_COMPLEX_MAPPINGS` is not defined.
+ * For complex mappings (e.g., non-contiguous memory), a board driver
+ * must provide its own implementations of the `read`, `write`, `copy_from`,
+ * and `copy_to` methods in its `map_info` struct.
+ */
 static inline map_word inline_map_read(struct map_info *map, unsigned long ofs)
 {
 	map_word r;

@@ -1,8 +1,11 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
-
+/**
+ * @fileoverview
+ * @raw/7b9c626d-de6b-4b5e-a79e-ff0ca539db20/src/vs/workbench/contrib/chat/browser/actions/chatAttachPromptAction/showPromptSelectionDialog.ts
+ *
+ * @brief This file contains the logic for displaying a prompt selection dialog
+ * to the user in a chat interface, likely within Visual Studio Code. It allows
+ * users to select from a list of predefined prompt files in their workspace.
+ */
 import { IChatWidget } from '../../chat.js';
 import { localize } from '../../../../../../nls.js';
 import { URI } from '../../../../../../base/common/uri.js';
@@ -17,6 +20,7 @@ import { IPickOptions, IQuickInputService, IQuickPickItem } from '../../../../..
 
 /**
  * Type for an {@link IQuickPickItem} with its `value` property being a `URI`.
+ * This is used to strongly type the quick pick items that represent prompt files.
  */
 type WithUriValue<T extends IQuickPickItem> = T & { value: URI };
 
@@ -64,7 +68,10 @@ interface IPromptSelectionResult {
 }
 
 /**
- * Creates a quick pick item for a prompt.
+ * Creates a quick pick item for a prompt, which can be displayed in the UI.
+ * @param promptUri The URI of the prompt file.
+ * @param labelService The service to get the display label for the URI.
+ * @returns A quick pick item representing the prompt.
  */
 const createPickItem = (
 	promptUri: URI,
@@ -84,15 +91,16 @@ const createPickItem = (
 
 /**
  * Creates a placeholder text to show in the prompt selection dialog.
+ * @param widget The chat widget reference.
+ * @returns The placeholder text.
  */
 const createPlaceholderText = (widget?: IChatWidget): string => {
 	let text = localize('selectPromptPlaceholder', 'Select a prompt to use');
 
-	// if no widget reference is provided, add the note about
-	// the `alt`/`option` key modifier users can use
+	// If no widget reference is provided, add a note about the `alt`/`option` key modifier.
+	// This informs the user about alternative actions.
 	if (!widget) {
 		const key = (isWindows || isLinux) ? 'alt' : 'option';
-
 		text += ' ' + localize('selectPromptPlaceholder.holdAltOption', '(hold `{0}` to use in Edits)', key);
 	}
 
@@ -101,17 +109,16 @@ const createPlaceholderText = (widget?: IChatWidget): string => {
 
 /**
  * Shows a prompt selection dialog to the user and waits for a selection.
- *
- * If {@link ISelectPromptOptions.resource resource} is provided, the dialog will have
- * the resource pre-selected in the prompts list.
+ * If a resource is provided in the options, it will be pre-selected.
+ * @param options The options for the dialog.
+ * @returns A promise that resolves to the user's selection, or `null` if the dialog is canceled.
  */
 export const showSelectPromptDialog = async (
 	options: ISelectPromptOptions,
 ): Promise<IPromptSelectionResult | null> => {
 	const { resource, labelService, promptsService } = options;
 
-	// find all prompt instruction files in the user workspace
-	// and present them to the user so they can select one
+	// Find all prompt instruction files in the user's workspace.
 	const files = await promptsService.listPromptFiles()
 		.then((files) => {
 			return files.map((file) => {
@@ -121,8 +128,7 @@ export const showSelectPromptDialog = async (
 
 	const { quickInputService, openerService } = options;
 
-	// if not prompt files found, render the "how to add" message
-	// to the user with a link to the documentation
+	// If no prompt files are found, show a message with a link to the documentation.
 	if (files.length === 0) {
 		const docsQuickPick: WithUriValue<IQuickPickItem> = {
 			type: 'item',
@@ -144,12 +150,11 @@ export const showSelectPromptDialog = async (
 		}
 
 		await openerService.open(result.value);
-
 		return null;
 	}
 
-	// if a resource is provided, create an `activeItem` for it to pre-select
-	// it in the UI, and sort the list so the active item appears at the top
+	// If a resource is provided, find it and make it the active item to pre-select it in the UI.
+	// Also, sort the list to bring the active item to the top.
 	let activeItem: WithUriValue<IQuickPickItem> | undefined;
 	if (resource) {
 		activeItem = files.find((file) => {
@@ -160,16 +165,14 @@ export const showSelectPromptDialog = async (
 			if (extUri.isEqual(file1.value, resource)) {
 				return -1;
 			}
-
 			if (extUri.isEqual(file2.value, resource)) {
 				return 1;
 			}
-
 			return 0;
 		});
 	}
 
-	// otherwise show the prompt file selection dialog
+	// Show the prompt file selection dialog.
 	const { widget } = options;
 	const pickOptions: IPickOptions<WithUriValue<IQuickPickItem>> = {
 		placeHolder: createPlaceholderText(widget),
@@ -178,8 +181,7 @@ export const showSelectPromptDialog = async (
 		matchOnDescription: true,
 	};
 
-	// keep track of whether the `alt` (`option` on mac) key is
-	// pressed when a prompt item is selected in the dialog
+	// Keep track of whether the `alt` (`option` on mac) key is pressed when a prompt is selected.
 	let altOption = false;
 	if (!location) {
 		pickOptions.onKeyMods = (keyMods) => {
@@ -191,7 +193,7 @@ export const showSelectPromptDialog = async (
 
 	const maybeSelectedFile = await quickInputService.pick(files, pickOptions);
 
-	// if user cancels the dialog, return `null` instead
+	// If the user cancels the dialog, return `null`.
 	if (!maybeSelectedFile) {
 		return null;
 	}

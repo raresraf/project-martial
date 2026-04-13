@@ -14,6 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// This file contains integration tests for the attach/detach controller.
+// It uses a fake cloud provider and fake volume plugins to simulate volume
+// operations. The tests are designed to verify the controller's behavior
+// in response to pod and node events, especially in scenarios where events
+// might be missed. The Desired State of World Populator (DSWP) is a key
+// component tested here, ensuring that the system eventually converges to
+// the correct state even if some events are not processed.
+
 package volume
 
 import (
@@ -38,6 +46,8 @@ import (
 	"k8s.io/kubernetes/test/integration/framework"
 )
 
+// fakePodWithVol creates a simple pod object with a single volume for testing purposes.
+// The pod is scheduled on a predefined node "node-sandbox".
 func fakePodWithVol(namespace string) *v1.Pod {
 	fakePod := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -73,9 +83,12 @@ func fakePodWithVol(namespace string) *v1.Pod {
 	return fakePod
 }
 
-// Via integration test we can verify that if pod delete
-// event is somehow missed by AttachDetach controller - it still
-// gets cleaned up by Desired State of World populator.
+// TestPodDeletionWithDswp verifies that the attach-detach controller correctly
+// handles pod deletion even if the deletion event is missed. It simulates a
+// scenario where a pod is removed from the informer's cache without a corresponding
+// event being sent. The test ensures that the Desired State of World Populator (DSWP)
+// eventually reconciles the state and removes the pod from the list of pods to
+// attach volumes to, preventing orphaned volumes.
 func TestPodDeletionWithDswp(t *testing.T) {
 	_, server, closeFn := framework.RunAMaster(nil)
 	defer closeFn()
@@ -149,6 +162,10 @@ func TestPodDeletionWithDswp(t *testing.T) {
 	close(stopCh)
 }
 
+// TestPodUpdateWithWithADC verifies that when a pod's status is updated to
+// a terminal phase (e.g., Succeeded), the Attach-Detach Controller (ADC)
+// recognizes this change and removes the pod from the desired state of world.
+// This ensures that volumes are detached from completed pods.
 func TestPodUpdateWithWithADC(t *testing.T) {
 	_, server, closeFn := framework.RunAMaster(nil)
 	defer closeFn()
@@ -220,6 +237,10 @@ func TestPodUpdateWithWithADC(t *testing.T) {
 	close(stopCh)
 }
 
+// TestPodUpdateWithKeepTerminatedPodVolumes verifies that the attach-detach controller
+// respects the `KeepTerminatedPodVolumesAnnotation`. When this annotation is present on a node,
+// volumes associated with terminated pods (Succeeded or Failed) should not be detached.
+// This is useful for debugging and data recovery.
 func TestPodUpdateWithKeepTerminatedPodVolumes(t *testing.T) {
 	_, server, closeFn := framework.RunAMaster(nil)
 	defer closeFn()
@@ -292,9 +313,10 @@ func TestPodUpdateWithKeepTerminatedPodVolumes(t *testing.T) {
 	close(stopCh)
 }
 
-// wait for the podInformer to observe the pods. Call this function before
-// running the RC manager to prevent the rc manager from creating new pods
-// rather than adopting the existing ones.
+// waitToObservePods is a helper function that blocks until the pod informer's
+// cache contains the expected number of pods. This is crucial for ensuring that
+// the test environment is stable before proceeding with actions that depend on
+// the informer's state.
 func waitToObservePods(t *testing.T, podInformer cache.SharedIndexInformer, podNum int) {
 	if err := wait.Poll(10*time.Second, 60*time.Second, func() (bool, error) {
 		objects := podInformer.GetIndexer().List()
@@ -308,7 +330,9 @@ func waitToObservePods(t *testing.T, podInformer cache.SharedIndexInformer, podN
 	}
 }
 
-// wait for pods to be observed in desired state of world
+// waitForPodsInDSWP is a helper function that blocks until at least one pod
+// is present in the desired state of world cache. This indicates that the
+// attach-detach controller has started processing pods.
 func waitForPodsInDSWP(t *testing.T, dswp volumecache.DesiredStateOfWorld) {
 	if err := wait.Poll(time.Millisecond*500, wait.ForeverTestTimeout, func() (bool, error) {
 		pods := dswp.GetPodToAdd()
@@ -321,6 +345,9 @@ func waitForPodsInDSWP(t *testing.T, dswp volumecache.DesiredStateOfWorld) {
 	}
 }
 
+// createAdClients sets up the necessary clients, informers, and the
+// attach-detach controller for integration testing. It uses a fake cloud
+// provider and fake volume plugins to isolate the controller's logic.
 func createAdClients(ns *v1.Namespace, t *testing.T, server *httptest.Server, syncPeriod time.Duration) (*clientset.Clientset, attachdetach.AttachDetachController, informers.SharedInformerFactory) {
 	config := restclient.Config{
 		Host:          server.URL,
@@ -364,9 +391,10 @@ func createAdClients(ns *v1.Namespace, t *testing.T, server *httptest.Server, sy
 	return testClient, ctrl, informers
 }
 
-// Via integration test we can verify that if pod add
-// event is somehow missed by AttachDetach controller - it still
-// gets added by Desired State of World populator.
+// TestPodAddedByDswp verifies that if a pod creation event is missed by the
+// attach-detach controller, the Desired State of World Populator (DSWP) will
+// eventually discover the pod and add it to the desired state. This ensures
+// that volumes for the pod are correctly attached even in the face of missed events.
 func TestPodAddedByDswp(t *testing.T) {
 	_, server, closeFn := framework.RunAMaster(nil)
 	defer closeFn()

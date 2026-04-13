@@ -1,7 +1,9 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
+/**
+ * @file This file defines the data models and underlying logic for Visual Studio Code's
+ * output channels, particularly those that are backed by files. It provides a
+ * framework for creating, updating, and synchronizing an in-memory text model
+ * with a file on disk, which serves as the content for an output channel.
+ */
 
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import * as resources from '../../../../base/common/resources.js';
@@ -24,6 +26,11 @@ import { CancellationToken, CancellationTokenSource } from '../../../../base/com
 import { OutputChannelUpdateMode } from '../../../services/output/common/output.js';
 import { isCancellationError } from '../../../../base/common/errors.js';
 
+/**
+ * An interface for a model that represents the content of an output channel.
+ * It provides methods for manipulating the output content and loading it as
+ * a text model for display.
+ */
 export interface IOutputChannelModel extends IDisposable {
 	readonly onDispose: Event<void>;
 	append(output: string): void;
@@ -33,6 +40,10 @@ export interface IOutputChannelModel extends IDisposable {
 	replace(value: string): void;
 }
 
+/**
+ * A listener that polls a file on disk and fires an event when its content changes.
+ * Changes are detected by comparing the file's ETag.
+ */
 class OutputFileListener extends Disposable {
 
 	private readonly _onDidContentChange = new Emitter<number | undefined>();
@@ -51,6 +62,10 @@ class OutputFileListener extends Disposable {
 		this.syncDelayer = new ThrottledDelayer<void>(500);
 	}
 
+	/**
+	 * Starts watching the file for changes.
+	 * @param eTag The last known ETag of the file, used for change detection.
+	 */
 	watch(eTag: string | undefined): void {
 		if (!this.watching) {
 			this.etag = eTag;
@@ -77,6 +92,9 @@ class OutputFileListener extends Disposable {
 		}
 	}
 
+	/**
+	 * Stops watching the file for changes.
+	 */
 	unwatch(): void {
 		if (this.watching) {
 			this.syncDelayer.cancel();
@@ -91,6 +109,11 @@ class OutputFileListener extends Disposable {
 	}
 }
 
+/**
+ * A model for an output channel whose content is backed by a file.
+ * It handles the loading of the file content into an `ITextModel` and
+ * keeps the model synchronized with the file's content on disk.
+ */
 export class FileOutputChannelModel extends Disposable implements IOutputChannelModel {
 
 	private readonly _onDispose = this._register(new Emitter<void>());
@@ -142,6 +165,11 @@ export class FileOutputChannelModel extends Disposable implements IOutputChannel
 		loadModelPromise.then(() => this.doUpdate(mode, till, immediate));
 	}
 
+	/**
+	 * Loads the content from the backing file into an `ITextModel`.
+	 * If the model is already loaded, it returns the existing promise.
+	 * @returns A promise that resolves with the text model.
+	 */
 	loadModel(): Promise<ITextModel> {
 		this.loadModelPromise = Promises.withAsyncBody<ITextModel>(async (c, e) => {
 			try {
@@ -163,6 +191,11 @@ export class FileOutputChannelModel extends Disposable implements IOutputChannel
 		return this.loadModelPromise;
 	}
 
+	/**
+	 * Creates or updates the underlying text model with the given content.
+	 * @param content The initial content for the model.
+	 * @returns The created or updated text model.
+	 */
 	private createModel(content: string): ITextModel {
 		if (this.model) {
 			this.model.setValue(content);
@@ -179,6 +212,12 @@ export class FileOutputChannelModel extends Disposable implements IOutputChannel
 		return this.model;
 	}
 
+	/**
+	 * The core logic for performing an update on the model.
+	 * @param mode The type of update (Clear, Replace, Append).
+	 * @param till The offset to consider for Clear/Replace operations.
+	 * @param immediate Whether the update should be performed without delay.
+	 */
 	private doUpdate(mode: OutputChannelUpdateMode, till: number | undefined, immediate: boolean): void {
 		if (mode === OutputChannelUpdateMode.Clear || mode === OutputChannelUpdateMode.Replace) {
 			this.startOffset = this.endOffset = isNumber(till) ? till : this.endOffset;
@@ -322,6 +361,10 @@ export class FileOutputChannelModel extends Disposable implements IOutputChannel
 	}
 }
 
+/**
+ * An implementation of an output channel model that is backed by a file and
+ * supports writing content through a logger.
+ */
 class OutputChannelBackedByFile extends FileOutputChannelModel implements IOutputChannelModel {
 
 	private logger: ILogger;
@@ -340,7 +383,7 @@ class OutputChannelBackedByFile extends FileOutputChannelModel implements IOutpu
 	) {
 		super(modelUri, language, file, fileService, modelService, logService, editorWorkerService);
 
-		// Donot rotate to check for the file reset
+		// Do not rotate to check for the file reset
 		this.logger = loggerService.createLogger(file, { logLevel: 'always', donotRotate: true, donotUseFormatters: true, hidden: true });
 		this._offset = 0;
 	}
@@ -366,6 +409,11 @@ class OutputChannelBackedByFile extends FileOutputChannelModel implements IOutpu
 
 }
 
+/**
+ * A delegating output channel model that creates the underlying file-backed model
+ * asynchronously. This is useful when the creation of the output channel depends
+ * on an asynchronous operation, like resolving the output directory.
+ */
 export class DelegatedOutputChannelModel extends Disposable implements IOutputChannelModel {
 
 	private readonly _onDispose: Emitter<void> = this._register(new Emitter<void>());

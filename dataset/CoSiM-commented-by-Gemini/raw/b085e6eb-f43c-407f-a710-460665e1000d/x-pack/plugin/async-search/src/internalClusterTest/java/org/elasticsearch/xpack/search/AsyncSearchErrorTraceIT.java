@@ -31,6 +31,15 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.function.BooleanSupplier;
 
+/**
+ * Integration tests for the `error_trace` functionality in async search.
+ *
+ * This test suite verifies that stack traces from failed shard searches are only
+ * sent from data nodes to the coordinating node if the `error_trace` parameter
+ * is set to true on the initial async search submission. It also confirms that
+ * data nodes always log the stack trace locally upon failure, regardless of the
+ * `error_trace` setting.
+ */
 public class AsyncSearchErrorTraceIT extends ESIntegTestCase {
     private BooleanSupplier transportMessageHasStackTrace;
 
@@ -50,6 +59,11 @@ public class AsyncSearchErrorTraceIT extends ESIntegTestCase {
         Configurator.setLevel(SearchService.class, Level.DEBUG);
     }
 
+    /**
+     * Sets up a transport listener before each test to detect if any internode
+     * transport messages contain a stack trace. Also disables batched query
+     * execution as the listener does not support it.
+     */
     @Before
     public void setupMessageListener() {
         transportMessageHasStackTrace = ErrorTraceHelper.setupErrorTraceListener(internalCluster());
@@ -62,6 +76,11 @@ public class AsyncSearchErrorTraceIT extends ESIntegTestCase {
         updateClusterSettings(Settings.builder().putNull(SearchService.BATCHED_QUERY_PHASE.getKey()));
     }
 
+    /**
+     * Sets up two indices: 'test1' with a text field and 'test2' with a numeric
+     * field. This setup is designed to cause a parsing failure on 'test2' when a
+     * simple_query_string query expecting a text field is executed.
+     */
     private void setupIndexWithDocs() {
         createIndex("test1", "test2");
         indexRandom(
@@ -72,9 +91,14 @@ public class AsyncSearchErrorTraceIT extends ESIntegTestCase {
         refresh();
     }
 
+    /**
+     * Tests that a failing async search does NOT include a stack trace in the
+     * transport message by default (when `error_trace` is not specified).
+     */
     public void testAsyncSearchFailingQueryErrorTraceDefault() throws IOException, InterruptedException {
         setupIndexWithDocs();
 
+        // Arrange: Create a search request that will fail on one shard.
         Request searchRequest = new Request("POST", "/_async_search");
         searchRequest.setJsonEntity("""
             {
@@ -88,19 +112,27 @@ public class AsyncSearchErrorTraceIT extends ESIntegTestCase {
             """);
         searchRequest.addParameter("keep_on_completion", "true");
         searchRequest.addParameter("wait_for_completion_timeout", "0ms");
+
+        // Act: Submit the async search and poll for its completion.
         Map<String, Object> responseEntity = performRequestAndGetResponseEntityAfterDelay(searchRequest, TimeValue.ZERO);
         String asyncExecutionId = (String) responseEntity.get("id");
         Request request = new Request("GET", "/_async_search/" + asyncExecutionId);
         while (responseEntity.get("is_running") instanceof Boolean isRunning && isRunning) {
             responseEntity = performRequestAndGetResponseEntityAfterDelay(request, TimeValue.timeValueSeconds(1L));
         }
-        // check that the stack trace was not sent from the data node to the coordinating node
+
+        // Assert: Verify that no stack trace was sent from the data node.
         assertFalse(transportMessageHasStackTrace.getAsBoolean());
     }
 
+    /**
+     * Tests that a failing async search DOES include a stack trace in the
+     * transport message when `error_trace=true` is specified.
+     */
     public void testAsyncSearchFailingQueryErrorTraceTrue() throws IOException, InterruptedException {
         setupIndexWithDocs();
 
+        // Arrange: Create a search request with error_trace=true.
         Request searchRequest = new Request("POST", "/_async_search");
         searchRequest.setJsonEntity("""
             {
@@ -115,6 +147,8 @@ public class AsyncSearchErrorTraceIT extends ESIntegTestCase {
         searchRequest.addParameter("error_trace", "true");
         searchRequest.addParameter("keep_on_completion", "true");
         searchRequest.addParameter("wait_for_completion_timeout", "0ms");
+
+        // Act: Submit the async search and poll for its completion.
         Map<String, Object> responseEntity = performRequestAndGetResponseEntityAfterDelay(searchRequest, TimeValue.ZERO);
         String asyncExecutionId = (String) responseEntity.get("id");
         Request request = new Request("GET", "/_async_search/" + asyncExecutionId);
@@ -122,13 +156,19 @@ public class AsyncSearchErrorTraceIT extends ESIntegTestCase {
         while (responseEntity.get("is_running") instanceof Boolean isRunning && isRunning) {
             responseEntity = performRequestAndGetResponseEntityAfterDelay(request, TimeValue.timeValueSeconds(1L));
         }
-        // check that the stack trace was sent from the data node to the coordinating node
+
+        // Assert: Verify that a stack trace was sent from the data node.
         assertTrue(transportMessageHasStackTrace.getAsBoolean());
     }
 
+    /**
+     * Tests that a failing async search does NOT include a stack trace in the
+     * transport message when `error_trace=false` is specified.
+     */
     public void testAsyncSearchFailingQueryErrorTraceFalse() throws IOException, InterruptedException {
         setupIndexWithDocs();
 
+        // Arrange: Create a search request with error_trace=false.
         Request searchRequest = new Request("POST", "/_async_search");
         searchRequest.setJsonEntity("""
             {
@@ -143,6 +183,8 @@ public class AsyncSearchErrorTraceIT extends ESIntegTestCase {
         searchRequest.addParameter("error_trace", "false");
         searchRequest.addParameter("keep_on_completion", "true");
         searchRequest.addParameter("wait_for_completion_timeout", "0ms");
+
+        // Act: Submit the async search and poll for its completion.
         Map<String, Object> responseEntity = performRequestAndGetResponseEntityAfterDelay(searchRequest, TimeValue.ZERO);
         String asyncExecutionId = (String) responseEntity.get("id");
         Request request = new Request("GET", "/_async_search/" + asyncExecutionId);
@@ -150,16 +192,19 @@ public class AsyncSearchErrorTraceIT extends ESIntegTestCase {
         while (responseEntity.get("is_running") instanceof Boolean isRunning && isRunning) {
             responseEntity = performRequestAndGetResponseEntityAfterDelay(request, TimeValue.timeValueSeconds(1L));
         }
-        // check that the stack trace was not sent from the data node to the coordinating node
+
+        // Assert: Verify that no stack trace was sent from the data node.
         assertFalse(transportMessageHasStackTrace.getAsBoolean());
     }
 
+    /**
+     * Tests that the data node where the shard failure occurs always logs the
+     * stack trace, regardless of the `error_trace` parameter's value.
+     */
     public void testDataNodeLogsStackTrace() throws IOException, InterruptedException {
         setupIndexWithDocs();
 
-        // error_trace defaults to false so we can test both cases with some randomization
-        final boolean defineErrorTraceFalse = randomBoolean();
-
+        // Arrange: Create a search request. The error_trace parameter will be randomized.
         Request searchRequest = new Request("POST", "/_async_search");
         searchRequest.setJsonEntity("""
             {
@@ -185,6 +230,8 @@ public class AsyncSearchErrorTraceIT extends ESIntegTestCase {
 
         String errorTriggeringIndex = "test2";
         int numShards = getNumShards(errorTriggeringIndex).numPrimaries;
+
+        // Act & Assert: Capture logs from SearchService and assert that the expected error messages are logged.
         try (var mockLog = MockLog.capture(SearchService.class)) {
             ErrorTraceHelper.addSeenLoggingExpectations(numShards, mockLog, errorTriggeringIndex);
 
@@ -207,9 +254,14 @@ public class AsyncSearchErrorTraceIT extends ESIntegTestCase {
         }
     }
 
+    /**
+     * Tests that if `error_trace=false` on submission, the stack trace is not
+     * captured, even if `error_trace=true` is used when retrieving the result.
+     */
     public void testAsyncSearchFailingQueryErrorTraceFalseOnSubmitAndTrueOnGet() throws IOException, InterruptedException {
         setupIndexWithDocs();
 
+        // Arrange: Submit with error_trace=false.
         Request searchRequest = new Request("POST", "/_async_search");
         searchRequest.setJsonEntity("""
             {
@@ -224,6 +276,8 @@ public class AsyncSearchErrorTraceIT extends ESIntegTestCase {
         searchRequest.addParameter("error_trace", "false");
         searchRequest.addParameter("keep_on_completion", "true");
         searchRequest.addParameter("wait_for_completion_timeout", "0ms");
+
+        // Act: Poll for completion, but request the error trace on the GET request.
         Map<String, Object> responseEntity = performRequestAndGetResponseEntityAfterDelay(searchRequest, TimeValue.ZERO);
         String asyncExecutionId = (String) responseEntity.get("id");
         Request request = new Request("GET", "/_async_search/" + asyncExecutionId);
@@ -231,13 +285,19 @@ public class AsyncSearchErrorTraceIT extends ESIntegTestCase {
         while (responseEntity.get("is_running") instanceof Boolean isRunning && isRunning) {
             responseEntity = performRequestAndGetResponseEntityAfterDelay(request, TimeValue.timeValueSeconds(1L));
         }
-        // check that the stack trace was not sent from the data node to the coordinating node
+
+        // Assert: The decision was made at submission time, so no trace should have been sent.
         assertFalse(transportMessageHasStackTrace.getAsBoolean());
     }
 
+    /**
+     * Tests that if `error_trace=true` on submission, the stack trace is
+     * captured and sent, even if `error_trace=false` is used on retrieval.
+     */
     public void testAsyncSearchFailingQueryErrorTraceTrueOnSubmitAndFalseOnGet() throws IOException, InterruptedException {
         setupIndexWithDocs();
 
+        // Arrange: Submit with error_trace=true.
         Request searchRequest = new Request("POST", "/_async_search");
         searchRequest.setJsonEntity("""
             {
@@ -252,6 +312,8 @@ public class AsyncSearchErrorTraceIT extends ESIntegTestCase {
         searchRequest.addParameter("error_trace", "true");
         searchRequest.addParameter("keep_on_completion", "true");
         searchRequest.addParameter("wait_for_completion_timeout", "0ms");
+
+        // Act: Poll for completion with error_trace=false.
         Map<String, Object> responseEntity = performRequestAndGetResponseEntityAfterDelay(searchRequest, TimeValue.ZERO);
         String asyncExecutionId = (String) responseEntity.get("id");
         Request request = new Request("GET", "/_async_search/" + asyncExecutionId);
@@ -259,7 +321,8 @@ public class AsyncSearchErrorTraceIT extends ESIntegTestCase {
         while (responseEntity.get("is_running") instanceof Boolean isRunning && isRunning) {
             responseEntity = performRequestAndGetResponseEntityAfterDelay(request, TimeValue.timeValueSeconds(1L));
         }
-        // check that the stack trace was sent from the data node to the coordinating node
+
+        // Assert: The trace was sent during the execution phase triggered by the initial POST.
         assertTrue(transportMessageHasStackTrace.getAsBoolean());
     }
 

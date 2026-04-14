@@ -23,7 +23,6 @@ unprocessed_dirs.sort(key=lambda x: x[1])
 
 with open("smallest_unprocessed_dirs.txt", "w") as f:
     for i, (dir_name, size) in enumerate(unprocessed_dirs):
-        if i >= 100:
+        if i >= 50:
             break
-        f.write(dir_name + "
-")
+        f.write(dir_name + "\n")

@@ -63,11 +63,15 @@ int main() {
 
   /**
    * Block Logic: Removes the trailing '+' from the constructed string 'x'.
-   * The loop is redundant as the substring operation only needs to be performed once.
-   * `x.length() - 1` ensures the last character (the extra '+') is excluded.
+   * The loop iterates through the string 'x', but the substring operation and
+   * assignment to 'result' happen in every iteration with the same parameters.
+   * This makes the loop redundant, as `result` will only store the value from
+   * the final iteration. The intent is to take a substring of 'x' that excludes
+   * its last character (the extra '+').
    */
   for (int i = 0; i < x.length(); i++) {
     // This line assigns a substring of 'x' (from beginning up to, but not including, the last character) to 'result'.
+    // Due to the loop, this assignment is repeated, and only the final one is effective.
     result = x.substr(0, x.length() - 1);
   }
 

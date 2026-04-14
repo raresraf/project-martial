@@ -1,12 +1,17 @@
 /**
  * @file 50A.CPP
- * @brief This program solves the "Domino Piling" problem. Given a rectangular
- * board of size N x M, it attempts to place the maximum number of 1x2 dominoes
- * without overlapping, using a specific greedy placement strategy.
- * Algorithm: Greedy placement of dominoes by iterating through the board.
- * Prioritizes horizontal placement when possible, and a specific vertical placement
- * at the end of a row.
- * Time Complexity: O(N * M) due to iterating through each cell of the board multiple times.
+ * @brief This program attempts to solve the "Domino Piling" problem by simulating
+ *        a specific greedy domino placement strategy on an N x M board.
+ *        The problem typically asks for the maximum number of 1x2 dominoes that
+ *        can be placed on an N x M board without overlapping, which has a simpler
+ *        mathematical solution of (N * M) / 2. This code implements a direct simulation.
+ * Algorithm: This code employs a specific greedy placement strategy. It iterates
+ *        through each cell of the board. For an empty cell, it first attempts
+ *        to place a 1x2 horizontal domino to its right. If that's not possible,
+ *        and if the cell is at the end of a row, it then attempts to place a 2x1
+ *        vertical domino below it. This specific simulation fills a 2D array
+ *        representing the board.
+ * Time Complexity: O(N * M) due to iterating through each cell of the board.
  * Space Complexity: O(N * M) for storing the board state in a 2D array.
  */
 #include <cstdio> // Required for standard input/output functions like fscanf and fprintf.

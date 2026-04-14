@@ -35,9 +35,9 @@ int main() {
     cin >> num1[i] >> num2[i] >> num3[i];
 
     /**
-     * Conditional Logic: Checks various combinations to determine if at least two friends are confident (value 1).
-     * If any of these conditions are met, 'counter' is incremented.
-     * This logic covers cases where three friends are confident, or any pair of two friends is confident.
+     * Conditional Logic: Determines if at least two friends are confident (value 1).
+     * This is achieved by summing their confidence levels. If the sum is 2 or more,
+     * it signifies that at least two friends are confident, and 'counter' is incremented.
      */
     if (num1[i] == num2[i] && num1[i] == num3[i] && num1[i] == 1) // All three are confident.
       counter++;

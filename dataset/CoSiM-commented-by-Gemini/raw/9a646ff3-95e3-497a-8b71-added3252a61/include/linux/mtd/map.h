@@ -3,7 +3,20 @@
  * Copyright © 2000-2010 David Woodhouse <dwmw2@infradead.org> et al.
  */
 
-/* Overhauled routines for dealing with different mmap regions of flash */
+/**
+ * @file map.h
+ * @brief MTD abstraction for memory-mapped NOR flash devices.
+ *
+ * This header provides the core data structures and helper functions for generic
+ * memory-mapped flash access within the Linux MTD subsystem. It defines the
+ * `struct map_info` which describes the mapping properties (address, size, bus
+ * width) and provides function pointers for read/write operations.
+ *
+ * The file uses extensive pre-processor macros to optimize for different bus
+ * widths (bankwidth) at compile time, allowing for efficient access to NOR
+ * flash chips on various hardware platforms. It supports both simple linear
+ * mappings (suitable for XIP) and complex, non-linear mappings.
+ */
 
 #ifndef __LINUX_MTD_MAP_H__
 #define __LINUX_MTD_MAP_H__
@@ -17,6 +30,15 @@
 
 struct device_node;
 struct module;
+
+/*
+ * Pre-processor hell: The following macros are used to define the 'bankwidth'
+ * of the flash mapping at compile time. This allows the compiler to generate
+ * optimised code for accessing the flash, without runtime checks.
+ * For any given build, only one of these options is likely to be selected.
+ * If more than one are selected, it's a 'complex mapping' and the bankwidth
+ * is determined at runtime from the 'bankwidth' field in struct map_info.
+ */
 
 #ifdef CONFIG_MTD_MAP_BANK_WIDTH_1
 #define map_bankwidth(map) 1
@@ -60,9 +82,11 @@ struct module;
 #define map_bankwidth_is_4(map) (0)
 #endif
 
-/* ensure we never evaluate anything shorted than an unsigned long
- * to zero, and ensure we'll never miss the end of an comparison (bjd) */
-
+/*
+ * For bankwidths greater than the native long size, we need to use an array
+ * of 'unsigned long's to store the data. The 'map_words' macro calculates
+ * how many 'unsigned long's are required.
+ */
 #define map_calc_words(map) ((map_bankwidth(map) + (sizeof(unsigned long)-1)) / sizeof(unsigned long))
 
 #ifdef CONFIG_MTD_MAP_BANK_WIDTH_8
@@ -136,6 +160,13 @@ static inline int map_bankwidth(void *map)
 #define MAX_MAP_BANKWIDTH 1
 #endif
 
+/**
+ * map_bankwidth_supported() - Check if a given bankwidth is supported by the build
+ * @w: The bankwidth in bytes.
+ *
+ * This function returns true if the kernel was compiled with support for the
+ * specified bankwidth, and false otherwise.
+ */
 static inline int map_bankwidth_supported(int w)
 {
 	switch (w) {
@@ -164,84 +195,155 @@ static inline int map_bankwidth_supported(int w)
 	}
 }
 
+/**
+ * @brief The maximum number of `unsigned long`s needed to represent a read/write
+ * from/to the flash bus.
+ *
+ * This is used to size the `map_word` union.
+ */
 #define MAX_MAP_LONGS (((MAX_MAP_BANKWIDTH * 8) + BITS_PER_LONG - 1) / BITS_PER_LONG)
 
+/**
+ * @brief A union to hold data of the flash's bus width.
+ *
+ * This union is used to handle reads and writes to the flash. For bus widths
+ * up to the processor's word size, the data is held in a single `unsigned long`.
+ * For wider buses, an array of `unsigned long`s is used. This abstracts away
+ * the bus width from the chip driver logic.
+ */
 typedef union {
 	unsigned long x[MAX_MAP_LONGS];
 } map_word;
 
-/* The map stuff is very simple. You fill in your struct map_info with
-   a handful of routines for accessing the device, making sure they handle
-   paging etc. correctly if your device needs it. Then you pass it off
-   to a chip probe routine -- either JEDEC or CFI probe or both -- via
-   do_map_probe(). If a chip is recognised, the probe code will invoke the
-   appropriate chip driver (if present) and return a struct mtd_info.
-   At which point, you fill in the mtd->module with your own module
-   address, and register it with the MTD core code. Or you could partition
-   it and register the partitions instead, or keep it for your own private
-   use; whatever.
-
-   The mtd->priv field will point to the struct map_info, and any further
-   private data required by the chip driver is linked from the
-   mtd->priv->fldrv_priv field. This allows the map driver to get at
-   the destructor function map->fldrv_destroy() when it's tired
-   of living.
-*/
-
 struct mtd_chip_driver;
+
+/**
+ * @brief Describes a memory-mapped MTD device.
+ *
+ * An instance of this structure is created by a map driver (e.g., physmap)
+ * to describe the memory mapping of a NOR flash device. This structure is then
+ * passed to a chip driver (e.g., cfi_probe) to discover and initialize the
+ * actual MTD device.
+ */
 struct map_info {
+	/** @brief The name of this mapping. */
 	const char *name;
+	/** @brief The total size of the mapping in bytes. */
 	unsigned long size;
+	/**
+	 * @brief The physical address of the mapping.
+	 *
+	 * If the mapping is linear and suitable for eXecute-In-Place (XIP),
+	 * this holds the physical address. Otherwise, it should be set to
+	 * `NO_XIP`.
+	 */
 	resource_size_t phys;
 #define NO_XIP (-1UL)
 
+	/** @brief The virtual address for ioremap'ped flash access. */
 	void __iomem *virt;
+	/**
+	 * @brief A pointer to a cached, CPU-accessible copy of the flash contents.
+	 *
+	 * This is used on platforms where direct I/O access is slow, allowing
+	 * `copy_from` operations to be satisfied from a RAM cache. The
+	 * `inval_cache` callback must be used to keep this consistent.
+	 */
 	void *cached;
 
-	int swap; /* this mapping's byte-swapping requirement */
-	int bankwidth; /* in octets. This isn't necessarily the width
-		       of actual bus cycles -- it's the repeat interval
-		      in bytes, before you are talking to the first chip again.
-		      */
+	/** @brief The byte-swapping behavior of the mapping. */
+	int swap;
+	/**
+	 * @brief The width of the flash bus in bytes (octets).
+	 *
+	 * This determines the size of each read/write operation and the repeat
+	 * interval before accessing the same chip in an interleaved setup.
+	 */
+	int bankwidth;
 
 #ifdef CONFIG_MTD_COMPLEX_MAPPINGS
+	/**
+	 * @brief A function to read a `map_word` from a given offset.
+	 *
+	 * This is required for non-linear or complex mappings where a simple
+	 * `memcpy_fromio` is not sufficient.
+	 */
 	map_word (*read)(struct map_info *, unsigned long);
+	/**
+	 * @brief A function to copy a block of data from the flash.
+	 *
+	 * Required for complex mappings.
+	 */
 	void (*copy_from)(struct map_info *, void *, unsigned long, ssize_t);
 
+	/**
+	 * @brief A function to write a `map_word` to a given offset.
+	 *
+	 * Required for non-linear or complex mappings.
+	 */
 	void (*write)(struct map_info *, const map_word, unsigned long);
+	/**
+	 * @brief A function to copy a block of data to the flash.
+	 *
+	 * Required for complex mappings.
+	 */
 	void (*copy_to)(struct map_info *, unsigned long, const void *, ssize_t);
-
-	/* We can perhaps put in 'point' and 'unpoint' methods, if we really
-	   want to enable XIP for non-linear mappings. Not yet though. */
 #endif
-	/* It's possible for the map driver to use cached memory in its
-	   copy_from implementation (and _only_ with copy_from).  However,
-	   when the chip driver knows some flash area has changed contents,
-	   it will signal it to the map driver through this routine to let
-	   the map driver invalidate the corresponding cache as needed.
-	   If there is no cache to care about this can be set to NULL. */
+	/**
+	 * @brief A function to invalidate a region of the CPU cache.
+	 *
+	 * If the map driver uses a RAM cache (`map_info->cached`), this
+	 * function must be provided to invalidate parts of that cache when
+	 * the flash content is modified by a chip-level operation (e.g., erase
+	 * or program).
+	 */
 	void (*inval_cache)(struct map_info *, unsigned long, ssize_t);
 
-	/* This will be called with 1 as parameter when the first map user
-	 * needs VPP, and called with 0 when the last user exits. The map
-	 * core maintains a reference counter, and assumes that VPP is a
-	 * global resource applying to all mapped flash chips on the system.
+	/**
+	 * @brief A function to enable or disable the programming voltage (Vpp).
+	 *
+	 * This is called by the MTD core when write or erase operations are
+	 * about to start or have finished. The map driver should implement this
+	 * if the board requires explicit Vpp control.
 	 */
 	void (*set_vpp)(struct map_info *, int);
 
+	/** @brief Platform-specific data fields. */
 	unsigned long pfow_base;
 	unsigned long map_priv_1;
 	unsigned long map_priv_2;
+	/** @brief The device tree node associated with this mapping. */
 	struct device_node *device_node;
+	/** @brief Private data for the flash chip driver. */
 	void *fldrv_priv;
+	/** @brief The flash chip driver associated with this map. */
 	struct mtd_chip_driver *fldrv;
 };
 
+/**
+ * @brief Represents a driver for a family of flash chips (e.g., CFI, JEDEC).
+ *
+ * Chip drivers are registered with the map core and are responsible for
+ * probing for specific flash chips on a given `map_info` and creating an
+ * `mtd_info` structure if a compatible chip is found.
+ */
 struct mtd_chip_driver {
+	/**
+	 * @brief Probes for a flash chip on the given map.
+	 * @param map The memory map to probe.
+	 * @return A pointer to a new `mtd_info` structure on success, or NULL.
+	 */
 	struct mtd_info *(*probe)(struct map_info *map);
+	/**
+	 * @brief Destroys an `mtd_info` structure created by this driver.
+	 * @param mtd The MTD info structure to destroy.
+	 */
 	void (*destroy)(struct mtd_info *);
+	/** @brief The module that owns this chip driver. */
 	struct module *module;
+	/** @brief The name of the chip driver. */
 	char *name;
+	/** @brief The list head for linking into the core's driver list. */
 	struct list_head list;
 };
 
@@ -251,74 +353,100 @@ void unregister_mtd_chip_driver(struct mtd_chip_driver *);
 struct mtd_info *do_map_probe(const char *name, struct map_info *map);
 void map_destroy(struct mtd_info *mtd);
 
+/** @brief Helper macro to enable Vpp if the map supports it. */
 #define ENABLE_VPP(map) do { if (map->set_vpp) map->set_vpp(map, 1); } while (0)
+/** @brief Helper macro to disable Vpp if the map supports it. */
 #define DISABLE_VPP(map) do { if (map->set_vpp) map->set_vpp(map, 0); } while (0)
 
-#define INVALIDATE_CACHED_RANGE(map, from, size) \
+/** @brief Helper macro to invalidate the cache for a given range. */
+#define INVALIDATE_CACHED_RANGE(map, from, size) 
 	do { if (map->inval_cache) map->inval_cache(map, from, size); } while (0)
 
-#define map_word_equal(map, val1, val2)					\
-({									\
-	int i, ret = 1;							\
-	for (i = 0; i < map_words(map); i++)				\
-		if ((val1).x[i] != (val2).x[i]) {			\
-			ret = 0;					\
-			break;						\
-		}							\
-	ret;								\
+/**
+ * @defgroup map_word_ops Bitwise operations on map_word
+ * @{
+ * These macros provide a bus-width-agnostic way to perform bitwise logic on
+ * `map_word` objects. They iterate over the `unsigned long` array within the
+ * `map_word` union, handling bus widths larger than the native word size.
+ */
+
+/** @brief Compare two map_words for equality. */
+#define map_word_equal(map, val1, val2)					
+({									
+	int i, ret = 1;							
+	for (i = 0; i < map_words(map); i++)				
+		if ((val1).x[i] != (val2).x[i]) {			
+			ret = 0;					
+			break;						
+		}							
+	ret;								
 })
 
-#define map_word_and(map, val1, val2)					\
-({									\
-	map_word r;							\
-	int i;								\
-	for (i = 0; i < map_words(map); i++)				\
-		r.x[i] = (val1).x[i] & (val2).x[i];			\
-	r;								\
+/** @brief Perform a bitwise AND on two map_words. */
+#define map_word_and(map, val1, val2)					
+({									
+	map_word r;							
+	int i;								
+	for (i = 0; i < map_words(map); i++)				
+		r.x[i] = (val1).x[i] & (val2).x[i];			
+	r;								
 })
 
-#define map_word_clr(map, val1, val2)					\
-({									\
-	map_word r;							\
-	int i;								\
-	for (i = 0; i < map_words(map); i++)				\
-		r.x[i] = (val1).x[i] & ~(val2).x[i];			\
-	r;								\
+/** @brief Perform a bitwise clear (AND with NOT) on two map_words. */
+#define map_word_clr(map, val1, val2)					
+({									
+	map_word r;							
+	int i;								
+	for (i = 0; i < map_words(map); i++)				
+		r.x[i] = (val1).x[i] & ~(val2).x[i];			
+	r;								
 })
 
-#define map_word_or(map, val1, val2)					\
-({									\
-	map_word r;							\
-	int i;								\
-	for (i = 0; i < map_words(map); i++)				\
-		r.x[i] = (val1).x[i] | (val2).x[i];			\
-	r;								\
+/** @brief Perform a bitwise OR on two map_words. */
+#define map_word_or(map, val1, val2)					
+({									
+	map_word r;							
+	int i;								
+	for (i = 0; i < map_words(map); i++)				
+		r.x[i] = (val1).x[i] | (val2).x[i];			
+	r;								
 })
 
-#define map_word_andequal(map, val1, val2, val3)			\
-({									\
-	int i, ret = 1;							\
-	for (i = 0; i < map_words(map); i++) {				\
-		if (((val1).x[i] & (val2).x[i]) != (val3).x[i]) {	\
-			ret = 0;					\
-			break;						\
-		}							\
-	}								\
-	ret;								\
+/** @brief Check if `(val1 & val2) == val3`. */
+#define map_word_andequal(map, val1, val2, val3)			
+({									
+	int i, ret = 1;							
+	for (i = 0; i < map_words(map); i++) {				
+		if (((val1).x[i] & (val2).x[i]) != (val3).x[i]) {	
+			ret = 0;					
+			break;						
+		}							
+	}								
+	ret;								
 })
 
-#define map_word_bitsset(map, val1, val2)				\
-({									\
-	int i, ret = 0;							\
-	for (i = 0; i < map_words(map); i++) {				\
-		if ((val1).x[i] & (val2).x[i]) {			\
-			ret = 1;					\
-			break;						\
-		}							\
-	}								\
-	ret;								\
+/** @brief Check if any bits are set in `(val1 & val2)`. */
+#define map_word_bitsset(map, val1, val2)				
+({									
+	int i, ret = 0;							
+	for (i = 0; i < map_words(map); i++) {				
+		if ((val1).x[i] & (val2).x[i]) {			
+			ret = 1;					
+			break;						
+		}							
+	}								
+	ret;								
 })
+/** @} */
 
+/**
+ * @brief Load a `map_word` from a buffer in memory.
+ * @param map The map_info structure.
+ * @param ptr The source buffer.
+ * @return The loaded `map_word`.
+ *
+ * This function handles unaligned access and different bankwidths correctly.
+ */
 static inline map_word map_word_load(struct map_info *map, const void *ptr)
 {
 	map_word r;
@@ -341,6 +469,19 @@ static inline map_word map_word_load(struct map_info *map, const void *ptr)
 	return r;
 }
 
+/**
+ * @brief Overwrite a portion of a `map_word` with data from a buffer.
+ * @param map The map_info structure.
+ * @param orig The original `map_word` to modify.
+ * @param buf The source buffer.
+ * @param start The starting byte offset within the `map_word`.
+ * @param len The number of bytes to copy.
+ * @return The modified `map_word`.
+ *
+ * Functional Utility: This is used for partial writes, for example, when a
+ * user write does not align to the flash bus width. It performs a
+ * read-modify-write cycle at the `map_word` level.
+ */
 static inline map_word map_word_load_partial(struct map_info *map, map_word orig, const unsigned char *buf, int start, int len)
 {
 	int i;
@@ -371,6 +512,13 @@ static inline map_word map_word_load_partial(struct map_info *map, map_word orig
 #define MAP_FF_LIMIT 8
 #endif
 
+/**
+ * @brief Create a `map_word` with all bits set to 1.
+ * @param map The map_info structure.
+ * @return A `map_word` full of 0xFF bytes.
+ *
+ * This is used to check for erased flash content.
+ */
 static inline map_word map_word_ff(struct map_info *map)
 {
 	map_word r;
@@ -387,6 +535,15 @@ static inline map_word map_word_ff(struct map_info *map)
 	return r;
 }
 
+/**
+ * @brief Read a `map_word` from a linearly mapped flash device.
+ * @param map The map_info structure.
+ * @param ofs The offset within the flash mapping.
+ * @return The `map_word` read from flash.
+ *
+ * This is the inline implementation for simple, linear mappings. It uses
+ * raw I/O accessors (`__raw_readb/w/l/q`).
+ */
 static inline map_word inline_map_read(struct map_info *map, unsigned long ofs)
 {
 	map_word r;
@@ -409,6 +566,15 @@ static inline map_word inline_map_read(struct map_info *map, unsigned long ofs)
 	return r;
 }
 
+/**
+ * @brief Write a `map_word` to a linearly mapped flash device.
+ * @param map The map_info structure.
+ * @param datum The `map_word` to write.
+ * @param ofs The offset within the flash mapping.
+ *
+ * This is the inline implementation for simple, linear mappings. It uses
+ * raw I/O accessors and issues a memory barrier.
+ */
 static inline void inline_map_write(struct map_info *map, const map_word datum, unsigned long ofs)
 {
 	if (map_bankwidth_is_1(map))
@@ -428,6 +594,16 @@ static inline void inline_map_write(struct map_info *map, const map_word datum, 
 	mb();
 }
 
+/**
+ * @brief Copy a block of data from a linearly mapped flash device.
+ * @param map The map_info structure.
+ * @param to The destination buffer in RAM.
+ * @param from The source offset within the flash mapping.
+ * @param len The number of bytes to copy.
+ *
+ * This function will use the `cached` RAM buffer if available, otherwise it
+ * will copy directly from I/O memory.
+ */
 static inline void inline_map_copy_from(struct map_info *map, void *to, unsigned long from, ssize_t len)
 {
 	if (map->cached)
@@ -436,11 +612,23 @@ static inline void inline_map_copy_from(struct map_info *map, void *to, unsigned
 		memcpy_fromio(to, map->virt + from, len);
 }
 
+/**
+ * @brief Copy a block of data to a linearly mapped flash device.
+ * @param map The map_info structure.
+ * @param to The destination offset within the flash mapping.
+ * @param from The source buffer in RAM.
+ * @param len The number of bytes to copy.
+ */
 static inline void inline_map_copy_to(struct map_info *map, unsigned long to, const void *from, ssize_t len)
 {
 	memcpy_toio(map->virt + to, from, len);
 }
 
+/*
+ * If complex mappings are enabled, the map_{read,write,copy_*} macros
+ * are defined to call the function pointers in struct map_info. Otherwise,
+ * they are defined to call the inline_* versions directly for performance.
+ */
 #ifdef CONFIG_MTD_COMPLEX_MAPPINGS
 #define map_read(map, ofs) (map)->read(map, ofs)
 #define map_copy_from(map, to, from, len) (map)->copy_from(map, to, from, len)

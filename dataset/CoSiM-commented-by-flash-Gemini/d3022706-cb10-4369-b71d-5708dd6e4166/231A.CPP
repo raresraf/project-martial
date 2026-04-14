@@ -38,10 +38,14 @@ int main() {
   /**
    * Block Logic: Iterates through each problem to determine if it's solved.
    * A problem is considered solved if at least two out of three friends have a
-   * confidence level of 1. The 'output' counter is incremented for each solved problem.
-   * Invariant: 'output' correctly reflects the number of solved problems up to the current iteration.
+   * confidence level of 1. The `output` counter is incremented for each solved problem.
+   * This implementation checks for confidence by explicitly evaluating various combinations.
+   * Invariant: `output` correctly reflects the number of solved problems up to the current iteration.
    */
   for (int i = 0; i < n; i++) {
+    // Conditional Logic: Checks if at least two friends are confident for the current problem.
+    // The problem is solved if the sum of confidence levels (0 or 1) for the three friends is 2 or more.
+    // This implementation explicitly checks combinations rather than summing.
     // Checks if the first two friends are confident (both 1).
     if (a[i][0] == 1 && a[i][0] == a[i][1]) {
       output++;     // Increment solved problems counter.

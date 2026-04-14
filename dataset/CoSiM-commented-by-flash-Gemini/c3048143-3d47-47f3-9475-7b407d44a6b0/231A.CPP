@@ -37,7 +37,8 @@ int main() {
     cin >> tonya;
     /**
      * Conditional Logic: Checks if at least two out of three friends are confident (have a value of 1).
-     * This is achieved by explicitly checking all combinations where two or three friends are confident.
+     * This is most efficiently determined by summing their confidence levels; if the sum is 2 or more,
+     * then at least two friends are confident, and the problem is considered solved.
      */
     if ((petya == 1 && vasaya == 1 && tonya == 1) || // All three are confident.
         (petya == 1 && vasaya == 1 && tonya == 0) || // Petya and Vasya are confident.

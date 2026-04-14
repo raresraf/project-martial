@@ -3,6 +3,14 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/**
+ * @file promptsService.ts
+ * @brief This file defines the `PromptsService`, which is responsible for managing,
+ * parsing, and locating prompt files (e.g., `.prompt`, `.instructions`) within the
+ * workspace and user profiles. It provides functionalities for parsing prompt
+ * syntax, resolving slash commands, and aggregating metadata from these files.
+ */
+
 import { ChatMode } from '../../constants.js';
 import { localize } from '../../../../../../nls.js';
 import { PROMPT_LANGUAGE_ID } from '../constants.js';
@@ -30,24 +38,35 @@ import { IUserDataProfileService } from '../../../../../services/userDataProfile
 import type { IChatPromptSlashCommand, TCombinedToolsMetadata, IMetadata, IPromptPath, IPromptsService, TPromptsStorage, TPromptsType } from './types.js';
 
 /**
- * Provides prompt services.
+ * @class PromptsService
+ * @brief Provides services for handling chat prompts, including locating prompt files,
+ * parsing their syntax, and managing their lifecycle.
+ *
+ * This service acts as a central hub for prompt-related functionalities, caching
+ * parsers for performance and providing utilities to resolve prompt commands and
+f* ind relevant instruction files based on context.
  */
 export class PromptsService extends Disposable implements IPromptsService {
 	public declare readonly _serviceBrand: undefined;
 
 	/**
-	 * Cache of text model content prompt parsers.
+	 * @property
+	 * @description A cache for `TextModelPromptParser` instances, keyed by `ITextModel`.
+	 * This prevents re-parsing of unchanged models, improving performance.
 	 */
 	private readonly cache: ObjectCache<TextModelPromptParser, ITextModel>;
 
 	/**
-	 * Prompt files locator utility.
+	 * @property
+	 * @description A utility class to locate prompt files in various locations
+	 * (user profiles, workspace, etc.).
 	 */
 	private readonly fileLocator: PromptFilesLocator;
 
 	/**
-	 * Function used by the `@logTime` decorator to log
-	 * execution time of some of the decorated methods.
+	 * @property
+	 * @description A logging function assigned from the ILogService, used by the
+	 * `@logTime` decorator to measure and log method execution times for debugging.
 	 */
 	public logTime: TLogFunction;
 
@@ -63,8 +82,11 @@ export class PromptsService extends Disposable implements IPromptsService {
 		this.fileLocator = this.initService.createInstance(PromptFilesLocator);
 		this.logTime = this.logger.trace.bind(this.logger);
 
-		// the factory function below creates a new prompt parser object
-		// for the provided model, if no active non-disposed parser exists
+		/**
+		 * Functional Utility: The ObjectCache is initialized with a factory function.
+		 * This function is invoked only when a parser for a given text model is
+		 * not already in the cache. It creates, starts, and returns a new parser.
+		 */
 		this.cache = this._register(
 			new ObjectCache((model) => {
 				assert(
@@ -72,19 +94,12 @@ export class PromptsService extends Disposable implements IPromptsService {
 					'Text model must not be disposed.',
 				);
 
-				/**
-				 * Note! When/if shared with "file" prompts, the `seenReferences` array below must be taken into account.
-				 * Otherwise consumers will either see incorrect failing or incorrect successful results, based on their
-				 * use case, timing of their calls to the {@link getSyntaxParserFor} function, and state of this service.
-				 */
 				const parser: TextModelPromptParser = initService.createInstance(
 					TextModelPromptParser,
 					model,
 					{ seenReferences: [] },
 				).start();
 
-				// this is a sanity check and the contract of the object cache,
-				// we must return a non-disposed object from this factory function
 				parser.assertNotDisposed(
 					'Created prompt parser must not be disposed.',
 				);
@@ -95,10 +110,11 @@ export class PromptsService extends Disposable implements IPromptsService {
 	}
 
 	/**
-	 * @throws {Error} if:
-	 * 	- the provided model is disposed
-	 * 	- newly created parser is disposed immediately on initialization.
-	 * 	  See factory function in the {@link constructor} for more info.
+	 * Retrieves a syntax parser for a given text model.
+	 * It uses a cache to avoid creating new parsers for the same model.
+	 * @param model The `ITextModel` to be parsed.
+	 * @returns A non-disposed `TextModelPromptParser` instance for the given model.
+	 * @throws {Error} If the provided model is already disposed.
 	 */
 	public getSyntaxParserFor(
 		model: ITextModel,
@@ -111,6 +127,12 @@ export class PromptsService extends Disposable implements IPromptsService {
 		return this.cache.get(model);
 	}
 
+	/**
+	 * Lists all prompt files of a specific type ('prompt' or 'instructions') found
+	 * within user and workspace locations.
+	 * @param type The type of prompt files to list.
+	 * @returns A promise that resolves to a readonly array of `IPromptPath` objects.
+	 */
 	public async listPromptFiles(type: TPromptsType): Promise<readonly IPromptPath[]> {
 		const userLocations = [this.userDataService.currentProfile.promptsHome];
 
@@ -124,9 +146,12 @@ export class PromptsService extends Disposable implements IPromptsService {
 		return prompts.flat();
 	}
 
+	/**
+	 * Gets the source folders where prompt files of a given type are located.
+	 * @param type The type of prompt.
+	 * @returns A readonly array of `IPromptPath` objects representing source folders.
+	 */
 	public getSourceFolders(type: TPromptsType): readonly IPromptPath[] {
-		// sanity check to make sure we don't miss a new
-		// prompt type that could be added in the future
 		assert(
 			type === 'prompt' || type === 'instructions',
 			`Unknown prompt type '${type}'.`,
@@ -143,6 +168,11 @@ export class PromptsService extends Disposable implements IPromptsService {
 		return result;
 	}
 
+	/**
+	 * Converts a string into a chat prompt slash command object if it matches the valid format.
+	 * @param command The string to convert.
+	 * @returns An `IChatPromptSlashCommand` object or undefined if the format is invalid.
+	 */
 	public asPromptSlashCommand(command: string): IChatPromptSlashCommand | undefined {
 		if (command.match(/^[\w_\-\.]+/)) {
 			return { command, detail: localize('prompt.file.detail', 'Prompt file: {0}', command) };
@@ -150,6 +180,11 @@ export class PromptsService extends Disposable implements IPromptsService {
 		return undefined;
 	}
 
+	/**
+	 * Resolves a slash command to its corresponding prompt file path.
+	 * @param data The slash command data to resolve.
+	 * @returns A promise that resolves to the `IPromptPath` of the file, or undefined if not found.
+	 */
 	public async resolvePromptSlashCommand(data: IChatPromptSlashCommand): Promise<IPromptPath | undefined> {
 		if (data.promptPath) {
 			return data.promptPath;
@@ -167,6 +202,10 @@ export class PromptsService extends Disposable implements IPromptsService {
 		return undefined;
 	}
 
+	/**
+	 * Finds and lists all available prompt slash commands.
+	 * @returns A promise that resolves to an array of `IChatPromptSlashCommand` objects.
+	 */
 	public async findPromptSlashCommands(): Promise<IChatPromptSlashCommand[]> {
 		const promptFiles = await this.listPromptFiles('prompt');
 		return promptFiles.map(promptPath => {
@@ -179,6 +218,15 @@ export class PromptsService extends Disposable implements IPromptsService {
 		});
 	}
 
+	/**
+	 * Finds all instruction files that apply to a given set of files.
+	 * @param files An array of file URIs to check against.
+	 * @returns A promise that resolves to a deduplicated array of URIs for the applicable instruction files.
+	 *
+	 * Algorithm: This method retrieves all `.instructions` files, parses their metadata,
+	 * and checks if the `applyTo` glob pattern in the metadata matches any of the
+	 * provided file URIs.
+	 */
 	@logTime()
 	public async findInstructionFilesFor(
 		files: readonly URI[],
@@ -194,6 +242,7 @@ export class PromptsService extends Disposable implements IPromptsService {
 			instructionFiles.map(pick('uri')),
 		);
 
+		// Block Logic: Iterate through each instruction file's metadata tree.
 		for (const instruction of instructions.flatMap(flatten)) {
 			const { metadata, uri } = instruction;
 			const { applyTo } = metadata;
@@ -202,16 +251,13 @@ export class PromptsService extends Disposable implements IPromptsService {
 				continue;
 			}
 
-			// if glob pattern is one of the special wildcard values,
-			// add the instructions file event if no files are attached
+			// Pre-condition: Handle special wildcard patterns that apply globally.
 			if ((applyTo === '**') || (applyTo === '**/*')) {
 				result.push(uri);
-
 				continue;
 			}
 
-			// match each attached file with each glob pattern and
-			// add the instructions file if its rule matches the file
+			// Block Logic: Match each file against the glob pattern.
 			for (const file of files) {
 				if (match(applyTo, file.fsPath)) {
 					result.push(uri);
@@ -219,9 +265,15 @@ export class PromptsService extends Disposable implements IPromptsService {
 			}
 		}
 
+		// Return a unique set of instruction file URIs.
 		return [...new ResourceSet(result)];
 	}
 
+	/**
+	 * Retrieves the hierarchical metadata for a given list of prompt file URIs.
+	 * @param promptUris An array of prompt file URIs.
+	 * @returns A promise that resolves to an array of `IMetadata` trees.
+	 */
 	@logTime()
 	public async getAllMetadata(
 		promptUris: readonly URI[],
@@ -230,6 +282,8 @@ export class PromptsService extends Disposable implements IPromptsService {
 			promptUris.map(async (uri) => {
 				let parser: PromptParser | undefined;
 				try {
+					// Block Logic: For each URI, create a temporary parser to extract metadata.
+					// The parser is disposed of immediately after use.
 					parser = this.initService.createInstance(
 						PromptParser,
 						uri,
@@ -248,6 +302,13 @@ export class PromptsService extends Disposable implements IPromptsService {
 		return metadata;
 	}
 
+	/**
+	 * Parses and combines metadata from multiple prompt files, determining the
+	 * resulting chat mode and aggregating all specified tools.
+	 * @param promptUris An array of prompt file URIs to process.
+	 * @returns A promise that resolves to a `TCombinedToolsMetadata` object, or null
+	 * if no URIs are provided.
+	 */
 	@logTime()
 	public async getCombinedToolsMetadata(
 		promptUris: readonly URI[],
@@ -258,6 +319,7 @@ export class PromptsService extends Disposable implements IPromptsService {
 
 		const filesMetadata = await this.getAllMetadata(promptUris);
 
+		// Block Logic: Process metadata from each file to determine chat mode and collect tools.
 		const allTools = filesMetadata
 			.map((fileMetadata) => {
 				const result: string[] = [];
@@ -265,31 +327,26 @@ export class PromptsService extends Disposable implements IPromptsService {
 				let isFirst = true;
 				let isRootInAgentMode = false;
 				let hasTools = false;
-
 				let chatMode: ChatMode | undefined;
 
+				// Invariant: Traverses the metadata tree of a single file.
 				forEach((node) => {
 					const { metadata } = node;
 					const { mode, tools } = metadata;
 
 					if (isFirst === true) {
 						isFirst = false;
-
 						if ((mode === ChatMode.Agent) || (tools !== undefined)) {
 							isRootInAgentMode = true;
-
 							chatMode = ChatMode.Agent;
 						}
 					}
 
 					chatMode ??= mode;
 
-					// if both chat modes are set, pick the more privileged one
+					// Block Logic: The more privileged chat mode wins (Agent > Edit > Ask).
 					if (chatMode && mode) {
-						chatMode = morePrivilegedChatMode(
-							chatMode,
-							mode,
-						);
+						chatMode = morePrivilegedChatMode(chatMode, mode);
 					}
 
 					if (isRootInAgentMode && tools !== undefined) {
@@ -301,19 +358,13 @@ export class PromptsService extends Disposable implements IPromptsService {
 				}, fileMetadata);
 
 				if (chatMode === ChatMode.Agent) {
-					return {
-						tools: (hasTools)
-							? [...new Set(result)]
-							: undefined,
-						mode: ChatMode.Agent,
-					};
+					return { tools: (hasTools) ? [...new Set(result)] : undefined, mode: ChatMode.Agent };
 				}
 
-				return {
-					mode: chatMode,
-				};
+				return { mode: chatMode };
 			});
 
+		// Block Logic: Aggregate results from all processed files.
 		let hasAnyTools = false;
 		let resultingChatMode: ChatMode | undefined;
 
@@ -321,12 +372,8 @@ export class PromptsService extends Disposable implements IPromptsService {
 		for (const { tools, mode } of allTools) {
 			resultingChatMode ??= mode;
 
-			// if both chat modes are set, pick the more privileged one
 			if (resultingChatMode && mode) {
-				resultingChatMode = morePrivilegedChatMode(
-					resultingChatMode,
-					mode,
-				);
+				resultingChatMode = morePrivilegedChatMode(resultingChatMode, mode);
 			}
 
 			if (tools) {
@@ -336,23 +383,19 @@ export class PromptsService extends Disposable implements IPromptsService {
 		}
 
 		if (resultingChatMode === ChatMode.Agent) {
-			return {
-				tools: (hasAnyTools)
-					? [...new Set(result)]
-					: undefined,
-				mode: resultingChatMode,
-			};
+			return { tools: (hasAnyTools) ? [...new Set(result)] : undefined, mode: resultingChatMode };
 		}
 
-		return {
-			tools: undefined,
-			mode: resultingChatMode,
-		};
+		return { tools: undefined, mode: resultingChatMode };
 	}
 }
 
 /**
- * Pick a more privileged chat mode between two provided ones.
+ * Determines which of two chat modes is more privileged.
+ * The order of privilege is: Agent > Edit > Ask.
+ * @param chatMode1 The first chat mode.
+ * @param chatMode2 The second chat mode.
+ * @returns The more privileged `ChatMode`.
  */
 const morePrivilegedChatMode = (
 	chatMode1: ChatMode,
@@ -384,8 +427,10 @@ const morePrivilegedChatMode = (
 };
 
 /**
- * Collect all metadata from prompt file references
- * into a single hierarchical tree structure.
+ * Recursively collects metadata from a prompt file reference and its children
+ * into a hierarchical tree structure.
+ * @param reference The root `IPromptFileReference` to start from.
+ * @returns An `IMetadata` object representing the tree of metadata.
  */
 const collectMetadata = (
 	reference: Pick<IPromptFileReference, 'uri' | 'metadata' | 'references'>,
@@ -410,14 +455,23 @@ const collectMetadata = (
 	};
 };
 
+/**
+ * Extracts the command name from a prompt file path.
+ * (e.g., "/path/to/my-prompt.prompt.md" -> "my-prompt").
+ * @param path The file path.
+ * @returns The extracted command name.
+ */
 export function getPromptCommandName(path: string): string {
 	const name = basename(path, PROMPT_FILE_EXTENSION);
 	return name;
 }
 
 /**
- * Utility to add a provided prompt `storage` and
- * `type` attributes to a prompt URI.
+ * A higher-order function that returns a function to create an `IPromptPath`
+ * object from a URI, adding the specified storage and type.
+ * @param storage The storage location ('user' or 'local').
+ * @param type The prompt type ('prompt' or 'instructions').
+ * @returns A function that takes a URI and returns an `IPromptPath`.
  */
 const addType = (
 	storage: TPromptsStorage,
@@ -429,7 +483,11 @@ const addType = (
 };
 
 /**
- * Utility to add a provided prompt `type` to a list of prompt URIs.
+ * A higher-order function that returns a function to map an array of URIs to
+ * an array of `IPromptPath` objects with a specified storage and type.
+ * @param storage The storage location ('user' or 'local').
+ * @param type The prompt type ('prompt' or 'instructions').
+ * @returns A function that takes an array of URIs and returns an array of `IPromptPath`.
  */
 const withType = (
 	storage: TPromptsStorage,

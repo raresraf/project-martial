@@ -1,3 +1,31 @@
+/**
+ * @file GenerateTestBuildInfoTask.java
+ * @brief Defines a Gradle task for generating a test build information file for Elasticsearch plugins.
+ *
+ * @details This file contains the `GenerateTestBuildInfoTask`, a custom Gradle task used within the
+ * Elasticsearch build system. The primary purpose of this task is to scan the test classpath
+ * (composed of JAR files and directories) and generate a JSON file. This JSON file maps each
+ * code location to its corresponding Java Platform Module System (JPMS) module name and includes
+ * a representative class name.
+ *
+ * Production Systems (Build-time):
+ * This task is crucial for enabling module-aware features, like security entitlements, to function
+ * correctly in a classpath-based unit testing environment. Since unit tests often run without the
+ * full JPMS module path, the application cannot normally determine the module of a given class at
+ * runtime. This task pre-computes this mapping at build time. The resulting JSON file is then
+ * used by the test runtime to simulate module lookups, allowing for consistent behavior between
+ * testing and production environments.
+ *
+ * Algorithm:
+ * The task follows a multi-step process to determine the module name for each classpath entry,
+ * mirroring the logic of `java.lang.module.ModuleFinder`:
+ * 1.  For multi-release JARs, it checks for `module-info.class` in version-specific directories.
+ * 2.  It then checks for a `module-info.class` at the root of the JAR.
+ * 3.  If not found, it inspects the JAR's manifest for an `Automatic-Module-Name` entry.
+ * 4.  As a final fallback, it derives a module name from the JAR's filename.
+ * The ASM library is used to parse the bytecode of `module-info.class` to extract the module name.
+ */
+
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
  * or more contributor license agreements. Licensed under the "Elastic License
@@ -53,9 +81,10 @@ import static java.nio.file.FileVisitResult.CONTINUE;
 import static java.nio.file.FileVisitResult.TERMINATE;
 
 /**
- * This task generates a file with a class to module mapping
+ * This task generates a file with a class-to-module mapping
  * used to imitate modular behavior during unit tests so
- * entitlements can lookup correct policies.
+ * entitlements can look up correct policies. This is a cacheable
+ * Gradle task, meaning its output can be reused if inputs have not changed.
  */
 @CacheableTask
 public abstract class GenerateTestBuildInfoTask extends DefaultTask {
@@ -69,19 +98,37 @@ public abstract class GenerateTestBuildInfoTask extends DefaultTask {
         setDescription(DESCRIPTION);
     }
 
+    /**
+     * An optional property for the module name, typically used for directory-based classpath entries.
+     */
     @Input
     @Optional
     public abstract Property<String> getModuleName();
 
+    /**
+     * The name of the component, used for entitlement lookups.
+     */
     @Input
     public abstract Property<String> getComponentName();
 
+    /**
+     * The collection of classpath entries (JARs and directories) to be analyzed.
+     */
     @Classpath
     public abstract Property<FileCollection> getCodeLocations();
 
+    /**
+     * The output JSON file where the build information will be written.
+     */
     @OutputFile
     public abstract RegularFileProperty getOutputFile();
 
+    /**
+     * The main action of the Gradle task. It orchestrates the generation of the
+     * build info file.
+     *
+     * @throws IOException if an I/O error occurs writing the file.
+     */
     @TaskAction
     public void generatePropertiesFile() throws IOException {
         Path outputFile = getOutputFile().get().getAsFile().toPath();
@@ -90,14 +137,15 @@ public abstract class GenerateTestBuildInfoTask extends DefaultTask {
         try (var writer = Files.newBufferedWriter(outputFile, StandardCharsets.UTF_8)) {
             ObjectMapper mapper = new ObjectMapper().configure(SerializationFeature.INDENT_OUTPUT, true)
                 .setPropertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE);
+            // Build the list of locations and serialize it to JSON.
             mapper.writeValue(writer, new OutputFileContents(getComponentName().get(), buildLocationList()));
         }
     }
 
     /**
-     * The output of this task is a JSON file formatted according to this record.
-     * @param component the entitlements <em>component</em> name of the artifact we're describing
-     * @param locations a {@link Location} for each code directory/jar in this artifact
+     * Defines the structure of the root JSON object in the output file.
+     * @param component the entitlements <em>component</em> name of the artifact we're describing.
+     * @param locations a {@link Location} for each code directory/jar in this artifact.
      */
     record OutputFileContents(String component, List<Location> locations) {}
 
@@ -117,8 +165,7 @@ public abstract class GenerateTestBuildInfoTask extends DefaultTask {
 
     /**
      * Build the list of {@link Location}s for all {@link #getCodeLocations() code locations}.
-     * There are different methods for finding these depending on if the
-     * classpath entry is a jar or a directory
+     * It dispatches to different methods based on whether the classpath entry is a JAR or a directory.
      */
     private List<Location> buildLocationList() throws IOException {
         List<Location> locations = new ArrayList<>();
@@ -137,7 +184,7 @@ public abstract class GenerateTestBuildInfoTask extends DefaultTask {
     }
 
     /**
-     * find the first class and module when the class path entry is a jar
+     * Extracts module and class information from a JAR file.
      */
     private void extractLocationsFromJar(File file, List<Location> locations) throws IOException {
         try (JarFile jarFile = new JarFile(file)) {
@@ -151,9 +198,8 @@ public abstract class GenerateTestBuildInfoTask extends DefaultTask {
     }
 
     /**
-     * look through the jar to find the first unique class that isn't
-     * in META-INF (those may not be unique) and isn't module-info.class
-     * (which is also not unique) and avoid anonymous classes
+     * Scans a JAR file to find the first suitable representative class name.
+     * It avoids `module-info.class`, files in `META-INF`, and anonymous inner classes.
      */
     private java.util.Optional<String> extractClassNameFromJar(JarFile jarFile) {
         return jarFile.stream()
@@ -168,13 +214,13 @@ public abstract class GenerateTestBuildInfoTask extends DefaultTask {
     }
 
     /**
-     * Look through the jar for the module name using a succession of techniques corresponding
-     * to how the JDK itself determines module names,
-     * as documented in {@link java.lang.module.ModuleFinder#of}.
+     * Determines the module name for a JAR file using a succession of techniques,
+     * mimicking {@link java.lang.module.ModuleFinder#of}.
      */
     private String extractModuleNameFromJar(File file, JarFile jarFile) throws IOException {
         String moduleName = null;
 
+        // 1. Check for module-info in versioned, multi-release directories.
         if (jarFile.isMultiRelease()) {
             StringBuilder dir = versionDirectoryIfExists(jarFile);
             if (dir != null) {
@@ -183,14 +229,17 @@ public abstract class GenerateTestBuildInfoTask extends DefaultTask {
             }
         }
 
+        // 2. Check for module-info at the root.
         if (moduleName == null) {
             moduleName = getModuleNameFromModuleInfoFile("module-info.class", jarFile);
         }
 
+        // 3. Check for Automatic-Module-Name in the manifest.
         if (moduleName == null) {
             moduleName = getAutomaticModuleNameFromManifest(jarFile);
         }
 
+        // 4. Derive the module name from the JAR filename as a last resort.
         if (moduleName == null) {
             moduleName = deriveModuleNameFromJarFileName(file);
         }
@@ -199,13 +248,10 @@ public abstract class GenerateTestBuildInfoTask extends DefaultTask {
     }
 
     /**
-     * if the jar is multi-release, there will be a set versions
-     * under the path META-INF/versions/<version number>;
-     * each version will have its own module-info.class if this is a modular jar;
-     * look for the module name in the module-info from the latest version
-     * fewer than or equal to the current JVM version
+     * For a multi-release JAR, finds the latest version-specific directory
+     * (e.g., `META-INF/versions/11`) that is compatible with the current JVM version.
      *
-     * @return a {@link StringBuilder} with the {@code META-INF/versions/<version number>} if it exists; otherwise null
+     * @return a {@link StringBuilder} with the path (e.g., {@code META-INF/versions/<version>}) or null if none is found.
      */
     private static StringBuilder versionDirectoryIfExists(JarFile jarFile) {
         List<Integer> versions = jarFile.stream()
@@ -222,6 +268,7 @@ public abstract class GenerateTestBuildInfoTask extends DefaultTask {
         int major = Runtime.version().feature();
         StringBuilder path = new StringBuilder(META_INF_VERSIONS_PREFIX);
         for (int version : versions) {
+            // Pre-condition: Check if the directory's Java version is usable by the current JVM.
             if (version <= major) {
                 return path.append(version);
             }
@@ -230,8 +277,8 @@ public abstract class GenerateTestBuildInfoTask extends DefaultTask {
     }
 
     /**
-     * Looks into the specified {@code module-info.class} file, if it exists, and extracts the declared name of the module.
-     * @return the module name, or null if there is no such {@code module-info.class} file.
+     * Reads a `module-info.class` file from within a JAR and extracts the module name.
+     * @return the module name, or null if the file does not exist.
      */
     private String getModuleNameFromModuleInfoFile(String moduleInfoFileName, JarFile jarFile) throws IOException {
         JarEntry moduleEntry = jarFile.getJarEntry(moduleInfoFileName);
@@ -244,8 +291,8 @@ public abstract class GenerateTestBuildInfoTask extends DefaultTask {
     }
 
     /**
-     * Looks into the {@code MANIFEST.MF} file and returns the {@code Automatic-Module-Name} value if there is one.
-     * @return the module name, or null if the manifest is nonexistent or has no {@code Automatic-Module-Name} value
+     * Reads the `MANIFEST.MF` file from a JAR and returns the `Automatic-Module-Name` value if present.
+     * @return the module name, or null if not found.
      */
     private static String getAutomaticModuleNameFromManifest(JarFile jarFile) throws IOException {
         JarEntry manifestEntry = jarFile.getJarEntry("META-INF/MANIFEST.MF");
@@ -262,12 +309,12 @@ public abstract class GenerateTestBuildInfoTask extends DefaultTask {
     }
 
     /**
-     * Compose a module name from the given {@code jarFile} name,
-     * as documented in {@link java.lang.module.ModuleFinder#of}.
+     * Derives a module name from a JAR filename, as a fallback.
+     * This logic strips version numbers and replaces non-alphanumeric characters with dots.
      */
     private static @NotNull String deriveModuleNameFromJarFileName(File jarFile) {
         String jn = jarFile.getName().substring(0, jarFile.getName().length() - JAR_DESCRIPTOR_SUFFIX.length());
-        Matcher matcher = Pattern.compile("-(\\d+(\\.|$))").matcher(jn);
+        Matcher matcher = Pattern.compile("-(\d+(\.|$))").matcher(jn);
         if (matcher.find()) {
             jn = jn.substring(0, matcher.start());
         }
@@ -276,7 +323,7 @@ public abstract class GenerateTestBuildInfoTask extends DefaultTask {
     }
 
     /**
-     * find the first class and module when the class path entry is a directory
+     * Extracts module and class information from a directory classpath entry.
      */
     private void extractLocationsFromDirectory(File dir, List<Location> locations) throws IOException {
         String className = extractClassNameFromDirectory(dir);
@@ -288,8 +335,7 @@ public abstract class GenerateTestBuildInfoTask extends DefaultTask {
     }
 
     /**
-     * look through the directory to find the first unique class that isn't
-     * module-info.class (which may not be unique) and avoid anonymous classes
+     * Walks a directory to find the first suitable representative class file.
      */
     private String extractClassNameFromDirectory(File dir) throws IOException {
         var visitor = new SimpleFileVisitor<Path>() {
@@ -297,10 +343,11 @@ public abstract class GenerateTestBuildInfoTask extends DefaultTask {
 
             @Override
             public @NotNull FileVisitResult visitFile(@NotNull Path candidate, @NotNull BasicFileAttributes attrs) {
-                String name = candidate.getFileName().toString(); // Just the part after the last dir separator
+                String name = candidate.getFileName().toString();
+                // Find a class that is not module-info and not an anonymous inner class.
                 if (name.endsWith(".class") && (name.equals("module-info.class") || name.contains("$")) == false) {
                     result = candidate.toAbsolutePath().toString().substring(dir.getAbsolutePath().length() + 1);
-                    return TERMINATE;
+                    return TERMINATE; // Stop after finding the first one.
                 } else {
                     return CONTINUE;
                 }
@@ -311,8 +358,8 @@ public abstract class GenerateTestBuildInfoTask extends DefaultTask {
     }
 
     /**
-     * look through the directory to find the module name in either module-info.class
-     * if it exists or the preset one derived from the jar task
+     * Walks a directory to find `module-info.class` and extract the module name.
+     * If not found, it falls back to the module name provided to the task, if any.
      */
     private String extractModuleNameFromDirectory(File dir) throws IOException {
         var visitor = new SimpleFileVisitor<Path>() {
@@ -320,11 +367,11 @@ public abstract class GenerateTestBuildInfoTask extends DefaultTask {
 
             @Override
             public @NotNull FileVisitResult visitFile(@NotNull Path candidate, @NotNull BasicFileAttributes attrs) throws IOException {
-                String name = candidate.getFileName().toString(); // Just the part after the last dir separator
+                String name = candidate.getFileName().toString();
                 if (name.equals("module-info.class")) {
                     try (InputStream inputStream = new FileInputStream(candidate.toFile())) {
                         result = extractModuleNameFromModuleInfo(inputStream);
-                        return TERMINATE;
+                        return TERMINATE; // Stop after finding module-info.
                     }
                 } else {
                     return CONTINUE;
@@ -336,15 +383,20 @@ public abstract class GenerateTestBuildInfoTask extends DefaultTask {
     }
 
     /**
-     * a helper method to extract the module name from module-info.class
-     * using an ASM ClassVisitor
+     * Uses the ASM bytecode manipulation library to read a `module-info.class`
+     * file's bytecode and extract the declared module name.
+     * @param inputStream An input stream to the `module-info.class` data.
+     * @return The declared module name.
+     * @throws IOException if the stream cannot be read.
      */
     private String extractModuleNameFromModuleInfo(InputStream inputStream) throws IOException {
         String[] moduleName = new String[1];
         ClassReader cr = new ClassReader(inputStream);
+        // Use a ClassVisitor to hook into the bytecode parsing process.
         cr.accept(new ClassVisitor(Opcodes.ASM9) {
             @Override
             public ModuleVisitor visitModule(String name, int access, String version) {
+                // The 'name' parameter of visitModule is the declared module name.
                 moduleName[0] = name;
                 return super.visitModule(name, access, version);
             }

@@ -46,5 +46,3 @@ int main() {
   printf("%d\n", minTram);
   // Standard program exit.
   return 0;
-}
-*/

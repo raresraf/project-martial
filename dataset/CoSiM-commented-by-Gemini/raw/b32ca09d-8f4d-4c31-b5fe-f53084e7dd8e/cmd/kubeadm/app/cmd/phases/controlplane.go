@@ -1,3 +1,19 @@
+/**
+ * @file cmd/kubeadm/app/cmd/phases/controlplane.go
+ * @brief Defines the Cobra command-line interface for the 'controlplane' phase of kubeadm.
+ *        This phase is responsible for generating the static pod manifests required to set up
+ *        the Kubernetes control plane components (API Server, Controller Manager, Scheduler).
+ *
+ * Algorithm: This file uses a data-driven approach to construct a command-line interface.
+ *            A slice of structs (`subCmdProperties`) defines the properties for each subcommand,
+ *            which are then created in a loop. This avoids repetitive code and makes adding new
+ *            subcommands straightforward. The command execution is delegated to functions
+ *            from the `controlplanephase` package.
+ *
+ * Time Complexity: O(N), where N is the number of control plane subcommands defined.
+ *                  The setup time is linear with respect to the number of components.
+ * Space Complexity: O(N), for storing the command objects and their properties in memory.
+ */
 /*
 Copyright 2017 The Kubernetes Authors.
 
@@ -26,29 +42,38 @@ import (
 	"k8s.io/kubernetes/pkg/api"
 )
 
-// NewCmdControlplane return main command for Controlplane phase
+// NewCmdControlplane returns the main command for the 'controlplane' phase.
+// This command acts as a container for subcommands that generate manifests for
+// individual control plane components.
 func NewCmdControlplane() *cobra.Command {
+	// Initializes the base 'controlplane' command.
 	cmd := &cobra.Command{
 		Use:   "controlplane",
 		Short: "Generate all static pod manifest files necessary to establish the control plane.",
 		RunE:  subCmdRunE("controlplane"),
 	}
 
+	// Determine the output directory for the manifest files.
 	manifestPath := kubeadmconstants.GetStaticPodDirectory()
+	// Register all the subcommands for the 'controlplane' phase.
 	cmd.AddCommand(getControlPlaneSubCommands(manifestPath)...)
 	return cmd
 }
 
-// getControlPlaneSubCommands returns sub commands for Controlplane phase
+// getControlPlaneSubCommands creates and returns the subcommands for the 'controlplane' phase.
+// It takes an output directory `outDir` where the generated manifests will be stored.
 func getControlPlaneSubCommands(outDir string) []*cobra.Command {
 
+	// cfg holds the master configuration that will be populated by command-line flags.
 	cfg := &kubeadmapiext.MasterConfiguration{}
-	// Default values for the cobra help text
+	// Apply default values to the configuration to be shown in the help text.
 	api.Scheme.Default(cfg)
 
 	var cfgPath string
 	var subCmds []*cobra.Command
 
+	// subCmdProperties defines the metadata and implementation for each subcommand.
+	// This data-driven approach simplifies the creation of similar subcommands.
 	subCmdProperties := []struct {
 		use     string
 		short   string
@@ -76,30 +101,39 @@ func getControlPlaneSubCommands(outDir string) []*cobra.Command {
 		},
 	}
 
+	// Pre-condition: Iterate over the defined subcommand properties to construct each command.
+	// Invariant: Each iteration creates and configures one subcommand ('all', 'apiserver', etc.).
 	for _, properties := range subCmdProperties {
-		// Creates the UX Command
+		// Creates a new Cobra command for a specific control plane component.
 		cmd := &cobra.Command{
 			Use:   properties.use,
 			Short: properties.short,
+			// The Run function is a wrapper that executes the corresponding command function
+			// with the provided configuration.
 			Run:   runCmdPhase(properties.cmdFunc, &outDir, &cfgPath, cfg),
 		}
 
-		// Add flags to the command
+		// Add flags common to all subcommands.
 		cmd.Flags().StringVar(&cfg.CertificatesDir, "cert-dir", cfg.CertificatesDir, `The path where certificates are stored.`)
 		cmd.Flags().StringVar(&cfg.KubernetesVersion, "kubernetes-version", cfg.KubernetesVersion, `Choose a specific Kubernetes version for the control plane.`)
 
+		// Block Logic: Conditionally add flags based on the subcommand's purpose.
+		// Pre-condition: Only 'all' and 'apiserver' commands need API server-specific settings.
 		if properties.use == "all" || properties.use == "apiserver" {
 			cmd.Flags().StringVar(&cfg.API.AdvertiseAddress, "apiserver-advertise-address", cfg.API.AdvertiseAddress, "The IP address or DNS name the API Server is accessible on.")
 			cmd.Flags().Int32Var(&cfg.API.BindPort, "apiserver-bind-port", cfg.API.BindPort, "The port the API Server is accessible on.")
 			cmd.Flags().StringVar(&cfg.Networking.ServiceSubnet, "service-cidr", cfg.Networking.ServiceSubnet, "The range of IP address used for service VIPs.")
 		}
 
+		// Pre-condition: Only 'all' and 'controller-manager' commands require network configuration for pods.
 		if properties.use == "all" || properties.use == "controller-manager" {
 			cmd.Flags().StringVar(&cfg.Networking.PodSubnet, "pod-network-cidr", cfg.Networking.PodSubnet, "The range of IP addresses used for the pod network.")
 		}
 
+		// Add the --config flag, which is common to all subcommands, to specify a kubeadm config file.
 		cmd.Flags().StringVar(&cfgPath, "config", cfgPath, "Path to kubeadm config file (WARNING: Usage of a configuration file is experimental)")
 
+		// Append the newly created command to the list of subcommands.
 		subCmds = append(subCmds, cmd)
 	}
 

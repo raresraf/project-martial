@@ -1,3 +1,28 @@
+/**
+ * @file instances.go
+ * @brief Manages EC2 instance identification and caching for the Kubernetes AWS cloud provider.
+ *
+ * @details This file provides utilities for handling EC2 instance identifiers and implements
+ * a caching layer for EC2 `DescribeInstances` API calls. This is a critical component
+ * for performance and stability, as it reduces the number of API calls to AWS, helping
+ * to avoid rate limiting and reduce latency.
+ *
+ * Key Functionalities:
+ * 1.  **ID Parsing**: It defines methods to parse the Kubernetes `Node.Spec.ProviderID`
+ *     format (e.g., `aws:///us-west-2a/i-12345...`) and extract the canonical
+ *     EC2 instance ID (e.g., `i-12345...`).
+ * 2.  **Instance Caching**: It implements an `instanceCache` that stores the results of
+ *     `DescribeInstances` calls. Subsequent requests for instance data can be served
+ *     from this cache if they meet specific criteria (e.g., maximum age), significantly
+ *     improving the performance of operations that need to query instance metadata.
+ *
+ * Production Systems (Go/TypeScript):
+ * This caching mechanism is vital in a large-scale Kubernetes cluster on AWS. Many core
+ * Kubernetes components (like the controller manager and scheduler) frequently need to
+ * look up instance details (e.g., zone, instance type, IP addresses). Without a cache,
+ * these frequent lookups would quickly lead to AWS API throttling, causing cluster
+ * operations to fail or be severely delayed.
+ */
 /*
 Copyright 2017 The Kubernetes Authors.
 
@@ -30,34 +55,30 @@ import (
 	"time"
 )
 
-// awsInstanceRegMatch represents Regex Match for AWS instance.
+// awsInstanceRegMatch is a regex for sanity-checking AWS instance ID format.
 var awsInstanceRegMatch = regexp.MustCompile("^i-[^/]*$")
 
-// awsInstanceID represents the ID of the instance in the AWS API, e.g. i-12345678
-// The "traditional" format is "i-12345678"
-// A new longer format is also being introduced: "i-12345678abcdef01"
-// We should not assume anything about the length or format, though it seems
-// reasonable to assume that instances will continue to start with "i-".
+// awsInstanceID represents the canonical ID of an EC2 instance in the AWS API (e.g. "i-12345678").
 type awsInstanceID string
 
+// awsString converts the awsInstanceID to a string pointer for the AWS SDK.
 func (i awsInstanceID) awsString() *string {
 	return aws.String(string(i))
 }
 
-// kubernetesInstanceID represents the id for an instance in the kubernetes API;
-// the following form
+// kubernetesInstanceID represents the ProviderID for an instance in the Kubernetes API.
+// It can appear in several forms:
 //  * aws:///<zone>/<awsInstanceId>
 //  * aws:////<awsInstanceId>
 //  * <awsInstanceId>
 type kubernetesInstanceID string
 
-// mapToAWSInstanceID extracts the awsInstanceID from the kubernetesInstanceID
+// mapToAWSInstanceID extracts the canonical awsInstanceID from the kubernetesInstanceID.
 func (name kubernetesInstanceID) mapToAWSInstanceID() (awsInstanceID, error) {
 	s := string(name)
 
 	if !strings.HasPrefix(s, "aws://") {
-		// Assume a bare aws volume id (vol-1234...)
-		// Build a URL with an empty host (AZ)
+		// Assume a bare AWS instance ID. Normalize it to a URL format.
 		s = "aws://" + "/" + "/" + s
 	}
 	url, err := url.Parse(s)
@@ -69,17 +90,15 @@ func (name kubernetesInstanceID) mapToAWSInstanceID() (awsInstanceID, error) {
 	}
 
 	awsID := ""
+	// The path can be /<az>/<instance-id> or just /<instance-id>
 	tokens := strings.Split(strings.Trim(url.Path, "/"), "/")
 	if len(tokens) == 1 {
-		// instanceId
 		awsID = tokens[0]
 	} else if len(tokens) == 2 {
-		// az/instanceId
 		awsID = tokens[1]
 	}
 
-	// We sanity check the resulting volume; the two known formats are
-	// i-12345678 and i-12345678abcdef01
+	// Sanity check the extracted ID.
 	if awsID == "" || !awsInstanceRegMatch.MatchString(awsID) {
 		return "", fmt.Errorf("Invalid format for AWS instance (%s)", name)
 	}
@@ -87,7 +106,8 @@ func (name kubernetesInstanceID) mapToAWSInstanceID() (awsInstanceID, error) {
 	return awsInstanceID(awsID), nil
 }
 
-// mapToAWSInstanceID extracts the awsInstanceIDs from the Nodes, returning an error if a Node cannot be mapped
+// mapToAWSInstanceIDs extracts awsInstanceIDs from a slice of Nodes, returning an error
+// if any Node cannot be mapped.
 func mapToAWSInstanceIDs(nodes []*v1.Node) ([]awsInstanceID, error) {
 	var instanceIDs []awsInstanceID
 	for _, node := range nodes {
@@ -104,7 +124,8 @@ func mapToAWSInstanceIDs(nodes []*v1.Node) ([]awsInstanceID, error) {
 	return instanceIDs, nil
 }
 
-// mapToAWSInstanceIDsTolerant extracts the awsInstanceIDs from the Nodes, skipping Nodes that cannot be mapped
+// mapToAWSInstanceIDsTolerant extracts awsInstanceIDs from a slice of Nodes,
+// skipping and logging a warning for any Node that cannot be mapped.
 func mapToAWSInstanceIDsTolerant(nodes []*v1.Node) []awsInstanceID {
 	var instanceIDs []awsInstanceID
 	for _, node := range nodes {
@@ -123,7 +144,7 @@ func mapToAWSInstanceIDsTolerant(nodes []*v1.Node) []awsInstanceID {
 	return instanceIDs
 }
 
-// Gets the full information about this instance from the EC2 API
+// describeInstance gets the full information about a single EC2 instance from the AWS API.
 func describeInstance(ec2Client EC2, instanceID awsInstanceID) (*ec2.Instance, error) {
 	request := &ec2.DescribeInstancesInput{
 		InstanceIds: []*string{instanceID.awsString()},
@@ -142,21 +163,18 @@ func describeInstance(ec2Client EC2, instanceID awsInstanceID) (*ec2.Instance, e
 	return instances[0], nil
 }
 
-// instanceCache manages the cache of DescribeInstances
+// instanceCache manages a thread-safe, time-based cache of EC2 instance descriptions.
 type instanceCache struct {
-	// TODO: Get rid of this field, send all calls through the instanceCache
-	cloud *Cloud
-
+	cloud    *Cloud
 	mutex    sync.Mutex
 	snapshot *allInstancesSnapshot
 }
 
-// Gets the full information about these instance from the EC2 API
+// describeAllInstancesUncached performs a live call to the AWS EC2 API to describe all instances
+// matching a set of filters, and updates the cache with the result.
 func (c *instanceCache) describeAllInstancesUncached() (*allInstancesSnapshot, error) {
 	now := time.Now()
-
 	glog.V(4).Infof("EC2 DescribeInstances - fetching all instances")
-
 	filters := []*ec2.Filter{}
 	instances, err := c.cloud.describeInstances(filters)
 	if err != nil {
@@ -175,7 +193,6 @@ func (c *instanceCache) describeAllInstancesUncached() (*allInstancesSnapshot, e
 	defer c.mutex.Unlock()
 
 	if c.snapshot != nil && snapshot.olderThan(c.snapshot) {
-		// If this happens a lot, we could run this function in a mutex and only return one result
 		glog.Infof("Not caching concurrent AWS DescribeInstances results")
 	} else {
 		c.snapshot = snapshot
@@ -184,25 +201,25 @@ func (c *instanceCache) describeAllInstancesUncached() (*allInstancesSnapshot, e
 	return snapshot, nil
 }
 
-// cacheCriteria holds criteria that must hold to use a cached snapshot
+// cacheCriteria specifies the conditions a cached snapshot must meet to be considered valid.
 type cacheCriteria struct {
-	// MaxAge indicates the maximum age of a cached snapshot we can accept.
-	// If set to 0 (i.e. unset), cached values will not time out because of age.
+	// MaxAge is the maximum acceptable age of a cached snapshot.
 	MaxAge time.Duration
-
-	// HasInstances is a list of awsInstanceIDs that must be in a cached snapshot for it to be considered valid.
-	// If an instance is not found in the cached snapshot, the snapshot be ignored and we will re-fetch.
+	// HasInstances is a list of instance IDs that must be present in the snapshot.
 	HasInstances []awsInstanceID
 }
 
-// describeAllInstancesCached returns all instances, using cached results if applicable
+// describeAllInstancesCached returns all instances, using cached results if they meet
+// the specified criteria, otherwise performing a fresh API call.
 func (c *instanceCache) describeAllInstancesCached(criteria cacheCriteria) (*allInstancesSnapshot, error) {
 	var err error
 	snapshot := c.getSnapshot()
+	// Invalidate cache if it's too old or doesn't contain required instances.
 	if snapshot != nil && !snapshot.MeetsCriteria(criteria) {
 		snapshot = nil
 	}
 
+	// Block Logic: If the cache was invalid (or empty), perform a live API call.
 	if snapshot == nil {
 		snapshot, err = c.describeAllInstancesUncached()
 		if err != nil {
@@ -215,24 +232,22 @@ func (c *instanceCache) describeAllInstancesCached(criteria cacheCriteria) (*all
 	return snapshot, nil
 }
 
-// getSnapshot returns a snapshot if one exists
+// getSnapshot safely retrieves the current snapshot from the cache.
 func (c *instanceCache) getSnapshot() *allInstancesSnapshot {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-
 	return c.snapshot
 }
 
-// olderThan is a simple helper to encapsulate timestamp comparison
+// olderThan is a helper for comparing snapshot timestamps.
 func (s *allInstancesSnapshot) olderThan(other *allInstancesSnapshot) bool {
-	// After() is technically broken by time changes until we have monotonic time
 	return other.timestamp.After(s.timestamp)
 }
 
-// MeetsCriteria returns true if the snapshot meets the criteria in cacheCriteria
+// MeetsCriteria checks if the snapshot satisfies the given cache criteria.
 func (s *allInstancesSnapshot) MeetsCriteria(criteria cacheCriteria) bool {
+	// Pre-condition: Check if the snapshot is within the maximum age limit.
 	if criteria.MaxAge > 0 {
-		// Sub() is technically broken by time changes until we have monotonic time
 		now := time.Now()
 		if now.Sub(s.timestamp) > criteria.MaxAge {
 			glog.V(6).Infof("instanceCache snapshot cannot be used as is older than MaxAge=%s", criteria.MaxAge)
@@ -240,6 +255,7 @@ func (s *allInstancesSnapshot) MeetsCriteria(criteria cacheCriteria) bool {
 		}
 	}
 
+	// Pre-condition: Check if the snapshot contains all the required instances.
 	if len(criteria.HasInstances) != 0 {
 		for _, id := range criteria.HasInstances {
 			if nil == s.instances[id] {
@@ -252,14 +268,14 @@ func (s *allInstancesSnapshot) MeetsCriteria(criteria cacheCriteria) bool {
 	return true
 }
 
-// allInstancesSnapshot holds the results from querying for all instances,
-// along with the timestamp for cache-invalidation purposes
+// allInstancesSnapshot holds the results from a single `DescribeInstances` API call,
+// along with a timestamp for cache invalidation.
 type allInstancesSnapshot struct {
 	timestamp time.Time
 	instances map[awsInstanceID]*ec2.Instance
 }
 
-// FindInstances returns the instances corresponding to the specified ids.  If an id is not found, it is ignored.
+// FindInstances returns the instances from the snapshot that match the specified IDs.
 func (s *allInstancesSnapshot) FindInstances(ids []awsInstanceID) map[awsInstanceID]*ec2.Instance {
 	m := make(map[awsInstanceID]*ec2.Instance)
 	for _, id := range ids {

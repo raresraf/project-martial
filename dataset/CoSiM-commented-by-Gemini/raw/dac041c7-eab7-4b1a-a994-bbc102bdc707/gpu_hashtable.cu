@@ -1,14 +1,40 @@
-
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
+/**
+ * @file gpu_hashtable.cu
+ * @brief This file contains a CUDA implementation of a GPU-based hash table.
+ * @raw/dac041c7-eab7-4b1a-a994-bbc102bdc707/gpu_hashtable.cu
+ *
+ * This implementation uses open addressing with linear probing for collision resolution.
+ * A key feature of this implementation is its iterative approach to handling insertions
+ * and retrievals. Instead of resolving all collisions within a single kernel launch,
+ * the kernels (`insertKeysandValues`, `getbatch`) are launched in a loop. In each iteration,
+ * threads attempt to process their assigned keys. If a collision occurs, the thread
+_modifies_
+ * its target hash code (by incrementing it) and retries in the next iteration of the host loop.
+ * This continues until all keys in the batch are processed.
+ *
+ * Algorithm: Open Addressing with Linear Probing (Iterative Kernel Launch)
+ * Time Complexity:
+ *  - Insertion: Heavily dependent on load factor and collisions. The iterative nature can lead to many kernel launches.
+ *  - Retrieval: Similar to insertion, performance depends on collisions.
+ * Space Complexity: O(N)
+ */
+#include <iostream>
+#include <string>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <errno.h>
 
 #include "gpu_hashtable.hpp"
 
 
+/**
+ * @brief Constructor for the GpuHashTable class.
+ * @param size The initial capacity of the hash table.
+ *
+ * Allocates an array of `hT` structs on the GPU's global memory and initializes
+ * the memory to zero, marking all slots as empty.
+ */
 GpuHashTable::GpuHashTable(int size)
 {
 	cudaError_t error;
@@ -26,7 +52,11 @@ GpuHashTable::GpuHashTable(int size)
 
 
 
-
+/**
+ * @brief Destructor for the GpuHashTable class.
+ *
+ * Frees the GPU memory allocated for the hash table.
+ */
 GpuHashTable::~GpuHashTable()
 {
 	cudaError_t error;
@@ -41,7 +71,19 @@ GpuHashTable::~GpuHashTable()
 }
 
 
-
+/**
+ * @brief CUDA kernel to copy existing key-value pairs from the hash table into flat arrays.
+ * @param hashtable Pointer to the source hash table.
+ * @param tableSize The capacity of the source hash table.
+ * @param device_keys Destination array for keys on the device.
+ * @param device_values Destination array for values on the device.
+ * @param counter An atomic counter to get a unique index for each copied element.
+ *
+ * This kernel is the first step in the `reshape` process. Each thread checks one slot
+ * in the hash table. If the slot is occupied, it atomically increments a counter to get a
+ * unique index and copies the key-value pair to the corresponding position in the
+ * destination arrays.
+ */
 __global__ void copyForReshape(hT *hashtable, int tableSize,
 								int *device_keys, int *device_values,
 								int *counter)
@@ -49,8 +91,10 @@ __global__ void copyForReshape(hT *hashtable, int tableSize,
 	unsigned int idx = threadIdx.x + blockDim.x * blockIdx.x;
 
 	if(idx < tableSize) {
+		// Pre-condition: Check if the current slot is occupied.
 		if (hashtable[idx].key != 0) {
 			
+			// Atomically get a unique index in the output arrays.
 			int index = atomicAdd(counter, 1);
 
 			device_keys[index] = hashtable[idx].key;
@@ -61,10 +105,23 @@ __global__ void copyForReshape(hT *hashtable, int tableSize,
 
 
 
-
+/**
+ * @brief Resizes the hash table to a new capacity.
+ * @param numBucketsReshape The desired number of elements to accommodate, used to calculate the new size.
+ *
+ * This function orchestrates a complex reshape operation:
+ * 1. Allocates a new, larger hash table.
+ * 2. If the current table is not empty, it launches the `copyForReshape` kernel to
+ *    extract all key-value pairs into temporary flat arrays on the device.
+ * 3. Copies these key-value pairs back to the host.
+ * 4. Destroys the old hash table and replaces it with the new one.
+ * 5. Calls `insertBatch` to re-insert all the elements from the host arrays into the new table.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) {
 	cudaError_t error;
 	hT *newHashTable = NULL;
+	// Invariant: The new size is set to be 20% larger than the number of buckets requested
+	// to maintain a low load factor.
 	int new_size = 1.2f * numBucketsReshape;
 
 	
@@ -109,6 +166,7 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 		
 		
 		
+		// Launch kernel to copy all existing elements to flat arrays.
 		copyForReshape>>(GpuHashTable::hashtable,
 												GpuHashTable::tableSize,
 												device_keys, device_values,
@@ -118,6 +176,7 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 
 
 		
+		// Copy the flattened data back to the host.
 		error = cudaMemcpy(host_keys, device_keys,
 							GpuHashTable::currentTableSize * sizeof(int),
 							cudaMemcpyDeviceToHost);
@@ -130,6 +189,7 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 
 
 		
+		// Destroy the old table and replace it with the new one.
 		GpuHashTable::~GpuHashTable();
 
 		
@@ -143,6 +203,7 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 		DIE(error != cudaSuccess, "cudaMemcpy numKeys error");
 		
 		
+		// Re-insert all the elements into the new, larger table.
 		insertBatch(host_keys, host_values, numKeys);
 
 
@@ -175,7 +236,16 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 
 
 
-
+/**
+ * @brief CUDA kernel to pre-compute hash codes for a batch of keys.
+ * @param keys The input keys on the device.
+ * @param hashcodes The output array for the computed hash codes.
+ * @param numkeys The number of keys in the batch.
+ * @param tablesize The current capacity of the hash table.
+ *
+ * Each thread computes the hash for one key. This allows the initial hash
+ * positions to be calculated in parallel before the insertion or retrieval process begins.
+ */
 __global__ void getHashCode(int *keys, int *hashcodes, int numkeys, int tablesize)
 {
 	unsigned int idx = threadIdx.x + blockDim.x * blockIdx.x;
@@ -191,6 +261,24 @@ __global__ void getHashCode(int *keys, int *hashcodes, int numkeys, int tablesiz
 
 
 
+/**
+ * @brief CUDA kernel that performs one iteration of the batch insertion process.
+ * @param hashcodes The current hash codes (probe positions) for each key.
+ * @param keys The keys to be inserted.
+ * @param values The corresponding values.
+ * @param numKeys The total number of keys in the batch.
+ * @param hashtable The hash table itself.
+ * @param currentTableSize A device pointer to the count of elements in the table.
+ * @param tablesize The capacity of the hash table.
+ * @param counter A counter for successfully inserted keys in this iteration.
+ *
+ * Each thread attempts to insert one key at its current `hashcodes` position.
+ * - If the slot is empty, it uses `atomicCAS` to claim it and insert the value.
+ * - If the slot contains the same key, it updates the value.
+ * - If the slot is occupied by a different key (a collision), it increments its
+ *   `hashcodes` value to probe the next slot in the next iteration of the host loop.
+ * Keys that are successfully inserted are marked with 0 to be ignored in subsequent iterations.
+ */
 __global__ void insertKeysandValues(int *hashcodes, int *keys, int *values,
 									int numKeys, hT *hashtable,
 
@@ -201,26 +289,33 @@ __global__ void insertKeysandValues(int *hashcodes, int *keys, int *values,
 	unsigned int idx = threadIdx.x + blockDim.x * blockIdx.x;
 
 	if (idx < numKeys) {
+		// Pre-condition: Ignore keys that have already been inserted (marked as 0).
 		if (keys[idx] == 0)
 			return;
 
 		int key = atomicCAS(&hashtable[hashcodes[idx]].key, 0, keys[idx]);
 		
+		// Invariant: The slot was empty, so we successfully claimed it.
 		if (key == 0) {
 			hashtable[hashcodes[idx]].value = values[idx];
 			
+			// Mark the key as processed.
 			keys[idx] = 0;
 			atomicAdd(currentTableSize, 1);
 			atomicAdd(counter, 1);
+		// Invariant: The slot already contained our key, so we update the value.
 		} else if (key == keys[idx]) {
 			
 			hashtable[hashcodes[idx]].value = values[idx];
 			atomicAdd(counter, 1);
 			
+			// Mark the key as processed.
 			keys[idx] = 0;
 		} else {
 			
-			
+			// Block Logic: A collision occurred. Increment the hash code to probe the next
+			// slot in the subsequent kernel launch. This implements linear probing across
+			// multiple kernel launches.
 			hashcodes[idx] += 1;
 			hashcodes[idx] %= tablesize;
 		}
@@ -232,6 +327,19 @@ __global__ void insertKeysandValues(int *hashcodes, int *keys, int *values,
 
 
 
+/**
+ * @brief Inserts a batch of key-value pairs into the hash table.
+ * @param keys Pointer to the host array of keys.
+ * @param values Pointer to the host array of values.
+ * @param numKeys The number of key-value pairs to insert.
+ * @return `true` if the insertion process was successful.
+ *
+ * This function orchestrates the batch insertion. It first ensures there is enough
+ * capacity, reshaping if necessary. It then pre-computes the hash codes and enters
+ * a `while(1)` loop, repeatedly launching the `insertKeysandValues` kernel. Each launch
+ * attempts to insert the remaining keys. The loop terminates when a counter indicates
+ * that all keys in the batch have been successfully inserted.
+ */
 bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	int *device_keys = NULL;
 	int *device_values = NULL;
@@ -240,6 +348,7 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 
 	
 	
+	// Pre-condition: Check if the table needs to be resized to accommodate the new keys.
 	if ((GpuHashTable::currentTableSize + numKeys) > GpuHashTable::tableSize)
 		reshape((GpuHashTable::currentTableSize + numKeys));
 
@@ -263,6 +372,7 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 
 
 	
+	// Pre-compute initial hash codes for all keys in parallel.
 	int *hashcodes = NULL;
 	error = cudaMalloc(&hashcodes, numKeys * sizeof(int));
 	DIE(error != cudaSuccess || hashcodes == NULL, "cudaMalloc hashcodes error");
@@ -301,6 +411,8 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 
 	int host_counter = 0;
 	int old_counter = 0;
+	// Block Logic: This loop repeatedly launches the insertion kernel until all keys are processed.
+	// This is an iterative approach to handling collisions.
 	while(1) {
 		
 		insertKeysandValues>>(hashcodes, device_keys,
@@ -319,6 +431,8 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 		
 		GpuHashTable::currentTableSize += host_counter - old_counter;
 
+		// Invariant: The loop terminates when the number of successfully inserted keys
+		// equals the total number of keys in the batch.
 		if(host_counter == numKeys)
 			break;
 	}
@@ -346,13 +460,28 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 
 
 
-
+/**
+ * @brief CUDA kernel that performs one iteration of the batch retrieval process.
+ * @param values The output array for retrieved values.
+ * @param hashcodes The current hash codes (probe positions) for each key.
+ * @param keys The keys to be retrieved.
+ * @param numKeys The total number of keys in the batch.
+ * @param hashtable The hash table itself.
+ * @param tablesize The capacity of the hash table.
+ * @param counter A counter for successfully retrieved keys in this iteration.
+ *
+ * Each thread attempts to retrieve one key. If the key is found at the current
+ * probe position, the value is written to the output array, and the key is marked
+ * as processed (set to 0). If not found, the hash code is incremented for the next
+ * iteration of the host loop.
+ */
 __global__ void getbatch(int *values, int *hashcodes, int *keys, int numKeys,
 						hT *hashtable, int tablesize, int *counter)
 {
 	unsigned int idx = threadIdx.x + blockDim.x * blockIdx.x;
 
 	if (idx < numKeys) {
+		// Pre-condition: Ignore keys that have already been found.
 		if (keys[idx] == 0)
 			return;
 
@@ -363,6 +492,8 @@ __global__ void getbatch(int *values, int *hashcodes, int *keys, int numKeys,
 			keys[idx] = 0;
 		} else {
 			
+			// Block Logic: Key not found at this position. Increment hash code
+			// to probe the next slot in the next kernel launch.
 			hashcodes[idx] += 1;
 			hashcodes[idx] %= tablesize;
 		}
@@ -373,6 +504,16 @@ __global__ void getbatch(int *values, int *hashcodes, int *keys, int numKeys,
 
 
 
+/**
+ * @brief Retrieves the values for a batch of keys.
+ * @param keys Pointer to the host array of keys to search for.
+ * @param numKeys The number of keys in the batch.
+ * @return A pointer to a host array containing the retrieved values.
+ *
+ * This function orchestrates the batch retrieval. Similar to `insertBatch`, it
+ * pre-computes hash codes and then enters a `while(1)` loop, repeatedly launching
+ * the `getbatch` kernel until all keys have been found or the probing is exhausted.
+ */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	int *ret_values = (int *)malloc(numKeys * sizeof(int));
 	cudaError_t error;
@@ -391,6 +532,7 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 
 
 	
+	// Pre-compute initial hash codes.
 	int *hashcodes = NULL;
 
 	error = cudaMalloc(&hashcodes, numKeys * sizeof(int));
@@ -414,6 +556,7 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	error = cudaMemset(device_counter, 0, sizeof(int));
 	DIE(error != cudaSuccess, "cudaMemset device_counter error");
 
+	// Block Logic: Iteratively launch the `getbatch` kernel until all keys are found.
 	while(1) {
 		getbatch>>(device_ret_values, hashcodes,
 											device_keys, numKeys,
@@ -426,6 +569,7 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 		error = cudaMemcpy(&host_counter, device_counter, sizeof(int), cudaMemcpyDeviceToHost);
 		DIE(error != cudaSuccess, "cudaMemcpy host_counter error");
 
+		// Invariant: Loop terminates when all keys in the batch have been found.
 		if(host_counter == numKeys)
 			break;
 	}
@@ -434,6 +578,7 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	
 
 
+	// Copy the retrieved values from device to host.
 	error = cudaMemcpy(ret_values, device_ret_values, numKeys * sizeof(int), cudaMemcpyDeviceToHost);
 	DIE(error != cudaSuccess, "cudaMemcpy ret_values error");
 
@@ -456,13 +601,19 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 
 
 
-
+/**
+ * @brief Calculates the current load factor of the hash table.
+ * @return The load factor as a float.
+ */
 float GpuHashTable::loadFactor() {
 	return ((float)GpuHashTable::currentTableSize) / ((float)GpuHashTable::tableSize);
 }
 
 
-
+/**
+ * @brief These macros provide a simplified API for the hash table operations,
+ * likely intended for use in the included test file (test_map.cpp).
+ */
 #define HASH_INIT GpuHashTable GpuHashTable(1);
 #define HASH_RESERVE(size) GpuHashTable.reshape(size);
 
@@ -472,6 +623,11 @@ float GpuHashTable::loadFactor() {
 #define HASH_LOAD_FACTOR GpuHashTable.loadFactor()
 
 #include "test_map.cpp"
+/**
+ * @brief This block contains a CPU version of a hash table implementation.
+ * It is included for testing, comparison, or as a fallback implementation.
+ * It uses a large list of prime numbers, likely for resizing strategies.
+ */
 #ifndef _HASHCPU_
 #define _HASHCPU_
 
@@ -479,16 +635,17 @@ using namespace std;
 
 #define	KEY_INVALID		0
 
-#define DIE(assertion, call_description) \
-	do {	\
-		if (assertion) {	\
-		fprintf(stderr, "(%s, %d): ",	\
-		__FILE__, __LINE__);	\
-		perror(call_description);	\
-		exit(errno);	\
-	}	\
+#define DIE(assertion, call_description) 
+	do {	
+		if (assertion) {	
+		fprintf(stderr, "(%s, %d): ",	
+		__FILE__, __LINE__);	
+		perror(call_description);	
+		exit(errno);	
+	}	
 } while (0)
 	
+// A list of prime numbers, likely used for choosing hash table sizes to minimize collisions.
 const size_t primeList[] =
 {
 	2llu, 3llu, 5llu, 7llu, 11llu, 13llu, 17llu, 23llu, 29llu, 37llu, 47llu,
@@ -538,6 +695,7 @@ const size_t primeList[] =
 
 
 
+// Alternative hash functions, not used in the current implementation.
 int hash1(int data, int limit) {
 	return ((long)abs(data) * primeList[64]) % primeList[90] % limit;
 }
@@ -548,6 +706,9 @@ int hash3(int data, int limit) {
 	return ((long)abs(data) * primeList[70]) % primeList[93] % limit;
 }
 
+/**
+ * @brief Defines the structure for a hash table entry.
+ */
 typedef struct hashtableCell{
 	int key;
 	int value;
@@ -578,4 +739,3 @@ class GpuHashTable
 };
 
 #endif
-

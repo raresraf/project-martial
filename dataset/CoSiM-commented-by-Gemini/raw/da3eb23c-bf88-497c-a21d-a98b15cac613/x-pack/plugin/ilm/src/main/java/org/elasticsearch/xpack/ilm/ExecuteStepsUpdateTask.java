@@ -1,3 +1,7 @@
+/**
+ * @file
+ * @brief Defines the ExecuteStepsUpdateTask class, a cluster state update task for executing Index Lifecycle Management (ILM) policy steps.
+ */
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
  * or more contributor license agreements. Licensed under the Elastic License
@@ -33,6 +37,12 @@ import java.util.function.LongSupplier;
 
 import static org.elasticsearch.core.Strings.format;
 
+/**
+ * A {@link ClusterStateUpdateTask} that executes a specific ILM {@link Step} for a
+ * given index. It orchestrates the execution of ILM policy steps that modify the
+ * cluster state. This task is responsible for executing a sequence of synchronous
+ * ILM steps.
+ */
 public class ExecuteStepsUpdateTask extends IndexLifecycleClusterStateUpdateTask {
     private static final Logger logger = LogManager.getLogger(ExecuteStepsUpdateTask.class);
     private final String policy;
@@ -40,10 +50,25 @@ public class ExecuteStepsUpdateTask extends IndexLifecycleClusterStateUpdateTask
     private final PolicyStepsRegistry policyStepsRegistry;
     private final IndexLifecycleRunner lifecycleRunner;
     private final LongSupplier nowSupplier;
+    /**
+     * @brief A map to store the next step key for indices that require asynchronous actions.
+     *
+     * This is used when an action on one index "spawns" an action on another index.
+     * The key is the index name, and the value is the next step to be executed.
+     */
     private final Map<String, Step.StepKey> indexToStepKeysForAsyncActions;
     private Step.StepKey nextStepKey = null;
     private Exception failure = null;
 
+    /**
+     *
+     * @param policy The name of the ILM policy.
+     * @param index The index to execute the policy on.
+     * @param startStep The first step to execute.
+     * @param policyStepsRegistry A registry of all available policy steps.
+     * @param lifecycleRunner The runner responsible for executing ILM actions.
+     * @param nowSupplier A supplier for the current time in milliseconds.
+     */
     public ExecuteStepsUpdateTask(
         String policy,
         Index index,
@@ -74,10 +99,14 @@ public class ExecuteStepsUpdateTask extends IndexLifecycleClusterStateUpdateTask
     }
 
     /**
-     * {@link Step}s for the current index and policy are executed in succession until the next step to be
-     * executed is not a {@link ClusterStateActionStep}, or not a {@link ClusterStateWaitStep}, or does not
-     * belong to the same phase as the executed step. All other types of steps are executed outside of this
-     * {@link ClusterStateUpdateTask}, so they are of no concern here.
+     * Executes {@link Step}s for the current index and policy in succession.
+     *
+     * This method iterates through a sequence of {@link ClusterStateActionStep}
+     * and {@link ClusterStateWaitStep} instances, applying cluster state changes
+     * and handling step transitions. The execution continues until it encounters
+     * a step that is not a cluster-state-mutating action, a wait condition is not
+     * met, or a phase boundary is crossed. All other types of steps are executed
+     * outside of this {@link ClusterStateUpdateTask}.
      *
      * @param currentState The current state to execute the <code>startStep</code> with
      * @return the new cluster state after cluster-state operations and step transitions are applied
@@ -87,18 +116,21 @@ public class ExecuteStepsUpdateTask extends IndexLifecycleClusterStateUpdateTask
     public ClusterState doExecute(final ClusterState currentState) throws IOException {
         Step currentStep = startStep;
         IndexMetadata indexMetadata = currentState.metadata().getProject().index(index);
+        // Pre-condition: Check if the index still exists in the cluster state.
         if (indexMetadata == null) {
             logger.debug("lifecycle for index [{}] executed but index no longer exists", index.getName());
             // This index doesn't exist any more, there's nothing to execute currently
             return currentState;
         }
         Step registeredCurrentStep = IndexLifecycleRunner.getCurrentStep(policyStepsRegistry, policy, indexMetadata);
+        // Pre-condition: Ensure the current step in the cluster state matches the task's start step.
+        // This prevents re-execution if the state has changed since the task was submitted.
         if (currentStep.equals(registeredCurrentStep)) {
             ClusterState state = currentState;
-            // We can do cluster state steps all together until we
-            // either get to a step that isn't a cluster state step or a
-            // cluster state wait step returns not completed
+            // Block Logic: This loop processes a chain of synchronous steps.
+            // It continues as long as the steps are either ClusterStateActionStep or ClusterStateWaitStep.
             while (currentStep instanceof ClusterStateActionStep || currentStep instanceof ClusterStateWaitStep) {
+                // Block Logic: Handles steps that directly mutate the cluster state.
                 if (currentStep instanceof ClusterStateActionStep) {
                     // cluster state action step so do the action and
                     // move the cluster state to the next step
@@ -123,6 +155,7 @@ public class ExecuteStepsUpdateTask extends IndexLifecycleClusterStateUpdateTask
                     // set here to make sure that the clusterProcessed knows to execute the
                     // correct step if it an async action
                     nextStepKey = currentStep.getNextStepKey();
+                    // Invariant: If there's no next step, the policy is complete for this index.
                     if (nextStepKey == null) {
                         return state;
                     } else {
@@ -141,6 +174,7 @@ public class ExecuteStepsUpdateTask extends IndexLifecycleClusterStateUpdateTask
                             .build();
                     }
                 } else {
+                    // Block Logic: Handles steps that poll for a condition to be met before proceeding.
                     // cluster state wait step so evaluate the
                     // condition, if the condition is met move to the
                     // next step, if its not met return the current
@@ -163,6 +197,7 @@ public class ExecuteStepsUpdateTask extends IndexLifecycleClusterStateUpdateTask
                     // to be met (eg. {@link LifecycleSettings#LIFECYCLE_STEP_WAIT_TIME_THRESHOLD_SETTING}, so it's important we
                     // re-evaluate what the next step is after we evaluate the condition
                     nextStepKey = currentStep.getNextStepKey();
+                    // Invariant: If the wait condition is met, transition to the next step.
                     if (result.complete()) {
                         logger.trace(
                             "[{}] cluster state step condition met successfully ({}) [{}], moving to next step {}",
@@ -188,6 +223,7 @@ public class ExecuteStepsUpdateTask extends IndexLifecycleClusterStateUpdateTask
                                 .build();
                         }
                     } else {
+                        // Invariant: If the condition is not met, remain in the current step and wait for the next trigger.
                         final ToXContentObject stepInfo = result.informationContext();
                         if (logger.isTraceEnabled()) {
                             logger.trace(
@@ -228,6 +264,15 @@ public class ExecuteStepsUpdateTask extends IndexLifecycleClusterStateUpdateTask
         }
     }
 
+    /**
+     * Callback executed after the cluster state has been successfully updated.
+     *
+     * This method is responsible for triggering any necessary asynchronous actions
+     * that must be performed after a state change. It also handles the registration
+     * of successful or failed operations.
+     *
+     * @param newState The new cluster state after the update.
+     */
     @Override
     public void onClusterStateProcessed(ClusterState newState) {
         final Metadata metadata = newState.metadata();
@@ -282,6 +327,18 @@ public class ExecuteStepsUpdateTask extends IndexLifecycleClusterStateUpdateTask
         logger.warn(() -> format("policy [%s] for index [%s] failed on step [%s].", policy, index, startStep.getKey()), e);
     }
 
+    /**
+     * Transitions the index into an error state when a step fails.
+     *
+     * This method is called to handle exceptions during step execution. It records
+     * the failure cause and updates the cluster state to move the index into the
+     * ERROR step.
+     *
+     * @param state The current cluster state.
+     * @param currentStepKey The key of the step that failed.
+     * @param cause The exception that caused the failure.
+     * @return The updated cluster state with the index in the ERROR step.
+     */
     private ClusterState moveToErrorStep(final ClusterState state, Step.StepKey currentStepKey, Exception cause) {
         this.failure = cause;
         logger.warn(

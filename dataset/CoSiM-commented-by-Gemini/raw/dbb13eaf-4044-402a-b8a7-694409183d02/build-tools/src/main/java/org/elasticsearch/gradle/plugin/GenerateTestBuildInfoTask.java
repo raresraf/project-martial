@@ -1,3 +1,15 @@
+/**
+ * @file
+ * @brief Defines the GenerateTestBuildInfoTask, a Gradle task for generating a class-to-module mapping for testing purposes.
+ * @raw/dbb13eaf-4044-402a-b8a7-694409183d02/build-tools/src/main/java/org/elasticsearch/gradle/plugin/GenerateTestBuildInfoTask.java
+ *
+ * This task is crucial for maintaining modular behavior in a non-modular testing environment.
+ * The Elasticsearch entitlement system relies on Java Platform Module System (JPMS) module information
+ * to look up security policies. Since unit tests often run on a flat classpath without module
+ * boundaries, this task inspects classpath entries (JARs and directories) and generates a JSON file.
+ * This file maps each code location to its corresponding Java module name, allowing the entitlement
+ * system to function correctly during tests.
+ */
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
  * or more contributor license agreements. Licensed under the "Elastic License
@@ -57,6 +69,8 @@ import static java.nio.file.FileVisitResult.TERMINATE;
  * This task generates a file with a class to module mapping
  * used to imitate modular behavior during unit tests so
  * entitlements can lookup correct policies.
+ * As a {@link CacheableTask}, Gradle can reuse the outputs from a previous run
+ * if the inputs have not changed, improving build performance.
  */
 @CacheableTask
 public abstract class GenerateTestBuildInfoTask extends DefaultTask {
@@ -70,19 +84,40 @@ public abstract class GenerateTestBuildInfoTask extends DefaultTask {
         setDescription(DESCRIPTION);
     }
 
+    /**
+     * An optional property to specify the module name, typically used when processing a directory
+     * that doesn't contain a module-info.class file.
+     */
     @Input
     @Optional
     public abstract Property<String> getModuleName();
 
+    /**
+     * The name of the component for entitlement lookup purposes. This is a required input.
+     */
     @Input
     public abstract Property<String> getComponentName();
 
+    /**
+     * The collection of classpath entries (JARs or directories) to be analyzed.
+     * This is a required input annotated with {@link Classpath} to ensure proper dependency tracking.
+     */
     @Classpath
     public abstract Property<FileCollection> getCodeLocations();
 
+    /**
+     * The output JSON file where the module mapping information will be written.
+     */
     @OutputFile
     public abstract RegularFileProperty getOutputFile();
 
+    /**
+     * The main action of the Gradle task. It orchestrates the generation of the properties file.
+     * It creates the output directory, initializes a JSON mapper, and writes the structured
+     * data to the output file.
+     *
+     * @throws IOException if there is an error writing the file.
+     */
     @TaskAction
     public void generatePropertiesFile() throws IOException {
         Path outputFile = getOutputFile().get().getAsFile().toPath();
@@ -96,7 +131,7 @@ public abstract class GenerateTestBuildInfoTask extends DefaultTask {
     }
 
     /**
-     * The output of this task is a JSON file formatted according to this record.
+     * The root object for the output JSON file.
      * @param component the entitlements <em>component</em> name of the artifact we're describing
      * @param locations a {@link Location} for each code directory/jar in this artifact
      */
@@ -118,8 +153,9 @@ public abstract class GenerateTestBuildInfoTask extends DefaultTask {
 
     /**
      * Build the list of {@link Location}s for all {@link #getCodeLocations() code locations}.
-     * There are different methods for finding these depending on if the
-     * classpath entry is a jar or a directory
+     * This method serves as the main dispatcher, iterating through each file in the input
+     * code locations and delegating to the appropriate extraction method based on whether
+     * the entry is a JAR file or a directory.
      */
     private List<Location> buildLocationList() throws IOException {
         List<Location> locations = new ArrayList<>();
@@ -138,7 +174,10 @@ public abstract class GenerateTestBuildInfoTask extends DefaultTask {
     }
 
     /**
-     * find the first class and module when the class path entry is a jar
+     * Extracts module and class information from a JAR file. It identifies a representative class
+     * and determines the module name by following the Java Platform Module System (JPMS) rules:
+     * checking for `module-info.class`, then `Automatic-Module-Name` in the manifest, and finally
+     * deriving it from the JAR's filename.
      */
     private void extractLocationsFromJar(File file, List<Location> locations) throws IOException {
         try (JarFile jarFile = new JarFile(file)) {
@@ -176,6 +215,7 @@ public abstract class GenerateTestBuildInfoTask extends DefaultTask {
     private String extractModuleNameFromJar(File file, JarFile jarFile) throws IOException {
         String moduleName = null;
 
+        // Block Logic: For multi-release JARs, first check for module-info in version-specific directories.
         if (jarFile.isMultiRelease()) {
             StringBuilder dir = versionDirectoryIfExists(jarFile);
             if (dir != null) {
@@ -184,14 +224,17 @@ public abstract class GenerateTestBuildInfoTask extends DefaultTask {
             }
         }
 
+        // Block Logic: If not found, check for a base module-info.class.
         if (moduleName == null) {
             moduleName = getModuleNameFromModuleInfoFile("module-info.class", jarFile);
         }
 
+        // Block Logic: If still not found, check the manifest for an Automatic-Module-Name.
         if (moduleName == null) {
             moduleName = getAutomaticModuleNameFromManifest(jarFile);
         }
 
+        // Block Logic: As a final fallback, derive the module name from the JAR file name.
         if (moduleName == null) {
             moduleName = deriveModuleNameFromJarFileName(file);
         }
@@ -200,11 +243,11 @@ public abstract class GenerateTestBuildInfoTask extends DefaultTask {
     }
 
     /**
-     * if the jar is multi-release, there will be a set versions
-     * under the path META-INF/versions/<version number>;
-     * each version will have its own module-info.class if this is a modular jar;
-     * look for the module name in the module-info from the latest version
-     * fewer than or equal to the current JVM version
+     * If the jar is multi-release, there will be a set of versions
+     * under the path META-INF/versions/<version number>; each version
+     * may have its own module-info.class. This method finds the path
+     * to the module-info from the latest version compatible with the
+     * current JVM runtime version.
      *
      * @return a {@link StringBuilder} with the {@code META-INF/versions/<version number>} if it exists; otherwise null
      */
@@ -246,6 +289,7 @@ public abstract class GenerateTestBuildInfoTask extends DefaultTask {
 
     /**
      * Looks into the {@code MANIFEST.MF} file and returns the {@code Automatic-Module-Name} value if there is one.
+     * This is a fallback mechanism for non-modular JARs that wish to be treated as modules.
      * @return the module name, or null if the manifest is nonexistent or has no {@code Automatic-Module-Name} value
      */
     private static String getAutomaticModuleNameFromManifest(JarFile jarFile) throws IOException {
@@ -264,11 +308,12 @@ public abstract class GenerateTestBuildInfoTask extends DefaultTask {
 
     /**
      * Compose a module name from the given {@code jarFile} name,
-     * as documented in {@link java.lang.module.ModuleFinder#of}.
+     * as documented in {@link java.lang.module.ModuleFinder#of}. This is the final
+     * fallback for creating a module name, often used for legacy JARs.
      */
     private static @NotNull String deriveModuleNameFromJarFileName(File jarFile) {
         String jn = jarFile.getName().substring(0, jarFile.getName().length() - JAR_DESCRIPTOR_SUFFIX.length());
-        Matcher matcher = Pattern.compile("-(\\d+(\\.|$))").matcher(jn);
+        Matcher matcher = Pattern.compile("-(\d+(\.|$))").matcher(jn);
         if (matcher.find()) {
             jn = jn.substring(0, matcher.start());
         }
@@ -337,8 +382,9 @@ public abstract class GenerateTestBuildInfoTask extends DefaultTask {
     }
 
     /**
-     * a helper method to extract the module name from module-info.class
-     * using an ASM ClassVisitor
+     * A helper method to extract the module name from module-info.class
+     * using an ASM ClassVisitor. ASM is used for efficient bytecode analysis
+     * to read the module name without loading the class into the JVM.
      */
     private String extractModuleNameFromModuleInfo(InputStream inputStream) throws IOException {
         String[] moduleName = new String[1];

@@ -1,9 +1,32 @@
-
+/**
+ * @file solver_opt.c
+ * @brief An aggressively optimized C implementation of a matrix solver.
+ *
+ * This file provides a highly optimized implementation of the `my_solver` function
+ * for the computation `C = (A * B) * B^T + A^T * A`. It employs several manual
+ * optimization techniques aimed at improving performance on scalar architectures.
+ *
+ * The primary optimization techniques include:
+ * - **Loop Unrolling:** The innermost loops are unrolled by a factor of 2 to reduce
+ *   loop control overhead and increase instruction-level parallelism.
+ * - **Explicit Transposition:** A helper function creates transposed copies of matrices
+ *   to ensure linear, cache-friendly memory access during multiplication.
+ * - **Register and Pointer-Heavy Code:** Extensive use of the `register` keyword and
+ *   direct pointer arithmetic to minimize memory access and index calculation overhead.
+ * - **Manual Common Subexpression Elimination:** Reusing values loaded in outer loops
+ *   to reduce redundant memory reads.
+ */
 #include "utils.h"
 
 
 
 
+/**
+ * @brief Creates a transposed copy of a matrix.
+ * @param N The dimension of the matrix.
+ * @param A The input matrix.
+ * @return A new matrix containing the transpose of A.
+ */
 double *transpose_matrix (int N, double *A) {
 	int i, j;
 	double *A_t;
@@ -30,6 +53,14 @@ double *transpose_matrix (int N, double *A) {
 }
 
 
+/**
+ * @brief Computes C = A * B using loop unrolling and other optimizations.
+ * @note Assumes A is upper triangular.
+ * @param N The dimension of the matrices.
+ * @param A The first input matrix.
+ * @param B The second input matrix.
+ * @return A new matrix containing the result of A * B.
+ */
 double* AB(int N, double *A, double *B) {
 	int i, j, k;
 	double *AB;
@@ -80,6 +111,13 @@ double* AB(int N, double *A, double *B) {
 }
 
 
+/**
+ * @brief Computes C = AB * B^T using loop unrolling and an explicit transpose of B.
+ * @param N The dimension of the matrices.
+ * @param AB The first input matrix.
+ * @param B The second input matrix.
+ * @return A new matrix containing the result of AB * B^T.
+ */
 double* ABB_t(int N, double *AB, double *B) {
 	int i, j, k;
 	double *ABB_t;
@@ -129,6 +167,13 @@ double* ABB_t(int N, double *AB, double *B) {
 }
 
 
+/**
+ * @brief Computes C = A^T * A using loop unrolling and an explicit transpose of A.
+ * @param N The dimension of the matrices.
+ * @param A_t This parameter is unused.
+ * @param A The input matrix.
+ * @return A new matrix containing the result of A^T * A.
+ */
 double* A_tA(int N, double *A_t, double *A) {
 	int i, j, k;
 	double *A_tA;
@@ -178,6 +223,13 @@ double* A_tA(int N, double *A_t, double *A) {
 }
 
 
+/**
+ * @brief Computes the element-wise sum of two matrices, C = A + B, using a single optimized loop.
+ * @param N The dimension of the matrices.
+ * @param A The first input matrix.
+ * @param B The second input matrix.
+ * @return A new matrix containing the result of A + B.
+ */
 double* sum(int N, double *A, double *B) {
 	int i;
 	double *C;
@@ -202,8 +254,19 @@ double* sum(int N, double *A, double *B) {
 }
 
 
+/**
+ * @brief Orchestrates the optimized matrix computation.
+ *
+ * Calls the sequence of optimized helper functions to compute the final result
+ * `C = (A * B) * B^T + A^T * A` and manages the memory for intermediate matrices.
+ * @param N The dimension of the matrices.
+ * @param A The first input matrix.
+ * @param B The second input matrix.
+ * @return A new matrix containing the result.
+ */
 double* my_solver(int N, double *A, double* B) {
-	printf("OPT SOLVER\n");
+	printf("OPT SOLVER
+");
 	register double *ptr_AB = AB(N, A, B);
 	register double *ptr_ABB_t = ABB_t(N, ptr_AB, B);
 	register double *ptr_A_tA = A_tA(N, A, A);

@@ -1,3 +1,11 @@
+/**
+ * @fileoverview This file implements the editor overlay widget for chat-based editing sessions
+ * in Visual Studio Code. It is responsible for displaying the progress of AI-driven code
+ * modifications, providing user actions like 'Accept' and 'Reject', and showing navigation
+ * controls when multiple changes are suggested. The implementation leverages VS Code's internal
+ * observable and dependency injection frameworks to react to state changes in the editor and
+ * chat services.
+ */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -34,6 +42,11 @@ import * as arrays from '../../../../../base/common/arrays.js';
 import { renderStringAsPlaintext } from '../../../../../base/browser/markdownRenderer.js';
 import { IKeybindingService } from '../../../../../platform/keybinding/common/keybinding.js';
 
+/**
+ * The core UI component for the chat editor overlay.
+ * It creates and manages the DOM elements for the overlay, including the progress message
+ * and the toolbar with actions like 'Accept' and 'Reject'.
+ */
 class ChatEditorOverlayWidget extends Disposable {
 
 	private readonly _domNode: HTMLElement;
@@ -41,10 +54,18 @@ class ChatEditorOverlayWidget extends Disposable {
 
 	private readonly _showStore = this._store.add(new DisposableStore());
 
+	/**
+	 * Observables that track the state of the current chat editing session.
+	 * @private
+	 */
 	private readonly _session = observableValue<IChatEditingSession | undefined>(this, undefined);
 	private readonly _entry = observableValue<IModifiedFileEntry | undefined>(this, undefined);
 	private readonly _isBusy: IObservable<boolean | undefined>;
 
+	/**
+	 * Tracks navigation information, such as the total number of changes and the active index.
+	 * @private
+	 */
 	private readonly _navigationBearings = observableValue<{ changeCount: number; activeIdx: number; entriesCount: number }>(this, { changeCount: -1, activeIdx: -1, entriesCount: -1 });
 
 	constructor(
@@ -130,6 +151,12 @@ class ChatEditorOverlayWidget extends Disposable {
 		return this._domNode;
 	}
 
+	/**
+	 * Shows the overlay with the data from the given editing session.
+	 * @param session The active chat editing session.
+	 * @param entry The specific file entry being modified.
+	 * @param indicies Observables for tracking the current change and entry index.
+	 */
 	show(session: IChatEditingSession, entry: IModifiedFileEntry | undefined, indicies: { entryIndex: IObservable<number>; changeIndex: IObservable<number> }) {
 
 		this._showStore.clear();
@@ -175,6 +202,10 @@ class ChatEditorOverlayWidget extends Disposable {
 				useSeparatorsInPrimaryActions: true
 			},
 			menuOptions: { renderShortTitle: true },
+			/**
+			 * Provides custom view items for specific actions, like the navigation label
+			 * and the auto-accepting 'Accept' button.
+			 */
 			actionViewItemProvider: (action, options) => {
 				const that = this;
 
@@ -295,6 +326,9 @@ class ChatEditorOverlayWidget extends Disposable {
 
 	}
 
+	/**
+	 * Hides the overlay and clears all associated data and subscriptions.
+	 */
 	hide() {
 		transaction(tx => {
 			this._session.set(undefined, tx);
@@ -305,6 +339,10 @@ class ChatEditorOverlayWidget extends Disposable {
 	}
 }
 
+/**
+ * Controller class that decides when and with what data to show the `ChatEditorOverlayWidget`.
+ * An instance of this controller exists for each editor group.
+ */
 class ChatEditingOverlayController {
 
 	private readonly _store = new DisposableStore();
@@ -428,6 +466,11 @@ class ChatEditingOverlayController {
 	}
 }
 
+/**
+ * A workbench contribution that manages the lifecycle of `ChatEditingOverlayController` instances.
+ * It ensures that an overlay controller is created for each editor group and disposed of when
+ * the group is removed.
+ */
 export class ChatEditingEditorOverlay implements IWorkbenchContribution {
 
 	static readonly ID = 'chat.edits.editorOverlay';

@@ -1,4 +1,12 @@
-
+/**
+ * @file solver_blas.c
+ * @brief A matrix solver implementation using a BLAS library (CBLAS interface).
+ *
+ * This file provides an implementation of the `my_solver` function that uses
+ * a BLAS library to compute the result of the expression: C = (A * B) * B^T + A^T * A.
+ * It breaks the problem down into several distinct BLAS calls and a final
+ * manual summation step.
+ */
 
 #include <stdlib.h>
 #include <string.h>
@@ -7,6 +15,19 @@
 #include "utils.h"
 #include "cblas.h"
 
+/**
+ * @brief Allocates memory for all necessary matrices.
+ *
+ * A helper function to allocate heap memory for the final result matrix `C` and
+ * all intermediate matrices used in the calculation. Exits the program on
+ * allocation failure.
+ *
+ * @param N The dimension of the square matrices.
+ * @param C   Pointer to the pointer for the final result matrix.
+ * @param AB  Pointer to the pointer for the intermediate matrix (A * B).
+ * @param ABBt Pointer to the pointer for the intermediate matrix ((A * B) * B^T).
+ * @param AtA Pointer to the pointer for the intermediate matrix (A^T * A).
+ */
 void allocate_matrices(int N, double **C, double **AB, double **ABBt, double **AtA)
 {
 	*C = malloc(N * N * sizeof(**C));
@@ -26,6 +47,27 @@ void allocate_matrices(int N, double **C, double **AB, double **ABBt, double **A
 		exit(EXIT_FAILURE);
 }
 
+/**
+ * @brief Solves a matrix equation using a sequence of BLAS functions and manual summation.
+ *
+ * This function computes the expression: C = (A * B) * B^T + A^T * A, where
+ * A and B are N x N matrices. It uses BLAS for the heavy lifting of matrix
+ * multiplication but performs the final matrix addition with a manual C loop.
+ *
+ * @param N The dimension of the square matrices.
+ * @param A A pointer to the N x N input matrix A. Assumed to be upper triangular.
+ * @param B A pointer to the N x N input matrix B.
+ * @return A pointer to a newly allocated N x N matrix containing the result.
+ *         The caller is responsible for freeing this memory.
+ *
+ * @note The implementation performs the following steps:
+ * 1. Allocates memory for all matrices (`C`, `AB`, `ABBt`, `AtA`).
+ * 2. Computes `AtA = A^T * A` using `cblas_dtrmm`.
+ * 3. Computes `AB = A * B` using `cblas_dtrmm`.
+ * 4. Computes `ABBt = (A * B) * B^T` using `cblas_dgemm`.
+ * 5. Manually computes the final result `C = ABBt + AtA` using nested loops.
+ * 6. Frees all intermediate matrices.
+ */
 double* my_solver(int N, double *A, double *B) 
 {
 	double *C;

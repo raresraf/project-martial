@@ -1,4 +1,21 @@
-
+/**
+ * @file sol_device.cl
+ * @brief An OpenCL implementation for an ETC-like texture compression algorithm.
+ *
+ * This file contains a self-contained implementation of a texture compression
+ * algorithm, likely a variant of Ericsson Texture Compression (ETC). It includes
+ * both the OpenCL C device code (the `compress` kernel and its helpers) and the
+ * C++ host-side code required to manage and execute the OpenCL pipeline.
+ *
+ * The algorithm works by compressing 4x4 blocks of pixels into a fixed-size
+ * 8-byte representation, balancing image quality and memory footprint. The file
+ * defines the necessary data structures, color conversion functions, error metrics,
+ * and the core compression logic for individual blocks.
+ *
+ * @note The unusual practice of embedding C++ host code within a .cl file makes
+ *       it a single, all-in-one unit for compilation and execution, where the
+ *       host code reads and compiles its own source file to create the OpenCL kernel.
+ */
 inline uchar my_clamp(uchar val, uchar min, uchar max) {
 	return val  max ? max : val);
 }
@@ -368,7 +385,26 @@ uchar tryCompressSolidBlock(uchar* dst,
 }
 
 
-
+/**
+ * @brief Implements the core compression logic for a 4x4 pixel block.
+ *
+ * This function is central to the ETC-like algorithm. It first checks if the
+ * block can be represented as a single solid color. If not, it evaluates
+ * two main modes: a "flip" mode (two 4x2 sub-blocks) and a non-flip mode
+ * (two 2x4 sub-blocks). It chooses the mode that results in the lowest error.
+ *
+ * For the chosen mode, it determines if the base colors of the two sub-blocks
+ * should be encoded differentially (as 5-bit values with a 3-bit delta) or
+ * individually (as 4-bit values). Finally, it calculates the optimal luminance
+ * modulation table and pixel indices for each sub-block to minimize the
+ * overall block error.
+ *
+ * @param dst        Pointer to the 8-byte destination block for the compressed data.
+ * @param ver_src    Pointer to the source pixels arranged for vertical sub-block processing.
+ * @param hor_src    Pointer to the source pixels arranged for horizontal sub-block processing.
+ * @param threshold  An error threshold for early termination of the search.
+ * @return The total computed error for the best encoding found.
+ */
 unsigned long compressBlock(uchar* dst,  union Color* ver_src,
 									union Color* hor_src,
 									unsigned long threshold)
@@ -472,6 +508,19 @@ unsigned long compressBlock(uchar* dst,  union Color* ver_src,
 	return lumi_error1 + lumi_error2;
 }
 
+/**
+ * @brief OpenCL kernel to compress an image using a block-based algorithm.
+ *
+ * Each work-item is responsible for processing a single 4x4 pixel block. It reads
+ * the pixel data, rearranges it for vertical and horizontal processing, calls
+ * the `compressBlock` function to perform the core ETC-like compression, and
+ * writes the resulting 8-byte compressed block to the destination buffer.
+ *
+ * @param matSRC     A global buffer containing the source RGBA image data.
+ * @param matDST     A global buffer to store the resulting compressed data.
+ * @param height     The height of the source image in pixels.
+ * @param width      The width of the source image in pixels.
+ */
 __kernel void
 compress(__global uchar* matSRC,
 		__global uchar* matDST,
@@ -539,14 +588,14 @@ using namespace std;
 
 
 
-#define DIE(assertion, call_description)                    \
-do {                                                        \
-    if (assertion) {                                        \
-            fprintf(stderr, "(%d): ",                       \
-                            __LINE__);                      \
-            perror(call_description);                       \
-            exit(EXIT_FAILURE);                             \
-    }                                                       \
+#define DIE(assertion, call_description)                    
+do {                                                        
+    if (assertion) {                                        
+            fprintf(stderr, "(%d): ",                       
+                            __LINE__);                      
+            perror(call_description);                       
+            exit(EXIT_FAILURE);                             
+    }                                                       
 } while(0);
 
 

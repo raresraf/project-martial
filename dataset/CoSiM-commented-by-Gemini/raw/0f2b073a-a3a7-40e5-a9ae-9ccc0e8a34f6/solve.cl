@@ -1,4 +1,27 @@
-
+/**
+ * @file solve.cl
+ * @brief An OpenCL implementation for an ETC-like texture compression algorithm.
+ *
+ * This file contains both the OpenCL C kernel code for compressing texture blocks
+ * and the C++ host-side code required to set up the OpenCL environment, manage
+ * buffers, and execute the kernel. The algorithm appears to be a variant of
+ * Ericsson Texture Compression (ETC), which compresses 4x4 pixel blocks into a
+ * fixed-size output.
+ *
+ * The code includes:
+ * - Device-side helper functions for color manipulation and quantization.
+ * - Pre-defined codeword and index tables used for encoding.
+ * - A core `compressBlock` function that implements the compression logic for a
+ *   single block, choosing between different modes (e.g., solid color, flip, differential)
+ *   to minimize error.
+ * - The main `compress` OpenCL kernel, which orchestrates the compression of an
+ *   entire image by assigning a 4x4 block to each work-item.
+ * - Host-side C++ code to manage the OpenCL device, context, command queue, program
+ *   compilation, and kernel execution.
+ *
+ * @note The inclusion of host code within a .cl file is unconventional but makes
+ *       the file self-contained.
+ */
 union cl
 {
 	struct BgraColorType
@@ -400,6 +423,30 @@ bool tryCompressSolidBlock(uchar *dst, const Color *src, ulong *error)
 	return true;
 }
 
+/**
+ * @brief Compresses a 16-pixel block using an ETC-like algorithm.
+ *
+ * This function implements the core logic for compressing a 4x4 block. It first
+ * attempts to compress the block as a single solid color. If that is not possible
+ * or results in high error, it proceeds with a more complex differential encoding
+ * scheme.
+ *
+ * The differential mode involves:
+ * 1. Splitting the 4x4 block into two 2x4 or 4x2 sub-blocks.
+ * 2. Deciding whether to use a "flip" mode (splitting horizontally vs. vertically)
+ *    based on which configuration yields a lower average color error.
+ * 3. Deciding whether to use a differential or non-differential color encoding for
+ *    the base colors of the sub-blocks.
+ * 4. Writing the appropriate mode bits (flip, diff) and base colors to the output block.
+ * 5. For each sub-block, finding the optimal luminance modification table and pixel
+ *    indices to best represent the original colors, and writing this data to the block.
+ *
+ * @param dst Pointer to the 8-byte destination block.
+ * @param ver_src Pointer to the source pixels arranged in vertical 2x4 sub-blocks.
+ * @param hor_src Pointer to the source pixels arranged in horizontal 4x2 sub-blocks.
+ * @param threshold An error threshold used to prune the search for the best encoding.
+ * @return The total computed error for the chosen encoding.
+ */
 ulong compressBlock(uchar *dst, const Color *ver_src, const Color *hor_src, ulong threshold)
 {
 	ulong solid_error = 0;
@@ -496,6 +543,26 @@ ulong compressBlock(uchar *dst, const Color *ver_src, const Color *hor_src, ulon
 }
 
 
+/**
+ * @brief OpenCL kernel to compress a source image into a block-compressed format.
+ *
+ * Each work-item in the NDRange is responsible for compressing a single 4x4 pixel
+ * block from the source image.
+ *
+ * The kernel performs the following steps for each work-item:
+ * 1. Calculates its global (x, y) coordinates corresponding to a 4x4 block.
+ * 2. Determines the memory offsets for the source and destination buffers.
+ * 3. Extracts the 16 pixels (as `Color` structs) for the target block. This involves
+ *    rearranging the data into vertical and horizontal sub-blocks (`ver_blocks`, `hor_blocks`)
+ *    to evaluate different encoding modes.
+ * 4. Calls the `compressBlock` function to perform the actual compression logic and
+ *    generate the 8-byte compressed block data.
+ * 5. Writes the resulting 8-byte block to the destination buffer.
+ *
+ * @param src A global buffer containing the source RGBA image data.
+ * @param dst A global buffer where the compressed block data will be written.
+ * @param dims A global buffer containing the width and height of the source image.
+ */
 __kernel void compress(__global uchar *src, __global uchar *dst, __global int *dims)
 {
 	int width = dims[0];
@@ -544,13 +611,13 @@ __kernel void compress(__global uchar *src, __global uchar *dst, __global int *d
 using namespace std;
 
 
-#define DIE(assertion, call_description)  \
-do { \
-	if (assertion) { \
-		fprintf(stderr, "(%d): ", __LINE__); \
-		perror(call_description); \
-		exit(EXIT_FAILURE); \
-	} \
+#define DIE(assertion, call_description)  
+do { 
+	if (assertion) { 
+		fprintf(stderr, "(%d): ", __LINE__); 
+		perror(call_description); 
+		exit(EXIT_FAILURE); 
+	} 
 } while(0);
 
 

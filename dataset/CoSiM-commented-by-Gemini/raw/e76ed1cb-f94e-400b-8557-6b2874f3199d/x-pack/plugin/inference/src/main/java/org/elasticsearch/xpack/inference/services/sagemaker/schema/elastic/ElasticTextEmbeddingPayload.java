@@ -1,10 +1,23 @@
-/*
- * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
- * or more contributor license agreements. Licensed under the Elastic License
- * 2.0; you may not use this file except in compliance with the Elastic License
- * 2.0.
+/**
+ * @file ElasticTextEmbeddingPayload.java
+ * @brief Defines the request/response schema for text embedding models hosted on AWS SageMaker,
+ *        conforming to a specific Elastic-defined JSON structure. This class acts as a translator
+ *        between Elasticsearch's internal representation and the expected SageMaker endpoint format.
+ *
+ * This payload handler is responsible for:
+ * 1.  **Schema Validation**: Ensuring that the user-provided service settings in the model configuration
+ *     are valid for text embedding tasks. This includes mandatory fields like `element_type` and `similarity`.
+ * 2.  **Request Serialization**: Transforming the incoming Elasticsearch inference request into a
+ *     JSON byte stream (`SdkBytes`) that the SageMaker endpoint can understand.
+ * 3.  **Response Deserialization**: Parsing the JSON response from the SageMaker endpoint and converting
+ *     it into one of the specialized `TextEmbeddingResults` objects (`TextEmbeddingBitResults`,
+ *     `TextEmbeddingByteResults`, or `TextEmbeddingFloatResults`) based on the `element_type`
+ *     defined in the model's service settings.
+ *
+ * The class supports multiple embedding vector data types (`bit`, `byte`, `float`), which is a key
+ * differentiator from a generic payload. This requires type-specific parsing logic to handle the
+ * nuances of each format.
  */
-
 package org.elasticsearch.xpack.inference.services.sagemaker.schema.elastic;
 
 import software.amazon.awssdk.core.SdkBytes;
@@ -61,16 +74,40 @@ public class ElasticTextEmbeddingPayload implements ElasticPayload {
     private static final EnumSet<TaskType> SUPPORTED_TASKS = EnumSet.of(TaskType.TEXT_EMBEDDING);
     private static final ParseField EMBEDDING = new ParseField("embedding");
 
+    /**
+     * Specifies the machine learning task types that this payload schema supports.
+     *
+     * @return An `EnumSet` containing only `TaskType.TEXT_EMBEDDING`, indicating that this schema is
+     *         exclusively for text embedding inference operations.
+     */
     @Override
     public EnumSet<TaskType> supportedTasks() {
         return SUPPORTED_TASKS;
     }
 
+    /**
+     * Parses and validates the service-specific settings from the model configuration map.
+     *
+     * @param serviceSettings A map containing the API-specific configurations provided by the user.
+     * @param validationException An exception object to which validation errors are added.
+     * @return An `ApiServiceSettings` record containing the validated and structured settings.
+     *         This method extracts critical parameters like `element_type`, `similarity`, and `dimensions`,
+     *         which are essential for correct request/response handling.
+     */
     @Override
     public SageMakerStoredServiceSchema apiServiceSettings(Map<String, Object> serviceSettings, ValidationException validationException) {
         return ApiServiceSettings.fromMap(serviceSettings, validationException);
     }
 
+    /**
+     * Serializes the inference request into an `SdkBytes` object, which represents the HTTP request body
+     * sent to the SageMaker endpoint.
+     *
+     * @param model The `SageMakerModel` containing configuration details, including the validated API service settings.
+     * @param request The `SageMakerInferenceRequest` containing the input data to be processed.
+     * @return An `SdkBytes` object containing the JSON payload for the SageMaker endpoint.
+     * @throws Exception if the service settings are of an unexpected type, indicating a schema mismatch.
+     */
     @Override
     public SdkBytes requestBytes(SageMakerModel model, SageMakerInferenceRequest request) throws Exception {
         if (model.apiServiceSettings() instanceof ApiServiceSettings) {
@@ -80,6 +117,14 @@ public class ElasticTextEmbeddingPayload implements ElasticPayload {
         }
     }
 
+    /**
+     * Registers the custom `ApiServiceSettings` class as a named writeable object, allowing it to be
+     * serialized and deserialized across the Elasticsearch cluster.
+     *
+     * @return A `Stream` of `NamedWriteableRegistry.Entry` objects, including the one for `ApiServiceSettings`.
+     *         This is critical for ensuring that model configurations can be persistently stored and transmitted
+     *         between nodes.
+     */
     @Override
     public Stream<NamedWriteableRegistry.Entry> namedWriteables() {
         return Stream.concat(
@@ -90,6 +135,19 @@ public class ElasticTextEmbeddingPayload implements ElasticPayload {
         );
     }
 
+    /**
+     * Deserializes the `InvokeEndpointResponse` from SageMaker into a structured `TextEmbeddingResults` object.
+     *
+     * @param model The `SageMakerModel` used for the inference, which contains the `elementType` setting.
+     * @param response The raw response from the SageMaker `invoke_endpoint` API call.
+     * @return A `TextEmbeddingResults` object specialized for the data type (`bit`, `byte`, or `float`)
+     *         specified in the model's configuration.
+     * @throws Exception if parsing the response body fails.
+     *
+     * @implNote This method uses a `switch` statement on the `elementType` to delegate parsing to the
+     *           appropriate inner class (`TextEmbeddingBinary`, `TextEmbeddingBytes`, or `TextEmbeddingFloat`),
+     *           each handling a specific JSON structure for the embedding data.
+     */
     @Override
     public TextEmbeddingResults<?> responseBody(SageMakerModel model, InvokeEndpointResponse response) throws Exception {
         try (var p = jsonXContent.createParser(XContentParserConfiguration.EMPTY, response.body().asInputStream())) {
@@ -102,6 +160,8 @@ public class ElasticTextEmbeddingPayload implements ElasticPayload {
     }
 
     /**
+     * Inner class responsible for parsing a JSON response containing binary (bit) embeddings.
+     * The expected format is a JSON object with a `text_embedding_bits` field.
      * Reads binary format (it says bytes, but the lengths are different)
      * {
      *     "text_embedding_bits": [
@@ -133,6 +193,9 @@ public class ElasticTextEmbeddingPayload implements ElasticPayload {
     }
 
     /**
+     * Inner class for parsing JSON responses with byte-level text embeddings.
+     * It expects a `text_embedding_bytes` field and includes range validation to ensure
+     * that the numeric values fit within a standard Java `byte`.
      * Reads byte format from
      * {
      *     "text_embedding_bytes": [
@@ -179,6 +242,8 @@ public class ElasticTextEmbeddingPayload implements ElasticPayload {
     }
 
     /**
+     * Inner class dedicated to parsing JSON responses containing floating-point text embeddings.
+     * It is designed to handle a `text_embedding` field with an array of floating-point numbers.
      * Reads float format from
      * {
      *     "text_embedding": [
@@ -219,6 +284,14 @@ public class ElasticTextEmbeddingPayload implements ElasticPayload {
     }
 
     /**
+     * A record that encapsulates the validated and structured service settings for the text embedding schema.
+     * It is a `SageMakerStoredServiceSchema`, making it a serializable part of the model definition.
+     *
+     * @param dimensions The dimensionality of the embedding vectors. Can be null if not specified by the user.
+     * @param dimensionsSetByUser A flag indicating whether the `dimensions` field was explicitly set by the user.
+     * @param similarity The similarity measure to be used with the embedding vectors (e.g., cosine, dot_product).
+     * @param elementType The data type of the vector elements (`bit`, `byte`, or `float`). This is a mandatory field
+     *                    used to determine how to parse the SageMaker response.
      * Element Type is required. It is used to disambiguate between binary embeddings and byte embeddings.
      */
     record ApiServiceSettings(

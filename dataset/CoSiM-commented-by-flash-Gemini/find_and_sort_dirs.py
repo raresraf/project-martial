@@ -1,44 +1,61 @@
 
 import os
+import re
 import subprocess
 
 def get_dir_size(path):
+    """
+    Calculates the size of a directory using 'du -s'.
+    Returns size in bytes or -1 if an error occurs.
+    """
     try:
-        # Use 'du -s' to get the size of the directory in kilobytes
+        # Use 'du -s' to get the summarized disk usage of the directory
+        # The output is typically like "123456  /path/to/dir"
         result = subprocess.run(['du', '-s', path], capture_output=True, text=True, check=True)
         size_kb = int(result.stdout.split()[0])
-        return size_kb
-    except Exception as e:
+        return size_kb * 1024 # Convert KB to bytes
+    except (subprocess.CalledProcessError, ValueError) as e:
         print(f"Error getting size for {path}: {e}")
-        return -1 # Indicate error
+        return -1
 
-def main():
-    all_directories_file = 'all_directories.txt'
-    output_file = 'smallest_50_dirs_to_process.txt'
-    
+def find_unprocessed_dirs(root_dir):
+    """
+    Finds directories that match a UUID pattern and do not contain a .checkpoint file.
+    Returns a list of tuples: (directory_path, size_in_bytes).
+    """
     unprocessed_dirs = []
-    
-    with open(all_directories_file, 'r') as f:
-        directories = [d.strip() for d in f.readlines()]
-    
-    for directory in directories:
-        checkpoint_path = os.path.join(directory, '.checkpoint')
-        if not os.path.exists(checkpoint_path):
-            size = get_dir_size(directory)
-            if size != -1:
-                unprocessed_dirs.append((size, directory))
-                
-    # Sort by size (smallest first)
-    unprocessed_dirs.sort(key=lambda x: x[0])
-    
-    # Get the top 50
-    smallest_50 = unprocessed_dirs[:50]
-    
-    with open(output_file, 'w') as f:
-        for size, directory in smallest_50:
-            f.write(f"{directory}\n")
-            
-    print(f"Successfully identified and saved the 50 smallest unprocessed directories to {output_file}")
+    uuid_pattern = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')
 
-if __name__ == "__main__":
-    main()
+    # Iterate over all entries in the root directory
+    with os.scandir(root_dir) as entries:
+        for entry in entries:
+            if entry.is_dir():
+                dir_name = entry.name
+                # Check if the directory name matches the UUID pattern
+                if uuid_pattern.match(dir_name):
+                    dir_path = entry.path
+                    checkpoint_file = os.path.join(dir_path, '.checkpoint')
+
+                    # Check if .checkpoint file exists
+                    if not os.path.exists(checkpoint_file):
+                        size = get_dir_size(dir_path)
+                        if size != -1:
+                            unprocessed_dirs.append((dir_path, size))
+    return unprocessed_dirs
+
+if __name__ == '__main__':
+    root_directory = './'  # Current working directory
+    
+    # Find all unprocessed directories with their sizes
+    unprocessed_directories = find_unprocessed_dirs(root_directory)
+    
+    # Sort them by size (smallest first)
+    unprocessed_directories.sort(key=lambda x: x[1])
+    
+    # Select the top 50
+    top_50_smallest = unprocessed_directories[:50]
+
+    # Print the paths of the selected directories
+    for dir_path, size in top_50_smallest:
+        print(dir_path)
+

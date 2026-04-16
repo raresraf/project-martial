@@ -1,4 +1,19 @@
-
+/**
+ * @file solver_opt.c
+ * @brief An optimized C implementation of a matrix solver.
+ *
+ * This file provides an implementation of the `my_solver` function that includes
+ * several manual C-level optimizations. The underlying algorithm is identical to the
+ * non-optimized version, calculating the expression: C = (A * B) * B^T + A^T * A.
+ *
+ * The optimizations employed include:
+ * - Use of the `register` keyword to suggest storing frequently used variables
+ *   (loop counters, pointers, accumulators) in CPU registers.
+ * - Manual pointer arithmetic to traverse matrix rows, reducing the overhead of
+ *   repeated index calculations.
+ * - Use of a local accumulator variable within the innermost loops to improve
+ *   data locality.
+ */
 #include "utils.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -7,6 +22,27 @@
 #define MIN(a,b) (((a)<(b))?(a):(b))
 
 
+/**
+ * @brief Computes a matrix expression using manually optimized C loops.
+ *
+ * This function calculates the result of `C = (A * B) * B^T + A^T * A`. It mirrors
+ * the logic of the non-optimized version but incorporates several performance-oriented
+ * C programming techniques.
+ *
+ * @param N The dimension of the square matrices.
+ * @param A A pointer to the N x N input matrix A. Assumed to be upper triangular.
+ * @param B A pointer to the N x N input matrix B.
+ * @return A pointer to a newly allocated N x N matrix containing the final result.
+ *         The caller is responsible for freeing this memory.
+ *
+ * @note The optimization techniques include:
+ * - **Register Hinting:** Variables like loop counters, pointers, and accumulators
+ *   are declared with the `register` keyword as a hint to the compiler.
+ * - **Pointer Arithmetic:** Instead of array indexing `M[i*N + j]`, pointers are
+ *   incremented to step through matrix rows, which can be more efficient.
+ * - **Local Accumulators:** A `register double` is used within the innermost loops
+ *   to accumulate partial sums, promoting the use of a CPU register.
+ */
 double* my_solver(int N, double *A, double* B) {
 	register double *rez;
 

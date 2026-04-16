@@ -1,10 +1,26 @@
 
 
 
+"""
+@file device.py
+@brief Implements a simulated distributed device with a thread pool for concurrent script execution.
+
+This module defines the `Device` class, representing a node in a distributed system or sensor network.
+Each device manages its own sensor data, communicates with a supervisor, and executes assigned scripts
+in parallel using an internal pool of `DeviceThread` worker threads. The module leverages various Python
+threading primitives such as `Event`, `Thread`, `Lock`, and an external `Barrier` (from `barrier.py`)
+to facilitate synchronization and coordination. Notably, one `DeviceThread` (thread_id 0)
+takes a coordinating role in distributing scripts, and fine-grained locks are used for sensor data locations.
+
+Domain: Distributed Systems, Concurrency, Multithreading, Simulation, Sensor Networks, Synchronization.
+"""
+
 from threading import Event, Thread, Lock
 from barrier import Barrier
 
+
 class Device(object):
+
     
 
     def __init__(self, device_id, sensor_data, supervisor):

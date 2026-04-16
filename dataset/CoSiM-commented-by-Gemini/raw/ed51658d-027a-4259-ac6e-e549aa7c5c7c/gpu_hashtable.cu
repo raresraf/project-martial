@@ -1,4 +1,24 @@
-
+/**
+ * @file gpu_hashtable.cu
+ * @brief Implements a concurrent, GPU-accelerated hash table using CUDA.
+ *
+ * This file contains the CUDA device code (kernels) and host-side C++ class (`GpuHashTable`)
+ * for managing a hash table on the GPU. The implementation uses open addressing with linear
+ * probing to handle collisions and is designed for high-throughput batch insertions and lookups.
+ *
+ * Key components:
+ * - `hashtable` and `hashelement`: C-style structs defining the data structure for the hash table
+ *   and its individual key-value entries. These are used on both host and device.
+ * - `kernel_insert`: A CUDA kernel for concurrently inserting a batch of key-value pairs into the hash table.
+ * - `kernel_get`: A CUDA kernel for concurrently retrieving values for a batch of keys.
+ * - `kernel_rehash`: A CUDA kernel for resizing and re-hashing the table when the load factor exceeds a threshold.
+ * - `GpuHashTable`: A C++ class that provides a high-level API for interacting with the GPU hash table
+ *   from the host. It manages memory allocation, kernel launches, and data transfers between
+ *   host and device.
+ *
+ * The collision resolution strategy is linear probing, and thread safety during insertion is
+ * managed using atomic operations (`atomicCAS`).
+ */
 #include 
 #include 
 #include 
@@ -10,14 +30,48 @@
 #define MIN_LOAD_FACTOR 85
 
 
+/**
+ * @brief Computes the hash for a given key.
+ * @param data The input key to hash.
+ * @param size The capacity of the hash table, used for the modulo operation.
+ * @return The computed hash value (table index).
+ *
+ * @note This is a device function, callable only from other device functions or kernels.
+ * It uses a combination of multiplication and modulo arithmetic with large prime numbers
+ * to distribute keys across the hash table space.
+ */
 __device__ int hashFunc(int data, int size) {
 	return ((long)abs(data) * 905035071625626043llu) % 5746614499066534157llu % size;
 }
+/**
+ * @brief CUDA kernel to initialize or update the main hashtable struct on the device.
+ *
+ * @param hash Pointer to the device-side `hashtable` struct.
+ * @param table Pointer to the device-side array of `hashelement`s (the hash table bucket array).
+ * @param capacity The total capacity of the hash table.
+ * @param items The initial number of elements in the hash table.
+ *
+ * This kernel is typically launched with a single thread to perform a one-time update of the
+ * main control structure in GPU memory.
+ */
 __global__ void kernel_update_hash(hashtable *hash, hashelement *table, int capacity, int items) {
 	hash->table = table;
 	hash->capacity = capacity;
 	hash->numElements = items;
 }
+/**
+ * @brief CUDA kernel for parallel insertion of key-value pairs.
+ *
+ * Each thread in the grid is responsible for inserting one key-value pair.
+ * Collision resolution is handled using linear probing. `atomicCAS` (Compare-And-Swap)
+ * is used to ensure that only one thread can claim an empty slot or update an existing key,
+ * preventing race conditions.
+ *
+ * @param keys Pointer to a device array of keys to insert.
+ * @param values Pointer to a device array of corresponding values.
+ * @param numElements The total number of key-value pairs to insert.
+ * @param hash Pointer to the device-side `hashtable` struct.
+ */
 __global__ void kernel_insert(int *keys, int *values, int numElements, hashtable *hash) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	int f = 0;
@@ -36,10 +90,12 @@ __global__ void kernel_insert(int *keys, int *values, int numElements, hashtable
 		hashelement oldElement = hash->table[tableIndex];
 		hashelement element;
 		element.key = atomicCAS(&oldElement.key, 0, elementToInsert.key);
-		printf("element.key%d\n", element.key);
+		printf("element.key%d
+", element.key);
 		if (element.key == 0) {
 			atomicAdd(&hash->numElements, 1);
-			printf("number of elements%d\n", hash->numElements);
+			printf("number of elements%d
+", hash->numElements);
 			hash->table[tableIndex].value = value;
 			int a = hash->table[tableIndex].value;
 			return;
@@ -54,6 +110,17 @@ __global__ void kernel_insert(int *keys, int *values, int numElements, hashtable
 }
 
 
+/**
+ * @brief CUDA kernel to perform a parallel rehash of the entire table into a new, larger table.
+ *
+ * Each thread is responsible for re-inserting one element from the old table into the new one.
+ * This is triggered when the load factor exceeds a certain threshold. Like `kernel_insert`,
+ * it uses `atomicCAS` to handle collisions concurrently during the re-insertion process.
+ *
+ * @param oldHash Pointer to the old `hashtable` struct on the device.
+ * @param newTable Pointer to the newly allocated (and larger) hash table bucket array on the device.
+ * @param newCapacity The capacity of the new hash table.
+ */
 __global__ void kernel_rehash(hashtable *oldHash, hashelement *newTable, int newCapacity) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	int f = 0;
@@ -79,6 +146,18 @@ __global__ void kernel_rehash(hashtable *oldHash, hashelement *newTable, int new
 		f += 1;
 	}
 }
+/**
+ * @brief CUDA kernel for parallel retrieval of values based on keys.
+ *
+ * Each thread in the grid is responsible for looking up one key. It follows the same
+ * linear probing path as the insertion kernel to find the key. If found, the corresponding
+ * value is written back to the `values` array at the same index.
+ *
+ * @param keys Pointer to a device array of keys to look up.
+ * @param values Pointer to a device array where the retrieved values will be stored.
+ * @param numElements The total number of keys to look up.
+ * @param hash Pointer to the device-side `hashtable` struct.
+ */
 __global__ void kernel_get(int *keys, int *values, int numElements, hashtable *hash) {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
 	int f = 0;
@@ -98,6 +177,10 @@ __global__ void kernel_get(int *keys, int *values, int numElements, hashtable *h
 		f += 1;
 	}
 }
+/**
+ * @brief Constructs a GpuHashTable object and allocates initial memory on the GPU.
+ * @param size The initial capacity of the hash table.
+ */
 GpuHashTable::GpuHashTable(int size) {
 	hashelement *table = NULL;
 	cudaMalloc((void **)&table, size * sizeof(hashelement));
@@ -111,12 +194,26 @@ GpuHashTable::GpuHashTable(int size) {
 }
 
 
+/**
+ * @brief Destructor for the GpuHashTable class.
+ *
+ * Frees all associated GPU memory (the hash table control struct and the bucket array).
+ */
 GpuHashTable::~GpuHashTable() {
 	cudaFree(hash->table);
 	cudaFree(hash);
 }
 
 
+/**
+ * @brief Resizes and rehashes the GPU hash table if the load factor exceeds a threshold.
+ *
+ * This function checks if adding a new batch of items (`batchSize`) would cause the load
+ * factor to exceed 90%. If so, it calculates a new, larger capacity, allocates a new table
+ * on the GPU, and launches the `kernel_rehash` kernel to migrate all elements.
+ *
+ * @param batchSize The number of new items planned for insertion.
+ */
 void GpuHashTable::reshape(int batchSize) {
 	hashtable *hostTable = (hashtable *)calloc(1, sizeof(hashtable));
 	cudaMemcpy(hostTable, hash, sizeof(hashtable), cudaMemcpyDeviceToHost);
@@ -124,7 +221,9 @@ void GpuHashTable::reshape(int batchSize) {
 	loadFactor = ((float)hostTable->numElements + (float)batchSize) / ((float)hostTable->capacity);
 	if (loadFactor > 0.9) {
 		int newCapacity = ((float)hostTable->numElements + (float)batchSize) * 100 / (float)MIN_LOAD_FACTOR;
-		printf("%d\n\n", newCapacity);
+		printf("%d
+
+", newCapacity);
 		hashelement *newTable = NULL;
 		cudaMalloc((void **)&newTable, newCapacity * sizeof(hashelement));
 		cudaMemset(newTable, 0, newCapacity);
@@ -146,6 +245,18 @@ void GpuHashTable::reshape(int batchSize) {
 	free(hostTable);
 }
 
+/**
+ * @brief Inserts a batch of key-value pairs into the GPU hash table.
+ *
+ * This method first calls `reshape` to ensure there is enough capacity. It then copies
+ * the key and value arrays from the host to the device and launches the `kernel_insert`
+ * kernel to perform the parallel insertion.
+ *
+ * @param keys Pointer to a host array of keys.
+ * @param values Pointer to a host array of corresponding values.
+ * @param numKeys The number of key-value pairs in the batch.
+ * @return `true` upon successful launch of the insertion kernel.
+ */
 bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	reshape(numKeys);
 	int threadsPerBlock = 1024; 
@@ -166,6 +277,18 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 }
 
 
+/**
+ * @brief Retrieves values for a batch of keys from the GPU hash table.
+ *
+ * This method copies the keys from host to device, launches the `kernel_get` kernel
+ * to perform the parallel lookup, and then copies the retrieved values back to a
+ * newly allocated host-side array.
+ *
+ * @param keys Pointer to a host array of keys to look up.
+ * @param numKeys The number of keys in the batch.
+ * @return A pointer to a newly allocated host array containing the retrieved values.
+ *         The caller is responsible for freeing this memory.
+ */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	int *getValues = NULL;
 	int *deviceKeys = NULL;
@@ -183,6 +306,14 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 }
 
 
+/**
+ * @brief Calculates and returns the current load factor of the hash table.
+ *
+ * The load factor is defined as the number of elements divided by the capacity. This
+ * requires copying the `numElements` and `capacity` fields from device to host.
+ *
+ * @return The current load factor as a float.
+ */
 float GpuHashTable::loadFactor() {
 	
 	int numElements = 0;
@@ -219,18 +350,27 @@ float GpuHashTable::loadFactor() {
 #include 
 
 #define	KEY_INVALID		0
-#define DIE(assertion, call_description) \
-	do {	\
-		if (assertion) {	\
-		fprintf(stderr, "(%s, %d): ",	\
-		__FILE__, __LINE__);	\
-		perror(call_description);	\
-		exit(errno);	\
-	}	\
+#define DIE(assertion, call_description) 
+	do {	
+		if (assertion) {	
+		fprintf(stderr, "(%s, %d): ",	
+		__FILE__, __LINE__);	
+		perror(call_description);	
+		exit(errno);	
+	}	
 } while (0)
 
 using namespace std;
-
+/**
+ * @brief Fills two vectors with random integer keys and values.
+ *
+ * This function generates a specified number of unique-ish, shuffled keys and values
+ * to be used for testing the hash table.
+ *
+ * @param vecKeys Vector to be filled with random keys.
+ * @param vecValues Vector to be filled with random values.
+ * @param numEntries The number of random entries to generate.
+ */
 void fillRandom(vector &vecKeys, vector &vecValues, int numEntries) {
 	vecKeys.reserve(numEntries);
 	vecValues.reserve(numEntries);
@@ -248,6 +388,29 @@ void fillRandom(vector &vecKeys, vector &vecValues, int numEntries) {
 	random_shuffle(vecValues.begin(), vecValues.end());
 }
 
+/**
+ * @brief Main entry point for the hash table benchmark and correctness test.
+ *
+ * This program takes two command-line arguments: the total number of keys to test
+ * and the number of chunks to break the data into for batch processing.
+ *
+ * The workflow is as follows:
+ * 1.  Generate a large set of random key-value pairs.
+ * 2.  Initialize the GPU hash table.
+ * 3.  Iteratively insert the keys in batches (chunks), measuring and printing the
+ *     insertion performance (millions of operations per second) for each batch.
+ * 4.  Update a small subset of the values to test the update functionality.
+ * 5.  Iteratively retrieve the keys in batches, measuring and printing the lookup
+ *     performance.
+ * 6.  Verify that the retrieved values match the expected values (including the updates).
+ *     If any mismatches are found, an error is reported.
+ *
+ * @param argc The number of command-line arguments.
+ * @param argv An array of command-line arguments.
+ *             - argv[1]: Total number of keys.
+ *             - argv[2]: Number of chunks for batching.
+ * @return 0 on success, 1 on failure (mismatched values).
+ */
 int main(int argc, char **argv)
 {
 	clock_t begin;
@@ -344,14 +507,14 @@ using namespace std;
 
 #define	KEY_INVALID		0
 
-#define DIE(assertion, call_description) \
-	do {	\
-		if (assertion) {	\
-		fprintf(stderr, "(%s, %d): ",	\
-		__FILE__, __LINE__);	\
-		perror(call_description);	\
-		exit(errno);	\
-	}	\
+#define DIE(assertion, call_description) 
+	do {	
+		if (assertion) {	
+		fprintf(stderr, "(%s, %d): ",	
+		__FILE__, __LINE__);	
+		perror(call_description);	
+		exit(errno);	
+	}	
 } while (0)
 typedef struct {
 	int key;
@@ -444,4 +607,3 @@ public:
 };
 
 #endif
-

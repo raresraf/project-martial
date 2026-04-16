@@ -1,4 +1,17 @@
-
+/**
+ * @file solver_opt.c
+ * @brief An optimized C implementation of a matrix solver using explicit transposition.
+ *
+ * This file provides an implementation of the `my_solver` function that attempts
+ * to optimize the computation `C = (A * B) * B^T + A^T * A` by manually
+ * transposing the input matrices and using pointer-intensive loop structures.
+ *
+ * The key optimization strategy here is to create explicit transposed copies of
+ * matrices A and B. This is done to ensure that matrix multiplications can be
+ * performed with linear, sequential memory access patterns (i.e., accessing columns
+ * of the original matrix becomes accessing rows of the transposed matrix), which
+ * can improve cache utilization.
+ */
 #include "utils.h"
 #include <stdlib.h>
 
@@ -36,6 +49,30 @@ void allocate_matrices(int N, double **C, double **AB, double **ABBt,
 		exit(EXIT_FAILURE);
 }
 
+/**
+ * @brief Computes a matrix expression using explicit transposition and pointer arithmetic.
+ *
+ * This function calculates `C = (A * B) * B^T + A^T * A`. Instead of relying on
+ * BLAS or simple nested loops, it first creates transposed versions of A and B.
+ * It then performs the series of matrix multiplications using manually crafted loops
+ * that rely heavily on pointer arithmetic and the `register` keyword to hint at
+ * compiler optimizations.
+ *
+ * @param N The dimension of the square matrices.
+ * @param A A pointer to the N x N input matrix A. Assumed to be upper triangular.
+ * @param B A pointer to the N x N input matrix B.
+ * @return A pointer to a newly allocated N x N matrix containing the final result.
+ *         The caller is responsible for freeing this memory.
+ *
+ * @note The sequence of operations is:
+ * 1.  Allocate memory for all intermediate and transposed matrices.
+ * 2.  Explicitly compute the transposes `A_t` and `B_t`.
+ * 3.  Calculate `AtA = A^T * A` using `A` and `A_t`.
+ * 4.  Calculate `AB = A * B`.
+ * 5.  Calculate `C = AB * B_t`, storing the result of `(A * B) * B^T` directly in `C`.
+ * 6.  Perform element-wise addition `C = C + AtA` to get the final result.
+ * 7.  Free all temporary matrices.
+ */
 double* my_solver(int N, double *A, double* B) {
 	double *C;
 	double *AB;

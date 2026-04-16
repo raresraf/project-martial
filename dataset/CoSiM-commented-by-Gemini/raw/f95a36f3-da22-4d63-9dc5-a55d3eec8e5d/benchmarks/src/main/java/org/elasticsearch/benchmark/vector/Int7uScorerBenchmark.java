@@ -1,12 +1,21 @@
-/*
- * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
- * or more contributor license agreements. Licensed under the "Elastic License
- * 2.0", the "GNU Affero General Public License v3.0 only", and the "Server Side
- * Public License v 1"; you may not use this file except in compliance with, at
- * your election, the "Elastic License 2.0", the "GNU Affero General Public
- * License v3.0 only", or the "Server Side Public License, v 1".
+/**
+ * @file Int7uScorerBenchmark.java
+ * @brief JMH benchmark for comparing performance of scalar quantized vector similarity functions.
+ *
+ * This benchmark evaluates and compares the throughput of different implementations for calculating
+ * dot product and squared Euclidean distance on 7-bit unsigned integer quantized vectors.
+ *
+ * The implementations being compared are:
+ * 1.  **Scalar**: A simple, pure Java implementation that iterates through the vectors.
+ * 2.  **Lucene**: The implementation provided by Apache Lucene, which may use Panama SIMD optimizations.
+ * 3.  **Native**: Elasticsearch's custom SIMD implementation, accessed through JNI.
+ *
+ * The benchmark is configured to run with different vector dimensions (96, 768, 1024) to
+ * assess performance across various common embedding sizes. It measures throughput in
+ * microseconds.
+ *
+ * To run this benchmark: `./gradlew -p benchmarks run --args 'Int7uScorerBenchmark'`
  */
-
 package org.elasticsearch.benchmark.vector;
 
 import org.apache.lucene.codecs.lucene99.Lucene99ScalarQuantizedVectorScorer;
@@ -86,6 +95,17 @@ public class Int7uScorerBenchmark {
     RandomVectorScorer luceneSqrScorerQuery;
     RandomVectorScorer nativeSqrScorerQuery;
 
+    /**
+     * Sets up the benchmark environment before each run.
+     *
+     * This method initializes two random 7-bit unsigned integer vectors and writes them to a memory-mapped
+     * directory to simulate reading from a Lucene index. It prepares various `RandomVectorScorer`
+     * instances (Lucene's implementation and Elasticsearch's native one) for both dot product and
+     * squared Euclidean distance calculations. This pre-computation ensures that the benchmark methods
+     * only measure the scoring time and not the setup overhead.
+     *
+     * @throws IOException if an I/O error occurs during file setup.
+     */
     @Setup
     public void setup() throws IOException {
         var optionalVectorScorerFactory = VectorScorerFactory.instance();
@@ -145,16 +165,27 @@ public class Int7uScorerBenchmark {
         IOUtils.close(dir, in);
     }
 
+    // --- Dot Product Benchmarks ---
+
+    /**
+     * Benchmarks Lucene's implementation of dot product similarity scoring.
+     */
     @Benchmark
     public float dotProductLucene() throws IOException {
         return luceneDotScorer.score(1);
     }
 
+    /**
+     * Benchmarks Elasticsearch's native SIMD implementation of dot product similarity scoring.
+     */
     @Benchmark
     public float dotProductNative() throws IOException {
         return nativeDotScorer.score(1);
     }
 
+    /**
+     * Benchmarks a scalar, pure Java implementation of dot product calculation as a baseline.
+     */
     @Benchmark
     public float dotProductScalar() {
         int dotProduct = 0;
@@ -165,28 +196,43 @@ public class Int7uScorerBenchmark {
         return (1 + adjustedDistance) / 2;
     }
 
+    /**
+     * Benchmarks Lucene's implementation of dot product similarity scoring against a query vector.
+     */
     @Benchmark
     public float dotProductLuceneQuery() throws IOException {
         return luceneDotScorerQuery.score(1);
     }
 
+    /**
+     * Benchmarks Elasticsearch's native SIMD implementation of dot product similarity scoring against a query vector.
+     */
     @Benchmark
     public float dotProductNativeQuery() throws IOException {
         return nativeDotScorerQuery.score(1);
     }
 
-    // -- square distance
+    // --- Squared Euclidean Distance Benchmarks ---
 
+    /**
+     * Benchmarks Lucene's implementation of squared Euclidean distance scoring.
+     */
     @Benchmark
     public float squareDistanceLucene() throws IOException {
         return luceneSqrScorer.score(1);
     }
 
+    /**
+     * Benchmarks Elasticsearch's native SIMD implementation of squared Euclidean distance scoring.
+     */
     @Benchmark
     public float squareDistanceNative() throws IOException {
         return nativeSqrScorer.score(1);
     }
 
+    /**
+     * Benchmarks a scalar, pure Java implementation of squared Euclidean distance as a baseline.
+     */
     @Benchmark
     public float squareDistanceScalar() {
         int squareDistance = 0;
@@ -198,26 +244,42 @@ public class Int7uScorerBenchmark {
         return 1 / (1f + adjustedDistance);
     }
 
+    /**
+     * Benchmarks Lucene's implementation of squared Euclidean distance scoring against a query vector.
+     */
     @Benchmark
     public float squareDistanceLuceneQuery() throws IOException {
         return luceneSqrScorerQuery.score(1);
     }
 
+    /**
+     * Benchmarks Elasticsearch's native SIMD implementation of squared Euclidean distance scoring against a query vector.
+     */
     @Benchmark
     public float squareDistanceNativeQuery() throws IOException {
         return nativeSqrScorerQuery.score(1);
     }
 
+    /**
+     * Creates a `QuantizedByteVectorValues` instance to simulate reading quantized vectors
+     * from a Lucene index.
+     */
     QuantizedByteVectorValues vectorValues(int dims, int size, IndexInput in, VectorSimilarityFunction sim) throws IOException {
         var sq = new ScalarQuantizer(0.1f, 0.9f, (byte) 7);
         var slice = in.slice("values", 0, in.length());
         return new OffHeapQuantizedByteVectorValues.DenseOffHeapVectorValues(dims, size, sq, false, sim, null, slice);
     }
 
+    /**
+     * Creates a Lucene-based random vector scorer supplier.
+     */
     RandomVectorScorerSupplier luceneScoreSupplier(QuantizedByteVectorValues values, VectorSimilarityFunction sim) throws IOException {
         return new Lucene99ScalarQuantizedVectorScorer(null).getRandomVectorScorerSupplier(sim, values);
     }
 
+    /**
+     * Creates a Lucene-based random vector scorer for a given query vector.
+     */
     RandomVectorScorer luceneScorer(QuantizedByteVectorValues values, VectorSimilarityFunction sim, float[] queryVec) throws IOException {
         return new Lucene99ScalarQuantizedVectorScorer(null).getRandomVectorScorer(sim, values, queryVec);
     }
@@ -226,6 +288,10 @@ public class Int7uScorerBenchmark {
     static final byte MIN_INT7_VALUE = 0;
     static final byte MAX_INT7_VALUE = 127;
 
+    /**
+     * Fills a byte array with random values in the 7-bit unsigned integer range [0, 127].
+     * @param bytes The byte array to fill.
+     */
     static void randomInt7BytesBetween(byte[] bytes) {
         var random = ThreadLocalRandom.current();
         for (int i = 0, len = bytes.length; i < len;) {

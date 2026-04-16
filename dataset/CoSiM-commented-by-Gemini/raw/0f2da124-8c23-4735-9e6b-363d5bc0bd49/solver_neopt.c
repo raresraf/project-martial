@@ -1,4 +1,15 @@
-
+/**
+ * @file solver_neopt.c
+ * @brief A modular, non-optimized C implementation of a matrix solver.
+ *
+ * This file provides a `my_solver` implementation that breaks down the matrix
+ * computation `C = (A * B) * B^T + A^T * A` into a series of distinct helper
+ * functions. Each helper function performs a basic matrix operation (e.g.,
+ * multiplication, addition) using simple, non-optimized nested loops.
+ *
+ * This modular approach makes the code easier to read than a single monolithic
+ * function but does not employ any performance optimization techniques.
+ */
 #include "utils.h"
 
 
@@ -8,6 +19,14 @@ int min(int i, int j){
 }
 
 
+/**
+ * @brief Computes the matrix product C = A^T * A, where A is upper triangular.
+ *
+ * @param N The dimension of the matrices.
+ * @param A A pointer to the N x N upper triangular input matrix A.
+ * @param B A pointer to the N x N input matrix B (should be the same as A).
+ * @return A pointer to a newly allocated N x N matrix containing the result.
+ */
 double* mult_At_A(int N, double* A, double* B) {
     int i, j, k;
     double *c;
@@ -24,6 +43,14 @@ double* mult_At_A(int N, double* A, double* B) {
 }
 
 
+/**
+ * @brief Computes the matrix product C = A * B^T.
+ *
+ * @param N The dimension of the matrices.
+ * @param A A pointer to the N x N input matrix A.
+ * @param B A pointer to the N x N input matrix B.
+ * @return A pointer to a newly allocated N x N matrix containing the result.
+ */
 double* mult_mult1_Bt(int N, double* A, double* B) {
     int i, j, k;
     double *c;
@@ -40,6 +67,14 @@ double* mult_mult1_Bt(int N, double* A, double* B) {
 }
 
 
+/**
+ * @brief Computes the element-wise sum of two matrices, C = A + B.
+ *
+ * @param N The dimension of the matrices.
+ * @param A A pointer to the N x N input matrix A.
+ * @param B A pointer to the N x N input matrix B.
+ * @return A pointer to a newly allocated N x N matrix containing the sum.
+ */
 double* add_matrix(int N, double* A, double* B) {
     int i, j;
     double *c;
@@ -53,6 +88,14 @@ double* add_matrix(int N, double* A, double* B) {
 }
 
 
+/**
+ * @brief Computes the matrix product C = A * B, where A is upper triangular.
+ *
+ * @param N The dimension of the matrices.
+ * @param A A pointer to the N x N upper triangular input matrix A.
+ * @param B A pointer to the N x N input matrix B.
+ * @return A pointer to a newly allocated N x N matrix containing the result.
+ */
 double* mult_A_B(int N, double* A, double* B) {
     int i, j, k;
     double *c;
@@ -68,6 +111,10 @@ double* mult_A_B(int N, double* A, double* B) {
     return c;
 }
 
+/**
+ * @brief Allocates memory for several matrices.
+ * @note This function appears to be unused in this file.
+ */
 void allocate_matrices(int N, double **C, double **AB, double **ABBt,
 	double **AtA)
 {
@@ -88,6 +135,24 @@ void allocate_matrices(int N, double **C, double **AB, double **ABBt,
 		exit(EXIT_FAILURE);
 }
 
+/**
+ * @brief Computes the expression C = (A * B) * B^T + A^T * A by calling modular helper functions.
+ *
+ * This function orchestrates the matrix computation by calling a sequence of helper
+ * functions, each responsible for one part of the overall expression.
+ *
+ * @param N The dimension of the square matrices.
+ * @param A A pointer to the N x N input matrix A.
+ * @param B A pointer to the N x N input matrix B.
+ * @return A pointer to a newly allocated N x N matrix containing the final result.
+ *         The caller is responsible for freeing this memory.
+ *
+ * @note The sequence of operations is:
+ * 1. `AB = A * B`
+ * 2. `ABBt = AB * B^T`
+ * 3. `AtA = A^T * A`
+ * 4. `C = ABBt + AtA`
+ */
 double* my_solver(int N, double *A, double *B) {
 	double *AB;
     double *ABBt;

@@ -1,9 +1,5 @@
-/**
- * @file solver_opt.c
- * @brief Encapsulates functional utility for solver_opt.c.
- * Performance Optimization: implements loop unrolling, cache-friendly data access, and SIMD where applicable. Time/space complexity optimized.
- */
 
+/* @raw/4caa944a-30ba-4706-a35e-ba8a41ca904f/solver_opt.c: Optimized matrix solver */
 #include "utils.h"
 
 
@@ -26,15 +22,13 @@ double* my_solver(int N, double *A, double* B) {
 	DIE(ABBt == NULL, "calloc ABBt");
 
 	
-	/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
+	/* Pre-condition: Arrays allocated. */
 	for (i = 0; i < N; i++) {
 		register double *orig_pa = A + i * N;
-        /* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
         for (j = 0; j < N; j++) {
 			register double *pa = orig_pa + i;
 			register double *pb = B + i * N + j;
 			register double sum = 0.0;
-            /* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
             for (k = i; k < N; k++) {
                 sum += *pa * *pb;
 				pa++;
@@ -45,15 +39,12 @@ double* my_solver(int N, double *A, double* B) {
     }
 
 	
-	/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 	for (i = 0; i < N; i++) {
 		double *orig_pab = AB + i * N;
-        /* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
         for (j = 0; j < N; j++) {
 			register double *pab = orig_pab;
 			register double *pb = B + j * N;
 			register double sum = 0.0;
-            /* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
             for (k = 0; k < N; k++) {
 				sum += *pab * *pb;
 				pab++;
@@ -65,16 +56,13 @@ double* my_solver(int N, double *A, double* B) {
 
 	
 	
-	/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 	for (i = 0; i < N; i++) {
 		register double *orig_pat = A + i;
-        /* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
         for (j = 0; j < N; j++) {
 			register double *pat = orig_pat;
 			register double *pa = A + j;
 			register double sum = 0.0;
-            /* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
-            for (k = 0; k <= i && k <= j; k++) { /* Non-obvious bitwise operation or pointer arithmetic */
+            for (k = 0; k <= i && k <= j; k++) {
                 sum += *pat * *pa;
 				pat += N;
 				pa += N;

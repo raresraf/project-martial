@@ -4,6 +4,11 @@
  * Handles test generation, memory allocation, and interface declaration.
  */
 
+/*
+ * Module: utils.h
+ * Purpose: High-level utilities and type definitions for the solver programs.
+ * Path: @raw/2f4487da-50d2-4a81-a14c-2397e860b9f3/utils.h
+ */
 
 #include <stdio.h>
 #include <stdlib.h>

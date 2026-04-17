@@ -1,8 +1,13 @@
 """
 @c5e4e4e0-d063-49d2-9ff1-38b568482121/device.py
-@brief Distributed sensor simulation with location-partitioned task queues and semaphore-based barrier synchronization.
-* Algorithm: Data-parallel task distribution where scripts are grouped by sensor location into individual work queues.
-* Functional Utility: Orchestrates simulation phases across a device cluster using phased semaphore barriers and per-location mutual exclusion.
+@brief Distributed sensor network simulation with spatial task partitioning.
+This module implements a highly efficient parallel processing architecture where 
+computational tasks are partitioned based on their target sensor location. By grouping 
+scripts into per-location queues and assigning dedicated worker threads, the system 
+naturally minimizes lock contention and ensures total order for updates at each 
+spatial node. Global consistency is maintained via a two-phase semaphore barrier.
+
+Domain: Spatial Partitioning, Parallel Processing, Multi-phase Barriers.
 """
 
 import Queue
@@ -10,13 +15,15 @@ from threading import Event, Thread, Lock, Semaphore
 
 class ReusableBarrierSem(object):
     """
-    @brief Two-phase synchronization barrier implemented using counting semaphores.
-    * Algorithm: Dual-stage arrival/release pattern to ensure consistent thread alignment across repeated cycles.
+    Two-phase reusable barrier implementation using semaphores.
+    Functional Utility: Employs a double-gate mechanism to ensure all threads have 
+    exited the previous barrier phase before any thread can enter the next cycle.
     """
 
     def __init__(self, num_threads):
         """
-        @brief Initializes the barrier state and its internal phase semaphores.
+        Initializes the barrier.
+        @param num_threads: Number of participants in the rendezvous.
         """
         self.num_threads = num_threads
         self.count_threads1 = self.num_threads
@@ -26,42 +33,36 @@ class ReusableBarrierSem(object):
         self.threads_sem2 = Semaphore(0)         
 
     def wait(self):
-        """
-        @brief Synchronizes the calling thread through both stages of the barrier.
-        """
+        """Orchestrates the two-phase synchronization cycle."""
         self.phase1()
         self.phase2()
 
     def phase1(self):
-        """
-        @brief Stage 1: Collects all threads and releases them simultaneously.
-        """
+        """First gate: coordinates thread arrival."""
         with self.counter_lock:
             self.count_threads1 -= 1
             if self.count_threads1 == 0:
-                # Logic: Final thread arrival triggers the release of the entire group.
+                # All threads arrived: release the gate.
                 for _ in range(self.num_threads):
                     self.threads_sem1.release()
                 self.count_threads1 = self.num_threads
-
         self.threads_sem1.acquire()
 
     def phase2(self):
-        """
-        @brief Stage 2: Secondary synchronization to prevent thread overruns in tight loops.
-        """
+        """Second gate: ensures total exit before reset."""
         with self.counter_lock:
             self.count_threads2 -= 1
             if self.count_threads2 == 0:
+                # All threads cleared phase 1: release second gate.
                 for _ in range(self.num_threads):
                     self.threads_sem2.release()
                 self.count_threads2 = self.num_threads
-
         self.threads_sem2.acquire()
 
 class MyThread(Thread):
     """
-    @brief Basic worker thread for validating barrier synchronization.
+    Diagnostic thread for validating barrier behavior.
+    Functional Utility: Performs iterative steps to verify temporal synchronization.
     """
 
     def __init__(self, tid, barrier):
@@ -70,9 +71,6 @@ class MyThread(Thread):
         self.barrier = barrier
 
     def run(self):
-        """
-        @brief Iterative execution demonstrating synchronized progression across barrier steps.
-        """
         for i in xrange(10):
             self.barrier.wait()
             print "I'm Thread " + str(self.tid) + " after barrier, in step " + str(i) + "\n",
@@ -80,13 +78,12 @@ class MyThread(Thread):
 
 class Device(object):
     """
-    @brief Encapsulates a simulation node with local data and lock management.
+    Core node entity representing a sensor aggregation point.
+    Functional Utility: Manages local data and coordinates the spatial partitioning 
+    of tasks across the sensor field.
     """
 
     def __init__(self, device_id, sensor_data, supervisor):
-        """
-        @brief Initializes device state and bootstraps its primary coordination thread.
-        """
         self.device_id = device_id
         self.sensor_data = sensor_data
         self.supervisor = supervisor
@@ -97,26 +94,26 @@ class Device(object):
         self.thread = DeviceThread(self)
         self.thread.start()
         self.all_devices = None
-        self.locations = [] # Intent: Tracks all sensor locations relevant to this device and its peers.
-        self.lock_locations = [] # Intent: Maps global locations to synchronization locks.
+        self.locations = []
+        self.lock_locations = []
 
     def __str__(self):
         return "Device %d" % self.device_id
 
     def setup_devices(self, devices):
         """
-        @brief Cluster-wide resource initialization and lock distribution.
-        Logic: Discovers all unique sensor locations across the network and establishes global locks.
+        Global topology discovery and synchronization setup.
+        Logic: Aggregates all unique sensor locations in the network and 
+        pre-allocates a mutex for each to support spatial partitioning.
         """
-        # Logic: Aggregate local locations.
+        # Discover local locations.
         for location in range(len(self.sensor_data)):
             if self.sensor_data.get(location) is not None:
                 if location not in self.locations:
                     self.locations.append(location)
 
         self.all_devices = devices
-
-        # Logic: Discover and aggregate locations from all neighboring peers.
+        # Cross-discovery: Aggregates locations from all peer devices.
         for device in self.all_devices:
             for location in device.locations:
                 if location not in self.locations:
@@ -124,64 +121,55 @@ class Device(object):
 
         self.locations.sort()
 
-        # Invariant: Root node (ID 0) performs the heavy-lifting of primitive creation.
+        # Leader Election Logic: Only Device 0 performs global resource initialization.
         if self.device_id == 0:
             self.barrier = ReusableBarrierSem(len(devices))
-            
-            # Logic: Pre-allocates a lock for every discovered global location.
+
+            # Atomic Resource Allocation: Creating a dedicated lock for every spatial location.
             for _ in self.locations:
                 lock = Lock()
                 self.lock_locations.append(lock)
 
-            # Logic: Distributes shared synchronization state to all devices in the cluster.
+            # Propagation: Shares the barrier and global lock map with the network.
             for device in self.all_devices:
                 device.set_barrier(self.barrier)
                 device.set_lock_locations(self.lock_locations)
 
+
     def assign_script(self, script, location):
-        """
-        @brief Appends a processing task for the current simulation phase.
-        """
+        """Registers a task for processing."""
         if script is not None:
             self.scripts.append((script, location))
         else:
-            # Logic: All scripts for the timepoint have been delivered.
             self.timepoint_done.set()
 
     def get_data(self, location):
-        """
-        @brief Standard data retrieval for sensor locations.
-        """
+        """Retrieves sensor data for the specified location."""
         return self.sensor_data[location] if location in self.sensor_data else None
 
     def set_barrier(self, barrier):
-        """
-        @brief Assigns the shared cluster-wide barrier.
-        """
+        """Injects the shared network-wide barrier."""
         self.barrier = barrier
 
     def set_lock_locations(self, lock_locations):
-        """
-        @brief Assigns the shared global lock set.
-        """
+        """Injects the global spatial lock pool."""
         self.lock_locations = lock_locations
 
     def set_data(self, location, data):
-        """
-        @brief Standard data update for sensor locations.
-        """
+        """Updates local sensor state."""
         if location in self.sensor_data:
             self.sensor_data[location] = data
 
     def shutdown(self):
-        """
-        @brief Terminates the device coordination thread.
-        """
+        """Joins the main device orchestration thread."""
         self.thread.join()
+
 
 class DeviceThread(Thread):
     """
-    @brief Coordination thread managing phase transitions and worker thread dispatching.
+    Node-level simulation manager.
+    Functional Utility: Implements spatial partitioning by creating dedicated 
+    queues for each sensor location receiving scripts.
     """
 
     def __init__(self, device):
@@ -190,24 +178,28 @@ class DeviceThread(Thread):
 
     def run(self):
         """
-        @brief Main control loop for the device node.
-        Algorithm: Grouping tasks by location to minimize synchronization contention.
+        Main execution loop for the node manager.
+        Algorithm: Iterative timepoint processing with location-based work splitting.
         """
         while True:
-            # Logic: Neighbor discovery and barrier alignment.
+            # Topology Discovery Phase.
             neighbours = self.device.supervisor.get_neighbours()
             self.device.lockForLocations = []
             if neighbours is None:
                 break
+            
+            # Synchronize with entire network before starting work.
             self.device.barrier.wait()
 
-            # Block Logic: Waits for script delivery completion.
+            # Wait for supervisor to finalize script assignments.
             self.device.timepoint_done.wait()
             self.device.timepoint_done.clear()
 
-            # Task Organization: Partition scripts into location-specific queues.
+            # Block Logic: Spatial Partitioning.
+            # Groups scripts into lists based on their target sensor location.
             queue_list = []
             index_list = []
+
             for item in self.device.scripts:
                 (_, location) = item
                 if location not in index_list:
@@ -219,7 +211,7 @@ class DeviceThread(Thread):
                     index = index_list.index(location)
                     queue_list[index].put(item)
 
-            # Execution Phase: Spawns one worker thread per active sensor location.
+            # Spawns a worker thread for each location that requires processing.
             th_list = []
             for queue in queue_list:
                 worker = Thread(target=split_work, args=(self.device, neighbours, queue, ))
@@ -227,44 +219,47 @@ class DeviceThread(Thread):
                 th_list.append(worker)
                 worker.start()
 
-            # Logic: Wait for all location-specific workers to finish local processing.
+            # Wait for all spatial workers to finish before progressing to next timepoint.
             for thr in th_list:
                 thr.join()
 
+
 def split_work(device, neighbours, queue_param):
     """
-    @brief Worker function that processes all tasks for a specific sensor location.
-    Algorithm: Consumes location-partitioned queue with mandatory lock acquisition.
+    Spatial worker function.
+    Logic: Sequentially processes all scripts assigned to a specific location 
+    while holding the corresponding global mutex to ensure network-wide consistency.
     """
     while True:
         try:
-            # Logic: Non-blocking fetch to determine if all tasks for this location are done.
+            # Non-blocking pull from the location-specific queue.
             (script, location) = queue_param.get(False)
         except Queue.Empty:
             break
         else:
             if location in device.locations:
-                # Pre-condition: Must acquire global location lock for cluster-wide consistency.
+                # Pre-condition: Acquire exclusive access to the spatial location.
                 device.lock_locations[location].acquire()
                 script_data = []
                 
-                # Distributed Aggregation Phase: Collect readings from Peers and Self.
+                # Neighborhood aggregation.
                 for device_temp in neighbours:
                     data = device_temp.get_data(location)
                     if data is not None:
                         script_data.append(data)
                 
+                # Include local state.
                 data = device.get_data(location)
                 if data is not None:
                     script_data.append(data)
-                
-                # Logic: Execute the analysis logic and broadcast results.
+
                 if script_data != []:
+                    # Process and propagate results to the neighborhood graph.
                     result = script.run(script_data)
                     for device_temp in neighbours:
                         device_temp.set_data(location, result)
                     device.set_data(location, result)
                 
+                # Finalize task and release spatial mutex.
                 queue_param.task_done()
-                # Post-condition: Release global lock to allow other devices to process the same location.
                 device.lock_locations[location].release()

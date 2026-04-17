@@ -1,8 +1,3 @@
-/**
- * @file solver_blas.c
- * @brief Encapsulates functional utility for solver_blas.c.
- * Performance Optimization: implements loop unrolling, cache-friendly data access, and SIMD where applicable. Time/space complexity optimized.
- */
 
 #include "utils.h"
 #include <string.h>
@@ -13,25 +8,21 @@ double* my_solver(int N, double *A, double *B) {
 	printf("BLAS SOLVER\n");
 	double *first_mul = calloc (N * N, sizeof(double));
 
-	/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 	if (!first_mul)
 		return NULL;
 
 	double *second_mul = calloc (N * N, sizeof(double));
 
-	/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 	if (!second_mul)
 		return NULL;
 
 	double *third_mul = calloc (N * N, sizeof(double));
 
-	/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 	if (!third_mul)
 		return NULL;
 
 	double *result = malloc (N * N * sizeof(double));
 
-	/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 	if (!result)
 		return NULL;
 
@@ -51,13 +42,12 @@ double* my_solver(int N, double *A, double *B) {
 
 	register int i, j;
 
-	/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
+	// Block Level: Pre-condition: blas calculations complete, ready to aggregate
 	for (i = 0; i < N; i++) {
-		register double *res = &result[i * N]; /* Non-obvious bitwise operation or pointer arithmetic */
-		register double *pa = &second_mul[i * N]; /* Non-obvious bitwise operation or pointer arithmetic */
-		register double *pb = &third_mul[i * N]; /* Non-obvious bitwise operation or pointer arithmetic */
+		register double *res = &result[i * N];
+		register double *pa = &second_mul[i * N];
+		register double *pb = &third_mul[i * N];
 
-		/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 		for (j = 0; j < N; j++) {
 			*res = *pa + *pb;
 			res++;
@@ -72,6 +62,10 @@ double* my_solver(int N, double *A, double *B) {
 	free(first_mul);
 	free(second_mul);
 	free(third_mul);
+
+	return result;
+}
+;
 
 	return result;
 }

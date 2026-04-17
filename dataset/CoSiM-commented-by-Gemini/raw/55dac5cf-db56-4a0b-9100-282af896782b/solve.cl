@@ -4,6 +4,10 @@
  * Optimizes memory hierarchy usage, thread indexing, and synchronization for OpenCL execution.
  */
 
+/*
+ * @raw/55dac5cf-db56-4a0b-9100-282af896782b/solve.cl
+ * Module Level: OpenCL kernel for texture compression solving.
+ */
 union cl
 {
 	struct BgraColorType

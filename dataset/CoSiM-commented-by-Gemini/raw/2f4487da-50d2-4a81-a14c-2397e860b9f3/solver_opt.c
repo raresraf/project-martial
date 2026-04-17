@@ -4,6 +4,11 @@
  * Features register blocking, loop reordering, and cache-friendly data access patterns.
  */
 
+/*
+ * Module: solver_opt.c
+ * Purpose: High-level matrix solver (optimized) with manually unrolled loops and pointer arithmetic.
+ * Path: @raw/2f4487da-50d2-4a81-a14c-2397e860b9f3/solver_opt.c
+ */
 #include "utils.h"
 
 /**

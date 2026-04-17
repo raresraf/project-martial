@@ -1,4 +1,7 @@
 
+// Module Level: Non-optimized Matrix Solver
+// @raw/3fb119ca-9242-46c0-bd56-1b6dc4e3055c/solver_neopt.c
+
 #include "utils.h"
 #define min(x, y) (((x) < (y)) ? (x) : (y))
 

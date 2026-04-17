@@ -1,25 +1,22 @@
 /**
- * @file solver_neopt.c
- * @brief A non-optimized, baseline implementation of a matrix solver.
- * @details This file provides a straightforward, unoptimized solution for the matrix equation
- * C = A * B * B' + A' * A, where A is an upper triangular matrix. It serves as a reference
- * for correctness and a baseline for performance comparison against optimized versions.
+ * @raw/1a3ac74d-7a0d-48f6-8b61-c6447bbc6dbc/solver_neopt.c
+ * @brief Computes the matrix expression C = A * B * B^T + A^T * A using naive, unoptimized loops.
+ * * Algorithm: Naive iterative matrix multiplication. Exploits the upper triangular property of matrix A.
+ * Time Complexity: $O(N^3)$ utilizing three nested loops for multiplication.
+ * Space Complexity: $O(N^2)$ for dynamically allocated intermediate matrices.
  */
 
 #include <stdlib.h>
 #include "utils.h"
 
 /**
- * @brief Computes the transpose of a square matrix.
- * @param N The dimension of the square matrix.
- * @param A The input matrix (N x N) to be transposed.
- * @param B The output matrix (N x N) where the transpose will be stored.
- *
- * This function performs an out-of-place matrix transposition.
- * Time Complexity: O(N^2)
+ * Functional Utility: Computes the transpose of a square matrix A into B.
  */
 void transpose(int N, double *A, double *B) {
 	int i, j;
+	/**
+	 * Block Logic: Iterates over the matrix dimensions to swap rows and columns.
+	 */
     for (i = 0; i < N; i++) {
         for (j = 0; j < N; j++) {
 			B[i * N + j] = A[j * N + i];
@@ -28,26 +25,10 @@ void transpose(int N, double *A, double *B) {
 }
 
 /**
- * @brief Solves the matrix equation C = A * B * B' + A' * A using a non-optimized approach.
- * @param N The dimension of the square matrices.
- * @param A A pointer to the input upper triangular matrix A (N x N).
- * @param B A pointer to the input matrix B (N x N).
- * @return A pointer to the resulting matrix C (N x N).
- *
- * @details The function follows these steps:
- * 1. Transposes B to get B'.
- * 2. Calculates BBt = B * B'.
- * 3. Calculates ABBt = A * BBt, exploiting the upper triangular nature of A.
- * 4. Transposes A to get A'.
- * 5. Calculates AtA = A' * A, exploiting the triangular nature of A and A'.
- * 6. Computes the final result C = ABBt + AtA.
- *
- * This implementation uses nested loops for all matrix operations and allocates
- * intermediate matrices, making it a clear but inefficient baseline.
+ * Functional Utility: Solves the matrix expression sequentially.
  */
 double* my_solver(int N, double *A, double *B) {
-	printf("NEOPT SOLVER
-");
+	printf("NEOPT SOLVER\n");
 	double *C = (double *) calloc(N * N, sizeof(double));
 	double *ABBt = (double *) calloc(N * N, sizeof(double));
 	double *At = (double *) calloc(N * N, sizeof(double));
@@ -56,15 +37,12 @@ double* my_solver(int N, double *A, double *B) {
 	double *BBt = (double *) calloc(N * N, sizeof(double));
 	double *Bt = (double *) calloc(N * N, sizeof(double));
 	
-	// Step 1: Transpose B to get B'.
 	transpose(N, B, Bt);
 	int i, j, k;
 
-	
 	/**
-	 * Block Logic: Step 2: Compute BBt = B * B'.
-	 * This is a standard matrix-matrix multiplication.
-	 * Time Complexity: O(N^3)
+	 * Block Logic: Computes the intermediate matrix BBt = B * B^T.
+	 * Invariant: BBt accumulates the dot product of rows from B.
 	 */
 	for (i = 0; i < N; ++i) {
 		for (j = 0; j < N; ++j) {
@@ -74,12 +52,9 @@ double* my_solver(int N, double *A, double *B) {
 		}
 	}
 
-	
 	/**
-	 * Block Logic: Step 3: Compute ABBt = A * BBt.
-	 * Since A is an upper triangular matrix, the inner loop for k starts from i.
-	 * This optimization reduces the number of multiplications.
-	 * Time Complexity: O(N^3), but with a lower constant factor than full matrix multiplication.
+	 * Block Logic: Computes ABBt = A * BBt.
+	 * Performance Optimization: The inner loop starts from k = i, exploiting the fact that matrix A is upper triangular (A[i][k] = 0 for k < i).
 	 */
 	for (i = 0; i < N; ++i) {
 		for (j = 0; j < N; ++j) {
@@ -89,17 +64,11 @@ double* my_solver(int N, double *A, double *B) {
 		}
 	}
 
-	// Step 4: Transpose A to get A'.
 	transpose(N, A, At);
 
-	
 	/**
-	 * Block Logic: Step 5: Compute AtA = A' * A.
-	 * A' is lower triangular and A is upper triangular. The loop for k reflects
-	 * this structure to avoid unnecessary computations with zero elements.
-	 * The condition k <= i corresponds to the lower triangular At.
-	 * The condition k <= j corresponds to the upper triangular A.
-	 * Time Complexity: O(N^3), with a lower constant factor.
+	 * Block Logic: Computes AtA = A^T * A.
+	 * Performance Optimization: The inner loop boundary k <= i && k <= j exploits the triangular nature of A and A^T to avoid redundant zero multiplications.
 	 */
 	for (i = 0; i < N; ++i) {
 		for (j = 0; j < N; ++j) {
@@ -110,9 +79,7 @@ double* my_solver(int N, double *A, double *B) {
 	}
 
 	/**
-	 * Block Logic: Step 6: Compute C = ABBt + AtA.
-	 * This is a simple element-wise matrix addition.
-	 * Time Complexity: O(N^2)
+	 * Block Logic: Sums the two intermediate products to form the final matrix C.
 	 */
 	for (i = 0; i < N; ++i) {
 		for (j = 0; j < N; ++j) {
@@ -120,7 +87,6 @@ double* my_solver(int N, double *A, double *B) {
 		}
 	}
 	
-	// Free all dynamically allocated intermediate matrices.
 	free(ABBt);
 	free(At);
 	free(AtA);

@@ -1,10 +1,5 @@
-/**
- * @file solver_blas.c
- * @brief Encapsulates functional utility for solver_blas.c.
- * Performance Optimization: implements loop unrolling, cache-friendly data access, and SIMD where applicable. Time/space complexity optimized.
- */
 
-
+/* @raw/47bf6cc9-5844-4a96-ab5d-048d6d9eb7b5/solver_blas.c: BLAS matrix solver */
 #include <string.h>
 #include <stdlib.h>
 #include "cblas.h"
@@ -17,8 +12,7 @@ double* my_solver(int N, double *A, double *B) {
 	AB = calloc(N * N,  sizeof(double));
 	C = calloc(N * N, sizeof(double));
 	AA = calloc(N * N, sizeof(double));
-	/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
-	if (AB == NULL || C == NULL) { /* Non-obvious bitwise operation or pointer arithmetic */
+	if (AB == NULL || C == NULL) {
         perror("malloc failed\n");
         exit(EXIT_FAILURE);
     }
@@ -44,9 +38,8 @@ double* my_solver(int N, double *A, double *B) {
 	cblas_dtrmm(CblasRowMajor, CblasLeft, CblasUpper, CblasTrans, CblasNonUnit,
 				N, N, alpha, A, N, AA, N); 
 
-	/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
+	/* Pre-condition: BLAS operations finished. */
 	for (i = 0; i < N; i++) {
-		/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 		for (j = 0; j < N; j++) {
 			C[i * N + j] += AA[i * N + j];
 		}

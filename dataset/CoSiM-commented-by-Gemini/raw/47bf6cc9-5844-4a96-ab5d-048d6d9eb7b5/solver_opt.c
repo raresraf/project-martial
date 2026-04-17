@@ -1,9 +1,5 @@
-/**
- * @file solver_opt.c
- * @brief Encapsulates functional utility for solver_opt.c.
- * Performance Optimization: implements loop unrolling, cache-friendly data access, and SIMD where applicable. Time/space complexity optimized.
- */
 
+/* @raw/47bf6cc9-5844-4a96-ab5d-048d6d9eb7b5/solver_opt.c: Optimized matrix solver */
 #include "utils.h"
 
 
@@ -14,8 +10,7 @@ double* my_solver(int N, double *A, double* B) {
 	double *C;
 	AB = calloc(N * N, sizeof(double));
 	C = calloc(N * N, sizeof(double));
-	/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
-	if (AB == NULL || C == NULL) { /* Non-obvious bitwise operation or pointer arithmetic */
+	if (AB == NULL || C == NULL) {
         perror("malloc failed\n");
         exit(EXIT_FAILURE);
     }
@@ -24,15 +19,13 @@ register int i, j, k;
 register double *orig_pa, *pa, *pb, sum;
 
 
-    /* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
+    /* Pre-condition: Arrays allocated. */
     for (i = 0; i < N; i++) {
-		orig_pa = &A[i * N]; /* Non-obvious bitwise operation or pointer arithmetic */
-		/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
+		orig_pa = &A[i * N];
 		for (j = 0; j < N; j++) {
 			pa = orig_pa + i;
-			pb = &B[i * N + j]; /* Non-obvious bitwise operation or pointer arithmetic */
+			pb = &B[i * N + j];
 			sum = 0;
-			/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 			for (k = i; k < N; k++) {
 				sum += *pa * *pb;
 				pa++;
@@ -44,15 +37,12 @@ register double *orig_pa, *pa, *pb, sum;
 
 
 
-	/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 	for (i = 0; i < N; i++) {
-		orig_pa = &AB[i * N]; /* Non-obvious bitwise operation or pointer arithmetic */
-		/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
+		orig_pa = &AB[i * N];
 		for (j = 0; j < N; j++) {
 			pa = orig_pa;
-			pb = &B[j * N]; /* Non-obvious bitwise operation or pointer arithmetic */
+			pb = &B[j * N];
 			sum = 0;
-			/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 			for (k = 0; k < N; k++) {
 				sum += *pa * *pb;
 				pa++;
@@ -63,18 +53,14 @@ register double *orig_pa, *pa, *pb, sum;
 	}
 
 
-	/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 	for (i = 0; i < N; i++) {
-		orig_pa = &A[i]; /* Non-obvious bitwise operation or pointer arithmetic */
-		/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
+		orig_pa = &A[i];
 		for (j = 0; j < N; j++) {
 			pa = orig_pa;
-			pb = &A[j]; /* Non-obvious bitwise operation or pointer arithmetic */
+			pb = &A[j];
 			sum = 0;
-			/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 			for (k = 0; k < N; k++) {
-			    /* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
-			    if (*pa == 0 || *pb == 0) { /* Non-obvious bitwise operation or pointer arithmetic */
+			    if (*pa == 0 || *pb == 0) {
 			        break;
 				}
 				sum += *pa * *pb;

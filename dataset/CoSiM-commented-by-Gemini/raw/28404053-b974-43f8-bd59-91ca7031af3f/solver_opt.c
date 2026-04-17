@@ -1,19 +1,7 @@
-/**
- * @file solver_opt.c
- * @brief Manually optimized matrix solver implementation.
- * Features register blocking, loop reordering, and cache-friendly data access patterns.
- */
+/* Module Level: Optimized matrix solver. @raw/28404053-b974-43f8-bd59-91ca7031af3f/solver_opt.c */
 #include "utils.h"
 
 
-/**
- * @brief Computes C = At * A + A * B * Bt.
- * Allocates memory dynamically and executes matrix operations.
- * @param N Matrix dimension.
- * @param A Input matrix A.
- * @param B Input matrix B.
- * @return Pointer to resulting matrix C.
- */
 double* my_solver(int N, double *A, double* B) {
 	
 	register int i = 0;
@@ -22,19 +10,17 @@ double* my_solver(int N, double *A, double* B) {
 
 	double *fst = malloc(N * N * sizeof(double));
 	
-	/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
+	/* Block Level: First matrix multiplication phase */
 	for(i = 0; i < N; i++){
-  		double *orig_pa = &A[i * N]; /* Non-obvious pointer arithmetic/dereference for optimized memory access */
-  		/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
+  		double *orig_pa = &A[i * N];
   		for(j = 0; j < N; j++){
-    		double *pa = orig_pa; /* Non-obvious pointer arithmetic/dereference for optimized memory access */
-    		double *pb = &B[j]; /* Non-obvious pointer arithmetic/dereference for optimized memory access */
+    		double *pa = orig_pa;
+    		double *pb = &B[j];
     		register double suma = 0;
-    		/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
     		for(k = 0; k < N; k++){
-      			suma += *pa * *pb; /* Non-obvious pointer arithmetic/dereference for optimized memory access */
+      			suma += *pa * *pb;
       			pa++;
-      			pb += N; /* Non-obvious pointer arithmetic/dereference for optimized memory access */
+      			pb += N;
     		}
     		fst[i * N + j] = suma;
   		}
@@ -42,13 +28,11 @@ double* my_solver(int N, double *A, double* B) {
 
 	double *snd = malloc(N * N * sizeof(double));
 
-	/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
+	/* Block Level: Second matrix multiplication phase */
 	for (i = 0; i < N; i++) {
 		register int index = i * N;
-		/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 		for (j = 0; j < N; j++) {
 			register double sum = 0;
-			/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 			for (k = 0; k < N; k++) {
 				sum += fst[index + k] * B[j * N + k];
 			}
@@ -58,13 +42,11 @@ double* my_solver(int N, double *A, double* B) {
 
 	double *third = malloc(N * N * sizeof(double));
 	
-	/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
+	/* Block Level: Third matrix multiplication phase */
 	for (i = 0; i < N; i++) {
 		register int index = i * N;
-		/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 		for (k = 0; k < N; k++) {
 			register int kn = k * N;
-			/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 			for (j = 0; j < N; j++) {
 				third[index + j] += A[kn + i] * A[kn + j];
 			}
@@ -73,10 +55,9 @@ double* my_solver(int N, double *A, double* B) {
 
 	double *C = malloc(N * N * sizeof(double));
 
-	/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
+	/* Block Level: Matrix addition phase */
 	for (i = 0; i < N; i++) {
 		register int index = i * N;
-		/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 		for (j = 0 ; j < N; j++) {
 			register int index_j = index + j;
 			C[index_j] += third[index_j] + snd[index_j];
@@ -89,4 +70,3 @@ double* my_solver(int N, double *A, double* B) {
 
 	return C;	
 }
-

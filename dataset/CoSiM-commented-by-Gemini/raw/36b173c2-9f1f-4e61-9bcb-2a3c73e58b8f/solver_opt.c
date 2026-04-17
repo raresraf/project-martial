@@ -1,76 +1,57 @@
-/**
- * @file solver_opt.c
- * @brief Manually optimized matrix solver implementation.
- * Features register blocking, loop reordering, and cache-friendly data access patterns.
+/*
+ * Module: @raw/36b173c2-9f1f-4e61-9bcb-2a3c73e58b8f/solver_opt.c
+ * High-level purpose: Optimized matrix solver implementation.
  */
-
 #include "utils.h"
 
 
-/**
- * @brief Computes C = At * A + A * B * Bt.
- * Allocates memory dynamically and executes matrix operations.
- * @param N Matrix dimension.
- * @param A Input matrix A.
- * @param B Input matrix B.
- * @return Pointer to resulting matrix C.
- */
 double* my_solver(int N, double *A, double* B) {
 	printf("OPT SOLVER\n");
 	int i, j, k;
 
 	double *C = (double*) calloc(N * N, sizeof(double));
-	/* @pre Conditional evaluation. @invariant Taken branch maintains control flow invariants. */
 	if (C == NULL) {
 		printf("Failed calloc!");
 		return NULL;
 	}
 
 	double *another_C = (double*) calloc(N * N, sizeof(double));
-	/* @pre Conditional evaluation. @invariant Taken branch maintains control flow invariants. */
 	if (another_C == NULL) {
 		printf("Failed calloc!");
 		return NULL;
 	}
 
 	double *res_A = (double*) calloc(N * N, sizeof(double));
-	/* @pre Conditional evaluation. @invariant Taken branch maintains control flow invariants. */
 	if (res_A == NULL) {
 		printf("Failed calloc!");
 		return NULL;
 	}
 
-	
-	/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
+	/* Pre-condition: Target matrices are zero-initialized. Invariant: Loop processes elements column-wise efficiently. */
 	for (i = 0; i < N; ++i) {
-		register double *orig_pa = &A[i * N + i]; /* Non-obvious pointer arithmetic/dereference for optimized memory access */
-		/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
+		register double *orig_pa = &A[i * N + i];
 		for (j = 0; j < N; ++j) {
-			register double *pa = orig_pa; /* Non-obvious pointer arithmetic/dereference for optimized memory access */
-    			register double *pb = &B[i * N + j]; /* Non-obvious pointer arithmetic/dereference for optimized memory access */
+			register double *pa = orig_pa;
+    			register double *pb = &B[i * N + j];
 			register double sum = 0.0;
-			/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 			for (k = 0; k < N - i; ++k) {
-				sum += *pa * *pb; /* Non-obvious pointer arithmetic/dereference for optimized memory access */
+				sum += *pa * *pb;
 				pa++;
-				pb += N; /* Non-obvious pointer arithmetic/dereference for optimized memory access */
+				pb += N;
 			}
 			C[i * N + j] = sum;
 		}
 	}
 
 	
-	/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 	for (i = 0; i < N; ++i) {
-		register double *orig_pc = &C[i * N + 0]; /* Non-obvious pointer arithmetic/dereference for optimized memory access */
-		/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
+		register double *orig_pc = &C[i * N + 0];
 		for (j = 0; j < N; ++j) {
-			register double *pc = orig_pc; /* Non-obvious pointer arithmetic/dereference for optimized memory access */
-    		register double *pb = &B[j * N + 0]; /* Non-obvious pointer arithmetic/dereference for optimized memory access */
+			register double *pc = orig_pc;
+    		register double *pb = &B[j * N + 0];
 			register double sum = 0.0;
-			/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 			for (k = 0; k < N; ++k) {
-				sum += *pc * *pb; /* Non-obvious pointer arithmetic/dereference for optimized memory access */
+				sum += *pc * *pb;
 				pc++;
 				pb++;
 			}
@@ -79,15 +60,12 @@ double* my_solver(int N, double *A, double* B) {
 	}
 
 	
-	/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 	for (k = 0; k < N; ++k) {
-		register double *pa = &A[k * N + k]; /* Non-obvious pointer arithmetic/dereference for optimized memory access */
-		/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
+		register double *pa = &A[k * N + k];
 		for (i = k; i < N; ++i) {
-			register double *pa_t = &A[k * N + k]; /* Non-obvious pointer arithmetic/dereference for optimized memory access */
-			/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
+			register double *pa_t = &A[k * N + k];
 			for (j = 0; j < N - k; ++j) {
-				res_A[i * N + k + j] += *pa_t * *pa; /* Non-obvious pointer arithmetic/dereference for optimized memory access */
+				res_A[i * N + k + j] += *pa_t * *pa;
 				pa_t++;
 			}
 			pa++;
@@ -95,10 +73,8 @@ double* my_solver(int N, double *A, double* B) {
 	}
 
 	
-	/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 	for (i = 0; i < N; ++i) {
-		register double *orig_pa = &res_A[i * N + 0]; /* Non-obvious pointer arithmetic/dereference for optimized memory access */
-		/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
+		register double *orig_pa = &res_A[i * N + 0];
 		for (j = 0; j < N; ++j) {
 			another_C[i * N + j] += *orig_pa;
 			orig_pa++;

@@ -4,6 +4,11 @@
  * Optimizes memory hierarchy usage, thread indexing, and synchronization for OpenCL execution.
  */
 
+/*
+ * Module: OpenCL Compression
+ * @raw/58c3f6c1-703d-4d17-b034-bec930b86717/kernel.cl
+ * Purpose: OpenCL texture compression kernel.
+ */
 union infoRGB
 {
 	struct BgraColorType

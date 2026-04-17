@@ -1,4 +1,7 @@
 
+// Module Level: BLAS based Matrix Solver
+// @raw/3b9db35f-ca63-4158-993a-7afa9c64526d/solver_blas.c
+
 #include "utils.h"
 #include "cblas.h"
 
@@ -11,6 +14,7 @@ double* my_solver(int N, double *A, double *B) {
 	sum2 = calloc(N * N, sizeof(double));
 	c = calloc(N * N,sizeof(double));
 	un = calloc(N * N, sizeof(double));
+	// Pre-conditions: Ensure matrices are properly allocated and N is positive.
 	for (i = 0; i < N; i++){
 		for (j = 0; j < N; j++){
 			sum[i * N + j] = B[i * N + j];

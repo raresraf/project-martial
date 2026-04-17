@@ -1,9 +1,5 @@
-/**
- * @file solver_blas.c
- * @brief Encapsulates functional utility for solver_blas.c.
- * Performance Optimization: implements loop unrolling, cache-friendly data access, and SIMD where applicable. Time/space complexity optimized.
- */
-
+// @raw/452e21f0-dc7d-41af-8d72-1096039b75af/solver_blas.c
+// Module Level: Matrix solver using BLAS
 #include <stdlib.h>
 #include <string.h>
 #include "utils.h"
@@ -19,8 +15,7 @@ double *my_solver(int N, double *A, double *B) {
 
         double *C = (double *)calloc(dimensionMatrix, sizeof(double));
 
-        /* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
-        if (B2 == NULL || C == NULL) { /* Non-obvious bitwise operation or pointer arithmetic */
+        if (B2 == NULL || C == NULL) {
                 return NULL;
         }
 

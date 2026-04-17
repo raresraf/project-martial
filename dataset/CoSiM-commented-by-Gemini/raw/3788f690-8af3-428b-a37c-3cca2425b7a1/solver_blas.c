@@ -1,11 +1,7 @@
-/**
- * @file solver_blas.c
- * @brief BLAS-optimized implementation of matrix operations.
- *
- * Utilizes the CBLAS interface for highly tuned matrix multiplications,
- * computing C = A * B * B^T + A^T * A.
+/*
+ * Module: @raw/3788f690-8af3-428b-a37c-3cca2425b7a1/solver_blas.c
+ * High-level purpose: BLAS solver.
  */
-
 #include "utils.h"
 #include <cblas.h>
 #include <string.h>
@@ -13,14 +9,6 @@
 #define ALPHA 1.0
 
 
-/**
- * @brief Solves the matrix equation using BLAS routines for maximum performance.
- *
- * @param N Matrix dimension (N x N).
- * @param A Pointer to the first input matrix (upper triangular).
- * @param B Pointer to the second input matrix.
- * @return Pointer to the resulting matrix C, or NULL on allocation failure.
- */
 double* my_solver(int N, double *A, double *B) {
 	double *C = (double*) calloc(N * N, sizeof(double));
 	if (!C)
@@ -37,18 +25,9 @@ double* my_solver(int N, double *A, double *B) {
 	memcpy(aux, A, N * N * sizeof(double));
 	cblas_dtrmm(CblasRowMajor, CblasLeft, CblasUpper, CblasTrans, CblasNonUnit, N, N, ALPHA, A, N, aux, N);
 
+	/* Pre-condition: aux and C populated via BLAS. Invariant: Matrix sizes bounded by N. */
 	int i, j;
-	/**
-	 * @brief Accumulate the final result C = (A * B * B^T) + (A^T * A).
-	 * Pre-condition: C contains A * B * B^T, aux contains A^T * A.
-	 * Invariant: Rows up to index i are summed.
-	 */
 	for (i = 0; i < N; i++) {
-		/**
-		 * @brief Element-wise addition.
-		 * Pre-condition: Valid row index i.
-		 * Invariant: Elements up to j are summed.
-		 */
 		for (j = 0; j < N; j++) {
 			C[i * N + j] += aux[i * N + j];
 		}

@@ -5,6 +5,11 @@
  * Performs C = AtA + ABBt efficiently.
  */
 
+/*
+ * Module: solver_blas.c
+ * Purpose: High-level matrix solver utilizing BLAS optimized routines for matrix multiplication and triangular solve.
+ * Path: @raw/2f4487da-50d2-4a81-a14c-2397e860b9f3/solver_blas.c
+ */
 #include "utils.h"
 #include "cblas.h"
 

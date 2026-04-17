@@ -1,8 +1,12 @@
 """
 @bc55c351-a352-4523-84fc-3130172e0755/device.py
-@brief Distributed sensor simulation with thread-level parallelism and global barrier synchronization.
-* Algorithm: Cooperative multi-threaded execution loop with shared state validation and location-based mutual exclusion.
-* Functional Utility: Manages a pool of worker threads that concurrently process sensor scripts while ensuring consistent global state.
+@brief Concurrent distributed sensor network simulation with multi-threaded local nodes.
+This module implements a sophisticated synchronization model where each device node 
+manages a pool of internal threads. Threads across the entire network coordinate via 
+global barriers and semaphores to execute data processing scripts while ensuring 
+mutual exclusion for specific sensor locations.
+
+Domain: Parallel Systems, Distributed Synchronization, High-Concurrency Simulations.
 """
 
 from threading import Event, Thread, Semaphore
@@ -14,15 +18,20 @@ from random import random
 
 class Device(object):
     """
-    @brief Encapsulates a sensor device with its own data, worker threads, and synchronization logic.
+    Coordinator class for a multi-threaded network node.
+    Functional Utility: Manages internal worker threads, synchronization primitives, 
+    and shared state across the local device group.
     """
-    
-    # Domain: Resource scaling - Defines the number of concurrent execution contexts per device.
+
+    # Constant: Defines the degree of local parallelism.
     NR_THREADS = 8
 
     def __init__(self, device_id, sensor_data, supervisor):
         """
-        @brief Initializes the device and starts its worker thread pool.
+        Initializes the device with local data and spawns worker threads.
+        @param device_id: Unique integer identifier.
+        @param sensor_data: Initial state of sensors managed by this device.
+        @param supervisor: Entity providing connectivity topology.
         """
         self.device_id = device_id
         self.sensor_data = sensor_data
@@ -32,9 +41,11 @@ class Device(object):
         self.script_received = Event()
         self.scripts = []
         self.script_queue = Queue()
+        # Semaphore for atomic access to local script reset state.
         self.loc_dev_semaphore = Semaphore(value=1)
         self.loc_info = {}
         self.script_reset = False
+        # Global semaphore shared across devices for cross-node location locking.
         self.semaphore_devices = Semaphore()
         self.update_semaphore = Semaphore(value=1)
         self.current_script_state = {}
@@ -42,12 +53,13 @@ class Device(object):
         self.neighbours_semaphore = Semaphore(value=1)
         self.neighbours = []
         self.barrier_devices = ReusableBarrierSem(0)
+        # Local barrier to synchronize threads within this specific device.
         self.barrier_threads = ReusableBarrierSem(Device.NR_THREADS)
         self.queue_semaphore = Semaphore(value=1)
         self.queue_init_semaphore = Semaphore(value=1)
         self.threads = []
 
-        # Block Logic: Bootstraps the thread pool for parallel task execution.
+        # Functional Utility: Initializes the local worker pool.
         for count in range(0, Device.NR_THREADS):
             self.threads.append(DeviceThread(self))
             self.threads[count].start()
@@ -57,157 +69,129 @@ class Device(object):
 
     def setup_devices(self, devices):
         """
-        @brief Configures global synchronization across all devices in the simulation.
-        Logic: Establishes a common barrier and semaphore to coordinate collective actions.
+        Global initialization of synchronization resources.
+        Logic: Distributes a shared barrier and semaphore to all devices in the group 
+        to enable network-wide atomic operations.
         """
-        # Architectural Intent: Unified synchronization across all threads of all devices.
+        # Barrier sized to accommodate all threads from all devices in the network.
         same_barrier = ReusableBarrierSem(len(devices) * Device.NR_THREADS)
         semaphore_devices = Semaphore(value=1)
 
         self.devices = devices
 
-        # Logic: Propagates shared synchronization primitives to all participating device instances.
         for device in devices:
             device.barrier_devices = same_barrier
             device.semaphore_devices = semaphore_devices
 
     def assign_script(self, script, location):
         """
-        @brief Injects a script into the simulation at a specific location.
-        Functional Utility: Populates script queues and informs peer devices about active locations.
+        Registers a new computational task and propagates the target location metadata.
+        @param script: The computational logic to execute.
+        @param location: The sensor identifier affected by the script.
         """
         if script is not None:
             self.scripts.append((script, location))
 
-            # Logic: Synchronizes location awareness across the entire device cluster.
+            # Block Logic: Ensures all devices are aware of the new location identifier.
             for device in self.devices:
                 device.add_location(location)
         else:
-            # Logic: Termination or phase-completion signal.
+            # Signals that no more scripts are pending for the current timepoint.
             self.script_received.set()
 
     def add_location(self, location):
-        """
-        @brief Tracks a new data location in the local registry.
-        Invariant: Uses update_semaphore to prevent concurrent modification of loc_info.
-        """
+        """Thread-safe registration of a sensor location into the local metadata store."""
         self.update_semaphore.acquire()
-
         if location in self.loc_info:
             self.loc_info[location] = False
         else:
             self.loc_info.update({location : False})
-
         self.update_semaphore.release()
 
     def check_location(self, location):
         """
-        @brief Validates if a location is currently eligible for processing by a script.
-        Logic: Implements a distributed "compare-and-swap" style check to ensure exclusive access.
+        Implements a distributed mutex for a sensor location.
+        Precondition: Must be called within a cross-device synchronized context.
+        Functional Utility: Atomic 'Test-and-Set' operation across all devices.
+        @return: True if the location was successfully locked, False otherwise.
         """
         self.semaphore_devices.acquire()
-
         res = False
 
-        # Logic: If the location is free, mark it as occupied across all devices.
         if self.current_script_state[location] == False:
             res = True
+            # Invariant: Marks the location as busy across ALL devices in the network.
             for device in self.devices:
                 device.current_script_state[location] = True
 
         self.semaphore_devices.release()
-
         return res
 
     def free_location(self, location):
-        """
-        @brief Releases the occupation status of a location.
-        """
+        """Releases the distributed lock for a specific location."""
         self.semaphore_devices.acquire()
         for device in self.devices:
             device.current_script_state[location] = False
-
         self.semaphore_devices.release()
 
     def get_data(self, location):
-        """
-        @brief Standard getter for local sensor data.
-        """
+        """Accesses sensor data value for the given location."""
         result = None
-
         if location in self.sensor_data:
             result = self.sensor_data[location]
-
         return result
 
     def set_data(self, location, data):
-        """
-        @brief Standard setter for local sensor data.
-        """
+        """Updates the sensor data value for the given location."""
         if location in self.sensor_data:
             self.sensor_data[location] = data
 
     def get_current_neighbours(self):
-        """
-        @brief Lazy-loads the neighbor list from the supervisor.
-        Invariant: neighbors_semaphore ensures thread-safe access to the has_neighbours flag.
-        """
+        """Retrieves and caches the neighborhood topology from the supervisor."""
         self.neighbours_semaphore.acquire()
         if self.has_neighbours == False:
             self.neighbours = self.supervisor.get_neighbours()
             self.has_neighbours = True
-
         self.neighbours_semaphore.release()
-
         return self.neighbours
 
     def reset_neigbours(self):
-        """
-        @brief Invalidates neighbor cache to trigger a refresh in the next timepoint.
-        """
+        """Invalidates the neighborhood cache for the next processing cycle."""
         self.has_neighbours = False
 
     def init_queue(self):
-        """
-        @brief Initializes the script queue for the current timepoint.
-        Logic: Transfers assigned scripts into a work queue for consumption by worker threads.
-        """
+        """Populates the script execution queue from the pending script list."""
         self.queue_init_semaphore.acquire()
         if self.script_queue.empty() == True:
             for (script, location) in self.scripts:
                 self.script_queue.put((script, location))
-
         self.queue_init_semaphore.release()
 
     def again(self):
-        """
-        @brief Resets the script reset flag for the next simulation cycle.
-        """
+        """Resets the script processing flag for the next cycle."""
         self.script_reset = False
 
     def reset_script_state(self):
         """
-        @brief Restores the initial "free" state for all locations at the start of a timepoint.
-        Logic: Performs a deep copy of the static location info into the active state map.
+        Resets the distributed lock states for the current processing phase.
+        Logic: Performs a deep copy of the location metadata to refresh the lock map.
         """
         self.loc_dev_semaphore.acquire()
-
         if self.script_reset == False:
             self.current_script_state = deepcopy(self.loc_info)
             self.script_reset = True
-
         self.loc_dev_semaphore.release()
 
     def shutdown(self):
-        """
-        @brief Waits for all worker threads to terminate.
-        """
+        """Terminates all worker threads managed by this device."""
         for count in range(0, Device.NR_THREADS):
             self.threads[count].join()
 
 class DeviceThread(Thread):
     """
-    @brief Worker thread implementation that executes sensor scripts in a loop.
+    Worker thread implementation.
+    Functional Utility: Executes scripts from a shared queue using a spin-lock 
+    pattern with backoff for distributed resource contention.
     """
 
     def __init__(self, device):
@@ -216,24 +200,31 @@ class DeviceThread(Thread):
 
     def run(self):
         """
-        @brief Main execution lifecycle of a worker thread.
-        Algorithm: Iterative task processing with multi-stage barrier synchronization.
+        Main execution loop for the worker thread.
+        Logic: Coordinates with peer threads and peer devices via multiple barrier points.
         """
         while True:
-            # Logic: Neighbor discovery and simulation exit condition.
             neighbours = self.device.get_current_neighbours()
             if neighbours is None:
                 break
 
-            # Block Logic: Synchronization phase - wait for scripts and initialize local state.
+            # Barrier Point 1: Wait for supervisor to assign scripts.
             self.device.script_received.wait()
+
+            # Barrier Point 2: Initialize task queue.
             self.device.init_queue()
+
+            # Global Synchronization: Ensure all threads in the network have reached this point.
             self.device.barrier_devices.wait()
+
+            # Barrier Point 3: Prepare distributed state for processing.
             self.device.reset_script_state()
+
             self.device.barrier_devices.wait()
             self.device.script_received.clear()
 
-            # Task Execution Phase: Process all scripts in the shared queue.
+            # Block Logic: Task Processing Loop.
+            # Threads consume tasks from the shared queue until it is empty.
             while True:
                 self.device.queue_semaphore.acquire()
 
@@ -243,21 +234,22 @@ class DeviceThread(Thread):
 
                 (script, location) = self.device.script_queue.get()
 
-                # Logic: Check availability of the target location.
+                # Functional Utility: Concurrent locking with retry.
+                # If a location is already being processed, the task is re-queued.
                 if self.device.check_location(location) == False:
-                    # Logic: Location occupied; re-queue and introduce backoff if queue is small.
                     last_script = self.device.script_queue.empty()
                     self.device.script_queue.put((script, location))
                     self.device.queue_semaphore.release()
 
+                    # Inline: Prevents high-frequency spinning on contention 
+                    # by introducing a random delay if the task is likely the only one left.
                     if last_script:
-                        # Optimization: Prevents busy-waiting on a single remaining occupied location.
                         sleep(random() * 0.3)
                     continue
 
                 self.device.queue_semaphore.release()
 
-                # Distributed Data Processing: Aggregates data from neighbors and local node.
+                # Execution Logic: Neighborhood data aggregation.
                 script_data = []
                 for device in neighbours:
                     data = device.get_data(location)
@@ -268,21 +260,25 @@ class DeviceThread(Thread):
                 if data is not None:
                     script_data.append(data)
 
-                # Functional Utility: Runs the core script logic and propagates state changes.
+                # Execute the computation and propagate the results.
                 if script_data != []:
                     result = script.run(script_data)
-
                     for device in neighbours:
                         device.set_data(location, result)
-
                     self.device.set_data(location, result)
 
-                # Post-condition: Mark location as available for other threads/scripts.
+                # Release the distributed lock for this location.
                 self.device.free_location(location)
 
-            # Synchronization Phase: Ensure all threads/devices complete task execution.
+            # Global Synchronization: Consensus point after all tasks are processed.
             self.device.barrier_devices.wait()
+
+            # Post-processing cleanup.
             self.device.reset_neigbours()
             self.device.again()
+
+            # Local Synchronization: Ensure all local threads finish the cycle together.
             self.device.barrier_threads.wait()
+
+            # Final Network-wide synchronization before the next simulation step.
             self.device.barrier_devices.wait()

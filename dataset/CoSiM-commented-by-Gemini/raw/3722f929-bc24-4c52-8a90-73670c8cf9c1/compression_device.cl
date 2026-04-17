@@ -1,4 +1,8 @@
 
+/*
+ * Module: @raw/3722f929-bc24-4c52-8a90-73670c8cf9c1/compression_device.cl
+ * High-level purpose: OpenCL device kernel for data compression.
+ */
 union Color {
 	struct BgraColorType {
 		uchar b;

@@ -1,48 +1,51 @@
 """
 @d02acdad-67e2-49f3-9c2b-3129375ec10b/device.py
-@brief Distributed sensor processing simulation using static task chunking and a barrier singleton pattern.
-* Algorithm: Fair task partitioning (Round-Robin) across 8 worker threads with two-phase semaphore synchronization and max-value state propagation.
-* Functional Utility: Manages simulation timepoints across a network of devices by dividing scripts into chunks and synchronizing results through neighborhood-wide state updates.
+@brief Distributed sensor network simulation with balanced chunk task distribution.
+This module implements a parallel processing architecture where computational 
+scripts are partitioned into balanced chunks and assigned to a fixed pool of 8 
+worker threads (Instance). The system utilizes a monotonic update strategy 
+(maintaining the maximum value) for state propagation and ensures temporal 
+consistency through a singleton-like reusable barrier.
+
+Domain: Parallel Task Partitioning, Load Balancing, Monotonic State Updates.
 """
 
 from threading import *
 
-# Domain: Global state management - acts as a registry for reusable barriers to ensure consistent counts across devices.
+# Global Registry: used to provide singleton access to synchronization primitives.
 dictionary = {}
 
 
 class ReusableBarrier(object):
     """
-    @brief Implementation of a two-phase synchronization barrier using semaphores.
-    * Algorithm: Dual-stage arrival/release logic to prevent thread overruns in consecutive simulation steps.
+    Two-phase reusable barrier implementation using semaphores.
+    Functional Utility: Implements a double-gate rendezvous to coordinate simulation 
+    timepoints across all participating nodes.
     """
 
     def __init__(self, num_threads):
         """
-        @brief Initializes the barrier state and its internal phase semaphores.
+        Initializes the barrier.
+        @param num_threads: total count of participants.
         """
         self.num_threads = num_threads
-        self.count_threads1 = [self.num_threads] # Intent: Shared mutable counter for phase 1.
-        self.count_threads2 = [self.num_threads] # Intent: Shared mutable counter for phase 2.
+        self.count_threads1 = [self.num_threads]
+        self.count_threads2 = [self.num_threads]
         self.count_lock = Lock()
         self.threads_sem1 = Semaphore(0)
         self.threads_sem2 = Semaphore(0)
 
     def wait(self):
-        """
-        @brief Synchronizes the calling thread through both stages of the barrier.
-        """
+        """Executes the two-phase arrival and exit protocol."""
         self.phase(self.count_threads1, self.threads_sem1)
         self.phase(self.count_threads2, self.threads_sem2)
 
     def phase(self, count_threads, threads_sem):
-        """
-        @brief Executes a single synchronization stage.
-        Invariant: The last thread to arrive releases the entire group.
-        """
+        """Internal gate logic using atomic counter decrement."""
         with self.count_lock:
             count_threads[0] -= 1
             if count_threads[0] == 0:
+                # Threshold reached: release all threads.
                 for i in range(self.num_threads):
                     threads_sem.release()
                 count_threads[0] = self.num_threads
@@ -50,8 +53,8 @@ class ReusableBarrier(object):
 
 def pseudo_singleton(count):
     """
-    @brief Ensures a single ReusableBarrier instance exists for a given thread count.
-    Functional Utility: Facilitates global synchronization without explicit shared object passing.
+    Functional Utility: Provides a shared barrier instance based on the 
+    required thread count, acting as a network-wide coordination hub.
     """
     global dictionary
     if not dictionary.has_key(count):
@@ -60,14 +63,13 @@ def pseudo_singleton(count):
 
 class Device(object):
     """
-    @brief Encapsulates a sensor node with its local data and coordination thread.
+    Representation of a node in the sensor network.
+    Functional Utility: Manages local data state and coordinates simulation phases 
+    through a centralized management thread.
     """
 
     def __init__(self, device_id, sensor_data, supervisor):
-        """
-        @brief Initializes the device state and bootstraps the main coordinator thread.
-        """
-        self.lock = Lock() # Intent: Serializes local sensor data updates.
+        self.lock = Lock()
         self.barrier = None
         self.device_id = device_id
         self.sensor_data = sensor_data
@@ -75,6 +77,7 @@ class Device(object):
         self.script_received = Event()
         self.scripts = []
         self.timepoint_done = Event()
+        # Main lifecycle thread.
         self.thread = DeviceThread(self, 0)
         self.thread.start()
 
@@ -83,71 +86,65 @@ class Device(object):
 
     def setup_devices(self, devices):
         """
-        @brief Global synchronization setup.
+        Global resource acquisition.
+        Logic: Fetches the shared barrier from the global singleton registry.
         """
         self.barrier = pseudo_singleton(len(devices))
 
     def assign_script(self, script, location):
-        """
-        @brief Receives a processing task for the current simulation phase.
-        """
+        """Registers a task and signals the orchestration thread to begin processing."""
         if script is not None:
             self.scripts.append((script, location))
             self.script_received.set()
         else:
-            # Logic: Signals completion of task delivery for this timepoint.
             self.timepoint_done.set()
 
     def get_data(self, location):
-        """
-        @brief Standard data retrieval for sensor locations.
-        """
+        """Safe retrieval of local sensor data."""
         return self.sensor_data[location] if location in self.sensor_data else None
 
     def set_data(self, location, data):
-        """
-        @brief Standard data update for sensor locations.
-        """
+        """Updates local sensor state."""
         if location in self.sensor_data:
             self.sensor_data[location] = data
 
     def shutdown(self):
-        """
-        @brief Terminates the device coordination thread.
-        """
+        """Gracefully joins the device management thread."""
         self.thread.join()
 
 
 class DeviceThread(Thread):
     """
-    @brief Coordinator thread managing task chunking and worker execution phases.
+    Simulated node manager.
+    Functional Utility: Implements a chunked workload partitioning strategy to 
+    distribute tasks among transient worker instances.
     """
 
     def listoflists(self, list, number):
         """
-        @brief Partitions a list into a fixed number of roughly equal-sized chunks.
-        Algorithm: Dynamic slicing with round-robin tail distribution.
+        Chunking Heuristic.
+        Algorithm: Balanced partitioning of a list into N roughly equal sub-lists.
+        @return: A list of task chunks.
         """
         size = int(len(list) / number)
         chunks = []
         for i in xrange(number):
             chunks.append(list[0 + size * i: size * (i + 1)])
-        # Logic: Distributes remaining items across chunks to maintain balance.
+        # Block Logic: distributes remaining tasks across chunks.
         for i in xrange(len(list) - size * number):
             chunks[i % number].append(list[(size * number) + i])
         return chunks
 
     def __init__(self, device, id):
-        """
-        @brief Initializes the coordinator thread.
-        """
         Thread.__init__(self, name="Device Thread %d" % device.device_id)
         self.device = device
         self.thread_id = id
 
     class Instance(Thread):
         """
-        @brief worker thread implementing the execution of a script chunk.
+        Transient worker thread for batch processing.
+        Functional Utility: Executes a chunk of scripts sequentially while 
+        maintaining monotonic state updates across the neighborhood.
         """
         
         def __init__(self, device, listfromlist, neighbours):
@@ -158,10 +155,12 @@ class DeviceThread(Thread):
 
         def set_data_for_all_devices(self, location, result):
             """
-            @brief Propagates a result to all neighbors, keeping the maximum value found.
-            Invariant: Uses the parent device lock to ensure atomic read-update cycles.
+            Monotonic State Propagation.
+            Logic: Updates all nodes in the neighborhood with the maximum value 
+            found (result vs current), ensuring forward-only state flow.
             """
             for device in self.neighbours:
+                # Concurrent update protection.
                 self.device.lock.acquire()
                 device.set_data(location, max(result, device.get_data(location)))
                 self.device.lock.release()
@@ -172,11 +171,11 @@ class DeviceThread(Thread):
 
         def run(self):
             """
-            @brief main loop for script chunk processing.
+            Execution loop for the task chunk.
+            Algorithm: neighborhood aggregation followed by monotonic result propagation.
             """
             script_data = []
             for (script, location) in self.listfromlist:
-                # Distributed Aggregation Phase.
                 for device in self.neighbours:
                     data = device.get_data(location)
                     if data is not None:
@@ -186,42 +185,44 @@ class DeviceThread(Thread):
                 if data is not None:
                     script_data.append(data)
                 
-                # Execution and Propagation Phase.
                 if script_data != []:
+                    # Run logic and propagate results.
                     result = script.run(script_data)
                     self.set_data_for_all_devices(location, result)
 
 
     def run(self):
         """
-        @brief Main coordination loop for the device node.
-        Algorithm: Iterative chunked execution with barrier alignment.
+        Main orchestration loop for the simulation timepoint.
+        Algorithm: Balances work into 8 chunks and manages the worker lifecycle.
         """
         while True:
-            # Logic: Neighbor discovery.
+            # Refresh topology.
             neighbours = self.device.supervisor.get_neighbours()
+
             if neighbours is None:
                 break
             
-            # Block Logic: Waits for script delivery completion.
+            # Wait for supervisor signal.
             self.device.timepoint_done.wait()
             self.device.timepoint_done.clear()
             
-            # Partitioning Phase: Divides tasks into exactly 8 chunks.
+            # Block Logic: Workload partitioning.
             list_of_scripts = self.listoflists(self.device.scripts, 8)
             instances = []
             
-            # Dispatch Phase: Spawns a worker thread for each non-empty chunk.
+            # Spawns workers for each task chunk.
             for i in range(8):
                 if len(list_of_scripts):
                     instances.append(self.Instance(self.device, list_of_scripts[i], neighbours))
             
+            # Parallel execution phase.
             for index in range(len(instances)):
                 instances[index].start()
             
-            # Logic: Wait for all local workers to complete.
+            # Barrier Point: wait for all local chunk workers.
             for index in range(len(instances)):
                 instances[index].join()
             
-            # Synchronization Phase: Align all devices across the cluster.
+            # Global consensus rendezvous.
             self.device.barrier.wait()

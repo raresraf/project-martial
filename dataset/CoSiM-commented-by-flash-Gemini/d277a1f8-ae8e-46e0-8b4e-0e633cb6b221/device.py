@@ -1,8 +1,13 @@
 """
 @d277a1f8-ae8e-46e0-8b4e-0e633cb6b221/device.py
-@brief Distributed sensor processing simulation using a global thread pool and centralized synchronization.
-* Algorithm: Collective task offloading to a system-wide pool of 16 worker threads with per-location locking and phased barriers.
-* Functional Utility: Orchestrates simulation timepoints across multiple devices by managing a shared worker resource and ensuring consistent distributed state updates.
+@brief Distributed sensor network simulation with a centralized global worker pool.
+This module implements a unique architecture where individual network nodes act 
+as task producers, offloading computational scripts to a shared, global 'WorkPool'. 
+This centralized processing engine handles parallel execution for all devices in 
+the network simultaneously. Consistency is enforced through global spatial locks 
+and cross-node synchronization barriers.
+
+Domain: Centralized Parallelism, Shared Worker Pools, Distributed State Management.
 """
 
 from threading import Event, Thread, Lock
@@ -11,13 +16,12 @@ from reusable_barrier import ReusableBarrier
 
 class Device(object):
     """
-    @brief Encapsulates a sensor node that manages its local readings and interacts with the global pool.
+    Simulated network node acting as a task producer.
+    Functional Utility: Manages local data state and submits computational tasks 
+    to a network-wide shared worker pool.
     """
 
     def __init__(self, device_id, sensor_data, supervisor):
-        """
-        @brief Initializes the device state and bootstraps the coordination thread.
-        """
         self.device_id = device_id
         self.sensor_data = sensor_data
         self.supervisor = supervisor
@@ -27,13 +31,15 @@ class Device(object):
 
         self.timepoint_done = Event()
         self.other_devs = []
-        self.slock = Lock() # Intent: Serializes access to local sensor data.
+        # Mutex for protecting local data access.
+        self.slock = Lock()
 
         self.barrier = None
         self.process = Event()
 
+        # Shared Resources: populated during setup_devices.
         self.global_thread_pool = None
-        self.glocks = {} # Intent: Maps global locations to synchronization locks.
+        self.glocks = {}
 
         self.thread = DeviceThread(self)
         self.thread.start()
@@ -43,10 +49,12 @@ class Device(object):
 
     def setup_devices(self, devices):
         """
-        @brief Global synchronization and pool initialization.
-        Invariant: Root device (index 0) initializes the shared WorkPool and collective locks.
+        Global resource initialization and distribution.
+        Logic: Node 0 initializes the shared WorkPool, Barrier, and global lock pool. 
+        Subsequent nodes register their locations and attach to the shared resources.
         """
         self.other_devs = devices
+        # Leader Node Logic.
         if self.device_id == self.other_devs[0].device_id:
             locks = {}
             for loc in self.sensor_data:
@@ -54,30 +62,27 @@ class Device(object):
             dev_cnt = len(devices)
             self.glocks = locks
             self.barrier = ReusableBarrier(dev_cnt)
-            # Domain: Cluster-wide Resource Scaling - 16 threads for all participating devices.
+            # Central Processing Engine: sized for 16 concurrent workers.
             self.global_thread_pool = WorkPool(16)
         else:
-            # Logic: Peers register their local locations in the root's global lock map.
+            # Participant Node Logic: registers local locations in the global map.
             for loc in self.sensor_data:
                 self.other_devs[0].glocks[loc] = Lock()
+            
+            # Attach to the shared network resources.
             self.glocks = self.other_devs[0].glocks
             self.global_thread_pool = self.other_devs[0].global_thread_pool
             self.barrier = self.other_devs[0].barrier
 
     def assign_script(self, script, location):
-        """
-        @brief Buffers an incoming processing task.
-        """
+        """Registers a task and signals the orchestration thread."""
         if script is not None:
             self.scripts.append((script, location))
         else:
-            # Logic: Signals that all scripts for the current phase have arrived.
             self.script_received.set()
 
     def get_data(self, location):
-        """
-        @brief Synchronized retrieval of sensor data.
-        """
+        """Safe retrieval of local sensor data."""
         ret = None
         with self.slock:
             if location in self.sensor_data:
@@ -85,23 +90,20 @@ class Device(object):
         return ret
 
     def set_data(self, location, data):
-        """
-        @brief Synchronized update of sensor data.
-        """
+        """Thread-safe update of local state."""
         with self.slock:
             if location in self.sensor_data:
                 self.sensor_data[location] = data
 
     def shutdown(self):
-        """
-        @brief Terminates the device management thread.
-        """
+        """Joins the node management thread."""
         self.thread.join()
 
 class DeviceThread(Thread):
     """
-    @brief Coordination thread managing the lifecycle of a single device node.
-    Algorithm: Offloads local script batch to the global pool and waits for collective alignment.
+    Node-level lifecycle coordinator.
+    Functional Utility: Manages the submission of local tasks to the global pool 
+    and handles simulation phase transitions.
     """
     
     def __init__(self, device):
@@ -110,32 +112,32 @@ class DeviceThread(Thread):
 
     def run(self):
         """
-        @brief Main coordination loop for the device.
+        Main orchestration loop.
+        Algorithm: Iterative task offloading with barrier-based synchronization.
         """
         while True:
-            # Logic: Refresh neighbor set from supervisor.
+            # Topology Discovery.
             neighbours = self.device.supervisor.get_neighbours()
             if neighbours is None:
-                # Logic: Final shutdown - only the root device triggers pool termination.
+                # Termination Logic: leader node triggers pool shutdown.
                 if self.device.device_id is self.device.other_devs[0].device_id:
                     self.device.global_thread_pool.end()
                 break
 
-            # Block Logic: Waits for script delivery start.
+            # Wait for supervisor to finish script assignments.
             self.device.script_received.wait()
 
-            # Dispatch Phase: Submits all assigned scripts to the shared global WorkPool.
+            # Offload Logic: push all local scripts to the global WorkPool.
             for (script, location) in self.device.scripts:
                 self.device.global_thread_pool.work((self.device,
                 									script,
                 									location,
                 									neighbours))
 
-            # Synchronization Phase 1: Wait for local tasks in the pool to complete.
+            # Block until the global pool finishes this node's tasks.
             self.device.global_thread_pool.finish_work()
             self.device.script_received.clear()
-            
-            # Synchronization Phase 2: Wait for cluster-wide alignment.
+            # Synchronize with the entire network.
             self.device.barrier.wait()
 
 
@@ -143,7 +145,9 @@ from threading import Lock, Event, Semaphore, Thread
 
 class WorkerThread(Thread):
     """
-    @brief Persistent worker thread within the global WorkPool.
+    Global worker implementation.
+    Functional Utility: Consumes tasks from a multi-node shared queue and 
+    executes them while maintaining spatial mutual exclusion across the network.
     """
     
     def __init__(self, i, parent_work_pool):
@@ -152,68 +156,71 @@ class WorkerThread(Thread):
 
     def run(self):
         """
-        @brief Main loop for processing individual script tasks from the global queue.
-        Algorithm: Producer-Consumer consumption with location-based mutual exclusion.
+        Main worker execution loop.
+        Algorithm: Pull-process cycle with network-wide spatial locking.
         """
         while True:
-            # Logic: Blocks until a task signal is received.
+            # Wait for task arrival or shutdown signal.
             self.pool.task_sign.acquire()
             if self.pool.stop:
                 break
             
             current_task = (None, None, None, None)
-            # Invariant: Atomic removal of the head task from the shared list.
+            # Atomic task retrieval from the shared list.
             with self.pool.task_lock:
                 task_count = len(self.pool.tasks_list)
                 if task_count > 0:
                     current_task = self.pool.tasks_list[0]
                     self.pool.tasks_list = self.pool.tasks_list[1:]
                 
+                # Signal if the queue has become empty.
                 if task_count == 1:
-                    # Logic: Signals that the pool is now empty.
                     self.pool.no_tasks.set()
 
             if current_task is not None:
                 (current_device, script, location, neighbourhood) = current_task
-                # Pre-condition: Must acquire global location lock for atomic distributed update.
+                
+                # Global Critical Section: ensures network-wide consistency for the location.
                 with current_device.glocks[location]:
                     common_data = []
                     
-                    # Distributed Aggregation: Collect readings from neighbors and self.
+                    # Neighborhood aggregation.
                     for neighbour in neighbourhood:
                         data = neighbour.get_data(location)
                         if data is not None:
                             common_data.append(data)
                     
+                    # Owner node state integration.
                     data = current_device.get_data(location)
                     if data is not None:
                         common_data.append(data)
 
-                    # Execution and Propagation Phase.
                     if common_data != []:
+                        # Execute computation and propagate results.
                         result = script.run(common_data)
                         for neighbour in neighbourhood:
                             neighbour.set_data(location, result)
-                        
                         current_device.set_data(location, result)
 
 class WorkPool(object):
     """
-    @brief Shared thread pool manager for simulation-wide script execution.
+    Centralized task management hub.
+    Functional Utility: Implements an asynchronous task queue shared by 
+    multiple network nodes, managing worker lifecycles and signaling.
     """
     
     def __init__(self, size):
-        """
-        @brief Bootstraps the persistent worker pool.
-        """
         self.size = size
         self.tasks_list = [] 
         self.task_lock = Lock()
-        self.task_sign = Semaphore(0) # Intent: Counting semaphore for available tasks.
+        # semaphore acts as a counter for available tasks.
+        self.task_sign = Semaphore(0)
+        # Event used to signal queue drainage.
         self.no_tasks = Event()
         self.no_tasks.set()
         self.stop = False
 
+        # Spawn persistent worker pool.
         self.workers = []
         for i in xrange(self.size):
             worker = WorkerThread(i, self)
@@ -223,9 +230,7 @@ class WorkPool(object):
             worker.start()
 
     def work(self, task):
-        """
-        @brief Enqueues a new simulation task into the global pool.
-        """
+        """Submits a new task to the global queue."""
         with self.task_lock:
             self.tasks_list.append(task)
             self.task_sign.release()
@@ -233,18 +238,14 @@ class WorkPool(object):
                 self.no_tasks.clear()
 
     def finish_work(self):
-        """
-        @brief Blocks until all enqueued tasks have been consumed by workers.
-        """
+        """Blocks until the global queue is drained."""
         self.no_tasks.wait()
 
     def end(self):
-        """
-        @brief Orchestrates a graceful shutdown of all workers in the pool.
-        """
+        """Gracefully terminates all global worker threads."""
         self.finish_work()
         self.stop = True
-        # Logic: Wakes all workers to trigger shutdown check.
+        # release all workers to allow them to check the stop flag.
         for thread in self.workers:
             self.task_sign.release()
         for thread in self.workers:

@@ -4,7 +4,7 @@
  * Performance Optimization: implements loop unrolling, cache-friendly data access, and SIMD where applicable. Time/space complexity optimized.
  */
 
-
+/* @raw/49e4a913-40db-4e3f-84a4-1dadafd0217f/utils.h: Utilities for matrix solver */
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>

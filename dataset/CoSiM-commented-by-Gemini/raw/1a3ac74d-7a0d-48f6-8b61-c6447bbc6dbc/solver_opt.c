@@ -1,26 +1,23 @@
 /**
- * @file solver_opt.c
- * @brief An optimized implementation of a matrix solver.
- * @details This file provides a micro-optimized solution for the matrix equation
- * C = A * B * B' + A' * A, where A is an upper triangular matrix. It builds upon
- * the baseline version by introducing register-based optimizations.
+ * @raw/1a3ac74d-7a0d-48f6-8b61-c6447bbc6dbc/solver_opt.c
+ * @brief Computes the matrix expression C = A * B * B^T + A^T * A using optimized loops with register variables and local accumulators.
+ * * Algorithm: Optimized iterative matrix multiplication. Exploits the upper triangular property of matrix A.
+ * * Performance Optimization: Utilizes `register` keyword hints and local scalar accumulators (`sum`) to minimize memory access overhead.
+ * Time Complexity: $O(N^3)$ utilizing three nested loops for multiplication.
+ * Space Complexity: $O(N^2)$ for dynamically allocated intermediate matrices.
  */
 
 #include <stdlib.h>
 #include "utils.h"
 
-
 /**
- * @brief Computes the transpose of a square matrix.
- * @param N The dimension of the square matrix.
- * @param A The input matrix (N x N) to be transposed.
- * @param B The output matrix (N x N) where the transpose will be stored.
- *
- * This function performs an out-of-place matrix transposition.
- * Time Complexity: O(N^2)
+ * Functional Utility: Computes the transpose of a square matrix A into B.
  */
 void transpose(int N, double *A, double *B) {
 	int i, j;
+	/**
+	 * Block Logic: Iterates over the matrix dimensions to swap rows and columns.
+	 */
     for (i = 0; i < N; i++) {
         for (j = 0; j < N; j++) {
 			B[i * N + j] = A[j * N + i];
@@ -29,28 +26,10 @@ void transpose(int N, double *A, double *B) {
 }
 
 /**
- * @brief Solves the matrix equation C = A * B * B' + A' * A using a micro-optimized approach.
- * @param N The dimension of the square matrices.
- * @param A A pointer to the input upper triangular matrix A (N x N).
- * @param B A pointer to the input matrix B (N x N).
- * @return A pointer to the resulting matrix C (N x N).
- *
- * @details This version is functionally identical to the non-optimized solver but uses
- * the `register` keyword as a hint to the compiler to store frequently accessed variables
- * in CPU registers. It also introduces a local `sum` variable within the loops to
- * potentially improve data locality and reduce memory access.
- *
- * 1. Transposes B to get B'.
- * 2. Calculates BBt = B * B'.
- * 3. Calculates ABBt = A * BBt, exploiting the upper triangular nature of A.
- * 4. Transposes A to get A'.
- * 5. Calculates AtA = A' * A, exploiting the triangular nature of A and A'.
- * 6. Computes the final result C = ABBt + AtA.
+ * Functional Utility: Solves the matrix expression iteratively with optimizations.
  */
 double* my_solver(int N, double *A, double *B) {
-	printf("OPT SOLVER
-");
-	// Use 'register' as a hint to the compiler for frequently accessed pointers.
+	printf("OPT SOLVER\n");
 	register double *C = (double *) malloc(N * N * sizeof(double));
 	
 	register double *ABBt = (double *) malloc(N * N * sizeof(double));
@@ -63,11 +42,9 @@ double* my_solver(int N, double *A, double *B) {
 	transpose(N, B, Bt);
 	register int i, j, k;
 
-	
 	/**
-	 * Block Logic: Compute BBt = B * B' with register-based accumulators.
-	 * A local 'sum' variable is used for accumulation to encourage register usage.
-	 * Time Complexity: O(N^3)
+	 * Block Logic: Computes the intermediate matrix BBt = B * B^T.
+	 * Performance Optimization: Accumulates the product in a local register `sum` before writing to memory to reduce stores.
 	 */
 	for (i = 0; i < N; ++i) {
 		for (j = 0; j < N; ++j) {
@@ -79,11 +56,9 @@ double* my_solver(int N, double *A, double *B) {
 		}
 	}
 
-	
 	/**
-	 * Block Logic: Compute ABBt = A * BBt.
-	 * Exploits the upper triangular property of A (k starts from i).
-	 * Time Complexity: O(N^3), with a reduced operation count.
+	 * Block Logic: Computes ABBt = A * BBt.
+	 * Performance Optimization: Uses a local accumulator and exploits the upper triangular property of matrix A by setting inner loop start to `k = i`.
 	 */
 	for (i = 0; i < N; ++i) {
 		for (j = 0; j < N; ++j) {
@@ -97,12 +72,9 @@ double* my_solver(int N, double *A, double *B) {
 
 	transpose(N, A, At);
 
-	
 	/**
-	 * Block Logic: Compute AtA = A' * A.
-	 * Exploits the lower triangular property of A' (k <= i) and the upper
-	 * triangular property of A (k <= j).
-	 * Time Complexity: O(N^3), with a reduced operation count.
+	 * Block Logic: Computes AtA = A^T * A.
+	 * Performance Optimization: Binds the inner loop to compute only non-zero entries based on triangular limits (`k <= i && k <= j`).
 	 */
 	for (i = 0; i < N; ++i) {
 		for (j = 0; j < N; ++j) {
@@ -115,8 +87,7 @@ double* my_solver(int N, double *A, double *B) {
 	}
 
 	/**
-	 * Block Logic: Final element-wise addition C = ABBt + AtA.
-	 * Time Complexity: O(N^2)
+	 * Block Logic: Sums the intermediate products to form the final matrix C.
 	 */
 	for (i = 0; i < N; ++i) {
 		for (j = 0; j < N; ++j) {
@@ -124,7 +95,6 @@ double* my_solver(int N, double *A, double *B) {
 		}
 	}
 	
-	// Free all dynamically allocated intermediate matrices.
 	free(ABBt);
 	free(At);
 	free(AtA);

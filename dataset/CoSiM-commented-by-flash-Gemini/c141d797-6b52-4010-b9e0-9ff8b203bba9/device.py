@@ -1,51 +1,57 @@
 """
 @c141d797-6b52-4010-b9e0-9ff8b203bba9/device.py
-@brief Distributed sensor processing simulation using a collective thread pool and global synchronization locks.
-* Algorithm: Atomic task reservation with per-location mutual exclusion and multi-level barrier synchronization.
-* Functional Utility: Manages a fixed-size pool of worker threads that collaboratively process assigned scripts while maintaining global state consistency.
+@brief Distributed sensor network simulation with shared-counter task distribution.
+This implementation employs a multi-threaded architecture (8 threads per node) where 
+workers compete for tasks using an atomic index reservation system. It utilizes 
+class-level static resources for network-wide synchronization and designates an 
+'initiator' thread to manage topology updates and simulation phase transitions.
+
+Domain: Parallel Task Scheduling, Distributed Consensus, Class-level Shared State.
 """
 
 from threading import Event, Thread, Condition, Lock
 
 class Barrier(object):
     """
-    @brief Synchronizes a specific number of threads using condition variables.
-    * Functional Utility: Acts as a standard synchronization point for phased execution.
+    Monitor-based reusable barrier implementation.
+    Functional Utility: Provides a synchronization point for a fixed number of threads 
+    using a condition variable to signal when the threshold is met.
     """
     def __init__(self, num_threads=0):
-        """
-        @brief Initializes the barrier with a target thread count.
-        """
         self.num_threads = num_threads
         self.count_threads = self.num_threads    
         self.cond = Condition()                  
-                                                 
+ 
     def wait(self):
-        """
-        @brief Blocks calling thread until all expected participants have arrived.
-        """
+        """Blocks the calling thread until all participants have arrived."""
         self.cond.acquire()                      
-        self.count_threads -= 1
+        self.count_threads -= 1;
         if self.count_threads == 0:
-            # Logic: Last thread notifies all waiters and resets the count for re-use.
+            # Last thread triggers release and resets for the next cycle.
             self.cond.notify_all()               
             self.count_threads = self.num_threads    
         else:
-            self.cond.wait()                    
-        self.cond.release()
+            self.cond.wait();                    
+        self.cond.release(); 
 
+        
 class Device(object):
     """
-    @brief Main sensor device abstraction managing local data and worker threads.
-    * Domain: Shared class-level synchronization primitives for cluster coordination.
+    Node coordinator for the sensor network.
+    Functional Utility: Manages local data and provides the interface for network-wide 
+    synchronization through static class-level barriers and locks.
     """
     
-    DeviceBarrier = Barrier() # Intent: Global barrier for cross-device alignment.
-    DeviceLocks = []          # Intent: Global locks for protecting specific sensor locations.
+    # Static Network-Wide Synchronization Primitives.
+    DeviceBarrier = Barrier()
+    DeviceLocks = []
 
     def __init__(self, device_id, sensor_data, supervisor):
         """
-        @brief Initializes device state and bootstraps the internal worker pool (8 threads).
+        Initializes the device and its worker thread pool.
+        @param device_id: Unique integer identifier.
+        @param sensor_data: Initial state of local sensors.
+        @param supervisor: Topology and control entity.
         """
         self.device_id = device_id
         self.sensor_data = sensor_data
@@ -54,19 +60,23 @@ class Device(object):
         self.script_received = Event()
         self.scripts = []
         self.locations = []
+        
+        # Local state for task tracking.
         self.currentScript = 0
         self.scriptNumber = 0
         self.timepoint_done = Event()
 
         self.neighbours = []
         self.neighbours_event = Event()
-        self.lockScript = Lock() # Intent: Protects the atomic reservation of tasks.
-        self.barrier = Barrier(8) # Intent: Internal device barrier for worker coordination.
+        self.lockScript = Lock()
+        # Local barrier for internal thread pool synchronization.
+        self.barrier = Barrier(8)
         
-        # Block Logic: Spawns exactly 8 worker threads per device.
-        self.thread = DeviceThread(self, True) # Functional Utility: Designates one thread as the "Initiator" for management tasks.
+        # Spawns 8 threads: 1 initiator and 7 workers.
+        self.thread = DeviceThread(self, True)
         self.thread.start()
         self.threads = []
+        
         for _ in range(7):
             newThread = DeviceThread(self, False)
             self.threads.append(newThread)
@@ -77,30 +87,26 @@ class Device(object):
 
     def setup_devices(self, devices):
         """
-        @brief Global initialization of shared cluster resources.
+        Initializes global static resources.
+        Logic: Configures a network-wide barrier and populates the lock pool 
+        based on the total number of sensor locations.
         """
         size = len(devices)
         Device.DeviceBarrier = Barrier(size)
-        if Device.DeviceLocks == []:
+        if Device.DeviceLocks==[]:
             self.updateLocks()
 
     def getNeighbours(self):
-        """
-        @brief Utility to retrieve simulation-wide location count.
-        """
+        """Introspection helper to determine the scope of the sensor field."""
         return self.supervisor.supervisor.testcase.num_locations
 
     def updateLocks(self):
-        """
-        @brief Populates the global lock list for all possible sensor locations.
-        """
+        """Pre-allocates a pool of mutual exclusion locks for all sensor locations."""
         for _ in range(self.getNeighbours()):
             Device.DeviceLocks.append(Lock())
 
     def assign_script(self, script, location):
-        """
-        @brief Appends a script to the local execution queue.
-        """
+        """Queues a task for the current processing cycle."""
         if script is not None:
             self.scripts.append(script)
             self.locations.append(location)
@@ -109,29 +115,26 @@ class Device(object):
             self.timepoint_done.set()
 
     def get_data(self, location):
-        """
-        @brief Basic getter for sensor data at a specific location.
-        """
+        """Retrieves sensor data for the given location."""
         return self.sensor_data[location] if location in self.sensor_data else None
 
     def set_data(self, location, data):
-        """
-        @brief Basic setter for sensor data at a specific location.
-        """
+        """Updates local sensor state."""
         if location in self.sensor_data:
             self.sensor_data[location] = data
 
     def shutdown(self):
-        """
-        @brief Waits for all worker threads to terminate.
-        """
+        """Gracefully terminates the entire local thread pool."""
         self.thread.join()
         for myThread in self.threads:
             myThread.join()
 
+
 class DeviceThread(Thread):
     """
-    @brief worker thread implementing the core processing loop.
+    Worker implementation for a Device node.
+    Functional Utility: Participates in a shared-counter task distribution 
+    to process scripts while maintaining global and local consistency.
     """
 
     def __init__(self, device, isInitiator):
@@ -140,17 +143,15 @@ class DeviceThread(Thread):
         self.isInitiator = isInitiator
       
     def neighboursOperation(self):
-        """
-        @brief Refreshes neighbor set and resets phase state.
-        """
+        """Orchestrates neighborhood topology discovery at the start of a cycle."""
         self.device.neighbours = self.device.supervisor.get_neighbours()
         self.device.neighbours_event.set()
         self.device.currentScript = 0
 
     def reserve(self):
         """
-        @brief Atomically reserves the next available script task for this thread.
-        Algorithm: Fetch-and-add on the shared task index.
+        Atomic task reservation logic.
+        @return: The index of the next task to be processed.
         """
         self.device.lockScript.acquire()
         index = self.device.currentScript
@@ -159,71 +160,71 @@ class DeviceThread(Thread):
         return index    
 
     def acquireLocation(self, location):
-        """
-        @brief Blocks until exclusive access to the target sensor location is granted.
-        """
+        """Claims exclusive access to a specific sensor location across the network."""
         Device.DeviceLocks[location].acquire()
 
     def releaseLocation(self, location):
-        """
-        @brief Releases exclusive access to the target sensor location.
-        """
+        """Releases the network-wide lock for a sensor location."""
         Device.DeviceLocks[location].release()
 
     def ThreadWait(self):
-        """
-        @brief Internal device barrier wait.
-        """
+        """Local synchronization for the internal thread pool."""
         self.device.barrier.wait()
 
     def CheckForInitiator(self):
+        """Check if this thread is designated as the lifecycle controller."""
         return self.isInitiator
 
     def finishUp(self):
         """
-        @brief coordinates the end-of-phase cleanup and global synchronization.
+        Simulation phase completion logic.
+        Logic: Coordinates multiple barrier points to ensure all workers are finished 
+        before resetting events and advancing to the next temporal step.
         """
         self.ThreadWait()
         if self.CheckForInitiator():
             self.device.neighbours_event.clear()
             self.device.timepoint_done.clear()
         self.ThreadWait()
-        # Invariant: Global barrier ensures all devices have completed their local tasks.
         if self.CheckForInitiator():
+            # Synchronizes with all other devices in the network.
             Device.DeviceBarrier.wait()
 
     def run(self):
         """
-        @brief Main execution lifecycle for a worker thread.
+        Main worker execution loop.
+        Algorithm: Iterative timepoint processing with lock-based data protection.
         """
         while True:
-            # Logic: Only the designated initiator thread fetches the current neighbor set.
+            # Control Logic: Only the initiator thread handles topology discovery.
             if self.isInitiator == True:
                 self.neighboursOperation()
             
-            # Block Logic: Ensures all workers have current neighbor info before starting.
+            # Wait for topology state to be ready.
             self.device.neighbours_event.wait()
             if self.device.neighbours is None:
                 break
             
-            # Block Logic: Waits for script assignment to complete for the current timepoint.
+            # Wait for simulation start signal.
             self.device.timepoint_done.wait()
             
+            # Block Logic: Task Execution Phase.
             while True:
-                # Task Processing Phase.
+                # Concurrent reservation of the next available script index.
                 index = self.reserve()
+
                 if index >= self.device.scriptNumber:
-                    # Logic: Current task pool exhausted.
+                    # All tasks for this timepoint have been claimed.
                     break
                 
                 location = self.device.locations[index]
                 script = self.device.scripts[index]
                 
-                # Logic: Acquire location-specific lock for atomic distributed update.
+                # Global Critical Section: ensures atomic read-modify-write across the network.
                 self.acquireLocation(location)
                 script_data = []
                 
-                # Distributed Aggregation: Accumulate data from self and peers.
+                # Aggregate neighborhood and local data.
                 for device in self.device.neighbours:
                     data = device.get_data(location)
                     if data is not None:
@@ -233,8 +234,8 @@ class DeviceThread(Thread):
                 if data is not None:
                     script_data.append(data)
 
-                # Post-processing Phase: Execute and broadcast results.
                 if script_data != []:
+                    # Process and propagate results.
                     result = script.run(script_data)
                     for device in self.device.neighbours:
                         device.set_data(location, result)
@@ -242,5 +243,5 @@ class DeviceThread(Thread):
 
                 self.releaseLocation(location)
 
-            # Cleanup and Phase Transition.
+            # Barrier-based completion of the current simulation timepoint.
             self.finishUp()

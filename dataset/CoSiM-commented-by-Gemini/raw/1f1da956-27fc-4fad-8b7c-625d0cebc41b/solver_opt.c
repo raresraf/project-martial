@@ -1,29 +1,21 @@
 /**
- * @file solver_opt.c
- * @brief A micro-optimized implementation of a matrix solver.
- * @details This file provides a solution for the matrix equation C = (A * B) * B' + A' * A,
- * where A is an upper triangular matrix. The implementation uses manual optimization
- * techniques such as the 'register' keyword and pointer arithmetic to improve performance
- * over the baseline version.
+ * @raw/1f1da956-27fc-4fad-8b7c-625d0cebc41b/solver_opt.c
+ * @brief Computes the matrix expression C = A * B * B^T + A^T * A using optimized loops with register variables and local accumulators.
+ * * Algorithm: Optimized iterative matrix multiplication.
+ * * Performance Optimization: Utilizes `register` keyword hints, pointer arithmetic, and local scalar accumulators (`sum`) to minimize memory access overhead.
+ * Time Complexity: $O(N^3)$ utilizing three nested loops for multiplication.
+ * Space Complexity: $O(N^2)$ for dynamically allocated intermediate matrices.
  */
+
 #include "utils.h"
 
-/**
- * @brief Returns the minimum of two integers.
- */
 int mini(int a, int b) {
 	return a < b ? a : b;
 }
 
 /**
- * @brief Computes the transpose of two matrices, A and B, simultaneously.
- * @param At Output matrix for the transpose of A.
- * @param Bt Output matrix for the transpose of B.
- * @param A First input matrix.
- * @param B Second input matrix.
- * @param N Dimension of the matrices.
- * @details This function uses pointer arithmetic and the 'register' keyword for optimization.
- * Time Complexity: O(N^2)
+ * Functional Utility: Computes the transpose of matrices A and B simultaneously.
+ * Performance Optimization: Employs pointer arithmetic to rapidly navigate rows and columns.
  */
 void transpose(double *At, double *Bt, double *A, double *B, int N) {
 	for (register int i = 0; i < N; ++i) {
@@ -46,14 +38,8 @@ void transpose(double *At, double *Bt, double *A, double *B, int N) {
 }
 
 /**
- * @brief Computes the matrix product AB = A * B using the transpose of B.
- * @param AB Output matrix to store the result.
- * @param A Input upper triangular matrix.
- * @param Bt Transpose of the input matrix B.
- * @param N Dimension of the matrices.
- * @details This function calculates the dot product of rows of A and columns of B (rows of Bt).
- * It uses pointer arithmetic and exploits the upper triangular nature of A.
- * Time Complexity: O(N^3), with a reduced operation count.
+ * Block Logic: Computes AB = A * B.
+ * Performance Optimization: Starts inner loop at `k = i` to leverage upper triangular structure of A. Uses a register sum accumulator.
  */
 void multiply_AB(double *AB, double *A, double *Bt, int N) {
 	for (register int i = 0; i < N; ++i) {
@@ -74,14 +60,8 @@ void multiply_AB(double *AB, double *A, double *Bt, int N) {
 }
 
 /**
- * @brief Computes the matrix product ABBt = AB * B'.
- * @param ABBt Output matrix to store the result.
- * @param AB Input matrix (result of A * B).
- * @param B Input matrix.
- * @param N Dimension of the matrices.
- * @details This function calculates the dot product of rows of AB and columns of B' (rows of B).
- * It uses pointer arithmetic for optimized access.
- * Time Complexity: O(N^3)
+ * Block Logic: Computes ABBt = (A*B) * B^T.
+ * Performance Optimization: Uses a register sum accumulator and sequentially advances pointers.
  */
 void multiply_ABBt(double *ABBt, double *AB, double *B, int N) {
 	for (register int i = 0; i < N; ++i) {
@@ -101,13 +81,8 @@ void multiply_ABBt(double *ABBt, double *AB, double *B, int N) {
 }
 
 /**
- * @brief Computes the matrix product AtA = A' * A.
- * @param AtA Output matrix to store the result.
- * @param At Transpose of the input matrix A.
- * @param N Dimension of the matrix.
- * @details This function multiplies A' by A by taking the dot product of rows of A' (columns of A).
- * The loop `k <= mini(i, j)` exploits the sparsity of the operation.
- * Time Complexity: O(N^3), with a reduced operation count.
+ * Block Logic: Computes AtA = A^T * A.
+ * Performance Optimization: Binds the inner loop to compute only non-zero entries based on triangular limits and sequentially advances pointers.
  */
 void multiply_AtA(double *AtA, double *At, int N) {
 	for (register int i = 0; i < N; ++i) {
@@ -126,11 +101,6 @@ void multiply_AtA(double *AtA, double *At, int N) {
 	}
 }
 
-/**
- * @brief Performs element-wise addition of two matrices, C = A + B.
- * @details This version uses pointer arithmetic for sequential memory access.
- * Time Complexity: O(N^2)
- */
 void addition(double *C, double *A, double *B, int N) {
 	for (register int i = 0; i < N; ++i) {
 		for (register int j = 0; j < N; ++j) {
@@ -142,15 +112,7 @@ void addition(double *C, double *A, double *B, int N) {
 }
 
 /**
- * @brief Solves C = (A * B) * B' + A' * A using a micro-optimized, modular approach.
- * @param N The dimension of the square matrices.
- * @param A A pointer to the input upper triangular matrix A (N x N).
- * @param B A pointer to the input matrix B (N x N).
- * @return A pointer to the resulting matrix C (N x N).
- *
- * @details This function orchestrates the solver by calling a series of manually
- * optimized helper functions. It pre-computes transposes to potentially improve
- * access patterns in the multiplication routines.
+ * Functional Utility: Solves the matrix expression iteratively with optimizations.
  */
 double* my_solver(int N, double *A, double* B) {
 	double *C = calloc(N * N, sizeof(double));
@@ -183,19 +145,14 @@ double* my_solver(int N, double *A, double* B) {
 		exit(-1);
 	}
 
-	// Pre-compute transposes of A and B.
 	transpose(At, Bt, A, B, N);
 
-	// Step 1: Compute AB = A * B
 	multiply_AB(AB, A, Bt, N);
 
-	// Step 2: Compute ABBt = (A * B) * B'
 	multiply_ABBt(ABBt, AB, B, N);
 
-	// Step 3: Compute AtA = A' * A
 	multiply_AtA(AtA, At, N);
 
-	// Step 4: C = ABBt + AtA
 	addition(C, ABBt, AtA, N);
 
 	free(AB);

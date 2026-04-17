@@ -6,6 +6,9 @@
  * and compare them element-wise against a given precision tolerance.
  */
 
+// Module Level: Matrix Comparison Tool
+// @raw/421be9c8-0ad0-4313-8c6e-5fb36e35ae91/compare.c
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>

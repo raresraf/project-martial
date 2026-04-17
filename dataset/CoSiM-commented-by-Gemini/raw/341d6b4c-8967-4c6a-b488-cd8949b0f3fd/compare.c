@@ -1,9 +1,3 @@
-/**
- * @file compare.c
- * @brief Validates matrix outputs for production systems and HPC.
- * Utilizes memory mapping for fast cache-friendly I/O.
- * Checks numerical stability using absolute error tolerances.
- */
 
 
 #include <stdlib.h>
@@ -18,13 +12,10 @@
 #define check_err(a,b,err) ((fabs((a) - (b)) <= (err)) ? 0 : -1)
 
 
-/**
- * @brief Compares two binary matrix files using memory mapping.
- * Memory-maps files to avoid expensive user-space I/O buffers.
- * @param file_path1 Path to first file.
- * @param file_path2 Path to second file.
- * @param precision Allowed absolute error.
- * @return 0 if matched, -1 otherwise.
+/*
+ * Module: compare.c
+ * Purpose: High-level comparison utility for matrix files to check if two output matrices are equivalent within a tolerance.
+ * Path: @raw/341d6b4c-8967-4c6a-b488-cd8949b0f3fd/compare.c
  */
 int cmp_files(char const *file_path1, char const *file_path2, double precision) {
 	struct stat fileInfo1, fileInfo2;
@@ -37,7 +28,6 @@ int cmp_files(char const *file_path1, char const *file_path2, double precision) 
 	fstat(fd1, &fileInfo1);
 	fstat(fd2, &fileInfo2);
 
-	/* @pre Conditional evaluation. @invariant Taken branch maintains control flow invariants. */
 	if(fileInfo1.st_size != fileInfo2.st_size) {
 		printf("Files length differ\n");
 		close(fd1);
@@ -46,7 +36,6 @@ int cmp_files(char const *file_path1, char const *file_path2, double precision) 
 	}
 
 	mat1 = (double*) mmap(0, fileInfo1.st_size, PROT_READ, MAP_SHARED, fd1, 0);
-	/* @pre Conditional evaluation. @invariant Taken branch maintains control flow invariants. */
 	if (mat1 == MAP_FAILED)
 	{
 		close(fd1);
@@ -56,7 +45,6 @@ int cmp_files(char const *file_path1, char const *file_path2, double precision) 
 	}
 
 	mat2 = (double*) mmap(0, fileInfo2.st_size, PROT_READ, MAP_SHARED, fd2, 0);
-	/* @pre Conditional evaluation. @invariant Taken branch maintains control flow invariants. */
 	if (mat2 == MAP_FAILED)
 	{
 		munmap(mat1, fileInfo1.st_size);
@@ -68,12 +56,9 @@ int cmp_files(char const *file_path1, char const *file_path2, double precision) 
 
 	N = sqrt(fileInfo1.st_size / sizeof(double));
 
-	/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 	for (i = 0; i < N; i++ ) {
-		/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 		for (j = 0; j< N; j++) {
 			ret = check_err(mat1[i * N + j], mat2[i * N + j], precision); 
-			/* @pre Conditional evaluation. @invariant Taken branch maintains control flow invariants. */
 			if (ret != 0) {
 				printf("Matrixes differ on index [%d, %d]. Expected %.8lf got %.8lf\n",
 						i, j, mat1[i * N + j], mat2[i * N + j]);
@@ -97,7 +82,6 @@ int main(int argc, const char **argv)
 	double precision;
 	int ret = 0;
 
-	/* @pre Conditional evaluation. @invariant Taken branch maintains control flow invariants. */
 	if(argc < 4) {
 		printf("Usage: %s mat1 mat2 tolerance\n",argv[0]);
 		exit(-1);

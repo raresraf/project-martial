@@ -1,12 +1,11 @@
-/**
- * @file solver_neopt.c
- * @brief Straightforward array index mapped solver sequence.
+/*
+ * Module: Non-Optimized Solver
+ * @raw/611e7a62-6264-423a-81d0-b472cf5da55d/solver_neopt.c
+ * High-level purpose: Basic unoptimized matrix solver implementation.
  */
 #include "utils.h"
 
-/**
- * @brief Simple multiplication routines via loop nesting.
- */
+
 double* my_solver(int N, double *A, double* B) {
 	printf("NEOPT SOLVER\n");
 	double *C;
@@ -18,10 +17,6 @@ double* my_solver(int N, double *A, double* B) {
 	D = calloc(N*N, sizeof(double));
 	E = calloc(N*N, sizeof(double));
 
-	/**
-	 * @pre Arrays prepared.
-	 * @post A and B mapped to C.
-	 */
 	for(i = 0; i < N; i++){
 		for (j = 0; j < N; j++) {
 			int var = 0;
@@ -33,11 +28,6 @@ double* my_solver(int N, double *A, double* B) {
 			}
 		}
 	}
-
-	/**
-	 * @pre C loaded.
-	 * @post D aggregates from C combinations.
-	 */
 	for(i = 0; i < N; i++) {
 		for(j = 0; j < N; j++) {
 			for(k = 0; k < N; k++) {
@@ -46,10 +36,6 @@ double* my_solver(int N, double *A, double* B) {
 		}
 	}
 
-	/**
-	 * @pre Secondary iteration completed.
-	 * @post Output E sums transpose items and previous D.
-	 */
 	for(i = 0; i < N; i++){
 		for (j = 0; j < N; j++) {
 			for (k = 0; k <= j; k++) {

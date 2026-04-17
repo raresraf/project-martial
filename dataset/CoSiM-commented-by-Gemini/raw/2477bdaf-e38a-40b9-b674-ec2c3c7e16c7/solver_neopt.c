@@ -1,30 +1,10 @@
-/**
- * @file solver_neopt.c
- * @brief A non-optimized, baseline implementation of a matrix solver.
- * @details This file provides a straightforward, unoptimized solution for the matrix equation
- * C = (A * B) * B' + A' * A, where A is an upper triangular matrix. The implementation
- * uses explicit loops and allocates several temporary matrices for intermediate results.
- */
+/* Module Level: Non-optimized matrix multiplication solver. @raw/2477bdaf-e38a-40b9-b674-ec2c3c7e16c7/solver_neopt.c */
 #include "utils.h"
 
-/**
- * @brief Solves C = (A * B) * B' + A' * A using a non-optimized, sequential approach.
- * @param N The dimension of the square matrices.
- * @param A A pointer to the input upper triangular matrix A (N x N).
- * @param B A pointer to the input matrix B (N x N).
- * @return A pointer to the resulting matrix C (N x N).
- *
- * @details The function performs the matrix operations in several distinct steps, using
- * temporary buffers to store intermediate results.
- * 1. Manually computes the transpose of A and B.
- * 2. Computes the intermediate product `result_1 = A * B`.
- * 3. Computes the first main term `result_2 = (A * B) * B'`.
- * 4. Computes the second main term `result_3 = A' * A`.
- * 5. Computes the final result `C = result_2 + result_3`.
- */
+
+
 double* my_solver(int N, double *A, double* B) {
-	printf("NEOPT SOLVER
-");
+	printf("NEOPT SOLVER\n");
 	double* A_T = (double *)calloc(N * N , sizeof(double));
 	double* B_T = (double *)calloc(N * N , sizeof(double));
 	double* result_1 = (double *)calloc(N * N , sizeof(double));
@@ -34,10 +14,7 @@ double* my_solver(int N, double *A, double* B) {
 	int i ,j,k;
 
 	
-	/**
-	 * Block Logic: Step 1: Manually compute transposes of A and B.
-	 * Time Complexity: O(N^2)
-	 */
+	/* Block Level: Matrix transposition. */
 	for(i = 0; i < N; i++)
 	{
 		for(j = 0; j < N; j++)
@@ -48,12 +25,7 @@ double* my_solver(int N, double *A, double* B) {
 	}
 	
 	
-	/**
-	 * Block Logic: Step 2: Compute the intermediate product result_1 = A * B.
-	 * The inner loop `k` starts from `i`, which is an optimization for
-	 * multiplication with an upper triangular matrix A.
-	 * Time Complexity: O(N^3), with a lower constant factor.
-	 */
+	/* Block Level: Computation of intermediate result_1. */
 	for(i = 0; i < N; i++)
 	{
 		for(j = 0; j < N; j++)
@@ -66,11 +38,7 @@ double* my_solver(int N, double *A, double* B) {
 	}
 	
 	
-	/**
-	 * Block Logic: Step 3: Compute the first term result_2 = (A * B) * B'.
-	 * This multiplies the intermediate result `result_1` with `B_T`.
-	 * Time Complexity: O(N^3)
-	 */
+	/* Block Level: Computation of intermediate result_2. */
 	for(i = 0; i < N; i++)
 	{
 		for(j = 0; j < N; j++)
@@ -83,14 +51,7 @@ double* my_solver(int N, double *A, double* B) {
 	}
 	
 	
-	/**
-	 * Block Logic: Step 4: Compute the second term result_3 = A' * A.
-	 * This multiplies `A_T` with `A`. The loop `k <= (i < j ? i : j)` is
-	 * an optimization equivalent to `k <= min(i,j)`, which correctly
-	 * handles the multiplication of a lower triangular (A') and an upper
-	 * triangular (A) matrix.
-	 * Time Complexity: O(N^3), with a lower constant factor.
-	 */
+	/* Block Level: Computation of intermediate result_3. */
 	for(i = 0; i < N; i++)
 	{
 		for(j = 0; j < N; j++)
@@ -104,11 +65,7 @@ double* my_solver(int N, double *A, double* B) {
 
 
 	
-	/**
-	 * Block Logic: Step 5: Compute the final result C = result_2 + result_3.
-	 * This is an element-wise addition of the two main terms.
-	 * Time Complexity: O(N^2)
-	 */
+	/* Block Level: Final sum into matrix C. */
 	for(i = 0 ; i < N; i++)
 	{
 		for(j = 0; j < N; j++)
@@ -118,7 +75,7 @@ double* my_solver(int N, double *A, double* B) {
 	}	
 
 
-	// Free all dynamically allocated temporary matrices.
+	
 	free(A_T);
 	free(B_T);
 	free(result_1);

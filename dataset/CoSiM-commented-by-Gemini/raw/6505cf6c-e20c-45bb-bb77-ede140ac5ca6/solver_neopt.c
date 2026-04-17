@@ -1,4 +1,7 @@
-
+/*
+ * @raw/6505cf6c-e20c-45bb-bb77-ede140ac5ca6/solver_neopt.c
+ * Module implementing an unoptimized matrix solver.
+ */
 #include <stdlib.h>
 #include "utils.h"
 

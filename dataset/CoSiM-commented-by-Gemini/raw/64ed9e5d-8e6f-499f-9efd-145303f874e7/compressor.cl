@@ -1,4 +1,8 @@
-
+/*
+ * Module: Compressor OpenCL Kernel
+ * @raw/64ed9e5d-8e6f-499f-9efd-145303f874e7/compressor.cl
+ * High-level purpose: OpenCL kernel and host code for texture compression.
+ */
 typedef struct {
 	struct BgraColorType {
 		uchar b;

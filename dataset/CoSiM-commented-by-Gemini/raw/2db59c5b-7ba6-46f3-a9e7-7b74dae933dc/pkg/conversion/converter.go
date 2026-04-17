@@ -1,5 +1,3 @@
-// Package provides architecture-aware components for converter.go.
-// Focuses on production system reliability and error handling.
 /*
 Copyright 2014 Google Inc. All rights reserved.
 
@@ -63,7 +61,6 @@ type Converter struct {
 }
 
 // NewConverter creates a new Converter object.
-// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func NewConverter() *Converter {
 	return &Converter{
 		funcs:              map[typePair]reflect.Value{},
@@ -121,37 +118,29 @@ type scopeStackElem struct {
 
 type scopeStack []scopeStackElem
 
-// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func (s *scopeStack) pop() {
 	n := len(*s)
 	*s = (*s)[:n-1]
 }
 
-// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func (s *scopeStack) push(e scopeStackElem) {
 	*s = append(*s, e)
 }
 
-// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func (s *scopeStack) top() *scopeStackElem {
 	return &(*s)[len(*s)-1]
 }
 
-// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func (s scopeStack) describe() string {
 	desc := ""
-// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if len(s) > 1 {
 		desc = "(" + s[1].value.Type().String() + ")"
 	}
-// @pre Loop initialized. @invariant Evaluates condition each iteration.
 	for i, v := range s {
-// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if i < 2 {
 			// First layer on stack is not real; second is handled specially above.
 			continue
 		}
-// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if v.key == "" {
 			desc += fmt.Sprintf(".%v", v.value.Type())
 		} else {
@@ -162,58 +151,49 @@ func (s scopeStack) describe() string {
 }
 
 // Formats src & dest as indices for printing.
-// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func (s *scope) setIndices(src, dest int) {
 	s.srcStack.top().key = fmt.Sprintf("[%v]", src)
 	s.destStack.top().key = fmt.Sprintf("[%v]", dest)
 }
 
 // Formats src & dest as map keys for printing.
-// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func (s *scope) setKeys(src, dest interface{}) {
 	s.srcStack.top().key = fmt.Sprintf(`["%v"]`, src)
 	s.destStack.top().key = fmt.Sprintf(`["%v"]`, dest)
 }
 
 // Convert continues a conversion.
-// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func (s *scope) Convert(src, dest interface{}, flags FieldMatchingFlags) error {
 	return s.converter.Convert(src, dest, flags, s.meta)
 }
 
 // SrcTag returns the tag of the struct containing the current source item, if any.
-// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func (s *scope) SrcTag() reflect.StructTag {
 	return s.srcStack.top().tag
 }
 
 // DestTag returns the tag of the struct containing the current dest item, if any.
-// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func (s *scope) DestTag() reflect.StructTag {
 	return s.destStack.top().tag
 }
 
 // Flags returns the flags with which the current conversion was started.
-// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func (s *scope) Flags() FieldMatchingFlags {
 	return s.flags
 }
 
 // Meta returns the meta object that was originally passed to Convert.
-// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func (s *scope) Meta() *Meta {
 	return s.meta
 }
 
 // describe prints the path to get to the current (source, dest) values.
-// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func (s *scope) describe() (src, dest string) {
 	return s.srcStack.describe(), s.destStack.describe()
 }
 
 // error makes an error that includes information about where we were in the objects
 // we were asked to convert.
-// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func (s *scope) error(message string, args ...interface{}) error {
 	srcPath, destPath := s.describe()
 	where := fmt.Sprintf("converting %v to %v: ", srcPath, destPath)
@@ -227,32 +207,25 @@ func (s *scope) error(message string, args ...interface{}) error {
 //
 // Example:
 // c.Register(func(in *Pod, out *v1beta1.Pod, s Scope) error { ... return nil })
-// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func (c *Converter) Register(conversionFunc interface{}) error {
 	fv := reflect.ValueOf(conversionFunc)
 	ft := fv.Type()
-// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if ft.Kind() != reflect.Func {
 		return fmt.Errorf("expected func, got: %v", ft)
 	}
-// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if ft.NumIn() != 3 {
 		return fmt.Errorf("expected three 'in' params, got: %v", ft)
 	}
-// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if ft.NumOut() != 1 {
 		return fmt.Errorf("expected one 'out' param, got: %v", ft)
 	}
-// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if ft.In(0).Kind() != reflect.Ptr {
 		return fmt.Errorf("expected pointer arg for 'in' param 0, got: %v", ft)
 	}
-// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if ft.In(1).Kind() != reflect.Ptr {
 		return fmt.Errorf("expected pointer arg for 'in' param 1, got: %v", ft)
 	}
 	scopeType := Scope(nil)
-// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if e, a := reflect.TypeOf(&scopeType).Elem(), ft.In(2); e != a {
 		return fmt.Errorf("expected '%v' arg for 'in' param 2, got '%v' (%v)", e, a, ft)
 	}
@@ -260,7 +233,6 @@ func (c *Converter) Register(conversionFunc interface{}) error {
 	// This convolution is necessary, otherwise TypeOf picks up on the fact
 	// that forErrorType is nil.
 	errorType := reflect.TypeOf(&forErrorType).Elem()
-// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if ft.Out(0) != errorType {
 		return fmt.Errorf("expected error return, got: %v", ft)
 	}
@@ -274,7 +246,6 @@ func (c *Converter) Register(conversionFunc interface{}) error {
 // field exists.
 // May be called multiple times, even for the same source field & type--all applicable
 // copies will be performed.
-// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func (c *Converter) SetStructFieldCopy(srcFieldType interface{}, srcFieldName string, destFieldType interface{}, destFieldName string) error {
 	st := reflect.TypeOf(srcFieldType)
 	dt := reflect.TypeOf(destFieldType)
@@ -308,9 +279,7 @@ const (
 )
 
 // IsSet returns true if the given flag or combination of flags is set.
-// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func (f FieldMatchingFlags) IsSet(flag FieldMatchingFlags) bool {
-// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if flag == DestFromSource {
 		// The bit logic doesn't work on the default value.
 		return f&SourceToDest != SourceToDest
@@ -326,19 +295,15 @@ func (f FieldMatchingFlags) IsSet(flag FieldMatchingFlags) bool {
 // 'meta' is given to allow you to pass information to conversion functions,
 // it is not used by Convert() other than storing it in the scope.
 // Not safe for objects with cyclic references!
-// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func (c *Converter) Convert(src, dest interface{}, flags FieldMatchingFlags, meta *Meta) error {
 	dv, err := EnforcePtr(dest)
-// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if err != nil {
 		return err
 	}
-// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if !dv.CanAddr() {
 		return fmt.Errorf("can't write to dest")
 	}
 	sv, err := EnforcePtr(src)
-// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if err != nil {
 		return err
 	}
@@ -355,12 +320,9 @@ func (c *Converter) Convert(src, dest interface{}, flags FieldMatchingFlags, met
 
 // convert recursively copies sv into dv, calling an appropriate conversion function if
 // one is registered.
-// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func (c *Converter) convert(sv, dv reflect.Value, scope *scope) error {
 	dt, st := dv.Type(), sv.Type()
-// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if fv, ok := c.funcs[typePair{st, dt}]; ok {
-// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if c.Debug != nil {
 			c.Debug.Logf("Calling custom conversion of '%v' to '%v'", st, dt)
 		}
@@ -368,31 +330,26 @@ func (c *Converter) convert(sv, dv reflect.Value, scope *scope) error {
 		ret := fv.Call(args)[0].Interface()
 		// This convolution is necessary because nil interfaces won't convert
 		// to errors.
-// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if ret == nil {
 			return nil
 		}
 		return ret.(error)
 	}
 
-// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if !scope.flags.IsSet(AllowDifferentFieldTypeNames) && c.NameFunc(dt) != c.NameFunc(st) {
 		return scope.error("type names don't match (%v, %v)", c.NameFunc(st), c.NameFunc(dt))
 	}
 
 	// This should handle all simple types.
-// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if st.AssignableTo(dt) {
 		dv.Set(sv)
 		return nil
 	}
-// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if st.ConvertibleTo(dt) {
 		dv.Set(sv.Convert(dt))
 		return nil
 	}
 
-// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if c.Debug != nil {
 		c.Debug.Logf("Trying to convert '%v' to '%v'", st, dt)
 	}
@@ -406,23 +363,20 @@ func (c *Converter) convert(sv, dv reflect.Value, scope *scope) error {
 	case reflect.Struct:
 		return c.convertKV(toKVValue(sv), toKVValue(dv), scope)
 	case reflect.Slice:
-// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if sv.IsNil() {
 			// Don't make a zero-length slice.
 			dv.Set(reflect.Zero(dt))
 			return nil
 		}
 		dv.Set(reflect.MakeSlice(dt, sv.Len(), sv.Cap()))
-// @pre Loop initialized. @invariant Evaluates condition each iteration.
+		/* Pre-condition: sv is a valid slice. Invariant: elements up to i are converted and copied to dv */
 		for i := 0; i < sv.Len(); i++ {
 			scope.setIndices(i, i)
-// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 			if err := c.convert(sv.Index(i), dv.Index(i), scope); err != nil {
 				return err
 			}
 		}
 	case reflect.Ptr:
-// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if sv.IsNil() {
 			// Don't copy a nil ptr!
 			dv.Set(reflect.Zero(dt))
@@ -431,23 +385,19 @@ func (c *Converter) convert(sv, dv reflect.Value, scope *scope) error {
 		dv.Set(reflect.New(dt.Elem()))
 		return c.convert(sv.Elem(), dv.Elem(), scope)
 	case reflect.Map:
-// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if sv.IsNil() {
 			// Don't copy a nil ptr!
 			dv.Set(reflect.Zero(dt))
 			return nil
 		}
 		dv.Set(reflect.MakeMap(dt))
-// @pre Loop initialized. @invariant Evaluates condition each iteration.
 		for _, sk := range sv.MapKeys() {
 			dk := reflect.New(dt.Key()).Elem()
-// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 			if err := c.convert(sk, dk, scope); err != nil {
 				return err
 			}
 			dkv := reflect.New(dt.Elem()).Elem()
 			scope.setKeys(sk.Interface(), dk.Interface())
-// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 			if err := c.convert(sv.MapIndex(sk), dkv, scope); err != nil {
 				return err
 			}
@@ -459,7 +409,6 @@ func (c *Converter) convert(sv, dv reflect.Value, scope *scope) error {
 	return nil
 }
 
-// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func toKVValue(v reflect.Value) kvValue {
 	switch v.Kind() {
 	case reflect.Struct:
@@ -484,66 +433,53 @@ type kvValue interface {
 
 type structAdaptor reflect.Value
 
-// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func (sa structAdaptor) len() int {
 	v := reflect.Value(sa)
 	return v.Type().NumField()
 }
 
-// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func (sa structAdaptor) keys() []string {
 	v := reflect.Value(sa)
 	t := v.Type()
 	keys := make([]string, t.NumField())
-// @pre Loop initialized. @invariant Evaluates condition each iteration.
 	for i := range keys {
 		keys[i] = t.Field(i).Name
 	}
 	return keys
 }
 
-// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func (sa structAdaptor) tagOf(key string) reflect.StructTag {
 	v := reflect.Value(sa)
 	field, ok := v.Type().FieldByName(key)
-// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if ok {
 		return field.Tag
 	}
 	return ""
 }
 
-// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func (sa structAdaptor) value(key string) reflect.Value {
 	v := reflect.Value(sa)
 	return v.FieldByName(key)
 }
 
-// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func (sa structAdaptor) confirmSet(key string, v reflect.Value) bool {
 	return true
 }
 
 // convertKV can convert things that consist of key/value pairs, like structs
 // and some maps.
-// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func (c *Converter) convertKV(skv, dkv kvValue, scope *scope) error {
-// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if skv == nil || dkv == nil {
 		// TODO: add keys to stack to support really understandable error messages.
 		return fmt.Errorf("Unable to convert %#v to %#v", skv, dkv)
 	}
 
 	lister := dkv
-// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if scope.flags.IsSet(SourceToDest) {
 		lister = skv
 	}
-// @pre Loop initialized. @invariant Evaluates condition each iteration.
 	for _, key := range lister.keys() {
-// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if found, err := c.checkField(key, skv, dkv, scope); found {
-// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 			if err != nil {
 				return err
 			}
@@ -551,7 +487,6 @@ func (c *Converter) convertKV(skv, dkv kvValue, scope *scope) error {
 		}
 		df := dkv.value(key)
 		sf := skv.value(key)
-// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if !df.IsValid() || !sf.IsValid() {
 			switch {
 			case scope.flags.IsSet(IgnoreMissingFields):
@@ -567,7 +502,6 @@ func (c *Converter) convertKV(skv, dkv kvValue, scope *scope) error {
 		scope.srcStack.top().tag = skv.tagOf(key)
 		scope.destStack.top().key = key
 		scope.destStack.top().tag = dkv.tagOf(key)
-// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if err := c.convert(sf, df, scope); err != nil {
 			return err
 		}
@@ -577,32 +511,25 @@ func (c *Converter) convertKV(skv, dkv kvValue, scope *scope) error {
 
 // checkField returns true if the field name matches any of the struct
 // field copying rules. The error should be ignored if it returns false.
-// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func (c *Converter) checkField(fieldName string, skv, dkv kvValue, scope *scope) (bool, error) {
 	replacementMade := false
-// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if scope.flags.IsSet(DestFromSource) {
 		df := dkv.value(fieldName)
-// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if !df.IsValid() {
 			return false, nil
 		}
 		destKey := typeNamePair{df.Type(), fieldName}
 		// Check each of the potential source (type, name) pairs to see if they're
 		// present in sv.
-// @pre Loop initialized. @invariant Evaluates condition each iteration.
 		for _, potentialSourceKey := range c.structFieldSources[destKey] {
 			sf := skv.value(potentialSourceKey.fieldName)
-// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 			if !sf.IsValid() {
 				continue
 			}
-// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 			if sf.Type() == potentialSourceKey.fieldType {
 				// Both the source's name and type matched, so copy.
 				scope.srcStack.top().key = potentialSourceKey.fieldName
 				scope.destStack.top().key = fieldName
-// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 				if err := c.convert(sf, df, scope); err != nil {
 					return true, err
 				}
@@ -614,30 +541,31 @@ func (c *Converter) checkField(fieldName string, skv, dkv kvValue, scope *scope)
 	}
 
 	sf := skv.value(fieldName)
-// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if !sf.IsValid() {
 		return false, nil
 	}
 	srcKey := typeNamePair{sf.Type(), fieldName}
 	// Check each of the potential dest (type, name) pairs to see if they're
 	// present in dv.
-// @pre Loop initialized. @invariant Evaluates condition each iteration.
 	for _, potentialDestKey := range c.structFieldDests[srcKey] {
 		df := dkv.value(potentialDestKey.fieldName)
-// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if !df.IsValid() {
 			continue
 		}
-// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if df.Type() == potentialDestKey.fieldType {
 			// Both the dest's name and type matched, so copy.
 			scope.srcStack.top().key = fieldName
 			scope.destStack.top().key = potentialDestKey.fieldName
-// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 			if err := c.convert(sf, df, scope); err != nil {
 				return true, err
 			}
 			dkv.confirmSet(potentialDestKey.fieldName, df)
+			replacementMade = true
+		}
+	}
+	return replacementMade, nil
+}
+ldName, df)
 			replacementMade = true
 		}
 	}

@@ -35,6 +35,7 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 	int idx = 0, numKeys = this->HTcontor;
 
 	int i = 0;
+	// Pre-conditions: Ensure index is valid and bounds are respected.
 	while (i < HTmarime){
 		if (this->device_chei[i] != KEY_INVALID) {
 			ht_aux[0][idx] = this->device_chei[i];
@@ -541,6 +542,18 @@ public:
 
 	float loadFactor();
 	void occupancy();
+	void print(string info);
+
+	int hash(int data, int limit);
+
+	~GpuHashTable();
+
+	int HTcontor, HTmarime;
+	int *device_chei, *device_valori;
+};
+
+#endif
+void occupancy();
 	void print(string info);
 
 	int hash(int data, int limit);

@@ -1,10 +1,13 @@
-/*
- * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
- * or more contributor license agreements. Licensed under the "Elastic License
- * 2.0", the "GNU Affero General Public License v3.0 only", and the "Server Side
- * Public License v 1"; you may not use this file except in compliance with, at
- * your election, the "Elastic License 2.0", the "GNU Affero General Public
- * License v3.0 only", or the "Server Side Public License, v 1".
+/**
+ * @file EntitlementBootstrap.java
+ * @brief Dynamic bootstrap mechanism for Elasticsearch's entitlement enforcement agent.
+ * This class orchestrates the runtime activation of security and licensing checks 
+ * by dynamically attaching a Java agent to the current JVM process. It manages 
+ * complex dependency injection of security policies, path lookups, and module 
+ * exports to ensure that the entitlement runtime has full visibility and 
+ * enforcement capabilities over protected components and plugins.
+ *
+ * Domain: Enterprise Security, Java Instrumentation, Dynamic Agent Loading.
  */
 
 package org.elasticsearch.entitlement.bootstrap;
@@ -33,37 +36,30 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
-/**
- * @dc31b7fa-1342-44dc-8db2-0ca18b7da38f/libs/entitlement/src/main/java/org/elasticsearch/entitlement/bootstrap/EntitlementBootstrap.java
- * @brief Bootstrapping component for Elasticsearch's entitlement subsystem using dynamic Java agent attachment.
- * * Domain: Production Systems, Security Entitlements, Runtime Resource Access Control.
- * * Functional Utility: Configures the runtime environment for entitlement checks by injecting a Java agent 
- *   into the current process, enabling instrumented security policies across the cluster and plugins.
- */
 public class EntitlementBootstrap {
 
     /**
-     * @brief Entry point for activating the entitlement checking engine.
-     * Logic: Initializes the path lookup implementation, bundles initialization arguments, 
-     * exports required packages to the agent, and performs the dynamic attachment.
-     * 
-     * @param serverPolicyPatch            Policy augmentations for the core server.
-     * @param pluginPolicies               Map of per-plugin security policies.
-     * @param scopeResolver                Function to map classes to entitlement scopes.
-     * @param settingResolver              Function to resolve Elasticsearch settings patterns.
-     * @param dataDirs                     Array of filesystem paths for data storage.
-     * @param sharedRepoDirs               Paths for shared snapshots/repositories.
-     * @param configDir                    Location of node configuration files.
-     * @param libDir                       Location of core library files.
-     * @param modulesDir                   Location of internal system modules.
-     * @param pluginsDir                   Location of external plugin installations.
-     * @param pluginSourcePaths            Map of plugin names to their source code locations.
-     * @param logsDir                      Location for system audit and error logs.
-     * @param tempDir                      Location for transient runtime files.
-     * @param pidFile                      Path to the process identifier file.
-     * @param suppressFailureLogPackages   Set of packages exempted from entitlement failure logging.
-     * 
-     * @throws IllegalStateException if initialization data is already set or agent attachment fails.
+     * Primary activation sequence for the entitlement enforcement subsystem.
+     * Logic: Aggregates system paths and policies into an initialization context, 
+     * exports required modules, and triggers the dynamic loading of the agent JAR.
+     * Once completed, any unauthorized access to protected methods will trigger 
+     * entitlement exceptions.
+     *
+     * @param serverPolicyPatch            additional entitlements for the core server layer.
+     * @param pluginPolicies               mapping of plugin identifies to their respective security policies.
+     * @param scopeResolver                functor to resolve class-to-module architectural mappings.
+     * @param settingResolver              functor for resolving Elasticsearch configuration patterns.
+     * @param dataDirs                     Elasticsearch data storage paths.
+     * @param sharedRepoDirs               Paths for shared repositories (backups, etc).
+     * @param configDir                    Directory containing system configuration files.
+     * @param libDir                       Directory for core library JARs.
+     * @param modulesDir                   Path to Elasticsearch internal modules.
+     * @param pluginsDir                   Root directory for third-party or optional plugins.
+     * @param pluginSourcePaths            mapping of plugins to their physical source locations for auditing.
+     * @param logsDir                      Directory for operational log storage.
+     * @param tempDir                      Path for transient file storage.
+     * @param pidFile                      Optional path to the process ID file.
+     * @param suppressFailureLogPackages   Package whitelist for filtering entitlement failure noise.
      */
     public static void bootstrap(
         Policy serverPolicyPatch,
@@ -84,12 +80,12 @@ public class EntitlementBootstrap {
     ) {
         logger.debug("Loading entitlement agent");
         
-        // Logic: Ensures idempotency of the bootstrap process.
+        // Invariant: Entitlement agent can only be initialized once per process lifecycle.
         if (EntitlementInitialization.initializeArgs != null) {
             throw new IllegalStateException("initialization data is already set");
         }
-        
-        // Block Logic: Construct the runtime path context for policy evaluation.
+
+        // Functional Utility: Encapsulates filesystem visibility rules for the enforcement agent.
         PathLookupImpl pathLookup = new PathLookupImpl(
             getUserHome(),
             configDir,
@@ -103,8 +99,8 @@ public class EntitlementBootstrap {
             pidFile,
             settingResolver
         );
-        
-        // Logic: Packages the static configuration needed by the agent upon startup.
+
+        // State Capture: prepares the cross-module arguments for the incoming agent.
         EntitlementInitialization.initializeArgs = new EntitlementInitialization.InitializeArgs(
             serverPolicyPatch,
             pluginPolicies,
@@ -113,14 +109,18 @@ public class EntitlementBootstrap {
             pluginSourcePaths,
             suppressFailureLogPackages
         );
-        
+
+        // Security Protocol: ensures the agent can access initialization data across module boundaries.
         exportInitializationToAgent();
+
+        // Execution: dynamically injects the agent into the running JVM.
         loadAgent(findAgentJar(), EntitlementInitialization.class.getName());
     }
 
     /**
-     * @brief Retrieves the user's home directory from system properties.
-     * @return Path object representing the user home.
+     * Retrieves the current user's home directory.
+     * @return Path representing the user home.
+     * @throws IllegalStateException if the 'user.home' property is missing.
      */
     private static Path getUserHome() {
         String userHome = System.getProperty("user.home");
@@ -131,22 +131,21 @@ public class EntitlementBootstrap {
     }
 
     /**
-     * @brief Dynamically attaches the Java agent to the current process.
-     * * Optimization: Uses Sun's Attach API to inject the entitlement logic at runtime 
-     *   without requiring -javaagent at startup.
-     * 
-     * @param agentPath                         Filesystem path to the agent JAR.
-     * @param entitlementInitializationClassName The class responsible for agent entry.
+     * Core dynamic instrumentation logic using the Java Attach API.
+     * Logic: Connects to the current process via its PID and commands the JVM 
+     * to load the specified agent JAR.
+     * @param agentPath Filesystem path to the agent JAR.
+     * @param entitlementInitializationClassName Fully qualified name of the agent entry class.
      */
     @SuppressForbidden(reason = "The VirtualMachine API is the only way to attach a java agent dynamically")
     static void loadAgent(String agentPath, String entitlementInitializationClassName) {
         try {
-            // Logic: Attaches to the current PID to load the instrumentation agent.
+            // Attach to self: enables dynamic bytecode manipulation and enforcement.
             VirtualMachine vm = VirtualMachine.attach(Long.toString(ProcessHandle.current().pid()));
             try {
                 vm.loadAgent(agentPath, entitlementInitializationClassName);
             } finally {
-                // Post-condition: Detaches from the VM once the agent is successfully loaded.
+                // Ensure the attachment is closed after the agent is loaded.
                 vm.detach();
             }
         } catch (AttachNotSupportedException | IOException | AgentLoadException | AgentInitializationException e) {
@@ -155,21 +154,22 @@ public class EntitlementBootstrap {
     }
 
     /**
-     * @brief Exports the initialization package to the unnamed module of the system class loader.
-     * Functional Utility: Facilitates interoperability between the core application modules and 
-     * the dynamically loaded agent which resides in the unnamed module.
+     * Configures JPMS module exports for cross-layer communication.
+     * Logic: Explicitly exports the initialization package to the unnamed module 
+     * where the agent typically resides.
      */
     private static void exportInitializationToAgent() {
         String initPkg = EntitlementInitialization.class.getPackageName();
-        // agent will live in unnamed module
+        // Target: System class loader's unnamed module (default agent location).
         Module unnamedModule = ClassLoader.getSystemClassLoader().getUnnamedModule();
         EntitlementInitialization.class.getModule().addExports(initPkg, unnamedModule);
     }
 
     /**
-     * @brief Locates the entitlement agent JAR file within the Elasticsearch installation.
-     * Algorithm: Priority-based lookup (System Property -> Installation Directory scan).
-     * @return Full path to the agent JAR.
+     * Resolves the location of the entitlement agent JAR.
+     * Logic: Prioritizes system properties, falling back to the standard Elasticsearch 
+     * installation layout (lib/entitlement-agent).
+     * @return String path to the validated agent JAR.
      */
     static String findAgentJar() {
         String propertyName = "es.entitlement.agentJar";
@@ -178,15 +178,15 @@ public class EntitlementBootstrap {
             return propertyValue;
         }
 
-        // Logic: Defaults to scanning the standard 'lib/entitlement-agent' folder.
         Path esHome = Path.of(System.getProperty("es.path.home"));
         Path dir = esHome.resolve("lib/entitlement-agent");
+        
+        // Block Logic: Filesystem validation.
         if (Files.exists(dir) == false) {
             throw new IllegalStateException("Directory for entitlement jar does not exist: " + dir);
         }
-        
         try (var s = Files.list(dir)) {
-            // Logic: Validates that exactly one JAR exists in the target directory.
+            // Invariant: Expects exactly one JAR in the entitlement-agent directory.
             var candidates = s.limit(2).toList();
             if (candidates.size() != 1) {
                 throw new IllegalStateException("Expected one jar in " + dir + "; found " + candidates.size());

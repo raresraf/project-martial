@@ -1,14 +1,12 @@
-/**
- * @file solver_opt.c
- * @brief Cache hit optimization via inline pointers.
+/*
+ * Module: Optimized Solver
+ * @raw/623b273a-0241-4abf-bd8b-e5af273c535b/solver_opt.c
+ * High-level purpose: Optimized matrix solver using manual loop unrolling and pointer arithmetic.
  */
 #include "utils.h"
 #define REG register
 
 
-/**
- * @brief Optimizes strided accesses into direct pointer increment instructions.
- */
 double* my_solver(int N, double *A, double* B) {
 	printf("OPT SOLVER\n");
 
@@ -23,10 +21,7 @@ double* my_solver(int N, double *A, double* B) {
 	BBtranspose = calloc(N * N, sizeof(*BBtranspose));
 	ABBt = calloc(N * N, sizeof(*ABBt));
 
-	/**
-	 * @pre Blank accumulator array.
-	 * @post Generates subproducts of A through sequential memory traversal.
-	 */
+	
 	for(i = 0; i < N; i++) {
 		
 		REG double *iA_col_fst = A + i; 
@@ -40,7 +35,6 @@ double* my_solver(int N, double *A, double* B) {
 			for(k = 0; k <= j && k <= i; k++) {
 				res += *iA_copy * *iA_col_snd;
 				
-				/// Jumps N steps explicitly.
 				iA_copy += N;
 				iA_col_snd += N;
 			}
@@ -48,10 +42,7 @@ double* my_solver(int N, double *A, double* B) {
 		}
 	}
 
-	/**
-	 * @pre Empty buffer.
-	 * @post Generates BBt product with localized memory caching.
-	 */
+	
 	for(i = 0; i < N; i++) {
 		
 		REG double *iB_lin_fst = B + i * N;
@@ -72,10 +63,7 @@ double* my_solver(int N, double *A, double* B) {
 		}
 	}
 
-	/**
-	 * @pre BBtranspose established.
-	 * @post Iterates inner pointers producing ABBt intermediate blocks.
-	 */
+	
 	for(i = 0; i < N; i++) {
 		
 		REG double *iA_lin_fst = A + i * N;
@@ -96,10 +84,7 @@ double* my_solver(int N, double *A, double* B) {
 		}
 	}
 
-	/**
-	 * @pre Isolated terms created.
-	 * @post Stores total addition directly to output.
-	 */
+	
 	for(i = 0; i < N; i++) {
 		for(j = 0; j < N; j++)
 			result[i * N + j] = ABBt[i * N + j] + AAtranspose[i * N + j];

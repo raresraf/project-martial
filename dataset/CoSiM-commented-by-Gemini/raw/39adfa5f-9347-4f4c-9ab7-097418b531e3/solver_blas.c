@@ -1,27 +1,17 @@
-/**
- * @file solver_blas.c
- * @brief BLAS-optimized implementation of matrix operations.
- *
- * Utilizes high-performance CBLAS routines to compute A * B * B^T + A^T * A.
+/*
+ * Module: @raw/39adfa5f-9347-4f4c-9ab7-097418b531e3/solver_blas.c
+ * High-level purpose: BLAS solver.
  */
-
 #include "utils.h"
 #include "cblas.h"
 #include <string.h>
 
-/**
- * @brief Solves the matrix equation using BLAS routines.
- *
- * @param N Matrix dimension.
- * @param A Pointer to the first input matrix (upper triangular).
- * @param B Pointer to the second input matrix.
- * @return Pointer to the resulting matrix, or NULL on allocation failure.
- */
+
 double* my_solver(int N, double *A, double *B) {
     double *partial_result1 = (double *)malloc(N * N * sizeof(double));
     double *partial_result2 = (double *)malloc(N * N * sizeof(double));
 
-    
+    /* Pre-condition: partial_result matrices allocated. Invariant: N > 0. */
 	cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans,
 		N, N, N, 1.0, B, N, B, N, 0, partial_result1, N);
 

@@ -1,9 +1,5 @@
-/**
- * @file solver_neopt.c
- * @brief Encapsulates functional utility for solver_neopt.c.
- * Performance Optimization: implements loop unrolling, cache-friendly data access, and SIMD where applicable. Time/space complexity optimized.
- */
 
+/* @raw/4caa944a-30ba-4706-a35e-ba8a41ca904f/solver_neopt.c: Unoptimized matrix solver */
 #include "utils.h"
 
 
@@ -26,11 +22,9 @@ double* my_solver(int N, double *A, double* B) {
 	DIE(ABBt == NULL, "calloc ABBt");
 
     
-	/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
+	/* Pre-condition: Arrays allocated. */
 	for (i = 0; i < N; i++) {
-        /* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
         for (j = 0; j < N; j++) {
-            /* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
             for (k = i; k < N; k++) {
                 AB[i * N + j] += A[i * N + k] * B[k * N + j];
             }
@@ -38,11 +32,8 @@ double* my_solver(int N, double *A, double* B) {
     }
 
 	
-	/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 	for (i = 0; i < N; i++) {
-        /* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
         for (j = 0; j < N; j++) {
-            /* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
             for (k = 0; k < N; k++) {
                 ABBt[i * N + j] += AB[i * N + k] * B[j * N + k];
             }
@@ -50,21 +41,16 @@ double* my_solver(int N, double *A, double* B) {
     }
 
 	
-	/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 	for (i = 0; i < N; i++) {
-        /* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
         for (j = 0; j < N; j++) {
-            /* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
-            for (k = 0; k <= i && k <= j; k++) { /* Non-obvious bitwise operation or pointer arithmetic */
+            for (k = 0; k <= i && k <= j; k++) {
                 AtA[i * N + j] += A[k * N + i] * A[k * N + j];
             }
         }
     }
 
 	
-	/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 	for (i = 0; i < N; i++) {
-        /* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
         for (j = 0; j < N; j++) {
             C[i * N + j] = ABBt[i * N + j] + AtA[i * N + j];
         }

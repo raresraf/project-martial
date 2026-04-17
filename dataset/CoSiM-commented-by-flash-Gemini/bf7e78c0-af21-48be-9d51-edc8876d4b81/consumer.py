@@ -1,8 +1,12 @@
 """
 @bf7e78c0-af21-48be-9d51-edc8876d4b81/consumer.py
-@brief Producer-Consumer simulation for a marketplace system with multi-threaded inventory management.
-* Algorithm: Concurrent asynchronous task processing with exponential/fixed backoff for resource contention.
-* Functional Utility: Facilitates a virtual market where producers publish goods and consumers manage carts and place orders.
+@brief Simulation of a multi-threaded electronic marketplace with Producers and Consumers.
+This module implements a coordinated trading environment where Producers supply goods 
+to a central Marketplace, and Consumers perform transactional operations (adding/removing 
+items) asynchronously. The system uses a backoff-and-retry strategy to handle resource 
+limitations such as full queues or unavailable stock.
+
+Domain: Concurrent Systems, Producer-Consumer Pattern, Backoff Algorithms.
 """
 
 from threading import Thread
@@ -10,12 +14,17 @@ from time import sleep
 
 class Consumer(Thread):
     """
-    @brief Consumer entity that interacts with the marketplace to acquire products.
+    Simulates a network-attached client performing shopping operations.
+    Functional Utility: Manages multiple shopping carts and interacts with the 
+    marketplace to fulfill a predefined set of transaction requests.
     """
 
     def __init__(self, carts, marketplace, retry_wait_time, **kwargs):
         """
-        @brief Initializes the consumer with its target shopping carts and marketplace connection.
+        Initializes the consumer thread.
+        @param carts: A list of shopping task lists (each list contains operations).
+        @param marketplace: The central coordinator for products and transactions.
+        @param retry_wait_time: Interval to wait before retrying a failed operation.
         """
         Thread.__init__(self, **kwargs)
         self.carts = carts
@@ -24,44 +33,43 @@ class Consumer(Thread):
 
     def run(self):
         """
-        @brief Main consumer execution loop processing a sequence of shopping carts.
-        Algorithm: Iterative operation processing (add/remove) followed by a final order placement.
+        Main execution loop for the consumer.
+        Logic: Iterates through each cart and its associated operations (add/remove), 
+        then finalize orders.
         """
         for cart in self.carts:
+            # Atomic creation of a new session context in the marketplace.
             cart_id = self.marketplace.new_cart()
             for oper in cart:
                 type_of_operation = oper["type"]
                 prod = oper["product"]
                 quantity = oper["quantity"]
-                
-                # Logic: Dispatches marketplace interaction based on the requested operation type.
                 if type_of_operation == "add":
                     self.add_cart(cart_id, prod, quantity)
                 elif type_of_operation == "remove":
                     self.remove_cart(cart_id, prod, quantity)
-            
-            # Post-condition: Completes the transaction and displays the results.
+            # Finalize the transaction and receive a manifest of successfully purchased items.
             p_purchased = self.marketplace.place_order(cart_id)
             for prod in p_purchased:
                 print(f"{self.getName()} bought {prod}")
 
     def add_cart(self, cart_id, product_id, quantity):
         """
-        @brief Attempts to add a specific quantity of a product to the cart.
-        Logic: Uses a busy-wait loop with retry backoff to handle temporary inventory depletion.
+        Attempts to move items from the marketplace pool to a specific cart.
+        Algorithm: Iterative try-wait loop ensuring the desired quantity is fulfilled.
         """
         for _ in range(quantity):
             while True:
                 added = self.marketplace.add_to_cart(cart_id, product_id)
                 if added:
                     break
-                # Functional Utility: Prevents excessive CPU usage during inventory unavailability.
+                # Functional Utility: Implements a fixed-interval backoff to prevent busy-waiting.
                 sleep(self.retry_wait_time)
 
     def remove_cart(self, cart_id, product_id, quantity):
         """
-        @brief Attempts to remove a specific quantity of a product from the cart.
-        Logic: Busy-wait loop with retry backoff to handle cart modification constraints.
+        Restores items from a cart back to the marketplace availability pool.
+        Algorithm: Iterative try-wait loop for quantity reversal.
         """
         for _ in range(quantity):
             while True:
@@ -74,31 +82,34 @@ class Consumer(Thread):
 from threading import Lock
 import unittest
 import sys
-# Logic: Dynamic path injection to import product-specific definitions.
 sys.path.insert(1, './tema')
 import product as produs
 
 class Marketplace:
     """
-    @brief Centralized hub for product inventory and transaction coordination.
+    The central coordinator managing product visibility and thread-safe transactions.
+    Functional Utility: Acts as a broker between producers (supply) and consumers (demand) 
+    using per-producer queues and per-consumer carts.
     """
     
     def __init__(self, queue_size_per_producer):
         """
-        @brief Initializes the marketplace with capacity constraints and internal storage.
+        Initializes the marketplace.
+        @param queue_size_per_producer: Maximum buffer size for each producer's supply line.
         """
         self.queue_size_per_producer = queue_size_per_producer
         self.producer_id = 0
         self.cart_id = 0
-        self.queues = [] # Domain: Inventory storage partitioned by producer.
-        self.carts = []  # Domain: Active transactions.
+        self.queues = []
+        self.carts = []
         self.mutex = Lock()
-        self.products_dict = {} # Intent: Maps products to their respective producer IDs for efficient removal.
+        # Mapping from product instances to their originating producer queue index.
+        self.products_dict = {}
 
     def register_producer(self):
         """
-        @brief Onboards a new producer and allocates an inventory queue.
-        Invariant: Uses mutex to ensure thread-safe increment of producer IDs.
+        Registers a new supply entity.
+        Logic: Atomically assigns a unique ID and initializes a corresponding supply queue.
         """
         self.mutex.acquire()
         producer_id = self.producer_id
@@ -109,8 +120,8 @@ class Marketplace:
 
     def publish(self, producer_id, product):
         """
-        @brief Allows a producer to add a product to the marketplace inventory.
-        Pre-condition: Producer's queue must not exceed queue_size_per_producer.
+        Accepts a product from a producer and places it in the available supply.
+        @return: True if successful, False if the producer's buffer is full.
         """
         index_prod = int(producer_id)
         if len(self.queues[index_prod]) == self.queue_size_per_producer:
@@ -121,7 +132,8 @@ class Marketplace:
 
     def new_cart(self):
         """
-        @brief Generates a new unique cart ID for a consumer transaction.
+        Creates a new shopping cart for a consumer.
+        Logic: Generates a unique cart ID and initializes its storage list.
         """
         self.mutex.acquire()
         cart_id = self.cart_id
@@ -132,8 +144,9 @@ class Marketplace:
 
     def add_to_cart(self, cart_id, product):
         """
-        @brief Transfers a product from producer inventory to a consumer cart.
-        Logic: Linear search across all producer queues to find and consume the item.
+        Transfers a product from any available producer queue to a consumer's cart.
+        Logic: Implements a global search across all producer buffers.
+        @return: True if item was found and moved, False otherwise.
         """
         prod_in_queue = False
         for queue in self.queues:
@@ -148,8 +161,9 @@ class Marketplace:
 
     def remove_from_cart(self, cart_id, product):
         """
-        @brief Returns a product from a consumer cart back to its producer's inventory.
-        Pre-condition: Target producer's queue must have available capacity.
+        Removes a product from a cart and returns it to its original producer queue.
+        Precondition: The original producer queue must have space available.
+        @return: True if the operation succeeded, False if cart doesn't have item or queue is full.
         """
         if product not in self.carts[cart_id]:
             return False
@@ -162,7 +176,8 @@ class Marketplace:
 
     def place_order(self, cart_id):
         """
-        @brief Finalizes a transaction and returns the list of purchased products.
+        Finalizes the shopping session.
+        Logic: Flushes the cart and returns the list of purchased products.
         """
         cart_product_list = self.carts[cart_id]
         self.carts[cart_id] = []
@@ -170,7 +185,7 @@ class Marketplace:
 
 class TestMarketplace(unittest.TestCase):
     """
-    @brief Unit tests for validating Marketplace functionality.
+    Unit testing suite for validating the marketplace's state transition logic.
     """
     
     def setUp(self):
@@ -180,6 +195,9 @@ class TestMarketplace(unittest.TestCase):
         self.assertEqual(self.marketplace.register_producer(), str(0))
         self.assertNotEqual(self.marketplace.register_producer(), str(3))
         self.assertEqual(self.marketplace.register_producer(), str(2))
+        self.assertNotEqual(self.marketplace.register_producer(), str(0))
+        self.assertNotEqual(self.marketplace.register_producer(), str(3))
+        self.assertNotEqual(self.marketplace.register_producer(), str(2))
 
     def test_publish(self):
         self.marketplace.register_producer()
@@ -189,10 +207,20 @@ class TestMarketplace(unittest.TestCase):
         self.assertTrue(self.marketplace.publish(str(0), produs.Tea("Linden", 9, "Herbal")))
         self.assertTrue(self.marketplace.publish(str(0), produs.Tea("Linden", 9, "Herbal")))
         self.assertFalse(self.marketplace.publish(str(0), produs.Tea("Linden", 9, "Herbal")))
+        self.assertTrue(self.marketplace.publish(str(1), produs.Tea("Linden", 9, "Herbal")))
+        self.assertTrue(self.marketplace.publish(str(1), produs.Tea("Linden", 9, "Herbal")))
+        self.assertTrue(self.marketplace.publish(str(1), produs.Tea("Linden", 9, "Herbal")))
+        self.assertTrue(self.marketplace.publish(str(1), produs.Tea("Linden", 9, "Herbal")))
+        self.assertFalse(self.marketplace.publish(str(1), produs.Tea("Linden", 9, "Herbal")))
+        self.assertFalse(self.marketplace.publish(str(1), produs.Tea("Linden", 9, "Herbal")))
 
     def test_new_cart(self):
         self.assertEqual(self.marketplace.new_cart(), 0)
-        self.assertEqual(self.marketplace.new_cart(), 1)
+        self.assertNotEqual(self.marketplace.new_cart(), 3)
+        self.assertEqual(self.marketplace.new_cart(), 2)
+        self.assertNotEqual(self.marketplace.new_cart(), 0)
+        self.assertNotEqual(self.marketplace.new_cart(), 3)
+        self.assertNotEqual(self.marketplace.new_cart(), 2)
 
     def test_add_to_cart(self):
         self.marketplace.register_producer()
@@ -222,23 +250,30 @@ from time import sleep
 
 class Producer(Thread):
     """
-    @brief Producer entity that generates and publishes products to the marketplace.
+    Simulates a manufacturing unit providing goods to the marketplace.
+    Functional Utility: Manages the continuous production cycle of items and 
+    handles publication bottlenecks.
     """
 
     def __init__(self, products, marketplace, republish_wait_time, **kwargs):
         """
-        @brief Initializes the producer with its product line and marketplace affinity.
+        Initializes the producer.
+        @param products: List of product specifications (product, quantity, time).
+        @param marketplace: The central trading hub.
+        @param republish_wait_time: Interval to wait when the supply queue is full.
         """
         Thread.__init__(self, **kwargs)
         self.products = products
         self.marketplace = marketplace
         self.republish_wait_time = republish_wait_time
+        # Self-registration upon initialization to secure a supply line.
         self.producer_id = self.marketplace.register_producer()
 
     def run(self):
         """
-        @brief Continuous production loop.
-        Algorithm: Iterative product generation and publication based on requested quantities and production times.
+        Infinite production loop.
+        Logic: Cycles through its product catalog and attempts to publish items 
+        according to specified quantities.
         """
         while True:
             for product in self.products:
@@ -248,14 +283,15 @@ class Producer(Thread):
 
     def publish_product(self, product, production_time):
         """
-        @brief Handles the publication of a single item unit.
-        Logic: Busy-wait with backoff to handle inventory capacity limits.
+        Executes the publication of a single unit.
+        Logic: Incorporates production time and handles marketplace congestion 
+        via a backoff strategy.
         """
         while True:
             published = self.marketplace.publish(self.producer_id, product)
             if published:
-                # Domain: Production Latency - Simulates the time taken to create the item.
+                # Simulation of manufacturing overhead.
                 sleep(production_time)
                 break
-            # Functional Utility: Throttles retry attempts during capacity saturation.
+            # Backoff: wait for consumer demand to clear queue space.
             sleep(self.republish_wait_time)

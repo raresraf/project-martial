@@ -23,7 +23,8 @@ double* my_solver(int N, double *A, double* B) {
 	double* B_t = compute_transpose(N, B);
 	double* A_t = compute_transpose(N, A);
 
-	
+	// Pre-condition: res_AxB is allocated for N*N doubles
+	// Invariant: Computes A*B into res_AxB
 	for (int i = 0; i < N; i++) {
 		for (int j = 0; j < N; j++) {
 			res_AxB[i * N + j] = 0;
@@ -62,6 +63,17 @@ double* my_solver(int N, double *A, double* B) {
 	for (int i = 0; i < N; i++) {
 		for (int j = 0; j < N; j++) {
 			res[i * N + j] = 0;
+			res[i * N + j] += res_ABBt[i * N + j] + res_AtA[i * N + j];
+		}
+	}
+	free(A_t);
+	free(B_t);
+	free(res_AtA);
+	free(res_ABBt);
+	free(res_AxB);
+	return res;
+}
+0;
 			res[i * N + j] += res_ABBt[i * N + j] + res_AtA[i * N + j];
 		}
 	}

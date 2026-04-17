@@ -1,9 +1,8 @@
-/**
- * @file solver_blas.c
- * @brief High-level source code module.
- * Ensures cache-friendly data access, potential loop unrolling, and SIMD optimizations for C/C++.
- */
 
+/*
+ * @raw/4cd4d1f8-c48b-4662-8f2a-6cfcb91e4ffa/solver_blas.c
+ * Module Level: Optimized matrix solver implementation using BLAS libraries.
+ */
 #include "utils.h"
 #include <string.h>
 #include <stdlib.h>
@@ -18,25 +17,13 @@ double* my_solver(int N, double *A, double *B)
 
 	
 	C = malloc(N * N * sizeof(*C));
-	/**
-	 * @brief Pre-condition: Evaluates logical divergence based on current state.
-	 * Invariant: Guarantees correct execution flow according to conditional partitioning.
-	 */
 	if (NULL == C)
 		exit(1);
 
 	AtA = malloc(N * N * sizeof(*AtA));
-	/**
-	 * @brief Pre-condition: Evaluates logical divergence based on current state.
-	 * Invariant: Guarantees correct execution flow according to conditional partitioning.
-	 */
 	if (NULL == AtA)
 		exit(1);
 	ABBt = malloc(N * N * sizeof(*ABBt));
-	/**
-	 * @brief Pre-condition: Evaluates logical divergence based on current state.
-	 * Invariant: Guarantees correct execution flow according to conditional partitioning.
-	 */
 	if (NULL == ABBt)
 		exit(1);
 	
@@ -92,15 +79,8 @@ double* my_solver(int N, double *A, double *B)
                 );
 
 	
-	/**
-	 * @brief Pre-condition: Iteration boundaries properly mapped and initialized.
-	 * Invariant: Operations within the block strictly maintain target functional boundaries.
-	 */
+	/* Pre-conditions: ABBt holds partial sum (C * B), AtA holds partial sum (A^T * A). Now computing the final sum matrix. */
 	for (int i = 0; i < N; i++) 
-		/**
-		 * @brief Pre-condition: Iteration boundaries properly mapped and initialized.
-		 * Invariant: Operations within the block strictly maintain target functional boundaries.
-		 */
 		for (int j = 0; j < N; j++)
 			ABBt[i*N+j] += AtA[i*N+j];
 

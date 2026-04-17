@@ -1,21 +1,29 @@
 """
 @c7af8b26-2c30-4b17-a679-18444e1b2097/ThreadManager.py
-@brief Distributed sensor simulation with a prioritized thread pool and synchronized location-level locking.
-* Algorithm: Event-driven worker thread pool with atomic script consumption and condition-variable barriers.
-* Functional Utility: Orchestrates simulation timepoints across multiple devices by managing concurrent script execution and cluster-wide state consistency.
+@brief Distributed sensor network simulation with a managed parallel worker pool.
+This module implements a coordinated processing framework where a central 'ThreadManager' 
+supervises a set of persistent worker threads. It utilizes a stateful locking 
+protocol ('sticky locks') to manage shared sensor data and a monitor-based 
+synchronization barrier to maintain temporal consistency across the network.
+
+Domain: Thread Pool Management, Distributed State Synchronization, Monitor Patterns.
 """
 
 from Queue import Queue
 from threading import Thread
 
+
 class ThreadManager(object):
     """
-    @brief Manager class for a pool of worker threads that execute sensor scripts.
+    Management layer for a persistent pool of computational workers.
+    Functional Utility: Provides an asynchronous submission interface for tasks 
+    and handles the graceful startup and termination of worker threads.
     """
     
     def __init__(self, threads_count):
         """
-        @brief Initializes the manager and bootstraps the requested number of worker threads.
+        Initializes the manager and spawns workers.
+        @param threads_count: Size of the worker pool.
         """
         self.queue = Queue(threads_count)
         self.threads = []
@@ -23,140 +31,128 @@ class ThreadManager(object):
         self.initialize_workers(threads_count)
     
     def create_workers(self, threads_count):
-        """
-        @brief Instantiates worker threads targeting the main execution loop.
-        """
+        """Spawns the specified number of worker threads."""
         for _ in xrange(threads_count):
             new_thread = Thread(target=self.execute)
             self.threads.append(new_thread)
     
     def start_workers(self):
-        """
-        @brief Signals all worker threads to begin polling the task queue.
-        """
+        """Activates all threads in the pool."""
         for thread in self.threads:
             thread.start()
     
     def initialize_workers(self, threads_count):
-        """
-        @brief Unified workflow for worker pool creation and startup.
-        """
+        """Composite operation for pool setup."""
         self.create_workers(threads_count)
         self.start_workers()
     
     def set_device(self, device):
-        """
-        @brief Affiliates the manager with a specific device instance for data context.
-        """
+        """Injects the parent device context into the manager."""
         self.device = device
     
     def execute(self):
         """
-        @brief Main execution loop for each worker thread in the pool.
-        Algorithm: Blocks on the queue for tasks; handles termination via "poison pill" (None, None, None).
+        Main execution loop for worker threads.
+        Logic: Continuously pulls tasks from the queue and applies the 
+        computational logic until a termination signal (poison pill) is received.
         """
         while True:
+            # Block until a task is available.
             neighbours, script, location = self.queue.get()
             no_neighbours = neighbours is None
             no_scripts = script is None
             
-            # Logic: Graceful termination check.
+            # Check for poison pill (None, None, None).
             if no_neighbours and no_scripts:
                 self.queue.task_done()
                 return
             
             self.run_script(neighbours, script, location)
+            # Signal task completion to support queue.join().
             self.queue.task_done()
     
     @staticmethod
     def is_not_empty(given_object):
-        """
-        @brief Utility for validating data presence before processing.
-        """
+        """Safety check for data validity."""
         return given_object is not None
     
     def run_script(self, neighbours, script, location):
         """
-        @brief Orchestrates the execution of a single script unit.
-        Logic: Aggregates data from the neighborhood and updates shared state across peers.
+        Executes a single computational script.
+        Logic: Implements the sticky lock protocol where get_data() triggers a 
+        lock acquisition and set_data() triggers a release.
         """
         script_data = []
         
-        # Distributed Data Aggregation Phase.
+        # Aggregate neighborhood state.
         for device in neighbours:
             if device.device_id != self.device.device_id:
+                # Functional Utility: Atomic acquisition of neighbor state.
                 data = device.get_data(location)
                 if ThreadManager.is_not_empty(data):
                     script_data.append(data)
         
-        # Logic: Includes local data in the processing batch.
+        # Include local sensor data.
         data = self.device.get_data(location)
         if ThreadManager.is_not_empty(data):
             script_data.append(data)
-            
+
         if script_data:
-            # Execution and Propagation Phase.
+            # Execute script logic.
             result = script.run(script_data)
             
+            # Propagate results and release spatial locks.
             for device in neighbours:
                 if device.device_id == self.device.device_id:
                     continue
-                # Logic: Updates peer state with computed result.
                 device.set_data(location, result)
             
-            # Logic: Updates local state.
             self.device.set_data(location, result)
     
     def submit(self, neighbours, script, location):
-        """
-        @brief Enqueues a new script task for the worker pool.
-        """
+        """Enqueues a new computational task."""
         self.queue.put((neighbours, script, location))
     
     def wait_threads(self):
-        """
-        @brief Blocks until all currently enqueued tasks in the manager are finished.
-        """
+        """Blocks until the internal queue is empty and all tasks are processed."""
         self.queue.join()
 
     def end_threads(self):
         """
-        @brief Coordinates a clean shutdown of all worker threads.
+        Orchestrates pool shutdown.
+        Logic: Waits for current work to finish, then dispatches poison pills.
         """
         self.wait_threads()
         
-        # Logic: Dispatches a termination signal for each worker in the pool.
+        # Dispatch termination signal to each thread.
         for _ in xrange(len(self.threads)):
             self.submit(None, None, None)
             
+        # Reclaim thread resources.
         for thread in self.threads:
             thread.join()
 
 
 from threading import Condition
 
+
 class ConditionalBarrier(object):
     """
-    @brief Implementation of a reusable synchronization barrier using monitors.
+    Monitor-based reusable barrier implementation.
+    Functional Utility: Provides a temporal rendezvous point for a fixed number of threads.
     """
     
     def __init__(self, num_threads):
-        """
-        @brief Initializes barrier for a fixed number of participating threads.
-        """
         self.num_threads = num_threads
         self.count_threads = self.num_threads
         self.cond = Condition()
     
     def wait(self):
-        """
-        @brief Blocks until the barrier condition (all threads arrived) is satisfied.
-        Invariant: Resets the arrival counter upon release to allow re-use in the next phase.
-        """
+        """Blocks the caller until the arrival threshold is met."""
         self.cond.acquire()
         self.count_threads -= 1
         if self.count_threads == 0:
-            # Logic: Last thread to arrive releases the entire group.
+            # Threshold reached: wake all participants and reset for reuse.
             self.cond.notify_all()
             self.count_threads = self.num_threads
         else:
@@ -166,15 +162,18 @@ class ConditionalBarrier(object):
 
 from threading import Event, Thread, Lock
 
+from ThreadManager import ThreadManager
+from barriers import ConditionalBarrier
+
+
 class Device(object):
     """
-    @brief Encapsulates a sensor device's state and its coordination thread.
+    Core node representation in the distributed system.
+    Functional Utility: Coordinates task receipt from the supervisor and 
+    manages local sensor state through a transactional locking interface.
     """
     
     def __init__(self, device_id, sensor_data, supervisor):
-        """
-        @brief Initializes the device and starts its management lifecycle.
-        """
         self.device_id = device_id
         self.sensor_data = sensor_data
         self.supervisor = supervisor
@@ -186,7 +185,7 @@ class Device(object):
         self.scripts_arrived = False
         
         self.barrier = None
-        # Logic: Per-location locks to ensure thread-safe updates to sensor readings.
+        # Spatial lock pool to ensure per-location consistency.
         self.location_locks = {location: Lock() for location in sensor_data}
         
         self.thread = DeviceThread(self)
@@ -196,15 +195,13 @@ class Device(object):
         return "Device %d" % self.device_id
     
     def assign_barrier(self, barrier):
-        """
-        @brief Links the device to a cluster-wide synchronization point.
-        """
+        """Injects the shared network barrier."""
         self.barrier = barrier
     
     def setup_devices(self, devices):
         """
-        @brief Global initialization of barriers and locks across the network.
-        Invariant: Coordinator node (ID 0) manages the creation and broadcast of the barrier.
+        Global synchronization initialization.
+        Logic: Elects Device 0 to create and distribute the shared barrier.
         """
         number_of_devices = len(devices)
         if self.device_id == 0:
@@ -213,25 +210,19 @@ class Device(object):
     
     @staticmethod
     def broadcast_barrier(devices, barrier):
-        """
-        @brief Distributes a shared barrier instance to all peer devices.
-        """
+        """Helper to propagate the barrier across the network group."""
         for device in devices:
             if device.device_id == 0:
                 continue
             device.assign_barrier(barrier)
     
     def accept_script(self, script, location):
-        """
-        @brief Buffers an incoming script for the current execution phase.
-        """
+        """Registers a new computational script into the local buffer."""
         self.scripts.append((script, location))
         self.scripts_arrived = True
     
     def assign_script(self, script, location):
-        """
-        @brief Top-level interface for script arrival or phase completion signal.
-        """
+        """Interface for the supervisor to assign work or signal end-of-step."""
         if script is not None:
             self.accept_script(script, location)
         else:
@@ -239,8 +230,8 @@ class Device(object):
     
     def get_data(self, location):
         """
-        @brief Synchronized getter for sensor data.
-        Pre-condition: Acquisition of the location-specific lock ensures atomicity.
+        Transactional retrieval of sensor data.
+        Functional Utility: Atomically acquires the spatial lock for the location.
         """
         data_is_valid = location in self.sensor_data
         if data_is_valid:
@@ -249,66 +240,63 @@ class Device(object):
     
     def set_data(self, location, data):
         """
-        @brief Synchronized setter for sensor data.
-        Post-condition: Release of location-specific lock completes the update cycle.
+        Transactional update of sensor data.
+        Functional Utility: Updates state and releases the spatial lock.
         """
         if location in self.sensor_data:
             self.sensor_data[location] = data
             self.location_locks[location].release()
     
     def shutdown(self):
-        """
-        @brief Gracefully terminates the device's main coordination thread.
-        """
+        """Joins the main management thread."""
         self.thread.join()
 
 class DeviceThread(Thread):
     """
-    @brief Management thread coordinating simulation timepoints and worker dispatching.
+    Simulated node management lifecycle.
+    Functional Utility: Orchestrates simulation timepoints and manages the 
+    interaction between the high-level supervisor and the worker thread pool.
     """
     
     def __init__(self, device):
-        """
-        @brief Initializes the coordinator thread and its local worker pool (8 threads).
-        """
         Thread.__init__(self, name="Device Thread %d" % device.device_id)
         self.device = device
         self.thread_pool = ThreadManager(8)
-    
+
     def run(self):
         """
-        @brief Core lifecycle loop of the device node.
-        Algorithm: Phased execution with event-driven task submission and global barrier alignment.
+        Main execution loop for the node orchestration.
+        Algorithm: Iterative timepoint processing with event-driven task dispatch.
         """
         self.thread_pool.set_device(self.device)
         while True:
-            # Logic: Refresh neighbor set from supervisor.
+            # Topology Discovery.
             neighbours = self.device.supervisor.get_neighbours()
             if neighbours is None:
-                # Logic: Shutdown path.
                 break
             
-            # Block Logic: Internal phase loop to handle continuous task delivery.
+            # Block Logic: Simulation Phase Coordination.
             while True:
+                # Wait for work assignment or phase completion signal.
                 scripts_ready = self.device.scripts_arrived
                 done_waiting = self.device.timepoint_done.wait()
-                
                 if scripts_ready or done_waiting:
                     if done_waiting and not scripts_ready:
-                        # Logic: All scripts assigned for the current timepoint.
+                        # Reset for the next simulation cycle.
                         self.device.timepoint_done.clear()
                         self.device.scripts_arrived = True
                         break
                     
                     self.device.scripts_arrived = False
-                    
-                    # Dispatch Phase: Offloads scripts to the worker pool.
+                    # Offload tasks to the managed parallel pool.
                     for (script, location) in self.device.scripts:
                         self.thread_pool.submit(neighbours, script, location)
             
-            # Synchronization Phase: Wait for local pool completion and global barrier alignment.
+            # Synchronize: Wait for the local worker pool to finish.
             self.thread_pool.wait_threads()
+            
+            # Global Rendezvous: Ensures network-wide temporal consistency.
             self.device.barrier.wait()
         
-        # Cleanup Phase: Terminate worker threads.
+        # Cleanup worker resources on shutdown.
         self.thread_pool.end_threads()

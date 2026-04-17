@@ -1,8 +1,3 @@
-/**
- * @file gpu_hashtable.cu
- * @brief Encapsulates functional utility for gpu_hashtable.cu.
- * Optimized for HPC & Parallelism: prioritizes memory hierarchy usage, thread indexing, and synchronization.
- */
 
 #include 
 #include 
@@ -24,15 +19,15 @@ __device__ int keyHash(int key, int limit)
 	
 	unsigned int hash = 2166136261;
 
-	int *k = &key; /* Non-obvious bitwise operation or pointer arithmetic */
+	int *k = &key;
 
-	hash = hash ^ ((unsigned char *) k)[0]; /* Non-obvious bitwise operation or pointer arithmetic */
+	hash = hash ^ ((unsigned char *) k)[0];
 	hash = hash * prime;
-	hash = hash ^ ((unsigned char *) k)[1]; /* Non-obvious bitwise operation or pointer arithmetic */
+	hash = hash ^ ((unsigned char *) k)[1];
 	hash = hash * prime;
-	hash = hash ^ ((unsigned char *) k)[2]; /* Non-obvious bitwise operation or pointer arithmetic */
+	hash = hash ^ ((unsigned char *) k)[2];
 	hash = hash * prime;
-	hash = hash ^ ((unsigned char *) k)[3]; /* Non-obvious bitwise operation or pointer arithmetic */
+	hash = hash ^ ((unsigned char *) k)[3];
 	hash = hash * prime;
 
 	return hash % limit;
@@ -47,33 +42,29 @@ __global__ void kernel_insert_batch(int *srcKeys, int *srcValues, int srcSize,
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
 	
-	/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 	if (idx < srcSize) {
 		
 		int key = srcKeys[idx];
 
 		
-		/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 		if (key == KEY_INVALID)
 			return;
 
 		
 		int hash = keyHash(key, dstSize);
 
-		
-		/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
+		// Block Level: Pre-condition: hash is valid, iterating through buckets for linear probing
 		for (int i = 0; i < dstSize; ++i) {
 			
 			const int dstKeyIndex = (hash + i) % dstSize;
 
 			
-			const int dstKey = atomicCAS(&dstKeys[dstKeyIndex], /* Non-obvious bitwise operation or pointer arithmetic */
+			const int dstKey = atomicCAS(&dstKeys[dstKeyIndex],
 						     KEY_INVALID,
 						     key);
 
 			
-			/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
-			if (dstKey == KEY_INVALID || dstKey == key) { /* Non-obvious bitwise operation or pointer arithmetic */
+			if (dstKey == KEY_INVALID || dstKey == key) {
 				dstValues[dstKeyIndex] = srcValues[idx];
 				return;
 			}
@@ -90,13 +81,11 @@ __global__ void kernel_get_batch(int *srcKeys, int *dstValues, int dstSize,
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
 	
-	/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 	if (idx < dstSize) {
 		
 		int key = srcKeys[idx];
 
 		
-		/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 		if (key == KEY_INVALID)
 			return;
 
@@ -104,13 +93,11 @@ __global__ void kernel_get_batch(int *srcKeys, int *dstValues, int dstSize,
 		int hash = keyHash(key, htSize);
 
 		
-		/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 		for (int i = 0; i < htSize; ++i) {
 			
 			const int htIndex = (hash + i) % htSize;
 
 			
-			/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 			if (htKeys[htIndex] == key) {
 				dstValues[idx] = htValues[htIndex];
 				return;
@@ -125,10 +112,10 @@ GpuHashTable::GpuHashTable(int size) : size(size), numElements(0), minLoad(0.8f)
 	const size_t numBytes = size * sizeof(int);
 	cudaError_t error;
 
-	error = cudaMallocManaged(&this->keys, numBytes); /* Non-obvious bitwise operation or pointer arithmetic */
+	error = cudaMallocManaged(&this->keys, numBytes);
 	CUDA_DIE(error, "cudaMallocManaged");
 
-	error = cudaMallocManaged(&this->values, numBytes); /* Non-obvious bitwise operation or pointer arithmetic */
+	error = cudaMallocManaged(&this->values, numBytes);
 	CUDA_DIE(error, "cudaMallocManaged");
 
 	memset(this->keys, 0, numBytes);
@@ -156,17 +143,17 @@ void GpuHashTable::reshape(int numBucketsReshape)
 	int *newKeys;
 	int *newValues;
 
-	error = cudaMallocManaged(&newKeys, numBytes); /* Non-obvious bitwise operation or pointer arithmetic */
+	error = cudaMallocManaged(&newKeys, numBytes);
 	CUDA_DIE(error, "cudaMallocManaged");
 
-	error = cudaMallocManaged(&newValues, numBytes); /* Non-obvious bitwise operation or pointer arithmetic */
+	error = cudaMallocManaged(&newValues, numBytes);
 	CUDA_DIE(error, "cudaMallocManaged");
 
 	memset(newKeys, 0, numBytes);
 	memset(newValues, 0, numBytes);
 
 	const int numBlocks = (this->size + BLOCK_THREADS - 1) / BLOCK_THREADS;
-	kernel_insert_batch>>(this->keys, /* Non-obvious bitwise operation or pointer arithmetic */
+	kernel_insert_batch>>(this->keys,
 							  this->values,
 							  this->size,
 							  newKeys,
@@ -191,17 +178,16 @@ bool GpuHashTable::insertBatch(int *keys, int *values, int numKeys)
 	const size_t numBytes = numKeys * sizeof(int);
 	cudaError_t error;
 
-	/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 	if (newSize > this->size)
 		this->reshape(ceil((float) newSize / this->minLoad));
 
 	int *kerKeys;
 	int *kerValues;
 
-	error = cudaMalloc(&kerKeys, numBytes); /* Non-obvious bitwise operation or pointer arithmetic */
+	error = cudaMalloc(&kerKeys, numBytes);
 	CUDA_DIE(error, "cudaMallocManaged");
 
-	error = cudaMalloc(&kerValues, numBytes); /* Non-obvious bitwise operation or pointer arithmetic */
+	error = cudaMalloc(&kerValues, numBytes);
 	CUDA_DIE(error, "cudaMallocManaged");
 
 	error = cudaMemcpy(kerKeys, keys, numBytes, cudaMemcpyHostToDevice);
@@ -213,7 +199,7 @@ bool GpuHashTable::insertBatch(int *keys, int *values, int numKeys)
 
 
 	const int numBlocks = (numKeys + BLOCK_THREADS - 1) / BLOCK_THREADS;
-	kernel_insert_batch>>(kerKeys, kerValues, /* Non-obvious bitwise operation or pointer arithmetic */
+	kernel_insert_batch>>(kerKeys, kerValues,
 							  numKeys, this->keys,
 							  this->values,
 							  this->size);
@@ -238,17 +224,17 @@ int* GpuHashTable::getBatch(int* keys, int numKeys)
 	int *kerKeys;
 	int *values;
 
-	error = cudaMalloc(&kerKeys, numBytes); /* Non-obvious bitwise operation or pointer arithmetic */
+	error = cudaMalloc(&kerKeys, numBytes);
 	CUDA_DIE(error, "cudaMallocManaged");
 
 	error = cudaMemcpy(kerKeys, keys, numBytes, cudaMemcpyHostToDevice);
 	CUDA_DIE(error, "cudaMemcpy");
 
-	error = cudaMallocManaged(&values, numBytes); /* Non-obvious bitwise operation or pointer arithmetic */
+	error = cudaMallocManaged(&values, numBytes);
 	CUDA_DIE(error, "cudaMallocManaged");
 
 	const int numBlocks = (numKeys + BLOCK_THREADS - 1) / BLOCK_THREADS;
-	kernel_get_batch>>(kerKeys, values, numKeys, /* Non-obvious bitwise operation or pointer arithmetic */
+	kernel_get_batch>>(kerKeys, values, numKeys,
 						       this->keys,
 						       this->values,
 						       this->size);
@@ -285,7 +271,6 @@ float GpuHashTable::loadFactor()
 
 #define CUDA_DIE(code, msg)                                                   \
 do {                                                                          \
-	/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 	if (code != cudaSuccess) {                                            \
 		fprintf(stderr, "(%s, %d): %s: %s", __FILE__, __LINE__, msg,  \
 			cudaGetErrorString(code));                            \
@@ -386,15 +371,15 @@ __device__ int keyHash(int key, int limit)
 	
 	unsigned int hash = 2166136261;
 
-	int *k = &key; /* Non-obvious bitwise operation or pointer arithmetic */
+	int *k = &key;
 
-	hash = hash ^ ((unsigned char *) k)[0]; /* Non-obvious bitwise operation or pointer arithmetic */
+	hash = hash ^ ((unsigned char *) k)[0];
 	hash = hash * prime;
-	hash = hash ^ ((unsigned char *) k)[1]; /* Non-obvious bitwise operation or pointer arithmetic */
+	hash = hash ^ ((unsigned char *) k)[1];
 	hash = hash * prime;
-	hash = hash ^ ((unsigned char *) k)[2]; /* Non-obvious bitwise operation or pointer arithmetic */
+	hash = hash ^ ((unsigned char *) k)[2];
 	hash = hash * prime;
-	hash = hash ^ ((unsigned char *) k)[3]; /* Non-obvious bitwise operation or pointer arithmetic */
+	hash = hash ^ ((unsigned char *) k)[3];
 	hash = hash * prime;
 
 	return hash % limit;
@@ -408,32 +393,28 @@ __global__ void kernel_insert_batch(int *srcKeys, int *srcValues, int srcSize,
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
 	
-	/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 	if (idx < srcSize) {
 		
 		int key = srcKeys[idx];
 
 		
-		/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 		if (key == KEY_INVALID)
 			return;
 
 		
 		int hash = keyHash(key, dstSize);
 
-		
-		/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
+		// Block Level: Pre-condition: hash is valid, iterating through buckets for linear probing
 		for (int i = 0; i < dstSize; ++i) {
 			
 			const int dstKeyIndex = (hash + i) % dstSize;
 
 			
-			const int dstKey = atomicCAS(&dstKeys[dstKeyIndex], /* Non-obvious bitwise operation or pointer arithmetic */
+			const int dstKey = atomicCAS(&dstKeys[dstKeyIndex],
 						     KEY_INVALID,
 						     key);
 
 			
-			/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 			if (dstKey == KEY_INVALID) {
 				dstValues[dstKeyIndex] = srcValues[idx];
 				return;
@@ -453,13 +434,11 @@ __global__ void kernel_get_batch(int *srcKeys, int *dstValues, int dstSize,
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
 	
-	/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 	if (idx < dstSize) {
 		
 		int key = srcKeys[idx];
 
 		
-		/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 		if (key == KEY_INVALID)
 			return;
 
@@ -467,13 +446,11 @@ __global__ void kernel_get_batch(int *srcKeys, int *dstValues, int dstSize,
 		int hash = keyHash(key, htSize);
 
 		
-		/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 		for (int i = 0; i < htSize; ++i) {
 			
 			const int htIndex = (hash + i) % htSize;
 
 			
-			/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 			if (htKeys[htIndex] == key) {
 				dstValues[idx] = htValues[htIndex];
 				return;
@@ -488,15 +465,15 @@ GpuHashTable::GpuHashTable(int size) : size(size), minLoad(0.8f)
 	const size_t numBytes = size * sizeof(int);
 	cudaError_t error;
 
-	error = cudaMallocManaged(&this->numElements, sizeof(int)); /* Non-obvious bitwise operation or pointer arithmetic */
+	error = cudaMallocManaged(&this->numElements, sizeof(int));
 	CUDA_DIE(error, "cudaMallocManaged");
 
 	*this->numElements = 0;
 
-	error = cudaMallocManaged(&this->keys, numBytes); /* Non-obvious bitwise operation or pointer arithmetic */
+	error = cudaMallocManaged(&this->keys, numBytes);
 	CUDA_DIE(error, "cudaMallocManaged");
 
-	error = cudaMallocManaged(&this->values, numBytes); /* Non-obvious bitwise operation or pointer arithmetic */
+	error = cudaMallocManaged(&this->values, numBytes);
 	CUDA_DIE(error, "cudaMallocManaged");
 
 	memset(this->keys, 0, numBytes);
@@ -524,17 +501,17 @@ void GpuHashTable::reshape(int numBucketsReshape)
 	int *newKeys;
 	int *newValues;
 
-	error = cudaMallocManaged(&newKeys, numBytes); /* Non-obvious bitwise operation or pointer arithmetic */
+	error = cudaMallocManaged(&newKeys, numBytes);
 	CUDA_DIE(error, "cudaMallocManaged");
 
-	error = cudaMallocManaged(&newValues, numBytes); /* Non-obvious bitwise operation or pointer arithmetic */
+	error = cudaMallocManaged(&newValues, numBytes);
 	CUDA_DIE(error, "cudaMallocManaged");
 
 	memset(newKeys, 0, numBytes);
 	memset(newValues, 0, numBytes);
 
 	const int numBlocks = (this->size + BLOCK_THREADS - 1) / BLOCK_THREADS;
-	kernel_insert_batch>>(this->keys, /* Non-obvious bitwise operation or pointer arithmetic */
+	kernel_insert_batch>>(this->keys,
 							  this->values,
 							  this->size,
 							  newKeys,
@@ -561,17 +538,16 @@ bool GpuHashTable::insertBatch(int *keys, int *values, int numKeys)
 	const size_t numBytes = numKeys * sizeof(int);
 	cudaError_t error;
 
-	/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 	if (*this->numElements > this->size)
 		this->reshape(ceil((float) *this->numElements / this->minLoad));
 
 	int *kerKeys;
 	int *kerValues;
 
-	error = cudaMalloc(&kerKeys, numBytes); /* Non-obvious bitwise operation or pointer arithmetic */
+	error = cudaMalloc(&kerKeys, numBytes);
 	CUDA_DIE(error, "cudaMallocManaged");
 
-	error = cudaMalloc(&kerValues, numBytes); /* Non-obvious bitwise operation or pointer arithmetic */
+	error = cudaMalloc(&kerValues, numBytes);
 	CUDA_DIE(error, "cudaMallocManaged");
 
 	error = cudaMemcpy(kerKeys, keys, numBytes, cudaMemcpyHostToDevice);
@@ -581,7 +557,7 @@ bool GpuHashTable::insertBatch(int *keys, int *values, int numKeys)
 	CUDA_DIE(error, "cudaMemcpy");
 
 	const int numBlocks = (numKeys + BLOCK_THREADS - 1) / BLOCK_THREADS;
-	kernel_insert_batch>>(kerKeys, kerValues, /* Non-obvious bitwise operation or pointer arithmetic */
+	kernel_insert_batch>>(kerKeys, kerValues,
 							  numKeys, this->keys,
 							  this->values,
 							  this->size,
@@ -606,17 +582,17 @@ int* GpuHashTable::getBatch(int* keys, int numKeys)
 	int *kerKeys;
 	int *values;
 
-	error = cudaMalloc(&kerKeys, numBytes); /* Non-obvious bitwise operation or pointer arithmetic */
+	error = cudaMalloc(&kerKeys, numBytes);
 	CUDA_DIE(error, "cudaMallocManaged");
 
 	error = cudaMemcpy(kerKeys, keys, numBytes, cudaMemcpyHostToDevice);
 	CUDA_DIE(error, "cudaMemcpy");
 
-	error = cudaMallocManaged(&values, numBytes); /* Non-obvious bitwise operation or pointer arithmetic */
+	error = cudaMallocManaged(&values, numBytes);
 	CUDA_DIE(error, "cudaMallocManaged");
 
 	const int numBlocks = (numKeys + BLOCK_THREADS - 1) / BLOCK_THREADS;
-	kernel_get_batch>>(kerKeys, values, numKeys, /* Non-obvious bitwise operation or pointer arithmetic */
+	kernel_get_batch>>(kerKeys, values, numKeys,
 						       this->keys,
 						       this->values,
 						       this->size);
@@ -653,7 +629,6 @@ float GpuHashTable::loadFactor()
 
 #define CUDA_DIE(code, msg)                                                   \
 do {                                                                          \
-	/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 	if (code != cudaSuccess) {                                            \
 		fprintf(stderr, "(%s, %d): %s: %s", __FILE__, __LINE__, msg,  \
 			cudaGetErrorString(code));                            \

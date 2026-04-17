@@ -3,6 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// Module Level: WalkThroughPart implementation
+// @raw/40952c80-90e1-458f-a8d6-67bf9330df9e/src/vs/workbench/contrib/welcomeWalkthrough/browser/walkThroughPart.ts
+
 import '../common/walkThroughUtils.js';
 import './media/walkThroughPart.css';
 import { DomScrollableElement } from '../../../../base/browser/ui/scrollbar/scrollableElement.js';
@@ -306,6 +309,7 @@ export class WalkThroughPart extends EditorPane {
 				safeInnerHtml(innerContent, markdown, { ALLOW_UNKNOWN_PROTOCOLS: true });
 				this.content.appendChild(innerContent);
 
+				// Pre-conditions: Ensure snippet textEditorModel is available.
 				model.snippets.forEach((snippet, i) => {
 					const model = snippet.textEditorModel;
 					if (!model) {

@@ -1,8 +1,3 @@
-/**
- * @file solver_neopt.c
- * @brief Naive non-optimized matrix solver implementation.
- * Unoptimized memory access pattern. Baseline for performance comparison.
- */
 
 #include "utils.h"
 
@@ -11,7 +6,7 @@
 
 void add(int N, double *a, double *b, double *c) {
 	int i;
-	/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
+	/* Pre-condition: Arrays a, b, c allocated. Invariant: c[i] = a[i] + b[i] */
 	for (i = 0; i < N * N; i++) {
 		c[i] = a[i] + b[i];
 	}
@@ -22,12 +17,9 @@ void normal_x_normal_transpose(int N, double *a, double *c) {
 
 	int i, j, k;
 
-	/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 	for (i = 0; i < N; i++) {
 		
-		/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 		for (j = 0; j <= i; j++) {
-			/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 			for (k = 0; k < N; k++) {
 				
 				c[i * N + j] += a[i * N + k] * a[j * N + k];
@@ -44,12 +36,9 @@ void upper_x_normal(int N, double *a, double *b, double *c) {
 
 	int i, j, k;
 
-	/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 	for (i = 0; i < N; i++) {
-		/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 		for (j = 0; j < N; j++) {
 			
-			/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 			for (k = i; k < N; k++) {
 				c[i * N + j] += a[i * N + k] * b[k * N + j];
 			}
@@ -62,13 +51,10 @@ void upper_transpose_x_upper(int N, double *a, double *c) {
 
 	int i, j, k;
 
-	/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 	for (i = 0; i < N; i++) {
 		
-		/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 		for (j = 0; j <= i; j++) {
 			
-			/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 			for (k = 0; k <= j; k++) {
 				
 				c[i * N + j] += a[k * N + i] * a[k * N + j];
@@ -78,14 +64,6 @@ void upper_transpose_x_upper(int N, double *a, double *c) {
 	}
 }
 
-/**
- * @brief Computes C = At * A + A * B * Bt.
- * Allocates memory dynamically and executes matrix operations.
- * @param N Matrix dimension.
- * @param A Input matrix A.
- * @param B Input matrix B.
- * @return Pointer to resulting matrix C.
- */
 double* my_solver(int N, double *A, double* B) {
 	printf("NEOPT SOLVER\n");
 
@@ -97,6 +75,16 @@ double* my_solver(int N, double *A, double* B) {
 	
 	normal_x_normal_transpose(N, B, BBt);
 	upper_x_normal(N, A, BBt, ABBt);
+	upper_transpose_x_upper(N, A, AtA);
+	add(N, ABBt, AtA, C);
+
+	free(BBt);
+	free(ABBt);
+	free(AtA);
+
+	return C;
+}
+_normal(N, A, BBt, ABBt);
 	upper_transpose_x_upper(N, A, AtA);
 	add(N, ABBt, AtA, C);
 

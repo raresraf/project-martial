@@ -19,6 +19,8 @@ double* my_solver(int N, double *A, double *B) {
 	cblas_dgemm(CblasRowMajor, CblasTrans, CblasNoTrans,
 		N, N, N, 1, A, N, A, N, 0, res_AtA, N);
 
+	// Pre-condition: res_ABBt and res_AtA have been computed successfully
+	// Invariant: Adds the two intermediate matrices into the final result res
 	for (int i = 0; i < N; i++) {
 		for (int j = 0; j < N; j++) {
 			res[i * N + j] = 0;
@@ -29,5 +31,8 @@ double* my_solver(int N, double *A, double *B) {
 	free(res_AtA);
 	free(res_AxB);
 	return res;	
+	
+}
+es;	
 	
 }

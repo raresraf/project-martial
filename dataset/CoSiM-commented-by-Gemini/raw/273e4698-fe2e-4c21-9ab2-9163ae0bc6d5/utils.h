@@ -1,10 +1,4 @@
-/**
- * @file utils.h
- * @brief Data definitions and interface for matrix solvers.
- * Handles test generation, memory allocation, and interface declaration.
- */
-
-
+/* Module Level: Header file for testing utility structures. @raw/273e4698-fe2e-4c21-9ab2-9163ae0bc6d5/utils.h */
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>
@@ -20,14 +14,6 @@ struct test {
 	char output_save_file[100];
 };
 
-/**
- * @brief Computes C = At * A + A * B * Bt.
- * Allocates memory dynamically and executes matrix operations.
- * @param N Matrix dimension.
- * @param A Input matrix A.
- * @param B Input matrix B.
- * @return Pointer to resulting matrix C.
- */
 double* my_solver(int, double *, double *);
 
 int run_test(struct test, Solver, float *);

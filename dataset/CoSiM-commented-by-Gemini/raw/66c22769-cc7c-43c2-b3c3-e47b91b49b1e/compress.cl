@@ -1,4 +1,7 @@
-
+/*
+ * @raw/66c22769-cc7c-43c2-b3c3-e47b91b49b1e/compress.cl
+ * Module for texture compression using OpenCL kernels and host code.
+ */
 typedef union Tag {
 	struct BgraColorType {
 		unsigned char b;

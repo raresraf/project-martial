@@ -1,4 +1,7 @@
-
+/*
+ * @raw/6aa9471f-a970-46e2-a156-92fa6c5f8ab7/kernel.cl
+ * Module for texture compression using OpenCL kernels and host C++ interface.
+ */
 #define INT32_MAX	2147483647
 #define UINT32_MAX 	0xffffffff
 

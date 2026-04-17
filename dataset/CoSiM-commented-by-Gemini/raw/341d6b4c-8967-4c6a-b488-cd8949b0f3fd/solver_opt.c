@@ -1,3 +1,8 @@
+/**
+ * @file solver_opt.c
+ * @brief Manually optimized matrix solver implementation.
+ * Features register blocking, loop reordering, and cache-friendly data access patterns.
+ */
 
 #include "utils.h"
 
@@ -8,6 +13,7 @@ void add(int N, double *a, double *b, double *c) {
 
 	int i;
 
+	/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 	for (i = 0; i < N * N; i++) {
 		c[i] = a[i] + b[i];
 	}
@@ -18,15 +24,18 @@ void normal_x_normal_transpose(int N, double *a, double *c) {
 
 	int i, j, k;
 	
-	double *pa = &a[0];
+	double *pa = &a[0]; /* Non-obvious pointer arithmetic/dereference for optimized memory access */
 
+	/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 	for (i = 0; i < N; i++) {
 		
-		double *pa_t = &a[0];
+		double *pa_t = &a[0]; /* Non-obvious pointer arithmetic/dereference for optimized memory access */
 
+		/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 		for (j = 0; j <= i; j++) {
 			register double sum = 0.0;
 
+			/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 			for (k = 0; k < N; k++) {
 				
 				sum += *(pa + k) * *(pa_t + k);
@@ -45,18 +54,21 @@ void normal_x_normal_transpose(int N, double *a, double *c) {
 void upper_x_normal(int N, double *a, double *b, double *c) {
 
 	int i, j, k;
-	double *pa = &a[0];
-	double *pc = &c[0];
+	double *pa = &a[0]; /* Non-obvious pointer arithmetic/dereference for optimized memory access */
+	double *pc = &c[0]; /* Non-obvious pointer arithmetic/dereference for optimized memory access */
 
+	/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 	for (i = 0; i < N; i++) {
 		
 		pa += i;
 		
-		double *pb = &b[i * N];
+		double *pb = &b[i * N]; /* Non-obvious pointer arithmetic/dereference for optimized memory access */
 
+		/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 		for (k = i; k < N; k++) {
-			register double ra = *pa;
+			register double ra = *pa; /* Non-obvious pointer arithmetic/dereference for optimized memory access */
 
+			/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 			for (j = 0; j < N; j++) {
 				
 				*(pc + j) += ra * *pb;
@@ -75,15 +87,18 @@ void upper_transpose_x_upper(int N, double *a, double *c) {
 
 	int i, j, k;
 	
-	double *orig_pa = &a[0];
+	double *orig_pa = &a[0]; /* Non-obvious pointer arithmetic/dereference for optimized memory access */
 
+	/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 	for (i = 0; i < N; i++) {
 
+		/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 		for (j = 0; j <= i; j++) {
 			
 			register double sum = 0.0;
-			register double *pa = orig_pa;
+			register double *pa = orig_pa; /* Non-obvious pointer arithmetic/dereference for optimized memory access */
 
+			/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 			for (k = 0; k <= j; k++) {
 				
 				sum += *(pa + i) * *(pa + j);
@@ -98,6 +113,14 @@ void upper_transpose_x_upper(int N, double *a, double *c) {
 	}
 }
 
+/**
+ * @brief Computes C = At * A + A * B * Bt.
+ * Allocates memory dynamically and executes matrix operations.
+ * @param N Matrix dimension.
+ * @param A Input matrix A.
+ * @param B Input matrix B.
+ * @return Pointer to resulting matrix C.
+ */
 double* my_solver(int N, double *A, double* B) {
 	printf("OPT SOLVER\n");
 

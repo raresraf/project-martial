@@ -1,7 +1,13 @@
-
+/**
+ * @file solver_opt.c
+ * @brief Memory addressing and register aligned optimization solver.
+ */
 #include "utils.h"
 
 
+/**
+ * @brief Incorporates custom pointer traversals for better memory locality.
+ */
 double* my_solver(int N, double *A, double* B) {
 	double *RESULT = (double *) calloc(N * N, sizeof(double));
 	double *TEMPORARY = (double *) calloc(N * N, sizeof(double));
@@ -9,7 +15,10 @@ double* my_solver(int N, double *A, double* B) {
 	register double temporary_sum;
 	register int i, j, k;
 
-	
+	/**
+	 * @pre Standard continuous memory buffers.
+	 * @post Exploits direct references over bounds for intermediate products.
+	 */
 	for(i = 0; i < N; ++i){
 		initial_line_parser = &A[i * N];
 		for(j = 0; j < N; ++j){
@@ -17,13 +26,17 @@ double* my_solver(int N, double *A, double* B) {
 			column_parser = &B[j];
 			temporary_sum = 0;
 			for(k = 0; k < N; ++k, ++line_parser, column_parser += N){
+				/// Avoids array address offsets entirely via continuous jumps.
 				temporary_sum += *line_parser * *column_parser;
 			}
 			TEMPORARY[i * N + j] = temporary_sum;
 		}
 	}
 
-	
+	/**
+	 * @pre Arrays set from previous iteration step.
+	 * @post Combines elements directly into resulting matrix.
+	 */
 	for (i = 0; i < N; ++i) {
 		for (j = 0; j < N; ++j) {
 			temporary_sum = 0;
@@ -34,7 +47,10 @@ double* my_solver(int N, double *A, double* B) {
 		}
 	}
 
-	
+	/**
+	 * @pre Result matrix aggregated.
+	 * @post Fuses sub components.
+	 */
 	for (i = 0; i < N; ++i) {
 		for (j = 0; j < N; ++j) {
 			temporary_sum = 0;

@@ -1,3 +1,8 @@
+/**
+ * @file markmaster.go
+ * @brief Encapsulates functional utility for markmaster.go.
+ * Production Systems: focuses on architectural intent and robust error handling.
+ */
 /*
 Copyright 2017 The Kubernetes Authors.
 
@@ -29,7 +34,7 @@ import (
 // NewCmdMarkMaster returns the Cobra command for running the mark-master phase
 func NewCmdMarkMaster() *cobra.Command {
 	var kubeConfigFile string
-	cmd := &cobra.Command{
+	cmd := &cobra.Command{ /* Non-obvious bitwise operation or pointer arithmetic */
 		Use:     "mark-master <node-name>",
 		Short:   "Create KubeConfig files from given credentials.",
 		Aliases: []string{"markmaster"},
@@ -47,6 +52,6 @@ func NewCmdMarkMaster() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&kubeConfigFile, "kubeconfig", "/etc/kubernetes/admin.conf", "The KubeConfig file to use for talking to the cluster")
+	cmd.Flags().StringVar(&kubeConfigFile, "kubeconfig", "/etc/kubernetes/admin.conf", "The KubeConfig file to use for talking to the cluster") /* Non-obvious bitwise operation or pointer arithmetic */
 	return cmd
 }

@@ -1,3 +1,8 @@
+/**
+ * @file kernel.cl
+ * @brief High-level source code module.
+ * Optimizes memory hierarchy usage, thread indexing, and synchronization for OpenCL execution.
+ */
 
 #define INT32_MAX	2147483647
 #define UINT32_MAX 	0xffffffff
@@ -24,6 +29,10 @@ void memcpy(void *destination, void *source, size_t num)
 	char *c_destination = (char *) destination;
 	char *c_source = (char *) source;
 
+	/**
+	 * @brief Pre-condition: Iteration boundaries properly mapped and initialized.
+	 * Invariant: Operations within the block strictly maintain target functional boundaries.
+	 */
 	for (int i = 0; i < num; i++)
 		c_destination[i] = c_source[i];
 }
@@ -31,6 +40,10 @@ void memcpy(void *destination, void *source, size_t num)
 void memset(__global void *ptr, int value, size_t num)
 {
 	__global char *c_ptr = (__global char *) ptr;
+	/**
+	 * @brief Pre-condition: Control conditions are active and valid.
+	 * Invariant: The execution converges towards the termination criteria.
+	 */
 	while (num > 0) {
 		*c_ptr = (unsigned char) value;
 		c_ptr++;
@@ -129,9 +142,9 @@ void WriteColors444(__global uint8_t* block,
 					Color *color0,
 					Color *color1) {
 	
-	block[0] = (color0->channels.r & 0xf0) | (color1->channels.r >> 4);
-	block[1] = (color0->channels.g & 0xf0) | (color1->channels.g >> 4);
-	block[2] = (color0->channels.b & 0xf0) | (color1->channels.b >> 4);
+	block[0] = (color0->channels.r & 0xf0) | (color1->channels.r >> 4); /* Bitwise/pointer arithmetic for precise data alignment and extraction */
+	block[1] = (color0->channels.g & 0xf0) | (color1->channels.g >> 4); /* Bitwise/pointer arithmetic for precise data alignment and extraction */
+	block[2] = (color0->channels.b & 0xf0) | (color1->channels.b >> 4); /* Bitwise/pointer arithmetic for precise data alignment and extraction */
 }
 
 void WriteColors555(__global uint8_t* block,
@@ -150,16 +163,16 @@ void WriteColors555(__global uint8_t* block,
 	};
 	
 	int16_t delta_r =
-	(int16_t) (color1->channels.r >> 3) - (color0->channels.r >> 3);
+	(int16_t) (color1->channels.r >> 3) - (color0->channels.r >> 3); /* Bitwise/pointer arithmetic for precise data alignment and extraction */
 	int16_t delta_g =
-	(int16_t) (color1->channels.g >> 3) - (color0->channels.g >> 3);
+	(int16_t) (color1->channels.g >> 3) - (color0->channels.g >> 3); /* Bitwise/pointer arithmetic for precise data alignment and extraction */
 	int16_t delta_b =
-	(int16_t) (color1->channels.b >> 3) - (color0->channels.b >> 3);
+	(int16_t) (color1->channels.b >> 3) - (color0->channels.b >> 3); /* Bitwise/pointer arithmetic for precise data alignment and extraction */
 	
 	
-	block[0] = (color0->channels.r & 0xf8) | two_compl_trans_table[delta_r + 4];
-	block[1] = (color0->channels.g & 0xf8) | two_compl_trans_table[delta_g + 4];
-	block[2] = (color0->channels.b & 0xf8) | two_compl_trans_table[delta_b + 4];
+	block[0] = (color0->channels.r & 0xf8) | two_compl_trans_table[delta_r + 4]; /* Bitwise/pointer arithmetic for precise data alignment and extraction */
+	block[1] = (color0->channels.g & 0xf8) | two_compl_trans_table[delta_g + 4]; /* Bitwise/pointer arithmetic for precise data alignment and extraction */
+	block[2] = (color0->channels.b & 0xf8) | two_compl_trans_table[delta_b + 4]; /* Bitwise/pointer arithmetic for precise data alignment and extraction */
 }
 
 void WriteCodewordTable(__global uint8_t* block,
@@ -171,19 +184,19 @@ void WriteCodewordTable(__global uint8_t* block,
 }
 
 void WritePixelData(__global uint8_t* block, uint32_t pixel_data) {
-	block[4] |= pixel_data >> 24;
-	block[5] |= (pixel_data >> 16) & 0xff;
-	block[6] |= (pixel_data >> 8) & 0xff;
-	block[7] |= pixel_data & 0xff;
+	block[4] |= pixel_data >> 24; /* Bitwise/pointer arithmetic for precise data alignment and extraction */
+	block[5] |= (pixel_data >> 16) & 0xff; /* Bitwise/pointer arithmetic for precise data alignment and extraction */
+	block[6] |= (pixel_data >> 8) & 0xff; /* Bitwise/pointer arithmetic for precise data alignment and extraction */
+	block[7] |= pixel_data & 0xff; /* Bitwise/pointer arithmetic for precise data alignment and extraction */
 }
 
 void WriteFlip(__global uint8_t* block, bool flip) {
-	block[3] &= ~0x01;
-	block[3] |= (uint8_t) (flip);
+	block[3] &= ~0x01; /* Bitwise/pointer arithmetic for precise data alignment and extraction */
+	block[3] |= (uint8_t) (flip); /* Bitwise/pointer arithmetic for precise data alignment and extraction */
 }
 
 void WriteDiff(__global uint8_t* block, bool diff) {
-	block[3] &= ~0x02;
+	block[3] &= ~0x02; /* Bitwise/pointer arithmetic for precise data alignment and extraction */
 	block[3] |= (uint8_t) (diff) << 1;
 }
 
@@ -197,9 +210,9 @@ Color makeColor444(float* bgr) {
 	uint8_t r4 = round_to_4_bits(bgr[2]);
 
 	Color bgr444;
-	bgr444.channels.b = (b4 << 4) | b4;
-	bgr444.channels.g = (g4 << 4) | g4;
-	bgr444.channels.r = (r4 << 4) | r4;
+	bgr444.channels.b = (b4 << 4) | b4; /* Bitwise/pointer arithmetic for precise data alignment and extraction */
+	bgr444.channels.g = (g4 << 4) | g4; /* Bitwise/pointer arithmetic for precise data alignment and extraction */
+	bgr444.channels.r = (r4 << 4) | r4; /* Bitwise/pointer arithmetic for precise data alignment and extraction */
 	
 	bgr444.channels.a = 0x44;
 
@@ -230,6 +243,10 @@ void getAverageColor(Color* src, float* avg_color)
 {
 	uint32_t sum_b = 0, sum_g = 0, sum_r = 0;
 	
+	/**
+	 * @brief Pre-condition: Iteration boundaries properly mapped and initialized.
+	 * Invariant: Operations within the block strictly maintain target functional boundaries.
+	 */
 	for (unsigned int i = 0; i < 8; ++i) {
 		sum_b += src[i].channels.b;
 		sum_g += src[i].channels.g;
@@ -255,10 +272,18 @@ unsigned long computeLuminance(__global uint8_t* block,
 
 	
 	
+	/**
+	 * @brief Pre-condition: Iteration boundaries properly mapped and initialized.
+	 * Invariant: Operations within the block strictly maintain target functional boundaries.
+	 */
 	for (unsigned int tbl_idx = 0; tbl_idx < 8; ++tbl_idx) {
 		
 		
 		Color candidate_color[4];  
+		/**
+		 * @brief Pre-condition: Iteration boundaries properly mapped and initialized.
+		 * Invariant: Operations within the block strictly maintain target functional boundaries.
+		 */
 		for (unsigned int mod_idx = 0; mod_idx < 4; ++mod_idx) {
 			int16_t lum = g_codeword_tables[tbl_idx][mod_idx];
 			candidate_color[mod_idx] = makeColor(base, lum);
@@ -266,32 +291,60 @@ unsigned long computeLuminance(__global uint8_t* block,
 		
 		uint32_t tbl_err = 0;
 		
+		/**
+		 * @brief Pre-condition: Iteration boundaries properly mapped and initialized.
+		 * Invariant: Operations within the block strictly maintain target functional boundaries.
+		 */
 		for (unsigned int i = 0; i < 8; ++i) {
 			
 			
 			uint32_t best_mod_err = threshold;
+			/**
+			 * @brief Pre-condition: Iteration boundaries properly mapped and initialized.
+			 * Invariant: Operations within the block strictly maintain target functional boundaries.
+			 */
 			for (unsigned int mod_idx = 0; mod_idx < 4; ++mod_idx) {
 				Color color = candidate_color[mod_idx];
 				
-				uint32_t mod_err = getColorError(src + i, &color);
+				uint32_t mod_err = getColorError(src + i, &color); /* Bitwise/pointer arithmetic for precise data alignment and extraction */
+				/**
+				 * @brief Pre-condition: Evaluates logical divergence based on current state.
+				 * Invariant: Guarantees correct execution flow according to conditional partitioning.
+				 */
 				if (mod_err < best_mod_err) {
 					best_mod_idx[tbl_idx][i] = mod_idx;
 					best_mod_err = mod_err;
 					
+					/**
+					 * @brief Pre-condition: Evaluates logical divergence based on current state.
+					 * Invariant: Guarantees correct execution flow according to conditional partitioning.
+					 */
 					if (mod_err == 0)
 						break;  
 				}
 			}
 			
 			tbl_err += best_mod_err;
+			/**
+			 * @brief Pre-condition: Evaluates logical divergence based on current state.
+			 * Invariant: Guarantees correct execution flow according to conditional partitioning.
+			 */
 			if (tbl_err > best_tbl_err)
 				break;  
 		}
 		
+		/**
+		 * @brief Pre-condition: Evaluates logical divergence based on current state.
+		 * Invariant: Guarantees correct execution flow according to conditional partitioning.
+		 */
 		if (tbl_err < best_tbl_err) {
 			best_tbl_err = tbl_err;
 			best_tbl_idx = tbl_idx;
 			
+			/**
+			 * @brief Pre-condition: Evaluates logical divergence based on current state.
+			 * Invariant: Guarantees correct execution flow according to conditional partitioning.
+			 */
 			if (tbl_err == 0)
 				break;  
 		}
@@ -301,19 +354,23 @@ unsigned long computeLuminance(__global uint8_t* block,
 
 	uint32_t pix_data = 0;
 
+	/**
+	 * @brief Pre-condition: Iteration boundaries properly mapped and initialized.
+	 * Invariant: Operations within the block strictly maintain target functional boundaries.
+	 */
 	for (unsigned int i = 0; i < 8; ++i) {
 		uint8_t mod_idx = best_mod_idx[best_tbl_idx][i];
 
 
 		uint8_t pix_idx = g_mod_to_pix[mod_idx];
 		
-		uint32_t lsb = pix_idx & 0x1;
-		uint32_t msb = pix_idx >> 1;
+		uint32_t lsb = pix_idx & 0x1; /* Bitwise/pointer arithmetic for precise data alignment and extraction */
+		uint32_t msb = pix_idx >> 1; /* Bitwise/pointer arithmetic for precise data alignment and extraction */
 		
 		
 		int texel_num = g_idx_to_num[sub_block_off][i];
-		pix_data |= msb << (texel_num + 16);
-		pix_data |= lsb << (texel_num);
+		pix_data |= msb << (texel_num + 16); /* Bitwise/pointer arithmetic for precise data alignment and extraction */
+		pix_data |= lsb << (texel_num); /* Bitwise/pointer arithmetic for precise data alignment and extraction */
 	}
 
 	WritePixelData(block, pix_data);
@@ -326,7 +383,15 @@ bool tryCompressSolidBlock(__global uint8_t *dst,
 						   Color *src,
 						   unsigned long *error)
 {
+	/**
+	 * @brief Pre-condition: Iteration boundaries properly mapped and initialized.
+	 * Invariant: Operations within the block strictly maintain target functional boundaries.
+	 */
 	for (unsigned int i = 1; i < 16; ++i) {
+		/**
+		 * @brief Pre-condition: Evaluates logical divergence based on current state.
+		 * Invariant: Guarantees correct execution flow according to conditional partitioning.
+		 */
 		if (src[i].bits != src[0].bits)
 			return false;
 	}
@@ -343,7 +408,7 @@ bool tryCompressSolidBlock(__global uint8_t *dst,
 	
 	WriteDiff(dst, true);
 	WriteFlip(dst, false);
-	WriteColors555(dst, &base, &base);
+	WriteColors555(dst, &base, &base); /* Bitwise/pointer arithmetic for precise data alignment and extraction */
 	
 	uint8_t best_tbl_idx = 0;
 	uint8_t best_mod_idx = 0;
@@ -351,24 +416,44 @@ bool tryCompressSolidBlock(__global uint8_t *dst,
 	
 	
 	
+	/**
+	 * @brief Pre-condition: Iteration boundaries properly mapped and initialized.
+	 * Invariant: Operations within the block strictly maintain target functional boundaries.
+	 */
 	for (unsigned int tbl_idx = 0; tbl_idx < 8; ++tbl_idx) {
 		
 		
+		/**
+		 * @brief Pre-condition: Iteration boundaries properly mapped and initialized.
+		 * Invariant: Operations within the block strictly maintain target functional boundaries.
+		 */
 		for (unsigned int mod_idx = 0; mod_idx < 4; ++mod_idx) {
 			int16_t lum = g_codeword_tables[tbl_idx][mod_idx];
-			Color color = makeColor(&base, lum);
+			Color color = makeColor(&base, lum); /* Bitwise/pointer arithmetic for precise data alignment and extraction */
 			
-			uint32_t mod_err = getColorError(src, &color);
+			uint32_t mod_err = getColorError(src, &color); /* Bitwise/pointer arithmetic for precise data alignment and extraction */
+			/**
+			 * @brief Pre-condition: Evaluates logical divergence based on current state.
+			 * Invariant: Guarantees correct execution flow according to conditional partitioning.
+			 */
 			if (mod_err < best_mod_err) {
 				best_tbl_idx = tbl_idx;
 				best_mod_idx = mod_idx;
 				best_mod_err = mod_err;
 				
+				/**
+				 * @brief Pre-condition: Evaluates logical divergence based on current state.
+				 * Invariant: Guarantees correct execution flow according to conditional partitioning.
+				 */
 				if (mod_err == 0)
 					break;  
 			}
 		}
 		
+		/**
+		 * @brief Pre-condition: Evaluates logical divergence based on current state.
+		 * Invariant: Guarantees correct execution flow according to conditional partitioning.
+		 */
 		if (best_mod_err == 0)
 			break;
 	}
@@ -377,16 +462,24 @@ bool tryCompressSolidBlock(__global uint8_t *dst,
 	WriteCodewordTable(dst, 1, best_tbl_idx);
 	
 	uint8_t pix_idx = g_mod_to_pix[best_mod_idx];
-	uint32_t lsb = pix_idx & 0x1;
-	uint32_t msb = pix_idx >> 1;
+	uint32_t lsb = pix_idx & 0x1; /* Bitwise/pointer arithmetic for precise data alignment and extraction */
+	uint32_t msb = pix_idx >> 1; /* Bitwise/pointer arithmetic for precise data alignment and extraction */
 	
 	uint32_t pix_data = 0;
+	/**
+	 * @brief Pre-condition: Iteration boundaries properly mapped and initialized.
+	 * Invariant: Operations within the block strictly maintain target functional boundaries.
+	 */
 	for (unsigned int i = 0; i < 2; ++i) {
+		/**
+		 * @brief Pre-condition: Iteration boundaries properly mapped and initialized.
+		 * Invariant: Operations within the block strictly maintain target functional boundaries.
+		 */
 		for (unsigned int j = 0; j < 8; ++j) {
 			
 			int texel_num = g_idx_to_num[i][j];
-			pix_data |= msb << (texel_num + 16);
-			pix_data |= lsb << (texel_num);
+			pix_data |= msb << (texel_num + 16); /* Bitwise/pointer arithmetic for precise data alignment and extraction */
+			pix_data |= lsb << (texel_num); /* Bitwise/pointer arithmetic for precise data alignment and extraction */
 		}
 	}
 
@@ -401,6 +494,10 @@ unsigned long compressBlock(__global uint8_t* dst,
 							unsigned long threshold)
 {
 	unsigned long solid_error = 0;
+	/**
+	 * @brief Pre-condition: Evaluates logical divergence based on current state.
+	 * Invariant: Guarantees correct execution flow according to conditional partitioning.
+	 */
 	if (tryCompressSolidBlock(dst, ver_src, &solid_error)) {
 		return solid_error;
 	}
@@ -412,6 +509,10 @@ unsigned long compressBlock(__global uint8_t* dst,
 	
 	
 	
+	/**
+	 * @brief Pre-condition: Iteration boundaries properly mapped and initialized.
+	 * Invariant: Operations within the block strictly maintain target functional boundaries.
+	 */
 	for (unsigned int i = 0, j = 1; i < 4; i += 2, j += 2) {
 		float avg_color_0[3];
 		getAverageColor(sub_block_src[i], avg_color_0);
@@ -421,11 +522,19 @@ unsigned long compressBlock(__global uint8_t* dst,
 		getAverageColor(sub_block_src[j], avg_color_1);
 		Color avg_color_555_1 = makeColor555(avg_color_1);
 		
+		/**
+		 * @brief Pre-condition: Iteration boundaries properly mapped and initialized.
+		 * Invariant: Operations within the block strictly maintain target functional boundaries.
+		 */
 		for (unsigned int light_idx = 0; light_idx < 3; ++light_idx) {
-			int u = avg_color_555_0.components[light_idx] >> 3;
-			int v = avg_color_555_1.components[light_idx] >> 3;
+			int u = avg_color_555_0.components[light_idx] >> 3; /* Bitwise/pointer arithmetic for precise data alignment and extraction */
+			int v = avg_color_555_1.components[light_idx] >> 3; /* Bitwise/pointer arithmetic for precise data alignment and extraction */
 			
 			int component_diff = v - u;
+			/**
+			 * @brief Pre-condition: Evaluates logical divergence based on current state.
+			 * Invariant: Guarantees correct execution flow according to conditional partitioning.
+			 */
 			if (component_diff  3) {
 				use_differential[i / 2] = false;
 				sub_block_avg[i] = makeColor444(avg_color_0);
@@ -441,7 +550,15 @@ unsigned long compressBlock(__global uint8_t* dst,
 	
 	
 	uint32_t sub_block_err[4] = {0};
+	/**
+	 * @brief Pre-condition: Iteration boundaries properly mapped and initialized.
+	 * Invariant: Operations within the block strictly maintain target functional boundaries.
+	 */
 	for (unsigned int i = 0; i < 4; ++i) {
+		/**
+		 * @brief Pre-condition: Iteration boundaries properly mapped and initialized.
+		 * Invariant: Operations within the block strictly maintain target functional boundaries.
+		 */
 		for (unsigned int j = 0; j < 8; ++j) {
 			sub_block_err[i] += 
 				getColorError(sub_block_avg + i, sub_block_src[i] + j);
@@ -460,12 +577,16 @@ unsigned long compressBlock(__global uint8_t* dst,
 	uint8_t sub_block_off_0 = flip ? 2 : 0;
 	uint8_t sub_block_off_1 = sub_block_off_0 + 1;
 	
+	/**
+	 * @brief Pre-condition: Evaluates logical divergence based on current state.
+	 * Invariant: Guarantees correct execution flow according to conditional partitioning.
+	 */
 	if (use_differential[!!flip]) {
-		WriteColors555(dst, &sub_block_avg[sub_block_off_0],
-					   &sub_block_avg[sub_block_off_1]);
+		WriteColors555(dst, &sub_block_avg[sub_block_off_0], /* Bitwise/pointer arithmetic for precise data alignment and extraction */
+					   &sub_block_avg[sub_block_off_1]); /* Bitwise/pointer arithmetic for precise data alignment and extraction */
 	} else {
-		WriteColors444(dst, &sub_block_avg[sub_block_off_0],
-					   &sub_block_avg[sub_block_off_1]);
+		WriteColors444(dst, &sub_block_avg[sub_block_off_0], /* Bitwise/pointer arithmetic for precise data alignment and extraction */
+					   &sub_block_avg[sub_block_off_1]); /* Bitwise/pointer arithmetic for precise data alignment and extraction */
 	}
 	
 
@@ -474,12 +595,12 @@ unsigned long compressBlock(__global uint8_t* dst,
 	
 	
 	lumi_error1 = computeLuminance(dst, sub_block_src[sub_block_off_0],
-								   &sub_block_avg[sub_block_off_0], 0,
+								   &sub_block_avg[sub_block_off_0], 0, /* Bitwise/pointer arithmetic for precise data alignment and extraction */
 								   sub_block_off_0,
 								   threshold);
 	
 	lumi_error2 = computeLuminance(dst, sub_block_src[sub_block_off_1],
-								   &sub_block_avg[sub_block_off_1], 1,
+								   &sub_block_avg[sub_block_off_1], 1, /* Bitwise/pointer arithmetic for precise data alignment and extraction */
 								   sub_block_off_1,
 								   threshold);
 	
@@ -520,12 +641,16 @@ __kernel void compress(__global uchar *src,
 	memcpy(hor_blocks + 12, row3, 16);
 	
 	compressBlock(dst + offset_dst, ver_blocks, hor_blocks, INT32_MAX);
-}>>>> file: texture_compress_skl.cpp
+}>>>> file: texture_compress_skl.cpp /* Bitwise/pointer arithmetic for precise data alignment and extraction */
 #include "compress.hpp"
 
 
 #define DIE(assertion, call_description)  \
 do { \
+	/**
+	 * @brief Pre-condition: Evaluates logical divergence based on current state.
+	 * Invariant: Guarantees correct execution flow according to conditional partitioning.
+	 */
 	if (assertion) { \
 		fprintf(stderr, "(%d): ", __LINE__); \
 		perror(call_description); \
@@ -596,22 +721,26 @@ void cl_get_compiler_err_log(cl_program program, cl_device_id device)
 
 	
 	clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG,
-						  0, NULL, &log_size);
+						  0, NULL, &log_size); /* Bitwise/pointer arithmetic for precise data alignment and extraction */
 	build_log = new char[log_size + 1];
 
 	
 	clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG,
 						  log_size, build_log, NULL);
 	build_log[log_size] = '\0';
-	cout << endl << build_log << endl;
+	cout << endl << build_log << endl; /* Bitwise/pointer arithmetic for precise data alignment and extraction */
 }
 
 
 
 int CL_ERR(int cl_ret)
 {
+	/**
+	 * @brief Pre-condition: Evaluates logical divergence based on current state.
+	 * Invariant: Guarantees correct execution flow according to conditional partitioning.
+	 */
 	if (cl_ret != CL_SUCCESS) {
-		cout << endl << cl_get_string_err(cl_ret) << endl;
+		cout << endl << cl_get_string_err(cl_ret) << endl; /* Bitwise/pointer arithmetic for precise data alignment and extraction */
 		return 1;
 	}
 	return 0;
@@ -620,8 +749,12 @@ int CL_ERR(int cl_ret)
 
 int CL_COMPILE_ERR(int cl_ret, cl_program program, cl_device_id device)
 {
+	/**
+	 * @brief Pre-condition: Evaluates logical divergence based on current state.
+	 * Invariant: Guarantees correct execution flow according to conditional partitioning.
+	 */
 	if (cl_ret != CL_SUCCESS){
-		cout << endl << cl_get_string_err(cl_ret) << endl;
+		cout << endl << cl_get_string_err(cl_ret) << endl; /* Bitwise/pointer arithmetic for precise data alignment and extraction */
 		cl_get_compiler_err_log(program, device);
 		return 1;
 	}
@@ -629,20 +762,20 @@ int CL_COMPILE_ERR(int cl_ret, cl_program program, cl_device_id device)
 }
 
 
-void read_kernel(string file_name, string &str_kernel)
+void read_kernel(string file_name, string &str_kernel) /* Bitwise/pointer arithmetic for precise data alignment and extraction */
 {
 	ifstream in_file(file_name.c_str());
 	in_file.open(file_name.c_str());
 	DIE( !in_file.is_open(), "ERR OpenCL kernel file. Same directory as binary " );
 
 	stringstream str_stream;
-	str_stream << in_file.rdbuf();
+	str_stream << in_file.rdbuf(); /* Bitwise/pointer arithmetic for precise data alignment and extraction */
 
 	str_kernel = str_stream.str();
 }
 
 
-void gpu_find(cl_device_id &device)
+void gpu_find(cl_device_id &device) /* Bitwise/pointer arithmetic for precise data alignment and extraction */
 {
 	cl_uint platform_num = 0;
 	cl_platform_id* platform_ids = NULL;
@@ -658,12 +791,20 @@ void gpu_find(cl_device_id &device)
 	
 	CL_ERR(clGetPlatformIDs(platform_num, platform_ids, NULL));
 
+	/**
+	 * @brief Pre-condition: Iteration boundaries properly mapped and initialized.
+	 * Invariant: Operations within the block strictly maintain target functional boundaries.
+	 */
 	for (int i = 0; i < platform_num; i++) {
 		cl_platform_id platform = platform_ids[i];
 
 		
+		/**
+		 * @brief Pre-condition: Evaluates logical divergence based on current state.
+		 * Invariant: Guarantees correct execution flow according to conditional partitioning.
+		 */
 		if (clGetDeviceIDs(platform, 
-			CL_DEVICE_TYPE_GPU, 0, NULL, &device_num) == CL_DEVICE_NOT_FOUND) {
+			CL_DEVICE_TYPE_GPU, 0, NULL, &device_num) == CL_DEVICE_NOT_FOUND) { /* Bitwise/pointer arithmetic for precise data alignment and extraction */
 			device_num = 0;
 			continue;
 		}
@@ -697,20 +838,20 @@ unsigned long TextureCompressor::compress(const uint8_t* src,
 	cl_int ret;
 
 	
-	context = clCreateContext(0, 1, &device, NULL, NULL, &ret);
+	context = clCreateContext(0, 1, &device, NULL, NULL, &ret); /* Bitwise/pointer arithmetic for precise data alignment and extraction */
 	CL_ERR(ret);
 	
 	
-	command_queue = clCreateCommandQueue(context, device, 0, &ret);
+	command_queue = clCreateCommandQueue(context, device, 0, &ret); /* Bitwise/pointer arithmetic for precise data alignment and extraction */
 	CL_ERR(ret);
 
 	
 	cl_mem bufSrc = clCreateBuffer(context, 
-		CL_MEM_READ_ONLY, sizeof(uint8_t) * width * height * 4, NULL, &ret);
+		CL_MEM_READ_ONLY, sizeof(uint8_t) * width * height * 4, NULL, &ret); /* Bitwise/pointer arithmetic for precise data alignment and extraction */
 	CL_ERR(ret);
 	
 	cl_mem bufDst = clCreateBuffer(context, 
-		CL_MEM_WRITE_ONLY, sizeof(uint8_t) * width * height * 4, NULL, &ret);
+		CL_MEM_WRITE_ONLY, sizeof(uint8_t) * width * height * 4, NULL, &ret); /* Bitwise/pointer arithmetic for precise data alignment and extraction */
 	CL_ERR(ret);
 
 	
@@ -724,22 +865,22 @@ unsigned long TextureCompressor::compress(const uint8_t* src,
 	const char* kernel_c_str = kernel_src.c_str();
 	
 	
-	program = clCreateProgramWithSource(context, 1, &kernel_c_str, NULL, &ret);
+	program = clCreateProgramWithSource(context, 1, &kernel_c_str, NULL, &ret); /* Bitwise/pointer arithmetic for precise data alignment and extraction */
 	CL_ERR(ret);
 	
 	
-	ret = clBuildProgram(program, 1, &device, "", NULL, NULL);
+	ret = clBuildProgram(program, 1, &device, "", NULL, NULL); /* Bitwise/pointer arithmetic for precise data alignment and extraction */
 	CL_COMPILE_ERR(ret, program, device);
 	
 	
-	kernel = clCreateKernel(program, "compress", &ret);
+	kernel = clCreateKernel(program, "compress", &ret); /* Bitwise/pointer arithmetic for precise data alignment and extraction */
 	CL_ERR(ret);
 	
 	
-	CL_ERR(clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *) &bufSrc));
-	CL_ERR(clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *) &bufDst));
-	CL_ERR(clSetKernelArg(kernel, 2, sizeof(cl_uint), (void *) &width));
-	CL_ERR(clSetKernelArg(kernel, 3, sizeof(cl_uint), (void *) &height));
+	CL_ERR(clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *) &bufSrc)); /* Bitwise/pointer arithmetic for precise data alignment and extraction */
+	CL_ERR(clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *) &bufDst)); /* Bitwise/pointer arithmetic for precise data alignment and extraction */
+	CL_ERR(clSetKernelArg(kernel, 2, sizeof(cl_uint), (void *) &width)); /* Bitwise/pointer arithmetic for precise data alignment and extraction */
+	CL_ERR(clSetKernelArg(kernel, 3, sizeof(cl_uint), (void *) &height)); /* Bitwise/pointer arithmetic for precise data alignment and extraction */
 
 	
 	size_t globalSize[2] = {(size_t) (width / 4), (size_t) (height / 4)};

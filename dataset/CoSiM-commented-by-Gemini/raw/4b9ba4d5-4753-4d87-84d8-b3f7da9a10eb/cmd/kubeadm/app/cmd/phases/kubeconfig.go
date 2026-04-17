@@ -1,3 +1,8 @@
+/**
+ * @file kubeconfig.go
+ * @brief Encapsulates functional utility for kubeconfig.go.
+ * Production Systems: focuses on architectural intent and robust error handling.
+ */
 /*
 Copyright 2017 The Kubernetes Authors.
 
@@ -31,7 +36,7 @@ import (
 
 // NewCmdKubeConfig return main command for kubeconfig phase
 func NewCmdKubeConfig(out io.Writer) *cobra.Command {
-	cmd := &cobra.Command{
+	cmd := &cobra.Command{ /* Non-obvious bitwise operation or pointer arithmetic */
 		Use:   "kubeconfig",
 		Short: "Generate all kubeconfig files necessary to establish the control plane and the admin kubeconfig file.",
 		RunE:  subCmdRunE("kubeconfig"),
@@ -44,7 +49,7 @@ func NewCmdKubeConfig(out io.Writer) *cobra.Command {
 // getKubeConfigSubCommands returns sub commands for kubeconfig phase
 func getKubeConfigSubCommands(out io.Writer, outDir string) []*cobra.Command {
 
-	cfg := &kubeadmapiext.MasterConfiguration{}
+	cfg := &kubeadmapiext.MasterConfiguration{} /* Non-obvious bitwise operation or pointer arithmetic */
 	// Default values for the cobra help text
 	api.Scheme.Default(cfg)
 
@@ -85,11 +90,13 @@ func getKubeConfigSubCommands(out io.Writer, outDir string) []*cobra.Command {
 			use:   "user",
 			short: "Outputs a kubeconfig file for an additional user.",
 			cmdFunc: func(outDir string, cfg *kubeadmapi.MasterConfiguration) error {
+				/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 				if clientName == "" {
 					return fmt.Errorf("missing required argument client-name")
 				}
 
 				// if the kubeconfig file for an additional user has to use a token, use it
+				/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 				if token != "" {
 					return kubeconfigphase.WriteKubeConfigWithToken(out, cfg, clientName, token)
 				}
@@ -100,27 +107,31 @@ func getKubeConfigSubCommands(out io.Writer, outDir string) []*cobra.Command {
 		},
 	}
 
+	/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 	for _, properties := range subCmdProperties {
 		// Creates the UX Command
-		cmd := &cobra.Command{
+		cmd := &cobra.Command{ /* Non-obvious bitwise operation or pointer arithmetic */
 			Use:   properties.use,
 			Short: properties.short,
-			Run:   runCmdPhase(properties.cmdFunc, &outDir, &cfgPath, cfg),
+			Run:   runCmdPhase(properties.cmdFunc, &outDir, &cfgPath, cfg), /* Non-obvious bitwise operation or pointer arithmetic */
 		}
 
 		// Add flags to the command
+		/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 		if properties.use != "user" {
-			cmd.Flags().StringVar(&cfgPath, "config", cfgPath, "Path to kubeadm config file (WARNING: Usage of a configuration file is experimental)")
+			cmd.Flags().StringVar(&cfgPath, "config", cfgPath, "Path to kubeadm config file (WARNING: Usage of a configuration file is experimental)") /* Non-obvious bitwise operation or pointer arithmetic */
 		}
-		cmd.Flags().StringVar(&cfg.CertificatesDir, "cert-dir", cfg.CertificatesDir, "The path where to save and store the certificates")
-		cmd.Flags().StringVar(&cfg.API.AdvertiseAddress, "apiserver-advertise-address", cfg.API.AdvertiseAddress, "The IP address the API Server will advertise it's listening on. 0.0.0.0 means the default network interface's address.")
-		cmd.Flags().Int32Var(&cfg.API.BindPort, "apiserver-bind-port", cfg.API.BindPort, "Port for the API Server to bind to")
-		if properties.use == "all" || properties.use == "kubelet" {
-			cmd.Flags().StringVar(&cfg.NodeName, "node-name", cfg.NodeName, `Specify the node name`)
+		cmd.Flags().StringVar(&cfg.CertificatesDir, "cert-dir", cfg.CertificatesDir, "The path where to save and store the certificates") /* Non-obvious bitwise operation or pointer arithmetic */
+		cmd.Flags().StringVar(&cfg.API.AdvertiseAddress, "apiserver-advertise-address", cfg.API.AdvertiseAddress, "The IP address the API Server will advertise it's listening on. 0.0.0.0 means the default network interface's address.") /* Non-obvious bitwise operation or pointer arithmetic */
+		cmd.Flags().Int32Var(&cfg.API.BindPort, "apiserver-bind-port", cfg.API.BindPort, "Port for the API Server to bind to") /* Non-obvious bitwise operation or pointer arithmetic */
+		/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
+		if properties.use == "all" || properties.use == "kubelet" { /* Non-obvious bitwise operation or pointer arithmetic */
+			cmd.Flags().StringVar(&cfg.NodeName, "node-name", cfg.NodeName, `Specify the node name`) /* Non-obvious bitwise operation or pointer arithmetic */
 		}
+		/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 		if properties.use == "user" {
-			cmd.Flags().StringVar(&token, "token", token, "The path to the directory where the certificates are.")
-			cmd.Flags().StringVar(&clientName, "client-name", clientName, "The name of the client for which the KubeConfig file will be generated.")
+			cmd.Flags().StringVar(&token, "token", token, "The path to the directory where the certificates are.") /* Non-obvious bitwise operation or pointer arithmetic */
+			cmd.Flags().StringVar(&clientName, "client-name", clientName, "The name of the client for which the KubeConfig file will be generated.") /* Non-obvious bitwise operation or pointer arithmetic */
 		}
 
 		subCmds = append(subCmds, cmd)

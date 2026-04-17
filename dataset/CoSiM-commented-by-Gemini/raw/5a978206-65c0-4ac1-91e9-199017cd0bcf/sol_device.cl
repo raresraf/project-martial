@@ -388,6 +388,10 @@ unsigned long compressBlock(uchar* dst,  union Color* ver_src,
 	
 	
 	uint i, j;
+	/**
+	 * @pre sub_block_src arrays are fully populated from global memory.
+	 * @post sub_block_avg calculates local block averages for compression.
+	 */
 	for (i = 0, j = 1; i < 4; i += 2, j += 2) {
 		float avg_color_0[3];
 		getAverageColor(sub_block_src[i], avg_color_0);
@@ -815,5 +819,8 @@ unsigned long TextureCompressor::compress(const uint8_t* src,
 	clReleaseMemObject(memDST);
 	clReleaseCommandQueue(commands);
 	clReleaseContext(context);
+
+}
+ontext);
 
 }

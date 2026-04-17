@@ -1,4 +1,10 @@
 
+"""
+Module: consumer.py
+Producer-Consumer marketplace simulator with thread synchronization.
+Time Complexity: O(N) per cart operation.
+Space Complexity: O(1) auxiliary.
+"""
 
 import time
 from threading import Thread
@@ -19,6 +25,8 @@ class Consumer(Thread):
     def add_product(self, cart_id, product, quantity):
         
         added = 0
+        # Pre-condition: cart_id valid, quantity > 0.
+        # Invariant: added <= quantity.
         while added < quantity:
             status = self.marketplace.add_to_cart(cart_id, product)
             if status:

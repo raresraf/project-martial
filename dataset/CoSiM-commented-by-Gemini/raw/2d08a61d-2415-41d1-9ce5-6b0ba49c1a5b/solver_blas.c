@@ -1,3 +1,9 @@
+/**
+ * @file solver_blas.c
+ * @brief BLAS-based optimized matrix solver.
+ * Relies on highly tuned vendor libraries for maximum SIMD/cache utilization.
+ * Performs C = AtA + ABBt efficiently.
+ */
 
 #include "utils.h"
 #include <cblas.h>
@@ -10,6 +16,7 @@ double *my_solver(int N, double *A, double *B)
 	double *A_B = (double *)calloc(N * N, sizeof(double));
 	double *unitMat = (double *)calloc(N * N, sizeof(double));
 
+	/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 	for (i = 0; i < N; i++)
 	{
 		unitMat[i * N + i] = 1;

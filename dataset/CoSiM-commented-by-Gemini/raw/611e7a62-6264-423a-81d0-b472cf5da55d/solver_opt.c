@@ -1,7 +1,12 @@
-
+/**
+ * @file solver_opt.c
+ * @brief Cache friendly continuous memory pointer traversal.
+ */
 #include "utils.h"
 
-
+/**
+ * @brief Pointer and accumulator accelerated routines.
+ */
 double* my_solver(int N, double *A, double* B) {
 	printf("OPT SOLVER\n");
 	double *C;
@@ -14,6 +19,10 @@ double* my_solver(int N, double *A, double* B) {
 	D = calloc(size, sizeof(double));
 	E = calloc(size, sizeof(double));
 
+	/**
+	 * @pre Zero initialization.
+	 * @post Uses register pointers mapped to rows for cache benefits.
+	 */
 	for(i = 0; i < N; i++){
 		double *orig_pa = &A[i * N];
 		for (j = 0; j < N; j++) {
@@ -34,6 +43,11 @@ double* my_solver(int N, double *A, double* B) {
 			C[i * N + j] = suma;
 		}
 	}
+
+	/**
+	 * @pre Base product created.
+	 * @post Loops cache pointers sequentially across rows.
+	 */
 	for(i = 0; i < N; i++) {
 		double *orig_pc = &C[i * N];
 		for(j = 0; j < N; j++) {
@@ -49,6 +63,10 @@ double* my_solver(int N, double *A, double* B) {
 		}
 	}
 
+	/**
+	 * @pre Internal intermediate results generated.
+	 * @post E accumulates sum iterations natively bounding loop limits.
+	 */
 	for(i = 0; i < N; i++){
 		for (j = 0; j < N; j++) {
 		register double *pa1 = &A[i];

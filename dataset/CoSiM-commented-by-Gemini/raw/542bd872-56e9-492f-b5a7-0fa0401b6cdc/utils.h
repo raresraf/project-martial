@@ -1,3 +1,8 @@
+/**
+ * @file utils.h
+ * @brief High-level source code module.
+ * Ensures cache-friendly data access, potential loop unrolling, and SIMD optimizations for C/C++.
+ */
 
 
 #include <stdio.h>

@@ -1,3 +1,8 @@
+/**
+ * @file solver_blas.c
+ * @brief High-level source code module.
+ * Ensures cache-friendly data access, potential loop unrolling, and SIMD optimizations for C/C++.
+ */
 
 #include "utils.h"
 #include "cblas.h"

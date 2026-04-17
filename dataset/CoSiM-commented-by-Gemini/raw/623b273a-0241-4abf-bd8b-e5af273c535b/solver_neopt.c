@@ -1,7 +1,13 @@
-
+/**
+ * @file solver_neopt.c
+ * @brief Default matrix multiplication combinations without SIMD.
+ */
 #include "utils.h"
 
 
+/**
+ * @brief Subdivides matrices into independent products before aggregating.
+ */
 double* my_solver(int N, double *A, double* B) {
 	printf("NEOPT SOLVER\n");
 	double* result;
@@ -15,7 +21,10 @@ double* my_solver(int N, double *A, double* B) {
 	BBtranspose = calloc(N * N, sizeof(*BBtranspose));
 	ABBt = calloc(N * N, sizeof(*ABBt));
 
-	
+	/**
+	 * @pre Empty AATranspose memory.
+	 * @post Resolves bounds checked inner combinations of A rows.
+	 */
 	for(i = 0; i < N; i++) {
 		for(j = 0; j < N; j++) {
 			
@@ -25,8 +34,10 @@ double* my_solver(int N, double *A, double* B) {
 		}
 	}
 
-	
-	
+	/**
+	 * @pre B values available.
+	 * @post Matrix BBtranspose populated.
+	 */
 	for(i = 0; i < N; i++) {
 		for(j = 0; j < N; j++) {
 			for(k = 0; k < N; k++) {
@@ -35,7 +46,10 @@ double* my_solver(int N, double *A, double* B) {
 		}
 	}
 
-	
+	/**
+	 * @pre BBtranspose cached.
+	 * @post Combines BBt sub matrix.
+	 */
 	for(i = 0; i < N; i++) {
 		for(j = 0; j < N; j++) {
 			
@@ -45,7 +59,10 @@ double* my_solver(int N, double *A, double* B) {
 		}
 	}
 
-	
+	/**
+	 * @pre Secondary sums finalized.
+	 * @post Result aggregates both sub evaluations.
+	 */
 	for(i = 0; i < N; i++) {
 		for(j = 0; j < N; j++)
 			result[i * N + j] = ABBt[i * N + j] + AAtranspose[i * N + j];

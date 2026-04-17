@@ -1,3 +1,8 @@
+/**
+ * @file solver_opt.c
+ * @brief High-level source code module.
+ * Ensures cache-friendly data access, potential loop unrolling, and SIMD optimizations for C/C++.
+ */
 #include "utils.h"
 
 
@@ -11,7 +16,15 @@ double* my_solver(int N, double *A, double* B) {
 	double *At = malloc(N * N * sizeof(double));
 	double *Bt = malloc(N * N * sizeof(double));
 
+	/**
+	 * @brief Pre-condition: Iteration boundaries properly mapped and initialized.
+	 * Invariant: Operations within the block strictly maintain target functional boundaries.
+	 */
 	for ( i = 0; i < N; i++) {
+		/**
+		 * @brief Pre-condition: Iteration boundaries properly mapped and initialized.
+		 * Invariant: Operations within the block strictly maintain target functional boundaries.
+		 */
 		for ( j = 0; j < N; j++) {
 			register int index1 = i * N + j;
 			register int index2 = j * N + i;
@@ -23,10 +36,22 @@ double* my_solver(int N, double *A, double* B) {
 
 	double *AB = malloc(N * N * sizeof(double));
 	
+	/**
+	 * @brief Pre-condition: Iteration boundaries properly mapped and initialized.
+	 * Invariant: Operations within the block strictly maintain target functional boundaries.
+	 */
 	for (i = 0; i < N; i++) {
 		register int index = i * N;
+		/**
+		 * @brief Pre-condition: Iteration boundaries properly mapped and initialized.
+		 * Invariant: Operations within the block strictly maintain target functional boundaries.
+		 */
 		for (j = 0; j < N; j++) {
 			register double sum = 0;
+			/**
+			 * @brief Pre-condition: Iteration boundaries properly mapped and initialized.
+			 * Invariant: Operations within the block strictly maintain target functional boundaries.
+			 */
 			for (k = i; k < N; k++) {
 				sum += A[index + k] * B[k * N + j];
 			}
@@ -39,8 +64,20 @@ double* my_solver(int N, double *A, double* B) {
 	double *ABBt = malloc(N * N * sizeof(double));
 
 
+	/**
+	 * @brief Pre-condition: Iteration boundaries properly mapped and initialized.
+	 * Invariant: Operations within the block strictly maintain target functional boundaries.
+	 */
 	for (i = 0; i < N; i++) {
+		/**
+		 * @brief Pre-condition: Iteration boundaries properly mapped and initialized.
+		 * Invariant: Operations within the block strictly maintain target functional boundaries.
+		 */
 		for (k = 0; k < N; k++) {
+			/**
+			 * @brief Pre-condition: Iteration boundaries properly mapped and initialized.
+			 * Invariant: Operations within the block strictly maintain target functional boundaries.
+			 */
 			for (j = 0; j < N; j++) {
 				AtA[i * N + j] += At[i * N + k] * A[k * N + j];
 				ABBt[i * N + j] += AB[i * N + k] * Bt[k * N + j];
@@ -50,8 +87,16 @@ double* my_solver(int N, double *A, double* B) {
 
 	double *res = malloc(N * N * sizeof(double));
 
+	/**
+	 * @brief Pre-condition: Iteration boundaries properly mapped and initialized.
+	 * Invariant: Operations within the block strictly maintain target functional boundaries.
+	 */
 	for (i = 0; i < N; i++) {
 		register int index = i * N;
+		/**
+		 * @brief Pre-condition: Iteration boundaries properly mapped and initialized.
+		 * Invariant: Operations within the block strictly maintain target functional boundaries.
+		 */
 		for (j = 0 ; j < N; j++) {
 			res[index + j] = ABBt[index + j] + AtA[index + j];
 		}

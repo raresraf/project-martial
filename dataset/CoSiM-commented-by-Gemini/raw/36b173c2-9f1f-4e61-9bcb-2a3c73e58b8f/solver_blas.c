@@ -1,19 +1,35 @@
+/**
+ * @file solver_blas.c
+ * @brief BLAS-based optimized matrix solver.
+ * Relies on highly tuned vendor libraries for maximum SIMD/cache utilization.
+ * Performs C = AtA + ABBt efficiently.
+ */
 
 #include "utils.h"
 #include "cblas.h"
 #include <string.h>
 
 
+/**
+ * @brief Computes C = At * A + A * B * Bt.
+ * Allocates memory dynamically and executes matrix operations.
+ * @param N Matrix dimension.
+ * @param A Input matrix A.
+ * @param B Input matrix B.
+ * @return Pointer to resulting matrix C.
+ */
 double* my_solver(int N, double *A, double *B) {
 	printf("BLAS SOLVER\n");
 
 	double *C = (double*) calloc(N * N, sizeof(double));
+	/* @pre Conditional evaluation. @invariant Taken branch maintains control flow invariants. */
 	if (C == NULL) {
 		printf("Failed calloc!");
 		return NULL;
 	}
 
 	double *res_A = (double*) calloc(N * N, sizeof(double));
+	/* @pre Conditional evaluation. @invariant Taken branch maintains control flow invariants. */
 	if (res_A == NULL) {
 		printf("Failed calloc!");
 		return NULL;

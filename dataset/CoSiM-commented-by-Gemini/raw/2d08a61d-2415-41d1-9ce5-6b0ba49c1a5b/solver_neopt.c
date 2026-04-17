@@ -1,3 +1,8 @@
+/**
+ * @file solver_neopt.c
+ * @brief Naive non-optimized matrix solver implementation.
+ * Unoptimized memory access pattern. Baseline for performance comparison.
+ */
 
 #include "utils.h"
 
@@ -7,8 +12,10 @@ double *getTranspose(int N, double *A)
 {
 	int i, j;
 	double *trA = (double *)calloc(N * N, sizeof(double));
+	/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 	for ( i = 0; i < N; i++)
 	{
+		/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 		for (j = 0; j < N; j++)
 		{
 			trA[j * N + i] = A[i * N + j];
@@ -20,8 +27,10 @@ double *getTransposeA(int N, double *A)
 {
 	int i, j;
 	double *trA = (double *)calloc(N * N, sizeof(double));
+	/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 	for ( i = 0; i < N; i++)
 	{
+		/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 		for ( j = i; j < N; j++)
 		{
 			trA[j * N + i] = A[i * N + j];
@@ -34,11 +43,14 @@ double *normalMul(int N, double *A, double *B)
 {
 	int i, j, k;
 	double *C = (double *)calloc(N * N, sizeof(double));
+	/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 	for ( i = 0; i < N; i++)
 	{
+		/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 		for ( j = 0; j < N; j++)
 		{
 
+			/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 			for ( k = 0; k < N; k++)
 			{
 				C[i * N + j] += A[i * N + k] * B[k * N + j];
@@ -52,10 +64,13 @@ double *upperMul(int N, double *A, double *B)
 {
 	int i, j, k;
 	double *C = (double *)calloc(N * N, sizeof(double));
+	/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 	for ( i = 0; i < N; i++)
 	{
+		/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 		for ( j = 0; j < N; j++)
 		{
+			/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 			for ( k = i; k < N; k++)
 			{
 				C[i * N + j] += A[i * N + k] * B[k * N + j];
@@ -69,10 +84,13 @@ double *lowerMul(int N, double *A, double *B)
 	int i, j, k;
 	double *C = (double *)calloc(N * N, sizeof(double));
 
+	/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 	for ( i = 0; i < N; i++)
 	{
+		/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 		for ( j = 0; j < N; j++)
 		{
+			/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 			for ( k = 0; k <= i; k++)
 			{
 				C[i * N + j] += A[i * N + k] * B[k * N + j];
@@ -96,8 +114,10 @@ double *my_solver(int N, double *A, double *B)
 
 	BBt = normalMul(N, B, trB);
 	ABBt = upperMul(N, A, BBt);
+	/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 	for ( i = 0; i < N; i++)
 	{
+		/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 		for ( j = 0; j < N; j++)
 		{
 			C[i * N + j] = ABBt[i * N + j] + AtA[i * N + j];

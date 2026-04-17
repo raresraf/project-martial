@@ -1,8 +1,14 @@
-
+/**
+ * @file solver_blas.c
+ * @brief Memory-efficient implementation using BLAS standard operations.
+ */
 #include <string.h>
 #include <cblas.h>
 #include "utils.h"
 
+/**
+ * @brief Allocates working memory.
+ */
 void allocate_matrix(int N, double **AB, double **ABBt,
                         double **AtA, double **C) {
 
@@ -12,6 +18,9 @@ void allocate_matrix(int N, double **AB, double **ABBt,
     *C = calloc (N * N, sizeof (**C));
 }
 
+/**
+ * @brief BLAS solver routine.
+ */
 double *my_solver(int N, double *A, double *B) {
     double *AB, *ABBt, *AtA, *C;
     register int i, j;
@@ -50,7 +59,10 @@ double *my_solver(int N, double *A, double *B) {
                 A, N,
                 AtA, N);
 
-    
+    /**
+     * @pre Intermediate arrays are populated.
+     * @post Final buffer C accumulates result.
+     */
     for (i = 0; i < N; i++) {
         for (j = 0; j < N; j++) {
             C[i * N + j] = AtA[i * N + j] + ABBt[i * N + j];

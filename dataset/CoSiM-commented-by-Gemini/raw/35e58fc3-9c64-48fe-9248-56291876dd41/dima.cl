@@ -1,3 +1,8 @@
+/**
+ * @file dima.cl
+ * @brief OpenCL kernel for matrix operations.
+ * Exploits GPU memory hierarchy, thread indexing, and local synchronization.
+ */
 
 #define ALIGNAS(X)	__attribute__((aligned(X)))
 
@@ -16,6 +21,7 @@ union Color {
 void my_memcpy(union Color *dest, __global union Color *src, int len)
 
 {
+    /* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
     for (int i = 0; i < len; i++)
         dest[i] = src[i];
 
@@ -25,6 +31,7 @@ void my_memcpy(union Color *dest, __global union Color *src, int len)
 void my_memcpy2(uchar *dest, uchar *src, int len)
 
 {
+    /* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
     for (int i = 0; i < len; i++)
         dest[i] = src[i];
 
@@ -32,6 +39,7 @@ void my_memcpy2(uchar *dest, uchar *src, int len)
 
 
 void my_memset(__global uchar *dest, uchar val, int len) {
+    /* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
     for (int i = 0; i < len; i++) {
         dest[i] = val;
     }
@@ -188,6 +196,7 @@ void WriteDiff(__global uchar* block, int diff) {
 }
 
 void ExtractBlock(uchar* dst, uchar* src, int width) {
+	/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 	for (int j = 0; j < 4; ++j) {
 		my_memcpy2(&dst[j * 4 * 4], src, 4 * 4);
 
@@ -238,6 +247,7 @@ void getAverageColor(union Color* src, float* avg_color)
 {
 uint sum_b = 0, sum_g = 0, sum_r = 0;
 
+	/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 	for (uint i = 0; i < 8; ++i) {
 		sum_b += src[i].channels.b;
 		sum_g += src[i].channels.g;
@@ -259,10 +269,12 @@ ulong computeLuminance(__global uchar* block, union Color* src, union Color* bas
 
 	
 	
+	/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 	for (uint tbl_idx = 0; tbl_idx < 8; ++tbl_idx) {
 		
 		
 		union Color candidate_color[4];  
+		/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 		for (uint mod_idx = 0; mod_idx < 4; ++mod_idx) {
 			short lum = g_codeword_tables[tbl_idx][mod_idx];
 			candidate_color[mod_idx] = makeColor(base, lum);
@@ -270,32 +282,39 @@ ulong computeLuminance(__global uchar* block, union Color* src, union Color* bas
 
 		uint tbl_err = 0;
 
+		/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 		for (uint i = 0; i < 8; ++i) {
 			
 			
 			uint best_mod_err = threshold;
+			/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 			for (uint mod_idx = 0; mod_idx < 4; ++mod_idx) {
 				union Color color = candidate_color[mod_idx];
 
 				uint mod_err = getColorError(&src[i], &color);
+				/* @pre Conditional evaluation. @invariant Taken branch maintains control flow invariants. */
 				if (mod_err < best_mod_err) {
 					best_mod_idx[tbl_idx][i] = mod_idx;
 					best_mod_err = mod_err;
 
+					/* @pre Conditional evaluation. @invariant Taken branch maintains control flow invariants. */
 					if (mod_err == 0)
 						break;  
 				}
 			}
 
 		tbl_err += best_mod_err;
+		/* @pre Conditional evaluation. @invariant Taken branch maintains control flow invariants. */
 		if (tbl_err > best_tbl_err)
 			break;  
 		}
 
+		/* @pre Conditional evaluation. @invariant Taken branch maintains control flow invariants. */
 		if (tbl_err < best_tbl_err) {
 			best_tbl_err = tbl_err;
 			best_tbl_idx = tbl_idx;
 
+		/* @pre Conditional evaluation. @invariant Taken branch maintains control flow invariants. */
 		if (tbl_err == 0)
 			break;  
 		}
@@ -305,6 +324,7 @@ ulong computeLuminance(__global uchar* block, union Color* src, union Color* bas
 
 	uint pix_data = 0;
 
+	/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 	for (uint i = 0; i < 8; ++i) {
 		uchar mod_idx = best_mod_idx[best_tbl_idx][i];
 		uchar pix_idx = g_mod_to_pix[mod_idx];
@@ -326,7 +346,9 @@ ulong computeLuminance(__global uchar* block, union Color* src, union Color* bas
 
 int tryCompressSolidBlock(__global uchar* dst, union Color* src, ulong* error)
 {
+	/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 	for (uint i = 1; i < 16; ++i) {
+		/* @pre Conditional evaluation. @invariant Taken branch maintains control flow invariants. */
 		if (src[i].bits != src[0].bits)
 			return 0;
 	}
@@ -349,24 +371,29 @@ int tryCompressSolidBlock(__global uchar* dst, union Color* src, ulong* error)
 
 	
 	
+	/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 	for (uint tbl_idx = 0; tbl_idx < 8; ++tbl_idx) {
 		
 		
+		/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 		for (uint mod_idx = 0; mod_idx < 4; ++mod_idx) {
 			short lum = g_codeword_tables[tbl_idx][mod_idx];
 			union Color color = makeColor(&base, lum);
 
 			uint mod_err = getColorError(src, &color);
+			/* @pre Conditional evaluation. @invariant Taken branch maintains control flow invariants. */
 			if (mod_err < best_mod_err) {
 				best_tbl_idx = tbl_idx;
 				best_mod_idx = mod_idx;
 				best_mod_err = mod_err;
 
+				/* @pre Conditional evaluation. @invariant Taken branch maintains control flow invariants. */
 				if (mod_err == 0)
 					break;  
 			}
 		}
 
+		/* @pre Conditional evaluation. @invariant Taken branch maintains control flow invariants. */
 		if (best_mod_err == 0)
 			break;
 	}
@@ -379,7 +406,9 @@ int tryCompressSolidBlock(__global uchar* dst, union Color* src, ulong* error)
 	uint msb = pix_idx >> 1;
 
 	uint pix_data = 0;
+	/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 	for (uint i = 0; i < 2; ++i) {
+		/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 		for (uint j = 0; j < 8; ++j) {
 		
 			int texel_num = g_idx_to_num[i][j];
@@ -399,6 +428,7 @@ ulong compressBlock(__global uchar* dst, union Color* ver_src,
 
 
 	ulong solid_error = 0;
+	/* @pre Conditional evaluation. @invariant Taken branch maintains control flow invariants. */
 	if (tryCompressSolidBlock(dst, ver_src, &solid_error)) {
 		return solid_error;
 	}
@@ -410,6 +440,7 @@ ulong compressBlock(__global uchar* dst, union Color* ver_src,
 
 	
 	
+	/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 	for (uint i = 0, j = 1; i < 4; i += 2, j += 2) {
 		float avg_color_0[3];
 		getAverageColor(sub_block_src[i], avg_color_0);
@@ -419,11 +450,13 @@ ulong compressBlock(__global uchar* dst, union Color* ver_src,
 		getAverageColor(sub_block_src[j], avg_color_1);
 		union Color avg_color_555_1 = makeColor555(avg_color_1);
 
+		/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 		for (uint light_idx = 0; light_idx < 3; ++light_idx) {
 			int u = avg_color_555_0.components[light_idx] >> 3;
 			int v = avg_color_555_1.components[light_idx] >> 3;
 
 			int component_diff = v - u;
+			/* @pre Conditional evaluation. @invariant Taken branch maintains control flow invariants. */
 			if (component_diff  3) {
 				use_differential[i / 2] = 0;
 				sub_block_avg[i] = makeColor444(avg_color_0);
@@ -439,13 +472,16 @@ ulong compressBlock(__global uchar* dst, union Color* ver_src,
 	
 	
 	uint sub_block_err[4] = {0};
+	/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 	for (uint i = 0; i < 4; ++i) {
+		/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 		for (uint j = 0; j < 8; ++j) {
 			sub_block_err[i] += getColorError(&sub_block_avg[i], &(sub_block_src[i][j]));
 		}
 	}
 
 	int flip = 0;
+	/* @pre Conditional evaluation. @invariant Taken branch maintains control flow invariants. */
 	if (sub_block_err[2] + sub_block_err[3] < sub_block_err[0] + sub_block_err[1])
 		flip = 1;
 
@@ -458,6 +494,7 @@ ulong compressBlock(__global uchar* dst, union Color* ver_src,
 	uchar sub_block_off_0 = flip ? 2 : 0;
 	uchar sub_block_off_1 = sub_block_off_0 + 1;
 
+	/* @pre Conditional evaluation. @invariant Taken branch maintains control flow invariants. */
 	if (use_differential[!!flip]) {
 		WriteColors555(dst, &sub_block_avg[sub_block_off_0],
 	        &sub_block_avg[sub_block_off_1]);
@@ -669,6 +706,7 @@ void gpu_find(cl_device_id &device)
 	cout << "Platforms found!: " << platform_num << endl;
 
 	
+	/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 	for(uint platf=0; platf<platform_num; platf++)
 	{
 		
@@ -708,6 +746,7 @@ void gpu_find(cl_device_id &device)
 		cout << "\tDevices found " << device_num  << endl;
 
 		
+		/* @pre Loop bounds initialized. @invariant Iterates over assigned memory blocks, preserving data locality where possible. */
 		for(uint dev=0; dev<device_num; dev++)
 		{
 			
@@ -738,6 +777,7 @@ void gpu_find(cl_device_id &device)
 			delete[] attr_data;
 
 			
+			/* @pre Conditional evaluation. @invariant Taken branch maintains control flow invariants. */
 			if(strstr((char*)aux, "Tesla") != NULL && contor == 0){
 				contor = 1;
 				device = device_list[dev];

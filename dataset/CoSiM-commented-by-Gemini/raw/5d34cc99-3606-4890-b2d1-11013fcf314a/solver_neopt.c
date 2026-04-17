@@ -1,9 +1,15 @@
-
+/**
+ * @file solver_neopt.c
+ * @brief Simple nested iteration solver for validation.
+ */
 #define MIN(a,b) (((a)<(b))?(a):(b))
 
 #include "utils.h"
 #include <string.h>
 
+/**
+ * @brief Zero initializes matrix arrays.
+ */
 void allocate_matrix(int N, double **AB, double **ABBt,
                         double **AtA, double **C) {
 
@@ -13,6 +19,9 @@ void allocate_matrix(int N, double **AB, double **ABBt,
     *C = calloc (N * N, sizeof (double));
 }
 
+/**
+ * @brief Executes standard nested iterations.
+ */
 double *my_solver(int N, double *A, double* B) {
 
     double *AB, *ABBt, *AtA, *C;
@@ -20,7 +29,10 @@ double *my_solver(int N, double *A, double* B) {
 
     allocate_matrix(N, &AB, &ABBt, &AtA, &C);
 
-    
+    /**
+     * @pre Memory chunks empty.
+     * @post Computes AB inner product bounds.
+     */
     for (i = 0; i < N; i++) {
         for (j = 0; j < N; j++) {
             for (k = i; k < N; k++) {
@@ -29,7 +41,10 @@ double *my_solver(int N, double *A, double* B) {
         }
     }
 
-    
+    /**
+     * @pre Matrix AB populated.
+     * @post Generates AB * B transpose form.
+     */
     for (i = 0; i < N; i++) {
         for (j = 0; j < N; j++) {
             for (k = 0; k < N; k++) {
@@ -38,7 +53,10 @@ double *my_solver(int N, double *A, double* B) {
         }
     }
 
-    
+    /**
+     * @pre Initial matrix A given.
+     * @post Creates symmetric AtA sub calculations.
+     */
     for (i = 0; i < N; i++) {
         for (j = 0; j < N; j++) {
             for (k = 0; k <= MIN(i, j); k++) {
@@ -47,7 +65,10 @@ double *my_solver(int N, double *A, double* B) {
         }
     }
 
-    
+    /**
+     * @pre Final matrices available.
+     * @post Combines intermediate calculations into C.
+     */
     for (i = 0; i < N; i++) {
         for (j = 0; j < N; j++) {
             C[i * N + j] = ABBt[i * N + j] + AtA[i * N + j];

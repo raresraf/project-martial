@@ -1,9 +1,15 @@
-
+/**
+ * @file solver_blas.c
+ * @brief Rapid GEMM operations using BLAS matrix routines.
+ */
 #include "utils.h"
 #include "cblas.h"
 #include "string.h"
 
 
+/**
+ * @brief Entrypoint to process matrices natively with CBlas.
+ */
 double* my_solver(int N, double *A, double *B) {
 	
 	double *TEMPORARY = calloc(N * N, sizeof(double));

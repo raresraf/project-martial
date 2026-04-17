@@ -1,15 +1,26 @@
-
+/**
+ * @file solver_blas.c
+ * @brief Memory-efficient implementation using BLAS standard operations.
+ */
 #include "utils.h"
 #include "cblas.h"
 #include <stdlib.h>
 #include <string.h>
 
+/**
+ * @brief Uses cblas dtrmm and dgemm for matrix multiplication sequence.
+ */
 double* my_solver(int N, double *A, double *B) {
 	printf("BLAS SOLVER\n");
 	double *B1;
 	double *C;
 	double *A1;
 	int i, j;
+
+	/**
+	 * @pre Memory allocated.
+	 * @post B1, C, A1 zero initialized arrays.
+	 */
 	B1 = calloc(N*N, sizeof(double));
 	C = calloc(N*N, sizeof(double));
 	A1 = calloc(N*N, sizeof(double));
@@ -50,6 +61,10 @@ double* my_solver(int N, double *A, double *B) {
 		A1, N
 	);
 
+	/**
+	 * @pre Arrays A1 and C contain partial products.
+	 * @post Combines elements into C for final matrix form.
+	 */
 	for (i = 0; i < N; i++) {
 		for (j = 0; j < N; j++) {
 			C[i * N + j] += A1[i * N + j];

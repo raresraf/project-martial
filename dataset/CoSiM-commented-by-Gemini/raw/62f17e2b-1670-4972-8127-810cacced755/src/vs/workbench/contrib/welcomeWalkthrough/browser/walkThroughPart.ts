@@ -155,6 +155,10 @@ export class WalkThroughPart extends EditorPane {
 	}
 
 	private registerClickHandler() {
+		/**
+		 * @pre content DOM is initialized.
+		 * @post Event delegates clicks to anchors and buttons.
+		 */
 		this.content.addEventListener('click', event => {
 			for (let node = event.target as HTMLElement; node; node = node.parentNode as HTMLElement) {
 				if (isHTMLAnchorElement(node) && node.href) {
@@ -477,6 +481,11 @@ export class WalkThroughPart extends EditorPane {
 	override dispose(): void {
 		this.editorFocus.reset();
 		this.contentDisposables = dispose(this.contentDisposables);
+		this.disposables.dispose();
+		super.dispose();
+	}
+}
+posables = dispose(this.contentDisposables);
 		this.disposables.dispose();
 		super.dispose();
 	}

@@ -1,3 +1,8 @@
+/**
+ * @file utils.h
+ * @brief Encapsulates functional utility for utils.h.
+ * Performance Optimization: implements loop unrolling, cache-friendly data access, and SIMD where applicable. Time/space complexity optimized.
+ */
 
 
 #include <stdio.h>

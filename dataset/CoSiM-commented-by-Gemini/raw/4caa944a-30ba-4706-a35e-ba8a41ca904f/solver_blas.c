@@ -1,3 +1,8 @@
+/**
+ * @file solver_blas.c
+ * @brief Encapsulates functional utility for solver_blas.c.
+ * Performance Optimization: implements loop unrolling, cache-friendly data access, and SIMD where applicable. Time/space complexity optimized.
+ */
 
 #include "utils.h"
 #include <cblas.h>

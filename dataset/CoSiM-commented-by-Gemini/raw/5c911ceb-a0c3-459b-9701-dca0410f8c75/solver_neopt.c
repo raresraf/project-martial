@@ -1,4 +1,7 @@
-
+/**
+ * @file solver_neopt.c
+ * @brief Unoptimized fallback solver mapping dense array indices.
+ */
 #include "utils.h"
 
 int min(int a, int b) {
@@ -6,6 +9,13 @@ int min(int a, int b) {
 }
 
 
+/**
+ * @brief Performs naive matrix multiplication solver steps.
+ * @param N Dimensions for A and B.
+ * @param A Matrix A.
+ * @param B Matrix B.
+ * @return Solved matrix D.
+ */
 double* my_solver(int N, double *A, double* B) {
 
 	
@@ -20,7 +30,10 @@ double* my_solver(int N, double *A, double* B) {
 		exit(ENOMEM);
 	}
 
-	
+	/**
+	 * @pre Arrays A and B initialized. C is zero initialized.
+	 * @post C contains the product A * B.
+	 */
 	for(int i = 0; i < N; i++) {
 		for(int j = 0; j < N; j++) {
 			
@@ -31,7 +44,10 @@ double* my_solver(int N, double *A, double* B) {
 	}
 
 
-	
+	/**
+	 * @pre C contains A*B. D is zero initialized.
+	 * @post D accumulates C * B.
+	 */
 	for(int i = 0; i < N; i++) {
 		for(int j = 0; j < N; j++) {
 			for(int k = 0; k < N; k++) {
@@ -40,7 +56,10 @@ double* my_solver(int N, double *A, double* B) {
 		}
 	}
 
-	
+	/**
+	 * @pre D initialized with previous accumulations.
+	 * @post D aggregates transpose iterations over A.
+	 */
 	for(int i = 0; i < N; i++) {
 		for(int j = 0; j < N; j++) {
 			for(int k = 0; k <= min(i, j); k++) {

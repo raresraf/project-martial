@@ -228,6 +228,10 @@ unsigned long computeLuminance(__global uchar* block,
 
 	
 	
+	/**
+	 * @pre g_codeword_tables accessible in constant memory.
+	 * @post best_tbl_idx found for minimum photometric error mapping.
+	 */
 	for (unsigned int tbl_idx = 0; tbl_idx < 8; ++tbl_idx) {
 
 		
@@ -812,6 +816,10 @@ unsigned long TextureCompressor::compress(const uint8_t* src,
 	CL_ERR( clReleaseMemObject(bufDst) );
 	CL_ERR( clReleaseCommandQueue(command_queue) );
 	CL_ERR( clReleaseContext(context) );
+
+	return 0;
+}
+eleaseContext(context) );
 
 	return 0;
 }

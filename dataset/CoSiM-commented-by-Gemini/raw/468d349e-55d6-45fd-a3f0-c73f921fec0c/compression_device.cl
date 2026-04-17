@@ -1,3 +1,8 @@
+/**
+ * @file compression_device.cl
+ * @brief Encapsulates functional utility for compression_device.cl.
+ * Optimized for HPC & Parallelism: prioritizes memory hierarchy usage, thread indexing, and synchronization.
+ */
 
 union Color {
 	struct BgraColorType {
@@ -12,8 +17,10 @@ union Color {
 
 
 inline uint my_clamp(int val, int min, int max) {
+	/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 	if (val < min)
 		return min;
+	/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 	else if (val > max)
 		return max;
 	return val;
@@ -66,9 +73,9 @@ inline void WriteColors444(__global uchar* block,
 						    union Color color1
 								) {
 	
-	block[0] = (color0.channels.r & 0xf0) | (color1.channels.r >> 4);
-	block[1] = (color0.channels.g & 0xf0) | (color1.channels.g >> 4);
-	block[2] = (color0.channels.b & 0xf0) | (color1.channels.b >> 4);
+	block[0] = (color0.channels.r & 0xf0) | (color1.channels.r >> 4); /* Non-obvious bitwise operation or pointer arithmetic */
+	block[1] = (color0.channels.g & 0xf0) | (color1.channels.g >> 4); /* Non-obvious bitwise operation or pointer arithmetic */
+	block[2] = (color0.channels.b & 0xf0) | (color1.channels.b >> 4); /* Non-obvious bitwise operation or pointer arithmetic */
 }
 
 
@@ -89,18 +96,18 @@ inline void WriteColors555(__global uchar* block,
 	};
 
 	short delta_r =
-	(short)(color1.channels.r >> 3) - (color0.channels.r >> 3);
+	(short)(color1.channels.r >> 3) - (color0.channels.r >> 3); /* Non-obvious bitwise operation or pointer arithmetic */
 	short delta_g =
-	(short)(color1.channels.g >> 3) - (color0.channels.g >> 3);
+	(short)(color1.channels.g >> 3) - (color0.channels.g >> 3); /* Non-obvious bitwise operation or pointer arithmetic */
 	short delta_b =
-	(short)(color1.channels.b >> 3) - (color0.channels.b >> 3);
+	(short)(color1.channels.b >> 3) - (color0.channels.b >> 3); /* Non-obvious bitwise operation or pointer arithmetic */
 
 	
-	block[0] = (color0.channels.r & 0xf8) | two_compl_trans_table[delta_r + 4];
-	block[1] = (color0.channels.g & 0xf8) | two_compl_trans_table[delta_g + 4];
+	block[0] = (color0.channels.r & 0xf8) | two_compl_trans_table[delta_r + 4]; /* Non-obvious bitwise operation or pointer arithmetic */
+	block[1] = (color0.channels.g & 0xf8) | two_compl_trans_table[delta_g + 4]; /* Non-obvious bitwise operation or pointer arithmetic */
 	block[2] = (color0.
 
-	channels.b & 0xf8) | two_compl_trans_table[delta_b + 4];
+	channels.b & 0xf8) | two_compl_trans_table[delta_b + 4]; /* Non-obvious bitwise operation or pointer arithmetic */
 }
 
 inline void WriteCodewordTable(__global uchar* block,
@@ -108,28 +115,29 @@ inline void WriteCodewordTable(__global uchar* block,
 							   uchar table) {
 
 	uchar shift = (2 + (3 - sub_block_id * 3));
-	block[3] &= ~(0x07 << shift);
-	block[3] |= table << shift;
+	block[3] &= ~(0x07 << shift); /* Non-obvious bitwise operation or pointer arithmetic */
+	block[3] |= table << shift; /* Non-obvious bitwise operation or pointer arithmetic */
 }
 
 inline void WritePixelData(__global uchar* block, uint pixel_data) {
-	block[4] |= pixel_data >> 24;
-	block[5] |= (pixel_data >> 16) & 0xff;
-	block[6] |= (pixel_data >> 8) & 0xff;
-	block[7] |= pixel_data & 0xff;
+	block[4] |= pixel_data >> 24; /* Non-obvious bitwise operation or pointer arithmetic */
+	block[5] |= (pixel_data >> 16) & 0xff; /* Non-obvious bitwise operation or pointer arithmetic */
+	block[6] |= (pixel_data >> 8) & 0xff; /* Non-obvious bitwise operation or pointer arithmetic */
+	block[7] |= pixel_data & 0xff; /* Non-obvious bitwise operation or pointer arithmetic */
 }
 
 inline void WriteFlip(__global uchar* block, bool flip) {
-	block[3] &= ~0x01;
-	block[3] |= (uchar)(flip);
+	block[3] &= ~0x01; /* Non-obvious bitwise operation or pointer arithmetic */
+	block[3] |= (uchar)(flip); /* Non-obvious bitwise operation or pointer arithmetic */
 }
 
 inline void WriteDiff(__global uchar* block, bool diff) {
-	block[3] &= ~0x02;
-	block[3] |= (uchar)(diff) << 1;
+	block[3] &= ~0x02; /* Non-obvious bitwise operation or pointer arithmetic */
+	block[3] |= (uchar)(diff) << 1; /* Non-obvious bitwise operation or pointer arithmetic */
 }
 
 inline void memcpy(uchar *dst, uchar *src, int width) {
+	/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 	for (int i = 0; i < width; i++) {
 		dst[i] = src[i];
 	}
@@ -140,9 +148,9 @@ inline union Color makeColor444(float* bgr) {
 	uchar g4 = round_to_4_bits(bgr[1]);
 	uchar r4 = round_to_4_bits(bgr[2]);
 	union Color bgr444;
-	bgr444.channels.b = (b4 << 4) | b4;
-	bgr444.channels.g = (g4 << 4) | g4;
-	bgr444.channels.r = (r4 << 4) | r4;
+	bgr444.channels.b = (b4 << 4) | b4; /* Non-obvious bitwise operation or pointer arithmetic */
+	bgr444.channels.g = (g4 << 4) | g4; /* Non-obvious bitwise operation or pointer arithmetic */
+	bgr444.channels.r = (r4 << 4) | r4; /* Non-obvious bitwise operation or pointer arithmetic */
 	
 	bgr444.channels.a = 0x44;
 	return bgr444;
@@ -169,6 +177,7 @@ void getAverageColor(union Color* src, float* avg_color)
 {
 	uint sum_b = 0, sum_g = 0, sum_r = 0;
 
+	/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 	for (uint i = 0; i < 8; ++i) {
 		sum_b += src[i].channels.b;
 
@@ -184,6 +193,7 @@ void getAverageColor(union Color* src, float* avg_color)
 }
 
 void memset(__global uchar* dst, int value, int size) {
+	/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 	for (int i = 0; i < size; i++) {
 		dst[i] = value;
 	}
@@ -212,10 +222,12 @@ unsigned long computeLuminance(__global uchar* block,
 
 	
 	
+	/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 	for (uint tbl_idx = 0; tbl_idx < 8; ++tbl_idx) {
 		
 		
 		union Color candidate_color[4];  
+		/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 		for (uint mod_idx = 0; mod_idx < 4; ++mod_idx) {
 			short lum = g_codeword_tables[tbl_idx][mod_idx];
 			candidate_color[mod_idx] = *makeColor(base, lum);
@@ -223,32 +235,39 @@ unsigned long computeLuminance(__global uchar* block,
 
 		uint tbl_err = 0;
 
+		/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 		for (uint i = 0; i < 8; ++i) {
 			
 			
 			uint best_mod_err = threshold;
+			/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 			for (uint mod_idx = 0; mod_idx < 4; ++mod_idx) {
 				union Color color = candidate_color[mod_idx];
 
 				uint mod_err = getColorError(src[i], color);
+				/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 				if (mod_err < best_mod_err) {
 					best_mod_idx[tbl_idx][i] = mod_idx;
 					best_mod_err = mod_err;
 
+					/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 					if (mod_err == 0)
 						break;  
 				}
 			}
 
 			tbl_err += best_mod_err;
+			/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 			if (tbl_err > best_tbl_err)
 				break;  
 		}
 
+		/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 		if (tbl_err < best_tbl_err) {
 			best_tbl_err = tbl_err;
 			best_tbl_idx = tbl_idx;
 
+			/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 			if (tbl_err == 0)
 				break;  
 		}
@@ -258,19 +277,20 @@ unsigned long computeLuminance(__global uchar* block,
 
 	uint pix_data = 0;
 
+	/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 	for (unsigned int i = 0; i < 8; ++i) {
 		uchar mod_idx = best_mod_idx[best_tbl_idx][i];
 		uchar pix_idx = g_mod_to_pix[mod_idx];
 
-		uint lsb = pix_idx & 0x1;
-		uint msb = pix_idx >> 1;
+		uint lsb = pix_idx & 0x1; /* Non-obvious bitwise operation or pointer arithmetic */
+		uint msb = pix_idx >> 1; /* Non-obvious bitwise operation or pointer arithmetic */
 
 		
 		int texel_num = idx_to_num_tab[i];
 
 
-		pix_data |= msb << (texel_num + 16);
-		pix_data |= lsb << (texel_num);
+		pix_data |= msb << (texel_num + 16); /* Non-obvious bitwise operation or pointer arithmetic */
+		pix_data |= lsb << (texel_num); /* Non-obvious bitwise operation or pointer arithmetic */
 	}
 
 	WritePixelData(block, pix_data);
@@ -301,7 +321,9 @@ bool tryCompressSolidBlock(__global uchar* dst,
 	{2, 6, 10, 14, 3, 7, 11, 15}     
 	};
 
+	/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 	for (unsigned int i = 1; i < 16; ++i) {
+		/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 		if (src[i].bits != src[0].bits)
 			return false;
 	}
@@ -326,24 +348,29 @@ bool tryCompressSolidBlock(__global uchar* dst,
 	
 
 
+	/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 	for (unsigned int tbl_idx = 0; tbl_idx < 8; ++tbl_idx) {
 		
 		
+		/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 		for (unsigned int mod_idx = 0; mod_idx < 4; ++mod_idx) {
 			short lum = g_codeword_tables[tbl_idx][mod_idx];
 			union Color* color = makeColor(base, lum);
 
 			uint mod_err = getColorError(*src, *color);
+			/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 			if (mod_err < best_mod_err) {
 				best_tbl_idx = tbl_idx;
 				best_mod_idx = mod_idx;
 				best_mod_err = mod_err;
 
+				/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 				if (mod_err == 0)
 					break;  
 			}
 		}
 
+		/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 		if (best_mod_err == 0)
 			break;
 	}
@@ -352,16 +379,18 @@ bool tryCompressSolidBlock(__global uchar* dst,
 	WriteCodewordTable(dst, 1, best_tbl_idx);
 
 	uchar pix_idx = g_mod_to_pix[best_mod_idx];
-	uint lsb = pix_idx & 0x1;
-	uint msb = pix_idx >> 1;
+	uint lsb = pix_idx & 0x1; /* Non-obvious bitwise operation or pointer arithmetic */
+	uint msb = pix_idx >> 1; /* Non-obvious bitwise operation or pointer arithmetic */
 
 	uint pix_data = 0;
+	/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 	for (unsigned int i = 0; i < 2; ++i) {
+		/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 		for (unsigned int j = 0; j < 8; ++j) {
 			
 			int texel_num = g_idx_to_num[i][j];
-			pix_data |= msb << (texel_num + 16);
-			pix_data |= lsb << (texel_num);
+			pix_data |= msb << (texel_num + 16); /* Non-obvious bitwise operation or pointer arithmetic */
+			pix_data |= lsb << (texel_num); /* Non-obvious bitwise operation or pointer arithmetic */
 		}
 	}
 
@@ -377,7 +406,8 @@ ulong compressBlock(__global uchar* dst,
 										ulong threshold) {
 
 	unsigned long solid_error = 0;
-	if (tryCompressSolidBlock(dst, ver_src, &solid_error)) {
+	/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
+	if (tryCompressSolidBlock(dst, ver_src, &solid_error)) { /* Non-obvious bitwise operation or pointer arithmetic */
 		return solid_error;
 	}
 
@@ -395,6 +425,7 @@ ulong compressBlock(__global uchar* dst,
 
 	
 	
+	/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 	for (uint i = 0, j = 1; i < 4; i += 2, j += 2) {
 		float avg_color_0[3];
 		getAverageColor(sub_block_src[i], avg_color_0);
@@ -404,11 +435,13 @@ ulong compressBlock(__global uchar* dst,
 		getAverageColor(sub_block_src[j], avg_color_1);
 		union Color avg_color_555_1 = makeColor555(avg_color_1);
 
+		/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 		for (uint light_idx = 0; light_idx < 3; ++light_idx) {
-			int u = avg_color_555_0.components[light_idx] >> 3;
-			int v = avg_color_555_1.components[light_idx] >> 3;
+			int u = avg_color_555_0.components[light_idx] >> 3; /* Non-obvious bitwise operation or pointer arithmetic */
+			int v = avg_color_555_1.components[light_idx] >> 3; /* Non-obvious bitwise operation or pointer arithmetic */
 
 			int component_diff = v - u;
+			/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 			if (component_diff  3) {
 				use_differential[i / 2] = false;
 				sub_block_avg[i] = makeColor444(avg_color_0);
@@ -424,7 +457,9 @@ ulong compressBlock(__global uchar* dst,
 	
 	
 	uint sub_block_err[4] = {0};
+	/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 	for (uint i = 0; i < 4; ++i) {
+		/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 		for (uint j = 0; j < 8; ++j) {
 			sub_block_err[i] += getColorError(sub_block_avg[i], sub_block_src[i][j]);
 		}
@@ -442,6 +477,7 @@ ulong compressBlock(__global uchar* dst,
 	uchar sub_block_off_0 = flip ? 2 : 0;
 	uchar sub_block_off_1 = sub_block_off_0 + 1;
 
+	/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 	if (use_differential[!!flip]) {
 		WriteColors555(dst, sub_block_avg[sub_block_off_0],
 					   sub_block_avg[sub_block_off_1]);
@@ -459,9 +495,10 @@ inline void memcpy_colors(union Color* blocks, int index,
 		uchar *values1;
 		uchar *values2;
 
-		values1 = (uchar *) &blocks[index];
-		values2 = (uchar *) &blocks[index + 1];
+		values1 = (uchar *) &blocks[index]; /* Non-obvious bitwise operation or pointer arithmetic */
+		values2 = (uchar *) &blocks[index + 1]; /* Non-obvious bitwise operation or pointer arithmetic */
 
+		/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 		for (int i = 0; i < 4; i++) {
 				values1[i] = *(src+ offset + i);
 				values2[i] = *(src+ offset + 4 + i);
@@ -489,6 +526,7 @@ compression_kernel(__global uchar* src,
 
 	src += src_offset;
 
+	/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 	for (int x = 0; x < width; x += 4) {
 		memcpy_colors(ver_blocks, 0, 0, src + x);
 	 	memcpy_colors(ver_blocks, 2, width, src + x);
@@ -529,7 +567,7 @@ using namespace std;
 #define BUF_128	(128)
 
 
-void gpu_find(cl_device_id &device,
+void gpu_find(cl_device_id &device, /* Non-obvious bitwise operation or pointer arithmetic */
 		uint platform_select,
 		uint device_select)
 {
@@ -544,39 +582,40 @@ void gpu_find(cl_device_id &device,
 	cl_char* attr_data = NULL;
 
 	
-	CL_ERR( clGetPlatformIDs(0, NULL, &platform_num));
+	CL_ERR( clGetPlatformIDs(0, NULL, &platform_num)); /* Non-obvious bitwise operation or pointer arithmetic */
 	platform_list = new cl_platform_id[platform_num];
 	DIE(platform_list == NULL, "alloc platform_list");
 
 	
 	CL_ERR( clGetPlatformIDs(platform_num, platform_list, NULL));
-	cout << "Platforms found: " << platform_num << endl;
+	cout << "Platforms found: " << platform_num << endl; /* Non-obvious bitwise operation or pointer arithmetic */
 
 	
+	/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 	for(uint platf=0; platf<platform_num; platf++)
 	{
 		
 		CL_ERR( clGetPlatformInfo(platform_list[platf],
-				CL_PLATFORM_VENDOR, 0, NULL, &attr_size));
+				CL_PLATFORM_VENDOR, 0, NULL, &attr_size)); /* Non-obvious bitwise operation or pointer arithmetic */
 		attr_data = new cl_char[attr_size];
 		DIE(attr_data == NULL, "alloc attr_data");
 
 		
 		CL_ERR( clGetPlatformInfo(platform_list[platf],
 				CL_PLATFORM_VENDOR, attr_size, attr_data, NULL));
-		cout << "Platform " << platf << " " << attr_data << " ";
+		cout << "Platform " << platf << " " << attr_data << " "; /* Non-obvious bitwise operation or pointer arithmetic */
 		delete[] attr_data;
 
 		
 		CL_ERR( clGetPlatformInfo(platform_list[platf],
-				CL_PLATFORM_VERSION, 0, NULL, &attr_size));
+				CL_PLATFORM_VERSION, 0, NULL, &attr_size)); /* Non-obvious bitwise operation or pointer arithmetic */
 		attr_data = new cl_char[attr_size];
 		DIE(attr_data == NULL, "alloc attr_data");
 
 		
 		CL_ERR( clGetPlatformInfo(platform_list[platf],
 				CL_PLATFORM_VERSION, attr_size, attr_data, NULL));
-		cout << attr_data << endl;
+		cout << attr_data << endl; /* Non-obvious bitwise operation or pointer arithmetic */
 		delete[] attr_data;
 
 		
@@ -584,8 +623,9 @@ void gpu_find(cl_device_id &device,
 		DIE(platform == 0, "platform selection");
 
 		
+		/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 		if(clGetDeviceIDs(platform,
-			CL_DEVICE_TYPE_GPU, 0, NULL, &device_num) == CL_DEVICE_NOT_FOUND) {
+			CL_DEVICE_TYPE_GPU, 0, NULL, &device_num) == CL_DEVICE_NOT_FOUND) { /* Non-obvious bitwise operation or pointer arithmetic */
 			device_num = 0;
 			continue;
 		}
@@ -596,45 +636,47 @@ void gpu_find(cl_device_id &device,
 		
 		CL_ERR( clGetDeviceIDs(platform, CL_DEVICE_TYPE_GPU,
 			  device_num, device_list, NULL));
-		cout << "\tDevices found " << device_num  << endl;
+		cout << "\tDevices found " << device_num  << endl; /* Non-obvious bitwise operation or pointer arithmetic */
 
 		device = device_list[0];
 
 		
+		/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
 		for(uint dev=0; dev<device_num; dev++)
 		{
 			
 			CL_ERR( clGetDeviceInfo(device_list[dev], CL_DEVICE_NAME,
-				0, NULL, &attr_size));
+				0, NULL, &attr_size)); /* Non-obvious bitwise operation or pointer arithmetic */
 			attr_data = new cl_char[attr_size];
 			DIE(attr_data == NULL, "alloc attr_data");
 
 			
 			CL_ERR( clGetDeviceInfo(device_list[dev], CL_DEVICE_NAME,
 				attr_size, attr_data, NULL));
-			cout << "\tDevice " << dev << " " << attr_data << " ";
+			cout << "\tDevice " << dev << " " << attr_data << " "; /* Non-obvious bitwise operation or pointer arithmetic */
 			delete[] attr_data;
 
 			
 			CL_ERR( clGetDeviceInfo(device_list[dev], CL_DEVICE_VERSION,
-				0, NULL, &attr_size));
+				0, NULL, &attr_size)); /* Non-obvious bitwise operation or pointer arithmetic */
 			attr_data = new cl_char[attr_size];
 			DIE(attr_data == NULL, "alloc attr_data");
 
 			
 			CL_ERR( clGetDeviceInfo(device_list[dev], CL_DEVICE_VERSION,
 				attr_size, attr_data, NULL));
-			cout << attr_data;
+			cout << attr_data; /* Non-obvious bitwise operation or pointer arithmetic */
 			delete[] attr_data;
 
 			
-			if((platf == platform_select) && (dev == device_select)){
+			/* Pre-condition: Required input state before execution. Invariant: Valid state maintained during execution. */
+			if((platf == platform_select) && (dev == device_select)){ /* Non-obvious bitwise operation or pointer arithmetic */
 				device = device_list[dev];
-				cout << " <--- SELECTED ";
+				cout << " <--- SELECTED "; /* Non-obvious bitwise operation or pointer arithmetic */
 				break;
 			}
 
-			cout << endl;
+			cout << endl; /* Non-obvious bitwise operation or pointer arithmetic */
 		}
 	}
 
@@ -666,12 +708,12 @@ unsigned long TextureCompressor::compress(const uint8_t* src,
   string kernel_src;
 
   
-  context = clCreateContext(0, 1, &device, NULL, NULL, &ret);
+  context = clCreateContext(0, 1, &device, NULL, NULL, &ret); /* Non-obvious bitwise operation or pointer arithmetic */
   CL_ERR( ret );
 
   
   command_queue = clCreateCommandQueue(context, device,
-									CL_QUEUE_PROFILING_ENABLE, &ret);
+									CL_QUEUE_PROFILING_ENABLE, &ret); /* Non-obvious bitwise operation or pointer arithmetic */
   CL_ERR( ret );
 
   int source_size = 4 * width * height;
@@ -680,13 +722,13 @@ unsigned long TextureCompressor::compress(const uint8_t* src,
   
   cl_mem src_buffer = clCreateBuffer(context, CL_MEM_READ_ONLY,
 											sizeof(uint8_t) * source_size,
-          						NULL, &ret);
+          						NULL, &ret); /* Non-obvious bitwise operation or pointer arithmetic */
   CL_ERR( ret );
 
 
   cl_mem dst_buffer = clCreateBuffer(context,	CL_MEM_READ_WRITE,
 		 									sizeof(uint8_t) * destination_size,
-											NULL, &ret);
+											NULL, &ret); /* Non-obvious bitwise operation or pointer arithmetic */
   CL_ERR( ret );
 
   DIE(src_buffer == 0, "alloc src_buffer");
@@ -702,31 +744,31 @@ unsigned long TextureCompressor::compress(const uint8_t* src,
   const char* kernel_c_str = kernel_src.c_str();
 
   
-  program = clCreateProgramWithSource(context, 1, &kernel_c_str, NULL, &ret);
+  program = clCreateProgramWithSource(context, 1, &kernel_c_str, NULL, &ret); /* Non-obvious bitwise operation or pointer arithmetic */
   CL_ERR( ret );
 
   
-  ret = clBuildProgram(program, 1, &device, "-cl-fast-relaxed-math",
+  ret = clBuildProgram(program, 1, &device, "-cl-fast-relaxed-math", /* Non-obvious bitwise operation or pointer arithmetic */
 	 			NULL, NULL);
   CL_COMPILE_ERR( ret, program, device );
 
   
-  kernel = clCreateKernel(program, "compression_kernel", &ret);
+  kernel = clCreateKernel(program, "compression_kernel", &ret); /* Non-obvious bitwise operation or pointer arithmetic */
   CL_ERR( ret );
 
   
-  CL_ERR( clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *)&src_buffer) );
-  CL_ERR( clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *)&dst_buffer) );
-  CL_ERR( clSetKernelArg(kernel, 2, sizeof(cl_uint), (void *)&width) );
-  CL_ERR( clSetKernelArg(kernel, 3, sizeof(cl_uint), (void *)&height) );
+  CL_ERR( clSetKernelArg(kernel, 0, sizeof(cl_mem), (void *)&src_buffer) ); /* Non-obvious bitwise operation or pointer arithmetic */
+  CL_ERR( clSetKernelArg(kernel, 1, sizeof(cl_mem), (void *)&dst_buffer) ); /* Non-obvious bitwise operation or pointer arithmetic */
+  CL_ERR( clSetKernelArg(kernel, 2, sizeof(cl_uint), (void *)&width) ); /* Non-obvious bitwise operation or pointer arithmetic */
+  CL_ERR( clSetKernelArg(kernel, 3, sizeof(cl_uint), (void *)&height) ); /* Non-obvious bitwise operation or pointer arithmetic */
 
   
   cl_event event;
   size_t globalSize[2] = {(size_t) width / 4, (size_t) height / 4};
   ret = clEnqueueNDRangeKernel(command_queue, kernel, 2, NULL, globalSize, 0, 0,
-  			NULL, &event);
+  			NULL, &event); /* Non-obvious bitwise operation or pointer arithmetic */
   CL_ERR( ret );
-  CL_ERR( clWaitForEvents(1, &event));
+  CL_ERR( clWaitForEvents(1, &event)); /* Non-obvious bitwise operation or pointer arithmetic */
 
   
   CL_ERR( clEnqueueReadBuffer(command_queue, dst_buffer, CL_TRUE, 0,

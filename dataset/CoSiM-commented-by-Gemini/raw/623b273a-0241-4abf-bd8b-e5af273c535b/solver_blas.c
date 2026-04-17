@@ -1,8 +1,14 @@
-
+/**
+ * @file solver_blas.c
+ * @brief BLAS-based solver optimized for row major matrices.
+ */
 #include "utils.h"
 #include "cblas.h"
 
 
+/**
+ * @brief Prepares matrix structures using CBLAS transposition methods.
+ */
 double* my_solver(int N, double *A, double *B) {
 	printf("BLAS SOLVER\n");
 	double *AAt;
@@ -26,7 +32,10 @@ double* my_solver(int N, double *A, double *B) {
 	AAt = calloc(N * N, sizeof(*AAt));
 	BBt = calloc(N * N, sizeof(*BBt));
 
-	
+	/**
+	 * @pre Empty buffer AAt allocated.
+	 * @post Clones A.
+	 */
 	for(i = 0; i < N; i++) {
 		double *aa_ptr = AAt + i * N;
 		double *a_ptr = A + i * N;
@@ -37,7 +46,10 @@ double* my_solver(int N, double *A, double *B) {
 		}
 	}
 
-	
+	/**
+	 * @pre Empty buffer BBt allocated.
+	 * @post Clones B.
+	 */
 	for(i = 0; i < N; i++) {
 		double *bb_ptr = BBt + i * N;
 		double *b_ptr = B + i * N;

@@ -1,4 +1,4 @@
-
+/* Module Level: Non-optimized matrix solver. @raw/28404053-b974-43f8-bd59-91ca7031af3f/solver_neopt.c */
 #include "utils.h"
 
 
@@ -10,6 +10,7 @@ double* my_solver(int N, double *A, double* B) {
 
 	double *fst = malloc(N * N * sizeof(double));
 	
+	/* Block Level: First basic multiplication */
 	for (i = 0; i < N; i++) {
 		for (j = 0; j < N; j++) {
 			double sum = 0;
@@ -23,6 +24,7 @@ double* my_solver(int N, double *A, double* B) {
 
 	double *snd = malloc(N * N * sizeof(double));
 
+	/* Block Level: Second basic multiplication */
 	for (i = 0; i < N; i++) {
 		for (j = 0; j < N; j++) {
 			double sum = 0;
@@ -35,6 +37,7 @@ double* my_solver(int N, double *A, double* B) {
 
 	double *third = malloc(N * N * sizeof(double));
 	
+	/* Block Level: Final matrix construction */
 	for (i = 0; i < N; i++) {
 		for (j = 0; j < N; j++) {
 			double sum = 0;

@@ -1,4 +1,5 @@
 
+/* Module Level: OpenCL kernel for GPU processing. @raw/26aa8c9e-6289-4999-94e1-5f270ea65d55/gpu_kernel.cl */
 typedef union UColor {
   struct BgraColorType {
     uchar b;

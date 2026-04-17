@@ -1,4 +1,8 @@
-
+/*
+ * Module: File Comparison Utility
+ * @raw/623b273a-0241-4abf-bd8b-e5af273c535b/compare.c
+ * High-level purpose: Compares two matrix files for equality within a given tolerance.
+ */
 
 #include <stdlib.h>
 #include <stdio.h>

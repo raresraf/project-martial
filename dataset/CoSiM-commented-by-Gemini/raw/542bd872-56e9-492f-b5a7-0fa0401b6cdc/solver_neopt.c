@@ -1,4 +1,8 @@
 
+/*
+ * @raw/542bd872-56e9-492f-b5a7-0fa0401b6cdc/solver_neopt.c
+ * Module Level: Unoptimized matrix solver implementation (naive approach).
+ */
 #include "utils.h"
 
 
@@ -6,7 +10,7 @@ double* my_solver(int N, double *A, double* B) {
 	double *C1 = calloc(N * N, sizeof(double));
 
 	
-	
+	/* Pre-conditions: Matrix C1 is zero-allocated and Matrix B is accessible. Computes intermediate matrix multiplications. */
 	for (int i = 0; i < N; i++) {
 		for (int j = 0; j < N; j++) {
 			for (int k = i; k < N; k++) {

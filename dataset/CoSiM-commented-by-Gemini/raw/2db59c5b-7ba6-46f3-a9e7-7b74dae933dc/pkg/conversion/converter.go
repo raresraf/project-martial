@@ -369,6 +369,7 @@ func (c *Converter) convert(sv, dv reflect.Value, scope *scope) error {
 			return nil
 		}
 		dv.Set(reflect.MakeSlice(dt, sv.Len(), sv.Cap()))
+		/* Pre-condition: sv is a valid slice. Invariant: elements up to i are converted and copied to dv */
 		for i := 0; i < sv.Len(); i++ {
 			scope.setIndices(i, i)
 			if err := c.convert(sv.Index(i), dv.Index(i), scope); err != nil {
@@ -559,6 +560,12 @@ func (c *Converter) checkField(fieldName string, skv, dkv kvValue, scope *scope)
 				return true, err
 			}
 			dkv.confirmSet(potentialDestKey.fieldName, df)
+			replacementMade = true
+		}
+	}
+	return replacementMade, nil
+}
+ldName, df)
 			replacementMade = true
 		}
 	}

@@ -42,6 +42,7 @@ double* my_solver(int N, double *A, double *B) {
 
 	register int i, j;
 
+	// Block Level: Pre-condition: blas calculations complete, ready to aggregate
 	for (i = 0; i < N; i++) {
 		register double *res = &result[i * N];
 		register double *pa = &second_mul[i * N];
@@ -61,6 +62,10 @@ double* my_solver(int N, double *A, double *B) {
 	free(first_mul);
 	free(second_mul);
 	free(third_mul);
+
+	return result;
+}
+;
 
 	return result;
 }

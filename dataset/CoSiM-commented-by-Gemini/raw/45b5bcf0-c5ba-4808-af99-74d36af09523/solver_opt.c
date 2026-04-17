@@ -23,6 +23,7 @@ double* my_solver(int N, double *A, double* B) {
 
 	register int i, j, k;
 
+	// Block Level: Pre-condition: memory arrays assigned
 	for (i = 0; i < N; i++) {
 		double *pa_first = &A[i * (N + 1)];
 		double *res = &first_mul[i * N];
@@ -104,6 +105,11 @@ double* my_solver(int N, double *A, double* B) {
 
 	free(first_mul);
 	free(second_mul);
+	free(third_mul);
+
+	return result;
+}
+mul);
 	free(third_mul);
 
 	return result;

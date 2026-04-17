@@ -1,4 +1,8 @@
-
+"""
+Module: Consumer and Marketplace
+@raw/62f35083-e4c8-46da-8c35-7bb3b0360941/consumer.py
+High-level purpose: Simulates a multi-threaded marketplace with producers and consumers interacting via carts.
+"""
 
 import time
 from threading import Thread

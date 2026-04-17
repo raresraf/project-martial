@@ -1,3 +1,7 @@
+/*
+ * Module: @raw/3a541032-bced-45be-bc2e-47ff5af59048/solver_opt.c
+ * High-level purpose: Optimized matrix solver implementation.
+ */
 #include "utils.h"
 
 
@@ -12,6 +16,7 @@ double* my_solver(int N, double *A, double* B) {
 	double *result_AB = malloc(size);
 	
 
+	/* Pre-condition: Memory allocated for result_AB. Invariant: Using fast register variables for bounds. */
 	for (i = 0; i < N; i++) {
 		register int indx = i * N;
 		for (j = 0; j < N; j++) {
@@ -45,4 +50,3 @@ double* my_solver(int N, double *A, double* B) {
 	free(result_AB);
 	return C;	
 }
-

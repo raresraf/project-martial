@@ -1,4 +1,6 @@
 
+// @raw/468d349e-55d6-45fd-a3f0-c73f921fec0c/compression_device.cl
+// Module Level: OpenCL Device Compression Kernel Header
 union Color {
 	struct BgraColorType {
 		uchar b;

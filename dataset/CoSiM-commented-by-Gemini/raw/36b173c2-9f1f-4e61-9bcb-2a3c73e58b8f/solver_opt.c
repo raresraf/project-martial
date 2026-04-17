@@ -1,4 +1,7 @@
-
+/*
+ * Module: @raw/36b173c2-9f1f-4e61-9bcb-2a3c73e58b8f/solver_opt.c
+ * High-level purpose: Optimized matrix solver implementation.
+ */
 #include "utils.h"
 
 
@@ -24,7 +27,7 @@ double* my_solver(int N, double *A, double* B) {
 		return NULL;
 	}
 
-	
+	/* Pre-condition: Target matrices are zero-initialized. Invariant: Loop processes elements column-wise efficiently. */
 	for (i = 0; i < N; ++i) {
 		register double *orig_pa = &A[i * N + i];
 		for (j = 0; j < N; ++j) {

@@ -1,4 +1,8 @@
 
+/*
+ * @raw/542bd872-56e9-492f-b5a7-0fa0401b6cdc/solver_opt.c
+ * Module Level: Optimized matrix solver implementation using pointers and loop reordering.
+ */
 #include "utils.h"
 
 
@@ -8,7 +12,7 @@ double* my_solver(int N, double *A, double* B) {
 	double *C1 = calloc(N * N, sizeof(double));
 
 	
-	
+	/* Pre-conditions: Matrix C1 is zero-allocated and Matrix B is accessible. Computes intermediate matrix multiplications. */
 	for (i = 0; i < N; i++) {
 		double *orig_pa = &B[i * N];
 

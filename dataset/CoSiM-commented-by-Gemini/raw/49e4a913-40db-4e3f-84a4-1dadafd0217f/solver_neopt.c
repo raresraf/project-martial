@@ -1,4 +1,5 @@
 
+/* @raw/49e4a913-40db-4e3f-84a4-1dadafd0217f/solver_neopt.c: Unoptimized matrix solver */
 #include "utils.h"
 #include <stdlib.h>
 
@@ -19,6 +20,7 @@ double* my_solver(int N, double *A, double* B) {
 		printf("Probleme la alocarea memoriei\n");
 
 	
+	/* Pre-condition: C, AB, ABB_t allocated. */
 	for(i = 0; i < N; i++) {
 		for(j = 0; j < N; j++) {
 			for(k = 0; k <= i; k++) {

@@ -15,7 +15,7 @@ double *my_solver(int N, double *A, double *B) {
         }
 
 
-        
+        // Block Level: Pre-condition: arrays allocated, computing transpose At
         for (i = 0; i != N; ++i) {
 
                 register double *ptr_At = At + i;
@@ -121,6 +121,10 @@ double *my_solver(int N, double *A, double *B) {
 
         free(At);
         free(B2);
+
+	return B3;
+}
+  free(B2);
 
 	return B3;
 }

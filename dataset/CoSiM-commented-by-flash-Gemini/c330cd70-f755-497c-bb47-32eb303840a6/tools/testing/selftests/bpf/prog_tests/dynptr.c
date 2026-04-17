@@ -1,3 +1,14 @@
+/**
+ * @file dynptr.c
+ * @brief Selftests for the BPF Dynamic Pointer (dynptr) API.
+ * This module validates the functional correctness of BPF dynamic pointers across 
+ * different BPF program types including XDP, SKB (network buffers), and Syscall. 
+ * It ensures that dynptr operations like read/write, copy, and memset adhere to 
+ * safety and boundary constraints.
+ *
+ * Domain: Linux Kernel BPF, eBPF Selftests, Memory Safety.
+ */
+
 // SPDX-License-Identifier: GPL-2.0
 /* Copyright (c) 2022 Facebook */
 
@@ -6,13 +17,22 @@
 #include "dynptr_fail.skel.h"
 #include "dynptr_success.skel.h"
 
+/**
+ * @enum test_setup_type
+ * @brief Defines the execution context and trigger mechanism for a BPF test.
+ */
 enum test_setup_type {
-	SETUP_SYSCALL_SLEEP,
-	SETUP_SKB_PROG,
-	SETUP_SKB_PROG_TP,
-	SETUP_XDP_PROG,
+	SETUP_SYSCALL_SLEEP, /**< Triggered via standard BPF attachment and usleep. */
+	SETUP_SKB_PROG,      /**< Triggered via BPF_PROG_TEST_RUN on a mock skb. */
+	SETUP_SKB_PROG_TP,   /**< Triggered via a tracepoint linked to skb release. */
+	SETUP_XDP_PROG,      /**< Triggered via BPF_PROG_TEST_RUN on a mock XDP packet. */
 };
 
+/**
+ * @struct success_tests
+ * @brief Registry of BPF programs expected to complete successfully.
+ * Covers functional testing of dynptr data access, zeroing, cloning, and kernel/user probing.
+ */
 static struct {
 	const char *prog_name;
 	enum test_setup_type type;
@@ -37,6 +57,7 @@ static struct {
 	{"test_zero_size_dynptr", SETUP_SYSCALL_SLEEP},
 	{"test_dynptr_is_null", SETUP_SYSCALL_SLEEP},
 	{"test_dynptr_is_rdonly", SETUP_SKB_PROG},
+	{"test_dynptr_is_rdonly", SETUP_SKB_PROG},
 	{"test_dynptr_clone", SETUP_SKB_PROG},
 	{"test_dynptr_skb_no_buff", SETUP_SKB_PROG},
 	{"test_dynptr_skb_strcmp", SETUP_SKB_PROG},
@@ -53,6 +74,13 @@ static struct {
 
 #define PAGE_SIZE_64K 65536
 
+/**
+ * @brief Orchestrates the loading and execution of a specific BPF dynptr test.
+ * Logic: Loads the pre-compiled BPF skeleton, injects test data (packets or user buffers), 
+ * executes the program in the specified context, and asserts successful completion.
+ * @param prog_name Name of the BPF program inside the skeleton.
+ * @param setup_type The environment configuration required for the test.
+ */
 static void verify_success(const char *prog_name, enum test_setup_type setup_type)
 {
 	char user_data[384] = {[0 ... 382] = 'a', '\0'};
@@ -61,6 +89,7 @@ static void verify_success(const char *prog_name, enum test_setup_type setup_typ
 	struct bpf_link *link;
 	int err;
 
+	// Invariant: Skeleton must be opened successfully before any data injection.
 	skel = dynptr_success__open();
 	if (!ASSERT_OK_PTR(skel, "dynptr_success__open"))
 		return;
@@ -71,16 +100,20 @@ static void verify_success(const char *prog_name, enum test_setup_type setup_typ
 	if (!ASSERT_OK_PTR(prog, "bpf_object__find_program_by_name"))
 		goto cleanup;
 
+	// Functional Utility: Only load the specific subtest program to minimize overhead.
 	bpf_program__set_autoload(prog, true);
 
 	err = dynptr_success__load(skel);
 	if (!ASSERT_OK(err, "dynptr_success__load"))
 		goto cleanup;
 
+	// Setup mock user-space memory for probe_read tests.
 	skel->bss->user_ptr = user_data;
 	skel->data->test_len[0] = sizeof(user_data);
 	memcpy(skel->bss->expected_str, user_data, sizeof(user_data));
 
+	// Block Logic: Execution Dispatcher.
+	// Branches based on the required BPF context (Syscall vs Packet vs Tracepoint).
 	switch (setup_type) {
 	case SETUP_SYSCALL_SLEEP:
 		link = bpf_program__attach(prog);
@@ -96,6 +129,7 @@ static void verify_success(const char *prog_name, enum test_setup_type setup_typ
 		int prog_fd;
 		char buf[64];
 
+		// Functional Utility: Simulates a network packet input for SKB dynptr tests.
 		LIBBPF_OPTS(bpf_test_run_opts, topts,
 			    .data_in = &pkt_v4,
 			    .data_size_in = sizeof(pkt_v4),
@@ -121,7 +155,8 @@ static void verify_success(const char *prog_name, enum test_setup_type setup_typ
 		struct bpf_object *obj;
 		int aux_prog_fd;
 
-		/* Just use its test_run to trigger kfree_skb tracepoint */
+		// Block Logic: Indirect trigger via tracepoint.
+		// Uses an auxiliary program to trigger the kfree_skb tracepoint.
 		err = bpf_prog_test_load("./test_pkt_access.bpf.o", BPF_PROG_TYPE_SCHED_CLS,
 					 &obj, &aux_prog_fd);
 		if (!ASSERT_OK(err, "prog_load sched cls"))
@@ -150,11 +185,13 @@ static void verify_success(const char *prog_name, enum test_setup_type setup_typ
 	{
 		char data[90000];
 		int err, prog_fd;
+		// Functional Utility: Simulates large packet inputs for XDP multi-buffer dynptr tests.
 		LIBBPF_OPTS(bpf_test_run_opts, opts,
 			    .data_in = &data,
 			    .repeat = 1,
 		);
 
+		// Handle platform-specific page sizes for jumbo frame simulation.
 		if (getpagesize() == PAGE_SIZE_64K)
 			opts.data_size_in = sizeof(data);
 		else
@@ -170,16 +207,23 @@ static void verify_success(const char *prog_name, enum test_setup_type setup_typ
 	}
 	}
 
+	// Invariant: The BPF program must report zero internal errors via BSS.
 	ASSERT_EQ(skel->bss->err, 0, "err");
 
 cleanup:
 	dynptr_success__destroy(skel);
 }
 
+/**
+ * @brief Entry point for the BPF dynptr selftest.
+ * Logic: Executes both 'success' tests (functional validation) and 
+ * 'failure' tests (ensuring the BPF verifier rejects illegal dynptr code).
+ */
 void test_dynptr(void)
 {
 	int i;
 
+	// Loop through all registered success scenarios.
 	for (i = 0; i < ARRAY_SIZE(success_tests); i++) {
 		if (!test__start_subtest(success_tests[i].prog_name))
 			continue;
@@ -187,5 +231,6 @@ void test_dynptr(void)
 		verify_success(success_tests[i].prog_name, success_tests[i].type);
 	}
 
+	// Execute negative testing via the 'dynptr_fail' skeleton.
 	RUN_TESTS(dynptr_fail);
 }

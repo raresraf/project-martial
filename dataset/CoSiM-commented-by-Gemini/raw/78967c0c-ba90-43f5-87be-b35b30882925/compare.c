@@ -1,5 +1,8 @@
 
 
+// @raw/78967c0c-ba90-43f5-87be-b35b30882925/compare.c
+// High-level purpose: Compares two binary files containing square matrices of doubles.
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -88,4 +91,5 @@ int main(int argc, const char **argv)
 	
 	printf("%s %s %s %s\n", argv[0], argv[1], argv[2], (ret == 0 ? "OK" : "Incorrect results!"));
 	return ret;
+}
 }

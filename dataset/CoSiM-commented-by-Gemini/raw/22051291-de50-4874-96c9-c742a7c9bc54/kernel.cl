@@ -1,4 +1,7 @@
 
+// @raw/22051291-de50-4874-96c9-c742a7c9bc54/kernel.cl
+// Module Purpose: OpenCL kernels for executing compression algorithms.
+
 union infoRGB
 {
 	struct BgraColorType
@@ -30,6 +33,8 @@ void copy(void *dst, void *src, int n)
 	char *charDst = (char *)dst;
  	int i;
 	
+	// Pre-condition: charDst and charSrc are valid pointers for n bytes.
+	// Invariant: characters are copied one by one.
 	for (i = 0;i < n;i++)
 	{
  	   charDst[i] = charSrc[i];

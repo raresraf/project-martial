@@ -1,4 +1,7 @@
 
+// @raw/22305609-127e-41e5-9a4e-c0e3f35fcc25/solver_neopt.c
+// Module Purpose: Non-optimized matrix solver.
+
 #include "utils.h"
 #include <string.h>
 
@@ -12,6 +15,8 @@ double *my_solver(int N, double *A, double* B) {
 	double *transA = calloc(sizeof(double), N * N);
 	double *transB = calloc(sizeof(double), N * N);
 
+	// Pre-condition: memory allocated for transA and transB.
+	// Invariant: performing transposition of A and B.
 	for (i = 0; i < N; ++i) {
 		for (j = 0; j < N; ++j) {
 			*(transA + N * i + j) = *(A + N * j + i);

@@ -1,4 +1,5 @@
 
+/* @raw/4caa944a-30ba-4706-a35e-ba8a41ca904f/solver_opt.c: Optimized matrix solver */
 #include "utils.h"
 
 
@@ -21,6 +22,7 @@ double* my_solver(int N, double *A, double* B) {
 	DIE(ABBt == NULL, "calloc ABBt");
 
 	
+	/* Pre-condition: Arrays allocated. */
 	for (i = 0; i < N; i++) {
 		register double *orig_pa = A + i * N;
         for (j = 0; j < N; j++) {

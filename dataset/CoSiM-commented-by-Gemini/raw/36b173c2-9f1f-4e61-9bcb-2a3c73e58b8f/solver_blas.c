@@ -1,4 +1,7 @@
-
+/*
+ * Module: @raw/36b173c2-9f1f-4e61-9bcb-2a3c73e58b8f/solver_blas.c
+ * High-level purpose: Matrix solver using BLAS library functions.
+ */
 #include "utils.h"
 #include "cblas.h"
 #include <string.h>
@@ -19,7 +22,7 @@ double* my_solver(int N, double *A, double *B) {
 		return NULL;
 	}
 
-	
+	/* Pre-condition: Arrays A, B, C are allocated. Invariant: Matrix sizes are N x N. */
 	memcpy(C, B, N * N * sizeof(double));
 	cblas_dtrmm(CblasRowMajor, 141, 121, 111, 131, N, N, 1, A, N, C, N);
 	

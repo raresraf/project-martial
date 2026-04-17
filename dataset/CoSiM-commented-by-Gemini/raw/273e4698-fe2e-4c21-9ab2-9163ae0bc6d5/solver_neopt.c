@@ -1,4 +1,4 @@
-
+/* Module Level: Non-optimized matrix solver. @raw/273e4698-fe2e-4c21-9ab2-9163ae0bc6d5/solver_neopt.c */
 #include "utils.h"
 
 
@@ -16,6 +16,7 @@ double* my_solver(int N, double *A, double* B) {
 	}
 
 	
+	/* Block Level: Calculate AtA */
 	for (i = 0; i < N; i ++) {
 		for (j = 0 ;j < N; j ++) {
 			for (k = 0; k <= i; k ++) {
@@ -25,6 +26,7 @@ double* my_solver(int N, double *A, double* B) {
 	}
 
 	
+	/* Block Level: Calculate BBt */
 	for (i = 0; i < N; i ++) {
 		for (j = 0 ;j < N; j ++) {
 			for (k = 0; k < N; k ++) {
@@ -34,6 +36,7 @@ double* my_solver(int N, double *A, double* B) {
 	}
 
 	
+	/* Block Level: Calculate ABBt */
 	for (i = 0; i < N; i ++) {
 		for (j = 0 ;j < N; j ++) {
 			for (k = i; k < N; k ++) {
@@ -43,6 +46,7 @@ double* my_solver(int N, double *A, double* B) {
 	}
 
 	
+	/* Block Level: Final matrix addition */
 	for (i = 0; i < N; i ++) {
 		for (j = 0; j < N; j ++) {
 			C[i * N + j] = ABBt[i * N + j] + AtA[i * N + j];
@@ -55,4 +59,3 @@ double* my_solver(int N, double *A, double* B) {
 
 	return C;
 }
-

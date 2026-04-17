@@ -1,4 +1,9 @@
 
+/*
+ * Module: OpenCL Compression
+ * @raw/59f9b3fd-51fd-42b5-8b79-0e2c4a9680fb/solve.cl
+ * Purpose: OpenCL texture compression kernel.
+ */
 union cl
 {
 	struct BgraColorType

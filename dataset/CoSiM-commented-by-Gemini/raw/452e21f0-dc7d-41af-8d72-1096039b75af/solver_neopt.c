@@ -14,7 +14,7 @@ double *my_solver(int N, double *A, double *B) {
                 return NULL;
         }
 
-        
+        // Block Level: Pre-condition: allocated A2, B2, B3 successfully
         for (i = 0; i < N; ++i) {
                 for (j = 0; j < N; ++j) {
                         register double sum = 0.0;
@@ -63,6 +63,10 @@ double *my_solver(int N, double *A, double *B) {
 
         free(A2);
         free(B2);
+
+        return B3;
+}
+      free(B2);
 
         return B3;
 }

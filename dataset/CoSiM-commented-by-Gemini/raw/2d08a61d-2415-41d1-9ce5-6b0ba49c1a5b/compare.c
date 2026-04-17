@@ -12,6 +12,11 @@
 #define check_err(a,b,err) ((fabs((a) - (b)) <= (err)) ? 0 : -1)
 
 
+/*
+ * Module: compare.c
+ * Purpose: High-level comparison utility for matrix files to check if two output matrices are equivalent within a tolerance.
+ * Path: @raw/2d08a61d-2415-41d1-9ce5-6b0ba49c1a5b/compare.c
+ */
 int cmp_files(char const *file_path1, char const *file_path2, double precision) {
 	struct stat fileInfo1, fileInfo2;
 	double *mat1, *mat2;

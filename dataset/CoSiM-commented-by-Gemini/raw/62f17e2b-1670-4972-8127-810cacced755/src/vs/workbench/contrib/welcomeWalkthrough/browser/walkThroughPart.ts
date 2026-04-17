@@ -1,3 +1,8 @@
+/*
+ * Module: WalkThroughPart
+ * @raw/62f17e2b-1670-4972-8127-810cacced755/src/vs/workbench/contrib/welcomeWalkthrough/browser/walkThroughPart.ts
+ * High-level purpose: Provides an editor pane for walk-through content in the application.
+ */
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.

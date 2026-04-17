@@ -1,5 +1,8 @@
 
 
+// @raw/22305609-127e-41e5-9a4e-c0e3f35fcc25/compare.c
+// Module Purpose: Compares two matrices from files with a given precision.
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -51,6 +54,8 @@ int cmp_files(char const *file_path1, char const *file_path2, double precision) 
 
 	N = sqrt(fileInfo1.st_size / sizeof(double));
 
+	// Pre-condition: mat1 and mat2 are correctly memory-mapped matrices of size N x N.
+	// Invariant: Checking row i, elements up to j for matching within precision.
 	for (i = 0; i < N; i++ ) {
 		for (j = 0; j< N; j++) {
 			ret = check_err(mat1[i * N + j], mat2[i * N + j], precision); 

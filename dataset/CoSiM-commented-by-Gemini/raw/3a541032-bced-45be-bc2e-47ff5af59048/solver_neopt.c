@@ -1,4 +1,7 @@
-
+/*
+ * Module: @raw/3a541032-bced-45be-bc2e-47ff5af59048/solver_neopt.c
+ * High-level purpose: Non-optimized matrix solver implementation.
+ */
 #include "utils.h"
 
 
@@ -11,6 +14,7 @@ double* my_solver(int N, double *A, double* B) {
 	
 	double *result_A = calloc(N * N, sizeof(double));
 	
+	/* Pre-condition: result_A is allocated. Invariant: Resulting indices valid within N x N. */
 	for (i = 0; i < N; i++) {
 		for (j = 0; j < N; j++) {
 			result_A[i * N + j] = 0;

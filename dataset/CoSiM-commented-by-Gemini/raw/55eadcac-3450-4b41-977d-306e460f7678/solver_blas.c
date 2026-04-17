@@ -1,4 +1,9 @@
 
+/*
+ * Module: BLAS Solver
+ * @raw/55eadcac-3450-4b41-977d-306e460f7678/solver_blas.c
+ * Purpose: CBLAS optimized solver.
+ */
 #include "utils.h"
 #include "cblas.h"
 
@@ -16,6 +21,8 @@ double* my_solver(int N, double *A, double *B) {
     }
 
 	
+	/* Pre-conditions: A, B matrices allocated.
+	 * Invariants: Copying elements into C and result. */
 	for (i = 0; i < N; i++) {
 		for (j = 0; j < N; j++) {
 			C[i * N + j] = B[i * N + j];

@@ -1,5 +1,8 @@
 
 
+// @raw/7a3711ad-109d-4f3f-b982-5f2784e1bed3/skl_device.cl
+// High-level purpose: OpenCL device code and host code for texture compression.
+
 typedef uchar uint8_t;
 
 #define ALIGNAS(X)	__attribute__((aligned(X)))

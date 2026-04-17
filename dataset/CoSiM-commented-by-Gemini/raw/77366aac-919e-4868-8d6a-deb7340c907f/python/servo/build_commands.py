@@ -1,3 +1,6 @@
+# @raw/77366aac-919e-4868-8d6a-deb7340c907f/python/servo/build_commands.py
+# High-level purpose: Mach commands for building and cleaning the Servo browser engine.
+
 # Copyright 2013 The Servo Project Developers. See the COPYRIGHT
 # file at the top-level directory of this distribution.
 #
@@ -441,3 +444,4 @@ def package_msvc_dlls(servo_exe_dir: str, target: BuildTarget):
     copy_file(file_to_copy)
 
     return True
+ True

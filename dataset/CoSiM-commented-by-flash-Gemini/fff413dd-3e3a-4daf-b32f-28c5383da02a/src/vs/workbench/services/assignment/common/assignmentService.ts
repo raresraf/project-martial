@@ -1,3 +1,15 @@
+/**
+ * @file assignmentService.ts
+ * @brief Workbench service for A/B testing and feature experimentation management.
+ * This module implements the `WorkbenchAssignmentService`, which integrates with 
+ * Microsoft's Treatment Assignment Service (TAS) to manage feature experiments 
+ * within VS Code. It provides a robust framework for asynchronous treatment 
+ * retrieval, persistent local storage of experiment state using the `Memento` 
+ * pattern, and detailed telemetry auditing for experimentation tracking.
+ *
+ * Domain: IDE Infrastructure, Feature Flagging, A/B Testing.
+ */
+
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -22,13 +34,27 @@ import { IWorkbenchEnvironmentService } from '../../environment/common/environme
 
 export const IWorkbenchAssignmentService = createDecorator<IWorkbenchAssignmentService>('WorkbenchAssignmentService');
 
+/**
+ * @interface IWorkbenchAssignmentService
+ * @brief Public API for experiment discovery in the workbench.
+ */
 export interface IWorkbenchAssignmentService extends IAssignmentService {
+	/**
+	 * @return List of active experiment identifiers for the current session.
+	 */
 	getCurrentExperiments(): Promise<string[] | undefined>;
 }
 
+/**
+ * @class MementoKeyValueStorage
+ * @brief Adapter for TAS client storage utilizing the VS Code Memento pattern.
+ * Functional Utility: Bridges the external library's storage requirements with 
+ * VS Code's persistent machine-scoped storage.
+ */
 class MementoKeyValueStorage implements IKeyValueStorage {
 	private mementoObj: MementoObject;
 	constructor(private memento: Memento) {
+		// Invariant: Uses Application scope and Machine target for experiment persistence.
 		this.mementoObj = memento.getMemento(StorageScope.APPLICATION, StorageTarget.MACHINE);
 	}
 
@@ -43,6 +69,12 @@ class MementoKeyValueStorage implements IKeyValueStorage {
 	}
 }
 
+/**
+ * @class WorkbenchAssignmentServiceTelemetry
+ * @brief Integrated telemetry dispatcher for experimentation events.
+ * Functional Utility: Captures assignment context and logs treatment-read events 
+ * for GDPR-compliant feature insight analysis.
+ */
 class WorkbenchAssignmentServiceTelemetry implements IExperimentationTelemetry {
 	private _lastAssignmentContext: string | undefined;
 	constructor(
@@ -50,11 +82,17 @@ class WorkbenchAssignmentServiceTelemetry implements IExperimentationTelemetry {
 		private productService: IProductService
 	) { }
 
+	/**
+	 * @return Parsed list of semicolon-delimited experiment tags.
+	 */
 	get assignmentContext(): string[] | undefined {
 		return this._lastAssignmentContext?.split(';');
 	}
 
 	// __GDPR__COMMON__ "abexp.assignmentcontext" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+	/**
+	 * Updates shared experiment properties in the global telemetry state.
+	 */
 	setSharedProperty(name: string, value: string): void {
 		if (name === this.productService.tasConfig?.assignmentContextTelemetryPropertyName) {
 			this._lastAssignmentContext = value;
@@ -63,6 +101,9 @@ class WorkbenchAssignmentServiceTelemetry implements IExperimentationTelemetry {
 		this.telemetryService.setExperimentProperty(name, value);
 	}
 
+	/**
+	 * Dispatches experimentation events to the central telemetry service.
+	 */
 	postEvent(eventName: string, props: Map<string, string>): void {
 		const data: ITelemetryData = {};
 		for (const [key, value] of props.entries()) {
@@ -80,6 +121,12 @@ class WorkbenchAssignmentServiceTelemetry implements IExperimentationTelemetry {
 	}
 }
 
+/**
+ * @class WorkbenchAssignmentService
+ * @brief Primary implementation of experimentation orchestration.
+ * Logic: Coordinates the TAS client initialization using local Memento storage 
+ * and custom telemetry dispatchers.
+ */
 export class WorkbenchAssignmentService extends BaseAssignmentService {
 
 	constructor(
@@ -100,6 +147,11 @@ export class WorkbenchAssignmentService extends BaseAssignmentService {
 		);
 	}
 
+	/**
+	 * @brief Guard logic for experimentation availability.
+	 * Invariant: Experiments are disabled in tests, smoke runs, or if explicitly 
+	 * opted-out via user configuration.
+	 */
 	protected override get experimentsEnabled(): boolean {
 		return !this.environmentService.disableExperiments &&
 			!this.environmentService.extensionTestsLocationURI &&
@@ -107,8 +159,14 @@ export class WorkbenchAssignmentService extends BaseAssignmentService {
 			this.configurationService.getValue('workbench.enableExperiments') === true;
 	}
 
+	/**
+	 * @brief Retrieves the treatment value for a specific feature.
+	 * Logic: Executes an asynchronous lookup via the TAS client and logs the 
+	 * completion event with the read value.
+	 */
 	override async getTreatment<T extends string | number | boolean>(name: string): Promise<T | undefined> {
 		const result = await super.getTreatment<T>(name);
+		
 		type TASClientReadTreatmentData = {
 			treatmentName: string;
 			treatmentValue: string;
@@ -121,12 +179,16 @@ export class WorkbenchAssignmentService extends BaseAssignmentService {
 			treatmentName: { classification: 'SystemMetaData'; purpose: 'PerformanceAndHealth'; comment: 'The name of the treatment that was read' };
 		};
 
+		// Audit Log: Records the resolution of an experimental treatment.
 		this.telemetryService.publicLog2<TASClientReadTreatmentData, TASClientReadTreatmentClassification>('tasClientReadTreatmentComplete',
 			{ treatmentName: name, treatmentValue: JSON.stringify(result) });
 
 		return result;
 	}
 
+	/**
+	 * @brief Returns metadata about the current set of experiments.
+	 */
 	async getCurrentExperiments(): Promise<string[] | undefined> {
 		if (!this.tasClient) {
 			return undefined;
@@ -136,13 +198,17 @@ export class WorkbenchAssignmentService extends BaseAssignmentService {
 			return undefined;
 		}
 
+		// Ensure the client is fully initialized before querying context.
 		await this.tasClient;
 
 		return (this.telemetry as WorkbenchAssignmentServiceTelemetry)?.assignmentContext;
 	}
 }
 
+// Global Registration: delay initialization until required by the workbench.
 registerSingleton(IWorkbenchAssignmentService, WorkbenchAssignmentService, InstantiationType.Delayed);
+
+// System Configuration: Registers the 'workbench.enableExperiments' setting.
 const registry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration);
 registry.registerConfiguration({
 	...workbenchConfigurationNodeBase,

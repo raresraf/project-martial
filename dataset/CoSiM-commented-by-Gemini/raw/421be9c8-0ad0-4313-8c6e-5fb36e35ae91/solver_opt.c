@@ -1,4 +1,7 @@
 
+// Module Level: Optimized Matrix Solver
+// @raw/421be9c8-0ad0-4313-8c6e-5fb36e35ae91/solver_opt.c
+
 #include "utils.h"
 
 

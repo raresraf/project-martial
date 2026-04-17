@@ -1,4 +1,8 @@
-
+/*
+ * Module: Optimized Solver
+ * @raw/623b273a-0241-4abf-bd8b-e5af273c535b/solver_opt.c
+ * High-level purpose: Optimized matrix solver using manual loop unrolling and pointer arithmetic.
+ */
 #include "utils.h"
 #define REG register
 

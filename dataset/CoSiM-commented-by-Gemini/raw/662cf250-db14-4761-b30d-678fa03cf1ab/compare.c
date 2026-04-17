@@ -1,4 +1,7 @@
-
+/*
+ * @raw/662cf250-db14-4761-b30d-678fa03cf1ab/compare.c
+ * Module for comparing two files (matrices) for equality within a given precision.
+ */
 
 #include <stdlib.h>
 #include <stdio.h>

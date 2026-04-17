@@ -1,4 +1,7 @@
 
+// @raw/22305609-127e-41e5-9a4e-c0e3f35fcc25/solver_blas.c
+// Module Purpose: BLAS-based matrix solver.
+
 #include "utils.h"
 #include <cblas.h>
 #include <string.h>
@@ -22,6 +25,8 @@ double* my_solver(int N, double *A, double *B) {
 	
 	cblas_dgemm(CblasRowMajor, CblasTrans, CblasNoTrans, N, N, N, 1, A, N, A, N, 0, tmp, N);
 
+	// Pre-condition: C and tmp are successfully calculated using BLAS.
+	// Invariant: Addition is performed per row.
 	for (i = 0; i < N; ++i) {
 		register double *pc = C + N * i;
 		register double *ptmp = tmp + N * i;

@@ -1,4 +1,5 @@
 
+/* @raw/49030feb-a9ca-47ac-b322-44108964dbd0/solver_blas.c: BLAS matrix solver */
 #include "utils.h"
 #include "cblas.h"
 
@@ -8,6 +9,7 @@ double* my_solver(int N, double *A, double *B) {
 	double *C = malloc(N * N * sizeof(double));
 	double *mat = malloc(N * N * sizeof(double));
 	
+	/* Pre-condition: mat array allocated. */
 	for(int i = 0; i < N; i++){
 		double *idx = &B[i * N];
 		double *id = &mat[i * N];

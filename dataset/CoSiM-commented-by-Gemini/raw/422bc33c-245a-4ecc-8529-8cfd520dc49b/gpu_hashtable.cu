@@ -53,7 +53,7 @@ __global__ void kernel_insert_batch(int *srcKeys, int *srcValues, int srcSize,
 		
 		int hash = keyHash(key, dstSize);
 
-		
+		// Block Level: Pre-condition: hash is valid, iterating through buckets for linear probing
 		for (int i = 0; i < dstSize; ++i) {
 			
 			const int dstKeyIndex = (hash + i) % dstSize;
@@ -404,7 +404,7 @@ __global__ void kernel_insert_batch(int *srcKeys, int *srcValues, int srcSize,
 		
 		int hash = keyHash(key, dstSize);
 
-		
+		// Block Level: Pre-condition: hash is valid, iterating through buckets for linear probing
 		for (int i = 0; i < dstSize; ++i) {
 			
 			const int dstKeyIndex = (hash + i) % dstSize;

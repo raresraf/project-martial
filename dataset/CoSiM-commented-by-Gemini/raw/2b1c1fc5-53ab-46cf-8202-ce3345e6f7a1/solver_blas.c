@@ -1,4 +1,9 @@
 
+/*
+ * Module: solver_blas.c
+ * Purpose: High-level matrix solver utilizing BLAS optimized routines for matrix multiplication and triangular solve.
+ * Path: @raw/2b1c1fc5-53ab-46cf-8202-ce3345e6f7a1/solver_blas.c
+ */
 #include "utils.h"
 #include <string.h>
 #include <stdlib.h>

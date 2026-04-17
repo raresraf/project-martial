@@ -1,4 +1,10 @@
-
+/**
+ * @raw/1a3ac74d-7a0d-48f6-8b61-c6447bbc6dbc/compare.c
+ * @brief Validates the correctness of matrix operations by comparing two binary files containing matrices.
+ * * Algorithm: Element-wise comparison with floating-point tolerance.
+ * Time Complexity: $O(N^2)$ where $N$ is the matrix dimension.
+ * Space Complexity: $O(N^2)$ via memory-mapped files.
+ */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -9,9 +15,14 @@
 #include <unistd.h>
 #include <math.h>
 
+/**
+ * Functional Utility: Checks if the absolute difference between two doubles is within a specified tolerance.
+ */
 #define check_err(a,b,err) ((fabs((a) - (b)) <= (err)) ? 0 : -1)
 
-
+/**
+ * Functional Utility: Maps two files into memory and performs element-wise validation.
+ */
 int cmp_files(char const *file_path1, char const *file_path2, double precision) {
 	struct stat fileInfo1, fileInfo2;
 	double *mat1, *mat2;
@@ -51,6 +62,10 @@ int cmp_files(char const *file_path1, char const *file_path2, double precision) 
 
 	N = sqrt(fileInfo1.st_size / sizeof(double));
 
+	/**
+	 * Block Logic: Validates element by element to ensure results match within the accepted tolerance.
+	 * Invariant: Elements processed up to index i, j are considered matching.
+	 */
 	for (i = 0; i < N; i++ ) {
 		for (j = 0; j< N; j++) {
 			ret = check_err(mat1[i * N + j], mat2[i * N + j], precision); 

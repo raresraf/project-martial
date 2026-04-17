@@ -1,4 +1,7 @@
-
+/*
+ * Module: @raw/3788f690-8af3-428b-a37c-3cca2425b7a1/solver_neopt.c
+ * High-level purpose: Non-optimized solver.
+ */
 #include <string.h>
 #include "utils.h"
 
@@ -11,6 +14,7 @@ double* my_solver(int N, double *A, double* B) {
 	double *aux = (double*) calloc(N * N, sizeof(double));
 	if (!aux)
 		return NULL;
+	/* Pre-condition: C and aux are allocated. Invariant: N constraints. */
 	int i, j, k;
 	for (i = 0; i < N; i++) {
 		for (j = 0; j < N; j++) {

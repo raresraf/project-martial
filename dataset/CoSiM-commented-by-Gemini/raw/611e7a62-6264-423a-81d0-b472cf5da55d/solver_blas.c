@@ -1,4 +1,8 @@
-
+/*
+ * Module: BLAS Solver
+ * @raw/611e7a62-6264-423a-81d0-b472cf5da55d/solver_blas.c
+ * High-level purpose: Matrix solver implementation using BLAS operations.
+ */
 #include "utils.h"
 #include "cblas.h"
 #include <stdlib.h>

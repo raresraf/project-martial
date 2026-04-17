@@ -1,4 +1,5 @@
 
+/* @raw/49e4a913-40db-4e3f-84a4-1dadafd0217f/solver_opt.c: Optimized matrix solver */
 #include "utils.h"
 
 double* my_solver(int N, double *A, double* B) {
@@ -23,6 +24,7 @@ double* my_solver(int N, double *A, double* B) {
 		printf("Probleme la alocarea memoriei\n");
 
 	
+	/* Pre-condition: Arrays allocated. */
 	for(i = 0; i < N; i++) {
 		register double *B_t_col = B_t + i;
 		register double *B_line = B + i * N;

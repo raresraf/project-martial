@@ -1,4 +1,9 @@
 
+/*
+ * Module: Unoptimized Solver
+ * @raw/57547aca-99d2-4733-a770-743a3ab02f7d/solver_neopt.c
+ * Purpose: Naive implementation of matrix math.
+ */
 #include "utils.h"
 
 
@@ -11,6 +16,8 @@ double* my_solver(int N, double *A, double* B) {
 	double *At = malloc(N * N * sizeof(double));
 	double *Bt = malloc(N * N * sizeof(double));
 
+	/* Pre-conditions: A, B matrices initialized.
+	 * Invariants: Transposing matrices A and B. */
 	for ( i = 0; i < N; i++) {
 		for ( j = 0; j < N; j++) {
 			int index1 = i * N + j;

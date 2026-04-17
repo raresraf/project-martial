@@ -1,4 +1,7 @@
-
+/*
+ * Module: @raw/3a541032-bced-45be-bc2e-47ff5af59048/solver_blas.c
+ * High-level purpose: BLAS solver.
+ */
 #include "utils.h"
 #include "cblas.h"
 
@@ -28,6 +31,7 @@ double* my_solver(int N, double *A, double *B) {
 	cblas_dgemm(CblasRowMajor, CblasTrans, CblasNoTrans,
 				N, N, N, 1, A, N, A, N, 0, D, N);
 
+	/* Pre-condition: Matrices C and D computed. Invariant: N size constraints check. */
 	for (i = 0; i < N; ++i) {
 		for (j = 0; j < N; ++j) {
 			C[i * N + j] += D[i * N + j];

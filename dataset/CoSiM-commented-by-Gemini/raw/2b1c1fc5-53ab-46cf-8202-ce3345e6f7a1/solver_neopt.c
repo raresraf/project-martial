@@ -27,6 +27,7 @@ double* my_solver(int N, double *A, double* B) {
 
 	
 	
+	/* Pre-condition: AB, A, B are valid matrices, N is dimension. Invariant: computing AB product */
 	for (i = 0; i < N; i++)
 		for (j = 0; j < N; j++)
 			for (k = i; k < N; k++)
@@ -47,6 +48,15 @@ double* my_solver(int N, double *A, double* B) {
 	
 	for (i = 0; i < N; i++)
 		for (j = 0; j < N; j++)
+			C[i * N + j] = ABB_t[i * N + j] + A_tA[i * N + j];
+
+	free(ABB_t);
+	free(A_tA);
+	free(AB);
+
+	return C;
+}
+< N; j++)
 			C[i * N + j] = ABB_t[i * N + j] + A_tA[i * N + j];
 
 	free(ABB_t);

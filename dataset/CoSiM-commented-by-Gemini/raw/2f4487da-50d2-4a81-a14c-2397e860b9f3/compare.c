@@ -51,6 +51,7 @@ int cmp_files(char const *file_path1, char const *file_path2, double precision) 
 
 	N = sqrt(fileInfo1.st_size / sizeof(double));
 
+	/* Pre-condition: mat1 and mat2 mapped successfully, N is matrix size. Invariant: comparison up to i,j is within precision */
 	for (i = 0; i < N; i++ ) {
 		for (j = 0; j< N; j++) {
 			ret = check_err(mat1[i * N + j], mat2[i * N + j], precision); 
@@ -87,5 +88,8 @@ int main(int argc, const char **argv)
 	ret = cmp_files(argv[1],argv[2],precision);
 	
 	printf("%s %s %s %s\n", argv[0], argv[1], argv[2], (ret == 0 ? "OK" : "Incorrect results!"));
+	return ret;
+}
+", argv[0], argv[1], argv[2], (ret == 0 ? "OK" : "Incorrect results!"));
 	return ret;
 }

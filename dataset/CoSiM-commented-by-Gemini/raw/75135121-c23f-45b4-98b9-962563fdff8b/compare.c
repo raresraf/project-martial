@@ -1,5 +1,10 @@
 
 
+/*
+ * Module: compare.c
+ * Purpose: Compares two matrices stored in binary files for equality within a specified precision.
+ * @raw/75135121-c23f-45b4-98b9-962563fdff8b/compare.c
+ */
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>

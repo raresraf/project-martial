@@ -1,5 +1,5 @@
 
-
+/* @raw/47bf6cc9-5844-4a96-ab5d-048d6d9eb7b5/solver_blas.c: BLAS matrix solver */
 #include <string.h>
 #include <stdlib.h>
 #include "cblas.h"
@@ -38,6 +38,7 @@ double* my_solver(int N, double *A, double *B) {
 	cblas_dtrmm(CblasRowMajor, CblasLeft, CblasUpper, CblasTrans, CblasNonUnit,
 				N, N, alpha, A, N, AA, N); 
 
+	/* Pre-condition: BLAS operations finished. */
 	for (i = 0; i < N; i++) {
 		for (j = 0; j < N; j++) {
 			C[i * N + j] += AA[i * N + j];

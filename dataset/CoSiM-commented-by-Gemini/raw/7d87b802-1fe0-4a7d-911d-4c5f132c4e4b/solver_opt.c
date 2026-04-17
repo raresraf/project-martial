@@ -1,4 +1,7 @@
-
+/*
+ * Module: @raw/7d87b802-1fe0-4a7d-911d-4c5f132c4e4b/solver_opt.c
+ * Purpose: Optimized matrix solver using loop unrolling and pointer arithmetic.
+ */
 #include "utils.h"
 
 
@@ -13,7 +16,7 @@ double* my_solver(int N, double *A, double* B) {
 	register double *pc, *pa;
 
 	
-	
+	// Pre-condition: A and B are N*N matrices. Invariant: c holds partial matrix products.
 	for(register int i = 0; i < N; i++) {
 		orig_pc = &c[i * N];
 		orig_pa = &A[i * N] + i;
@@ -30,7 +33,7 @@ double* my_solver(int N, double *A, double* B) {
 		}
 	}
 
-	
+	// Pre-condition: c and B are populated. Invariant: d is filled with the result.
 	for(register int i = 0; i < N; 	i++) {
 		orig_pc = &c[i * N];
 		orig_pd = &d[i * N];
@@ -51,7 +54,7 @@ double* my_solver(int N, double *A, double* B) {
 		}
 	}
 
-	
+	// Pre-condition: d and A are populated. Invariant: e is filled with the final result.
 	for(register int i = 0; i < N; 	i++) {
 		orig_pd = &d[i * N];
 		orig_pa = &A[0];

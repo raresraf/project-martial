@@ -1,4 +1,8 @@
-
+/*
+ * Module: Optimized Solver
+ * @raw/611e7a62-6264-423a-81d0-b472cf5da55d/solver_opt.c
+ * High-level purpose: Optimized matrix solver using manual loop unrolling and pointer arithmetic.
+ */
 #include "utils.h"
 
 

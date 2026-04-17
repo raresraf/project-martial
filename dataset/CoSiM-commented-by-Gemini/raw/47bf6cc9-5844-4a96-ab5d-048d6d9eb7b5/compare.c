@@ -1,5 +1,5 @@
 
-
+/* @raw/47bf6cc9-5844-4a96-ab5d-048d6d9eb7b5/compare.c: Compare two matrix files */
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -51,6 +51,7 @@ int cmp_files(char const *file_path1, char const *file_path2, double precision) 
 
 	N = sqrt(fileInfo1.st_size / sizeof(double));
 
+	/* Pre-condition: Files mapped and sizes matched. */
 	for (i = 0; i < N; i++ ) {
 		for (j = 0; j< N; j++) {
 			ret = check_err(mat1[i * N + j], mat2[i * N + j], precision); 

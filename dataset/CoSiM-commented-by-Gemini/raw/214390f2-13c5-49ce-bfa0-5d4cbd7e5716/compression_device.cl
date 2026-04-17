@@ -1,4 +1,7 @@
 
+// @raw/214390f2-13c5-49ce-bfa0-5d4cbd7e5716/compression_device.cl
+// Module Purpose: OpenCL kernels for texture compression on a device.
+
 union Color {
 	struct BgraColorType {
 		uchar b;
@@ -167,6 +170,8 @@ void getAverageColor(union Color* src, float* avg_color)
 {
 	uint sum_b = 0, sum_g = 0, sum_r = 0;
 
+	// Pre-condition: src points to at least 8 valid Color elements.
+	// Invariant: sum components are correctly accumulated.
 	for (uint i = 0; i < 8; ++i) {
 		sum_b += src[i].channels.b;
 

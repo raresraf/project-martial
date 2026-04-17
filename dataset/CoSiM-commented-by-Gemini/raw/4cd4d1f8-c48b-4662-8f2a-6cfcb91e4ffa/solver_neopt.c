@@ -1,4 +1,8 @@
 
+/*
+ * @raw/4cd4d1f8-c48b-4662-8f2a-6cfcb91e4ffa/solver_neopt.c
+ * Module Level: Unoptimized matrix solver implementation (naive approach).
+ */
 #include "utils.h"
 
 double* my_solver(int N, double *A, double* B)
@@ -22,6 +26,7 @@ double* my_solver(int N, double *A, double* B)
 	if (NULL == ABBt)
 		exit(1);
 	
+	/* Pre-conditions: The arrays AB, ABBt, AtA, and C are properly allocated and need zero-initialization. */
 	for (int i = 0; i < N; i++)
 		for (int j = 0; j < N; j++) {
 			AB[i * N + j] = 0;

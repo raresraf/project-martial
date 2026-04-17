@@ -9,6 +9,7 @@ double* my_solver(int N, double *A, double* B) {
     int i, j, k;
 
     
+    /* Pre-condition: Arrays allocated. Invariant: computing B^T * B */
     for (i = 0; i < N; i++) {
         for (j = i; j < N; j++) {
             C[i * N + j] = 0;
@@ -41,6 +42,16 @@ double* my_solver(int N, double *A, double* B) {
 
             if (i != j) {
                 D[j * N + i] += C[i * N + j];
+            }
+
+            D[i * N + j] += C[i * N + j];
+        }
+    }
+
+    free(C);
+	return D;
+}
+              D[j * N + i] += C[i * N + j];
             }
 
             D[i * N + j] += C[i * N + j];

@@ -1,5 +1,7 @@
-
-
+/*
+ * Module: @raw/7d87b802-1fe0-4a7d-911d-4c5f132c4e4b/utils.h
+ * Purpose: Header file defining test structures, macros, and function prototypes.
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>

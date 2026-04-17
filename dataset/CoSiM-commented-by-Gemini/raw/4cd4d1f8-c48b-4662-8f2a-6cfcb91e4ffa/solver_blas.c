@@ -1,4 +1,8 @@
 
+/*
+ * @raw/4cd4d1f8-c48b-4662-8f2a-6cfcb91e4ffa/solver_blas.c
+ * Module Level: Optimized matrix solver implementation using BLAS libraries.
+ */
 #include "utils.h"
 #include <string.h>
 #include <stdlib.h>
@@ -75,6 +79,7 @@ double* my_solver(int N, double *A, double *B)
                 );
 
 	
+	/* Pre-conditions: ABBt holds partial sum (C * B), AtA holds partial sum (A^T * A). Now computing the final sum matrix. */
 	for (int i = 0; i < N; i++) 
 		for (int j = 0; j < N; j++)
 			ABBt[i*N+j] += AtA[i*N+j];

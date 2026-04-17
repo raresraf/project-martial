@@ -1,4 +1,7 @@
-
+/*
+ * @raw/66423df7-06af-4ccd-ac5c-54f5e8b29793/solver_opt.c
+ * Module implementing an optimized matrix solver.
+ */
 #include "utils.h"
 
 

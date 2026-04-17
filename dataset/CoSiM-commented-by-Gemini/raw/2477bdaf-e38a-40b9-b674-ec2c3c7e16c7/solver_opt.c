@@ -1,4 +1,4 @@
-
+/* Module Level: Optimized matrix multiplication solver. @raw/2477bdaf-e38a-40b9-b674-ec2c3c7e16c7/solver_opt.c */
 #include "utils.h"
 
 
@@ -20,6 +20,7 @@ double* my_solver(int N, double *A, double* B) {
 	register double* pb_t;
 	
 	
+	/* Block Level: Validate indices for matrix transpose. */
 	for(i = 0; i < N; i++)
 	{ 
 		pa = &A[N * 0 + i];
@@ -38,6 +39,7 @@ double* my_solver(int N, double *A, double* B) {
 	}
 	
 	
+	/* Block Level: Calculate first intermediate matrix result_1. */
 	for(i = 0; i < N; i++)
 	{
 		orig_pa = &A[N * i + i];
@@ -57,6 +59,7 @@ double* my_solver(int N, double *A, double* B) {
 	}
 	
 	
+	/* Block Level: Calculate second intermediate matrix result_2. */
 	for(i = 0; i < N; i++)
 	{
 		orig_pa = &result_1[N *i + 0];
@@ -76,6 +79,7 @@ double* my_solver(int N, double *A, double* B) {
 	}
 	
 	
+	/* Block Level: Calculate third intermediate matrix result_3. */
 	for(i = 0; i < N; i++)
 	{
 		orig_pa = &A_T[N * i + 0];
@@ -95,6 +99,7 @@ double* my_solver(int N, double *A, double* B) {
 	}
 
 	
+	/* Block Level: Final matrix addition. */
 	for(i = 0 ; i < N; i++)
 	{
 		pa = &result_2[N * i + 0];

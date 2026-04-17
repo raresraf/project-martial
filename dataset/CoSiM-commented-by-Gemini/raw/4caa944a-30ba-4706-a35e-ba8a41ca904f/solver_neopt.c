@@ -1,4 +1,5 @@
 
+/* @raw/4caa944a-30ba-4706-a35e-ba8a41ca904f/solver_neopt.c: Unoptimized matrix solver */
 #include "utils.h"
 
 
@@ -21,6 +22,7 @@ double* my_solver(int N, double *A, double* B) {
 	DIE(ABBt == NULL, "calloc ABBt");
 
     
+	/* Pre-condition: Arrays allocated. */
 	for (i = 0; i < N; i++) {
         for (j = 0; j < N; j++) {
             for (k = i; k < N; k++) {

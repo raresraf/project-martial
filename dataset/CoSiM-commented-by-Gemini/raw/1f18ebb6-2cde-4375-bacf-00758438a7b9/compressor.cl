@@ -1,4 +1,11 @@
 
+/**
+ * @raw/1f18ebb6-2cde-4375-bacf-00758438a7b9/compressor.cl
+ * @brief OpenCL kernel file for a parallel image compression algorithm.
+ * * Domain: HPC & Parallelism (OpenCL)
+ * * Algorithm: Compresses image data by quantizing color channels and mapping pixels to indexed color palettes.
+ */
+
 typedef struct {
 	struct BgraColorType {
 		uchar b;

@@ -1,4 +1,9 @@
 
+/*
+ * Module: BLAS Solver
+ * @raw/57547aca-99d2-4733-a770-743a3ab02f7d/solver_blas.c
+ * Purpose: CBLAS optimized solver.
+ */
 #include "utils.h"
 #include "cblas.h"
 
@@ -20,6 +25,8 @@ double* my_solver(int N, double *A, double *B) {
 	cblas_dgemm(CblasRowMajor, CblasTrans, CblasNoTrans,
 				N, N, N, 1, A, N, A, N, 0, res, N);
 
+	/* Pre-conditions: Result arrays calculated.
+	 * Invariants: Adding up partial sums into final result. */
 	for (i = 0; i < N; ++i) {
 		register int in = i * N;
 		for (j = 0; j < N; ++j) {

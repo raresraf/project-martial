@@ -1,5 +1,7 @@
-
-
+/*
+ * Module: @raw/7d87b802-1fe0-4a7d-911d-4c5f132c4e4b/compare.c
+ * Purpose: Utility for comparing two binary matrix files for equality within a given tolerance.
+ */
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -51,6 +53,7 @@ int cmp_files(char const *file_path1, char const *file_path2, double precision) 
 
 	N = sqrt(fileInfo1.st_size / sizeof(double));
 
+    // Pre-condition: mat1 and mat2 are mapped and have length N*N. Invariant: Elements up to i*N+j match within precision.
 	for (i = 0; i < N; i++ ) {
 		for (j = 0; j< N; j++) {
 			ret = check_err(mat1[i * N + j], mat2[i * N + j], precision); 

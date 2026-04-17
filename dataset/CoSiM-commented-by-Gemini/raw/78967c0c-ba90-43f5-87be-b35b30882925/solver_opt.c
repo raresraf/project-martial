@@ -21,6 +21,8 @@ double* my_solver(int N, double *A, double* B) {
 	Aux1 = calloc(N * N, sizeof(double));
 	Aux2 = calloc(N * N, sizeof(double));
 	
+	// PRE-CONDITION: A and B are N x N matrices. At, Bt, C, Aux1, Aux2 are allocated.
+	// INVARIANT: Computing the transposed matrices.
 	for (i = 0; i < N; i++) {
 		for (j = 0; j < N; j++) {
 			At[j * N + i] = A[i * N + j];
@@ -88,4 +90,6 @@ double* my_solver(int N, double *A, double* B) {
 	free(Aux2);
 	
 	return C;
+}
+ C;
 }

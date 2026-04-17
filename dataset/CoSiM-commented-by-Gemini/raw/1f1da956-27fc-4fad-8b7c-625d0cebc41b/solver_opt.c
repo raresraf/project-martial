@@ -1,3 +1,11 @@
+/**
+ * @raw/1f1da956-27fc-4fad-8b7c-625d0cebc41b/solver_opt.c
+ * @brief Computes the matrix expression C = A * B * B^T + A^T * A using optimized loops with register variables and local accumulators.
+ * * Algorithm: Optimized iterative matrix multiplication.
+ * * Performance Optimization: Utilizes `register` keyword hints, pointer arithmetic, and local scalar accumulators (`sum`) to minimize memory access overhead.
+ * Time Complexity: $O(N^3)$ utilizing three nested loops for multiplication.
+ * Space Complexity: $O(N^2)$ for dynamically allocated intermediate matrices.
+ */
 
 #include "utils.h"
 
@@ -5,6 +13,10 @@ int mini(int a, int b) {
 	return a < b ? a : b;
 }
 
+/**
+ * Functional Utility: Computes the transpose of matrices A and B simultaneously.
+ * Performance Optimization: Employs pointer arithmetic to rapidly navigate rows and columns.
+ */
 void transpose(double *At, double *Bt, double *A, double *B, int N) {
 	for (register int i = 0; i < N; ++i) {
 		register double *A_line = A + i * N;
@@ -25,6 +37,10 @@ void transpose(double *At, double *Bt, double *A, double *B, int N) {
 	}
 }
 
+/**
+ * Block Logic: Computes AB = A * B.
+ * Performance Optimization: Starts inner loop at `k = i` to leverage upper triangular structure of A. Uses a register sum accumulator.
+ */
 void multiply_AB(double *AB, double *A, double *Bt, int N) {
 	for (register int i = 0; i < N; ++i) {
 		for (register int j = 0; j < N; ++j) {
@@ -43,6 +59,10 @@ void multiply_AB(double *AB, double *A, double *Bt, int N) {
 	}
 }
 
+/**
+ * Block Logic: Computes ABBt = (A*B) * B^T.
+ * Performance Optimization: Uses a register sum accumulator and sequentially advances pointers.
+ */
 void multiply_ABBt(double *ABBt, double *AB, double *B, int N) {
 	for (register int i = 0; i < N; ++i) {
 		for (register int j = 0; j < N; ++j) {
@@ -60,6 +80,10 @@ void multiply_ABBt(double *ABBt, double *AB, double *B, int N) {
 	}
 }
 
+/**
+ * Block Logic: Computes AtA = A^T * A.
+ * Performance Optimization: Binds the inner loop to compute only non-zero entries based on triangular limits and sequentially advances pointers.
+ */
 void multiply_AtA(double *AtA, double *At, int N) {
 	for (register int i = 0; i < N; ++i) {
 		for (register int j = 0; j < N; ++j) {
@@ -87,6 +111,9 @@ void addition(double *C, double *A, double *B, int N) {
 	}
 }
 
+/**
+ * Functional Utility: Solves the matrix expression iteratively with optimizations.
+ */
 double* my_solver(int N, double *A, double* B) {
 	double *C = calloc(N * N, sizeof(double));
 	if (!C) {

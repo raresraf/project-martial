@@ -2,6 +2,8 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
+// Module Level: Vello Canvas Backend
+// @raw/3fecf39d-7458-4e73-9618-d87d1e897aea/components/canvas/vello_backend.rs
 //! Vello implementation of 2D canvas backend.
 //!
 //! Vello only encodes commands for GPU, then runs rendering when
@@ -339,6 +341,7 @@ impl GenericDrawTarget for VelloDrawTarget {
         let transform = transform.cast().into();
         self.with_draw_options(&composition_options, |self_| {
             let mut advance = 0.;
+            // Pre-conditions: text_runs must be populated and fonts loaded.
             for run in text_runs.iter() {
                 let glyphs = &run.glyphs;
 

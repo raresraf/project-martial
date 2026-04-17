@@ -1,4 +1,4 @@
-
+/* Module Level: Non-optimized matrix multiplication solver. @raw/2477bdaf-e38a-40b9-b674-ec2c3c7e16c7/solver_neopt.c */
 #include "utils.h"
 
 
@@ -14,6 +14,7 @@ double* my_solver(int N, double *A, double* B) {
 	int i ,j,k;
 
 	
+	/* Block Level: Matrix transposition. */
 	for(i = 0; i < N; i++)
 	{
 		for(j = 0; j < N; j++)
@@ -24,6 +25,7 @@ double* my_solver(int N, double *A, double* B) {
 	}
 	
 	
+	/* Block Level: Computation of intermediate result_1. */
 	for(i = 0; i < N; i++)
 	{
 		for(j = 0; j < N; j++)
@@ -36,6 +38,7 @@ double* my_solver(int N, double *A, double* B) {
 	}
 	
 	
+	/* Block Level: Computation of intermediate result_2. */
 	for(i = 0; i < N; i++)
 	{
 		for(j = 0; j < N; j++)
@@ -48,6 +51,7 @@ double* my_solver(int N, double *A, double* B) {
 	}
 	
 	
+	/* Block Level: Computation of intermediate result_3. */
 	for(i = 0; i < N; i++)
 	{
 		for(j = 0; j < N; j++)
@@ -61,6 +65,7 @@ double* my_solver(int N, double *A, double* B) {
 
 
 	
+	/* Block Level: Final sum into matrix C. */
 	for(i = 0 ; i < N; i++)
 	{
 		for(j = 0; j < N; j++)

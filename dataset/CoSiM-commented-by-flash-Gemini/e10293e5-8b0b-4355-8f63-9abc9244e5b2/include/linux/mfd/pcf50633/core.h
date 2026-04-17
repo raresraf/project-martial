@@ -1,3 +1,16 @@
+/**
+ * @file core.h
+ * @brief Core hardware abstraction layer for the NXP PCF50633 PMIC.
+ * This header defines the architectural framework for interacting with the NXP 
+ * PCF50633 Multi-Function Device (MFD). It provides the primary data structures 
+ * and function prototypes for managing power regulators, battery charging, 
+ * real-time clock (RTC) events, and system interrupts. The driver acts as a 
+ * central coordinator for multiple sub-devices (RTC, ADC, Regulators) through 
+ * a shared I2C interface and interrupt controller.
+ *
+ * Domain: Linux Kernel MFD, Power Management, Hardware Abstraction.
+ */
+
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 /*
  * core.h  -- Core driver for NXP PCF50633
@@ -19,34 +32,48 @@
 struct pcf50633;
 struct regmap;
 
+/**
+ * @brief Number of independent voltage regulators managed by the chip.
+ */
 #define PCF50633_NUM_REGULATORS	11
 
+/**
+ * @struct pcf50633_platform_data
+ * @brief Configuration data provided by the machine-level initialization code.
+ * Functional Utility: Bridges hardware-specific board wiring (regulator constraints, 
+ * battery mappings, reference currents) with the generic driver logic.
+ */
 struct pcf50633_platform_data {
 	struct regulator_init_data reg_init_data[PCF50633_NUM_REGULATORS];
 
 	char **batteries;
 	int num_batteries;
 
-	/*
-	 * Should be set accordingly to the reference resistor used, see
-	 * I_{ch(ref)} charger reference current in the pcf50633 User
-	 * Manual.
+	/**
+	 * @brief Reference resistor setting for the charger current logic.
+	 * Logic: Calibrates I_{ch(ref)} based on physical resistor values.
 	 */
 	int charger_reference_current_ma;
 
-	/* Callbacks */
+	/* Functional Utility: Event lifecycle callbacks for system integration. */
 	void (*probe_done)(struct pcf50633 *);
 	void (*mbc_event_callback)(struct pcf50633 *, int);
 	void (*regulator_registered)(struct pcf50633 *, int);
 	void (*force_shutdown)(struct pcf50633 *);
 
-	u8 resumers[5];
+	u8 resumers[5]; /**< Hardware registers determining wake-up triggers. */
 };
 
+/**
+ * @struct pcf50633_irq
+ * @brief Encapsulates an interrupt handler for a specific PMIC event.
+ */
 struct pcf50633_irq {
 	void (*handler) (int, void *);
 	void *data;
 };
+
+/* --- Interrupt Management API --- */
 
 int pcf50633_register_irq(struct pcf50633 *pcf, int irq,
 			void (*handler) (int, void *), void *data);
@@ -55,6 +82,8 @@ int pcf50633_free_irq(struct pcf50633 *pcf, int irq);
 int pcf50633_irq_mask(struct pcf50633 *pcf, int irq);
 int pcf50633_irq_unmask(struct pcf50633 *pcf, int irq);
 int pcf50633_irq_mask_get(struct pcf50633 *pcf, int irq);
+
+/* --- Low-Level Register Access API --- */
 
 int pcf50633_read_block(struct pcf50633 *, u8 reg,
 					int nr_regs, u8 *data);
@@ -66,8 +95,11 @@ int pcf50633_reg_write(struct pcf50633 *pcf, u8 reg, u8 val);
 int pcf50633_reg_set_bit_mask(struct pcf50633 *pcf, u8 reg, u8 mask, u8 val);
 int pcf50633_reg_clear_bits(struct pcf50633 *pcf, u8 reg, u8 bits);
 
-/* Interrupt registers */
-
+/**
+ * @name Interrupt Status and Mask Registers
+ * @brief Hardware register addresses for multi-bank interrupt management.
+ */
+///@{
 #define PCF50633_REG_INT1	0x02
 #define PCF50633_REG_INT2	0x03
 #define PCF50633_REG_INT3	0x04
@@ -79,25 +111,35 @@ int pcf50633_reg_clear_bits(struct pcf50633 *pcf, u8 reg, u8 bits);
 #define PCF50633_REG_INT3M	0x09
 #define PCF50633_REG_INT4M	0x0a
 #define PCF50633_REG_INT5M	0x0b
+///@}
 
+/**
+ * @enum pcf50633_irq_index
+ * @brief Logical enumeration of all hardware interrupt sources.
+ * Functional Utility: Provides a stable indexing system for sub-drivers to 
+ * register for specific events like USB insertion, thermal limits, or power failures.
+ */
 enum {
-	/* Chip IRQs */
+	/* Power Supply / Charging IRQs */
 	PCF50633_IRQ_ADPINS,
 	PCF50633_IRQ_ADPREM,
 	PCF50633_IRQ_USBINS,
 	PCF50633_IRQ_USBREM,
 	PCF50633_IRQ_RESERVED1,
 	PCF50633_IRQ_RESERVED2,
+	/* RTC and UI IRQs */
 	PCF50633_IRQ_ALARM,
 	PCF50633_IRQ_SECOND,
 	PCF50633_IRQ_ONKEYR,
 	PCF50633_IRQ_ONKEYF,
+	/* External Trigger IRQs */
 	PCF50633_IRQ_EXTON1R,
 	PCF50633_IRQ_EXTON1F,
 	PCF50633_IRQ_EXTON2R,
 	PCF50633_IRQ_EXTON2F,
 	PCF50633_IRQ_EXTON3R,
 	PCF50633_IRQ_EXTON3F,
+	/* Battery / Charger Status IRQs */
 	PCF50633_IRQ_BATFULL,
 	PCF50633_IRQ_CHGHALT,
 	PCF50633_IRQ_THLIMON,
@@ -106,6 +148,7 @@ enum {
 	PCF50633_IRQ_USBLIMOFF,
 	PCF50633_IRQ_ADCRDY,
 	PCF50633_IRQ_ONKEY1S,
+	/* Critical System Fault IRQs */
 	PCF50633_IRQ_LOWSYS,
 	PCF50633_IRQ_LOWBAT,
 	PCF50633_IRQ_HIGHTMP,
@@ -123,20 +166,26 @@ enum {
 	PCF50633_IRQ_HCLDOPWRFAIL,
 	PCF50633_IRQ_HCLDOOVL,
 
-	/* Always last */
 	PCF50633_NUM_IRQ,
 };
 
+/**
+ * @struct pcf50633
+ * @brief Primary device state container for the NXP PCF50633.
+ * Architectural Intent: Orchestrates the shared resources of the PMIC, 
+ * including the I2C regmap, the interrupt dispatch workqueue, and the 
+ * lifecycle management of sub-device platform structures.
+ */
 struct pcf50633 {
 	struct device *dev;
 	struct regmap *regmap;
 
 	struct pcf50633_platform_data *pdata;
-	int irq;
+	int irq; /**< System-level IRQ line connected to the PMIC. */
 	struct pcf50633_irq irq_handler[PCF50633_NUM_IRQ];
 	struct work_struct irq_work;
 	struct workqueue_struct *work_queue;
-	struct mutex lock;
+	struct mutex lock; /**< Synchronizes access to the shared regmap and IRQ state. */
 
 	u8 mask_regs[5];
 
@@ -146,6 +195,7 @@ struct pcf50633 {
 
 	int onkey1s_held;
 
+	/* Sub-device associations */
 	struct platform_device *rtc_pdev;
 	struct platform_device *mbc_pdev;
 	struct platform_device *adc_pdev;
@@ -154,12 +204,16 @@ struct pcf50633 {
 	struct platform_device *regulator_pdev[PCF50633_NUM_REGULATORS];
 };
 
+/**
+ * @name Register Bit Definitions
+ * @brief Binary masks for interpreting PMIC status registers.
+ */
+///@{
 enum pcf50633_reg_int1 {
 	PCF50633_INT1_ADPINS	= 0x01,	/* Adapter inserted */
 	PCF50633_INT1_ADPREM	= 0x02,	/* Adapter removed */
 	PCF50633_INT1_USBINS	= 0x04,	/* USB inserted */
 	PCF50633_INT1_USBREM	= 0x08,	/* USB removed */
-	/* reserved */
 	PCF50633_INT1_ALARM	= 0x40, /* RTC alarm time is reached */
 	PCF50633_INT1_SECOND	= 0x80,	/* RTC periodic second interrupt */
 };
@@ -207,16 +261,20 @@ enum pcf50633_reg_int5 {
 	PCF50633_INT5_HCLDOPWRFAIL	= 0x40,
 	PCF50633_INT5_HCLDOOVL		= 0x80,
 };
+///@}
 
-/* misc. registers */
+/* Core Control / Misc Registers */
 #define PCF50633_REG_OOCSHDWN	0x0c
 
-/* LED registers */
+/* User Interface / LED Control Registers */
 #define PCF50633_REG_LEDOUT 0x28
 #define PCF50633_REG_LEDENA 0x29
 #define PCF50633_REG_LEDCTL 0x2a
 #define PCF50633_REG_LEDDIM 0x2b
 
+/**
+ * @brief Context resolver from generic device to PMIC core.
+ */
 static inline struct pcf50633 *dev_to_pcf50633(struct device *dev)
 {
 	return dev_get_drvdata(dev);

@@ -27,6 +27,7 @@ double* my_solver(int N, double *A, double* B) {
 		exit(EXIT_FAILURE);
 
 	
+	/* Pre-condition: Arrays allocated. Invariant: transposing and copying matrices A and B */
 	register int i;
 	for (i = 0; i != N; ++i) {
 		register double *B_t_ptr = B_t + i;  
@@ -116,6 +117,19 @@ double* my_solver(int N, double *A, double* B) {
 
 			for (k = 0; k != N; ++k, ++A_tA_ptr, ++A_ptr) {
 				result += *A_tA_ptr * *A_ptr;
+			}
+
+			*C_ptr += result;
+		}
+	}
+
+	free(B_t);
+	free(A_t);
+	free(AB);
+	
+	return C;	
+}
+A_tA_ptr * *A_ptr;
 			}
 
 			*C_ptr += result;

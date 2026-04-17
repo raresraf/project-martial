@@ -1,5 +1,8 @@
 
 
+// @raw/22305609-127e-41e5-9a4e-c0e3f35fcc25/utils.h
+// Module Purpose: Utility definitions and declarations for solvers.
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>

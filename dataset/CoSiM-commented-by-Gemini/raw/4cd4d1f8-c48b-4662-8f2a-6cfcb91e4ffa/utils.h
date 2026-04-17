@@ -1,5 +1,9 @@
 
 
+/*
+ * @raw/4cd4d1f8-c48b-4662-8f2a-6cfcb91e4ffa/utils.h
+ * Module Level: Contains utility functions and structure definitions for testing matrix solvers.
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>

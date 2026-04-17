@@ -1,4 +1,9 @@
 
+/*
+ * Module: Optimized Solver
+ * @raw/58bda465-1258-42cc-b1e8-eddab95872ec/solver_opt.c
+ * Purpose: Hand-optimized matrix operations.
+ */
 #include "utils.h"
 
 
@@ -17,6 +22,8 @@ double* my_solver(int N, double *A, double* B) {
 	}
 
 	
+	/* Pre-conditions: A, B matrices mapped.
+	 * Invariants: Pointer-accelerated loop unrolling. */
 	for (int i = 0; i < N; i++) {
 		double *copy_res = &(AB[i * N]);
 		*copy_res = 0;

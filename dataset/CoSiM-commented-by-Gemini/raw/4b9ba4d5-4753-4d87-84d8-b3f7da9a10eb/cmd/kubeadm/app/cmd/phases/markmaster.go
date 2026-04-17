@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+/* @raw/4b9ba4d5-4753-4d87-84d8-b3f7da9a10eb/cmd/kubeadm/app/cmd/phases/markmaster.go: Mark master phase for kubeadm */
 package phases
 
 import (

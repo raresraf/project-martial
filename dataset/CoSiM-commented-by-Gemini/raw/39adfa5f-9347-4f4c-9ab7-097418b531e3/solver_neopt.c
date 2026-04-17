@@ -1,11 +1,14 @@
-
+/*
+ * Module: @raw/39adfa5f-9347-4f4c-9ab7-097418b531e3/solver_neopt.c
+ * High-level purpose: Non-optimized solver.
+ */
 #include "utils.h"
 
 
 double* my_solver(int N, double *A, double* B) {
 	printf("NEOPT SOLVER\n");
 
-    
+    /* Pre-condition: Matrices initialized. Invariant: Loop variables bounded by N. */
 	double *BBt = (double *)calloc(N * N, sizeof(double));
 	for (int i = 0; i < N; i++) {
 		for (int j = 0; j < N; j++) {

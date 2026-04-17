@@ -1,4 +1,8 @@
 
+/*
+ * @raw/4cd4d1f8-c48b-4662-8f2a-6cfcb91e4ffa/solver_opt.c
+ * Module Level: Optimized matrix solver implementation using pointers and loop reordering.
+ */
 #include "utils.h"
 
 
@@ -23,6 +27,7 @@ double* my_solver(int N, double *A, double* B)
 	if (NULL == ABBt)
 		exit(1);
 	
+	/* Pre-conditions: The arrays AB, ABBt, AtA, and C are properly allocated and need zero-initialization. */
 	for (register int i = 0; i < N; i++)
 		for (register int j = 0; j < N; j++){
 			AB[i * N + j] = 0;

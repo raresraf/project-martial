@@ -1,4 +1,9 @@
 
+/*
+ * Module: Unoptimized Solver
+ * @raw/58bda465-1258-42cc-b1e8-eddab95872ec/solver_neopt.c
+ * Purpose: Naive implementation of matrix math.
+ */
 #include "utils.h"
 
 
@@ -17,6 +22,8 @@ double* my_solver(int N, double *A, double* B) {
 	}
 
 	
+	/* Pre-conditions: Matrices initialized.
+	 * Invariants: Computing inner loops element-wise. */
 	for (int i = 0; i < N; i++) {
 		for (int j = 0; j < N; j++) {
 			AB[i * N + j] = 0;

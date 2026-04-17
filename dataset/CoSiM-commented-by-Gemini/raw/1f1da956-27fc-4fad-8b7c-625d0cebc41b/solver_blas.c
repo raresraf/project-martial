@@ -1,8 +1,18 @@
+/**
+ * @raw/1f1da956-27fc-4fad-8b7c-625d0cebc41b/solver_blas.c
+ * @brief Computes the matrix expression C = A * B * B^T + A^T * A using highly optimized BLAS routines.
+ * * Algorithm: Matrix multiplication with BLAS.
+ * Time Complexity: $O(N^3)$ dominated by the general matrix-matrix multiplication (GEMM).
+ * Space Complexity: $O(N^2)$ for storing the result and intermediate matrices.
+ */
 
 #include <string.h>
 #include "utils.h"
 #include "cblas.h"
 
+/**
+ * Functional Utility: Element-wise matrix addition.
+ */
 void addition(double *C, double *A, double *B, int N) {
 	for (register int i = 0; i < N; ++i) {
 		for (register int j = 0; j < N; ++j) {
@@ -13,6 +23,9 @@ void addition(double *C, double *A, double *B, int N) {
 	}
 }
 
+/**
+ * Functional Utility: Calculates the resulting matrix leveraging BLAS library operations.
+ */
 double* my_solver(int N, double *A, double* B) {
 	double *C = calloc(N * N, sizeof(*C));
 	if (!C) {
@@ -36,7 +49,9 @@ double* my_solver(int N, double *A, double* B) {
 	}
 	memcpy(AtA, A, N * N * sizeof(*A));
 
-	
+	/**
+	 * Functional Utility: Computes AB = A * B in-place using triangular matrix multiplication.
+	 */
 	cblas_dtrmm(
 		CblasRowMajor,
 		CblasLeft,
@@ -48,7 +63,9 @@ double* my_solver(int N, double *A, double* B) {
 		AB, N
 	);
 
-	
+	/**
+	 * Functional Utility: Computes ABBt = AB * B^T.
+	 */
 	cblas_dgemm(
 		CblasRowMajor,
 		CblasNoTrans,
@@ -60,7 +77,9 @@ double* my_solver(int N, double *A, double* B) {
 		0.0,
 		ABBt, N);
 
-	
+	/**
+	 * Functional Utility: Computes AtA = A^T * A in-place.
+	 */
 	cblas_dtrmm(
 		CblasRowMajor,
 		CblasLeft,

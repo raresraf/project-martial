@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// @raw/1fef01b6-4b7f-46f6-8bac-bf9d37c5e481/meta.go
+// Module Purpose: Provides metadata handling and object reference utilities for Kubernetes API objects.
 package api
 
 import (
@@ -100,6 +102,8 @@ func (meta *ObjectMeta) SetFinalizers(finalizers []string)            { meta.Fin
 
 func (meta *ObjectMeta) GetOwnerReferences() []metatypes.OwnerReference {
 	ret := make([]metatypes.OwnerReference, len(meta.OwnerReferences))
+	// Pre-condition: meta.OwnerReferences must be initialized.
+	// Invariant: ret[i] is a valid OwnerReference copy of meta.OwnerReferences[i].
 	for i := 0; i < len(meta.OwnerReferences); i++ {
 		ret[i].Kind = meta.OwnerReferences[i].Kind
 		ret[i].Name = meta.OwnerReferences[i].Name

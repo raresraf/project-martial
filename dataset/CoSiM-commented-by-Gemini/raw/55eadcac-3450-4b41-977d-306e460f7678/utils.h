@@ -1,5 +1,10 @@
 
 
+/*
+ * Module: Utilities
+ * @raw/55eadcac-3450-4b41-977d-306e460f7678/utils.h
+ * Purpose: Shared utils and constants.
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>

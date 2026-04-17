@@ -1,5 +1,8 @@
 
 
+// @raw/78967c0c-ba90-43f5-87be-b35b30882925/utils.h
+// High-level purpose: Utility definitions and function prototypes for matrix solvers.
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>

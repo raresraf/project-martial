@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-only
+/* Module Level: SG2044 SPI NOR controller driver. @raw/72a8413f-ccda-49b4-b601-314617442c54/drivers/spi/spi-sg2044-nor.c */
 /*
  * SG2044 SPI NOR controller driver
  *

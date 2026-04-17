@@ -1,4 +1,8 @@
 
+/*
+ * @raw/530905d2-8c30-4785-bc08-4a17296a2550/compressor.cl
+ * Module Level: OpenCL kernel for texture compression.
+ */
 typedef struct {
 	struct BgraColorType {
 		uchar b;

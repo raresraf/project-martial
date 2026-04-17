@@ -1,4 +1,7 @@
 
+// @raw/22305609-127e-41e5-9a4e-c0e3f35fcc25/solver_opt.c
+// Module Purpose: Optimized matrix solver.
+
 #include "utils.h"
 #include <string.h>
 
@@ -12,6 +15,8 @@ double* my_solver(int N, double *A, double* B) {
 	double *transA = calloc(sizeof(double), N * N);
 	double *transB = calloc(sizeof(double), N * N);
 
+	// Pre-condition: transA and transB successfully allocated.
+	// Invariant: populated transA and transB iteratively.
 	for (i = 0; i < N; ++i) {
 		register double *ptransA = transA + i;
 		register double *ptransB = transB + i;

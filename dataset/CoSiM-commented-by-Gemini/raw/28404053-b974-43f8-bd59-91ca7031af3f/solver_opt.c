@@ -1,3 +1,4 @@
+/* Module Level: Optimized matrix solver. @raw/28404053-b974-43f8-bd59-91ca7031af3f/solver_opt.c */
 #include "utils.h"
 
 
@@ -9,6 +10,7 @@ double* my_solver(int N, double *A, double* B) {
 
 	double *fst = malloc(N * N * sizeof(double));
 	
+	/* Block Level: First matrix multiplication phase */
 	for(i = 0; i < N; i++){
   		double *orig_pa = &A[i * N];
   		for(j = 0; j < N; j++){
@@ -26,6 +28,7 @@ double* my_solver(int N, double *A, double* B) {
 
 	double *snd = malloc(N * N * sizeof(double));
 
+	/* Block Level: Second matrix multiplication phase */
 	for (i = 0; i < N; i++) {
 		register int index = i * N;
 		for (j = 0; j < N; j++) {
@@ -39,6 +42,7 @@ double* my_solver(int N, double *A, double* B) {
 
 	double *third = malloc(N * N * sizeof(double));
 	
+	/* Block Level: Third matrix multiplication phase */
 	for (i = 0; i < N; i++) {
 		register int index = i * N;
 		for (k = 0; k < N; k++) {
@@ -51,6 +55,7 @@ double* my_solver(int N, double *A, double* B) {
 
 	double *C = malloc(N * N * sizeof(double));
 
+	/* Block Level: Matrix addition phase */
 	for (i = 0; i < N; i++) {
 		register int index = i * N;
 		for (j = 0 ; j < N; j++) {
@@ -65,4 +70,3 @@ double* my_solver(int N, double *A, double* B) {
 
 	return C;	
 }
-

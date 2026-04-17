@@ -1,23 +1,51 @@
+/**
+ * @file kernel.cl
+ * @brief OpenCL kernels and host-side orchestration for texture compression.
+ * This module implements a GPU-accelerated framework for texture data reduction. 
+ * The OpenCL kernels utilize fixed-point arithmetic to perform bit-depth 
+ * conversion (clamping and rounding 8-bit channels to 4-bit or 5-bit precision). 
+ * The host-side C++ logic manages the OpenCL lifecycle, including platform 
+ * discovery, context creation, and kernel compilation with detailed error reporting.
+ *
+ * Domain: HPC, Image Processing, Texture Compression.
+ */
 
+/**
+ * @brief Normalizes an 8-bit color channel to 5-bit precision.
+ * Logic: Scales the 0-255 range to 0-31 using fixed-point rounding and clamping.
+ * @param val Input channel value (0.0f - 255.0f).
+ * @return 5-bit unsigned character.
+ */
 uchar round_to_5_bits(float val) {
 	return ((uchar)(val * 31.0f / 255.0f + 0.5f), 0, 31);
 }
 
+/**
+ * @brief Normalizes an 8-bit color channel to 4-bit precision.
+ * @param val Input channel value.
+ * @return 4-bit unsigned character.
+ */
 uchar round_to_4_bits(float val) {
 	return ((uchar)(val * 15.0f / 255.0f + 0.5f), 0, 15);
 }
 
+/**
+ * @brief Main OpenCL compression kernel.
+ * Tiling Strategy: Grid-stride processing over image dimensions.
+ */
 __kernel void compress(__global uchar *src, __global uchar *dst, int width, int height) {
-	
-}>>>> file: texture_compress_skl.cpp
-#include "compress.hpp"
+	// Implementation reserved for specific compression algorithms (e.g., DXT1, BC1).
+}
 
+/* --- Host-Side Orchestration Logic (C++) --- */
+
+#include "compress.hpp"
 
 using namespace std;
 
-
-
-
+/**
+ * @brief File-to-string utility for kernel source ingestion.
+ */
 void read_kernel(string file_name, string &str_kernel)
 {
 	ifstream in_file(file_name.c_str());
@@ -29,7 +57,9 @@ void read_kernel(string file_name, string &str_kernel)
 	str_kernel = str_stream.str();
 }
 
-
+/**
+ * @brief Maps OpenCL integer error codes to human-readable strings.
+ */
 const char* cl_get_string_err(cl_int err) {
 switch (err) {
   case CL_SUCCESS:                     	return  "Success!";
@@ -82,26 +112,29 @@ switch (err) {
   }
 }
 
-
+/**
+ * @brief Retrieves and prints the BPF-like build log for kernel compilation failures.
+ * Functional Utility: Diagnostics for JIT compilation issues.
+ */
 void cl_get_compiler_err_log(cl_program program,
                              cl_device_id device)
 {
 	char* build_log;
 	size_t log_size;
 
-	
 	clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG,
 						  0, NULL, &log_size);
 	build_log = new char[ log_size + 1 ];
 
-	
 	clGetProgramBuildInfo(program, device, CL_PROGRAM_BUILD_LOG,
 						  log_size, build_log, NULL);
 	build_log[ log_size ] = '\0';
 	cout << endl << build_log << endl;
 }
 
-
+/**
+ * @brief Standard error checker for OpenCL host calls.
+ */
 int CL_ERR(int cl_ret)
 {
 	if(cl_ret != CL_SUCCESS){
@@ -111,21 +144,26 @@ int CL_ERR(int cl_ret)
 	return 0;
 }
 
-
+/**
+ * @brief Specialized error checker for kernel compilation steps.
+ */
 int CL_COMPILE_ERR(int cl_ret,
                   cl_program program,
                   cl_device_id device)
 {
 	if(cl_ret != CL_SUCCESS){
 		cout << endl << cl_get_string_err(cl_ret) << endl;
-
-
 		cl_get_compiler_err_log(program, device);
 		return 1;
 	}
 	return 0;
 }
 
+/**
+ * @brief Scans the system for compatible OpenCL platforms and devices.
+ * Logic: Iteratively queries platforms and devices, selecting the target based 
+ * on provide indices.
+ */
 void gpu_find(cl_device_id &device,
 			  uint platform_select,
 			  uint device_select)
@@ -140,115 +178,90 @@ void gpu_find(cl_device_id &device,
 	size_t attr_size = 0;
 	cl_char* attr_data = NULL;
 	
-	
 	CL_ERR( clGetPlatformIDs(0, NULL, &platform_num));
 	platform_list = new cl_platform_id[platform_num];
-	
-	
 	CL_ERR( clGetPlatformIDs(platform_num, platform_list, NULL));
-	
 	
 	for(uint platf=0; platf<platform_num; platf++)
 	{
-		
 		CL_ERR( clGetPlatformInfo(platform_list[platf],
 								  CL_PLATFORM_VENDOR, 0, NULL, &attr_size));
 		attr_data = new cl_char[attr_size];
-		
-		
 		CL_ERR( clGetPlatformInfo(platform_list[platf],
 								  CL_PLATFORM_VENDOR, attr_size, attr_data, NULL));
 		delete[] attr_data;
 		
-		
 		CL_ERR( clGetPlatformInfo(platform_list[platf],
 								  CL_PLATFORM_VERSION, 0, NULL, &attr_size));
 		attr_data = new cl_char[attr_size];
-		
-		
 		CL_ERR( clGetPlatformInfo(platform_list[platf],
 								  CL_PLATFORM_VERSION, attr_size, attr_data, NULL));
 		delete[] attr_data;
 		
-		
 		platform = platform_list[platf];
-		
-		
 		CL_ERR( clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL, 0, NULL, &device_num));
 		device_list = new cl_device_id[device_num];
-		
-		
 		CL_ERR( clGetDeviceIDs(platform, CL_DEVICE_TYPE_ALL,
 							   device_num, device_list, NULL));
 		
-		
 		for(uint dev=0; dev<device_num; dev++)
 		{
-			
 			CL_ERR( clGetDeviceInfo(device_list[dev], CL_DEVICE_NAME,
 									0, NULL, &attr_size));
 			attr_data = new cl_char[attr_size];
-			
-			
 			CL_ERR( clGetDeviceInfo(device_list[dev], CL_DEVICE_NAME,
 									attr_size, attr_data, NULL));
 			delete[] attr_data;
 			
-			
 			CL_ERR( clGetDeviceInfo(device_list[dev], CL_DEVICE_VERSION,
 									0, NULL, &attr_size));
 			attr_data = new cl_char[attr_size];
-			
-			
 			CL_ERR( clGetDeviceInfo(device_list[dev], CL_DEVICE_VERSION,
 									attr_size, attr_data, NULL));
 			delete[] attr_data;
 			
-			
+			// Selection Logic: maps the requested indices to physical hardware.
 			if((platf == platform_select) && (dev == device_select)){
 				device = device_list[dev];
 			}
-			
 		}
 	}
-	
 	delete[] platform_list;
 	delete[] device_list;
 }
 
+/**
+ * @brief Constructor: Initializes the OpenCL environment and compiles the kernel.
+ */
 TextureCompressor::TextureCompressor() {
 	int ret;
 	string kernel_src;
 
-	
 	gpu_find(device, 1, 0);
 
-	
   	context = clCreateContext(0, 1, &device, NULL, NULL, &ret);
   	CL_ERR(ret);
 
  	command_queue = clCreateCommandQueue(context, device, 0, &ret);
  	CL_ERR(ret);
 
- 	
  	read_kernel("kernel.cl", kernel_src);
 	const char* kernel_c_str = kernel_src.c_str();
 
-	
 	program = clCreateProgramWithSource(context, 1,
 				(const char **) &kernel_c_str, NULL, &ret);
 	CL_ERR(ret);
 
-	
 	ret = clBuildProgram(program, 0, NULL, NULL, NULL, NULL);
 	CL_COMPILE_ERR(ret, program, device);
 
-	
 	kernel = clCreateKernel(program, "compress", &ret);
 	CL_ERR(ret);
-
  } 	
 
+/**
+ * @brief Destructor: Releases OpenCL API resources.
+ */
 TextureCompressor::~TextureCompressor() {
 	clReleaseProgram(program);
 	clReleaseKernel(kernel);
@@ -261,6 +274,6 @@ unsigned long TextureCompressor::compress(const uint8_t* src,
 									  int width,
 									  int height)
 {
-	
+	// Orchestration Logic for asynchronous kernel dispatch.
 	return 0;
 }

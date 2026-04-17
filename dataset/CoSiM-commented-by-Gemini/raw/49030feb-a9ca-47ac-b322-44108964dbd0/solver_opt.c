@@ -1,4 +1,5 @@
 
+/* @raw/49030feb-a9ca-47ac-b322-44108964dbd0/solver_opt.c: Optimized matrix solver */
 #include "utils.h"
 
 
@@ -8,6 +9,7 @@ double* my_solver(int N, double *A, double* B) {
 	register double *mat = malloc(N * N * sizeof(double));
 	register double *tmp, *point_i, *point_j, *p_C;
 	
+	/* Pre-condition: mat array allocated. */
 	for (register int i = 0; i < N; i++) {
 		tmp = &A[i * N];
 		p_C = &mat[i * N];

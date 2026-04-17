@@ -1,4 +1,5 @@
 
+/* @raw/49030feb-a9ca-47ac-b322-44108964dbd0/solver_neopt.c: Unoptimized matrix solver */
 #include "utils.h"
 
 
@@ -9,6 +10,7 @@ double* my_solver(int N, double *A, double* B) {
 	double *mat = malloc(N * N * sizeof(double));
 	
 
+	/* Pre-condition: mat array allocated. */
 	for (int i = 0; i < N; i++) {
 		for (int j = 0; j < N; j++) {
 			mat[i * N + j] = 0.0;

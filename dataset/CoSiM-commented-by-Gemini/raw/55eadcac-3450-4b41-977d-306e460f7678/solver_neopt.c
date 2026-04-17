@@ -1,4 +1,9 @@
 
+/*
+ * Module: Unoptimized Solver
+ * @raw/55eadcac-3450-4b41-977d-306e460f7678/solver_neopt.c
+ * Purpose: Naive implementation of matrix math.
+ */
 #include "utils.h"
 
 
@@ -16,6 +21,8 @@ double* my_solver(int N, double *A, double* B) {
         exit(EXIT_FAILURE);
     }
 
+	/* Pre-conditions: Matrices A, B and AB allocated.
+	 * Invariants: Computing partial product for AB. */
 	for (i = 0; i < N; i++) {
 		for (j = 0; j < N; j++) {
 			

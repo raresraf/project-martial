@@ -69,6 +69,8 @@ impl BoxTree {
             viewport_overflow_y == Overflow::Visible &&
             !root_style.get_box().display.is_none()
         {
+            // PRE-CONDITION: root_element is a valid HTML root layout node.
+            // INVARIANT: Iterating over children to find the body element and its overflow properties.
             for child in iter_child_nodes(root_element) {
                 if !child
                     .to_threadsafe()
@@ -399,4 +401,6 @@ impl BoxTree {
             self.viewport_scroll_sensitivity,
         )
     }
+}
+  }
 }

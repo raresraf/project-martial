@@ -1,4 +1,7 @@
-
+/*
+ * Module: @raw/3788f690-8af3-428b-a37c-3cca2425b7a1/solver_blas.c
+ * High-level purpose: BLAS solver.
+ */
 #include "utils.h"
 #include <cblas.h>
 #include <string.h>
@@ -22,6 +25,7 @@ double* my_solver(int N, double *A, double *B) {
 	memcpy(aux, A, N * N * sizeof(double));
 	cblas_dtrmm(CblasRowMajor, CblasLeft, CblasUpper, CblasTrans, CblasNonUnit, N, N, ALPHA, A, N, aux, N);
 
+	/* Pre-condition: aux and C populated via BLAS. Invariant: Matrix sizes bounded by N. */
 	int i, j;
 	for (i = 0; i < N; i++) {
 		for (j = 0; j < N; j++) {

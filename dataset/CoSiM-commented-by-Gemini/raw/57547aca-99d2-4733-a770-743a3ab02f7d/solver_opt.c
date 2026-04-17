@@ -1,3 +1,8 @@
+/*
+ * Module: Optimized Solver
+ * @raw/57547aca-99d2-4733-a770-743a3ab02f7d/solver_opt.c
+ * Purpose: Hand-optimized matrix operations.
+ */
 #include "utils.h"
 
 
@@ -11,6 +16,8 @@ double* my_solver(int N, double *A, double* B) {
 	double *At = malloc(N * N * sizeof(double));
 	double *Bt = malloc(N * N * sizeof(double));
 
+	/* Pre-conditions: Transpose arrays allocated.
+	 * Invariants: Caching transpose values for cache-friendly accesses. */
 	for ( i = 0; i < N; i++) {
 		for ( j = 0; j < N; j++) {
 			register int index1 = i * N + j;

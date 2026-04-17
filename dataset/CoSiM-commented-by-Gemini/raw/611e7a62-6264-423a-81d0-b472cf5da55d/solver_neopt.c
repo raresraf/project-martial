@@ -1,4 +1,8 @@
-
+/*
+ * Module: Non-Optimized Solver
+ * @raw/611e7a62-6264-423a-81d0-b472cf5da55d/solver_neopt.c
+ * High-level purpose: Basic unoptimized matrix solver implementation.
+ */
 #include "utils.h"
 
 

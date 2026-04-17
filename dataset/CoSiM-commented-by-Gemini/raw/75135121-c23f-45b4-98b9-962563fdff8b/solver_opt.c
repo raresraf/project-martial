@@ -60,6 +60,9 @@ double* my_solver(int N, double *A, double* B) {
 	free(res_AxB);
 	free(B_t);
 	int P = 0;
+
+	// Pre-condition: A_t and A are valid matrices, res_AtA is allocated
+	// Invariant: Computes At * A into res_AtA and adds ABBt into final res
 	for (i = 0; i < N; i++) {
 		for (j = 0; j < N; j++) {
 			pa = &A_t[i * N];
@@ -76,6 +79,16 @@ double* my_solver(int N, double *A, double* B) {
 			}
 			res[i * N + j] = 0;
 			res_AtA[i * N + j] = suma;
+			res[i * N + j] += res_ABBt[i * N + j] + res_AtA[i * N + j];
+		}
+	}
+	free(A_t);
+	
+	free(res_ABBt);
+	free(res_AtA);
+	return res;	
+}
++ j] = suma;
 			res[i * N + j] += res_ABBt[i * N + j] + res_AtA[i * N + j];
 		}
 	}

@@ -1,4 +1,7 @@
-
+/*
+ * Module: @raw/36b173c2-9f1f-4e61-9bcb-2a3c73e58b8f/solver_neopt.c
+ * High-level purpose: Non-optimized matrix solver implementation.
+ */
 #include "utils.h"
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
@@ -52,7 +55,7 @@ double* my_solver(int N, double *A, double* B) {
 	At = my_transpose(N, A);
 	Bt = my_transpose(N, B);
 
-	
+	/* Pre-condition: Matrices C, A, B are valid. Invariant: Matrix dimensions bounded by N. */
 	for (i = 0; i < N; ++i) {
 		for (j = 0; j < N; ++j) {
 			C[i * N + j] = 0.0;

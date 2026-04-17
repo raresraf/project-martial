@@ -1,4 +1,9 @@
 
+/*
+ * Module: BLAS Solver
+ * @raw/58bda465-1258-42cc-b1e8-eddab95872ec/solver_blas.c
+ * Purpose: CBLAS optimized solver.
+ */
 #include "utils.h"
 #include "cblas.h"
 #include <string.h>
@@ -32,6 +37,8 @@ double* my_solver(int N, double *A, double *B) {
 		CblasNonUnit, N, N, 1.0, A, N, AtA, N);
 
 	
+	/* Pre-conditions: Partial products computed.
+	 * Invariants: Adding final result. */
 	for (int i = 0; i < N; i++) {
 		for (int j = 0; j < N; j++) {
 			C[i * N + j] = ABBt[i * N + j] + AtA[i * N + j];

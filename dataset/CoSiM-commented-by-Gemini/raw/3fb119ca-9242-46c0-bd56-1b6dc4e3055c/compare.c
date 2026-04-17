@@ -1,5 +1,8 @@
 
 
+// Module Level: Matrix Comparison Tool
+// @raw/3fb119ca-9242-46c0-bd56-1b6dc4e3055c/compare.c
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>

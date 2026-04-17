@@ -1,5 +1,10 @@
 
 
+/*
+ * Module: Matrix Compare
+ * @raw/55eadcac-3450-4b41-977d-306e460f7678/compare.c
+ * Purpose: Matrix comparison.
+ */
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -51,6 +56,8 @@ int cmp_files(char const *file_path1, char const *file_path2, double precision) 
 
 	N = sqrt(fileInfo1.st_size / sizeof(double));
 
+	/* Pre-conditions: Mapped arrays mat1 and mat2.
+	 * Invariants: Checking equality element by element. */
 	for (i = 0; i < N; i++ ) {
 		for (j = 0; j< N; j++) {
 			ret = check_err(mat1[i * N + j], mat2[i * N + j], precision); 

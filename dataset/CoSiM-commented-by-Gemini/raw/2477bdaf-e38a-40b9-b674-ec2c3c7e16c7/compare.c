@@ -1,5 +1,4 @@
-
-
+/* Module Level: File compare utility. @raw/2477bdaf-e38a-40b9-b674-ec2c3c7e16c7/compare.c */
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -51,6 +50,7 @@ int cmp_files(char const *file_path1, char const *file_path2, double precision) 
 
 	N = sqrt(fileInfo1.st_size / sizeof(double));
 
+	/* Block Level: Pre-conditions and invariants before matrix iteration */
 	for (i = 0; i < N; i++ ) {
 		for (j = 0; j< N; j++) {
 			ret = check_err(mat1[i * N + j], mat2[i * N + j], precision); 

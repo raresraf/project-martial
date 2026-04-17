@@ -1,4 +1,7 @@
-
+/*
+ * @raw/66423df7-06af-4ccd-ac5c-54f5e8b29793/solver_blas.c
+ * Module implementing matrix solver using BLAS library.
+ */
 #include "utils.h"
 #include "cblas.h"
 #include <string.h>

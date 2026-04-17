@@ -1,4 +1,8 @@
 
+/*
+ * @raw/542bd872-56e9-492f-b5a7-0fa0401b6cdc/solver_blas.c
+ * Module Level: Optimized matrix solver implementation using BLAS libraries.
+ */
 #include "utils.h"
 #include "cblas.h"
 

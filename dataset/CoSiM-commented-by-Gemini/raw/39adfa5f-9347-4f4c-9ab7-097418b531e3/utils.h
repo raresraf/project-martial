@@ -1,4 +1,7 @@
-
+/*
+ * Module: @raw/39adfa5f-9347-4f4c-9ab7-097418b531e3/utils.h
+ * High-level purpose: Header definitions and struct for matrix testing.
+ */
 
 #include <stdio.h>
 #include <stdlib.h>

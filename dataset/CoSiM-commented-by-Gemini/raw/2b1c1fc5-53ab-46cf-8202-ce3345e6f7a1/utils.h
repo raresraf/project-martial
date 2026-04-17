@@ -1,4 +1,9 @@
 
+/*
+ * Module: utils.h
+ * Purpose: High-level utilities and type definitions for the solver programs.
+ * Path: @raw/2b1c1fc5-53ab-46cf-8202-ce3345e6f7a1/utils.h
+ */
 
 #include <stdio.h>
 #include <stdlib.h>

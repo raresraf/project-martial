@@ -1,4 +1,8 @@
-
+/*
+ * Module: Utilities Header
+ * @raw/611e7a62-6264-423a-81d0-b472cf5da55d/utils.h
+ * High-level purpose: Common definitions and signatures for solver modules.
+ */
 
 #include <stdio.h>
 #include <stdlib.h>

@@ -108,12 +108,24 @@ double *my_solver(int N, double *A, double *B)
 
 	double *BBt = normalMul(N, B, trB);
 	double *ABBt = upperMul(N, A, BBt);
+	/* Pre-condition: ABBt and AtA are valid. Invariant: Computing result matrix C */
 	for (i = 0; i < N; i++)
 	{
 		for (j = 0; j < N; j++)
 		{
 
 			C[i * N + j] = ABBt[i * N + j] + AtA[i * N + j];
+		}
+	}
+	free(AtA);
+	free(BBt);
+	free(ABBt);
+	free(trA);
+	free(trB);
+	printf("OPT SOLVER\n");
+	return C;
+}
+N + j];
 		}
 	}
 	free(AtA);

@@ -1,4 +1,5 @@
 
+/* Module Level: OpenCL kernel for texture compression. @raw/25bcdf54-746b-4eed-9d9e-0ec5d6d5f056/dima.cl */
 #define ALIGNAS(X)	__attribute__((aligned(X)))
 
 union Color {

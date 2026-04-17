@@ -1,4 +1,5 @@
 
+/* @raw/47bf6cc9-5844-4a96-ab5d-048d6d9eb7b5/solver_opt.c: Optimized matrix solver */
 #include "utils.h"
 
 
@@ -18,6 +19,7 @@ register int i, j, k;
 register double *orig_pa, *pa, *pb, sum;
 
 
+    /* Pre-condition: Arrays allocated. */
     for (i = 0; i < N; i++) {
 		orig_pa = &A[i * N];
 		for (j = 0; j < N; j++) {

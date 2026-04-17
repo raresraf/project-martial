@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// @raw/1fef01b6-4b7f-46f6-8bac-bf9d37c5e481/meta_test.go
+// Module Purpose: Tests for metadata handling and object reference utilities.
 package api_test
 
 import (
@@ -61,6 +63,8 @@ func getObjectMetaAndOwnerReferences() (objectMeta api.ObjectMeta, metaOwnerRefe
 	fuzz.New().NilChance(.5).NumElements(1, 5).Fuzz(&objectMeta)
 	references := objectMeta.OwnerReferences
 	metaOwnerReferences = make([]metatypes.OwnerReference, 0)
+	// Pre-condition: references is obtained from objectMeta.
+	// Invariant: metaOwnerReferences grows up to len(references).
 	for i := 0; i < len(references); i++ {
 		metaOwnerReferences = append(metaOwnerReferences, metatypes.OwnerReference{
 			Kind:       references[i].Kind,

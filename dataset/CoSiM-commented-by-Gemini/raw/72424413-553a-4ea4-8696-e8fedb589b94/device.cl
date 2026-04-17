@@ -1,4 +1,5 @@
 
+/* Module Level: OpenCL device kernels for texture compression. @raw/72424413-553a-4ea4-8696-e8fedb589b94/device.cl */
 #define uint8_t uchar
 #define int8_t char
 #define uint16_t ushort

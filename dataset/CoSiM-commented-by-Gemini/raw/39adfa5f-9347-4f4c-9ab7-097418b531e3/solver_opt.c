@@ -1,11 +1,14 @@
-
+/*
+ * Module: @raw/39adfa5f-9347-4f4c-9ab7-097418b531e3/solver_opt.c
+ * High-level purpose: Optimized solver.
+ */
 #include "utils.h"
 
 
 double* my_solver(int N, double *A, double* B) {
 	printf("OPT SOLVER\n");
 
-    
+    /* Pre-condition: Matrices initialized. Invariant: Loop unrolling preserves bounds (N). */
 	double *BBt = (double *)calloc(N * N, sizeof(double));
 	for (int i = 0; i < N; i += 2) {
         

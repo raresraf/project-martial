@@ -1,4 +1,8 @@
 
+/*
+ * Module: @raw/35e58fc3-9c64-48fe-9248-56291876dd41/dima.cl
+ * High-level purpose: OpenCL device kernel for DIMA operations.
+ */
 #define ALIGNAS(X)	__attribute__((aligned(X)))
 
 union Color {

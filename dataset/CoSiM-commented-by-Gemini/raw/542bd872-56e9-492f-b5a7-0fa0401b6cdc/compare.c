@@ -1,5 +1,9 @@
 
 
+/*
+ * @raw/542bd872-56e9-492f-b5a7-0fa0401b6cdc/compare.c
+ * Module Level: Compares two binary files containing matrices of double precision floating-point numbers.
+ */
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -51,6 +55,7 @@ int cmp_files(char const *file_path1, char const *file_path2, double precision) 
 
 	N = sqrt(fileInfo1.st_size / sizeof(double));
 
+	/* Pre-conditions: N is the matrix dimension, mat1 and mat2 are properly mapped and of equal size. */
 	for (i = 0; i < N; i++ ) {
 		for (j = 0; j< N; j++) {
 			ret = check_err(mat1[i * N + j], mat2[i * N + j], precision); 

@@ -1,4 +1,7 @@
 
+// @raw/78967c0c-ba90-43f5-87be-b35b30882925/solver_blas.c
+// High-level purpose: Solves a matrix equation using BLAS routines.
+
 #include "utils.h"
 #include <stdlib.h>
 #include <string.h>

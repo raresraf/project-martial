@@ -1,5 +1,10 @@
 
 
+/*
+ * Module: utils.h
+ * Purpose: Shared data structures and function prototypes for the solvers.
+ * @raw/75135121-c23f-45b4-98b9-962563fdff8b/utils.h
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>

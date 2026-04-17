@@ -8,6 +8,7 @@ void add(int N, double *a, double *b, double *c) {
 
 	int i;
 
+	/* Pre-condition: Arrays a, b, c allocated. Invariant: c[i] = a[i] + b[i] */
 	for (i = 0; i < N * N; i++) {
 		c[i] = a[i] + b[i];
 	}
@@ -108,6 +109,16 @@ double* my_solver(int N, double *A, double* B) {
 
 	normal_x_normal_transpose(N, B, BBt);
 	upper_x_normal(N, A, BBt, ABBt);
+	upper_transpose_x_upper(N, A, AtA);
+	add(N, ABBt, AtA, C);
+
+	free(BBt);
+	free(ABBt);
+	free(AtA);
+
+	return C;
+}
+ABBt);
 	upper_transpose_x_upper(N, A, AtA);
 	add(N, ABBt, AtA, C);
 

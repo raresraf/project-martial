@@ -317,6 +317,8 @@ void getAverageColor(__private const Color* src, float* avg_color)
 {
 	uint sum_b = 0, sum_g = 0, sum_r = 0;
 	
+	// Pre-condition: src contains valid Color objects.
+	// Invariant: sum_b, sum_g, sum_r accumulate color values.
 	for (int i = 0; i < 8; ++i) {
 		sum_b += src[i].channels.b;
 		sum_g += src[i].channels.g;

@@ -96,11 +96,23 @@ double *my_solver(int N, double *A, double *B)
 
 	BBt = normalMul(N, B, trB);
 	ABBt = upperMul(N, A, BBt);
+	/* Pre-condition: Arrays allocated and computed. Invariant: Computing result C */
 	for ( i = 0; i < N; i++)
 	{
 		for ( j = 0; j < N; j++)
 		{
 			C[i * N + j] = ABBt[i * N + j] + AtA[i * N + j];
+		}
+	}
+	free(AtA);
+	free(BBt);
+	free(ABBt);
+	free(trA);
+	free(trB);
+	printf("NEOPT SOLVER\n");
+	return C;
+}
+N + j] + AtA[i * N + j];
 		}
 	}
 	free(AtA);

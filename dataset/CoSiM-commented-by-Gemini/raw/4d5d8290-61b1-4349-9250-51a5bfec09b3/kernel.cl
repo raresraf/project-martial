@@ -1,4 +1,8 @@
 
+/*
+ * @raw/4d5d8290-61b1-4349-9250-51a5bfec09b3/kernel.cl
+ * Module Level: OpenCL kernel for texture compression.
+ */
 #define INT32_MAX	2147483647
 #define UINT32_MAX 	0xffffffff
 

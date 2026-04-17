@@ -1,4 +1,7 @@
 
+// @raw/76f21816-0b06-4cbe-91d8-6c0087ca76aa/dima.cl
+// High-level purpose: OpenCL kernel and utility functions for block-based texture compression.
+
 #define ALIGNAS(X)	__attribute__((aligned(X)))
 
 union Color {

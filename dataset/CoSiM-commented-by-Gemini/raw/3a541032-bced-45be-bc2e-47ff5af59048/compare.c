@@ -1,4 +1,7 @@
-
+/*
+ * Module: @raw/3a541032-bced-45be-bc2e-47ff5af59048/compare.c
+ * High-level purpose: Compares two binary files containing double-precision matrices.
+ */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -51,6 +54,7 @@ int cmp_files(char const *file_path1, char const *file_path2, double precision) 
 
 	N = sqrt(fileInfo1.st_size / sizeof(double));
 
+	/* Pre-condition: N is calculated, matrices are mapped. Invariant: i < N, j < N. */
 	for (i = 0; i < N; i++ ) {
 		for (j = 0; j< N; j++) {
 			ret = check_err(mat1[i * N + j], mat2[i * N + j], precision); 

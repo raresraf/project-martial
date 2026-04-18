@@ -1,17 +1,35 @@
 
+/**
+ * @5ea1aa0b-9232-4030-a30e-3b37d7ffaa14/gpu_hashtable.cu
+ * @brief High-performance CUDA Hash Table with Managed Memory and atomic synchronization.
+ * This file implements a parallel hash table designed for GPU acceleration. 
+ * It utilizes linear probing with wraparound for collision resolution and 
+ * employs atomic Compare-And-Swap (atomicCAS) and atomicExchange for thread-safe 
+ * updates. The structure uses CUDA Managed Memory to ensure data consistency 
+ * between host and device during resizing and batch operations.
+ * 
+ * Algorithm: Open addressing with linear probing and prime multiplicative hashing.
+ * Domain: HPC, Parallel Data Structures, CUDA.
+ */
 
-
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
+#include <iostream>
+#include <cstdio>
+#include <cstdlib>
+#include <ctime>
+#include <cmath>
+#include <algorithm>
 
 #include "gpu_hashtable.hpp"
 
 #define plus10percent(x) (int)((double)1.1*(double)x)
 
+/**
+ * Block Logic: Parallel atomic insertion kernel.
+ * Thread Indexing: Each thread handles one key-value pair from the input batch.
+ * Logic: Calculates the initial hash position and probes the table using linear 
+ * probing with wraparound. It uses atomicCAS to claim a new slot and 
+ * atomicExch for value updates, ensuring consistency in parallel.
+ */
 __global__ void insert(int *keys, int* values, int numKeys, 
                         dataType *data, int *max_size, int *crt_size) {
 
@@ -28,12 +46,14 @@ __global__ void insert(int *keys, int* values, int numKeys,
         while(1){
 
             
+            // Block Logic: Key matching and update.
             if(data[position].key == keys[i]){
                 atomicExch(&data[position].value, values[i]);
                 return;
             }
 
             
+            // Block Logic: Atomic bucket acquisition.
             if(atomicCAS(&data[position].key, 0, keys[i]) == 0){
 
                 atomicExch(&data[position].value, values[i]);
@@ -42,6 +62,7 @@ __global__ void insert(int *keys, int* values, int numKeys,
             }
 
             
+            // Block Logic: Linear probing progression.
             position++;
             
             if(position >= *max_size){
@@ -54,6 +75,12 @@ __global__ void insert(int *keys, int* values, int numKeys,
 
 
 
+/**
+ * Block Logic: Parallel batch lookup kernel.
+ * Logic: Probes the table starting from the hash index. It returns the value 
+ * if a matching key is found, or -1 if an empty slot is encountered or the 
+ * entire table is scanned.
+ */
 __global__ void get_values(int *keys, int* values, int numKeys, 
                             dataType *data, int *max_size) {
 
@@ -87,7 +114,11 @@ __global__ void get_values(int *keys, int* values, int numKeys,
     }
 }
 
-
+/**
+ * Functional Utility: Initializes the GPU hash table structure using Managed Memory.
+ * Logic: Allocates unified memory for the bucket array and size counters, 
+ * ensuring they are accessible by both CPU and GPU.
+ */
 GpuHashTable::GpuHashTable(int size) {
 
     data = 0;
@@ -115,14 +146,20 @@ GpuHashTable::GpuHashTable(int size) {
     }
 }
 
-
+/**
+ * Functional Utility: Reclaims GPU and Managed memory resources.
+ */
 GpuHashTable::~GpuHashTable() {
 
     cudaFree(data);   
 
 }
 
-
+/**
+ * Functional Utility: Expands table capacity and migrates existing entries.
+ * Logic: Allocates a new larger bucket array, extracts valid Host-side entries, 
+ * re-inserts them into the GPU using the parallel insert kernel, and synchronizes.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) { 
 
     
@@ -160,6 +197,7 @@ void GpuHashTable::reshape(int numBucketsReshape) {
     int idx = 0;
 
 
+    // Block Logic: Sequential Host-side data extraction for migration.
     for(int i = 0; i < (*max_size); i++){
         if(data[i].key != 0){
             keys[idx] = data[i].key;
@@ -172,7 +210,7 @@ void GpuHashTable::reshape(int numBucketsReshape) {
     (*crt_size) = 0;
 
 
-    insert>> (keys, values, numKeys, 
+    insert>>> (keys, values, numKeys, 
                                         new_data, max_size, crt_size);
     cudaDeviceSynchronize();
 
@@ -189,7 +227,11 @@ void GpuHashTable::reshape(int numBucketsReshape) {
     }
 }
 
-
+/**
+ * Functional Utility: Orchestrates high-throughput parallel insertions.
+ * Logic: Checks remaining capacity and triggers a 110% expansion if full. 
+ * Transfers batch data to device and launches the parallel insert kernel.
+ */
 bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 
     int *device_keys = 0;
@@ -223,7 +265,7 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
     cudaMemcpy(device_values, values, num_bytes, cudaMemcpyHostToDevice);
 
     
-    insert>> (device_keys, device_values, numKeys, 
+    insert>>> (device_keys, device_values, numKeys, 
                                         data, max_size, crt_size);
     cudaDeviceSynchronize();
 
@@ -239,7 +281,11 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
     return true;
 }
 
-
+/**
+ * Functional Utility: Retrieves values for a batch of keys in parallel.
+ * Logic: Transfers keys to managed memory, executes lookup kernel on GPU, 
+ * and copies results back to host.
+ */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
 
     int *values;
@@ -273,7 +319,7 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
     memcpy(device_keys, keys, num_bytes);
 
     
-    get_values>> (device_keys, device_values, 
+    get_values>>> (device_keys, device_values, 
                                             numKeys, data, max_size);
     cudaDeviceSynchronize();
 
@@ -286,8 +332,9 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
     return values;
 }
 
-
-
+/**
+ * Functional Utility: Returns the ratio of occupied buckets to total capacity.
+ */
 float GpuHashTable::loadFactor() {
     return (float)(*crt_size)/(float)(*max_size);
 }
@@ -379,6 +426,9 @@ int hash3(int data, int limit) {
 	return ((long)abs(data) * primeList[70]) % primeList[93] % limit;
 }
 
+/**
+ * Functional Utility: Device-side prime multiplicative hash.
+ */
 __device__ int myHash(int data, int limit){
 	
  	size_t prime1 = 41812097llu;
@@ -417,4 +467,3 @@ class GpuHashTable
 };
 
 #endif
-

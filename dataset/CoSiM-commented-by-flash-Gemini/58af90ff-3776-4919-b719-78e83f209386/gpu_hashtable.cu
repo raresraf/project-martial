@@ -1,10 +1,23 @@
 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
+/**
+ * @58af90ff-3776-4919-b719-78e83f209386/gpu_hashtable.cu
+ * @brief Thread-safe GPU Hash Table using atomic operations and dynamic resizing.
+ * This implementation provides a parallel hash table for CUDA architectures. 
+ * It employs linear probing for collision resolution and uses atomic Compare-And-Swap 
+ * (atomicCAS) to ensure consistency during concurrent batch insertions. The 
+ * system automatically reshapes when load factor thresholds are crossed, 
+ * utilizing a device-to-host migration strategy.
+ * 
+ * Algorithm: Open addressing with linear probing and multiplicative hash.
+ * Domain: HPC, Parallel Data Structures, CUDA.
+ */
+
+#include <iostream>
+#include <cstdio>
+#include <cstdlib>
+#include <ctime>
+#include <cmath>
+#include <algorithm>
 
 #include "gpu_hashtable.hpp"
 
@@ -21,7 +34,10 @@
 #define cudaCheckError() 
 #endif
 
-
+/**
+ * Functional Utility: Initializes the GPU hash table with a given capacity.
+ * Logic: Allocates device memory for buckets and resets them to empty (0).
+ */
 GpuHashTable::GpuHashTable(int size) {
 	
 	crtLimit = size;
@@ -42,7 +58,9 @@ GpuHashTable::GpuHashTable(int size) {
 	occupied = 0;
 }
 
-
+/**
+ * Functional Utility: Reclaims device resources and resets capacity.
+ */
 GpuHashTable::~GpuHashTable() {
 	cudaFree(table);
 	cudaCheckError();
@@ -53,8 +71,12 @@ GpuHashTable::~GpuHashTable() {
 
 __device__ unsigned int count;
 
-
-
+/**
+ * Block Logic: Key-value extraction kernel for migration.
+ * Thread Indexing: Each thread scans one bucket in the table.
+ * Logic: Atomically increments a global counter to extract non-empty buckets 
+ * into dense arrays for host-side processing during reshape.
+ */
 __global__ void extractKeyVals(hshEntry *table, int *keys, int *values, int limit) {
 	int tnr = threadIdx.x + blockDim.x * blockIdx.x;
 	if(tnr == 0) {
@@ -70,7 +92,11 @@ __global__ void extractKeyVals(hshEntry *table, int *keys, int *values, int limi
 	}
 }
 
-
+/**
+ * Functional Utility: Resizes the hash table and migrates data.
+ * Logic: Extracts valid entries from the GPU to the host, re-allocates a 
+ * larger table on the GPU, and re-inserts the entries using batch insertion.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) {
 	int blockSize = (int) min(1024.0f, sqrtf(crtLimit));
 	int *dkeys, *dvalues, *keys, *values;
@@ -122,10 +148,12 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 	free(values);
 }
 
-
-
-
-
+/**
+ * Block Logic: Parallel atomic insertion kernel.
+ * Thread Indexing: Each thread maps to one key-value pair in the batch.
+ * Logic: Probes the table using linear probing with atomicCAS to find 
+ * empty slots or update existing keys.
+ */
 __global__ void insertSingle(hshEntry *table, int *keys, int *values, int limit) {
 	int tnr = threadIdx.x + blockDim.x * blockIdx.x;
 	if(tnr < limit) {
@@ -141,8 +169,11 @@ __global__ void insertSingle(hshEntry *table, int *keys, int *values, int limit)
 	}
 }
 
-
-
+/**
+ * Functional Utility: Orchestrates high-throughput parallel insertions.
+ * Logic: Checks capacity and triggers reshape if load exceeds 90%. 
+ * Transfers batch to GPU and launches the insertion kernel.
+ */
 bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	if(numKeys == 0)
 		return false;
@@ -169,7 +200,10 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	return (err == cudaSuccess);
 }
 
-
+/**
+ * Block Logic: Parallel lookup kernel.
+ * Logic: Uses linear probing to search for keys and retrieves their values.
+ */
 __global__ void getSingle(hshEntry *table, int *keys, int limit, int *result) {
 
 
@@ -186,7 +220,10 @@ __global__ void getSingle(hshEntry *table, int *keys, int limit, int *result) {
 	}
 }
 
-
+/**
+ * Functional Utility: Retrieves a batch of values for given keys in parallel.
+ * Logic: Executes lookup kernel and returns result array in host memory.
+ */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	int blockSize = (int) min(1024.0f, sqrtf(numKeys));
 	
@@ -212,7 +249,9 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	return res;
 }
 
-
+/**
+ * Functional Utility: Computes the current occupancy ratio.
+ */
 float GpuHashTable::loadFactor() {
 	return ((float) occupied / (float) crtLimit); 
 }
@@ -291,10 +330,9 @@ __device__ const size_t primeList[] =
 	11493228998133068689llu, 14480561146010017169llu, 18446744073709551557llu
 };
 
-
-
-
-
+/**
+ * Functional Utility: Device-side prime multiplicative hash.
+ */
 __device__ int hash3(int data, int limit) {
 	return ((long)abs(data) * primeList[70]) % primeList[93] % limit;
 }
@@ -302,9 +340,6 @@ __device__ int hash3(int data, int limit) {
 typedef struct __hshEntry {
 	int key, value;
 } hshEntry;
-
-
-
 
 class GpuHashTable
 {
@@ -325,4 +360,3 @@ class GpuHashTable
 };
 
 #endif
-

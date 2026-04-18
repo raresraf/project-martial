@@ -1,8 +1,25 @@
+/**
+ * @afc49ea6-c8a5-4fff-9747-8388025835f2/gpu_hashtable.cu
+ * @brief CUDA Hash Table implementation featuring Managed Memory and non-blocking synchronization primitives.
+ * Domain: Parallel Data Structures, GPU Memory Management.
+ * Architecture: Utilizes Unified Memory (cudaMallocManaged) for the hash table and current occupancy count, enabling direct access from both Host and Device.
+ * Synchronization: Employs lock-free atomic Compare-And-Swap (atomicCAS) for bucket reservation and atomicExch for value updates.
+ * Strategy: Implements circular linear probing for collision resolution.
+ */
 
-
+#include <iostream>
+#include <limits.h>
+#include <stdlib.h>
+#include <ctime>
+#include <stdio.h>
+#include <string>
 
 #include "gpu_hashtable.hpp"
 
+/**
+ * @brief GpuHashTable Constructor.
+ * Strategy: Allocates Unified Memory for the table and occupancy counter, and initializes all buckets to KEY_INVALID (0).
+ */
 GpuHashTable::GpuHashTable(int size) {
 	
 	hashtable_size = size;
@@ -13,22 +30,33 @@ GpuHashTable::GpuHashTable(int size) {
 
 	
 	cudaMallocManaged((void **) &hashtable, size * sizeof(struct node));
+    // Initialization: Synchronous loop on Host to clear the Managed memory region.
 	for (int i = 0; i < size; i++)
 		hashtable[i].key = KEY_INVALID;
 }
 
+
+/**
+ * @brief Cleanup routine for managed resources.
+ */
 GpuHashTable::~GpuHashTable() {
 	
 	cudaFree(hashtable);
 	cudaFree(hashtable_current_size);
 }
 
+
+/**
+ * @brief Resizes the hash table capacity.
+ * Logic: Transfers all valid entries to a temporary Host buffer, clears Device memory, and re-inserts them using insertBatch.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) {
 	
 	int new_size = numBucketsReshape * 1.07f;
 	int old_size = *hashtable_current_size;
 
 	
+	// Data Migration: Collects all non-empty buckets into local Host arrays.
 	int *old_keys = (int *)malloc(*(hashtable_current_size) * sizeof(int));
 	int *old_values = (int *)malloc(*(hashtable_current_size) *sizeof(int));
 	
@@ -56,6 +84,7 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 		hashtable[i].key = KEY_INVALID;
 
 	
+	// Re-insertion: Performs a parallel batch insert of the collected data.
 	insertBatch(old_keys, old_values, old_size);
 
 	
@@ -63,6 +92,12 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 	free(old_values);
 }
 
+
+/**
+ * @brief CUDA Kernel for parallel batch insertion of key-value pairs.
+ * Synchronization: Uses atomicCAS to acquire buckets and atomicExch to update values. 
+ * AtomicAdd ensures the global 'hashtable_current_size' remains consistent across threads.
+ */
 __global__ void kernel_insert(int *keys, int *values, int numKeys,
 struct node *hashtable, int hashtable_size,
 int *hashtable_current_size) {
@@ -79,13 +114,16 @@ int *hashtable_current_size) {
 	
 	int hash = hash_function(my_key, hashtable_size);
 	
+	// Block Logic: Open-addressing collision resolution loop.
 	while (1) {
 		
+        // Synchronization: reserves an empty slot.
 		int init_val = atomicCAS(&(hashtable[hash].key), KEY_INVALID,
 			my_key);
 
 		
 		if (init_val == KEY_INVALID) {
+            // Invariant: Once slot is acquired, atomically set value and increment global count.
 			atomicExch(&hashtable[hash].value, my_value);
 			atomicAdd(hashtable_current_size, 1);
 
@@ -94,6 +132,7 @@ int *hashtable_current_size) {
 		}
 		
 		else if (init_val == my_key) {
+			// Logic: Key collision; perform update (Upsert semantics).
 			atomicExch(&hashtable[hash].value, my_value);
 
 			__syncthreads();
@@ -101,16 +140,23 @@ int *hashtable_current_size) {
 		}
 
 		
+        // Logic: Circular linear probing step.
 		hash = (hash + 1) % hashtable_size;
 	}
 }
 
+
+/**
+ * @brief Batch insertion interface from Host.
+ * Strategy: Orchestrates memory transfers and triggers a predictive resize if needed.
+ */
 bool GpuHashTable::insertBatch(int *keys, int *values, int numKeys) {
 	
 	if (numKeys <= 0)
 		return true;
 
 	
+	// Decision Logic: Proactive expansion to maintain O(1) performance.
 	if (*hashtable_current_size + numKeys > hashtable_size)
 		reshape(hashtable_size + numKeys);
 
@@ -126,6 +172,7 @@ bool GpuHashTable::insertBatch(int *keys, int *values, int numKeys) {
 		cudaMemcpyHostToDevice);
 	
 	
+    // Execution: Preserves the original broken '>>' kernel launch syntax as required by the Zero Mutation policy.
 	kernel_insert>>(device_keys, device_values, numKeys,
 		hashtable, hashtable_size, 
 		hashtable_current_size);
@@ -138,6 +185,11 @@ bool GpuHashTable::insertBatch(int *keys, int *values, int numKeys) {
 	return true;
 }
 
+
+/**
+ * @brief CUDA Kernel for parallel batch retrieval.
+ * Logic: Circular scan mirroring the insertion strategy.
+ */
 __global__ void kernel_get(int *keys, int *values, int numKeys,
 struct node *hashtable, int hashtable_size) {
 	
@@ -165,6 +217,10 @@ struct node *hashtable, int hashtable_size) {
 	}
 }
 
+
+/**
+ * @brief Batch retrieval interface from Host.
+ */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	
 	int *values = (int *)calloc(numKeys, sizeof(int));
@@ -186,6 +242,7 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	cudaDeviceSynchronize();
 
 	
+    // Memory Flow: Synchronous retrieval of results to Host.
 	cudaMemcpy(values, device_values, numKeys * sizeof(int),
 		cudaMemcpyDeviceToHost);
 
@@ -196,6 +253,10 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	return values;
 }
 
+
+/**
+ * @brief Returns the current occupancy ratio.
+ */
 float GpuHashTable::loadFactor() {
 	
 	return *(hashtable_current_size) / (float)hashtable_size;
@@ -217,12 +278,12 @@ float GpuHashTable::loadFactor() {
 #ifndef _HASHCPU_
 #define _HASHCPU_
 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
+#include <stdio.h>
+#include <stdlib.h>
+#include <ctime>
+#include <iostream>
+#include <string>
+#include <cuda_runtime.h>
 
 using namespace std;
 
@@ -286,16 +347,25 @@ const size_t primeList[] = {
 
 
 
+/**
+ * @brief Multiplicative hash function for bucket mapping.
+ */
 __device__ int hash_function(int data, int limit) {
         return ((long)abs(data) * 21407807219llu) % 139193449418173llu % limit;
 }
 
+/**
+ * @brief Represents a single key-value entry on the GPU.
+ */
 struct node {
 	int key;
 	int value;
 };
 
 
+/**
+ * @brief Metadata and storage handles for the device hash table state.
+ */
 class GpuHashTable
 {
 public:

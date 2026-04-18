@@ -1,3 +1,12 @@
+/**
+ * @7aec5c6c-e918-47ad-ba23-0126fc7278ab/net/netfilter/nft_set_hash.c
+ * @brief Hash-based set implementations for the nftables framework.
+ * Domain: Kernel Networking, Data Structures.
+ * Architecture: Provides multiple hash variants including static 'nft_hash' and resizable 'nft_rhash' (leveraging the Linux rhashtable API).
+ * Functional Utility: Optimizes set lookups to O(1) average time complexity, supporting maps, stateful objects, and timeouts.
+ * Synchronization: Utilizes RCU for lock-less read-side lookups and fine-grained locking (via rhashtable) or mutexes for control-plane updates.
+ */
+
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2008-2014 Patrick McHardy <kaber@trash.net>
@@ -21,12 +30,20 @@
 /* We target a hash table size of 4, element hint is 75% of final size */
 #define NFT_RHASH_ELEMENT_HINT 3
 
+/**
+ * @brief Private data for the resizable hash set variant.
+ * State: Includes the rhashtable core and a background garbage collection worker.
+ */
 struct nft_rhash {
 	struct rhashtable		ht;
 	struct delayed_work		gc_work;
 	u32				wq_gc_seq;
 };
 
+/**
+ * @brief Represents an element within an rhash-based set.
+ * Memory Layout: Derived from nft_elem_priv, followed by the rhashtable linkage and set extensions.
+ */
 struct nft_rhash_elem {
 	struct nft_elem_priv		priv;
 	struct rhash_head		node;
@@ -34,6 +51,9 @@ struct nft_rhash_elem {
 	struct nft_set_ext		ext;
 };
 
+/**
+ * @brief Argument container for rhashtable comparison operations.
+ */
 struct nft_rhash_cmp_arg {
 	const struct nft_set		*set;
 	const u32			*key;
@@ -41,6 +61,9 @@ struct nft_rhash_cmp_arg {
 	u64				tstamp;
 };
 
+/**
+ * @brief Hash calculation for a lookup key.
+ */
 static inline u32 nft_rhash_key(const void *data, u32 len, u32 seed)
 {
 	const struct nft_rhash_cmp_arg *arg = data;
@@ -48,6 +71,9 @@ static inline u32 nft_rhash_key(const void *data, u32 len, u32 seed)
 	return jhash(arg->key, len, seed);
 }
 
+/**
+ * @brief Hash calculation for an existing set element object.
+ */
 static inline u32 nft_rhash_obj(const void *data, u32 len, u32 seed)
 {
 	const struct nft_rhash_elem *he = data;
@@ -55,6 +81,10 @@ static inline u32 nft_rhash_obj(const void *data, u32 len, u32 seed)
 	return jhash(nft_set_ext_key(&he->ext), len, seed);
 }
 
+/**
+ * @brief Multi-criteria comparison function for set elements.
+ * Logic: Validates key equality, element lifecycle (dead/expired), and generation visibility.
+ */
 static inline int nft_rhash_cmp(struct rhashtable_compare_arg *arg,
 				const void *ptr)
 {
@@ -72,6 +102,9 @@ static inline int nft_rhash_cmp(struct rhashtable_compare_arg *arg,
 	return 0;
 }
 
+/**
+ * @brief Configuration parameters for the resizable hash table.
+ */
 static const struct rhashtable_params nft_rhash_params = {
 	.head_offset		= offsetof(struct nft_rhash_elem, node),
 	.hashfn			= nft_rhash_key,
@@ -80,6 +113,10 @@ static const struct rhashtable_params nft_rhash_params = {
 	.automatic_shrinking	= true,
 };
 
+/**
+ * @brief High-performance RCU lookup for rhash sets.
+ * Invariant: Must be called within an RCU read-side critical section.
+ */
 INDIRECT_CALLABLE_SCOPE
 const struct nft_set_ext *
 nft_rhash_lookup(const struct net *net, const struct nft_set *set,
@@ -101,6 +138,9 @@ nft_rhash_lookup(const struct net *net, const struct nft_set *set,
 	return NULL;
 }
 
+/**
+ * @brief Retrieves the private data of a set element by key.
+ */
 static struct nft_elem_priv *
 nft_rhash_get(const struct net *net, const struct nft_set *set,
 	      const struct nft_set_elem *elem, unsigned int flags)
@@ -121,6 +161,11 @@ nft_rhash_get(const struct net *net, const struct nft_set *set,
 	return ERR_PTR(-ENOENT);
 }
 
+/**
+ * @brief Updates an existing set element or creates a new one if missing.
+ * Domain: Stateful Packet Inspection.
+ * Synchronization: Handles concurrent insertion races using rhashtable_lookup_get_insert_key.
+ */
 static const struct nft_set_ext *
 nft_rhash_update(struct nft_set *set, const u32 *key,
 		 const struct nft_expr *expr, struct nft_regs *regs)
@@ -166,6 +211,10 @@ err1:
 	return NULL;
 }
 
+/**
+ * @brief Inserts a new element into the resizable hash set.
+ * Flow: Performs a thread-safe insertion check.
+ */
 static int nft_rhash_insert(const struct net *net, const struct nft_set *set,
 			    const struct nft_set_elem *elem,
 			    struct nft_elem_priv **elem_priv)
@@ -191,6 +240,9 @@ static int nft_rhash_insert(const struct net *net, const struct nft_set *set,
 	return 0;
 }
 
+/**
+ * @brief Activates an element, making it visible to future generations.
+ */
 static void nft_rhash_activate(const struct net *net, const struct nft_set *set,
 			       struct nft_elem_priv *elem_priv)
 {
@@ -199,6 +251,9 @@ static void nft_rhash_activate(const struct net *net, const struct nft_set *set,
 	nft_clear(net, &he->ext);
 }
 
+/**
+ * @brief Flushes an element, effectively removing it from the current generation.
+ */
 static void nft_rhash_flush(const struct net *net,
 			    const struct nft_set *set,
 			    struct nft_elem_priv *elem_priv)
@@ -208,6 +263,9 @@ static void nft_rhash_flush(const struct net *net,
 	nft_set_elem_change_active(net, set, &he->ext);
 }
 
+/**
+ * @brief Deactivates an element during the commit phase of a transaction.
+ */
 static struct nft_elem_priv *
 nft_rhash_deactivate(const struct net *net, const struct nft_set *set,
 		     const struct nft_set_elem *elem)
@@ -231,6 +289,9 @@ nft_rhash_deactivate(const struct net *net, const struct nft_set *set,
 	return &he->priv;
 }
 
+/**
+ * @brief Removes an element from the rhashtable.
+ */
 static void nft_rhash_remove(const struct net *net,
 			     const struct nft_set *set,
 			     struct nft_elem_priv *elem_priv)
@@ -241,6 +302,9 @@ static void nft_rhash_remove(const struct net *net,
 	rhashtable_remove_fast(&priv->ht, &he->node, nft_rhash_params);
 }
 
+/**
+ * @brief Marks an element as dead (logical deletion).
+ */
 static bool nft_rhash_delete(const struct nft_set *set,
 			     const u32 *key)
 {
@@ -261,6 +325,10 @@ static bool nft_rhash_delete(const struct nft_set *set,
 	return true;
 }
 
+/**
+ * @brief Iterates over all elements in the resizable hash set.
+ * Domain: Control Plane, Ruleset Dump.
+ */
 static void nft_rhash_walk(const struct nft_ctx *ctx, struct nft_set *set,
 			   struct nft_set_iter *iter)
 {
@@ -295,6 +363,9 @@ cont:
 	rhashtable_walk_exit(&hti);
 }
 
+/**
+ * @brief Determines if stateful expressions attached to an element require a GC pass.
+ */
 static bool nft_rhash_expr_needs_gc_run(const struct nft_set *set,
 					struct nft_set_ext *ext)
 {
@@ -312,6 +383,11 @@ static bool nft_rhash_expr_needs_gc_run(const struct nft_set *set,
 	return false;
 }
 
+/**
+ * @brief Background garbage collection worker for rhash-based sets.
+ * Strategy: Asynchronously sweeps the hash table to identify and prune expired or dead elements.
+ * Synchronization: Uses a sequence number (wq_gc_seq) to detect concurrent ruleset modifications.
+ */
 static void nft_rhash_gc(struct work_struct *work)
 {
 	struct nftables_pernet *nft_net;
@@ -415,6 +491,9 @@ static void nft_rhash_gc_init(const struct nft_set *set)
 			   nft_set_gc_interval(set));
 }
 
+/**
+ * @brief Initializes a resizable hash set instance.
+ */
 static int nft_rhash_init(const struct nft_set *set,
 			  const struct nft_set_desc *desc,
 			  const struct nlattr * const tb[])
@@ -452,6 +531,9 @@ static void nft_rhash_elem_destroy(void *ptr, void *arg)
 	nf_tables_set_elem_destroy(&rhash_ctx->ctx, rhash_ctx->set, &he->priv);
 }
 
+/**
+ * @brief Destroys an rhash set and all its elements.
+ */
 static void nft_rhash_destroy(const struct nft_ctx *ctx,
 			      const struct nft_set *set)
 {
@@ -469,6 +551,9 @@ static void nft_rhash_destroy(const struct nft_ctx *ctx,
 /* Number of buckets is stored in u32, so cap our result to 1U<<31 */
 #define NFT_MAX_BUCKETS (1U << 31)
 
+/**
+ * @brief Heuristic for calculating optimal bucket count.
+ */
 static u32 nft_hash_buckets(u32 size)
 {
 	u64 val = div_u64((u64)size * 4, 3);
@@ -489,6 +574,10 @@ static bool nft_rhash_estimate(const struct nft_set_desc *desc, u32 features,
 	return true;
 }
 
+/**
+ * @brief Internal data for the static (non-resizable) hash set variant.
+ * State: Linked list heads for buckets.
+ */
 struct nft_hash {
 	u32				seed;
 	u32				buckets;
@@ -501,6 +590,9 @@ struct nft_hash_elem {
 	struct nft_set_ext		ext;
 };
 
+/**
+ * @brief RCU-safe lookup for static hash sets.
+ */
 INDIRECT_CALLABLE_SCOPE
 const struct nft_set_ext *
 nft_hash_lookup(const struct net *net, const struct nft_set *set,
@@ -540,6 +632,9 @@ nft_hash_get(const struct net *net, const struct nft_set *set,
 	return ERR_PTR(-ENOENT);
 }
 
+/**
+ * @brief Optimized lookup for 32-bit keys (e.g., IPv4 addresses).
+ */
 INDIRECT_CALLABLE_SCOPE
 const struct nft_set_ext *
 nft_hash_lookup_fast(const struct net *net, const struct nft_set *set,
@@ -579,6 +674,9 @@ static u32 nft_jhash(const struct nft_set *set, const struct nft_hash *priv,
 	return hash;
 }
 
+/**
+ * @brief Inserts an element into the static hash table.
+ */
 static int nft_hash_insert(const struct net *net, const struct nft_set *set,
 			   const struct nft_set_elem *elem,
 			   struct nft_elem_priv **elem_priv)
@@ -648,6 +746,9 @@ static void nft_hash_remove(const struct net *net,
 	hlist_del_rcu(&he->node);
 }
 
+/**
+ * @brief Walk function for static hash sets.
+ */
 static void nft_hash_walk(const struct nft_ctx *ctx, struct nft_set *set,
 			  struct nft_set_iter *iter)
 {
@@ -677,6 +778,9 @@ static u64 nft_hash_privsize(const struct nlattr * const nla[],
 	       (u64)nft_hash_buckets(desc->size) * sizeof(struct hlist_head);
 }
 
+/**
+ * @brief Initializes a static hash set.
+ */
 static int nft_hash_init(const struct nft_set *set,
 			 const struct nft_set_desc *desc,
 			 const struct nlattr * const tb[])
@@ -689,6 +793,9 @@ static int nft_hash_init(const struct nft_set *set,
 	return 0;
 }
 
+/**
+ * @brief Teardown for static hash set.
+ */
 static void nft_hash_destroy(const struct nft_ctx *ctx,
 			     const struct nft_set *set)
 {
@@ -741,6 +848,9 @@ static bool nft_hash_fast_estimate(const struct nft_set_desc *desc, u32 features
 	return true;
 }
 
+/**
+ * @brief Exposed metadata for resizable hash sets.
+ */
 const struct nft_set_type nft_set_rhash_type = {
 	.features	= NFT_SET_MAP | NFT_SET_OBJECT |
 			  NFT_SET_TIMEOUT | NFT_SET_EVAL,
@@ -764,6 +874,9 @@ const struct nft_set_type nft_set_rhash_type = {
 	},
 };
 
+/**
+ * @brief Exposed metadata for static hash sets.
+ */
 const struct nft_set_type nft_set_hash_type = {
 	.features	= NFT_SET_MAP | NFT_SET_OBJECT,
 	.ops		= {
@@ -783,6 +896,9 @@ const struct nft_set_type nft_set_hash_type = {
 	},
 };
 
+/**
+ * @brief Exposed metadata for optimized static hash sets (fast lookup).
+ */
 const struct nft_set_type nft_set_hash_fast_type = {
 	.features	= NFT_SET_MAP | NFT_SET_OBJECT,
 	.ops		= {

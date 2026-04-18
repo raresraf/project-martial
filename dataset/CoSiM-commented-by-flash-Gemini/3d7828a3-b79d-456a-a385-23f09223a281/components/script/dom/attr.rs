@@ -2,6 +2,16 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
+/**
+ * @3d7828a3-b79d-456a-a385-23f09223a281/components/script/dom/attr.rs
+ * @brief Implementation of the DOM Attr interface.
+ * This module defines the representation and behavior of element attributes 
+ * in the script engine. It handles attribute lifecycle, value mutations, 
+ * and synchronization with the layout engine and mutation observers.
+ * 
+ * Domain: DOM, Web APIs, Browser Engine.
+ */
+
 use std::borrow::ToOwned;
 use std::cell::LazyCell;
 use std::mem;
@@ -28,6 +38,9 @@ use crate::dom::virtualmethods::vtable_for;
 use crate::script_runtime::CanGc;
 use crate::script_thread::ScriptThread;
 
+/// Functional Utility: Internal representation of a DOM attribute.
+/// It contains its unique identifier (name/namespace), its current value 
+/// wrapped in a interior mutability cell, and a pointer to its owner element.
 // https://dom.spec.whatwg.org/#interface-attr
 #[dom_struct]
 pub(crate) struct Attr {
@@ -42,6 +55,7 @@ pub(crate) struct Attr {
 }
 
 impl Attr {
+    /// Functional Utility: Internal constructor for Attr.
     fn new_inherited(
         document: &Document,
         local_name: LocalName,
@@ -63,6 +77,8 @@ impl Attr {
             owner: MutNullableDom::new(owner),
         }
     }
+
+    /// Functional Utility: Public constructor that reflects the Attr into a JS object.
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
         document: &Document,
@@ -99,6 +115,7 @@ impl Attr {
     }
 }
 
+/// Functional Utility: Implementation of the Attr web IDL methods.
 impl AttrMethods<crate::DomTypeHolder> for Attr {
     // https://dom.spec.whatwg.org/#dom-attr-localname
     fn LocalName(&self) -> DOMString {
@@ -114,6 +131,11 @@ impl AttrMethods<crate::DomTypeHolder> for Attr {
 
     // https://dom.spec.whatwg.org/#dom-attr-value
     fn SetValue(&self, value: DOMString, can_gc: CanGc) {
+        /**
+         * Block Logic: Attribute value update orchestrator.
+         * If the attribute has an owner element, it uses the element's 
+         * parser to convert the string value before applying the mutation.
+         */
         if let Some(owner) = self.owner() {
             let value = owner.parse_attribute(self.namespace(), self.local_name(), value);
             self.set_value(value, &owner, can_gc);
@@ -154,6 +176,9 @@ impl AttrMethods<crate::DomTypeHolder> for Attr {
 }
 
 impl Attr {
+    /// Functional Utility: Low-level attribute value mutation handler.
+    /// Logic: Queues mutation records, triggers custom element reactions, 
+    /// notifies the owner element of the change, and performs the value swap.
     pub(crate) fn set_value(&self, mut value: AttrValue, owner: &Element, can_gc: CanGc) {
         let name = self.local_name().clone();
         let namespace = self.namespace().clone();
@@ -165,8 +190,10 @@ impl Attr {
             old_value: Some(old_value.clone()),
         });
 
+        // Block Logic: Mutation tracking.
         MutationObserver::queue_a_mutation_record(owner.upcast::<Node>(), mutation);
 
+        // Block Logic: Custom element lifecycle integration.
         if owner.is_custom() {
             let reaction = CallbackReaction::AttributeChanged(
                 name,
@@ -180,6 +207,8 @@ impl Attr {
         assert_eq!(Some(owner), self.owner().as_deref());
         owner.will_mutate_attr(self);
         self.swap_value(&mut value);
+        
+        // Block Logic: Layout engine synchronization.
         if is_relevant_attribute(self.namespace(), self.local_name()) {
             vtable_for(owner.upcast()).attribute_mutated(
                 self,
@@ -206,8 +235,8 @@ impl Attr {
         &self.identifier.local_name
     }
 
-    /// Sets the owner element. Should be called after the attribute is added
-    /// or removed from its older parent.
+    /// Functional Utility: Updates the owner element reference.
+    /// Logic: Maintains consistency between the attribute and its parent element.
     pub(crate) fn set_owner(&self, owner: Option<&Element>) {
         let ns = self.namespace();
         match (self.owner(), owner) {
@@ -245,6 +274,9 @@ impl Attr {
     }
 }
 
+/// Functional Utility: Low-level accessors for the layout engine.
+/// These methods provide direct, high-performance access to attribute data 
+/// without involving the script runtime's garbage collector.
 #[allow(unsafe_code)]
 pub(crate) trait AttrHelpersForLayout<'dom> {
     fn value(self) -> &'dom AttrValue;
@@ -285,13 +317,16 @@ impl<'dom> AttrHelpersForLayout<'dom> for LayoutDom<'dom, Attr> {
     }
 }
 
-/// A helper function to check if attribute is relevant.
+/// Functional Utility: Identifies attributes that trigger specific engine behaviors.
+/// Logic: Currently checks for standard attributes and XLink hrefs used in SVG.
 pub(crate) fn is_relevant_attribute(namespace: &Namespace, local_name: &LocalName) -> bool {
     // <https://svgwg.org/svg2-draft/linking.html#XLinkHrefAttribute>
     namespace == &ns!() || (namespace == &ns!(xlink) && local_name == &local_name!("href"))
 }
 
-/// A help function to check if an attribute is a boolean attribute.
+/// Functional Utility: Checks if an attribute name belongs to the predefined set of HTML boolean attributes.
+/// Logic: Uses a lazy-initialized static list of boolean attribute names and 
+/// performs a case-insensitive match.
 pub(crate) fn is_boolean_attribute(name: &str) -> bool {
     // The full list of attributes can be found in [1]. All attributes marked as "Boolean
     // attribute" in the "Value" column are boolean attributes. Note that "hidden" is effectively

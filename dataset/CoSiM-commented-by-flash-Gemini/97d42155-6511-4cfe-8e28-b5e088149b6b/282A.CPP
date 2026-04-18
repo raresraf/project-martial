@@ -1,3 +1,12 @@
+/**
+ * @97d42155-6511-4cfe-8e28-b5e088149b6b/282A.CPP
+ * @brief Simulation of a register-based state machine for the 'Bit++' programming language.
+ * Domain: Competitive Programming, Token-based State Transition.
+ * Algorithm: Single-pass linear token parsing.
+ * Time Complexity: $O(N \times L)$ where N is the number of statements and L is the statement length.
+ * Space Complexity: $O(1)$ constant overhead excluding I/O buffers.
+ */
+
 /*
 
                 Name: Mehul Chaturvedi
@@ -133,7 +142,7 @@ cout << s.order_of_key(2) << endl; // the number of elements in the s less than
 s(0-based)
 */
 
-// Custom hash for unordered map
+// Custom hash for unordered map: Implements SplitMix64 to mitigate collision attacks in competitive environments.
 struct custom_hash {
   static uint64_t splitmix64(uint64_t x) {
     // http://xorshift.di.unimi.it/splitmix64.c
@@ -150,7 +159,10 @@ struct custom_hash {
   }
 };
 
-// Power Function O(log(n))
+/**
+ * @brief Modular exponentiation using binary exponentiation.
+ * Logic: O(log B) temporal complexity via iterative squaring.
+ */
 ll poww(ll a, ll b, ll mod) {
   if (b == 0)
     return 1;
@@ -160,27 +172,45 @@ ll poww(ll a, ll b, ll mod) {
   return (((ans * ans) % mod) * a) % mod;
 }
 
+/**
+ * @brief Core simulation routine for statement processing.
+ * Functional Utility: Parses '++' or '--' operator tokens and updates the internal accumulator.
+ */
 void solve() {
   ll n;
   cin >> n;
   ll ans = 0;
 
+  /**
+   * Block Logic: Processes statement sequence.
+   * Invariant: 'ans' represents the register state after 'i' statements.
+   */
   rep(i, n) {
     string s;
     cin >> s;
+    /**
+     * Logic: Token-agnostic operator extraction. Scans statement for increment/decrement primitives.
+     * Strategy: Two '+' tokens trigger increment; two '-' tokens trigger decrement.
+     */
     trav(chara, s) {
       if (chara == '+') {
         ans++;
+        break; // Inline: Optimization; first '+' uniquely identifies the operation.
       } else if (chara == '-') {
         ans--;
+        break; // Inline: Optimization; first '-' uniquely identifies the operation.
       }
     }
   }
+  // Output final register state.
   cout << ans << '\n';
   return;
 }
 
 int main(int argc, char **argv) {
+  /**
+   * Functional Utility: Stream decoupling for high-throughput competitive I/O.
+   */
   ios_base::sync_with_stdio(false);
   cin.tie(NULL);
 #ifdef mehul

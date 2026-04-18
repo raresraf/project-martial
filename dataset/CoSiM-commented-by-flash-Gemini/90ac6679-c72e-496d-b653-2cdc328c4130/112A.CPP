@@ -1,13 +1,10 @@
 /**
- * @file 112A.CPP
- * @brief Lexicographically compares two strings after converting all characters to lowercase.
- *        Supports a debug mode to read input from a file named 'input.txt'.
- * Algorithm: Character-by-character comparison of two strings, converting each character
- *            to lowercase before comparison. The comparison stops at the first differing
- *            character or when the end of the shorter string is reached.
- * Time Complexity: O(L) where L is the length of the shorter string, as characters are
- *                  processed linearly until a difference is found or an end is reached.
- * Space Complexity: O(L) for storing the input strings.
+ * @90ac6679-c72e-496d-b653-2cdc328c4130/112A.CPP
+ * @brief Case-insensitive lexicographical string comparison simulation.
+ * Domain: Competitive Programming, Algorithm Fundamentals.
+ * Algorithm: Single-pass linear character sweep with normalization.
+ * Time Complexity: $O(N)$ where N is the length of the input strings.
+ * Space Complexity: $O(N)$ to store the entity sequences.
  */
 #include <fstream>    // For file input stream operations (ifstream).
 #include <iostream>   // For standard input/output operations (cin, cout).
@@ -24,15 +21,17 @@ bool DEBUG = false;
 ifstream fileStream;
 
 /**
- * @brief Returns an appropriate input stream based on the DEBUG flag.
- * Functional Utility: Abstracts the source of input, allowing easy switching
- *                     between standard input and file input for debugging.
+ * @brief Abstracted stream provider for environment-independent I/O.
+ * Functional Utility: Decouples the core logic from the physical input source (stdin vs filesystem).
  *
  * @return An istream reference (either std::cin or a fileStream).
  */
 istream &getInputStream() {
   if (DEBUG) {
-    // Block Logic: Constructs the path to "input.txt" relative to the source file.
+    /**
+     * Block Logic: Dynamically resolves the path to the local debug data file.
+     * Strategy: Relative path derivation using the preprocessor __FILE__ macro.
+     */
     string path = __FILE__;
     path = path.substr(0, 1 + path.find_last_of('/')); // Extracts directory path.
     path += "input.txt";                               // Appends "input.txt".
@@ -43,9 +42,8 @@ istream &getInputStream() {
 }
 
 /**
- * @brief Solves the string comparison problem.
- * Functional Utility: Reads two strings, performs a case-insensitive lexicographical
- *                     comparison, and prints 1, -1, or 0 based on the result.
+ * @brief Executes the string normalization and comparison logic.
+ * Functional Utility: Implements the Petya and Strings normalization logic required by competitive constraints.
  */
 void solve() {
   // Block Logic: Obtains the input stream, which could be cin or a file stream.
@@ -57,44 +55,47 @@ void solve() {
   
   int32_t result = 0; // Stores the comparison result: 0 (equal), 1 (first > second), -1 (first < second).
   
-  // Block Logic: Iterates through the strings character by character up to the length of the shorter string.
-  // Invariant: 'result' is 0 until a difference is found, at which point it's set and the loop breaks.
+  /**
+   * Block Logic: Performs a normalized character-by-character comparison.
+   * Invariant: 'result' remains 0 until a divergence in character value is detected after normalization.
+   * Normalization: Maps all characters to lowercase to achieve case-insensitivity.
+   */
   for (int i(0); i < first.length(); i++) {
-    char a = tolower(first[i]);  // Converts character from 'first' string to lowercase.
-    char b = tolower(second[i]); // Converts character from 'second' string to lowercase.
+    char a = tolower(first[i]);  // Normalizes character from 'first' string.
+    char b = tolower(second[i]); // Normalizes character from 'second' string.
     
-    // Compares the lowercase characters.
+    // Logic: Identifies the first lexicographical divergence.
     if (a > b) {
-      result = 1;  // 'first' is lexicographically greater.
-      break;       // No need to compare further.
+      result = 1;  // 'first' string ranks higher.
+      break;       // Optimization: Short-circuit once rank is determined.
     } else if (a < b) {
-      result = -1; // 'first' is lexicographically smaller.
-      break;       // No need to compare further.
+      result = -1; // 'first' string ranks lower.
+      break;       // Optimization: Short-circuit once rank is determined.
     }
-    // If a == b, loop continues to the next character.
   }
 
-  // Functional Utility: Prints the comparison result to standard output.
+  // Functional Utility: Emits the calculated rank to stdout.
   cout << result << endl;
 }
 
 /**
- * @brief Entry point of the program.
- * Functional Utility: Initializes debug mode if specified via command-line arguments,
- *                     then calls the solve function.
+ * @brief Entry point for the comparison application.
  *
  * @param argc The number of command-line arguments.
  * @param argv An array of command-line argument strings.
  * @return 0 for successful execution.
  */
 int main(int argc, char *argv[]) {
-  // Block Logic: Checks if command-line arguments are provided and if the first argument is "debug".
+  /**
+   * Block Logic: Parses execution flags to determine the input mode.
+   * Logic: Enables debug mode if the 'debug' flag is passed as an argument.
+   */
   if (argc >= 2) {
     string debug(argv[1]);
     if (debug == "debug") {
       DEBUG = true; // Sets the global DEBUG flag to true.
     }
   }
-  solve();    // Calls the function to execute the string comparison logic.
+  solve();    // Dispatches to the solver kernel.
   return 0; // Indicates successful program termination.
 }

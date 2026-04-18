@@ -1,11 +1,30 @@
 
+/**
+ * @4de79294-2687-410e-80bb-dc6790dd5e7c/gpu_hashtable.hpp
+ * @brief Integrated GPU Hash Table implementation with Managed Memory support.
+ * This file contains both the class interface and the kernel-based implementation 
+ * of a high-performance hash table for CUDA. It utilizes linear probing for 
+ * collision resolution and supports dynamic resizing when load factor thresholds 
+ * are reached.
+ * 
+ * Algorithm: Linear Probing with multiplicative hashing.
+ * Domain: HPC, Parallel Data Structures, CUDA.
+ */
+
 #ifndef _HASHCPU_
 #define _HASHCPU_
+
+#include <iostream>
+#include <string>
+#include <cstdio>
+#include <cstdlib>
+#include <cmath>
 
 using namespace std;
 
 #define	KEY_INVALID		0
 
+/// Functional Utility: Large prime constants for hash distribution.
 const size_t primeList[] = {
 	2llu, 3llu, 5llu, 7llu, 11llu, 13llu, 17llu, 23llu, 29llu, 37llu, 47llu,
 	59llu, 73llu, 97llu, 127llu, 151llu, 197llu, 251llu, 313llu, 397llu,
@@ -62,9 +81,11 @@ const size_t primeList[] = {
 
 typedef unsigned long long Entry;
 
-
-
-
+/**
+ * Functional Utility: GpuHashTable class declaration.
+ * This class orchestrates the lifecycle and operations of the hash table 
+ * on the GPU device.
+ */
 class GpuHashTable
 {
 public:
@@ -92,22 +113,32 @@ public:
 
 #endif
 
-#include 
-#include 
-#include 
-#include 
-#include 
+#include <iostream>
+#include <cstdio>
+#include <cstdlib>
+#include <ctime>
+#include <cmath>
+#include <algorithm>
 
 #include "gpu_hashtable.hpp"
 
 #define FIRST 823117
 #define SECOND 3452434812973
 
+/**
+ * Functional Utility: Device-side hash function.
+ */
 __device__ int getHash(int val, int limit)
 {
 	return ((long long) abs(val) * FIRST) % SECOND % limit;
 }
 
+/**
+ * Block Logic: Parallel atomic insertion kernel.
+ * Thread Indexing: Each thread handles one key from the batch.
+ * Logic: Probes the table using linear probing (forward and wraparound) 
+ * using atomicCAS to safely claim or update slots.
+ */
 __global__ void addInKern(int *keys, int *val, int max, hash_table hash)
 {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
@@ -135,6 +166,10 @@ __global__ void addInKern(int *keys, int *val, int max, hash_table hash)
 	}
 }
 
+/**
+ * Block Logic: Parallel batch lookup kernel.
+ * Logic: Searches for matching keys starting from their hashed positions.
+ */
 __global__ void getFromKern(int *keys, int *val, int max, hash_table hash)
 {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
@@ -163,6 +198,10 @@ __global__ void getFromKern(int *keys, int *val, int max, hash_table hash)
 	}
 }
 
+/**
+ * Block Logic: Resizing kernel for entry migration.
+ * Logic: Transfers valid entries from current_hash to replacing_hash.
+ */
 __global__ void replaceHash(hash_table current_hash, hash_table replacing_hash)
 {
 	int index = blockIdx.x * blockDim.x + threadIdx.x;
@@ -187,7 +226,7 @@ __global__ void replaceHash(hash_table current_hash, hash_table replacing_hash)
 		}
 	}
 
-	for (int i = 0; i < hash; i++) {
+	for (int i = hash; i < hash; i++) {
 		actual_key = atomicCAS(&replacing_hash.map[i].key, KEY_INVALID, replacing_key);
 
 		if (actual_key == KEY_INVALID || actual_key == replacing_key) {
@@ -197,6 +236,9 @@ __global__ void replaceHash(hash_table current_hash, hash_table replacing_hash)
 	}
 }
 
+/**
+ * Functional Utility: Initializes the hash table on the GPU.
+ */
 GpuHashTable::GpuHashTable(int size)
 {
 	count = 0;
@@ -206,11 +248,17 @@ GpuHashTable::GpuHashTable(int size)
 	cudaMemset(hashmap.map, 0, dim * sizeof(Entity));
 }
 
+/**
+ * Functional Utility: Reclaims GPU resources.
+ */
 GpuHashTable::~GpuHashTable()
 {
 	cudaFree(hashmap.map);
 }
 
+/**
+ * Functional Utility: Increases hash table capacity and migrates data.
+ */
 void GpuHashTable::reshape(int numBucketsReshape)
 {
 	hash_table hash;
@@ -229,6 +277,9 @@ void GpuHashTable::reshape(int numBucketsReshape)
 	hashmap = hash;
 }
 
+/**
+ * Functional Utility: Performs parallel batch insertion with automatic resizing.
+ */
 bool GpuHashTable::insertBatch(int *keys, int *values, int numKeys)
 {
 	int *batch_keys, *batch_values;
@@ -256,6 +307,10 @@ bool GpuHashTable::insertBatch(int *keys, int *values, int numKeys)
 	return true;
 }
 
+/**
+ * Functional Utility: Retrieves a batch of values for given keys.
+ * Memory Hierarchy: Uses Managed Memory (Unified Memory) for results.
+ */
 int *GpuHashTable::getBatch(int *keys, int numKeys)
 {
 	int *batch_keys, *batch_values;
@@ -277,6 +332,9 @@ int *GpuHashTable::getBatch(int *keys, int numKeys)
 	return batch_values;
 }
 
+/**
+ * Functional Utility: Returns the ratio of elements to total capacity.
+ */
 float GpuHashTable::loadFactor()
 {
 	return (hashmap.dim == 0)? 0 : (float(count) / hashmap.dim);

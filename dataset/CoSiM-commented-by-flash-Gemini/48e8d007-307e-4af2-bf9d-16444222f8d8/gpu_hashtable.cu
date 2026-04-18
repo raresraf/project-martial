@@ -1,10 +1,22 @@
 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
+/**
+ * @48e8d007-307e-4af2-bf9d-16444222f8d8/gpu_hashtable.cu
+ * @brief High-performance GPU Hash Table with Managed Memory and parallel probing.
+ * This implementation utilizes CUDA's Managed Memory (Unified Memory) for the 
+ * hash table structure, allowing seamless access from both Host and Device. 
+ * It employs atomic operations for concurrent updates and features dynamic 
+ * resizing triggered by load factor thresholds.
+ * 
+ * Algorithm: Open addressing with linear probing.
+ * Domain: HPC, Parallel Data Structures, CUDA.
+ */
+
+#include <iostream>
+#include <cstdio>
+#include <cstdlib>
+#include <ctime>
+#include <cmath>
+#include <algorithm>
 
 #include "gpu_hashtable.hpp"
 
@@ -16,11 +28,21 @@
 #define FST_PRIME 16593127llu 
 #define SND_PRIME 27619478504183llu
 
-
+/**
+ * Functional Utility: Device-side hash calculation.
+ * Logic: Implements a multiplicative hash using large prime constants 
+ * to ensure uniform distribution of integer keys.
+ */
 __device__ int hashFunction(int data, int hashTableSize) {
 	return ((long)abs(data) * FST_PRIME) % SND_PRIME % hashTableSize;
 }
 
+/**
+ * Block Logic: Parallel atomic insertion kernel.
+ * Thread Indexing: Maps each thread to an entry in the input batch.
+ * Logic: Uses linear probing with atomicCAS to find a suitable slot. If 
+ * an empty slot is claimed, it atomically increments the total element count.
+ */
 __global__ void kernel_insert(int *keys, int *values, int numKeys, HashTable *ht) {
 	
 	int newKey, hash, size, i, result;
@@ -33,6 +55,9 @@ __global__ void kernel_insert(int *keys, int *values, int numKeys, HashTable *ht
 	hash = hashFunction(newKey, ht->size);
 	size = ht->size;
 
+	/**
+	 * Block Logic: Primary probing loop from hash position to end.
+	 */
 	for (i = hash; i < size; i++) {
 		result = atomicCAS(&ht->buckets[i].key, KEY_INVALID, newKey);
 		
@@ -45,6 +70,9 @@ __global__ void kernel_insert(int *keys, int *values, int numKeys, HashTable *ht
 		}
 	}
 
+	/**
+	 * Block Logic: Secondary probing loop (wraparound from start).
+	 */
 	for (i = 0; i < hash; i++) {
 		result = atomicCAS(&ht->buckets[i].key, KEY_INVALID, newKey);
 		
@@ -59,6 +87,11 @@ __global__ void kernel_insert(int *keys, int *values, int numKeys, HashTable *ht
 
 }
 
+/**
+ * Block Logic: Migration kernel for table reshaping.
+ * Logic: Re-hashes existing valid entries from the old table into the 
+ * new table at their new positions based on the updated size.
+ */
 __global__ void kernel_reshape(HashTable *oldHt, HashTable *newHt) {
 	
 	int oldKey, oldVal, hash, size, i, result;
@@ -95,6 +128,9 @@ __global__ void kernel_reshape(HashTable *oldHt, HashTable *newHt) {
 
 }
 
+/**
+ * Block Logic: Parallel batch lookup kernel.
+ */
 __global__ void kernel_get(int *keys, int *values, int numKeys, HashTable *ht) {
 
 	int i, key, hash, size;
@@ -120,7 +156,10 @@ __global__ void kernel_get(int *keys, int *values, int numKeys, HashTable *ht) {
 		}
 }
 
-
+/**
+ * Functional Utility: Initializes the hash table using Managed Memory.
+ * Logic: Allocates the HashTable header and the bucket array in unified memory.
+ */
 GpuHashTable::GpuHashTable(int size) {
 
 	cudaError_t ret;
@@ -137,7 +176,9 @@ GpuHashTable::GpuHashTable(int size) {
 
 }
 
-
+/**
+ * Functional Utility: Destroys the hash table and frees unified memory.
+ */
 GpuHashTable::~GpuHashTable() {
 
 	cudaFree(ht->buckets);
@@ -145,7 +186,11 @@ GpuHashTable::~GpuHashTable() {
 
 }
 
-
+/**
+ * Functional Utility: Expands the hash table capacity.
+ * Logic: Allocates a new larger bucket array, migrates existing data 
+ * using the reshape kernel, and synchronizes the GPU.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) {
 
 	HashTable *newHt;
@@ -180,7 +225,11 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 
 }
 
-
+/**
+ * Functional Utility: Parallel batch insertion of keys and values.
+ * Logic: Triggers an automatic reshape if the maximum load factor is reached. 
+ * Transfers input data to managed memory before launching the insertion kernel.
+ */
 bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 
 	int *globalKeys, *globalValues;
@@ -213,7 +262,11 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	return true;
 }
 
-
+/**
+ * Functional Utility: Parallel batch retrieval of values for given keys.
+ * Memory Hierarchy: Uses managed memory for keys and results to simplify 
+ * cross-device coordination.
+ */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	
 	int *globalKeys, *globalValues, numBlocks;
@@ -239,7 +292,9 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	return globalValues;
 }
 
-
+/**
+ * Functional Utility: Returns the ratio of occupied buckets to total capacity.
+ */
 float GpuHashTable::loadFactor() {
 	return (float)ht->noElements / ht->size;
 }
@@ -363,4 +418,3 @@ class GpuHashTable
 };
 
 #endif
-

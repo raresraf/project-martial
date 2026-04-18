@@ -49,6 +49,11 @@ GpuHashTable::~GpuHashTable() {
 
 
 
+/**
+ * Functional Utility: MurmurHash-inspired integer hashing function.
+ * Logic: Performs bitwise shifts and multiplications with constants to 
+ * distribute key bits uniformly across the output space.
+ */
 __device__ int hashFunction(int key, int maxim){
     key ^= key >> 16;
     key *= 0x85ebca6b;
@@ -60,7 +65,13 @@ __device__ int hashFunction(int key, int maxim){
     return key % maxim;
 }
 
-
+/**
+ * Block Logic: Parallel batch insertion kernel.
+ * Thread Indexing: Each thread maps to an input key-value pair.
+ * Logic: Calculates the initial hash bucket and uses linear probing with 
+ * atomicCAS to claim a slot. It increments the 'update' counter if an 
+ * existing key is overwritten.
+ */
 __global__ void gpu_hashtable_insert_kernel(gpu_hashtable *hashtable, int *keys, int *values, int numKeys, int maxim, int *update)
 {
 	int threadId = blockIdx.x * blockDim.x + threadIdx.x;
@@ -71,7 +82,9 @@ __global__ void gpu_hashtable_insert_kernel(gpu_hashtable *hashtable, int *keys,
 		
 		int slot = hashFunction(key, maxim);
 		
-		
+		/**
+		 * Block Logic: Primary linear probing loop from hash bucket to end.
+		 */
 		for(i = slot; i < maxim; i++)
 		{
 			
@@ -87,6 +100,9 @@ __global__ void gpu_hashtable_insert_kernel(gpu_hashtable *hashtable, int *keys,
 				return;
 			}
 		}
+		/**
+		 * Block Logic: Wraparound linear probing loop from start to hash bucket.
+		 */
 		for(i = 0; i < slot; i++){
 			
 			int prev = atomicCAS(&hashtable[i].key, KEY_INVALID, key);
@@ -104,9 +120,10 @@ __global__ void gpu_hashtable_insert_kernel(gpu_hashtable *hashtable, int *keys,
     }
 }
 
-
-
-
+/**
+ * Block Logic: Resizing/migration kernel.
+ * Logic: Re-hashes every valid entry from the old hash table into the new one.
+ */
 __global__ void gpu_hashtable_insert_kernel(gpu_hashtable *hashtable, gpu_hashtable *hash, int numKeys, int maxim)
 {
 	int threadId = blockIdx.x * blockDim.x + threadIdx.x;
@@ -137,6 +154,12 @@ __global__ void gpu_hashtable_insert_kernel(gpu_hashtable *hashtable, gpu_hashta
 }
 
 
+/**
+ * Functional Utility: Increases the hash table capacity.
+ * Logic: Allocates a new larger hash table, launches the migration kernel 
+ * to re-insert existing entries, and synchronizes the GPU before freeing 
+ * the old table.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) {
 
 	
@@ -163,7 +186,11 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 	cudaFree(old_hash);
 }
 
-
+/**
+ * Functional Utility: Inserts a batch of key-value pairs.
+ * Logic: Checks if resizing is needed, transfers batch data to device memory, 
+ * launches the insertion kernel, and synchronizes.
+ */
 bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	int *keys_device, *values_device;
 
@@ -203,6 +230,11 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	return true;
 }
 
+/**
+ * Functional Utility: Device-side lookup for a single key.
+ * Logic: Searches for a key using linear probing and returns its value 
+ * or -1 if not found.
+ */
 __device__ int gpu_hashtable_get(gpu_hashtable *hashtable, int key, int maxim)
 {
 	
@@ -220,9 +252,10 @@ __device__ int gpu_hashtable_get(gpu_hashtable *hashtable, int key, int maxim)
 	return -1;
 }
 
-
-
-
+/**
+ * Block Logic: Parallel lookup kernel.
+ * Thread Indexing: Each thread maps to one lookup key.
+ */
 __global__ void gpu_hashtable_get_kernel(gpu_hashtable *hashtable, int *keys, int *values, int numKeys, int maxim)
 {
 	int threadId = blockIdx.x * blockDim.x + threadIdx.x;
@@ -234,7 +267,11 @@ __global__ void gpu_hashtable_get_kernel(gpu_hashtable *hashtable, int *keys, in
     }
 }
 
-
+/**
+ * Functional Utility: Retrieves values for a batch of keys.
+ * Logic: Transfers keys to device, launches lookup kernel, transfers 
+ * results back to host, and cleans up device memory.
+ */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	int *values_host, *values_device, *keys_device;
 
@@ -265,7 +302,11 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	return values_host;
 }
 
-
+/**
+ * Functional Utility: Calculates the current load factor.
+ * Logic: Accounts for overwritten keys by subtracting the update counter 
+ * from the total inserted count.
+ */
 float GpuHashTable::loadFactor() {
 	int update;
 	cudaMemcpy(&update, this->update_device, sizeof(int), cudaMemcpyDeviceToHost);

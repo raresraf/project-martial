@@ -1,13 +1,29 @@
 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
+/**
+ * @7c2ea6b7-6a9c-4c14-8c6c-3cbc0c485ed6/gpu_hashtable.cu
+ * @brief Multi-slot parallel GPU Hash Table with linear probing.
+ * This implementation organizes entries into multi-slot buckets (NO_SLOTS = 2) on 
+ * the GPU to improve memory density and reduce collision overhead. It utilizes 
+ * atomic operations (atomicCAS, atomicExch) to handle concurrent insertions 
+ * and updates within buckets and across the address space via linear probing 
+ * with wraparound. Dynamic resizing is managed by a re-insertion kernel.
+ * 
+ * Algorithm: Bucketed Linear Probing with prime multiplicative hashing.
+ * Domain: HPC, Parallel Data Structures, CUDA.
+ */
+
+#include <iostream>
+#include <cstdio>
+#include <cstdlib>
+#include <ctime>
+#include <cmath>
+#include <algorithm>
 
 #include "gpu_hashtable.hpp"
 
+/**
+ * Functional Utility: Device-side integer hash function.
+ */
 __device__ int hash_function(int size, int key) {
 	const size_t prime_number_1 = 13169977llu;
 	const size_t prime_number_2 = 5351951779llu;
@@ -17,6 +33,12 @@ __device__ int hash_function(int size, int key) {
 	return val;
 }
 
+/**
+ * Block Logic: Resizing kernel for entry migration.
+ * Thread Indexing: Each thread maps to one horizontal bucket index in hmap.
+ * Logic: Transfers all valid entries from every slot of the current bucket 
+ * into the new larger hash table using recalculated indices and linear probing.
+ */
 __global__ void  resize(my_hash newHash, my_hash hmap) {
 	unsigned int i = threadIdx.x + blockDim.x * blockIdx.x;
 	int idx, x, slot;
@@ -25,6 +47,7 @@ __global__ void  resize(my_hash newHash, my_hash hmap) {
 	if (!(i < hmap.hsize))
 		return;
 
+	// Scans all slots within the current bucket.
 	for (slot = 0; slot < NO_SLOTS; slot++) {
 		once = 0;
 
@@ -35,10 +58,15 @@ __global__ void  resize(my_hash newHash, my_hash hmap) {
 
 		once = 0;
 		int oldIdx = idx;
+		
+		/**
+		 * Block Logic: Target table probing loop.
+		 */
 		while(idx < newHash.hsize && once < 2) {
 			if (once == 1 && idx > oldIdx)
 				break;
 
+			// Probes all slots in the target bucket.
 			for(x = 0; x < NO_SLOTS; x++) {
 
 				int old = atomicCAS(&newHash.buckets[x][idx].key, KEY_INVALID, hmap.buckets[slot][i].key);
@@ -53,6 +81,7 @@ __global__ void  resize(my_hash newHash, my_hash hmap) {
 
 			idx++;
 			if (idx >= newHash.hsize) {
+				// Wraparound.
 				idx = 0;
 				once++;
 			}
@@ -62,6 +91,11 @@ __global__ void  resize(my_hash newHash, my_hash hmap) {
 	return;
 }
 
+/**
+ * Block Logic: Parallel atomic insertion kernel.
+ * Logic: Maps threads to input keys and performs bucketed linear probing. 
+ * It uses atomicCAS to find an empty slot or a matching key for updates.
+ */
 __global__ void insert(int *keys, int *values, int numKeys, my_hash hmap) {
 	unsigned int i = threadIdx.x + blockDim.x * blockIdx.x;
 	int x = 0;
@@ -83,6 +117,10 @@ __global__ void insert(int *keys, int *values, int numKeys, my_hash hmap) {
 	while(idx < hmap.hsize && once < 2) {
 		if (once == 1 && idx > oldIdx)
 			break;
+		
+		/**
+		 * Block Logic: Slot-wise atomic check.
+		 */
 		for(x = 0; x < NO_SLOTS; x++) {
 
 			int old = atomicCAS(&hmap.buckets[x][idx].key, KEY_INVALID, keys[i]);
@@ -100,6 +138,11 @@ __global__ void insert(int *keys, int *values, int numKeys, my_hash hmap) {
 	}
 }
 
+/**
+ * Block Logic: Parallel batch lookup kernel.
+ * Logic: Searches for keys starting from their hashed indices, checking 
+ * all slots in each bucket before progressing to the next.
+ */
 __global__ void get(int *keys, int *values, int numKeys, my_hash hmap) {
 	unsigned int i = threadIdx.x + blockDim.x * blockIdx.x;
 	int x = 0;
@@ -137,7 +180,11 @@ __global__ void get(int *keys, int *values, int numKeys, my_hash hmap) {
 	}
 }
 
-
+/**
+ * Functional Utility: Initializes the multi-slot GPU hash table.
+ * Logic: Allocates device memory for each slot array (buckets[i]) 
+ * and clears them to zero.
+ */
 GpuHashTable::GpuHashTable(int size) {
 	int i;
 	cudaError_t err;
@@ -155,7 +202,9 @@ GpuHashTable::GpuHashTable(int size) {
 	no_insPairs = 0;
 }
 
-
+/**
+ * Functional Utility: Reclaims GPU resources.
+ */
 GpuHashTable::~GpuHashTable() {
 	int i;
 	no_insPairs = 0;
@@ -168,7 +217,11 @@ GpuHashTable::~GpuHashTable() {
 	}
 }
 
-
+/**
+ * Functional Utility: Expands table capacity and migrates data.
+ * Logic: Allocates new larger slot arrays, executes the resize kernel 
+ * to re-hash existing entries, and synchronizes the device.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) {
 	int i;
 	cudaError_t err;
@@ -206,7 +259,11 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 	hmap = newHash;
 }
 
-
+/**
+ * Functional Utility: Orchestrates high-throughput parallel insertions.
+ * Logic: Monitors load factor and triggers reshape if it exceeds 90%. 
+ * Transfers batch data to GPU and launches the insertion kernel.
+ */
 bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	int *device_keys = 0;
 	int *device_values = 0;
@@ -256,7 +313,9 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	return true;
 }
 
-
+/**
+ * Functional Utility: Parallel batch retrieval of values.
+ */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	int *host_values = 0;
 	int *device_keys = 0;
@@ -307,16 +366,15 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	return host_values;
 }
 
-
-
-
+/**
+ * Functional Utility: Returns the current occupancy ratio.
+ */
 float GpuHashTable::loadFactor() {
 	if (hmap.hsize == 0)
 		return 0;
 
 	return float(no_insPairs) / (hmap.hsize);
 }
-
 
 
 #define HASH_INIT GpuHashTable GpuHashTable(1);
@@ -389,8 +447,6 @@ const size_t primeList[] =
 	359163406191658253llu, 452517535812813007llu, 570136368817120201llu,
 	718326812383316683llu, 905035071625626043llu, 1140272737634240411llu,
 	1436653624766633509llu, 1810070143251252131llu, 2280545475268481167llu,
-
-
 	2873307249533267101llu, 3620140286502504283llu, 4561090950536962147llu,
 	5746614499066534157llu, 7240280573005008577llu, 9122181901073924329llu,
 	11493228998133068689llu, 14480561146010017169llu, 18446744073709551557llu
@@ -445,4 +501,3 @@ class GpuHashTable
 };
 
 #endif
-

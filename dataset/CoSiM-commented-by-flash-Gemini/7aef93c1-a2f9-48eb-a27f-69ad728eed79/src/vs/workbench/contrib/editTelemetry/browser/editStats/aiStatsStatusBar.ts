@@ -1,3 +1,11 @@
+/**
+ * @7aef93c1-a2f9-48eb-a27f-69ad728eed79/src/vs/workbench/contrib/editTelemetry/browser/editStats/aiStatsStatusBar.ts
+ * @brief Workbench contribution for visualizing AI-driven code generation metrics in the status bar.
+ * Domain: VS Code Workbench, Telemetry, UI Extensibility.
+ * Architecture: Implements a reactive UI component using the VS Code Observable pattern to track and display real-time AI usage statistics.
+ * Functional Utility: Provides a visual progress-style bar in the status bar and a detailed hover tooltip containing aggregate statistics (AI-generated code percentage, accepted suggestions).
+ */
+
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -18,6 +26,11 @@ import { AI_STATS_SETTING_ID } from '../settingIds.js';
 import type { AiStatsFeature } from './aiStatsFeature.js';
 import './media.css';
 
+/**
+ * @brief Core status bar contribution class.
+ * Lifecycle: Managed via Disposable pattern.
+ * Synchronization: Uses 'autorun' to automatically update the status bar entry when the underlying AiStatsFeature data changes.
+ */
 export class AiStatsStatusBar extends Disposable {
 	public static readonly hot = createHotClass(AiStatsStatusBar);
 
@@ -33,6 +46,8 @@ export class AiStatsStatusBar extends Disposable {
 
 			const store = this._register(new DisposableStore());
 
+			// Block Logic: Registration of the UI entry into the global StatusbarService.
+			// Alignment: Positions the item on the right side of the status bar with priority 100.
 			reader.store.add(this._statusbarService.addEntry({
 				name: localize('inlineSuggestions', "Inline Suggestions"),
 				ariaLabel: localize('inlineSuggestionsStatusBar', "Inline suggestions status bar"),
@@ -50,7 +65,11 @@ export class AiStatsStatusBar extends Disposable {
 		}));
 	}
 
-
+	/**
+	 * @brief Generates the primary DOM structure for the status bar indicator.
+	 * Logic: Creates a horizontal bar where the filled width represents the AI generation rate.
+	 * @return Reactive DOM node.
+	 */
 	private _createStatusBar() {
 		return n.div({
 			style: {
@@ -89,6 +108,7 @@ export class AiStatsStatusBar extends Disposable {
 					}, [
 						n.div({
 							style: {
+								// Synchronization: width is reactively bound to the AI rate percentage.
 								width: this._aiStatsFeature.aiRate.map(v => `${v * 100}%`),
 								backgroundColor: 'currentColor',
 							}
@@ -99,6 +119,11 @@ export class AiStatsStatusBar extends Disposable {
 		]);
 	}
 
+	/**
+	 * @brief Constructs the detailed overlay (hover) UI.
+	 * Logic: Displays numerical percentages and absolute counts of AI-accepted suggestions.
+	 * Includes a gear icon to jump to relevant settings.
+	 */
 	private _createStatusBarHover() {
 		const aiRatePercent = this._aiStatsFeature.aiRate.map(r => `${Math.round(r * 100)}%`);
 
@@ -119,6 +144,7 @@ export class AiStatsStatusBar extends Disposable {
 								id: 'foo',
 								label: '',
 								enabled: true,
+								// Functional Utility: Navigation to configuration page.
 								run: () => openSettingsCommand({ ids: [AI_STATS_SETTING_ID] }).run(this._commandService),
 								class: ThemeIcon.asClassName(Codicon.gear),
 								tooltip: ''
@@ -157,6 +183,9 @@ export class AiStatsStatusBar extends Disposable {
 	}
 }
 
+/**
+ * @brief Helper for constructing reactive ActionBar components within the DOM.
+ */
 function actionBar(actions: { action: IAction; options: IActionOptions }[], options?: IActionBarOptions) {
 	return derived((_reader) => n.div({
 		class: [],
@@ -171,6 +200,9 @@ function actionBar(actions: { action: IAction; options: IActionOptions }[], opti
 	}));
 }
 
+/**
+ * @brief Immutable command object for executing VS Code platform actions with specific arguments.
+ */
 class CommandWithArgs {
 	constructor(
 		public readonly commandId: string,
@@ -182,6 +214,9 @@ class CommandWithArgs {
 	}
 }
 
+/**
+ * @brief Factory for the 'Open Settings' command scoped to AI statistics.
+ */
 function openSettingsCommand(options: { ids?: string[] } = {}) {
 	return new CommandWithArgs('workbench.action.openSettings', [{
 		query: options.ids ? options.ids.map(id => `@id:${id}`).join(' ') : undefined,

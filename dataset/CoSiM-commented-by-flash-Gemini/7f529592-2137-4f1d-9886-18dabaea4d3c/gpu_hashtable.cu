@@ -1,10 +1,23 @@
 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
+/**
+ * @7f529592-2137-4f1d-9886-18dabaea4d3c/gpu_hashtable.cu
+ * @brief CUDA implementation of a high-performance Hash Table with linear probing.
+ * This file provides a thread-safe parallel hash table for GPU architectures. 
+ * It employs linear probing for collision resolution and ensures transactional 
+ * integrity during concurrent batch insertions and lookups using atomic 
+ * operations (atomicCAS). The implementation features dynamic resizing and 
+ * automatic occupancy tracking for efficient load-factor monitoring.
+ * 
+ * Algorithm: Open addressing with linear probing and prime multiplicative hashing.
+ * Domain: HPC, Parallel Data Structures, CUDA.
+ */
+
+#include <iostream>
+#include <cstdio>
+#include <cstdlib>
+#include <ctime>
+#include <cmath>
+#include <algorithm>
 
 #include "gpu_hashtable.hpp"
 
@@ -20,10 +33,18 @@ int hashSize;
 
 myPair* hashTable;
 
+/**
+ * Functional Utility: Device-side integer hash function.
+ * Logic: Uses prime-based multiplicative hashing to map keys to bucket indices.
+ */
 __device__ int hashFunction(int data, int limit) {
 	return ((long)abs(data) * 41812097llu) % 142534092204280003llu % limit;
 }
 
+/**
+ * Functional Utility: Initializes the GPU hash table with a given capacity.
+ * Logic: Allocates device memory for buckets and clears it.
+ */
 GpuHashTable::GpuHashTable(int size) {
 	
 	elementsInHash = 0;
@@ -35,13 +56,19 @@ GpuHashTable::GpuHashTable(int size) {
 		return;
 }
 
-
-
-
+/**
+ * Functional Utility: Reclaims GPU resources.
+ */
 GpuHashTable::~GpuHashTable() {
 	cudaFree(hashTable);
 }
 
+/**
+ * Block Logic: Resizing kernel for migrating entries.
+ * Thread Indexing: Each thread maps to one slot in the original table.
+ * Logic: Transfers all non-empty buckets from the old hash table to the 
+ * new larger table, re-calculating indices using the updated capacity.
+ */
 __global__ void kernel_reshape(myPair* newHashTable, myPair* hashTable, int oldSize, int hashSize) {
  	
  	unsigned int i = threadIdx.x + blockDim.x * blockIdx.x;
@@ -51,6 +78,9 @@ __global__ void kernel_reshape(myPair* newHashTable, myPair* hashTable, int oldS
  	
  	int startIndex = hashFunction(hashTable[i].key, hashSize);
 
+ 	/**
+ 	 * Block Logic: Linear probing loop with wraparound for migration.
+ 	 */
  	for (int index = startIndex; index < hashSize; index++){
   		
   		int prev = atomicCAS(&newHashTable[index].key, 0, hashTable[i].key);
@@ -70,7 +100,11 @@ __global__ void kernel_reshape(myPair* newHashTable, myPair* hashTable, int oldS
  	}
 }
 
-
+/**
+ * Functional Utility: Expands hash table capacity and migrates data.
+ * Logic: Allocates a larger table, launches the reshape kernel, and 
+ * synchronizes before updating internal state pointers.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) {
 	int oldSize = hashSize;
 	hashSize = numBucketsReshape;
@@ -96,7 +130,11 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 	hashTable = newHashTable;
 }
 
-
+/**
+ * Block Logic: Parallel atomic insertion kernel.
+ * Logic: Maps multiple threads to input keys and uses atomicCAS to 
+ * claim empty slots or update existing keys in the hash table.
+ */
 __global__ void kernel_insert(myPair* hashTable, int* keysArray, int* valuesArray, int numKeys, 
 											int hashSize, int elementsInHash) {
  	unsigned int i = threadIdx.x + blockDim.x * blockIdx.x;
@@ -131,12 +169,13 @@ __global__ void kernel_insert(myPair* hashTable, int* keysArray, int* valuesArra
  	}
 }
 
-
-
+/**
+ * Functional Utility: Orchestrates high-throughput parallel insertions.
+ * Logic: Monitors load factor and triggers reshape if it exceeds 90%. 
+ * Transfers batch data to GPU and launches the insertion kernel.
+ */
 bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	int *keysArray;
-
-
 	int *valuesArray;
 	
 	cudaMalloc((void **) &keysArray, numKeys*sizeof(int));
@@ -167,7 +206,10 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	return true;
 }
 
-
+/**
+ * Block Logic: Parallel batch lookup kernel.
+ * Logic: Searches for keys starting from their hashed positions using linear probing.
+ */
 __global__ void kernel_get(myPair* hashTable, int* keys, int* values, int numKeys, int hashSize) {
  	unsigned int i = threadIdx.x + blockDim.x * blockIdx.x;
 	if (i >= numKeys) return;
@@ -187,6 +229,10 @@ __global__ void kernel_get(myPair* hashTable, int* keys, int* values, int numKey
   	}
 }
 
+/**
+ * Functional Utility: Retrieves a batch of values for given keys in parallel.
+ * Logic: Executes lookup kernel and returns result array in host memory.
+ */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	int *storeKeys;
 	int *deviceValues;
@@ -220,7 +266,9 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	return hostValues;
 }
 
-
+/**
+ * Functional Utility: Returns the ratio of occupied buckets to total capacity.
+ */
 float GpuHashTable::loadFactor() {
 	if (hashSize == 0)
 		return 0.f; 
@@ -337,4 +385,3 @@ class GpuHashTable
 };
 
 #endif
-

@@ -1,10 +1,31 @@
 
+/**
+ * @file solver_opt.c
+ * @brief An optimized, loop-based implementation of a matrix solver.
+ *
+ * @warning The low-level optimizations in this file, particularly the complex
+ *          pointer arithmetic and loop restructuring, appear to contain significant
+ *          bugs. While the high-level intent seems to be the same as other solvers,
+ *          the implementation likely does not produce the correct mathematical result.
+ */
 #include "utils.h"
 #include "string.h"
 
-
+/**
+ * @brief Performs a sequence of matrix operations using flawed, optimized naive loops.
+ *
+ * @param N The dimension of the square matrices A and B.
+ * @param A A pointer to the first input matrix (N x N).
+ * @param B A pointer to the second input matrix (N x N).
+ * @return A pointer to the resulting matrix C. The caller is responsible for freeing this memory.
+ *
+ * @note This function attempts to compute the expression C = (A * B) * B^T + A^T * A.
+ *       It uses manual pointer arithmetic and the `register` keyword. However, the
+ *       implementation of the loops is incorrect.
+ */
 double* my_solver(int N, double *A, double* B) {
-	printf("OPT SOLVER\n");
+	printf("OPT SOLVER
+");
 	double *C = malloc(N * N * sizeof(*C));
 	double *aux = calloc(N * N, sizeof(*aux));
 	double *At = malloc(N * N * sizeof(*At));
@@ -12,6 +33,9 @@ double* my_solver(int N, double *A, double* B) {
 	int i, j, k;
 
 	
+	// Block Logic (Intended): Compute aux = A * B, treating A as an upper triangular matrix.
+	// NOTE: The loop structure and pointer handling here are flawed and do not correctly
+	// perform the matrix multiplication.
 	for (i = 0; i < N; ++i) {
 		pB = B + i * N;
 		for (k = i; k < N; ++k) {
@@ -26,6 +50,8 @@ double* my_solver(int N, double *A, double* B) {
 	}
 
 	
+	// Block Logic (Intended): Compute C = aux * B^T.
+	// NOTE: This loop also contains flawed pointer logic.
 	pC = C;
 	for (i = 0; i < N; ++i) {
 		pB = B;
@@ -43,6 +69,7 @@ double* my_solver(int N, double *A, double* B) {
 	}
 
 	
+	// Block Logic: Transpose matrix A into At. This part appears correct.
 	pA = A;
 	for (i = 0; i < N; ++i) {
 		double *pAt = At + i;
@@ -55,6 +82,8 @@ double* my_solver(int N, double *A, double* B) {
 
 
 	
+	// Block Logic (Intended): Overwrite aux to compute aux = A^T * A.
+	// NOTE: The loop bounds and pointer logic are unusual and likely incorrect.
 	paux = aux;
 	for (i = 0; i < N; ++i) {
 		for (j = 0; j < N; ++j) {
@@ -72,6 +101,7 @@ double* my_solver(int N, double *A, double* B) {
 	}
 
 	
+	// Block Logic: Perform the final addition C = C + aux.
 	pC = C;
 	paux = aux;
 	for (i = 0; i < N; ++i) {
@@ -82,6 +112,7 @@ double* my_solver(int N, double *A, double* B) {
 		}
 	}
 
+	// Free intermediate buffers.
 	free(aux);
 	free(At);
 	return C;

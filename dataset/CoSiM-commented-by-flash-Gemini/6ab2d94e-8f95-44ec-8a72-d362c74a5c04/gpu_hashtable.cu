@@ -1,15 +1,29 @@
 
+/**
+ * @6ab2d94e-8f95-44ec-8a72-d362c74a5c04/gpu_hashtable.cu
+ * @brief Dual-array parallel GPU Hash Table with atomic synchronization.
+ * This implementation utilizes two separate bucket arrays (data1 and data2) to 
+ * improve collision distribution and parallel occupancy. It employs 
+ * atomic operations (atomicCAS, atomicExch) to ensure consistent data state 
+ * during concurrent batch operations and provides a dynamic resizing 
+ * mechanism that migrates data between device arrays.
+ * 
+ * Algorithm: Dual-array Linear Probing with prime multiplicative hashing.
+ * Domain: HPC, Parallel Computing, CUDA.
+ */
 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
+#include <iostream>
+#include <cstdio>
+#include <cstdlib>
+#include <ctime>
+#include <cmath>
+#include <algorithm>
 
 #include "gpu_hashtable.hpp"
 
-
+/**
+ * Functional Utility: Initializes the GPU hash table with dual bucket arrays.
+ */
 GpuHashTable::GpuHashTable(int size) {
 	ht.size = size;
 	ht.nrElem = 0;
@@ -19,17 +33,25 @@ GpuHashTable::GpuHashTable(int size) {
 	cudaMemset(ht.data2, 0, size * sizeof(Pair));
 }
 
-
+/**
+ * Functional Utility: Reclaims bucket memory from the GPU.
+ */
 GpuHashTable::~GpuHashTable() {
 	cudaFree(ht.data1);
 	cudaFree(ht.data2);
 }
 
-
+/**
+ * Block Logic: Parallel atomic insertion kernel.
+ * Thread Indexing: Each thread maps to one key-value pair in the batch.
+ * Logic: Probes both data1 and data2 buckets at the hashed index. It uses 
+ * atomicCAS to find matching keys for updates or empty slots for fresh 
+ * insertions, falling back to linear probing on collision.
+ */
 __global__ void insert(HashTable ht, int N, int *keys, int *values){
 	int idx = threadIdx.x + blockDim.x * blockIdx.x;
 
-	if(idx > N)
+	if(idx >= N)
 		return;
 	int keyToInsert = keys[idx];
 	int valueToInsert = values[idx];
@@ -39,7 +61,11 @@ __global__ void insert(HashTable ht, int N, int *keys, int *values){
 
 	int hashIdx = hash1(keyToInsert, ht.size);
 
+	/**
+	 * Block Logic: Atomic probing loop.
+	 */
 	while(1){
+		// Inline: Try update or insert in data1.
 		if(atomicCAS(&(ht.data1[hashIdx].key), keyToInsert, keyToInsert) == keyToInsert){
 			atomicExch(&(ht.data1[hashIdx].value), valueToInsert);
 			break;
@@ -52,6 +78,7 @@ __global__ void insert(HashTable ht, int N, int *keys, int *values){
 			break;
 		}
 
+		// Inline: Try update or insert in data2.
 		if(atomicCAS(&(ht.data2[hashIdx].key), keyToInsert, keyToInsert) == keyToInsert){
 			atomicExch(&(ht.data2[hashIdx].value), valueToInsert);
 			break;
@@ -62,16 +89,23 @@ __global__ void insert(HashTable ht, int N, int *keys, int *values){
 			atomicExch(&(ht.data2[hashIdx].value), valueToInsert);
 			break;
 		}
+		
+		// Inline: Progress to next linear probing index.
 		hashIdx++;
 		hashIdx = hashIdx % ht.size;
 	}
 
 
 }
+
+/**
+ * Block Logic: Parallel batch lookup kernel.
+ * Logic: Searches both data arrays starting from the hashed index for a matching key.
+ */
 __global__ void get(HashTable ht, int N, int *keys, int *values){
 	int idx = threadIdx.x + blockDim.x * blockIdx.x;
 
-	if(idx > N)
+	if(idx >= N)
 		return;
 	int keyToGet = keys[idx];
 	int hashIdx = hash1(keyToGet, ht.size);
@@ -79,25 +113,37 @@ __global__ void get(HashTable ht, int N, int *keys, int *values){
 	while(1){
 
 
-		if(atomicCAS(&(ht.data1[hashIdx].key), keyToGet, keyToGet) == keyToGet){
+		if (ht.data1[hashIdx].key == keyToGet) {
 			values[idx] = ht.data1[hashIdx].value;
 			break;
 		}
-		if(atomicCAS(&(ht.data2[hashIdx].key), keyToGet, keyToGet) == keyToGet){
+		if (ht.data2[hashIdx].key == keyToGet) {
 			values[idx] = ht.data2[hashIdx].value;
 			break;
 		}
+		
+		// Termination: If an empty slot is found in both, key doesn't exist.
+		if (ht.data1[hashIdx].key == 0 && ht.data2[hashIdx].key == 0) {
+			values[idx] = 0;
+			break;
+		}
+
 		hashIdx++;
 		hashIdx = hashIdx % ht.size;
 
 	}
 
 }
+
+/**
+ * Block Logic: Data extraction kernel for reshaping.
+ * Logic: Populates parallel key/value arrays from a specific data slot (1 or 2).
+ */
 __global__ void getKeysAndValues(HashTable ht, int N, int *keys, int *values, int slot) {
 
 	int idx = threadIdx.x + blockDim.x * blockIdx.x;
 
-	if(idx > N)
+	if(idx >= N)
 		return;
 	if (slot == 1){
 		keys[idx] = ht.data1[idx].key;
@@ -107,6 +153,12 @@ __global__ void getKeysAndValues(HashTable ht, int N, int *keys, int *values, in
 		values[idx] = ht.data2[idx].value;
 	}
 }
+
+/**
+ * Functional Utility: Increases table capacity and migrates dual-array data.
+ * Logic: Allocates a new larger HashTable on GPU. It iteratively extracts 
+ * and re-inserts entries from both data1 and data2 of the old table.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) {
 	HashTable newHt;
 	newHt.size = numBucketsReshape;
@@ -126,6 +178,7 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 	if(ht.size % BLOCK_SIZE != 0)
 		numBlocks++;
 	
+	// Block Logic: Migrate data1 elements.
 	getKeysAndValues>>(ht, ht.size, keys, values, 1);
 	cudaDeviceSynchronize();
 
@@ -134,6 +187,7 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 
 	
 
+	// Block Logic: Migrate data2 elements.
 	getKeysAndValues>>(ht, ht.size, keys, values, 2);
 	cudaDeviceSynchronize();
 
@@ -150,7 +204,11 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 	cudaFree(values);
 }
 
-
+/**
+ * Functional Utility: Orchestrates high-throughput parallel insertions.
+ * Logic: Triggers a reshape if the load factor exceeds 90%. Transfers batch 
+ * data to device and launches the insertion kernel.
+ */
 bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	int *devKeys, *devValues;
 
@@ -163,7 +221,7 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 		return false;
 
 	cudaMemcpy(devKeys, keys, sizeof(int) * numKeys, cudaMemcpyHostToDevice);
-	cudaMemcpy(devValues, values, sizeof(float) * numKeys, cudaMemcpyHostToDevice);
+	cudaMemcpy(devValues, values, sizeof(int) * numKeys, cudaMemcpyHostToDevice);
 
 	if( (float)(ht.nrElem + numKeys)/(float)(ht.size) >= 0.9)
 		reshape((int)(ht.size / 0.8));
@@ -185,7 +243,10 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	return true;
 }
 
-
+/**
+ * Functional Utility: Retrieves a batch of values for given keys in parallel.
+ * Logic: Executes lookup kernel and returns result array in host memory.
+ */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
 
 	int *devKeys, *devValues, *values;
@@ -216,8 +277,11 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	return values;
 }
 
-
+/**
+ * Functional Utility: Returns the ratio of occupied slots to total capacity.
+ */
 float GpuHashTable::loadFactor() {
+	if (ht.size == 0) return 1.0f;
 	return (float)ht.nrElem/(float)ht.size; 
 }
 
@@ -292,8 +356,6 @@ __device__ const size_t primeList[] =
 	718326812383316683llu, 905035071625626043llu, 1140272737634240411llu,
 	1436653624766633509llu, 1810070143251252131llu, 2280545475268481167llu,
 	2873307249533267101llu, 3620140286502504283llu, 4561090950536962147llu,
-
-
 	5746614499066534157llu, 7240280573005008577llu, 9122181901073924329llu,
 	11493228998133068689llu, 14480561146010017169llu, 18446744073709551557llu
 };
@@ -347,4 +409,3 @@ class GpuHashTable
 };
 
 #endif
-

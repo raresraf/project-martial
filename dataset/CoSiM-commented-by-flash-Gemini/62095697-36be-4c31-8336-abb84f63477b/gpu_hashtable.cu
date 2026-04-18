@@ -1,22 +1,45 @@
 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
+/**
+ * @62095697-36be-4c31-8336-abb84f63477b/gpu_hashtable.cu
+ * @brief Bucketed GPU Hash Table with parallel linear probing and dynamic resizing.
+ * This implementation organizes entries into multi-slot buckets on the GPU to 
+ * optimize memory access patterns and reduce lock contention. It uses atomic 
+ * operations (atomicCAS, atomicExch) to handle concurrent insertions and updates 
+ * within buckets. Collision resolution is achieved through linear probing 
+ * both within buckets and across the bucket array.
+ * 
+ * Algorithm: Bucketed Linear Probing with multiplicative hashing.
+ * Domain: HPC, Parallel Data Structures, CUDA.
+ */
+
+#include <iostream>
+#include <cstdio>
+#include <cstdlib>
+#include <ctime>
+#include <cmath>
+#include <algorithm>
 
 #include "gpu_hashtable.hpp"
 
 #define PRIME1 49157
 #define PRIME2 402653189
 
+/**
+ * Functional Utility: Device-side prime multiplicative hash function.
+ */
 __device__ int h(int data, int limit) {
 
 
 	return ((long)abs(data) * PRIME1) % PRIME2 % limit;
 }
 
+/**
+ * Block Logic: Parallel atomic insertion kernel.
+ * Thread Indexing: Each thread maps to one key-value pair in the batch.
+ * Logic: Implements a two-phase insertion strategy. First, it probes buckets 
+ * for an existing key match to perform an update. If not found, it probes again 
+ * to claim an empty slot. Uses atomicCAS and atomicExch for thread-safety.
+ */
 __global__ void kernel_insert(Bucket *buckets, int *keys, int* values,
  		int numKeys, int buckets_no, int *occupied) {
 
@@ -36,11 +59,15 @@ __global__ void kernel_insert(Bucket *buckets, int *keys, int* values,
 	int old_key;
 
 	
+	/**
+	 * Block Logic: Probing loop across buckets.
+	 */
 	for (int step = 0; step < buckets_no; step++) {
 		
 		int idx = (key_idx + step) % buckets_no;
 
 		
+		// Inline: Internal bucket probe for existing key (Update phase).
 		for (int i = 0; i < BUCKET_SIZE; i++) {
 			old_key = atomicCAS(&buckets[idx].entries[i].key, key, key);
 			if (old_key == key) {
@@ -50,6 +77,7 @@ __global__ void kernel_insert(Bucket *buckets, int *keys, int* values,
 		}
 
 		
+		// Inline: Internal bucket probe for empty slot (Insertion phase).
 		for (int i = 0; i < BUCKET_SIZE; i++) {
 			old_key = atomicCAS(&buckets[idx].entries[i].key, 0, key);
 			if (old_key == 0) {
@@ -61,8 +89,11 @@ __global__ void kernel_insert(Bucket *buckets, int *keys, int* values,
 	}
 }
 
-
-
+/**
+ * Block Logic: Parallel batch lookup kernel.
+ * Logic: Searches for matching keys within buckets starting from the hash 
+ * index and continuing via linear probing.
+ */
 __global__ void kernel_get(Bucket *buckets, int *keys, int* values, int numKeys, int buckets_no) {
 	int thread_idx = blockIdx.x * blockDim.x + threadIdx.x;
 	if (thread_idx >= numKeys)
@@ -95,6 +126,11 @@ __global__ void kernel_get(Bucket *buckets, int *keys, int* values, int numKeys,
 
 
 
+/**
+ * Block Logic: Bucketed resizing kernel for data migration.
+ * Logic: Iterates through old entries and re-distributes them into the 
+ * new larger bucket array using recalculated hash indices.
+ */
 __global__ void kernel_reshape(Bucket *new_buckets, Bucket *old_buckets,
 		int new_buckets_no, int old_buckets_no) {
 
@@ -138,7 +174,9 @@ __global__ void kernel_reshape(Bucket *new_buckets, Bucket *old_buckets,
 	}
 }
 
-
+/**
+ * Functional Utility: Initializes the bucketed hash table on the GPU.
+ */
 GpuHashTable::GpuHashTable(int size) {
 	int buckets_no = size / BUCKET_SIZE;
 	if (size % BUCKET_SIZE)
@@ -153,12 +191,18 @@ GpuHashTable::GpuHashTable(int size) {
 
 }
 
-
+/**
+ * Functional Utility: Reclaims bucket array memory.
+ */
 GpuHashTable::~GpuHashTable() {
 	cudaFree(hashtable.buckets);
 }
 
-
+/**
+ * Functional Utility: Expands bucket capacity and migrates data.
+ * Logic: Calculates new bucket count, allocates new memory, and launches 
+ * the reshaping kernel to re-hash existing entries.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) {
 	int new_buckets_no = numBucketsReshape / BUCKET_SIZE;
 	if (numBucketsReshape % BUCKET_SIZE)
@@ -194,7 +238,11 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 	hashtable.size = new_buckets_no * BUCKET_SIZE;
 }
 
-
+/**
+ * Functional Utility: Orchestrates high-throughput parallel batch insertions.
+ * Logic: Automatically triggers resizing based on current occupancy. 
+ * Transfers batch data to device and executes the insertion kernel.
+ */
 bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	
 	if (just_created) {
@@ -240,7 +288,10 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	return true;
 }
 
-
+/**
+ * Functional Utility: Parallel batch retrieval of values for given keys.
+ * Logic: Executes bucketed lookup kernel and returns results in host memory.
+ */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	int *values;
 	int *device_values, *device_keys;
@@ -271,7 +322,9 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	return values;
 }
 
-
+/**
+ * Functional Utility: Returns the ratio of elements to total bucket capacity.
+ */
 float GpuHashTable::loadFactor() {
 	if (hashtable.size == 0)
 		return 1;
@@ -293,7 +346,8 @@ float GpuHashTable::loadFactor() {
 #ifndef _HASHCPU_
 #define _HASHCPU_
 
-#include 
+#include <iostream>
+#include <string>
 
 using namespace std;
 

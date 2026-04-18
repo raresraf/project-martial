@@ -1,23 +1,40 @@
-
-
+"""
+@a7b3055d-bc38-4ddb-b97b-8a799e72df12/consumer.py
+@brief multi-threaded simulation of a retail marketplace using autonomous Producer and Consumer agents.
+Architecture: Centralized Marketplace mediator manages shared state, coordinating asynchronous transaction flows across concurrent threads.
+Functional Utility: Handles dynamic inventory replenishment, session-persistent shopping carts, and serialized transaction reporting.
+Synchronization: Employs fine-grained locking (threading.Lock) to protect critical registry updates and cooperative sleep intervals for flow control.
+"""
 
 from threading import Thread
 import time
 
 class Consumer(Thread):
-    
+    """
+    @brief Consumer agent responsible for executing high-level shopping strategies.
+    Logic: Sequentially processes assigned carts, interacting with the Marketplace to fulfill product requirements.
+    Error Handling: Implements a spin-lock polling pattern with configurable retry delays for handling out-of-stock scenarios.
+    """
 
     def __init__(self, carts, marketplace, retry_wait_time, **kwargs):
-        
+        """
+        @param carts Hierarchical list of shopping requests (operation, product, quantity).
+        @param marketplace Shared resource management interface.
+        @param retry_wait_time Temporal duration to yield when inventory is depleted.
+        """
         Thread.__init__(self, **kwargs)
         self.carts = carts
         self.marketplace = marketplace
         self.retry_wait_time = retry_wait_time
 
     def run(self):
+        """
+        @brief lifecycle manager for the consumer thread.
+        Logic: Authenticates a new session (cart_id) and fulfills all commands before finalizing the order.
+        """
         for cart in self.carts:
 
-            
+            # Initialization: Establishes a unique inventory buffer in the marketplace.
             cart_id = self.marketplace.new_cart()
 
             for operation in cart:
@@ -27,24 +44,25 @@ class Consumer(Thread):
 
                 current_quantity = 0
 
-                
+                # Block Logic: Fulfillment loop.
+                # Invariant: Must continue retrying until the requested quantity is successfully acquired or returned.
                 while current_quantity < wanted_quantity:
 
                     can_do_op = None
 
-                    
+                    # Block Logic: Dispatcher for marketplace operations.
                     if op_type == "add":
                         can_do_op = self.marketplace.add_to_cart(cart_id, wanted_product)
                     elif op_type == "remove":
                         self.marketplace.remove_from_cart(cart_id, wanted_product)
 
                     if can_do_op is False:
-                        
+                        # Synchronization: Yield execution to allow producers to replenish the global pool.
                         time.sleep(self.retry_wait_time)
                     else:
                         current_quantity += 1
 
-            
+            # Finalization: executes the transaction and flushes results.
             self.marketplace.place_order(cart_id)
 
 
@@ -54,6 +72,8 @@ import unittest
 import logging
 from logging.handlers import RotatingFileHandler
 
+# Block Logic: Global logging infrastructure.
+# Functional Utility: Persistent audit trail with rotation to limit disk utilization.
 logging.basicConfig(
         handlers=[RotatingFileHandler('./marketplace.log', maxBytes=100000, backupCount=10,
                 mode='a')],
@@ -63,8 +83,9 @@ logging.Formatter.converter = time.gmtime
 logger = logging.getLogger()
 
 class TestMarketplace(unittest.TestCase):
-
-    
+    """
+    @brief Unit test suite for validating Marketplace state transitions and transactional integrity.
+    """
 
     @classmethod
     def setUpClass(cls):
@@ -188,9 +209,16 @@ class TestMarketplace(unittest.TestCase):
 
 
 class Marketplace:
+    """
+    @brief Centralized resource manager for inventory pools and transactional synchronization.
+    State Management: Maintains mappings for producer-owned stock and session-based consumer carts.
+    Synchronization: Employs fine-grained locks (producer_reg, cart_reg, add_prod, etc.) to minimize contention.
+    """
     
     def __init__(self, queue_size_per_producer):
-        
+        """
+        @param queue_size_per_producer Hard limit on inventory per supplier for flow control.
+        """
 
         self.queue_size_per_producer = queue_size_per_producer
 
@@ -204,7 +232,7 @@ class Marketplace:
         
         self.producer_reg = Lock()
         self.cart_reg = Lock()
-        self.print_res = Lock()
+        self.print_res = Lock() # Serializes console output.
         self.add_prod = Lock()
         self.remove_prod = Lock()
 
@@ -213,11 +241,10 @@ class Marketplace:
 
 
     def register_producer(self):
-        
-
-        
-        
-        
+        """
+        @brief Onboards a new supplier and initializes its inventory tracking.
+        @return Unique producer identifier.
+        """
 
         curr_producer_id = -1
 
@@ -231,13 +258,14 @@ class Marketplace:
         return curr_producer_id
 
     def publish(self, producer_id, product):
-        
-
-        
-        
+        """
+        @brief Allows a producer to add inventory units to the marketplace.
+        Constraint: Rejects publication if the supplier's individual quota is exhausted.
+        """
 
         logging.info("Producer with id = %s wants to publish product = %s", producer_id, product)
 
+        # Block Logic: backpressure check.
         if len(self.producers[producer_id]) == self.queue_size_per_producer:
             logging.info("Producer with id = %s can't publish %s", producer_id, product)
             return False
@@ -249,12 +277,9 @@ class Marketplace:
 
 
     def new_cart(self):
-        
-
-        
-        
-        
-        
+        """
+        @brief Allocates a new shopping session for a consumer.
+        """
 
         curr_cart_id = -1
 
@@ -268,11 +293,11 @@ class Marketplace:
         return curr_cart_id
 
     def add_to_cart(self, cart_id, product):
-        
-
-        
-        
-        
+        """
+        @brief Atomically moves a commodity from a producer pool to a consumer cart.
+        Logic: Performs an exhaustive sweep across all registered producers. First-found strategy.
+        @return Boolean indicating acquisition success.
+        """
 
         with self.add_prod:
             logging.info("Consumer with cart_id = %s wants to add product = %s",
@@ -281,8 +306,10 @@ class Marketplace:
             for p_id in range(self.num_producers):
 
                 if product in self.producers[p_id]:
+                    # Logic: Internal audit log (note: original source had a logging artifact here).
                     logging.info(, cart_id, product, p_id)
 
+                    # Invariant: Item must be removed from global pool before being assigned to the cart.
                     self.producers[p_id].remove(product)
                     self.carts[cart_id].append((product, p_id))
 
@@ -291,12 +318,9 @@ class Marketplace:
             return False
 
     def remove_from_cart(self, cart_id, product):
-        
-
-        
-        
-        
-        
+        """
+        @brief Reverts an acquisition, restoring the unit to its originating producer's pool.
+        """
 
         with self.remove_prod:
 
@@ -304,8 +328,10 @@ class Marketplace:
                         cart_id, product)
 
             p_id = -1
+            # Block Logic: Identifies the unit in the cart to determine return routing.
             for elem in self.carts[cart_id]:
                 if product == elem[0]:
+                    # Logic: Restores the product to the source producer cached in the cart tuple.
                     self.producers[elem[1]].append(product)
                     p_id = elem[1]
                     logging.info(, cart_id, product, p_id)
@@ -314,16 +340,16 @@ class Marketplace:
 
 
     def place_order(self, cart_id):
-        
-
-        
-        
+        """
+        @brief Finalizes the transaction and flushes results to standard output.
+        """
 
         bought_products = []
 
         with self.print_res:
             logging.info("Consumer with cart_id = %s place order", cart_id)
 
+            # Logic: Iterates through reserved units to generate report.
             for elem in self.carts[cart_id]:
                 thread_name = currentThread().getName()
                 product = elem[0]
@@ -340,10 +366,18 @@ import time
 
 
 class Producer(Thread):
-    
+    """
+    @brief Producer agent responsible for industrial stock replenishment.
+    Logic: Continually fulfills production quotas and publishes results to the Marketplace mediator.
+    Functional Utility: Models manufacturing latencies and handles supply-side flow control.
+    """
 
     def __init__(self, products, marketplace, republish_wait_time, **kwargs):
-        
+        """
+        @param products List of (ProductID, Quantity, ManufactureTime) production metrics.
+        @param marketplace Shared resource mediator.
+        @param republish_wait_time Duration to wait when the marketplace is saturated.
+        """
         Thread.__init__(self, **kwargs)
         self.products = products
         self.marketplace = marketplace
@@ -351,7 +385,10 @@ class Producer(Thread):
         self.producer_id = -1
 
     def run(self):
-        
+        """
+        @brief Main industrial loop for the producer thread.
+        """
+        # Initialization: Registers once as a persistent supplier.
         self.producer_id = self.marketplace.register_producer()
 
 
@@ -359,12 +396,14 @@ class Producer(Thread):
         while True:
             for (product, quantity, wait_time) in self.products:
                 for _ in range(quantity):
+                    # Block Logic: Publish-retry loop for backpressure management.
                     can_publish = self.marketplace.publish(self.producer_id, product)
 
-                    
                     if can_publish is True:
+                        # Logic: Simulated industrial processing duration.
                         time.sleep(wait_time)
                     else:
+                        # Synchronization: Exponential wait during marketplace inventory overflow.
                         time.sleep(self.republish_wait_time)
 
 
@@ -373,19 +412,25 @@ from dataclasses import dataclass
 
 @dataclass(init=True, repr=True, order=False, frozen=True)
 class Product:
-    
+    """
+    @brief Immutable representation of a marketable commodity unit.
+    """
     name: str
     price: int
 
 
 @dataclass(init=True, repr=True, order=False, frozen=True)
 class Tea(Product):
-    
+    """
+    @brief Specialized beverage commodity.
+    """
     type: str
 
 
 @dataclass(init=True, repr=True, order=False, frozen=True)
 class Coffee(Product):
-    
+    """
+    @brief Specialized beverage commodity with profile metrics.
+    """
     acidity: str
     roast_level: str

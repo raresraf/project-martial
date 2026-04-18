@@ -1,10 +1,23 @@
 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
+/**
+ * @5dc02a79-25ff-4531-afe6-e63a747161ad/gpu_hashtable.cu
+ * @brief CUDA Hash Table with double-hashing collision resolution.
+ * This implementation utilizes two independent hash functions (h1 and h2) to 
+ * resolve collisions via open addressing. It manages its capacity dynamically 
+ * and ensures thread safety through atomic Compare-And-Swap (atomicCAS) 
+ * operations. The table and its metadata are stored in Managed Memory 
+ * for Host-Device consistency.
+ * 
+ * Algorithm: Double Hashing.
+ * Domain: HPC, Parallel Data Structures, CUDA.
+ */
+
+#include <iostream>
+#include <cstdio>
+#include <cstdlib>
+#include <ctime>
+#include <cmath>
+#include <algorithm>
 
 #include "gpu_hashtable.hpp"
 
@@ -18,7 +31,11 @@ static void HandleError(cudaError_t err, const char *file, int line ) {
 }
 #define HANDLE_ERROR( err ) (HandleError( err, __FILE__, __LINE__ ))
 
-
+/**
+ * Functional Utility: Initializes the GPU hash table with a prime capacity.
+ * Logic: Increments size to the next prime number, allocates managed 
+ * memory for the structure and device memory for buckets.
+ */
 GpuHashTable::GpuHashTable(int size)
 {
 	int flag = 0, i;
@@ -29,6 +46,7 @@ GpuHashTable::GpuHashTable(int size)
 	HANDLE_ERROR( cudaMallocManaged((void **) &hashTable, sizeof(struct hashT)) );
 
 	
+	// Block Logic: Prime capacity resolution.
 	while (1) {
 		for (i = 2; i < size; i++)
 			if (size % i == 0) {
@@ -55,28 +73,38 @@ GpuHashTable::GpuHashTable(int size)
 	hashTable->secondPrime = primeList[rand() % primeSize];
 }
 
-
+/**
+ * Functional Utility: Cleans up Host and Device memory.
+ */
 GpuHashTable::~GpuHashTable()
 {
 	HANDLE_ERROR( cudaFree(hashTable->data) );
 	HANDLE_ERROR( cudaFree(hashTable) );
 }
 
-
+/**
+ * Block Logic: Resizing kernel for migrating entries.
+ * Thread Indexing: Each thread processes one bucket in the source table.
+ * Logic: Transfers valid entries to the new table using double-hashing 
+ * and atomicCAS for insertion.
+ */
 __global__ void reshapeKernel(HashTable currHash, HashTable prevHash)
 {
 	uint32_t prevKey = KEY_INVALID, currKey, value, hashInd, hashVal;
 	unsigned int id = blockIdx.x * blockDim.x + threadIdx.x;
 
-	if (id capacity) {
+	if (id < prevHash->capacity) {
 
 
 		currKey = prevHash->data[id].key;
 		if (currKey == KEY_INVALID)
 			return;
 		value = prevHash->data[id].value;
+		
+		// Initial hash calculation.
 		hashInd = h1(currKey, currHash->capacity, currHash->firstPrime,
 			currHash->secondPrime);
+		// Secondary step calculation for double hashing.
 		hashVal = h2(currKey, currHash->subHash);
 
 		do {
@@ -89,7 +117,11 @@ __global__ void reshapeKernel(HashTable currHash, HashTable prevHash)
 	}
 }
 
-
+/**
+ * Functional Utility: Expands the hash table capacity.
+ * Logic: Allocates a new prime-sized table, executes the reshape kernel, 
+ * and releases old resources.
+ */
 void GpuHashTable::reshape(int numBucketsReshape)
 {
 	HashTable newHash;
@@ -139,7 +171,11 @@ void GpuHashTable::reshape(int numBucketsReshape)
 	hashTable = newHash;
 }
 
-
+/**
+ * Block Logic: Parallel atomic insertion kernel.
+ * Logic: Implements double hashing with atomicCAS. If a new key is successfully 
+ * claimed, it atomically updates the global size counter in the managed structure.
+ */
 __global__ void insertKernel(HashTable hashTable, int *keys, int *values, int numKeys)
 {
 	uint32_t prevKey = KEY_INVALID, currKey, value, hashInd, hashVal;
@@ -167,7 +203,9 @@ __global__ void insertKernel(HashTable hashTable, int *keys, int *values, int nu
 	}
 }
 
-
+/**
+ * Functional Utility: Orchestrates high-throughput parallel insertions.
+ */
 bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys)
 {
 	int *devKeys, *devValues;
@@ -199,7 +237,10 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys)
 	return true;
 }
 
-
+/**
+ * Block Logic: Parallel batch lookup kernel.
+ * Logic: Uses double hashing to find the target key and retrieve its value.
+ */
 __global__ void getKernel(HashTable hashTable, int *keys, int *values, int numKeys)
 {
 	uint32_t key, hashInd, hashVal;
@@ -219,7 +260,9 @@ __global__ void getKernel(HashTable hashTable, int *keys, int *values, int numKe
 	}
 }
 
-
+/**
+ * Functional Utility: Retrieves values for a batch of keys.
+ */
 int *GpuHashTable::getBatch(int* keys, int numKeys)
 {
 	unsigned int numBlocks, size = numKeys * sizeof(int);
@@ -244,7 +287,9 @@ int *GpuHashTable::getBatch(int* keys, int numKeys)
 	return devValues;
 }
 
-
+/**
+ * Functional Utility: Computes the current occupancy ratio.
+ */
 float GpuHashTable::loadFactor()
 {
 	float currLoad = (float)hashTable->size / hashTable->capacity;
@@ -349,11 +394,19 @@ int hash3(int data, int limit)
 	return ((long)abs(data) * primeList[70]) % primeList[93] % limit;
 }
 
-
+/**
+ * Functional Utility: Primary multiplicative hash function for double hashing.
+ */
 __device__ uint32_t h1(uint32_t data, uint32_t limit, size_t firstPrime, size_t secondPrime)
 {
 	return ((long)data * firstPrime) % secondPrime % limit;
 }
+
+/**
+ * Functional Utility: Secondary step hash function for double hashing.
+ * Logic: Ensures a non-zero step size that is relatively prime to the 
+ * primary hash result.
+ */
 __device__ uint32_t h2(uint32_t data, uint32_t subHash)
 {
 	return subHash - ((long)data % subHash);

@@ -1,10 +1,10 @@
-/*
- * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
- * or more contributor license agreements. Licensed under the "Elastic License
- * 2.0", the "GNU Affero General Public License v3.0 only", and the "Server Side
- * Public License v 1"; you may not use this file except in compliance with, at
- * your election, the "Elastic License 2.0", the "GNU Affero General Public
- * License v3.0 only", or the "Server Side Public License, v 1".
+/**
+ * @a8105900-0e3b-4b8c-85b7-d103723bff5d/libs/native/src/test/java/org/elasticsearch/nativeaccess/jdk/JDKVectorLibraryTests.java
+ * @brief Accuracy and boundary validation for JDK-intrinsic vector operations.
+ * Domain: Software Testing, SIMD, Foreign Function & Memory API (Panama).
+ * Architecture: Extends VectorSimilarityFunctionsTests; utilizes parameterized testing across various vector dimensions.
+ * Functional Utility: Verifies that the native dot product and squared Euclidean distance kernels yield results identical to reference scalar implementations.
+ * Performance: Employs Arena-allocated off-heap MemorySegments to simulate high-performance data access patterns.
  */
 
 package org.elasticsearch.nativeaccess.jdk;
@@ -21,6 +21,11 @@ import java.util.stream.IntStream;
 
 import static org.hamcrest.Matchers.containsString;
 
+/**
+ * @brief Unit test suite for Panama-based vector scoring kernels.
+ * Data Range: Specifically targets int7 scalar quantized vectors [0, 127].
+ * Dimensions: Tests edge cases and standard SIMD alignment boundaries (1, 4, 31, 32, 1024, etc.).
+ */
 public class JDKVectorLibraryTests extends VectorSimilarityFunctionsTests {
 
     // bounds of the range of values that can be seen by int7 scalar quantized vectors
@@ -43,6 +48,10 @@ public class JDKVectorLibraryTests extends VectorSimilarityFunctionsTests {
         this.delta = 1e-5 * size; // scale the delta with the size
     }
 
+    /**
+     * @brief Setup for Foreign Function & Memory access.
+     * Memory Management: Uses a confined Arena for deterministic off-heap resource lifecycle.
+     */
     @BeforeClass
     public static void setup() {
         arena = Arena.ofConfined();
@@ -58,12 +67,19 @@ public class JDKVectorLibraryTests extends VectorSimilarityFunctionsTests {
         return () -> IntStream.of(VECTOR_DIMS).boxed().map(i -> new Object[] { i }).iterator();
     }
 
+    /**
+     * @brief Comprehensive accuracy test for int7 vector scoring.
+     * Logic: Performs randomized fuzz testing by comparing native SIMD results with a trusted scalar baseline.
+     * Execution: Iterates 1000 times per dimension to ensure robustness across different data distributions.
+     */
     public void testInt7BinaryVectors() {
         assumeTrue(notSupportedMsg(), supported());
         final int dims = size;
         final int numVecs = randomIntBetween(2, 101);
         var values = new byte[numVecs][dims];
         var segment = arena.allocate((long) dims * numVecs);
+        
+        // Initialization: Pre-populates off-heap memory with quantized vector data.
         for (int i = 0; i < numVecs; i++) {
             randomBytesBetween(values[i], MIN_INT7_VALUE, MAX_INT7_VALUE);
             MemorySegment.copy(MemorySegment.ofArray(values[i]), 0L, segment, (long) i * dims, dims);
@@ -76,9 +92,11 @@ public class JDKVectorLibraryTests extends VectorSimilarityFunctionsTests {
             var nativeSeg1 = segment.asSlice((long) first * dims, dims);
             var nativeSeg2 = segment.asSlice((long) second * dims, dims);
 
-            // dot product
+            // Block Logic: Cross-verification of Dot Product kernel.
             int expected = dotProductScalar(values[first], values[second]);
             assertEquals(expected, dotProduct7u(nativeSeg1, nativeSeg2, dims));
+            
+            // Branch Logic: Tests mixed memory segment types (Heap vs Native) if supported by JVM version.
             if (testWithHeapSegments()) {
                 var heapSeg1 = MemorySegment.ofArray(values[first]);
                 var heapSeg2 = MemorySegment.ofArray(values[second]);
@@ -87,7 +105,7 @@ public class JDKVectorLibraryTests extends VectorSimilarityFunctionsTests {
                 assertEquals(expected, dotProduct7u(heapSeg1, nativeSeg2, dims));
             }
 
-            // square distance
+            // Block Logic: Cross-verification of Squared Euclidean Distance kernel.
             expected = squareDistanceScalar(values[first], values[second]);
             assertEquals(expected, squareDistance7u(nativeSeg1, nativeSeg2, dims));
             if (testWithHeapSegments()) {
@@ -104,6 +122,10 @@ public class JDKVectorLibraryTests extends VectorSimilarityFunctionsTests {
         return Runtime.version().feature() >= 22;
     }
 
+    /**
+     * @brief Boundary condition validation for vector operations.
+     * Logic: Intentionally passes incorrect dimensions and offsets to ensure native code correctly triggers expected Java exceptions (IAE, IOOBE).
+     */
     public void testIllegalDims() {
         assumeTrue(notSupportedMsg(), supported());
         var segment = arena.allocate((long) size * 3);
@@ -127,6 +149,9 @@ public class JDKVectorLibraryTests extends VectorSimilarityFunctionsTests {
         assertThat(e6.getMessage(), containsString("out of bounds for length"));
     }
 
+    /**
+     * @brief Low-level invocation of the native dot product MethodHandle.
+     */
     int dotProduct7u(MemorySegment a, MemorySegment b, int length) {
         try {
             return (int) getVectorDistance().dotProductHandle7u().invokeExact(a, b, length);
@@ -141,6 +166,9 @@ public class JDKVectorLibraryTests extends VectorSimilarityFunctionsTests {
         }
     }
 
+    /**
+     * @brief Low-level invocation of the native squared distance MethodHandle.
+     */
     int squareDistance7u(MemorySegment a, MemorySegment b, int length) {
         try {
             return (int) getVectorDistance().squareDistanceHandle7u().invokeExact(a, b, length);
@@ -155,7 +183,10 @@ public class JDKVectorLibraryTests extends VectorSimilarityFunctionsTests {
         }
     }
 
-    /** Computes the dot product of the given vectors a and b. */
+    /** 
+     * @brief Reference scalar implementation of Dot Product. 
+     * Functional Utility: Serves as the "Gold Standard" for accuracy comparison.
+     */
     static int dotProductScalar(byte[] a, byte[] b) {
         int res = 0;
         for (int i = 0; i < a.length; i++) {
@@ -164,7 +195,10 @@ public class JDKVectorLibraryTests extends VectorSimilarityFunctionsTests {
         return res;
     }
 
-    /** Computes the square distance of the given vectors a and b. */
+    /** 
+     * @brief Reference scalar implementation of Squared Distance. 
+     * Complexity: O(N).
+     */
     static int squareDistanceScalar(byte[] a, byte[] b) {
         // Note: this will not overflow if dim < 2^18, since max(byte * byte) = 2^14.
         int squareSum = 0;

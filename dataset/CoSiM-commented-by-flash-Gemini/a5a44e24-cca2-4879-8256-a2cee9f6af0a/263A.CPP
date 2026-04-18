@@ -1,3 +1,12 @@
+/**
+ * @a5a44e24-cca2-4879-8256-a2cee9f6af0a/263A.CPP
+ * @brief Manhattan distance calculation for a single set-bit in a 5x5 matrix.
+ * Domain: Competitive Programming, Discrete Geometry.
+ * Algorithm: Single-pass matrix sweep to locate the coordinate (p, q) of the value '1'.
+ * Time Complexity: $O(1)$ constant time for a fixed 5x5 matrix.
+ * Space Complexity: $O(1)$ constant overhead.
+ */
+
 /*
 
                 Name: Mehul Chaturvedi
@@ -133,7 +142,7 @@ cout << s.order_of_key(2) << endl; // the number of elements in the s less than
 s(0-based)
 */
 
-// Custom hash for unordered map
+// Custom hash for unordered map: Implements a high-entropy splitmix64 generator for hash collisions mitigation.
 struct custom_hash {
   static uint64_t splitmix64(uint64_t x) {
     // http://xorshift.di.unimi.it/splitmix64.c
@@ -150,7 +159,10 @@ struct custom_hash {
   }
 };
 
-// Power Function O(log(n))
+/**
+ * @brief Binary exponentiation for modular powers.
+ * Complexity: O(log B)
+ */
 ll poww(ll a, ll b, ll mod) {
   if (b == 0)
     return 1;
@@ -160,8 +172,16 @@ ll poww(ll a, ll b, ll mod) {
   return (((ans * ans) % mod) * a) % mod;
 }
 
+/**
+ * @brief Solver for the Beautiful Matrix problem.
+ * Functional Utility: Scans a 5x5 grid for a single '1' and calculates its distance to the center (2, 2).
+ */
 void solve() {
   ll p, q;
+  /**
+   * Block Logic: Identifies the position of the singular set-bit.
+   * Invariant: There is exactly one '1' in the 5x5 matrix.
+   */
   rep(i, 5) {
     rep(j, 5) {
       ll a;
@@ -173,11 +193,15 @@ void solve() {
     }
   }
 
+  // Functional Utility: Computes the minimum number of swaps (Manhattan distance) to center the bit.
   ll ans = abs(2 - p) + abs(2 - q);
   cout << ans << '\n';
 }
 
 int main(int argc, char **argv) {
+  /**
+   * Functional Utility: Stream decoupling to optimize competitive programming I/O performance.
+   */
   ios_base::sync_with_stdio(false);
   cin.tie(NULL);
 #ifdef mehul

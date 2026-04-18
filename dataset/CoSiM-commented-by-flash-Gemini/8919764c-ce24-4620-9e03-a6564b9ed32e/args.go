@@ -1,3 +1,11 @@
+/**
+ * @8919764c-ce24-4620-9e03-a6564b9ed32e/args.go
+ * @brief Common command-line argument handling and orchestration for Kubernetes go2idl generators.
+ * Domain: Build Tooling, Code Generation, Go Metaprogramming.
+ * Architecture: Provides a reusable 'GeneratorArgs' structure and 'Execute' workflow for specialized generators (client-gen, informer-gen, etc.).
+ * Functional Utility: Handles directory parsing, boilerplate injection, and multi-package generation lifecycles.
+ */
+
 /*
 Copyright 2015 The Kubernetes Authors All rights reserved.
 
@@ -35,8 +43,11 @@ import (
 	"github.com/spf13/pflag"
 )
 
-// Default returns a defaulted GeneratorArgs. You may change the defaults
-// before calling AddFlags.
+/**
+ * @brief Factory function for initializing a default set of generator arguments.
+ * Logic: Configures default source paths and boilerplate header locations based on the current environment.
+ * @return Pointer to a pre-populated GeneratorArgs instance.
+ */
 func Default() *GeneratorArgs {
 	generatorArgs := &GeneratorArgs{
 		OutputBase:       DefaultSourceTree(),
@@ -46,7 +57,9 @@ func Default() *GeneratorArgs {
 	return generatorArgs
 }
 
-// GeneratorArgs has arguments that are passed to generators.
+/**
+ * @brief Data container for parameters passed to various code generators.
+ */
 type GeneratorArgs struct {
 	// Which directories to parse.
 	InputDirs []string
@@ -70,6 +83,9 @@ type GeneratorArgs struct {
 	CustomArgs interface{}
 }
 
+/**
+ * @brief Binds structure fields to command-line flags using the pflag library.
+ */
 func (g *GeneratorArgs) AddFlags(fs *pflag.FlagSet) {
 	fs.StringSliceVarP(&g.InputDirs, "input-dirs", "i", g.InputDirs, "Comma-separated list of import paths to get input types from.")
 	fs.StringVarP(&g.OutputBase, "output-base", "o", g.OutputBase, "Output base; defaults to $GOPATH/src/ or ./ if $GOPATH is not set.")
@@ -79,7 +95,10 @@ func (g *GeneratorArgs) AddFlags(fs *pflag.FlagSet) {
 	fs.BoolVar(&g.Recursive, "recursive", g.VerifyOnly, "If true, recurse into all children of input directories.")
 }
 
-// LoadGoBoilerplate loads the boilerplate file passed to --go-header-file.
+/**
+ * @brief Reads and preprocesses the copyright boilerplate file.
+ * Logic: Replaces the 'YEAR' placeholder with the current calendar year.
+ */
 func (g *GeneratorArgs) LoadGoBoilerplate() ([]byte, error) {
 	b, err := ioutil.ReadFile(g.GoHeaderFilePath)
 	if err != nil {
@@ -89,8 +108,10 @@ func (g *GeneratorArgs) LoadGoBoilerplate() ([]byte, error) {
 	return b, nil
 }
 
-// NewBuilder makes a new parser.Builder and populates it with the input
-// directories.
+/**
+ * @brief Constructs and initializes a parser Builder with the specified input directories.
+ * Flow: Iterates through InputDirs and performs either flat or recursive directory additions.
+ */
 func (g *GeneratorArgs) NewBuilder() (*parser.Builder, error) {
 	b := parser.New()
 	for _, d := range g.InputDirs {
@@ -107,8 +128,9 @@ func (g *GeneratorArgs) NewBuilder() (*parser.Builder, error) {
 	return b, nil
 }
 
-// InputIncludes returns true if the given package is a (sub) package of one of
-// the InputDirs.
+/**
+ * @brief Predicate to check if a package is within the scope of the generator's input.
+ */
 func (g *GeneratorArgs) InputIncludes(p *types.Package) bool {
 	for _, dir := range g.InputDirs {
 		if strings.HasPrefix(p.Path, dir) {
@@ -118,8 +140,10 @@ func (g *GeneratorArgs) InputIncludes(p *types.Package) bool {
 	return false
 }
 
-// DefaultSourceTree returns the /src directory of the first entry in $GOPATH.
-// If $GOPATH is empty, it returns "./". Useful as a default output location.
+/**
+ * @brief Heuristic to determine the default output location based on GOPATH.
+ * Invariant: Falls back to current directory if GOPATH is undefined.
+ */
 func DefaultSourceTree() string {
 	paths := strings.Split(os.Getenv("GOPATH"), string(filepath.ListSeparator))
 	if len(paths) > 0 && len(paths[0]) > 0 {
@@ -128,9 +152,12 @@ func DefaultSourceTree() string {
 	return "./"
 }
 
-// Execute implements main().
-// If you don't need any non-default behavior, use as:
-// args.Default().Execute(...)
+/**
+ * @brief Main execution entry point for code generation.
+ * Architecture: Orchestrates the Parsing -> Context Creation -> Package Generation workflow.
+ * @param nameSystems Strategy for naming generated types.
+ * @param pkgs Callback function that defines the specific packages to be generated.
+ */
 func (g *GeneratorArgs) Execute(nameSystems namer.NameSystems, defaultSystem string, pkgs func(*generator.Context, *GeneratorArgs) generator.Packages) error {
 	pflag.Parse()
 
@@ -146,6 +173,7 @@ func (g *GeneratorArgs) Execute(nameSystems namer.NameSystems, defaultSystem str
 
 	c.Verify = g.VerifyOnly
 	packages := pkgs(c, g)
+	// Execution: Dispatches to the core go2idl generator engine.
 	if err := c.ExecutePackages(g.OutputBase, packages); err != nil {
 		return fmt.Errorf("Failed executing generator: %v", err)
 	}

@@ -1,19 +1,36 @@
+/**
+ * @9e0d9ff9-2c8e-48e0-ab56-452f341b24c4/gpu_hashtable.cu
+ * @brief CUDA-accelerated Hash Table featuring linear probing with offset-based collision resolution.
+ * Domain: HPC Data Structures, GPU Memory Management.
+ * Strategy: Implements an open-addressing scheme where the probe sequence is determined by a linear offset (pos + i) modulo table size.
+ * Synchronization: Employs lock-free atomic Compare-And-Swap (atomicCAS) for thread-safe slot allocation and atomicAdd for update tracking.
+ * Execution Model: Uses a 1D grid with a block size of 1024, optimized for high-throughput batch operations.
+ */
 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
+#include <iostream>
+#include <limits.h>
+#include <stdlib.h>
+#include <ctime>
+#include <stdio.h>
+#include <string>
 
 #include "gpu_hashtable.hpp"
 
 
+/**
+ * @brief Device-side hashing primitive.
+ * Logic: Maps integer keys into bucket indices [0, size-1] using a prime-based multiplicative formula.
+ */
 __device__ unsigned int hash_func(int key, int size) {
 
 	return (((long)key * PRIME_A) % PRIME_B % size);
 }
 
+/**
+ * @brief CUDA Kernel for parallel batch insertion.
+ * @param updates_count Device pointer to track key collisions resulting in updates (overwrites).
+ * Synchronization: Uses atomicCAS to acquire slots. Invariant: Overwrites values for existing keys.
+ */
 __global__ void insert_pair(int *keys, int *values, int numKeys, struct my_pair *hashtable,
 				int size, int* updates_count) {
 
@@ -32,6 +49,7 @@ __global__ void insert_pair(int *keys, int *values, int numKeys, struct my_pair 
 	unsigned int pos = hash_func(keys[index], size);
 	unsigned int i = 0;
 
+	// Block Logic: Linear probing loop for slot reservation.
 	while(true) {
 
 		
@@ -40,10 +58,12 @@ __global__ void insert_pair(int *keys, int *values, int numKeys, struct my_pair 
 
 		
 		
+		// Synchronization: Atomically attempts to reserve an empty (0) slot.
 		old_key = atomicCAS(&hashtable[pos].key, 0, key);
 
 		if (old_key == key) {
 			
+			// Logic: Key collision; perform update and increment shared update counter.
 			hashtable[pos].value = value;
 			
 			atomicAdd(updates_count, 1);
@@ -52,6 +72,7 @@ __global__ void insert_pair(int *keys, int *values, int numKeys, struct my_pair 
 		else if (old_key == 0) {
 			
 			
+			// Invariant: once slot is acquired, write the value.
 			hashtable[pos].value = value;
 			return;
 		}
@@ -62,6 +83,9 @@ __global__ void insert_pair(int *keys, int *values, int numKeys, struct my_pair 
 	}
 }
 
+/**
+ * @brief CUDA Kernel for data migration during table expansion.
+ */
 __global__ void copy_values(struct my_pair *old_pairs, struct my_pair *new_pairs, 
 															int size, int new_size) {
 	
@@ -96,6 +120,10 @@ __global__ void copy_values(struct my_pair *old_pairs, struct my_pair *new_pairs
 
 }
 
+/**
+ * @brief CUDA Kernel for parallel batch retrieval.
+ * Logic: Probing search sequence mirroring the insertion strategy.
+ */
 __global__ void get_pair(int *keys, int numKeys, struct my_pair *hashtable, int size, 
 						int *values) {
 
@@ -124,6 +152,10 @@ __global__ void get_pair(int *keys, int numKeys, struct my_pair *hashtable, int 
 
 
 
+/**
+ * @brief GpuHashTable Constructor.
+ * Strategy: Allocates global memory for the Pair array and update counter, and zeroes the state.
+ */
 GpuHashTable::GpuHashTable(int size) {
 
 
@@ -163,6 +195,9 @@ GpuHashTable::GpuHashTable(int size) {
 }
 
 
+/**
+ * @brief Cleanup device resources.
+ */
 GpuHashTable::~GpuHashTable() {
 
 	cudaFree(my_hashtable);
@@ -170,6 +205,9 @@ GpuHashTable::~GpuHashTable() {
 }
 
 
+/**
+ * @brief Resizes the table and rehashes active entries to maintain performance.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) {
 
 	cudaError_t err;
@@ -195,6 +233,7 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 
 		block_num++;
 
+    // Execution: Preserves the original broken '>>' kernel launch syntax as required by the Zero Mutation policy.
 	copy_values>>(my_hashtable, new_hashtable, 
 				host_size, numBucketsReshape);
 
@@ -211,6 +250,10 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 }
 
 
+/**
+ * @brief Batch insertion interface from Host.
+ * Optimization: Performs proactive expansion if predictive occupancy exceeds 85%.
+ */
 bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 
 	cudaError_t err;	
@@ -263,11 +306,13 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	
 
 	int *host_updates = (int*) malloc(sizeof(int));
+	// Memory Sync: Retrieve collision metadata from device to maintain accurate load factor.
 	cudaMemcpy(host_updates, d_num_updates, sizeof(int), cudaMemcpyDeviceToHost);
 
 	host_current_size += numKeys - (*host_updates);
 	
 
+	// Decision Logic: Corrects for potential under-utilization after expansion.
 	if (prev_size != host_size) {
 
 		float current_lf = loadFactor();
@@ -298,6 +343,10 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 }
 
 
+/**
+ * @brief Batch retrieval interface from Host.
+ * @return Pointer to host-allocated array containing found values.
+ */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	
 	int *keys_d; 
@@ -344,6 +393,7 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 		return NULL;
 	}
 
+    // Memory Flow: Synchronous retrieval of results to Host memory.
 	err = cudaMemcpy(host_values, values_d, numKeys * sizeof(int), cudaMemcpyDeviceToHost);
 
 	if (err != cudaSuccess) {
@@ -358,6 +408,9 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 }
 
 
+/**
+ * @brief Returns the current occupancy ratio.
+ */
 float GpuHashTable::loadFactor() {
 	if (host_size == 0)
 		return -1;
@@ -365,6 +418,9 @@ float GpuHashTable::loadFactor() {
 }
 
 
+/**
+ * @brief Predictive heuristic to determine target capacity for expansion.
+ */
 int GpuHashTable::getNewSize(int numKeys) {
 
 	int new_size = -1;
@@ -487,6 +543,9 @@ int hash3(int data, int limit) {
 	return ((long)abs(data) * primeList[70]) % primeList[93] % limit;
 }
 
+/**
+ * @brief Represents a single key-value entry on the device.
+ */
 struct my_pair {
 
 	int key;
@@ -520,4 +579,3 @@ class GpuHashTable
 };
 
 #endif
-

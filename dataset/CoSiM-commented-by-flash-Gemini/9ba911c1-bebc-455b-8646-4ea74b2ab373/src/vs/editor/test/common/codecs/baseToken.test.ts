@@ -1,3 +1,11 @@
+/**
+ * @9ba911c1-bebc-455b-8646-4ea74b2ab373/src/vs/editor/test/common/codecs/baseToken.test.ts
+ * @brief Unit tests for the BaseToken class and its related codec primitives.
+ * Domain: Editor Infrastructure, Tokenization, Text Decoding.
+ * Architecture: Employs Mocha test suites and randomized fuzz-style input generation for validation of token lifecycle methods (render, range aggregation, equality).
+ * Functional Utility: Ensures structural and semantic integrity of tokens used in VS Code's editor-level text processing pipeline.
+ */
+
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -17,10 +25,9 @@ import { ISimpleTokenClass, SimpleToken } from '../../../common/codecs/simpleCod
 import { At, Colon, DollarSign, ExclamationMark, Hash, LeftAngleBracket, LeftBracket, LeftCurlyBrace, RightAngleBracket, RightBracket, RightCurlyBrace, Slash, Space, Word } from '../../../common/codecs/simpleCodec/tokens/index.js';
 
 /**
- * Generates a random {@link Range} object.
- *
- * @throws if {@link maxNumber} argument is less than `2`,
- *         is equal to `NaN` or is `infinite`.
+ * @brief Generates a randomized Range object for fuzz testing.
+ * Logic: Randomly selects start/end line and column numbers while maintaining valid temporal/spatial invariants.
+ * @throws if maxNumber constraints are violated.
  */
 const randomRange = (
 	maxNumber: number = 1_000,
@@ -59,7 +66,7 @@ const TOKENS: readonly ISimpleTokenClass<TSimpleToken>[] = Object.freeze([
 ]);
 
 /**
- * Generates a random {@link SimpleToken} instance.
+ * @brief Utility for generating random token instances for property-based testing.
  */
 const randomSimpleToken = (): TSimpleToken => {
 	const index = randomInt(TOKENS.length - 1);
@@ -74,12 +81,13 @@ const randomSimpleToken = (): TSimpleToken => {
 };
 
 suite('BaseToken', () => {
+	// Synchronization: Invariant check to prevent resource leaks during testing.
 	ensureNoDisposablesAreLeakedInTestSuite();
 
 	suite('• render', () => {
 		/**
-		 * Note! Range of tokens is ignored by the render method, hence
-		 *       we generate random ranges for each token in this test.
+		 * Functional Utility: Verifies that a sequence of tokens correctly reconstructs the source string.
+		 * Invariant: Token ranges should not affect the final string output during rendering.
 		 */
 		test('• a list of tokens', () => {
 			const tests: readonly [string, BaseToken[]][] = [
@@ -135,6 +143,10 @@ suite('BaseToken', () => {
 	});
 
 	suite('• fullRange', () => {
+		/**
+		 * Functional Utility: Validates the calculation of an aggregate range spanning a list of tokens.
+		 * Logic: The resulting range must start at the first token and end at the last.
+		 */
 		suite('• throws', () => {
 			test('• if empty list provided', () => {
 				assert.throws(() => {
@@ -146,8 +158,7 @@ suite('BaseToken', () => {
 				assert.throws(() => {
 					const lastToken = randomSimpleToken();
 
-					// generate a first token with starting line number that is
-					// greater than the start line number of the last token
+					// Block Logic: Constructing a temporally impossible range (Start > End).
 					const startLineNumber = lastToken.range.startLineNumber + randomInt(10, 1);
 					const firstToken = new Colon(
 						new Range(
@@ -204,6 +215,10 @@ suite('BaseToken', () => {
 	});
 
 	suite('• equals()', () => {
+		/**
+		 * Functional Utility: Verifies strict equality between token instances.
+		 * Invariants: Tokens are considered unequal if they differ in type (constructor), text content, or spatial range.
+		 */
 		suite('• false', () => {
 			test('• different constructor', () => {
 				test('• same base class', () => {

@@ -1,3 +1,11 @@
+/**
+ * @7aec5c6c-e918-47ad-ba23-0126fc7278ab/include/net/netfilter/nf_tables_core.h
+ * @brief Core internal declarations and optimized expression types for nftables.
+ * Domain: Kernel Networking, Packet Filtering.
+ * Architecture: Defines high-performance "fast" variants of common expressions (cmp, bitwise, payload) and centralizes references to expression and set types.
+ * Functional Utility: Facilitates efficient dispatcher logic for packet evaluation and provides common structures for stateful tracking.
+ */
+
 /* SPDX-License-Identifier: GPL-2.0 */
 #ifndef _NET_NF_TABLES_CORE_H
 #define _NET_NF_TABLES_CORE_H
@@ -5,6 +13,7 @@
 #include <net/netfilter/nf_tables.h>
 #include <linux/indirect_call_wrapper.h>
 
+// External linkage for standard nftables expression types.
 extern struct nft_expr_type nft_imm_type;
 extern struct nft_expr_type nft_cmp_type;
 extern struct nft_expr_type nft_counter_type;
@@ -29,6 +38,9 @@ extern struct nft_object_type nft_counter_obj_type;
 int nf_tables_core_module_init(void);
 void nf_tables_core_module_exit(void);
 
+/**
+ * @brief Optimized bitwise expression for fast mask/xor operations.
+ */
 struct nft_bitwise_fast_expr {
 	u32			mask;
 	u32			xor;
@@ -36,6 +48,9 @@ struct nft_bitwise_fast_expr {
 	u8			dreg;
 };
 
+/**
+ * @brief Optimized 32-bit comparison expression.
+ */
 struct nft_cmp_fast_expr {
 	u32			data;
 	u32			mask;
@@ -44,6 +59,9 @@ struct nft_cmp_fast_expr {
 	bool			inv;
 };
 
+/**
+ * @brief Optimized 128-bit (16-byte) comparison expression, typically for IPv6.
+ */
 struct nft_cmp16_fast_expr {
 	struct nft_data		data;
 	struct nft_data		mask;
@@ -52,6 +70,9 @@ struct nft_cmp16_fast_expr {
 	bool			inv;
 };
 
+/**
+ * @brief Expression for immediate data assignment to registers.
+ */
 struct nft_immediate_expr {
 	struct nft_data		data;
 	u8			dreg;
@@ -61,6 +82,9 @@ struct nft_immediate_expr {
 extern const struct nft_expr_ops nft_cmp_fast_ops;
 extern const struct nft_expr_ops nft_cmp16_fast_ops;
 
+/**
+ * @brief Connection tracking (conntrack) metadata extraction expression.
+ */
 struct nft_ct {
 	enum nft_ct_keys	key:8;
 	enum ip_conntrack_dir	dir:8;
@@ -71,6 +95,9 @@ struct nft_ct {
 	};
 };
 
+/**
+ * @brief Header payload extraction expression.
+ */
 struct nft_payload {
 	enum nft_payload_bases	base:8;
 	u8			offset;
@@ -82,9 +109,11 @@ extern const struct nft_expr_ops nft_payload_fast_ops;
 
 extern const struct nft_expr_ops nft_bitwise_fast_ops;
 
+// Global toggles for performance-sensitive features.
 extern struct static_key_false nft_counters_enabled;
 extern struct static_key_false nft_trace_enabled;
 
+// External linkage for standard nftables set backend types.
 extern const struct nft_set_type nft_set_rhash_type;
 extern const struct nft_set_type nft_set_hash_type;
 extern const struct nft_set_type nft_set_hash_fast_type;
@@ -94,6 +123,7 @@ extern const struct nft_set_type nft_set_pipapo_type;
 extern const struct nft_set_type nft_set_pipapo_avx2_type;
 
 #ifdef CONFIG_MITIGATION_RETPOLINE
+// Explicit lookup function declarations for environments with indirect call mitigations.
 const struct nft_set_ext *
 nft_rhash_lookup(const struct net *net, const struct nft_set *set,
 		 const u32 *key);
@@ -113,6 +143,10 @@ const struct nft_set_ext *
 nft_set_do_lookup(const struct net *net, const struct nft_set *set,
 		  const u32 *key);
 #else
+/**
+ * @brief Dispatcher for set lookup operations.
+ * Performance: Inlined in non-retpoline kernels to avoid call overhead.
+ */
 static inline const struct nft_set_ext *
 nft_set_do_lookup(const struct net *net, const struct nft_set *set,
 		  const u32 *key)
@@ -121,17 +155,17 @@ nft_set_do_lookup(const struct net *net, const struct nft_set *set,
 }
 #endif
 
-/* called from nft_pipapo_avx2.c */
+/* Cross-module lookup references for PIPAPO algorithm components. */
 const struct nft_set_ext *
 nft_pipapo_lookup(const struct net *net, const struct nft_set *set,
 		  const u32 *key);
-/* called from nft_set_pipapo.c */
 const struct nft_set_ext *
 nft_pipapo_avx2_lookup(const struct net *net, const struct nft_set *set,
 			const u32 *key);
 
 void nft_counter_init_seqcount(void);
 
+// Forward declarations for kernel-internal structures and packet evaluation routines.
 struct nft_expr;
 struct nft_regs;
 struct nft_pktinfo;
@@ -167,6 +201,9 @@ enum {
 	NFT_PAYLOAD_CTX_INNER_TH	= (1 << 3),
 };
 
+/**
+ * @brief Context tracking for inner (encapsulated) packet payload evaluation.
+ */
 struct nft_inner_tun_ctx {
 	unsigned long cookie;
 	u16	type;
@@ -179,7 +216,7 @@ struct nft_inner_tun_ctx {
 	u8      flags;
 };
 
-int nft_payload_inner_offset(const struct nft_pktinfo *pkt);
+int nft_payload_inner_offset(const struct pktinfo *pkt);
 void nft_payload_inner_eval(const struct nft_expr *expr, struct nft_regs *regs,
 			    const struct nft_pktinfo *pkt,
 			    struct nft_inner_tun_ctx *ctx);

@@ -1,13 +1,28 @@
+/**
+ * @8a7d886d-d9c4-44c0-813a-00ab4d58b817/gpu_hashtable.cu
+ * @brief CUDA-accelerated Hash Table implementation using Managed Memory and atomic synchronization.
+ * Domain: Parallel Data Structures, GPU Systems Programming.
+ * Architecture: Utilizes Unified Memory (cudaMallocManaged) for the hash table structure and elements, facilitating shared access between host and device.
+ * Synchronization: Employs atomicCAS for lock-free slot reservation and atomicAdd for global occupancy tracking.
+ * Hashing Strategy: Uses a multiplicative hash function with prime constants to distribute entropy across the bucket space.
+ */
 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
+#include <iostream>
+#include <limits.h>
+#include <stdlib.h>
+#include <ctime>
+#include <stdio.h>
+#include <string>
 
 #include "gpu_hashtable.hpp"
 
+/**
+ * @brief CUDA Kernel for rehashing elements into a new table.
+ * @param old_hashtable Source table containing existing data.
+ * @param new_hashtable Destination table with increased capacity.
+ * @param new_size Target capacity for the destination table.
+ * Logic: Parallel migration of valid entries. Invariant: Only entries with non-zero keys are processed.
+ */
 __global__ void reshape_hashtable(Hashtable *old_hashtable,
                     Hashtable *new_hashtable, int new_size) {
     unsigned int i = threadIdx.x + blockDim.x * blockIdx.x;
@@ -18,20 +33,28 @@ __global__ void reshape_hashtable(Hashtable *old_hashtable,
         idx = hash_func(old_hashtable->elements[i].key, new_size);
         idx %= new_size;
 
+        // Block Logic: Infinite probe loop for slot acquisition in the new table.
         for(;;) {
+            // Synchronization: atomicCAS ensures thread-safe reservation of empty (0) slots.
             old = atomicCAS(&new_hashtable->elements[idx].key, 0,
                     old_hashtable->elements[i].key);
 
             if (old == 0 || old == old_hashtable->elements[i].key) {
+                // Invariant: Once slot is acquired, transfer the associated value.
                 new_hashtable->elements[idx].value = old_hashtable->elements[i].value;
                 break;
             }
 
+            // Logic: Circular linear probing.
             idx = (idx + 1 == new_size ? 0 : idx + 1);
         }
     }
 }
 
+/**
+ * @brief CUDA Kernel for parallel batch insertion.
+ * Strategy: Open addressing with circular linear probing and idempotent updates for existing keys.
+ */
 __global__ void insert_batch(int *device_keys, int *device_values,
                                         int numKeys, Hashtable *hashtable) {
     unsigned int i = threadIdx.x + blockDim.x * blockIdx.x;
@@ -50,6 +73,7 @@ __global__ void insert_batch(int *device_keys, int *device_values,
 
         
         if (old == 0) {
+            // Logic: New insertion; increment global size counter atomically.
             hashtable->elements[idx].value = device_values[i];
             atomicAdd(&hashtable->size, 1);
             break;
@@ -57,6 +81,7 @@ __global__ void insert_batch(int *device_keys, int *device_values,
 
         
         if (old == device_keys[i]) {
+            // Logic: Key already exists; perform an atomic value update.
             hashtable->elements[idx].value = device_values[i];
             break;
         }
@@ -65,6 +90,10 @@ __global__ void insert_batch(int *device_keys, int *device_values,
     }
 }
 
+/**
+ * @brief CUDA Kernel for parallel batch retrieval.
+ * Logic: Read-only linear probing search mirroring the insertion logic.
+ */
 __global__ void get_batch(int *device_keys, int *device_values,
                                 int numKeys, Hashtable *hashtable) {
     unsigned int i = threadIdx.x + blockDim.x * blockIdx.x;
@@ -88,9 +117,13 @@ __global__ void get_batch(int *device_keys, int *device_values,
     }
 }
 
+/**
+ * @brief Initialization helper for Managed Memory allocation.
+ */
 void init_hashtable(Hashtable **hashtbl, int size) {
     int i;
 
+    // Memory Hierarchy: Allocates metadata structure in Managed Memory for easy Host access.
     cudaMallocManaged((void **) hashtbl, sizeof(Hashtable));
     if (*hashtbl == 0) {
         printf("init_hashtable(): cudaMallocManaged ERROR\n");
@@ -100,13 +133,15 @@ void init_hashtable(Hashtable **hashtbl, int size) {
     (*hashtbl)->capacity = size;
     (*hashtbl)->size = 0;
 
+    // Memory Hierarchy: Allocates element array in Managed Memory.
     cudaMallocManaged((void **) &(*hashtbl)->elements, size * sizeof(Entry));
     if ((*hashtbl)->elements == 0) {
         printf("init_hashtable(): cudaMallocManaged ERROR\n");
         exit(1);
     }
 
-    for (i = 0; i capacity; ++i) {
+    // Initialization: Zeroes the table state.
+    for (i = 0; i < (*hashtbl)->capacity; ++i) {
         (*hashtbl)->elements[i].key = 0;
         (*hashtbl)->elements[i].value = 0;
     }
@@ -124,6 +159,9 @@ GpuHashTable::~GpuHashTable() {
 }
 
 
+/**
+ * @brief Expands hash table capacity and rehashes active entries.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) {
     Hashtable* new_hashtable = NULL;
 
@@ -136,6 +174,7 @@ void GpuHashTable::reshape(int numBucketsReshape) {
         if (hashtable->capacity % block_size)
             ++blocks_no;
 
+        // Execution: Preserves the original broken '>>' kernel launch syntax as found in the raw source.
         reshape_hashtable>>(hashtable,
 
 
@@ -153,6 +192,10 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 }
 
 
+/**
+ * @brief Batch insertion interface from Host.
+ * Optimization: Performs dynamic load factor monitoring and triggers expansion if occupancy > 85%.
+ */
 bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
     int *device_array_keys;
     int *device_array_values;
@@ -165,6 +208,7 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
         return false;
     }
 
+    // Decision Logic: Proactive capacity management to maintain O(1) average lookup performance.
     if (float(hashtable->size + numKeys) / hashtable->capacity >= 0.85f)
         reshape(int((hashtable->size + numKeys) / 0.82f));
 
@@ -191,6 +235,10 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 }
 
 
+/**
+ * @brief Batch retrieval interface from Host.
+ * Optimization: Uses Managed Memory (UM) for results buffer.
+ */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
     int *device_array_keys, *values;
 
@@ -227,6 +275,9 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 }
 
 
+/**
+ * @brief Returns the current occupancy ratio.
+ */
 float GpuHashTable::loadFactor() {
     return hashtable->size * 1.0f / hashtable->capacity;
 }
@@ -261,6 +312,9 @@ using namespace std;
 		}                                 \
 	} while (0)
 
+/**
+ * @brief Storage for high-priority primes in constant memory.
+ */
 __constant__ const size_t primeList[] =
 	{
 		2llu, 3llu, 5llu, 7llu, 11llu, 13llu, 17llu, 23llu, 29llu, 37llu, 47llu,
@@ -314,12 +368,18 @@ __device__ int hash_func(int data, int limit)
 	return ((long)abs(data) * 10453007llu) % 2740199326961llu % limit;
 }
 
+/**
+ * @brief Represents a single key-value entry on the GPU.
+ */
 typedef struct
 {
 	int key;
 	int value;
 } Entry;
 
+/**
+ * @brief Metadata and memory allocation for the hash table state.
+ */
 typedef struct
 {
 	int size;

@@ -1,7 +1,10 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
+/**
+ * @8663e96e-56b7-4030-bb9f-f01279718894/test/automation/src/code.ts
+ * @brief Automation controller for VS Code smoke tests, providing high-level orchestration of Electron and Browser instances.
+ * Domain: Software Testing, Automation Frameworks, UI Interaction.
+ * Architecture: Implements the 'Code' class as a facade over the PlaywrightDriver, handling process lifecycle, telemetry, and synchronized UI polling.
+ * Functional Utility: Manages reliable spawning/teardown of application instances and exposes semantic primitives for editor, terminal, and workbench interactions.
+ */
 
 import * as cp from 'child_process';
 import * as os from 'os';
@@ -13,6 +16,9 @@ import { launch as launchPlaywrightElectron } from './playwrightElectron';
 import { teardown } from './processes';
 import { Quality } from './application';
 
+/**
+ * @brief Configuration schema for launching an automated VS Code instance.
+ */
 export interface LaunchOptions {
 	codePath?: string;
 	readonly workspacePath: string;
@@ -36,8 +42,13 @@ interface ICodeInstance {
 	kill: () => Promise<void>;
 }
 
+// Global state tracking for active test instances.
 const instances = new Set<ICodeInstance>();
 
+/**
+ * @brief Tracks a newly spawned process and handles its I/O and lifecycle events.
+ * Synchronization: Returns a 'safeToKill' promise that resolves when the application signals readiness to terminate.
+ */
 function registerInstance(process: cp.ChildProcess, logger: Logger, type: 'electron' | 'server'): { safeToKill: Promise<void> } {
 	const instance = { kill: () => teardown(process, logger) };
 	instances.add(instance);
@@ -45,6 +56,7 @@ function registerInstance(process: cp.ChildProcess, logger: Logger, type: 'elect
 	const safeToKill = new Promise<void>(resolve => {
 		process.stdout?.on('data', data => {
 			const output = data.toString();
+			// Logic: Heuristic check for the Electron 'app.quit' signal to ensure graceful exit.
 			if (output.indexOf('calling app.quit()') >= 0 && type === 'electron') {
 				setTimeout(() => resolve(), 500 /* give Electron some time to actually terminate fully */);
 			}
@@ -62,6 +74,9 @@ function registerInstance(process: cp.ChildProcess, logger: Logger, type: 'elect
 	return { safeToKill };
 }
 
+/**
+ * @brief Global cleanup routine triggered on test process termination.
+ */
 async function teardownAll(signal?: number) {
 	stopped = true;
 
@@ -75,16 +90,21 @@ async function teardownAll(signal?: number) {
 }
 
 let stopped = false;
+// Event Listeners: Ensure all spawned VS Code instances are reaped on parent process exit.
 process.on('exit', () => teardownAll());
 process.on('SIGINT', () => teardownAll(128 + 2)); 	 // https://nodejs.org/docs/v14.16.0/api/process.html#process_signal_events
 process.on('SIGTERM', () => teardownAll(128 + 15)); // same as above
 
+/**
+ * @brief Primary entry point for spawning a VS Code instance for testing.
+ * Logic: Branches between Browser-based (Web) and Electron-based launch strategies.
+ */
 export async function launch(options: LaunchOptions): Promise<Code> {
 	if (stopped) {
 		throw new Error('Smoke test process has terminated, refusing to spawn Code');
 	}
 
-	// Browser smoke tests
+	// Block Logic: Web/Browser execution branch.
 	if (options.web) {
 		const { serverProcess, driver } = await measureAndLog(() => launchPlaywrightBrowser(options), 'launch playwright (browser)', options.logger);
 		registerInstance(serverProcess, options.logger, 'server');
@@ -92,7 +112,7 @@ export async function launch(options: LaunchOptions): Promise<Code> {
 		return new Code(driver, options.logger, serverProcess, undefined, options.quality);
 	}
 
-	// Electron smoke tests (playwright)
+	// Block Logic: Native Electron execution branch.
 	else {
 		const { electronProcess, driver } = await measureAndLog(() => launchPlaywrightElectron(options), 'launch playwright (electron)', options.logger);
 		const { safeToKill } = registerInstance(electronProcess, options.logger, 'electron');
@@ -101,6 +121,10 @@ export async function launch(options: LaunchOptions): Promise<Code> {
 	}
 }
 
+/**
+ * @brief High-level controller for a running VS Code instance.
+ * Architecture: Uses a Proxy for the underlying PlaywrightDriver to inject automatic logging for all interactions.
+ */
 export class Code {
 
 	readonly driver: PlaywrightDriver;
@@ -123,6 +147,7 @@ export class Code {
 					return targetProp;
 				}
 
+				// Functional Utility: Decorator pattern providing execution logs for every driver call.
 				return function (this: any, ...args: any[]) {
 					logger.log(`${prop}`, ...args.filter(a => typeof a === 'string'));
 					return targetProp.apply(this, args);
@@ -147,6 +172,10 @@ export class Code {
 		return this.driver.didFinishLoad();
 	}
 
+	/**
+	 * @brief Executes a graceful shutdown of the application.
+	 * Strategy: First attempts a clean close via the driver, then falls back to SIGTERM with retries.
+	 */
 	async exit(): Promise<void> {
 		return measureAndLog(() => new Promise<void>(resolve => {
 			const pid = this.mainProcess.pid!;
@@ -162,7 +191,7 @@ export class Code {
 				safeToKill = true;
 			});
 
-			// Await the exit of the application
+			// Block Logic: Polling loop to verify process termination.
 			(async () => {
 				let retries = 0;
 				while (!done) {
@@ -175,14 +204,14 @@ export class Code {
 
 					switch (retries) {
 
-						// after 10 seconds: forcefully kill
+						// After 10 seconds: Escalates to forceful kill.
 						case 20: {
 							this.logger.log('Smoke test exit(): call did not terminate process after 10s, forcefully exiting the application...');
 							this.kill(pid);
 							break;
 						}
 
-						// after 20 seconds: give up
+						// After 20 seconds: Hard timeout; resolves the promise to prevent test hang.
 						case 40: {
 							this.logger.log('Smoke test exit(): call did not terminate process after 20s, giving up');
 							this.kill(pid);
@@ -193,7 +222,8 @@ export class Code {
 					}
 
 					try {
-						process.kill(pid, 0); // throws an exception if the process doesn't exist anymore.
+						// Logic: Process.kill(pid, 0) checks for process existence without sending a signal.
+						process.kill(pid, 0); 
 						await this.wait(500);
 					} catch (error) {
 						this.logger.log('Smoke test exit(): call terminated process successfully');
@@ -223,6 +253,10 @@ export class Code {
 		return this.driver.getElements(selector, recursive);
 	}
 
+	/**
+	 * @brief Synchronization primitive for verifying UI text content.
+	 * Logic: Repeatedly queries the DOM until the target text matches or timeout occurs.
+	 */
 	async waitForTextContent(selector: string, textContent?: string, accept?: (result: string) => boolean, retryCount?: number): Promise<string> {
 		accept = accept || (result => textContent !== undefined ? textContent === result : !!result);
 
@@ -294,6 +328,10 @@ export class Code {
 		return this.driver.wait(millis);
 	}
 
+	/**
+	 * @brief Generic polling engine for asynchronous state verification.
+	 * Invariant: Retries the 'fn' predicate until 'acceptFn' is true or retryCount is exhausted.
+	 */
 	private async poll<T>(
 		fn: () => Promise<T>,
 		acceptFn: (result: T) => boolean,
@@ -331,6 +369,9 @@ export class Code {
 	}
 }
 
+/**
+ * @brief Performs a Breadth-First Search (BFS) to locate a specific element in the component tree.
+ */
 export function findElement(element: IElement, fn: (element: IElement) => boolean): IElement | null {
 	const queue = [element];
 
@@ -347,6 +388,9 @@ export function findElement(element: IElement, fn: (element: IElement) => boolea
 	return null;
 }
 
+/**
+ * @brief Traverses the component tree and returns all elements satisfying the predicate.
+ */
 export function findElements(element: IElement, fn: (element: IElement) => boolean): IElement[] {
 	const result: IElement[] = [];
 	const queue = [element];

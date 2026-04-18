@@ -1,16 +1,32 @@
 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
+/**
+ * @700afe8b-affe-4844-ab7e-f54a61cff3d4/gpu_hashtable.cu
+ * @brief CUDA implementation of a high-performance Hash Table with linear probing.
+ * This file provides a thread-safe parallel hash table for GPU architectures. 
+ * It employs linear probing for collision resolution and uses atomic operations 
+ * (atomicCAS) to ensure data consistency during concurrent batch insertions. 
+ * The implementation features dynamic resizing and maintains occupancy counters 
+ * on both Host and Device for efficient load-factor monitoring.
+ * 
+ * Algorithm: Open addressing with linear probing and prime multiplicative hashing.
+ * Domain: HPC, Parallel Data Structures, CUDA.
+ */
+
+#include <iostream>
+#include <cstdio>
+#include <cstdlib>
+#include <ctime>
+#include <cmath>
+#include <algorithm>
+#include <string>
 
 #include "gpu_hashtable.hpp"
 
-
-
+/**
+ * Functional Utility: Initializes the GPU hash table and occupancy trackers.
+ * Logic: Allocates device memory for buckets and a dedicated counter, and 
+ * host memory for size tracking. All buckets are initialized to empty (0).
+ */
 GpuHashTable::GpuHashTable(int size)
 {
 	
@@ -34,23 +50,21 @@ GpuHashTable::GpuHashTable(int size)
 	cudaMemset(hashTable, 0, num_bytes);
 }
 
-
-
-
-
-
-
+/**
+ * Functional Utility: Reclaims device memory.
+ */
 GpuHashTable::~GpuHashTable()
 {
 	
 	cudaFree(hashTable);
 }
 
-
-
-
-
-
+/**
+ * Block Logic: Resizing kernel for migrating entries.
+ * Thread Indexing: Each thread maps to one slot in the old hash table.
+ * Logic: Scans for valid entries and re-inserts them into the new larger 
+ * table using recalculated hash indices and atomic insertions.
+ */
  __global__ void reinsertKeys(HashTableNode *newHT, int capacity, HashTableNode *oldHT, int old_size)
 {
 	
@@ -88,7 +102,11 @@ GpuHashTable::~GpuHashTable()
 	}
 }
 
-
+/**
+ * Functional Utility: Expands table capacity and migrates data.
+ * Logic: Allocates a larger bucket array on GPU, executes the reinsert kernel, 
+ * and synchronizes before freeing old memory.
+ */
 void GpuHashTable::reshape(int numBucketsReshape)
 {
 
@@ -125,11 +143,12 @@ void GpuHashTable::reshape(int numBucketsReshape)
 	cudaFree(oldHT);
 }
 
-
-
-
-
-
+/**
+ * Block Logic: Parallel atomic insertion kernel.
+ * Logic: Maps threads to input keys and performs linear probing with 
+ * atomicCAS. It handles both fresh insertions (updating device-side count) 
+ * and value updates for existing keys.
+ */
 __global__ void insertKey(HashTableNode *hashTable, int capacity, int *size_used_device, int *keys, int *values, int numKeys)
 {
 	
@@ -173,8 +192,11 @@ __global__ void insertKey(HashTableNode *hashTable, int capacity, int *size_used
 	}
 }
 
-
-
+/**
+ * Functional Utility: Orchestrates high-throughput parallel batch insertions.
+ * Logic: Monitors occupancy and triggers a 25% expansion if capacity is reached. 
+ * Transfers data to device and executes the insertion kernel.
+ */
 bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys)
 {
 	
@@ -219,11 +241,10 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys)
 	return true;
 }
 
-
-
-
-
-
+/**
+ * Block Logic: Parallel batch lookup kernel.
+ * Logic: Searches for keys starting from their hashed positions using linear probing.
+ */
 __global__ void getValues(HashTableNode *hashTable, int capacity, int *values, int *keys, int numKeys)
 {
 	
@@ -256,7 +277,10 @@ __global__ void getValues(HashTableNode *hashTable, int capacity, int *values, i
 	}
 }
 
-
+/**
+ * Functional Utility: Retrieves values for a batch of keys in parallel.
+ * Logic: Executes lookup kernel and returns result array in host memory.
+ */
 int* GpuHashTable::getBatch(int* keys, int numKeys)
 {
 
@@ -293,18 +317,13 @@ int* GpuHashTable::getBatch(int* keys, int numKeys)
 	return res;
 }
 
-
-
-
-
+/**
+ * Functional Utility: Returns the ratio of occupied slots to total capacity.
+ */
 float GpuHashTable::loadFactor()
 {
 	return (float) (*size_used_host) / capacity;
 }
-
-
-
-
 
 
 
@@ -447,4 +466,3 @@ class GpuHashTable
 };
 
 #endif
-

@@ -52,6 +52,10 @@ __global__ void kernel_insert(int *keys, int *values, int limitBound, hashtable 
 
 
 
+/**
+ * Block Logic: Parallel batch lookup kernel.
+ * Thread Indexing: Each thread handles the lookup for one key.
+ */
 __global__ void kernel_get(int *keys, int *values, int limitBound, hashtable hashmap) {
 	unsigned int i = threadIdx.x + blockDim.x * blockIdx.x;
 
@@ -81,6 +85,11 @@ __global__ void kernel_get(int *keys, int *values, int limitBound, hashtable has
 
 }
 
+/**
+ * Block Logic: Resizing kernel for migrating entries.
+ * Logic: For each valid entry in the old table, it finds a new position 
+ * in the new table using the updated size for hashing.
+ */
 __global__ void kernel_reshape(hashtable hashmap, hashtable newHashmap) {
 	unsigned int i = threadIdx.x + blockDim.x * blockIdx.x;
 
@@ -115,7 +124,10 @@ __global__ void kernel_reshape(hashtable hashmap, hashtable newHashmap) {
 
 }
 
-
+/**
+ * Functional Utility: Initializes the GPU hash table.
+ * Logic: Allocates device memory for the entries and initializes them to zero.
+ */
 GpuHashTable::GpuHashTable(int size) {
 	length = 0;
 	hashmap.size = size;
@@ -127,12 +139,16 @@ GpuHashTable::GpuHashTable(int size) {
 	cudaMemset(hashmap.list, 0, size * sizeof(entry));  
 }
 
-
+/**
+ * Functional Utility: Reclaims GPU memory.
+ */
 GpuHashTable::~GpuHashTable() {
 	cudaFree(hashmap.list);
 }
 
-
+/**
+ * Functional Utility: Resizes the hash table and migrates data.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) {
 	hashtable newHashmap;
 	newHashmap.size = numBucketsReshape;
@@ -152,7 +168,11 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 	hashmap = newHashmap;
 }
 
-
+/**
+ * Functional Utility: Performs batch insertion and manages capacity.
+ * Logic: Reshapes if the target load exceeds 83%. Uses a duplicate counter 
+ * from the device to maintain correct table size.
+ */
 bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	int *deviceKeys, *deviceValues, *duplicate;
 	int dupl;
@@ -185,7 +205,11 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	return true;
 }
 
-
+/**
+ * Functional Utility: Retrieves a batch of values in parallel.
+ * Memory Hierarchy: Uses Managed Memory (Unified Memory) for the output 
+ * values to simplify host access.
+ */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	int *deviceKeys, *values;
 	cudaMalloc(&deviceKeys, numKeys * sizeof(int));
@@ -202,7 +226,9 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	return values;
 }
 
-
+/**
+ * Functional Utility: Computes the current utilization ratio.
+ */
 float GpuHashTable::loadFactor() {
 	
 	if (hashmap.size == 0) {

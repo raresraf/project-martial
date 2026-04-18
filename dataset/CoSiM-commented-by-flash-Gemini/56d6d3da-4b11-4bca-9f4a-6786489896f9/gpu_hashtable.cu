@@ -1,14 +1,32 @@
 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
+/**
+ * @56d6d3da-4b11-4bca-9f4a-6786489896f9/gpu_hashtable.cu
+ * @brief CUDA implementation of a thread-safe Hash Table using linear probing.
+ * This implementation provides high-concurrency batch operations (insertion, 
+ * lookup, and rehashing) on the GPU. It uses atomic Compare-And-Swap (atomicCAS) 
+ * for consistent bucket state transitions and implements a load-aware 
+ * dynamic resizing strategy.
+ * 
+ * Algorithm: Open addressing with linear probing and prime multiplicative hashing.
+ * Domain: HPC, Parallel Data Structures, CUDA.
+ */
+
+#include <iostream>
+#include <cstdio>
+#include <cstdlib>
+#include <ctime>
+#include <cmath>
+#include <algorithm>
 
 #include "gpu_hashtable.hpp"
 
-
+/**
+ * Block Logic: Parallel atomic insertion kernel.
+ * Thread Indexing: Each thread maps to one entry in the input batch.
+ * Logic: Employs linear probing with atomicCAS to safely claim an empty 
+ * bucket or update an existing key. Increments the shared 'info' pointer 
+ * only for fresh insertions.
+ */
 __global__ void kernelInsert(Entry *entries, int size, int *keys, 
 	int *values, int N, int *info) {
 
@@ -39,7 +57,11 @@ __global__ void kernelInsert(Entry *entries, int size, int *keys,
 	} while (i != hash);
 }
 
-
+/**
+ * Block Logic: Parallel batch lookup kernel.
+ * Logic: Probes the table starting from the hash index using linear probing 
+ * until the matching key is found.
+ */
 __global__ void kernelGet(Entry *entries, int size, int *keys, 
 	int *values, int N) {
 
@@ -63,7 +85,11 @@ __global__ void kernelGet(Entry *entries, int size, int *keys,
 	} while (i != hash);
 }
 
-
+/**
+ * Block Logic: Resizing/migration kernel.
+ * Logic: Transfers non-empty elements from oldEntries into newEntries 
+ * using recalculated hash indices for the new size.
+ */
 __global__ void kernelRehash(Entry *newEntries, int newSize, 
 	Entry *oldEntries, int oldSize) {
 
@@ -91,7 +117,10 @@ __global__ void kernelRehash(Entry *newEntries, int newSize,
 	} while (i != hash);
 }
 
-
+/**
+ * Functional Utility: Initializes the GPU hash table structure.
+ * Logic: Allocates device memory for entries and clears it to zero.
+ */
 GpuHashTable::GpuHashTable(int size) {
 	cudaError_t err;
 
@@ -112,13 +141,19 @@ GpuHashTable::GpuHashTable(int size) {
 	cudaMemset((void *) this->entries, 0, size * sizeof(Entry));
 }
 
-
+/**
+ * Functional Utility: Releases GPU memory resources.
+ */
 GpuHashTable::~GpuHashTable() {
 	
 	cudaFree(this->entries);
 }
 
-
+/**
+ * Functional Utility: Expands the hash table capacity.
+ * Logic: Allocates a new larger entry array, executes the rehash kernel, 
+ * and synchronizes the device before pointer swapping.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) {
 	int totalSize;
 	cudaError_t err;
@@ -157,7 +192,12 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 	this->size = numBucketsReshape;
 }
 
-
+/**
+ * Functional Utility: Orchestrates high-concurrency batch insertions.
+ * Logic: Checks capacity and reshapes if necessary. Transfers batch data 
+ * to device, launches insertion kernel, and updates the occupied counter 
+ * from device feedback.
+ */
 bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	int *deviceKeys = NULL;
 	int *deviceValues = NULL;
@@ -200,7 +240,7 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 		deviceKeys, deviceValues, numKeys, info);
 
 	cudaDeviceSynchronize();
-	cudaMemcpy(©, info, sizeof(int), cudaMemcpyDeviceToHost);
+	cudaMemcpy(&copy, info, sizeof(int), cudaMemcpyDeviceToHost);
 	this->occupied += copy;
 
 	
@@ -216,7 +256,10 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	return true;
 }
 
-
+/**
+ * Functional Utility: Retrieves values for a batch of keys in parallel.
+ * Logic: Executes lookup kernel and returns result array in host memory.
+ */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	int *deviceKeys = NULL;
 	int *deviceValues = NULL;
@@ -260,7 +303,9 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	return hostValues;
 }
 
-
+/**
+ * Functional Utility: Returns the ratio of occupied buckets to total capacity.
+ */
 float GpuHashTable::loadFactor() {
 	return (float)this->occupied / this->size; 
 }
@@ -357,20 +402,17 @@ int hash3(int data, int limit) {
 	return ((long)abs(data) * primeList[70]) % primeList[93] % limit;
 }
 
-
+/**
+ * Functional Utility: Device-side prime multiplicative hash.
+ */
 __device__ int hashKey(int data, int limit) {
 	return ((long)abs(data) * PRIME_1) % PRIME_2 % limit;
 }
-
-
 
 typedef struct entry {
 	int key;
 	int value;
 } Entry;
-
-
-
 
 class GpuHashTable
 {
@@ -393,4 +435,3 @@ class GpuHashTable
 };
 
 #endif
-

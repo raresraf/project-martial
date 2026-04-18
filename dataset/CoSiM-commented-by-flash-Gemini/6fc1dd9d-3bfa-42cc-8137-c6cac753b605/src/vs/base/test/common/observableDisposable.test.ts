@@ -1,7 +1,20 @@
+
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
+
+/**
+ * @6fc1dd9d-3bfa-42cc-8137-c6cac753b605/src/vs/base/test/common/observableDisposable.test.ts
+ * @brief Test suite for ObservableDisposable lifecycle management.
+ * This module validates the disposal tracking and event notification mechanisms 
+ * of the ObservableDisposable class. It ensures that disposal states are correctly 
+ * propagated, onDispose callbacks are triggered reliably, and hierarchical 
+ * disposal trees are cleaned up without resource leaks.
+ * 
+ * Domain: Lifecycle Management, Resource Cleanup, Reactive Programming.
+ */
+
 import assert from 'assert';
 import { spy } from 'sinon';
 import { wait, waitRandom } from './testUtils.js';
@@ -13,6 +26,11 @@ import { assertNotDisposed, ObservableDisposable } from '../../common/observable
 suite('ObservableDisposable', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
+	/**
+	 * Functional Utility: State verification.
+	 * Logic: Ensures that the 'disposed' property accurately reflects the 
+	 * object's lifecycle status after calling dispose().
+	 */
 	test('• tracks `disposed` state', () => {
 		// this is an abstract class, so we have to create
 		// an anonymous class that extends it
@@ -43,6 +61,11 @@ suite('ObservableDisposable', () => {
 	});
 
 	suite('• onDispose()', () => {
+		/**
+		 * Functional Utility: Event notification.
+		 * Logic: Validates that registered onDispose callbacks are executed 
+		 * exactly once upon object disposal.
+		 */
 		test('• fires the event on dispose', async () => {
 			// this is an abstract class, so we have to create
 			// an anonymous class that extends it
@@ -107,6 +130,11 @@ suite('ObservableDisposable', () => {
 			);
 		});
 
+		/**
+		 * Functional Utility: Late-subscriber handling.
+		 * Logic: Ensures that callbacks registered on an already-disposed object 
+		 * are invoked immediately to prevent lost signals.
+		 */
 		test('• executes callback immediately if already disposed', async () => {
 			// this is an abstract class, so we have to create
 			// an anonymous class that extends it
@@ -146,6 +174,11 @@ suite('ObservableDisposable', () => {
 	});
 
 	suite('• addDisposable()', () => {
+		/**
+		 * Functional Utility: Resource grouping.
+		 * Logic: Tests that child disposables added to the container are 
+		 * automatically disposed when the parent is disposed.
+		 */
 		test('• disposes provided object with itself', async () => {
 			class TestDisposable implements IDisposable {
 				private _disposed = false;
@@ -204,6 +237,12 @@ suite('ObservableDisposable', () => {
 			);
 		});
 
+		/**
+		 * Functional Utility: Hierarchical cleanup.
+		 * Logic: Validates recursive disposal logic. When a root object is 
+		 * disposed, it must trigger a cascading cleanup down the entire 
+		 * tree of nested disposable objects.
+		 */
 		test('• disposes the entire tree of disposables', async () => {
 			class TestDisposable extends ObservableDisposable { }
 
@@ -287,6 +326,11 @@ suite('ObservableDisposable', () => {
 	});
 
 	suite('• asserts', () => {
+		/**
+		 * Functional Utility: Guard conditions.
+		 * Logic: Verifies that assertion methods throw errors appropriately 
+		 * when called on objects that have already been disposed.
+		 */
 		test('• not disposed (method)', async () => {
 			// this is an abstract class, so we have to create
 			// an anonymous class that extends it

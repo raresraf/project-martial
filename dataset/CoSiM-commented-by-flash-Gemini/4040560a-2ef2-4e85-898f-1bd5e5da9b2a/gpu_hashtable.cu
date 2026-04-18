@@ -1,12 +1,22 @@
+/**
+ * @4040560a-2ef2-4e85-898f-1bd5e5da9b2a/gpu_hashtable.cu
+ * @brief High-throughput GPU hash table implementation with dynamic resizing.
+ * This file provides a parallel hash table implementation using open addressing 
+ * with linear probing. It features automatic resizing when the load factor 
+ * exceeds 90% and uses CUDA events for performance monitoring.
+ * 
+ * Algorithm: Linear Probing with Murmur-style mixing hash.
+ * Domain: HPC, CUDA, Parallel Data Structures.
+ */
 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
+#include <iostream>
+#include <cstdio>
+#include <cstdlib>
+#include <ctime>
+#include <cmath>
+#include <algorithm>
 
-#include
+#include <cuda_runtime.h>
 #include "gpu_hashtable.hpp"
 
 #define PERFORMACE_VIEW 1
@@ -18,24 +28,31 @@
 #define NUM_BLOCKS(n) (((n) + 255) / 256)
 #define NUM_THREADS 256
 
-
-
+/**
+ * Functional Utility: Device-side hash mixer and distributor.
+ * Logic: Applies a series of bitwise shifts and multiplications to ensure 
+ * avalanche effect and uniform distribution across the table buckets.
+ */
 __device__ int hash_func(int k, int htable_size)
 {
 	k = ((k >> 16) ^ k) * 0x45d9f3b;
     k = ((k >> 16) ^ k) * 0x45d9f3b;
 	k = (k >> 16) ^ k;
-	
-	
+
+
     return k % htable_size;
 }
 
-
+/**
+ * Block Logic: Parallel hash table initialization.
+ * Thread Indexing: Each thread initializes one bucket in the table.
+ * Pre-condition: 'htable' must be allocated with at least 'size' elements.
+ */
 __global__ void gpu_init_hashTable(entry_t *htable, const int size)
 {
 	unsigned int threadId = blockIdx.x * blockDim.x + threadIdx.x;
 
-	
+
 	if (threadId < size) {
 		htable[threadId].key = EMPTY_KEY;
 		htable[threadId].value = EMPTY_VALUE;
@@ -43,6 +60,12 @@ __global__ void gpu_init_hashTable(entry_t *htable, const int size)
 }
 
 
+
+/**
+ * Functional Utility: Initializes the hash table object and device memory.
+ * Logic: Allocates device memory for the table and a managed memory pointer 
+ * for the element count. Invokes the init kernel to reset all buckets.
+ */
 GpuHashTable::GpuHashTable(int size) {
 
 	
@@ -63,7 +86,9 @@ GpuHashTable::GpuHashTable(int size) {
 	*count = 0;
 }
 
-
+/**
+ * Functional Utility: Cleans up GPU and managed memory.
+ */
 GpuHashTable::~GpuHashTable() {
 	
 	if (htable != 0)
@@ -74,7 +99,9 @@ GpuHashTable::~GpuHashTable() {
 		cudaFree(count);
 }
 
-
+/**
+ * Functional Utility: Manual reset/re-initialization of the hash table.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) {
 	int size = numBucketsReshape;
 
@@ -102,7 +129,12 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 	*count = 0;
 }
 
-
+/**
+ * Block Logic: Entry migration kernel.
+ * Thread Indexing: Each thread checks one slot in the old hash table.
+ * Logic: For every non-empty slot, it re-calculates the hash for the new 
+ * table size and inserts the entry using linear probing.
+ */
 __global__ void gpu_hashtable_copy(entry_t *old_htable, entry_t *new_htable, const int old_htable_size, const int new_htable_size)
 {
 	unsigned int threadId = blockIdx.x * blockDim.x + threadIdx.x;
@@ -121,7 +153,9 @@ __global__ void gpu_hashtable_copy(entry_t *old_htable, entry_t *new_htable, con
 	int current_key;
 	int index = hash_func(key, new_htable_size);	
 	
-	
+	/**
+	 * Block Logic: Linear probing for migration.
+	 */
 	while (1) {
 		
 		current_key = atomicCAS(&new_htable[index].key, EMPTY_KEY, key);
@@ -137,7 +171,12 @@ __global__ void gpu_hashtable_copy(entry_t *old_htable, entry_t *new_htable, con
 	}
 }
 
-
+/**
+ * Block Logic: Atomic insertion kernel for batch operations.
+ * Logic: Uses atomicCAS to claim slots. If an empty slot is claimed, it 
+ * increments the shared 'count' pointer. If the key already exists, 
+ * it simply updates the value.
+ */
 __global__ void gpu_hashtable_insert(entry_t *htable, unsigned int *count, const int htable_size, const int *keys, const int *values, const int numKeys)
 {
 	unsigned int threadId = blockIdx.x * blockDim.x + threadIdx.x;
@@ -172,6 +211,12 @@ __global__ void gpu_hashtable_insert(entry_t *htable, unsigned int *count, const
 }
 
 
+/**
+ * Functional Utility: Orchestrates batch insertions with automatic resizing.
+ * Logic: Checks if the new batch will exceed the load factor threshold. If 
+ * so, it allocates a larger table, migrates existing entries using the 
+ * copy kernel, and updates the pointer. Finally, it launches the insert kernel.
+ */
 bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	
 	int *device_keys;
@@ -249,7 +294,12 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	return true;
 }
 
-
+/**
+ * Block Logic: Parallel lookup kernel.
+ * Logic: Searches for keys using linear probing. Features a timeout mechanism 
+ * to prevent infinite loops in case the table is full (unlikely due to 
+ * load factor management).
+ */
 __global__ void gpu_hashtable_lookup(entry_t *htable, const int htable_size, const int *keys, int *values, const int numKeys)
 {
 	unsigned int threadId = blockIdx.x * blockDim.x + threadIdx.x;
@@ -285,7 +335,11 @@ __global__ void gpu_hashtable_lookup(entry_t *htable, const int htable_size, con
 	}
 }
 
-
+/**
+ * Functional Utility: Retrieves values for a batch of keys in parallel.
+ * Logic: Transfers keys to GPU, launches lookup kernel, transfers results 
+ * back to host memory.
+ */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	int *values;
 	int *device_keys;
@@ -334,7 +388,10 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	return values;
 }
 
-
+/**
+ * Functional Utility: Calculates the current load factor using the 
+ * atomic counter maintained in managed memory.
+ */
 float GpuHashTable::loadFactor() {
 	
 	return (float)*count /(float)htable_size; 

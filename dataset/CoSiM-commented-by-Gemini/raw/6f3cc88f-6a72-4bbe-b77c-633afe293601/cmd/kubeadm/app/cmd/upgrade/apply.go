@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package upgrade implements the `kubeadm upgrade apply` command.
 package upgrade
 
 import (
@@ -38,10 +39,12 @@ import (
 )
 
 const (
+	// upgradeManifestTimeout defines the timeout for static pod manifest upgrades.
 	upgradeManifestTimeout = 1 * time.Minute
 )
 
-// applyFlags holds the information about the flags that can be passed to apply
+// applyFlags holds the information about the flags that can be passed to the apply command.
+// This is a common pattern for organizing CLI command state.
 type applyFlags struct {
 	nonInteractiveMode bool
 	force              bool
@@ -53,12 +56,14 @@ type applyFlags struct {
 	parent             *cmdUpgradeFlags
 }
 
-// SessionIsInteractive returns true if the session is of an interactive type (the default, can be opted out of with -y, -f or --dry-run)
+// SessionIsInteractive returns true if the session is of an interactive type.
+// This can be opted out of with flags like -y, -f, or --dry-run.
 func (f *applyFlags) SessionIsInteractive() bool {
 	return !f.nonInteractiveMode
 }
 
-// NewCmdApply returns the cobra command for `kubeadm upgrade apply`
+// NewCmdApply returns the cobra command for `kubeadm upgrade apply`.
+// It defines the command's behavior, flags, and execution logic.
 func NewCmdApply(parentFlags *cmdUpgradeFlags) *cobra.Command {
 	flags := &applyFlags{
 		parent:           parentFlags,
@@ -69,27 +74,30 @@ func NewCmdApply(parentFlags *cmdUpgradeFlags) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "apply [version]",
 		Short: "Upgrade your Kubernetes cluster to the specified version.",
+		// The Run function is the main entry point for the command's execution.
 		Run: func(cmd *cobra.Command, args []string) {
-			// Ensure the user is root
+			// Ensure the user is root, a common requirement for system-level changes.
 			err := runPreflightChecks(flags.parent.skipPreFlight)
 			kubeadmutil.CheckErr(err)
 
+			// Validate that the user has provided exactly one argument: the version.
 			err = cmdutil.ValidateExactArgNumber(args, []string{"version"})
 			kubeadmutil.CheckErr(err)
 
-			// It's safe to use args[0] here as the slice has been validated above
+			// Store the requested version string.
 			flags.newK8sVersionStr = args[0]
 
-			// Default the flags dynamically, based on each others' value
+			// Set implicit flags based on user input (e.g., --dry-run implies --yes).
 			err = SetImplicitFlags(flags)
 			kubeadmutil.CheckErr(err)
 
+			// Execute the core upgrade logic.
 			err = RunApply(flags)
 			kubeadmutil.CheckErr(err)
 		},
 	}
 
-	// Specify the valid flags specific for apply
+	// Define and bind the command-line flags to the applyFlags struct.
 	cmd.Flags().BoolVarP(&flags.nonInteractiveMode, "yes", "y", flags.nonInteractiveMode, "Perform the upgrade and do not prompt for confirmation (non-interactive mode).")
 	cmd.Flags().BoolVarP(&flags.force, "force", "f", flags.force, "Force upgrading although some requirements might not be met. This also implies non-interactive mode.")
 	cmd.Flags().BoolVar(&flags.dryRun, "dry-run", flags.dryRun, "Do not change any state, just output what actions would be performed.")
@@ -99,39 +107,31 @@ func NewCmdApply(parentFlags *cmdUpgradeFlags) *cobra.Command {
 	return cmd
 }
 
-// RunApply takes care of the actual upgrade functionality
-// It does the following things:
-// - Checks if the cluster is healthy
-// - Gets the configuration from the kubeadm-config ConfigMap in the cluster
-// - Enforces all version skew policies
-// - Asks the user if they really want to upgrade
-// - Makes sure the control plane images are available locally on the master(s)
-// - Upgrades the control plane components
-// - Applies the other resources that'd be created with kubeadm init as well, like
-//   - Creating the RBAC rules for the bootstrap tokens and the cluster-info ConfigMap
-//   - Applying new kube-dns and kube-proxy manifests
-//   - Uploads the newly used configuration to the cluster ConfigMap
+// RunApply orchestrates the actual upgrade functionality.
+// Its primary architectural role is to sequence the upgrade through a series of phases,
+// ensuring safety and correctness at each step.
 func RunApply(flags *applyFlags) error {
 
-	// Start with the basics, verify that the cluster is healthy and get the configuration from the cluster (using the ConfigMap)
+	// Phase 1: Pre-flight checks and configuration loading.
+	// This ensures the cluster is in a healthy, upgradeable state before any changes are made.
 	upgradeVars, err := enforceRequirements(flags.parent.kubeConfigPath, flags.parent.cfgPath, flags.parent.printConfig, flags.dryRun)
 	if err != nil {
 		return err
 	}
 
-	// Set the upgraded version on the external config object now
+	// Update the in-memory configuration with the new version.
 	upgradeVars.cfg.KubernetesVersion = flags.newK8sVersionStr
 
-	// Grab the external, versioned configuration and convert it to the internal type for usage here later
+	// Convert the versioned, external configuration to an internal type for processing.
 	internalcfg := &kubeadmapi.MasterConfiguration{}
 	legacyscheme.Scheme.Convert(upgradeVars.cfg, internalcfg, nil)
 
-	// Validate requested and validate actual version
+	// Normalize and validate the requested Kubernetes version.
 	if err := configutil.NormalizeKubernetesVersion(internalcfg); err != nil {
 		return err
 	}
 
-	// Use normalized version string in all following code.
+	// Use the normalized version string for all subsequent operations.
 	flags.newK8sVersionStr = internalcfg.KubernetesVersion
 	k8sVer, err := version.ParseSemantic(flags.newK8sVersionStr)
 	if err != nil {
@@ -139,49 +139,57 @@ func RunApply(flags *applyFlags) error {
 	}
 	flags.newK8sVersion = k8sVer
 
-	// Enforce the version skew policies
+	// Phase 2: Version skew and policy enforcement.
+	// This is a critical safety gate to prevent unsupported upgrades.
 	if err := EnforceVersionPolicies(flags, upgradeVars.versionGetter); err != nil {
 		return fmt.Errorf("[upgrade/version] FATAL: %v", err)
 	}
 
-	// If the current session is interactive, ask the user whether they really want to upgrade
+	// Phase 3: User confirmation.
+	// If in interactive mode, require explicit user consent before proceeding.
 	if flags.SessionIsInteractive() {
 		if err := InteractivelyConfirmUpgrade("Are you sure you want to proceed with the upgrade?"); err != nil {
 			return err
 		}
 	}
 
-	// Use a prepuller implementation based on creating DaemonSets
-	// and block until all DaemonSets are ready; then we know for sure that all control plane images are cached locally
+	// Phase 4: Image pre-pulling.
+	// This architectural pattern uses a DaemonSet to pull required container images
+	// onto all control-plane nodes *before* starting the upgrade, minimizing downtime.
 	prepuller := upgrade.NewDaemonSetPrepuller(upgradeVars.client, upgradeVars.waiter, internalcfg)
 	upgrade.PrepullImagesInParallel(prepuller, flags.imagePullTimeout)
 
-	// Now; perform the upgrade procedure
+	// Phase 5: Control plane upgrade.
+	// This is the core action where the control plane components are upgraded.
 	if err := PerformControlPlaneUpgrade(flags, upgradeVars.client, upgradeVars.waiter, internalcfg); err != nil {
 		return fmt.Errorf("[upgrade/apply] FATAL: %v", err)
 	}
 
-	// Upgrade RBAC rules and addons.
+	// Phase 6: Post-upgrade tasks.
+	// This includes upgrading RBAC rules and essential addons like CoreDNS and kube-proxy.
 	if err := upgrade.PerformPostUpgradeTasks(upgradeVars.client, internalcfg); err != nil {
 		return fmt.Errorf("[upgrade/postupgrade] FATAL post-upgrade error: %v", err)
 	}
 
+	// If this was a dry run, report success and exit.
 	if flags.dryRun {
 		fmt.Println("[dryrun] Finished dryrunning successfully!")
 		return nil
 	}
 
+	// Final success message and instructions for the user.
 	fmt.Println("")
-	fmt.Printf("[upgrade/successful] SUCCESS! Your cluster was upgraded to %q. Enjoy!\n", flags.newK8sVersionStr)
+	fmt.Printf("[upgrade/successful] SUCCESS! Your cluster was upgraded to %q. Enjoy!
+", flags.newK8sVersionStr)
 	fmt.Println("")
 	fmt.Println("[upgrade/kubelet] Now that your control plane is upgraded, please proceed with upgrading your kubelets in turn.")
 
 	return nil
 }
 
-// SetImplicitFlags handles dynamically defaulting flags based on each other's value
+// SetImplicitFlags handles dynamically defaulting flags based on each other's value.
 func SetImplicitFlags(flags *applyFlags) error {
-	// If we are in dry-run or force mode; we should automatically execute this command non-interactively
+	// If we are in dry-run or force mode, we should automatically execute this command non-interactively.
 	if flags.dryRun || flags.force {
 		flags.nonInteractiveMode = true
 	}
@@ -193,62 +201,84 @@ func SetImplicitFlags(flags *applyFlags) error {
 	return nil
 }
 
-// EnforceVersionPolicies makes sure that the version the user specified is valid to upgrade to
-// There are both fatal and skippable (with --force) errors
+// EnforceVersionPolicies ensures that the user-specified version is valid to upgrade to.
+// It separates errors into fatal (non-skippable) and skippable (if --force is used).
 func EnforceVersionPolicies(flags *applyFlags, versionGetter upgrade.VersionGetter) error {
-	fmt.Printf("[upgrade/version] You have chosen to upgrade to version %q\n", flags.newK8sVersionStr)
+	fmt.Printf("[upgrade/version] You have chosen to upgrade to version %q
+", flags.newK8sVersionStr)
 
+	// Check for version skew errors.
 	versionSkewErrs := upgrade.EnforceVersionPolicies(versionGetter, flags.newK8sVersionStr, flags.newK8sVersion, flags.parent.allowExperimentalUpgrades, flags.parent.allowRCUpgrades)
 	if versionSkewErrs != nil {
 
+		// If there are fatal errors, the upgrade cannot proceed.
 		if len(versionSkewErrs.Mandatory) > 0 {
-			return fmt.Errorf("The --version argument is invalid due to these fatal errors:\n\n%v\nPlease fix the misalignments highlighted above and try upgrading again", kubeadmutil.FormatErrMsg(versionSkewErrs.Mandatory))
+			return fmt.Errorf("The --version argument is invalid due to these fatal errors:
+
+%v
+Please fix the misalignments highlighted above and try upgrading again", kubeadmutil.FormatErrMsg(versionSkewErrs.Mandatory))
 		}
 
+		// If there are skippable errors, check for the --force flag.
 		if len(versionSkewErrs.Skippable) > 0 {
-			// Return the error if the user hasn't specified the --force flag
+			// If --force is not specified, return an error.
 			if !flags.force {
-				return fmt.Errorf("The --version argument is invalid due to these errors:\n\n%v\nCan be bypassed if you pass the --force flag", kubeadmutil.FormatErrMsg(versionSkewErrs.Skippable))
+				return fmt.Errorf("The --version argument is invalid due to these errors:
+
+%v
+Can be bypassed if you pass the --force flag", kubeadmutil.FormatErrMsg(versionSkewErrs.Skippable))
 			}
-			// Soft errors found, but --force was specified
-			fmt.Printf("[upgrade/version] Found %d potential version compatibility errors but skipping since the --force flag is set: \n\n%v", len(versionSkewErrs.Skippable), kubeadmutil.FormatErrMsg(versionSkewErrs.Skippable))
+			// If --force is specified, print a warning but continue.
+			fmt.Printf("[upgrade/version] Found %d potential version compatibility errors but skipping since the --force flag is set: 
+
+%v", len(versionSkewErrs.Skippable), kubeadmutil.FormatErrMsg(versionSkewErrs.Skippable))
 		}
 	}
 	return nil
 }
 
-// PerformControlPlaneUpgrade actually performs the upgrade procedure for the cluster of your type (self-hosted or static-pod-hosted)
+// PerformControlPlaneUpgrade executes the upgrade procedure for the control plane.
+// It detects the type of cluster (self-hosted or static pod-hosted) and calls the appropriate function.
 func PerformControlPlaneUpgrade(flags *applyFlags, client clientset.Interface, waiter apiclient.Waiter, internalcfg *kubeadmapi.MasterConfiguration) error {
 
-	// Check if the cluster is self-hosted and act accordingly
+	// Check if the cluster is self-hosted and act accordingly.
 	if upgrade.IsControlPlaneSelfHosted(client) {
-		fmt.Printf("[upgrade/apply] Upgrading your Self-Hosted control plane to version %q...\n", flags.newK8sVersionStr)
+		fmt.Printf("[upgrade/apply] Upgrading your Self-Hosted control plane to version %q...
+", flags.newK8sVersionStr)
 
-		// Upgrade the self-hosted cluster
+		// Upgrade the self-hosted cluster.
 		return upgrade.SelfHostedControlPlane(client, waiter, internalcfg, flags.newK8sVersion)
 	}
 
-	// OK, the cluster is hosted using static pods. Upgrade a static-pod hosted cluster
-	fmt.Printf("[upgrade/apply] Upgrading your Static Pod-hosted control plane to version %q...\n", flags.newK8sVersionStr)
+	// The cluster is hosted using static pods, the default and most common method.
+	fmt.Printf("[upgrade/apply] Upgrading your Static Pod-hosted control plane to version %q...
+", flags.newK8sVersionStr)
 
+	// If this is a dry run, simulate the upgrade without making changes.
 	if flags.dryRun {
 		return DryRunStaticPodUpgrade(internalcfg)
 	}
 
+	// Perform the actual upgrade for a static pod-hosted cluster.
 	return PerformStaticPodUpgrade(client, waiter, internalcfg, flags.etcdUpgrade)
 }
 
-// PerformStaticPodUpgrade performs the upgrade of the control plane components for a static pod hosted cluster
+// PerformStaticPodUpgrade handles the upgrade of control plane components for a static pod-hosted cluster.
+// The core architectural pattern is to write new manifest files to the `/etc/kubernetes/manifests` directory.
+// The kubelet on the node watches this directory and automatically restarts the control plane pods with the new configuration.
 func PerformStaticPodUpgrade(client clientset.Interface, waiter apiclient.Waiter, internalcfg *kubeadmapi.MasterConfiguration, etcdUpgrade bool) error {
 	pathManager, err := upgrade.NewKubeStaticPodPathManagerUsingTempDirs(constants.GetStaticPodDirectory())
 	if err != nil {
 		return err
 	}
 
+	// This function handles the manifest writing and waits for the components to become healthy.
 	return upgrade.StaticPodControlPlane(waiter, pathManager, internalcfg, etcdUpgrade)
 }
 
-// DryRunStaticPodUpgrade fakes an upgrade of the control plane
+// DryRunStaticPodUpgrade simulates the upgrade of a static pod-hosted control plane.
+// It generates the new manifests in a temporary directory and prints them to show what
+// *would* be changed, without affecting the live system. This is a crucial feature for safety and predictability.
 func DryRunStaticPodUpgrade(internalcfg *kubeadmapi.MasterConfiguration) error {
 
 	dryRunManifestDir, err := constants.CreateTempDirForKubeadm("kubeadm-upgrade-dryrun")
@@ -257,11 +287,12 @@ func DryRunStaticPodUpgrade(internalcfg *kubeadmapi.MasterConfiguration) error {
 	}
 	defer os.RemoveAll(dryRunManifestDir)
 
+	// Generate the new static pod manifests in the temporary directory.
 	if err := controlplane.CreateInitStaticPodManifestFiles(dryRunManifestDir, internalcfg); err != nil {
 		return err
 	}
 
-	// Print the contents of the upgraded manifests and pretend like they were in /etc/kubernetes/manifests
+	// Prepare to print the contents of the generated manifests.
 	files := []dryrunutil.FileToPrint{}
 	for _, component := range constants.MasterComponents {
 		realPath := constants.GetStaticPodFilepath(component, dryRunManifestDir)
@@ -269,5 +300,6 @@ func DryRunStaticPodUpgrade(internalcfg *kubeadmapi.MasterConfiguration) error {
 		files = append(files, dryrunutil.NewFileToPrint(realPath, outputPath))
 	}
 
+	// Print the dry-run files to standard output.
 	return dryrunutil.PrintDryRunFiles(files, os.Stdout)
 }

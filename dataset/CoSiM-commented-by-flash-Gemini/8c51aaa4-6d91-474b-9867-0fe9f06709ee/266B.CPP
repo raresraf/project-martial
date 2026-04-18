@@ -1,7 +1,16 @@
+/**
+ * @8c51aaa4-6d91-474b-9867-0fe9f06709ee/266B.CPP
+ * @brief Discrete-time simulation of a queue reordering process based on local adjacency rules.
+ * Domain: Competitive Programming, Algorithm Simulation.
+ * Algorithm: Iterative single-pass swap simulation.
+ * Time Complexity: $O(T \times N)$ where T is the time duration and N is the queue length.
+ * Space Complexity: $O(N)$ to store the entity sequence.
+ */
+
 #include <bits/stdc++.h>
 using namespace std;
 
-// Optimisations
+// Optimisations: Compiler directives to enhance execution speed for large-scale simulations.
 
 #pragma GCC target("avx2")
 #pragma GCC optimization("unroll-loops")
@@ -22,7 +31,7 @@ using namespace std;
 #define prec(n) fixed << setprecision(n)
 #define n_l '\n'
 
-// make it python
+// make it python: Aliases to emulate higher-level language syntax.
 
 #define gcd __gcd
 #define append push_back
@@ -87,7 +96,7 @@ constexpr auto mod = 1000000007;
 constexpr auto MOD = 1000000007;
 constexpr auto MOD9 = 1000000009;
 
-// Debugging
+// Debugging utilities for recursive and multi-dimensional data structure visualization.
 
 // For reference: https://codeforces.com/blog/entry/65311
 
@@ -168,6 +177,9 @@ template <typename Heads, typename... Tails> void dbgs(Heads H, Tails... T) {
 #define n_l '\n'
 
 int main() {
+  /**
+   * Functional Utility: Optimized I/O stream synchronization for competitive constraints.
+   */
   ios_base::sync_with_stdio(false);
   cin.tie(NULL);
   cout.tie(NULL);
@@ -176,13 +188,24 @@ int main() {
   cin >> n >> t;
   string s;
   cin >> s;
+
+  /**
+   * Block Logic: Orchestrates temporal progression of the queue state.
+   * Invariant: At start of step 'i', queue reflects state after 'i' seconds.
+   */
   for (int i = 0; i < t; i++) {
+    /**
+     * Block Logic: Single-pass sweep to resolve local reordering rules.
+     * Logic: Swaps 'B' (Boy) and 'G' (Girl) if they are adjacent and 'B' precedes 'G'.
+     */
     for (int j = 0; j < n - 1; j++) {
       if (s[j] == 'B' and s[j + 1] == 'G') {
         swap(s[j], s[j + 1]);
+        // Inline: Skips next index to prevent multi-step migration in a single time unit.
         j++;
       }
     }
   }
+  // Output final converged or time-bounded state.
   th(s);
 }

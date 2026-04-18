@@ -1,3 +1,18 @@
+
+/**
+ * @64a66b65-162b-4650-b3a3-267392b45ebb/118A.CPP
+ * @brief Algorithmic string transformation for the "String Task" problem.
+ * This program normalizes an input word by converting it to lowercase, filtering 
+ * out all vowels (including 'y'), and representing each remaining consonant 
+ * with a preceding dot in the output. It includes several utility functions 
+ * for competitive programming, although most are auxiliary to the core task.
+ * 
+ * Algorithm: Linear scan with conditional filtering and character case transformation.
+ * Time Complexity: $O(L)$ where L is the length of the input string.
+ * Space Complexity: $O(L)$ to store the transformed result.
+ * Domain: Competitive Programming, String Manipulation.
+ */
+
 // please refer from line no. 207
 /////*31022618*/////
 //_MONU KUMAR
@@ -60,6 +75,10 @@ using namespace std;
   lp(i, 0, n) cin >> a[i];
 #define ona(a, n) lp(i, 0, n) cout << a[i] << " ";
 //#########################################################################################
+/**
+ * Functional Utility: Checks if two strings are permutations of each other.
+ * Logic: Uses a frequency array to count character occurrences.
+ */
 bool anagram(char *s1, char *s2) {
   ll count[siz];
   mem(count, 0);
@@ -79,7 +98,11 @@ bool anagram(char *s1, char *s2) {
   return true;
 }
 //###########################################################################################
-// modulo Multiplication
+/**
+ * Functional Utility: Performs modular multiplication.
+ * Logic: Implements a binary exponentiation-style multiplication to 
+ * prevent intermediate overflow.
+ */
 ll moduloMultiplication(ll a, ll b, ll zz) {
   ll res = 0;
   a %= mod;
@@ -95,6 +118,9 @@ ll moduloMultiplication(ll a, ll b, ll zz) {
 }
 //###########################################################################################
 
+/**
+ * Functional Utility: Parses a string into its integer numeric representation.
+ */
 ll convert(string s) {
   bool o = true;
   ll ans = 0;
@@ -104,7 +130,9 @@ ll convert(string s) {
   return ans;
 }
 //###########################################################################################
-// function to calculate a^b under mod...
+/**
+ * Functional Utility: Calculates (a^b) % modulo using binary exponentiation.
+ */
 ll powmod(ll a, ll b, ll modulo) {
   if (b == 0 || a == 1)
     return 1;
@@ -116,7 +144,10 @@ ll powmod(ll a, ll b, ll modulo) {
   return full % modulo;
 }
 //###########################################################################################
-// function to calculate inverse modulo under mod...assuming gcd is 1
+/**
+ * Functional Utility: Computes the modular multiplicative inverse using Fermat's Little Theorem.
+ * Pre-condition: 'modulo' must be a prime number.
+ */
 ll invmod(ll a, ll modulo) {
   ll check = powmod(a, modulo - 2, modulo) % modulo;
   return check;
@@ -211,13 +242,22 @@ int main() {
               xx = 0, minn1 = big, minn2 = big, maxx1 = small, maxx2 = small;
   string s;
   cin >> s;
-  // transform(s.begin(),s.end(),s.begin(),::tolower);
-  // trace(s)
+
+  /**
+   * Block Logic: Lowercase normalization.
+   */
   transform(s.begin(), s.end(), s.begin(), ::tolower);
-  // trace(s)
+  
   string ss;
   ss += ".";
+
+  /**
+   * Block Logic: Vowel filtering and consonant formatting.
+   * Logic: Iterates through the normalized string. It skips vowels and 
+   * appends constants with a dot suffix.
+   */
   lp(i, 0, s.size()) {
+    // Inline: Vowel detection includes 'y' as per problem constraints.
     if (s[i] == 'a' || s[i] == 'o' || s[i] == 'y' || s[i] == 'e' ||
         s[i] == 'i' || s[i] == 'u') {
       /* code */
@@ -227,10 +267,11 @@ int main() {
     ss += '.';
     // trace(ss)
   }
+
+  // Inline: Removes the trailing dot for correct formatting and prints.
   ss.pop_back();
   p1(ss)
 
-      // clog<<((long double)(clock()-launch)/CLOCKS_PER_SEC)<<"\n";
-      return 0;
+  return 0;
 }
 //////////*********************end of program*********************//////////

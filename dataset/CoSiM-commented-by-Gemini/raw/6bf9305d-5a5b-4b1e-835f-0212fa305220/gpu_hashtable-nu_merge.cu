@@ -1,3 +1,18 @@
+/**
+ * @file gpu_hashtable-nu_merge.cu
+ * @brief This file contains the implementation of a GPU-accelerated hash table.
+ *        It uses CUDA to parallelize hash table operations like insertion and retrieval.
+ *        The implementation uses open addressing with linear probing for collision resolution.
+ *        The code appears to be merged from multiple source files, resulting in
+ *        duplicated definitions. The comments are applied to all duplicates.
+ *
+ * @author The Gemini Coder
+ * @date 2024-07-26
+ *
+ * @note This code is intended for educational and research purposes. It demonstrates
+ *       the use of CUDA for accelerating data structures but may not be suitable
+ *       for production use without further optimization and testing.
+ */
 
 #include "gpu_hashtable.hpp"
 #include 
@@ -7,10 +22,26 @@
 #include 
 #include 
 
+/**
+ * @brief Computes a hash value for a given integer key.
+ * @param data The integer key to be hashed.
+ * @param limit The size of the hash table, used for the modulo operation to map the hash value to a bucket index.
+ * @return The computed hash bucket index.
+ *
+ * @note This is a multiplicative hash function using large prime numbers to ensure good distribution of keys.
+ *       It can be executed on both the host (CPU) and the device (GPU).
+ */
 __host__ __device__ int hash_function(int data, int limit) {
 	return ((long)abs(data) * 718326812383316683llu) % 8699590588571llu % limit;
 }
 
+/**
+ * @brief Constructs a GpuHashTable object.
+ * @param size The initial capacity of the hash table.
+ *
+ * @note This constructor allocates unified memory for the keys and values arrays on the GPU,
+ *       accessible from both the host and the device.
+ */
 GpuHashTable::GpuHashTable(int size) {
 	this->HTcontor = 0;
 	this->HTmarime = size;
@@ -21,12 +52,27 @@ GpuHashTable::GpuHashTable(int size) {
 	cudaMemset(this->device_chei, KEY_INVALID, this->HTmarime);
 }
 
+/**
+ * @brief Destroys the GpuHashTable object.
+ *
+ * @note This destructor frees the GPU memory allocated for the hash table.
+ */
 GpuHashTable::~GpuHashTable() {
 	
 	cudaFree(this->device_valori);
 	cudaFree(this->device_chei);
 }
 
+/**
+ * @brief Resizes the hash table to a new capacity.
+ * @param numBucketsReshape The new number of buckets for the hash table.
+ *
+ * @note This function is a host-side operation that handles hash table resizing.
+ *       It copies the existing key-value pairs from the GPU to a temporary host buffer,
+ *       re-allocates the hash table on the GPU with the new size, and then re-inserts
+ *       all the elements. This is a costly operation and is typically triggered when
+ *       the load factor exceeds a certain threshold.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) {
 	int **ht_aux = (int **)malloc(sizeof(int *) * 2);
 	ht_aux[0] = (int *)malloc(this->HTcontor * sizeof(int));
@@ -60,6 +106,21 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 		free(ht_aux[j]);
 }
 
+/**
+ * @brief CUDA kernel for inserting key-value pairs into the hash table in parallel.
+ * @param keys An array of keys to be inserted.
+ * @param values An array of values corresponding to the keys.
+ * @param numKeys The number of key-value pairs to insert.
+ * @param htchei A pointer to the hash table's key storage on the GPU.
+ * @param htvalori A pointer to the hash table's value storage on the GPU.
+ * @param HTmarime The capacity of the hash table.
+ * @param HTcontor A pointer to a counter for the number of elements in the hash table.
+ *
+ * @note Each thread in the grid processes one key-value pair.
+ *       Collision handling is done using linear probing.
+ *       Atomic operations (`atomicCAS`, `atomicAdd`, `atomicExch`) are used to ensure thread-safe
+ *       updates to the hash table in a concurrent environment.
+ */
 __global__ void kernel_insert(int *keys, int *values, int numKeys, int *htchei, int *htvalori, int HTmarime, int *HTcontor) {
 	int h;
 	int h_aux, aux, check = 0;
@@ -100,6 +161,17 @@ __global__ void kernel_insert(int *keys, int *values, int numKeys, int *htchei, 
 	}
 }
 
+/**
+ * @brief Inserts a batch of key-value pairs into the hash table.
+ * @param keys A pointer to an array of keys on the host.
+ * @param values A pointer to an array of values on the host.
+ * @param numKeys The number of key-value pairs in the batch.
+ * @return `true` if the insertion was successful, `false` otherwise.
+ *
+ * @note This function orchestrates the batch insertion process. It handles memory transfers
+ *       from host to device and launches the `kernel_insert` CUDA kernel.
+ *       If the insertion causes the load factor to exceed a threshold, it triggers a `reshape`.
+ */
 bool GpuHashTable::insertBatch(int *keys, int *values, int numKeys) {
 	int *device_chei = NULL;
 	int *device_valori = NULL;
@@ -129,6 +201,18 @@ bool GpuHashTable::insertBatch(int *keys, int *values, int numKeys) {
 	return true;
 }
 
+/**
+ * @brief CUDA kernel for retrieving values from the hash table in parallel.
+ * @param keys An array of keys to be retrieved.
+ * @param values An array where the retrieved values will be stored.
+ * @param numKeys The number of keys to retrieve.
+ * @param hashTableKeys A pointer to the hash table's key storage on the GPU.
+ * @param hashTableValues A pointer to the hash table's value storage on the GPU.
+ * @param HTmarime The capacity of the hash table.
+ *
+ * @note Each thread in the grid processes one key.
+ *       It uses linear probing to find the key in the hash table.
+ */
 __global__ void kernel_get(int *keys, int *values, int numKeys, int *hashTableKeys, int *hashTableValues, int HTmarime) {
 	int idx = threadIdx.x + blockIdx.x * blockDim.x;
 	int new_key, h, h_aux;
@@ -156,6 +240,15 @@ __global__ void kernel_get(int *keys, int *values, int numKeys, int *hashTableKe
 	return;
 }
 
+/**
+ * @brief Retrieves a batch of values corresponding to a batch of keys.
+ * @param keys A pointer to an array of keys on the host.
+ * @param numKeys The number of keys in the batch.
+ * @return A pointer to an array of values on the host. The caller is responsible for freeing this memory.
+ *
+ * @note This function orchestrates the batch retrieval process. It handles memory transfers
+ *       between host and device and launches the `kernel_get` CUDA kernel.
+ */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	int *device_chei = NULL;
 	int *device_valori = NULL;
@@ -179,6 +272,10 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	return valori;
 }
 
+/**
+ * @brief Calculates the load factor of the hash table.
+ * @return The load factor, which is the ratio of the number of elements to the capacity.
+ */
 float GpuHashTable::loadFactor() {
 	return HTcontor / (float)HTmarime;
 }
@@ -202,6 +299,13 @@ float GpuHashTable::loadFactor() {
 #include 
 #include 
 
+/**
+ * @brief Constructs a GpuHashTable object.
+ * @param size The initial capacity of the hash table.
+ *
+ * @note This constructor allocates unified memory for the keys and values arrays on the GPU,
+ *       accessible from both the host and the device.
+ */
 GpuHashTable::GpuHashTable(int size) {
 	cudaError_t cuda_aloc_error;
 
@@ -221,6 +325,11 @@ GpuHashTable::GpuHashTable(int size) {
 	this->HTmarime = size;
 }
 
+/**
+ * @brief Destroys the GpuHashTable object.
+ *
+ * @note This destructor frees the GPU memory allocated for the hash table.
+ */
 GpuHashTable::~GpuHashTable() {
 	cudaError_t cuda_aloc_error;
 
@@ -231,6 +340,16 @@ GpuHashTable::~GpuHashTable() {
 	DIE(cuda_aloc_error != cudaSuccess, "cudaFree fail");
 }
 
+/**
+ * @brief Resizes the hash table to a new capacity.
+ * @param numBucketsReshape The new number of buckets for the hash table.
+ *
+ * @note This function is a host-side operation that handles hash table resizing.
+ *       It copies the existing key-value pairs from the GPU to a temporary host buffer,
+ *       re-allocates the hash table on the GPU with the new size, and then re-inserts
+ *       all the elements. This is a costly operation and is typically triggered when
+ *       the load factor exceeds a certain threshold.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) {
 	int **ht_aux = (int **)malloc(sizeof(int *) * 2);
 	cudaError_t cuda_aloc_error;
@@ -274,6 +393,21 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 	free(ht_aux[1]);
 }
 
+/**
+ * @brief CUDA kernel for inserting key-value pairs into the hash table in parallel.
+ * @param keys An array of keys to be inserted.
+ * @param values An array of values corresponding to the keys.
+ * @param numKeys The number of key-value pairs to insert.
+ * @param htchei A pointer to the hash table's key storage on the GPU.
+ * @param htvalori A pointer to the hash table's value storage on the GPU.
+ * @param HTmarime The capacity of the hash table.
+ * @param HTcontor A pointer to a counter for the number of elements in the hash table.
+ *
+ * @note Each thread in the grid processes one key-value pair.
+ *       Collision handling is done using linear probing.
+ *       Atomic operations (`atomicCAS`, `atomicAdd`, `atomicExch`) are used to ensure thread-safe
+ *       updates to the hash table in a concurrent environment.
+ */
 __global__ void kernel_insert(int *keys, int *values, int numKeys, int *htchei, int *htvalori, int HTmarime, int *HTcontor) {
 	int aux, check = 0;
 	int idx, add_cheie, valueToAdd, h;
@@ -325,6 +459,17 @@ __global__ void kernel_insert(int *keys, int *values, int numKeys, int *htchei, 
 	}
 }
 
+/**
+ * @brief Inserts a batch of key-value pairs into the hash table.
+ * @param keys A pointer to an array of keys on the host.
+ * @param values A pointer to an array of values on the host.
+ * @param numKeys The number of key-value pairs in the batch.
+ * @return `true` if the insertion was successful, `false` otherwise.
+ *
+ * @note This function orchestrates the batch insertion process. It handles memory transfers
+ *       from host to device and launches the `kernel_insert` CUDA kernel.
+ *       If the insertion causes the load factor to exceed a threshold, it triggers a `reshape`.
+ */
 bool GpuHashTable::insertBatch(int *keys, int *values, int numKeys) {
 	int *device_chei = NULL;
 	int *device_valori = NULL;
@@ -373,6 +518,18 @@ bool GpuHashTable::insertBatch(int *keys, int *values, int numKeys) {
 	return check;
 }
 
+/**
+ * @brief CUDA kernel for retrieving values from the hash table in parallel.
+ * @param keys An array of keys to be retrieved.
+ * @param values An array where the retrieved values will be stored.
+ * @param numKeys The number of keys to retrieve.
+ * @param hashTableKeys A pointer to the hash table's key storage on the GPU.
+ * @param hashTableValues A pointer to the hash table's value storage on the GPU.
+ * @param HTmarime The capacity of the hash table.
+ *
+ * @note Each thread in the grid processes one key.
+ *       It uses linear probing to find the key in the hash table.
+ */
 __global__ void kernel_get(int *keys, int *values, int numKeys, int *hashTableKeys, int *hashTableValues, int HTmarime) {
 	int idx, new_key, h;
 
@@ -407,6 +564,15 @@ __global__ void kernel_get(int *keys, int *values, int numKeys, int *hashTableKe
 	return;
 }
 
+/**
+ * @brief Retrieves a batch of values corresponding to a batch of keys.
+ * @param keys A pointer to an array of keys on the host.
+ * @param numKeys The number of keys in the batch.
+ * @return A pointer to an array of values on the host. The caller is responsible for freeing this memory.
+ *
+ * @note This function orchestrates the batch retrieval process. It handles memory transfers
+ *       between host and device and launches the `kernel_get` CUDA kernel.
+ */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	int *device_chei = NULL;
 	int *device_valori = NULL;
@@ -439,6 +605,10 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	return valori;
 }
 
+/**
+ * @brief Calculates the load factor of the hash table.
+ * @return The load factor, which is the ratio of the number of elements to the capacity.
+ */
 float GpuHashTable::loadFactor() {
 	float aux = (float)HTmarime;
 	aux = HTcontor / aux;
@@ -470,16 +640,16 @@ using namespace std;
 
 #define KEY_INVALID 0
 
-#define DIE(assertion, call_description)              \
-	do                                            \
-	{                                             \
-		if (assertion)                        \
-		{                                     \
-			fprintf(stderr, "(%s, %d): ", \
-				__FILE__, __LINE__);  \
-			perror(call_description);     \
-			exit(errno);                  \
-		}                                     \
+#define DIE(assertion, call_description)              
+	do                                            
+	{                                             
+		if (assertion)                        
+		{                                     
+			fprintf(stderr, "(%s, %d): ", 
+				__FILE__, __LINE__);  
+			perror(call_description);     
+			exit(errno);                  
+		}                                     
 	} while (0)
 
 const size_t primeList[] = {
@@ -526,6 +696,15 @@ const size_t primeList[] = {
 	5746614499066534157llu, 7240280573005008577llu, 9122181901073924329llu,
 	11493228998133068689llu, 14480561146010017169llu, 18446744073709551557llu};
 
+/**
+ * @brief Computes a hash value for a given integer key.
+ * @param data The integer key to be hashed.
+ * @param limit The size of the hash table, used for the modulo operation to map the hash value to a bucket index.
+ * @return The computed hash bucket index.
+ *
+ * @note This is a multiplicative hash function using large prime numbers to ensure good distribution of keys.
+ *       It can be executed on both the host (CPU) and the device (GPU).
+ */
 __host__ __device__ int hash_function(int data, int limit) {
 	return ((long)abs(data) * 2675975881llu) % 431554351609llu % limit;
 }

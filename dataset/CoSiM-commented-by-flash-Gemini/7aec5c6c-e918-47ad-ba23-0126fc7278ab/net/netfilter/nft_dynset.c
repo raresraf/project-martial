@@ -1,3 +1,12 @@
+/**
+ * @7aec5c6c-e918-47ad-ba23-0126fc7278ab/net/netfilter/nft_dynset.c
+ * @brief Netfilter expression module for dynamic set management in nftables.
+ * Domain: Kernel Networking, Packet Filtering.
+ * Architecture: Implements the 'dynset' expression type, enabling autonomous set updates (add/update/delete) during packet evaluation.
+ * Functional Utility: Facilitates stateful tracking (e.g., flow meters, rate limiters) by dynamically manipulating set elements from the packet path.
+ * Synchronization: Uses RCU (Read-Copy-Update) and atomic operations (atomic_add_unless) for lock-free set element insertions.
+ */
+
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2015 Patrick McHardy <kaber@trash.net>
@@ -12,6 +21,10 @@
 #include <net/netfilter/nf_tables.h>
 #include <net/netfilter/nf_tables_core.h>
 
+/**
+ * @brief Expression private data for 'dynset'.
+ * State: Tracks the target set, operation type, and optional expressions to be attached to new elements.
+ */
 struct nft_dynset {
 	struct nft_set			*set;
 	struct nft_set_ext_tmpl		tmpl;
@@ -26,6 +39,10 @@ struct nft_dynset {
 	struct nft_set_binding		binding;
 };
 
+/**
+ * @brief Initializes expressions associated with a newly created set element.
+ * Logic: Clones pre-configured template expressions into the atomic context of a packet evaluation.
+ */
 static int nft_dynset_expr_setup(const struct nft_dynset *priv,
 				 const struct nft_set_ext *ext)
 {
@@ -44,6 +61,11 @@ static int nft_dynset_expr_setup(const struct nft_dynset *priv,
 	return 0;
 }
 
+/**
+ * @brief Allocates and initializes a new set element during packet evaluation.
+ * Synchronization: Uses atomic_add_unless to enforce set size limits without global locks.
+ * Invariant: Elements are initialized with an optional data component and cloned stateful expressions.
+ */
 struct nft_elem_priv *nft_dynset_new(struct nft_set *set,
 				     const struct nft_expr *expr,
 				     struct nft_regs *regs)
@@ -78,6 +100,12 @@ err1:
 	return NULL;
 }
 
+/**
+ * @brief Main evaluation routine for the dynset expression.
+ * @param regs Hardware-abstracted registers containing packet metadata/data.
+ * Logic: Dispatches to set-specific update/delete operations.
+ * Flow Control: Sets the verdict code to NFT_BREAK if the operation fails or the 'invert' flag triggers.
+ */
 void nft_dynset_eval(const struct nft_expr *expr,
 		     struct nft_regs *regs, const struct nft_pktinfo *pkt)
 {
@@ -91,8 +119,10 @@ void nft_dynset_eval(const struct nft_expr *expr,
 		return;
 	}
 
+	// Logic: Attempts to update an existing element or create a new one via the set backend.
 	ext = set->ops->update(set, &regs->data[priv->sreg_key], expr, regs);
 	if (ext) {
+		// Block Logic: Handles temporal state (TTL/Timeout) updates.
 		if (priv->op == NFT_DYNSET_OP_UPDATE &&
 		    nft_set_ext_exists(ext, NFT_SET_EXT_TIMEOUT) &&
 		    READ_ONCE(nft_set_ext_timeout(ext)->timeout) != 0) {
@@ -100,6 +130,7 @@ void nft_dynset_eval(const struct nft_expr *expr,
 			WRITE_ONCE(nft_set_ext_timeout(ext)->expiration, get_jiffies_64() + timeout);
 		}
 
+		// Functional Utility: Triggers execution of nested expressions (e.g. counters, quotas) attached to the element.
 		nft_set_elem_update_expr(ext, regs, pkt);
 
 		if (priv->invert)
@@ -111,6 +142,9 @@ void nft_dynset_eval(const struct nft_expr *expr,
 		regs->verdict.code = NFT_BREAK;
 }
 
+/**
+ * @brief Calculates required metadata length for nested expressions.
+ */
 static void nft_dynset_ext_add_expr(struct nft_dynset *priv)
 {
 	u8 size = 0;
@@ -123,6 +157,9 @@ static void nft_dynset_ext_add_expr(struct nft_dynset *priv)
 			       sizeof(struct nft_set_elem_expr) + size);
 }
 
+/**
+ * @brief Helper for Netlink-driven expression allocation.
+ */
 static struct nft_expr *
 nft_dynset_expr_alloc(const struct nft_ctx *ctx, const struct nft_set *set,
 		      const struct nlattr *attr, int pos)
@@ -146,6 +183,9 @@ err_dynset_expr:
 	return ERR_PTR(err);
 }
 
+/**
+ * @brief Netlink attribute policy for dynset configuration.
+ */
 static const struct nla_policy nft_dynset_policy[NFTA_DYNSET_MAX + 1] = {
 	[NFTA_DYNSET_SET_NAME]	= { .type = NLA_STRING,
 				    .len = NFT_SET_MAXNAMELEN - 1 },
@@ -159,6 +199,10 @@ static const struct nla_policy nft_dynset_policy[NFTA_DYNSET_MAX + 1] = {
 	[NFTA_DYNSET_EXPRESSIONS] = { .type = NLA_NESTED },
 };
 
+/**
+ * @brief Expression initialization via Netlink message parsing.
+ * Setup: Validates set compatibility, parses registers, and configures the extension template.
+ */
 static int nft_dynset_init(const struct nft_ctx *ctx,
 			   const struct nft_expr *expr,
 			   const struct nlattr * const tb[])
@@ -238,6 +282,7 @@ static int nft_dynset_init(const struct nft_ctx *ctx,
 	    !(set->flags & NFT_SET_EVAL))
 		return -EINVAL;
 
+	// Block Logic: Clones or allocates expressions for dynamic element injection.
 	if (tb[NFTA_DYNSET_EXPR]) {
 		struct nft_expr *dynset_expr;
 
@@ -305,6 +350,7 @@ static int nft_dynset_init(const struct nft_ctx *ctx,
 		priv->num_exprs = set->num_exprs;
 	}
 
+	// Initialization: Prepares the extension template used for allocating new elements.
 	nft_set_ext_prepare(&priv->tmpl);
 	nft_set_ext_add_length(&priv->tmpl, NFT_SET_EXT_KEY, set->klen);
 	if (set->flags & NFT_SET_MAP)
@@ -319,6 +365,7 @@ static int nft_dynset_init(const struct nft_ctx *ctx,
 
 	priv->timeout = timeout;
 
+	// Invariant: Binding the set ensures lifecycle dependency between the expression and the set backend.
 	err = nf_tables_bind_set(ctx, set, &priv->binding);
 	if (err < 0)
 		goto err_expr_free;
@@ -335,6 +382,9 @@ err_expr_free:
 	return err;
 }
 
+/**
+ * @brief Teardown routine for dynset expression.
+ */
 static void nft_dynset_deactivate(const struct nft_ctx *ctx,
 				  const struct nft_expr *expr,
 				  enum nft_trans_phase phase)
@@ -364,6 +414,9 @@ static void nft_dynset_destroy(const struct nft_ctx *ctx,
 	nf_tables_destroy_set(ctx, priv->set);
 }
 
+/**
+ * @brief Netlink dump for userspace inspection.
+ */
 static int nft_dynset_dump(struct sk_buff *skb,
 			   const struct nft_expr *expr, bool reset)
 {
@@ -412,6 +465,9 @@ nla_put_failure:
 	return -1;
 }
 
+/**
+ * @brief Metadata for the dynset expression type.
+ */
 static const struct nft_expr_ops nft_dynset_ops = {
 	.type		= &nft_dynset_type,
 	.size		= NFT_EXPR_SIZE(sizeof(struct nft_dynset)),

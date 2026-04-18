@@ -1,10 +1,21 @@
 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
+/**
+ * @40d9d0b2-6935-40b2-8aa4-4fe5cdb3cd0a/gpu_hashtable.cu
+ * @brief CUDA-accelerated Hash Table with linear probing and load-factor-based reshaping.
+ * This file implements a parallel hash table where collisions are resolved 
+ * using linear probing. It manages its own resizing logic and uses atomic 
+ * operations for thread-safe insertions and reshapes.
+ * 
+ * Algorithm: Linear Probing with multiplicative hash.
+ * Domain: HPC, Parallel Computing, CUDA.
+ */
+
+#include <iostream>
+#include <cstdio>
+#include <cstdlib>
+#include <ctime>
+#include <cmath>
+#include <algorithm>
 
 #include "gpu_hashtable.hpp"
 
@@ -17,7 +28,10 @@ __global__ void insertFunc(int *keys, int *values, int numKeys, int dictSize, el
 __global__ void getFunc(int *keys, int *values, int numKeys, int dictSize, elem* dictElements);
 __device__ int myHash(int data, int limit);
 
-
+/**
+ * Functional Utility: Initializes the GPU hash table with a given capacity.
+ * Logic: Allocates device memory for buckets and clears it.
+ */
 GpuHashTable::GpuHashTable(int size) {
 	DIE(size < 0, "invalid size");
 
@@ -33,12 +47,18 @@ GpuHashTable::GpuHashTable(int size) {
 	DIE(rc != cudaSuccess, "cudaMemset failed");
 }
 
-
+/**
+ * Functional Utility: Reclaims device resources.
+ */
 GpuHashTable::~GpuHashTable() {
 	cudaFree(this->elements);
 }
 
-
+/**
+ * Functional Utility: Increases the hash table capacity.
+ * Logic: Allocates a larger table, launches the migration kernel to re-hash 
+ * existing entries, and updates the object's table pointer.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) {
 	cudaError_t rc;
 	elem *aux;
@@ -86,7 +106,11 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 	
 }
 
-
+/**
+ * Functional Utility: Handles batch insertion of keys and values.
+ * Logic: Checks current capacity and reshapes if the load factor exceeds 80%. 
+ * Transfers batch data to the device and launches the insertion kernel.
+ */
 bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	int *deviceKeys;
 	int *deviceValues;
@@ -159,7 +183,11 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	return true;
 }
 
-
+/**
+ * Functional Utility: Retrieves values for a batch of keys.
+ * Logic: Transfers keys to device, executes lookup kernel, and copies 
+ * results back to host memory.
+ */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	int *deviceKeys;
 	cudaError_t rc;
@@ -216,7 +244,9 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 
 }
 
-
+/**
+ * Functional Utility: Returns the ratio of inserted elements to table capacity.
+ */
 float GpuHashTable::loadFactor() {
 	
 	if (size == 0)
@@ -224,6 +254,11 @@ float GpuHashTable::loadFactor() {
 	return (float)inserted / size;
 }
 
+/**
+ * Block Logic: Parallel lookup kernel.
+ * Logic: Searches for matching keys in the table using linear probing 
+ * across the entire address space.
+ */
 __global__ void getFunc(int *keys, int *values, int numKeys, int dictSize, elem *dictElems) {
 	unsigned int id;
 	int hash_pos;
@@ -252,6 +287,11 @@ __global__ void getFunc(int *keys, int *values, int numKeys, int dictSize, elem 
 	
 }
 
+/**
+ * Block Logic: Atomic insertion kernel.
+ * Logic: Maps multiple threads to input keys and performs atomicCAS to 
+ * ensure exclusive slot acquisition or updates.
+ */
 __global__ void insertFunc(int *keys, int *values, int numKeys, int dictSize, elem* dictElems) {
 	unsigned int id;
 	unsigned int old_key;
@@ -286,6 +326,11 @@ __global__ void insertFunc(int *keys, int *values, int numKeys, int dictSize, el
 	}
 }
 
+/**
+ * Block Logic: Entry migration during reshape.
+ * Logic: Re-inserts non-empty elements from the source table into the 
+ * destination table at their new hashed positions.
+ */
 __global__ void kernel_reshape(elem *dest, elem *source, unsigned int source_size, unsigned int dest_size){
 	int hash_pos;
 	unsigned int id;
@@ -330,6 +375,9 @@ __global__ void kernel_reshape(elem *dest, elem *source, unsigned int source_siz
 	}
 }
 
+/**
+ * Functional Utility: Multiplicative hash distributor.
+ */
 __device__ int myHash(int data, int limit) {
 	
 	return ((long)abs(data) * HASH_VAL1) % HASH_VAL2 % limit;
@@ -455,4 +503,3 @@ class GpuHashTable
 };
 
 #endif
-

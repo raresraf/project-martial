@@ -1,21 +1,45 @@
 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
+/**
+ * @609cd4a0-fcb5-45c1-82a3-d1ccf3cb1d0a/gpu_hashtable.cu
+ * @brief CUDA Hash Table with double-hashing and dynamic prime-sized resizing.
+ * This implementation utilizes two device-side hash functions to calculate 
+ * bucket indices and step sizes for open addressing. It leverages Managed Memory 
+ * for the core hash table structure and its metadata, enabling seamless 
+ * Host-Device coordination during parallel insertions, lookups, and rehashing.
+ * 
+ * Algorithm: Double Hashing with prime-number table sizing.
+ * Domain: HPC, Parallel Data Structures, CUDA.
+ */
+
+#include <iostream>
+#include <cstdio>
+#include <cstdlib>
+#include <ctime>
+#include <cmath>
+#include <algorithm>
 
 #include "gpu_hashtable.hpp"
 
+/**
+ * Functional Utility: Primary multiplicative hash function.
+ */
 __device__ unsigned int hash1(int data, int limit) {
 	return ((long)data * 67965551447llu) % 441911656067171llu % limit;
 }
 
+/**
+ * Functional Utility: Secondary hash function for step size calculation.
+ */
 __device__ unsigned int hash2(int data) {
 	return  23llu - ((long)data * 16991387857llu) % 23llu;
 }
 
+/**
+ * Block Logic: Parallel batch lookup kernel.
+ * Thread Indexing: Each thread handles one key-value retrieval.
+ * Logic: Employs double hashing to find the target key. It uses hash1 for the 
+ * initial index and hash2 for the probe increment.
+ */
 __global__ void kernel_get(hash_table *gpu_hash, int *keys, int *values, int n_keys) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	unsigned int index1, index2, search;
@@ -47,13 +71,18 @@ __global__ void kernel_get(hash_table *gpu_hash, int *keys, int *values, int n_k
 
 
 
+/**
+ * Block Logic: Resizing kernel for migrating entry vectors.
+ * Logic: Transfers valid entries from the old table in gpu_hash to a new 
+ * larger table using recalculated double-hashing indices.
+ */
 __global__ void kernel_reshape(hash_table *gpu_hash, pairkv *new_table, int limit) {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	int i;
 	unsigned int index1, index2, search, old_key;
 	pairkv to_add;
 
-	if (idx load.capacity && gpu_hash->table[idx].key != KEY_INVALID) {
+	if (idx < gpu_hash->load.capacity && gpu_hash->table[idx].key != KEY_INVALID) {
 		to_add.key = gpu_hash->table[idx].key;
 		to_add.value = gpu_hash->table[idx].value;
 
@@ -73,12 +102,18 @@ __global__ void kernel_reshape(hash_table *gpu_hash, pairkv *new_table, int limi
 	}
 }
 
+/**
+ * Block Logic: Parallel atomic insertion kernel.
+ * Logic: Implements double hashing with atomicCAS for collision resolution. 
+ * If a new slot is claimed, it atomically increments the element count 
+ * in the managed metadata structure.
+ */
 __global__ void kernel_insert(hash_table *gpu_hash, int *keys, int *values, int n_keys) {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	int i;
 	unsigned int index1, index2, search, old_key;
 
-	if (idx  0 && values[idx] > 0) {
+	if (idx < n_keys && keys[idx] > 0 && values[idx] > 0) {
 		index1 = hash1(keys[idx], gpu_hash->load.capacity);
 		index2 = hash2(keys[idx]);
 		i = 0;
@@ -102,6 +137,9 @@ __global__ void kernel_insert(hash_table *gpu_hash, int *keys, int *values, int 
 	}
 }
 
+/**
+ * Functional Utility: Finds the index of the first prime number >= n in the primeList.
+ */
 int find_prime(int n, int start)
 {
 	int i;
@@ -114,7 +152,9 @@ int find_prime(int n, int start)
 	return PRIME_SIZE - 1;
 }
 
-
+/**
+ * Functional Utility: Initializes the hash table Header and Bucket array in Managed Memory.
+ */
 GpuHashTable::GpuHashTable(int size) {
 	cudaMallocManaged(&gpu_hash, sizeof(hash_table));
 	cudaMallocManaged(&gpu_hash->table, size * sizeof(pairkv));
@@ -126,13 +166,19 @@ GpuHashTable::GpuHashTable(int size) {
 	prime_index = find_prime(size, 0);
 }
 
-
+/**
+ * Functional Utility: Reclaims Host and Device memory resources.
+ */
 GpuHashTable::~GpuHashTable() {
 	cudaFree(gpu_hash->table);
 	cudaFree(gpu_hash);
 }
 
-
+/**
+ * Functional Utility: Increases table capacity to a new prime size.
+ * Logic: Identifies the next suitable prime capacity, allocates a new 
+ * managed table, migrates data via the reshape kernel, and synchronizes.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) {
 	pairkv *new_table;
 	int new_size;
@@ -157,7 +203,11 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 	gpu_hash->load.capacity = new_size;
 }
 
-
+/**
+ * Functional Utility: Orchestrates high-throughput parallel insertions with threshold checks.
+ * Logic: Checks if the new batch will exceed current capacity. If so, triggers 
+ * prime-aware resizing. Transfers data to the device and launches the insert kernel.
+ */
 bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	int *device_keys;
 	int *device_values;
@@ -188,7 +238,10 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	return true;
 }
 
-
+/**
+ * Functional Utility: Retrieves values for a batch of keys in parallel.
+ * Logic: Executes lookup kernel and returns result array in host memory.
+ */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	int *host_values;
 	int *device_values;
@@ -215,7 +268,9 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	return host_values;
 }
 
-
+/**
+ * Functional Utility: Returns the ratio of occupied buckets to total capacity.
+ */
 float GpuHashTable::loadFactor() {
 	return (float)gpu_hash->load.elements / gpu_hash->load.capacity; 
 }

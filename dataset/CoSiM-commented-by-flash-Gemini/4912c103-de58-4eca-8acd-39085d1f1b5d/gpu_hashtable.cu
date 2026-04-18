@@ -1,10 +1,21 @@
 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
+/**
+ * @4912c103-de58-4eca-8acd-39085d1f1b5d/gpu_hashtable.cu
+ * @brief CUDA-accelerated Hash Table implementation using linear probing.
+ * This file provides a thread-safe hash table for GPU architectures. It uses 
+ * atomic Compare-And-Swap (atomicCAS) for collision resolution in parallel 
+ * and features dynamic resizing based on configurable load factor thresholds.
+ * 
+ * Algorithm: Open addressing with linear probing and multiplicative hashing.
+ * Domain: HPC, Parallel Data Structures, CUDA.
+ */
+
+#include <iostream>
+#include <cstdio>
+#include <cstdlib>
+#include <ctime>
+#include <cmath>
+#include <algorithm>
 
 #include "gpu_hashtable.hpp"
 
@@ -13,13 +24,22 @@
 #define MIN_LFACTOR 0.8f
 #define MAX_LFACTOR 0.9f
 
+/**
+ * Functional Utility: Device-side integer hash function.
+ * Logic: Uses prime-based multiplicative hashing to map keys to bucket indices 
+ * while minimizing clustering.
+ */
 __device__
 int hash_function(int data, int limit) {
     return ((long)abs(data) * PRIME_A) % PRIME_B % limit;
 }
 
-
-
+/**
+ * Block Logic: Resizing kernel for data migration.
+ * Thread Indexing: Each thread maps to a slot in the source hash table.
+ * Logic: Iterates through the old table and re-inserts non-empty elements 
+ * into the new larger table at their recalculated hashed positions.
+ */
 __global__
 void kernel_reshape(hashTable oldHashTable, hashTable newHashTable) {
     int index = blockIdx.x * blockDim.x + threadIdx.x;
@@ -30,13 +50,14 @@ void kernel_reshape(hashTable oldHashTable, hashTable newHashTable) {
     }
     newKey = oldHashTable.map[index].key;
 
+    if (newKey == 0) return; // Optimization: skip empty source slots
+
     bool found = false;
     int hashValue = hash_function(newKey, newHashTable.size);
 
-    
-    
-
-
+    /**
+     * Block Logic: Linear probing in the destination table.
+     */
     for (int i = hashValue; i < newHashTable.size; i++) {
         
         oldKey = atomicCAS(&newHashTable.map[i].key, 0, newKey);
@@ -47,8 +68,9 @@ void kernel_reshape(hashTable oldHashTable, hashTable newHashTable) {
         }
     }
 
-
-
+    /**
+     * Block Logic: Wraparound probing for destination.
+     */
     for (int i = 0; i < hashValue && !found; i++) {
         
         oldKey = atomicCAS(&newHashTable.map[i].key, 0, newKey);
@@ -59,6 +81,11 @@ void kernel_reshape(hashTable oldHashTable, hashTable newHashTable) {
     }
 }
 
+/**
+ * Block Logic: Parallel atomic insertion kernel.
+ * Logic: Handles batch insertions by attempting to claim empty slots or 
+ * update existing keys using atomic operations to prevent race conditions.
+ */
 __global__
 void kernel_insert(hashTable hashMap, int *device_keys, int *device_values, int numKeys) {
     int index = blockIdx.x * blockDim.x + threadIdx.x;
@@ -72,10 +99,9 @@ void kernel_insert(hashTable hashMap, int *device_keys, int *device_values, int 
     bool found = false;
     int hashValue = hash_function(newKey, hashMap.size);
 
-    
-    
-
-
+    /**
+     * Block Logic: Search and claim loop.
+     */
     for (int i = hashValue; i < hashMap.size; i++) {
         
         oldKey = atomicCAS(&hashMap.map[i].key, 0, newKey);
@@ -96,6 +122,10 @@ void kernel_insert(hashTable hashMap, int *device_keys, int *device_values, int 
     }
 }
 
+/**
+ * Block Logic: Parallel batch lookup kernel.
+ * Logic: Searches for keys using linear probing and populates the output value array.
+ */
 __global__
 void kernel_get(hashTable hashMap, int *device_keys, int *values, int numKeys) {
     int index = blockIdx.x * blockDim.x + threadIdx.x;
@@ -111,10 +141,6 @@ void kernel_get(hashTable hashMap, int *device_keys, int *values, int numKeys) {
     bool found = false;
     int hashValue = hash_function(device_keys[index], hashMap.size);
 
-    
-    
-
-
     for (int i = hashValue; i < hashMap.size; i++) {
         if (hashMap.map[i].key == keyToGet) {
             values[index] = hashMap.map[i].value;
@@ -131,8 +157,10 @@ void kernel_get(hashTable hashMap, int *device_keys, int *values, int numKeys) {
     }
 }
 
-
-
+/**
+ * Functional Utility: Initializes the GPU hash table.
+ * Logic: Allocates device memory for buckets and resets them to empty state.
+ */
 GpuHashTable::GpuHashTable(int size) {
     
     hashMap.size = size;
@@ -150,13 +178,19 @@ GpuHashTable::GpuHashTable(int size) {
     cudaMemset(hashMap.map, 0, size * sizeof (hashItem));
 }
 
-
+/**
+ * Functional Utility: Cleans up device memory.
+ */
 GpuHashTable::~GpuHashTable() {
     
     cudaFree(hashMap.map);
 }
 
-
+/**
+ * Functional Utility: Resizes the hash table capacity.
+ * Logic: Allocates a new larger table on the GPU, launches the reshape 
+ * kernel to migrate entries, and synchronizes.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) {
     int block_size = 512;
     hashTable newHashMap;
@@ -190,7 +224,12 @@ void GpuHashTable::reshape(int numBucketsReshape) {
     hashMap = newHashMap;
 }
 
-
+/**
+ * Functional Utility: Orchestrates parallel batch insertions.
+ * Logic: Monitors the load factor and triggers a reshape if the maximum 
+ * threshold is exceeded. Transfers batch data to the GPU and launches 
+ * the insertion kernel.
+ */
 bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	int *device_keys_array, *device_values_array;
 	int numBytes = numKeys * sizeof (int);
@@ -236,7 +275,10 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
     return true;
 }
 
-
+/**
+ * Functional Utility: Retrieves a batch of values for given keys in parallel.
+ * Logic: Executes lookup kernel and returns result array in host memory.
+ */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	int *device_keys_array, *device_values_array;
     size_t numBytes = numKeys * sizeof (int);
@@ -282,7 +324,9 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	return valuesToReturn;
 }
 
-
+/**
+ * Functional Utility: Returns the ratio of occupied slots to total capacity.
+ */
 float GpuHashTable::loadFactor() {
 	return (hashMap.size == 0)? 0.f : (float (nrEntries) / hashMap.size);
 	
@@ -375,10 +419,6 @@ int hash3(int data, int limit) {
 	return ((long)abs(data) * primeList[70]) % primeList[93] % limit;
 }
 
-
-
-
-
 struct hashItem {
     int key, value;
 };
@@ -408,4 +448,3 @@ class GpuHashTable
 };
 
 #endif
-

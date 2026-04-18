@@ -1,8 +1,21 @@
+
 // SPDX-License-Identifier: GPL-2.0-or-later
 /* Address preferences management
  *
  * Copyright (C) 2023 Red Hat, Inc. All Rights Reserved.
  * Written by David Howells (dhowells@redhat.com)
+ */
+
+/**
+ * @6405f881-f2ed-4adc-8555-bd822cc1720d/fs/afs/addr_prefs.c
+ * @brief Address preference list management for the AFS filesystem.
+ * This module manages a prioritized list of network addresses and subnets 
+ * to guide the AFS client's server selection logic. It handles the parsing 
+ * of address strings from procfs, performs prefix-based subnet matching, 
+ * and utilizes RCU (Read-Copy-Update) for lockless, high-performance 
+ * preference lookups during RPC path selection.
+ * 
+ * Domain: Kernel Filesystems, Network Addressing, RCU Synchronization.
  */
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": addr_prefs: " fmt
@@ -18,9 +31,12 @@ static inline struct afs_net *afs_seq2net_single(struct seq_file *m)
 	return afs_net(seq_file_single_net(m));
 }
 
-/*
- * Split a NUL-terminated string up to the first newline around spaces.  The
- * source string will be modified to have NUL-terminations inserted.
+/**
+ * Functional Utility: Tokenizes a space-delimited string buffer.
+ * Logic: Modifies the input buffer by inserting NUL terminators at 
+ * whitespace boundaries and populates an array of pointers to the start 
+ * of each word.
+ * Returns: Number of tokens found.
  */
 static int afs_split_string(char **pbuf, char *strv[], unsigned int maxstrv)
 {
@@ -66,8 +82,10 @@ static int afs_split_string(char **pbuf, char *strv[], unsigned int maxstrv)
 	return count;
 }
 
-/*
- * Parse an address with an optional subnet mask.
+/**
+ * Functional Utility: Parses a network address string with optional CIDR mask.
+ * Logic: Detects address family (IPv4 vs IPv6), handles optional bracket 
+ * notation for IPv6, and extracts the subnet mask if present.
  */
 static int afs_parse_address(char *p, struct afs_addr_preference *pref)
 {
@@ -80,21 +98,6 @@ static int afs_parse_address(char *p, struct afs_addr_preference *pref)
 		p++;
 		bracket = true;
 	}
-
-#if 0
-	if (*p == '[') {
-		p++;
-		q = memchr(p, ']', end - p);
-		if (!q) {
-			pr_warn("Can't find closing ']'\n");
-			return -EINVAL;
-		}
-	} else {
-		for (q = p; q < end; q++)
-			if (*q == '/')
-				break;
-	}
-#endif
 
 	if (in4_pton(p, end - p, (u8 *)&pref->ipv4_addr, -1, &stop)) {
 		pref->family = AF_INET;
@@ -116,6 +119,7 @@ static int afs_parse_address(char *p, struct afs_addr_preference *pref)
 		p++;
 	}
 
+	// Block Logic: Subnet mask extraction.
 	if (*p == '/') {
 		p++;
 		tmp = simple_strtoul(p, &p, 10);
@@ -146,8 +150,10 @@ enum cmp_ret {
 	SUBNET_MATCH,
 };
 
-/*
- * See if a candidate address matches a listed address.
+/**
+ * Functional Utility: Compares two address preference entries for sorting and matching.
+ * Logic: Performs a bitwise comparison of address components up to the 
+ * common prefix length. It prioritizes specific subnets over more general ones.
  */
 static enum cmp_ret afs_cmp_address_pref(const struct afs_addr_preference *a,
 					 const struct afs_addr_preference *b)
@@ -171,6 +177,7 @@ static enum cmp_ret afs_cmp_address_pref(const struct afs_addr_preference *a,
 		break;
 	}
 
+	// Block Logic: 32-bit chunk-wise address comparison.
 	while (subnet > 32) {
 		diff = ntohl(*pa++) - ntohl(*pb++);
 		if (diff < 0)
@@ -183,11 +190,11 @@ static enum cmp_ret afs_cmp_address_pref(const struct afs_addr_preference *a,
 	if (subnet == 0)
 		return EXACT_MATCH;
 
+	// Block Logic: Residual bit mask comparison.
 	mask = 0xffffffffU << (32 - subnet);
 	na = ntohl(*pa);
 	nb = ntohl(*pb);
 	diff = (na & mask) - (nb & mask);
-	//kdebug("diff %08x %08x %08x %d", na, nb, mask, diff);
 	if (diff < 0)
 		return INSERT_HERE; /* a<b */
 	if (diff > 0)
@@ -199,8 +206,11 @@ static enum cmp_ret afs_cmp_address_pref(const struct afs_addr_preference *a,
 	return CONTINUE_SEARCH; /* b binds tighter than a */
 }
 
-/*
- * Insert an address preference.
+/**
+ * Functional Utility: Inserts a new preference into the sorted preference list.
+ * Logic: Handles dynamic reallocation of the preference list if capacity 
+ * is exceeded, using power-of-two growth to minimize allocations. It 
+ * performs an in-place shift (memmove) to maintain sort order.
  */
 static int afs_insert_address_pref(struct afs_addr_preference_list **_preflist,
 				   struct afs_addr_preference *pref,
@@ -213,6 +223,8 @@ static int afs_insert_address_pref(struct afs_addr_preference_list **_preflist,
 
 	if (preflist->nr == 255)
 		return -ENOSPC;
+	
+	// Block Logic: List capacity management and growth.
 	if (preflist->nr >= preflist->max_prefs) {
 		max_prefs = preflist->max_prefs + 1;
 		size = struct_size(preflist, prefs, max_prefs);
@@ -243,9 +255,8 @@ static int afs_insert_address_pref(struct afs_addr_preference_list **_preflist,
 	return 0;
 }
 
-/*
- * Add an address preference.
- *	echo "add <proto> <IP>[/<mask>] <prior>" >/proc/fs/afs/addr_prefs
+/**
+ * Functional Utility: High-level handler for adding a preference via command strings.
  */
 static int afs_add_address_pref(struct afs_net *net, struct afs_addr_preference_list **_preflist,
 				int argc, char **argv)
@@ -283,6 +294,7 @@ static int afs_add_address_pref(struct afs_net *net, struct afs_addr_preference_
 		stop = preflist->nr;
 	}
 
+	// Block Logic: Linear search for insertion point or exact match.
 	for (; i < stop; i++) {
 		cmp = afs_cmp_address_pref(&pref, &preflist->prefs[i]);
 		switch (cmp) {
@@ -300,8 +312,8 @@ static int afs_add_address_pref(struct afs_net *net, struct afs_addr_preference_
 	return afs_insert_address_pref(_preflist, &pref, i);
 }
 
-/*
- * Delete an address preference.
+/**
+ * Functional Utility: Removes an entry from the preference list and shifts remaining elements.
  */
 static int afs_delete_address_pref(struct afs_addr_preference_list **_preflist,
 				   int index)
@@ -323,9 +335,8 @@ static int afs_delete_address_pref(struct afs_addr_preference_list **_preflist,
 	return 0;
 }
 
-/*
- * Delete an address preference.
- *	echo "del <proto> <IP>[/<mask>]" >/proc/fs/afs/addr_prefs
+/**
+ * Functional Utility: High-level handler for deleting a preference via command strings.
  */
 static int afs_del_address_pref(struct afs_net *net, struct afs_addr_preference_list **_preflist,
 				int argc, char **argv)
@@ -358,7 +369,7 @@ static int afs_del_address_pref(struct afs_net *net, struct afs_addr_preference_
 	}
 
 	for (; i < stop; i++) {
-		cmp = afs_cmp_address_pref(&pref, &preflist->prefs[i]);
+		cmp = af_cmp_address_pref(&pref, &preflist->prefs[i]);
 		switch (cmp) {
 		case CONTINUE_SEARCH:
 			continue;
@@ -373,8 +384,11 @@ static int afs_del_address_pref(struct afs_net *net, struct afs_addr_preference_
 	return -ENOANO;
 }
 
-/*
- * Handle writes to /proc/fs/afs/addr_prefs
+/**
+ * Functional Utility: Main entry point for updating address preferences from userspace.
+ * Logic: Implements a Copy-On-Write strategy using RCU. It allocates a new 
+ * list, performs the requested updates (add/del), increments the version counter, 
+ * and atomically replaces the global pointer.
  */
 int afs_proc_addr_prefs_write(struct file *file, char *buf, size_t size)
 {
@@ -385,6 +399,7 @@ int afs_proc_addr_prefs_write(struct file *file, char *buf, size_t size)
 	char *argv[5];
 	int ret, argc, max_prefs;
 
+	// Synchronization: Prevents concurrent updates using inode mutex.
 	inode_lock(file_inode(file));
 
 	/* Allocate a candidate new list and initialise it from the old. */
@@ -411,6 +426,7 @@ int afs_proc_addr_prefs_write(struct file *file, char *buf, size_t size)
 		memset(preflist, 0, sizeof(*preflist));
 	preflist->max_prefs = max_prefs;
 
+	// Block Logic: Command processing loop for the input buffer.
 	do {
 		argc = afs_split_string(&buf, argv, ARRAY_SIZE(argv));
 		if (argc < 0) {
@@ -431,6 +447,7 @@ int afs_proc_addr_prefs_write(struct file *file, char *buf, size_t size)
 	} while (*buf);
 
 	preflist->version++;
+	// Block Logic: Atomic update and reclamation.
 	rcu_assign_pointer(net->address_prefs, preflist);
 	/* Store prefs before version */
 	smp_store_release(&net->address_pref_version, preflist->version);
@@ -450,9 +467,11 @@ inval:
 	goto done;
 }
 
-/*
- * Mark the priorities on an address list if the address preferences table has
- * changed.  The caller must hold the RCU read lock.
+/**
+ * Functional Utility: Assigns priority values to a list of server addresses.
+ * Logic: Iterates through provided addresses, performing subnet-based matching 
+ * against the preference list. It uses RCU primitives to ensure safe access 
+ * to the preference list during potentially high-frequency path evaluations.
  */
 void afs_get_address_preferences_rcu(struct afs_net *net, struct afs_addr_list *alist)
 {
@@ -469,6 +488,7 @@ void afs_get_address_preferences_rcu(struct afs_net *net, struct afs_addr_list *
 	    smp_load_acquire(&alist->addr_pref_version) == preflist->version)
 		return;
 
+	// Block Logic: IPv4 preference matching loop.
 	test.family = AF_INET;
 	test.subnet_mask = 32;
 	test.prio = 0;
@@ -491,6 +511,7 @@ void afs_get_address_preferences_rcu(struct afs_net *net, struct afs_addr_list *
 		}
 	}
 
+	// Block Logic: IPv6 preference matching loop.
 	test.family = AF_INET6;
 	test.subnet_mask = 128;
 	test.prio = 0;
@@ -516,9 +537,10 @@ void afs_get_address_preferences_rcu(struct afs_net *net, struct afs_addr_list *
 	smp_store_release(&alist->addr_pref_version, preflist->version);
 }
 
-/*
- * Mark the priorities on an address list if the address preferences table has
- * changed.  Avoid taking the RCU read lock if we can.
+/**
+ * Functional Utility: Public interface for fetching address priorities.
+ * Logic: Implements a fast-path version check to skip RCU locking if 
+ * preferences haven't changed.
  */
 void afs_get_address_preferences(struct afs_net *net, struct afs_addr_list *alist)
 {

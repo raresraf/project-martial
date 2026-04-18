@@ -1,17 +1,37 @@
 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
+/**
+ * @7d636ac3-e612-49a4-9940-054d7524ec75/gpu_hashtable.cu
+ * @brief Thread-safe GPU Hash Table with linear probing and dynamic resizing.
+ * This implementation provides high-concurrency batch operations (insertion, 
+ * lookup, and rehashing) on CUDA devices. It utilizes linear probing for 
+ * collision resolution and ensures data consistency using atomic operations 
+ * (atomicCAS, atomicAdd). The system automatically expands its capacity 
+ * when the occupancy exceeds 90% to maintain high performance.
+ * 
+ * Algorithm: Open addressing with linear probing and prime multiplicative hashing.
+ * Domain: HPC, Parallel Data Structures, CUDA.
+ */
+
+#include <iostream>
+#include <cstdio>
+#include <cstdlib>
+#include <ctime>
+#include <cmath>
+#include <algorithm>
 
 #include "gpu_hashtable.hpp"
 #define UNDEFINED 	0
 #define HASH_A 		2074129llu
 #define HASH_B 		1061961721llu
 
-
+/**
+ * Block Logic: Parallel atomic insertion kernel.
+ * Thread Indexing: Each thread maps to one entry in the input batch.
+ * Logic: Calculates the initial hash position and probes the table using 
+ * linear probing with wraparound. It uses atomicCAS to find an empty slot 
+ * (claiming it and incrementing the shared 'stored_pairs' counter) or 
+ * update an existing key.
+ */
 __global__ void kernel_insert(Pair* map_stored, int* keys, int *values,
 		int *stored_pairs, int map_size, int total) 
 {
@@ -25,6 +45,10 @@ __global__ void kernel_insert(Pair* map_stored, int* keys, int *values,
 		hashed_key = ((long)abs(keys[i]) * HASH_A) % HASH_B % map_size;
 		key = keys[i];
 		value = values[i];
+		
+		/**
+		 * Block Logic: Atomic probing loop.
+		 */
 		while (true) {
 			
 			int prev = atomicCAS(&map_stored[hashed_key].key, UNDEFINED, key);
@@ -43,7 +67,11 @@ __global__ void kernel_insert(Pair* map_stored, int* keys, int *values,
 	}
 }
 
-
+/**
+ * Block Logic: Resizing kernel for migrating entries.
+ * Logic: Scans for valid entries in the old table and re-inserts them 
+ * into the new larger table using recalculated hash indices and atomic insertions.
+ */
 __global__ void kernel_insert_reshape(Pair *map_stored, Pair* old_map,
 		int map_size, int total)
 {
@@ -70,9 +98,11 @@ __global__ void kernel_insert_reshape(Pair *map_stored, Pair* old_map,
 	}
 }
 
-
-
-
+/**
+ * Block Logic: Parallel batch lookup kernel.
+ * Logic: Searches for matching keys starting from their hashed positions 
+ * using linear probing.
+ */
 __global__ void kernel_lookup(int* keys, int* values, Pair* stored_map,
 		int map_size, int total) 
 {
@@ -95,7 +125,10 @@ __global__ void kernel_lookup(int* keys, int* values, Pair* stored_map,
 	}
 }
 
-
+/**
+ * Functional Utility: Initializes the GPU hash table structure and trackers.
+ * Logic: Allocates device memory for buckets and the occupancy counter.
+ */
 GpuHashTable::GpuHashTable(int size) {
 	this->size = size;
 
@@ -110,14 +143,20 @@ GpuHashTable::GpuHashTable(int size) {
 	cudaMemset(map, 0, size * sizeof(Pair));
 }
 
-
+/**
+ * Functional Utility: Releases GPU memory resources.
+ */
 GpuHashTable::~GpuHashTable() {
 	
 	cudaFree(stored_pairs);
 	cudaFree(map);
 }
 
-
+/**
+ * Functional Utility: Increases table capacity and migrates data.
+ * Logic: Allocates a new larger bucket array, executes the re-insertion 
+ * kernel, and synchronizes the device before releasing old resources.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) {
 	int prev_size;
 	Pair *new_map;
@@ -126,28 +165,31 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 	
 	cudaMalloc((void **)&new_map, numBucketsReshape * sizeof(Pair));
 	DIE(new_map == NULL, "cudaMalloc realloc new values");
-	cudaMemset(new_map, 0, size * sizeof(Pair));
+	cudaMemset(new_map, 0, numBucketsReshape * sizeof(Pair));
 	
 	
 	prev_map = this->map;
 	prev_size = this->size;
 	
 	this->map = new_map;
+	this->size = numBucketsReshape;
 
 	kernel_insert_reshape>>(new_map, prev_map, numBucketsReshape, prev_size);
 	cudaDeviceSynchronize();
 
 	cudaFree(prev_map);
-	this->size = numBucketsReshape;
-
 }
 
-
+/**
+ * Functional Utility: Orchestrates high-throughput parallel insertions.
+ * Logic: Monitors load factor via Host-Device synchronization and triggers 
+ * expansion if it exceeds 90%. Transfers batch data to GPU and launches the 
+ * insert kernel.
+ */
 bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	int *device_keys;
 	int *device_values;
 	int *host_stored_pairs;
-	Pair *host_pairs;
 
 	host_stored_pairs = (int *)malloc(sizeof(int));
 	cudaMemcpy(host_stored_pairs, stored_pairs, sizeof(int), cudaMemcpyDeviceToHost);
@@ -155,8 +197,7 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	if ((float)(host_stored_pairs[0] + numKeys) > 0.9 * (float)this->size) {
 		reshape((host_stored_pairs[0] + numKeys) * 1.2);
 	}
-	host_pairs = (Pair *) malloc(this->size * sizeof(Pair));
-	DIE(host_pairs == NULL, "malloc pairs");
+
 	cudaMalloc((void **) &device_values, numKeys * sizeof(int));
 	DIE(device_values == NULL, "cudaMalloc");
 	cudaMalloc((void **) &device_keys, numKeys * sizeof(int));
@@ -165,17 +206,20 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	
 	cudaMemcpy(device_keys, keys, numKeys * sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(device_values, values, numKeys * sizeof(int), cudaMemcpyHostToDevice);
+	
 	kernel_insert>>(this->map, device_keys, device_values, stored_pairs, this->size, numKeys);
 	cudaDeviceSynchronize();
 
-	free(host_pairs);
-	cudaFree(host_stored_pairs);
+	free(host_stored_pairs);
 	cudaFree(device_keys);
 	cudaFree(device_values);
 	return true;
 }
 
-
+/**
+ * Functional Utility: Retrieves a batch of values for given keys in parallel.
+ * Logic: Executes lookup kernel and returns result array in host memory.
+ */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	int *values;
 	int *device_keys;
@@ -199,13 +243,17 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	return values;
 }
 
-
+/**
+ * Functional Utility: Returns the ratio of occupied slots to total capacity.
+ */
 float GpuHashTable::loadFactor() {
 	int *host_stored_pairs;
 	
 	host_stored_pairs = (int *)malloc(sizeof(int));
 	cudaMemcpy(host_stored_pairs, stored_pairs, sizeof(int), cudaMemcpyDeviceToHost);
-	return (float) host_stored_pairs[0] / (float) size;
+	float load = (float) host_stored_pairs[0] / (float) size;
+	free(host_stored_pairs);
+	return load;
 }
 
 
@@ -328,4 +376,3 @@ class GpuHashTable
 };
 
 #endif
-

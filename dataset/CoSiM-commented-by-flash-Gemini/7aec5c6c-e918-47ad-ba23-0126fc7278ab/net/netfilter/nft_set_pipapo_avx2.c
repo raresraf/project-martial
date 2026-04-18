@@ -1,3 +1,13 @@
+/**
+ * @7aec5c6c-e918-47ad-ba23-0126fc7278ab/net/netfilter/nft_set_pipapo_avx2.c
+ * @brief AVX2-accelerated lookup routines for PIPAPO (PIle PAcket POlicies) nftables sets.
+ * Domain: Kernel Networking, SIMD Optimization, Parallel Packet Classification.
+ * Architecture: Implements a bit-sliced multi-field matching algorithm optimized for x86_64 AVX2 intrinsics.
+ * Strategy: Uses 256-bit YMM registers to perform massive parallel bitwise intersections (AND) across lookup table buckets.
+ * Performance: Employs non-temporal stream loads (vmovntdqa) to prevent cache pollution and interleaves instructions to maximize superscalar throughput.
+ * Synchronization: Operates within the kernel FPU context (kernel_fpu_begin/end) with disabled local bottom halves.
+ */
+
 // SPDX-License-Identifier: GPL-2.0-only
 
 /* PIPAPO: PIle PAcket POlicies: AVX2 packet lookup routines
@@ -224,6 +234,7 @@ static int nft_pipapo_avx2_lookup_4b_2(unsigned long *map, unsigned long *fill,
 	for (i = offset; i < m256_size; i++, lt += NFT_PIPAPO_LONGS_PER_M256) {
 		int i_ul = i * NFT_PIPAPO_LONGS_PER_M256;
 
+		// Block Logic: Conditional initialization vs incremental intersection.
 		if (first) {
 			NFT_PIPAPO_AVX2_BUCKET_LOAD4(0, lt, 0, pg[0], bsize);
 			NFT_PIPAPO_AVX2_BUCKET_LOAD4(1, lt, 1, pg[1], bsize);
@@ -232,6 +243,7 @@ static int nft_pipapo_avx2_lookup_4b_2(unsigned long *map, unsigned long *fill,
 			NFT_PIPAPO_AVX2_BUCKET_LOAD4(0, lt, 0, pg[0], bsize);
 			NFT_PIPAPO_AVX2_LOAD(2, map[i_ul]);
 			NFT_PIPAPO_AVX2_BUCKET_LOAD4(1, lt, 1, pg[1], bsize);
+			// Optimization: PTTEST-based early exit for zero-bit-match regions.
 			NFT_PIPAPO_AVX2_NOMATCH_GOTO(2, nothing);
 			NFT_PIPAPO_AVX2_AND(3, 0, 1);
 			NFT_PIPAPO_AVX2_AND(4, 2, 3);
@@ -240,6 +252,7 @@ static int nft_pipapo_avx2_lookup_4b_2(unsigned long *map, unsigned long *fill,
 		NFT_PIPAPO_AVX2_NOMATCH_GOTO(4, nomatch);
 		NFT_PIPAPO_AVX2_STORE(map[i_ul], 4);
 
+		// Functional Utility: Decodes set bits into mapping table indices for subsequent fields.
 		b = nft_pipapo_avx2_refill(i_ul, &map[i_ul], fill, f->mt, last);
 		if (last)
 			return b;
@@ -287,6 +300,7 @@ static int nft_pipapo_avx2_lookup_4b_4(unsigned long *map, unsigned long *fill,
 	for (i = offset; i < m256_size; i++, lt += NFT_PIPAPO_LONGS_PER_M256) {
 		int i_ul = i * NFT_PIPAPO_LONGS_PER_M256;
 
+		// Block Logic: Multi-way SIMD bitwise intersection.
 		if (first) {
 			NFT_PIPAPO_AVX2_BUCKET_LOAD4(0, lt, 0, pg[0], bsize);
 			NFT_PIPAPO_AVX2_BUCKET_LOAD4(1, lt, 1, pg[1], bsize);
@@ -305,6 +319,7 @@ static int nft_pipapo_avx2_lookup_4b_4(unsigned long *map, unsigned long *fill,
 			NFT_PIPAPO_AVX2_BUCKET_LOAD4(4, lt, 3, pg[3], bsize);
 			NFT_PIPAPO_AVX2_AND(5, 0, 1);
 
+			// Optimization: Skip remaining logical ops if the preceding result is zero.
 			NFT_PIPAPO_AVX2_NOMATCH_GOTO(1, nothing);
 
 			NFT_PIPAPO_AVX2_AND(6, 2, 3);
@@ -366,6 +381,7 @@ static int nft_pipapo_avx2_lookup_4b_8(unsigned long *map, unsigned long *fill,
 	for (i = offset; i < m256_size; i++, lt += NFT_PIPAPO_LONGS_PER_M256) {
 		int i_ul = i * NFT_PIPAPO_LONGS_PER_M256;
 
+		// Block Logic: Balanced tree of bitwise intersections to maximize YMM throughput.
 		if (first) {
 			NFT_PIPAPO_AVX2_BUCKET_LOAD4(0,  lt, 0, pg[0], bsize);
 			NFT_PIPAPO_AVX2_BUCKET_LOAD4(1,  lt, 1, pg[1], bsize);
@@ -574,8 +590,8 @@ static int nft_pipapo_avx2_lookup_4b_32(unsigned long *map, unsigned long *fill,
 		NFT_PIPAPO_AVX2_BUCKET_LOAD4(6,  lt,  4,  pg[4], bsize);
 		NFT_PIPAPO_AVX2_BUCKET_LOAD4(7,  lt,  5,  pg[5], bsize);
 		NFT_PIPAPO_AVX2_AND(8,   1,  4);
-		NFT_PIPAPO_AVX2_BUCKET_LOAD4(9,  lt,  6,  pg[6], bsize);
 		NFT_PIPAPO_AVX2_AND(10,  5,  6);
+		NFT_PIPAPO_AVX2_BUCKET_LOAD4(9,  lt,  6,  pg[6], bsize);
 		NFT_PIPAPO_AVX2_BUCKET_LOAD4(11, lt,  7,  pg[7], bsize);
 		NFT_PIPAPO_AVX2_AND(12,  7,  8);
 		NFT_PIPAPO_AVX2_BUCKET_LOAD4(13, lt,  8,  pg[8], bsize);
@@ -595,9 +611,9 @@ static int nft_pipapo_avx2_lookup_4b_32(unsigned long *map, unsigned long *fill,
 		NFT_PIPAPO_AVX2_AND(11,  4,  5);
 		NFT_PIPAPO_AVX2_BUCKET_LOAD4(12, lt, 16, pg[16], bsize);
 		NFT_PIPAPO_AVX2_AND(13,  6,  7);
+		NFT_PIPAPO_AVX2_AND(0,   8,  9);
 		NFT_PIPAPO_AVX2_BUCKET_LOAD4(14, lt, 17, pg[17], bsize);
 
-		NFT_PIPAPO_AVX2_AND(0,   8,  9);
 		NFT_PIPAPO_AVX2_BUCKET_LOAD4(1,  lt, 18, pg[18], bsize);
 		NFT_PIPAPO_AVX2_AND(2,  10, 11);
 		NFT_PIPAPO_AVX2_BUCKET_LOAD4(3,  lt, 19, pg[19], bsize);
@@ -1205,6 +1221,7 @@ next_match:
 							 ret, rp,	\
 							 first, last))
 
+		// Block Logic: Dynamic dispatcher for bit-sliced lookup variants based on field group size.
 		if (likely(f->bb == 8)) {
 			if (f->groups == 1) {
 				NFT_SET_PIPAPO_AVX2_LOOKUP(8, 1);
@@ -1242,6 +1259,7 @@ next_match:
 
 #undef NFT_SET_PIPAPO_AVX2_LOOKUP
 
+		// Flow Control: Early exit if a field match results in an empty intersection.
 		if (ret < 0)
 			goto out;
 
@@ -1256,6 +1274,7 @@ next_match:
 			goto out;
 		}
 
+		// Functional Utility: Double-buffering swap for result propagation between fields.
 		swap(res, fill);
 		rp += NFT_PIPAPO_GROUPS_PADDED_SIZE(f);
 	}

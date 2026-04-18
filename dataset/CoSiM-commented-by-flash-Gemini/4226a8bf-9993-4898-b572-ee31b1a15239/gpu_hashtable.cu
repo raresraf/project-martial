@@ -1,16 +1,33 @@
+/**
+ * @4226a8bf-9993-4898-b572-ee31b1a15239/gpu_hashtable.cu
+ * @brief Multi-bucket GPU Hash Table with parallel probing.
+ * This implementation distributes entries across two bucket arrays to improve 
+ * collision distribution. It handles batch operations using atomic operations 
+ * and provides dynamic reshaping logic.
+ * 
+ * Algorithm: Dual-bucket Linear Probing.
+ * Domain: Parallel Computing, CUDA Data Structures.
+ */
 
-#include 
-#include 
-#include 
-#include 
-#include 
+#include <iostream>
+#include <cstdio>
+#include <cstdlib>
+#include <ctime>
+#include <cmath>
 
 #include "gpu_hashtable.hpp"
 
+/**
+ * Functional Utility: Device-side multiplicative hash function.
+ */
 __device__ int myHash(int data, int limit) {
 	return ((long) abs(data) * 20906033) % 5351951779 % limit;
 }
 
+/**
+ * Functional Utility: Initializes two device-side buckets for the hash table.
+ * Logic: Allocates and clears two separate memory regions on the GPU.
+ */
 GpuHashTable::GpuHashTable(int size) {
 	pairsInserted = 0;
 	bucketSize = size;
@@ -26,6 +43,9 @@ GpuHashTable::GpuHashTable(int size) {
 	cudaMemset(bucket2, 0, size * sizeof(hash_entry));
 }
 
+/**
+ * Functional Utility: Reclaims bucket memory from the GPU.
+ */
 GpuHashTable::~GpuHashTable() {
 	cudaFree(bucket1);
 	cudaFree(bucket2);
@@ -33,12 +53,23 @@ GpuHashTable::~GpuHashTable() {
 
 
 
+
+/**
+ * Block Logic: Parallel batch insertion kernel.
+ * Thread Indexing: Each thread handles one key-value pair from the input.
+ * Logic: Probes both bucket1 and bucket2 sequentially using linear probing. 
+ * Uses atomicCAS to claim slots or update existing keys.
+ */
 __global__ void kernel_insert(int *keys, int *values, int numKeys, hash_entry* bucket1, hash_entry* bucket2, int bucketSize) {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
-	if (idx >= bucketSize) return;
+	if (idx >= numKeys) return;
 	int keyOld, keyNew;
 	keyNew = keys[idx];
 	int hash = myHash(keyNew, bucketSize);
+
+	/**
+	 * Block Logic: Primary probing loop (hash to end).
+	 */
 	for (int i = hash; i < bucketSize; i++) {
 		keyOld = atomicCAS(&bucket1[i].key, KEY_INVALID, keyNew);
 		if (keyOld == KEY_INVALID || keyOld == keyNew) {
@@ -53,6 +84,9 @@ __global__ void kernel_insert(int *keys, int *values, int numKeys, hash_entry* b
 			return;
 		}
 	}
+	/**
+	 * Block Logic: Wraparound probing loop (start to hash).
+	 */
 	for (int i = 0; i < hash; i++) {
 		keyOld = atomicCAS(&bucket1[i].key, KEY_INVALID, keyNew);
 		if (keyOld == KEY_INVALID || keyOld == keyNew) {
@@ -69,9 +103,13 @@ __global__ void kernel_insert(int *keys, int *values, int numKeys, hash_entry* b
 	}
 }
 
+/**
+ * Block Logic: Parallel batch lookup kernel.
+ * Logic: Checks both bucket arrays for a matching key using linear probing.
+ */
 __global__ void kernel_get(int *keys, int *values, int numItems, hash_entry* bucket1, hash_entry* bucket2, int bucketSize) {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
-	if (idx >= bucketSize) return;
+	if (idx >= numItems) return;
 	int crtKey = keys[idx];
 	int hash = myHash(crtKey, bucketSize);
 	for (int i = hash; i < bucketSize; i++) {
@@ -98,82 +136,100 @@ __global__ void kernel_get(int *keys, int *values, int numItems, hash_entry* buc
 	}
 }
 
+/**
+ * Block Logic: Multi-bucket rehash kernel.
+ * Logic: Iterates through both old buckets and re-inserts every non-empty 
+ * element into the new larger buckets at their new hashed positions.
+ */
 __global__ void kernel_rehash(hash_entry* oldBucket1, hash_entry* oldBucket2, int oldBucketSize,
 
 
 hash_entry* newBucket1, hash_entry* newBucket2, int newBucketSize) {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	if (idx >= oldBucketSize) return;
+
+	/**
+	 * Block Logic: Migrate elements from oldBucket1.
+	 */
 	if (oldBucket1[idx].key != KEY_INVALID) {
 		int keyNew, keyOld, hash;
 		keyNew = oldBucket1[idx].key;
 		hash = myHash(keyNew, newBucketSize);
 		bool completed = false;
 		for (int i = hash; i < newBucketSize; i++) {
-			keyOld = atomicCAS(&newBucket1[idx].key, KEY_INVALID, keyNew);
+			keyOld = atomicCAS(&newBucket1[i].key, KEY_INVALID, keyNew);
 			if (keyOld == KEY_INVALID) {
-				newBucket1[idx].value = oldBucket1[idx].value;
+				newBucket1[i].value = oldBucket1[idx].value;
 				completed = true;
 				break;
 			}
-			keyOld = atomicCAS(&newBucket2[idx].key, KEY_INVALID, keyNew);
+			keyOld = atomicCAS(&newBucket2[i].key, KEY_INVALID, keyNew);
 			if (keyOld == KEY_INVALID) {
-				newBucket2[idx].value = oldBucket2[idx].value;
+				newBucket2[i].value = oldBucket1[idx].value;
 				completed = true;
 				break;
 			}
 		}
 		if (completed == false) {
 			for (int i = 0; i < hash; i++) {
-				keyOld = atomicCAS(&newBucket1[idx].key, KEY_INVALID, keyNew);
+				keyOld = atomicCAS(&newBucket1[i].key, KEY_INVALID, keyNew);
 				if (keyOld == KEY_INVALID) {
-					newBucket1[idx].value = oldBucket1[idx].value;
+					newBucket1[i].value = oldBucket1[idx].value;
 					break;
 				}
-				keyOld = atomicCAS(&newBucket2[idx].key, KEY_INVALID, keyNew);
+				keyOld = atomicCAS(&newBucket2[i].key, KEY_INVALID, keyNew);
 				if (keyOld == KEY_INVALID) {
-					newBucket2[idx].value = oldBucket2[idx].value;
+					newBucket2[i].value = oldBucket1[idx].value;
 					break;
 				}
 			}
 		}
 	}
+
+	/**
+	 * Block Logic: Migrate elements from oldBucket2.
+	 */
 	if (oldBucket2[idx].key != KEY_INVALID) {
 		int keyNew, keyOld, hash;
 		keyNew = oldBucket2[idx].key;
 		hash = myHash(keyNew, newBucketSize);
 		bool completed = false;
 		for (int i = hash; i < newBucketSize; i++) {
-			keyOld = atomicCAS(&newBucket1[idx].key, KEY_INVALID, keyNew);
+			keyOld = atomicCAS(&newBucket1[i].key, KEY_INVALID, keyNew);
 			if (keyOld == KEY_INVALID) {
-				newBucket1[idx].value = oldBucket1[idx].value;
+				newBucket1[i].value = oldBucket2[idx].value;
 				completed = true;
 				break;
 			}
-			keyOld = atomicCAS(&newBucket2[idx].key, KEY_INVALID, keyNew);
+			keyOld = atomicCAS(&newBucket2[i].key, KEY_INVALID, keyNew);
 			if (keyOld == KEY_INVALID) {
-				newBucket2[idx].value = oldBucket2[idx].value;
+				newBucket2[i].value = oldBucket2[idx].value;
 				completed = true;
 				break;
 			}
 		}
 		if (completed == false) {
 			for (int i = 0; i < hash; i++) {
-			keyOld = atomicCAS(&newBucket1[idx].key, KEY_INVALID, keyNew);
-			if (keyOld == KEY_INVALID) {
-				newBucket1[idx].value = oldBucket1[idx].value;
-				break;
+				keyOld = atomicCAS(&newBucket1[i].key, KEY_INVALID, keyNew);
+				if (keyOld == KEY_INVALID) {
+					newBucket1[i].value = oldBucket2[idx].value;
+					break;
+				}
+				keyOld = atomicCAS(&newBucket2[i].key, KEY_INVALID, keyNew);
+				if (keyOld == KEY_INVALID) {
+					newBucket2[i].value = oldBucket2[idx].value;
+					break;
+				}
 			}
-			keyOld = atomicCAS(&newBucket2[idx].key, KEY_INVALID, keyNew);
-			if (keyOld == KEY_INVALID) {
-				newBucket2[idx].value = oldBucket2[idx].value;
-				break;
-			}
-		}
 		}
 	}
 }
 
+/**
+ * Functional Utility: Increases table capacity by allocating new larger buckets.
+ * Logic: Allocates two new bucket arrays, migrates data using the rehash 
+ * kernel, and synchronizes before freeing the old arrays.
+ */
 void GpuHashTable::reshape(int sizeReshape) {
 	hash_entry* newBucket1;
 	hash_entry* newBucket2;
@@ -196,6 +252,11 @@ void GpuHashTable::reshape(int sizeReshape) {
 	bucketSize = sizeReshape;
 }
 
+/**
+ * Functional Utility: Parallel batch insertion of key-value pairs.
+ * Logic: Checks if resizing is required based on MAX_LOAD threshold. 
+ * Transfers data to GPU and launches the insertion kernel.
+ */
 bool GpuHashTable::insertBatch(int *keys, int *values, int numKeys) {
 	int *keysFromDevice, *valuesFromDevice;
 	unsigned int numBlocks;
@@ -219,6 +280,10 @@ bool GpuHashTable::insertBatch(int *keys, int *values, int numKeys) {
 	return true;
 }
 
+/**
+ * Functional Utility: Parallel batch lookup of keys.
+ * Logic: Executes lookup kernel and returns a GPU-allocated array of results.
+ */
 int *GpuHashTable::getBatch(int *keys, int numKeys) {
 	int *keysFromDevice, *valuesFromDevice;
 	unsigned int numBlocks;
@@ -239,6 +304,9 @@ int *GpuHashTable::getBatch(int *keys, int numKeys) {
 	return valuesFromDevice;
 }
 
+/**
+ * Functional Utility: Calculates current utilization ratio.
+ */
 float GpuHashTable::loadFactor() {
 	if (bucketSize == 0) return 0.0;
 	return pairsInserted * 1.0 / bucketSize;

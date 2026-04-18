@@ -1,3 +1,12 @@
+/**
+ * @a82b8d5d-c7c6-43dc-a899-fe2f3436ac1e/drivers/mfd/mt6397-core.c
+ * @brief Core multi-function device (MFD) driver for MediaTek Power Management ICs (PMICs).
+ * Domain: Kernel Drivers, Power Management, Hardware Abstraction.
+ * Architecture: Implements a unified lifecycle manager for various MediaTek PMIC generations (MT6323, MT6357, MT6397, etc.).
+ * Functional Utility: Handles chip identification via hardware ID registers, orchestrates IRQ domain setup, and populates the device tree with child sub-devices (RTC, regulators, LEDs, input keys).
+ * Synchronization: Stateless probe routine relying on the kernel's platform bus serialization; uses regmap for thread-safe register access.
+ */
+
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2014 MediaTek Inc.
@@ -45,6 +54,10 @@
 #define MT6323_PWRC_BASE	0x8000
 #define MT6323_PWRC_SIZE	0x40
 
+/*
+ * Block Logic: Static Resource Definitions for PMIC sub-components.
+ * Logic: Maps hardware register ranges and IRQ offsets to logical resources (MEM, IRQ).
+ */
 static const struct resource mt6323_rtc_resources[] = {
 	DEFINE_RES_MEM(MT6323_RTC_BASE, MT6323_RTC_SIZE),
 	DEFINE_RES_IRQ(MT6323_IRQ_STATUS_RTC),
@@ -123,6 +136,10 @@ static const struct resource mt6323_pwrc_resources[] = {
 	DEFINE_RES_MEM(MT6323_PWRC_BASE, MT6323_PWRC_SIZE),
 };
 
+/* 
+ * Block Logic: MFD Cell definitions for child device instantiation. 
+ * Functional Utility: Specifies the drivers to be loaded and their compatibility strings for the MT6323 variant.
+ */
 static const struct mfd_cell mt6323_devs[] = {
 	{
 		.name = "mt6323-rtc",
@@ -279,12 +296,15 @@ static const struct mfd_cell mt6397_devs[] = {
 	}
 };
 
+/**
+ * @brief Descriptor for variant-specific PMIC metadata.
+ */
 struct chip_data {
-	u32 cid_addr;
-	u32 cid_shift;
-	const struct mfd_cell *cells;
+	u32 cid_addr; # Register address for the chip identifier.
+	u32 cid_shift; # Bit-shift required to extract the ID value.
+	const struct mfd_cell *cells; # Array of child device templates.
 	int cell_size;
-	int (*irq_init)(struct mt6397_chip *chip);
+	int (*irq_init)(struct mt6397_chip *chip); # Capability for generation-specific IRQ setup.
 };
 
 static const struct chip_data mt6323_core = {
@@ -343,6 +363,10 @@ static const struct chip_data mt6397_core = {
 	.irq_init = mt6397_irq_init,
 };
 
+/**
+ * @brief Main probe routine for MediaTek PMIC devices.
+ * Flow: Memory allocation -> Regmap acquisition -> Chip verification -> IRQ setup -> Sub-device registration.
+ */
 static int mt6397_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -357,8 +381,8 @@ static int mt6397_probe(struct platform_device *pdev)
 	pmic->dev = &pdev->dev;
 
 	/*
-	 * mt6397 MFD is child device of soc pmic wrapper.
-	 * Regmap is set from its parent.
+	 * Block Logic: Infrastructure bootstrapping.
+	 * Architecture: MT6397 MFD is a child of the SoC PMIC wrapper; it inherits the register map.
 	 */
 	pmic->regmap = dev_get_regmap(pdev->dev.parent, NULL);
 	if (!pmic->regmap)
@@ -368,6 +392,7 @@ static int mt6397_probe(struct platform_device *pdev)
 	if (!pmic_core)
 		return -ENODEV;
 
+	// Functional Utility: Reads hardware version registers to finalize chip identification.
 	ret = regmap_read(pmic->regmap, pmic_core->cid_addr, &id);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to read chip id: %d\n", ret);
@@ -378,14 +403,17 @@ static int mt6397_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, pmic);
 
+	// Setup: Acquires the primary interrupt line from the parent wrapper.
 	pmic->irq = platform_get_irq(pdev, 0);
 	if (pmic->irq <= 0)
 		return pmic->irq;
 
+	// Setup: Initializes the generation-specific interrupt controller.
 	ret = pmic_core->irq_init(pmic);
 	if (ret)
 		return ret;
 
+	// Execution: Dispatches child device creation based on the identified PMIC variant.
 	ret = devm_mfd_add_devices(&pdev->dev, PLATFORM_DEVID_NONE,
 				   pmic_core->cells, pmic_core->cell_size,
 				   NULL, 0, pmic->irq_domain);
@@ -397,6 +425,10 @@ static int mt6397_probe(struct platform_device *pdev)
 	return ret;
 }
 
+/**
+ * @brief Device Tree compatibility mapping.
+ * Strategy: Uses .data field to store chip_data descriptors for each supported compatible string.
+ */
 static const struct of_device_id mt6397_of_match[] = {
 	{
 		.compatible = "mediatek,mt6323",

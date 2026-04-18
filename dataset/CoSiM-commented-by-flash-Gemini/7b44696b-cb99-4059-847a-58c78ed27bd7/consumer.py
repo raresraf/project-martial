@@ -1,4 +1,15 @@
 
+"""
+@7b44696b-cb99-4059-847a-58c78ed27bd7/consumer.py
+@brief Threaded marketplace simulation with automated state reconciliation.
+This module implements a concurrent system where multiple producers and 
+consumers interact via a central broker. It ensures thread safety through 
+granular mutex locking and features a comprehensive suite of unit tests 
+to verify the transactional integrity of product publication, cart 
+operations, and order finalization.
+
+Domain: Concurrent Programming, Synchronization Primitives, System Simulation.
+"""
 
 
 from threading import Thread
@@ -10,16 +21,26 @@ from tema.marketplace import Marketplace
 
 
 class Consumer(Thread):
-    
+    """
+    Functional Utility: Represent a consumer thread that executes a series of shopping actions.
+    Logic: For each assigned cart, it performs 'add' or 'remove' operations 
+    sequentially. Acquisitions include a retry loop with backoff for stock 
+    depletion scenarios.
+    """
 
     def __init__(self, carts: list, marketplace: Marketplace, retry_wait_time: int, **kwargs):
-        
+        """
+        Constructor: Binds the consumer thread to its carts and shared marketplace.
+        """
         Thread.__init__(self, **kwargs)
         self.carts = carts
         self.marketplace = marketplace
         self.retry_wait_time = retry_wait_time
 
     def run(self):
+        """
+        Execution Logic: Orchestrates the processing of multiple shopping carts.
+        """
         for cart in self.carts:
             cart_id = self.marketplace.new_cart()
 
@@ -27,10 +48,17 @@ class Consumer(Thread):
                 function = self.marketplace.add_to_cart if operation['type'] == 'add' \
                     else self.marketplace.remove_from_cart
 
+                # Block Logic: Sequential execution of cart commands.
                 for _ in range(operation['quantity']):
+                    /**
+                     * Block Logic: Synchronized operation with backoff.
+                     * Logic: Repeatedly attempts the operation (add/remove). If 
+                     * unsuccessful, it sleeps before re-evaluating marketplace state.
+                     */
                     while function(cart_id, operation['product']) is False:
                         sleep(self.retry_wait_time)
 
+            # Finalizes the current cart transaction.
             product_list = self.marketplace.place_order(cart_id)
 
             if len(product_list) > 0:
@@ -45,6 +73,7 @@ import time
 from tema.product import Product, Coffee, Tea
 
 
+# Block Logic: Audit logging configuration.
 logging.Formatter.converter = time.gmtime
 ROTATING_FILE = RotatingFileHandler(filename='marketplace.log', maxBytes=1048576,
                                     backupCount=5)
@@ -55,9 +84,17 @@ LOGGER.addHandler(ROTATING_FILE)
 
 
 class Marketplace:
+    """
+    Functional Utility: Centralized broker for thread-safe product transactions.
+    Logic: Tracks registered producers, available product stocks, and consumer 
+    carts. It maintains thread safety via a global lock and generates 
+    rotating audit logs for all transactional state transitions.
+    """
     
     def __init__(self, queue_size_per_producer: int):
-        
+        """
+        Constructor: Initializes storage structures and synchronization locks.
+        """
         self.queue_size_per_producer = queue_size_per_producer
         self.producers = 0
         self.producers_queue = {}
@@ -68,7 +105,9 @@ class Marketplace:
 
 
     def register_producer(self):
-        
+        """
+        Functional Utility: Atomically registers a new producer and initializes its slot.
+        """
         LOGGER.info('Registering a producer')
 
         with self.lock:
@@ -82,9 +121,13 @@ class Marketplace:
 
 
     def publish(self, producer_id: str, product: Product):
-        
+        """
+        Functional Utility: Adds a product instance to a producer's inventory.
+        Logic: Enforces per-producer capacity limits. Returns True on success.
+        """
         LOGGER.info('Producer %s is publishing a %s product', producer_id, product)
 
+        # Synchronization: Atomic capacity check and update.
         acquired = self.lock.acquire(timeout=0.5)
 
         if not acquired or self.producers_queue[producer_id] >= self.queue_size_per_producer:
@@ -102,7 +145,9 @@ class Marketplace:
 
 
     def new_cart(self):
-        
+        """
+        Functional Utility: Allocates a new unique shopping cart for a consumer.
+        """
 
         LOGGER.info('Creating a new cart')
 
@@ -117,12 +162,17 @@ class Marketplace:
 
 
     def add_to_cart(self, cart_id: int, product: Product):
-        
+        """
+        Functional Utility: Transfers product from producer stock to consumer cart.
+        Logic: Scans all producer pools. If an instance is found, it performs 
+        an atomic ownership migration to the specified cart.
+        """
 
         LOGGER.info('Adding a %s product to cart %s', product, cart_id)
 
         with self.lock:
             try:
+                # Block Logic: Stock lookup.
                 product_index = list(
                     map(lambda product_tuple: product_tuple[0], self.products)
                 ).index(product)
@@ -145,7 +195,9 @@ class Marketplace:
 
 
     def remove_from_cart(self, cart_id: int, product: Product):
-        
+        """
+        Functional Utility: Restores a product from a cart back to the marketplace.
+        """
 
         LOGGER.info('Removing a %s product from cart %s', product, cart_id)
 
@@ -175,7 +227,9 @@ class Marketplace:
 
 
     def place_order(self, cart_id: int):
-        
+        """
+        Functional Utility: Finalizes the transaction and returns purchased items.
+        """
 
         LOGGER.info('Placing order for cart %s', cart_id)
 
@@ -193,9 +247,15 @@ class Marketplace:
 
 
 class TestMarketplace(unittest.TestCase):
+    """
+    Functional Utility: Integrity validation suite for Marketplace transaction logic.
+    """
     
 
     def setUp(self) -> None:
+        """
+        Pre-condition: Initialize a marketplace with a fixed capacity for testing.
+        """
         super().setUp()
         self.marketplace = Marketplace(queue_size_per_producer=5)
 
@@ -324,22 +384,34 @@ from tema.marketplace import Marketplace
 
 
 class Producer(Thread):
-    
+    """
+    Functional Utility: Represent a production agent that continuously supplies the marketplace.
+    Logic: Iteratively publishes items from its inventory. It incorporates 
+    simulated manufacturing time and handles congestion via a timed retry mechanism.
+    """
 
     def __init__(self, products: list, marketplace: Marketplace, republish_wait_time, **kwargs):
-        
+        """
+        Constructor: Registers with the marketplace and initializes production parameters.
+        """
         Thread.__init__(self, **kwargs)
         self.products = products
         self.marketplace = marketplace
         self.republish_wait_time = republish_wait_time
 
     def run(self):
+        """
+        Execution Logic: Infinite production loop.
+        """
         producer_id = self.marketplace.register_producer()
 
         while True:
             for (product, quantity, produce_time) in self.products:
                 for _ in range(quantity):
+                    # Inline: Simulated item manufacturing time.
                     sleep(produce_time)
+                    
+                    # Block Logic: Congestion backoff.
                     while self.marketplace.publish(producer_id, product) is False:
                         sleep(self.republish_wait_time)
 
@@ -349,19 +421,25 @@ from dataclasses import dataclass
 
 @dataclass(init=True, repr=True, order=False, frozen=True)
 class Product:
-    
+    """
+    Functional Utility: Base immutable data carrier for marketplace items.
+    """
     name: str
     price: int
 
 
 @dataclass(init=True, repr=True, order=False, frozen=True)
 class Tea(Product):
-    
+    """
+    Functional Utility: Specialized product carrier for tea.
+    """
     type: str
 
 
 @dataclass(init=True, repr=True, order=False, frozen=True)
 class Coffee(Product):
-    
+    """
+    Functional Utility: Specialized product carrier for coffee.
+    """
     acidity: str
     roast_level: str

@@ -1,3 +1,12 @@
+/**
+ * @7aec5c6c-e918-47ad-ba23-0126fc7278ab/include/net/netfilter/nf_tables.h
+ * @brief Primary internal API and data structure definitions for the nftables framework.
+ * Domain: Kernel Networking, Packet Classification Engine.
+ * Architecture: Implements a hierarchical object model (Tables -> Chains -> Rules -> Expressions) for extensible packet processing.
+ * Functional Utility: Provides the foundational types for the nftables virtual machine, including registers, verdicts, and transactional state.
+ * Synchronization: Heavily relies on RCU (Read-Copy-Update) for lock-less packet evaluation and generation-based atomic ruleset updates.
+ */
+
 /* SPDX-License-Identifier: GPL-2.0 */
 #ifndef _NET_NF_TABLES_H
 #define _NET_NF_TABLES_H
@@ -27,6 +36,10 @@ enum {
 	NFT_PKTINFO_INNER_FULL	= (1 << 2),
 };
 
+/**
+ * @brief Metadata container for the currently processed packet.
+ * State: Caches header offsets and netfilter hook state to minimize redundant parsing.
+ */
 struct nft_pktinfo {
 	struct sk_buff			*skb;
 	const struct nf_hook_state	*state;
@@ -89,16 +102,18 @@ static inline void nft_set_pktinfo_unspec(struct nft_pktinfo *pkt)
 }
 
 /**
- * 	struct nft_verdict - nf_tables verdict
- *
- * 	@code: nf_tables/netfilter verdict code
- * 	@chain: destination chain for NFT_JUMP/NFT_GOTO
+ * @brief Encapsulates the result of a packet evaluation step.
+ * Mapping: maps to immediate actions (ACCEPT/DROP) or control flow transitions (JUMP/GOTO).
  */
 struct nft_verdict {
 	u32				code;
 	struct nft_chain		*chain;
 };
 
+/**
+ * @brief Generic data container for nftables registers.
+ * Memory Layout: Aligned to 64-bits for efficient atomic operations and aligned memory access.
+ */
 struct nft_data {
 	union {
 		u32			data[4];
@@ -109,12 +124,8 @@ struct nft_data {
 #define NFT_REG32_NUM		20
 
 /**
- *	struct nft_regs - nf_tables register set
- *
- *	@data: data registers
- *	@verdict: verdict register
- *
- *	The first four data registers alias to the verdict register.
+ * @brief Virtual register set for the nftables execution environment.
+ * Architecture: The first 4 registers (16 bytes) are aliased to the verdict register.
  */
 struct nft_regs {
 	union {
@@ -123,6 +134,10 @@ struct nft_regs {
 	};
 };
 
+/**
+ * @brief Tracking structure for register-level constant/expression propagation.
+ * Optimization: Used to reduce redundant expressions and enable hardware offload hints.
+ */
 struct nft_regs_track {
 	struct {
 		const struct nft_expr		*selector;
@@ -134,12 +149,7 @@ struct nft_regs_track {
 	const struct nft_expr			*last;
 };
 
-/* Store/load an u8, u16 or u64 integer to/from the u32 data register.
- *
- * Note, when using concatenations, register allocation happens at 32-bit
- * level. So for store instruction, pad the rest part with zero to avoid
- * garbage values.
- */
+/* Register manipulation primitives for sub-word and multi-word data. */
 
 static inline void nft_reg_store8(u32 *dreg, u8 val)
 {
@@ -197,19 +207,8 @@ static inline void nft_data_copy(u32 *dst, const struct nft_data *src,
 }
 
 /**
- *	struct nft_ctx - nf_tables rule/set context
- *
- *	@net: net namespace
- * 	@table: the table the chain is contained in
- * 	@chain: the chain the rule is contained in
- *	@nla: netlink attributes
- *	@portid: netlink portID of the original message
- *	@seq: netlink sequence number
- *	@flags: modifiers to new request
- *	@family: protocol family
- *	@level: depth of the chains
- *	@report: notify via unicast netlink message
- *	@reg_inited: bitmap of initialised registers
+ * @brief Contextual state for rule and set manipulation operations.
+ * State: Bundles net namespace, table/chain hierarchy, and Netlink sequence info.
  */
 struct nft_ctx {
 	struct net			*net;
@@ -229,6 +228,9 @@ enum nft_data_desc_flags {
 	NFT_DATA_DESC_SETELEM	= (1 << 0),
 };
 
+/**
+ * @brief Metadata describing the type and constraints of a data object.
+ */
 struct nft_data_desc {
 	enum nft_data_types		type;
 	unsigned int			size;
@@ -264,14 +266,7 @@ int nft_parse_register_store(const struct nft_ctx *ctx,
 			     enum nft_data_types type, unsigned int len);
 
 /**
- *	struct nft_userdata - user defined data associated with an object
- *
- *	@len: length of the data
- *	@data: content
- *
- *	The presence of user data is indicated in an object specific fashion,
- *	so a length of zero can't occur and the value "len" indicates data
- *	of length len + 1.
+ * @brief Container for arbitrary user-defined metadata attached to objects.
  */
 struct nft_userdata {
 	u8			len;
@@ -282,12 +277,9 @@ struct nft_userdata {
 struct nft_elem_priv { };
 
 /**
- *	struct nft_set_elem - generic representation of set elements
- *
- *	@key: element key
- *	@key_end: closing element key
- *	@data: element data
- *	@priv: element private data and extensions
+ * @brief Generic representation of an entry within an nftables set.
+ * Domain: Set Management.
+ * Logic: Supports exact keys, range ends (for intervals), and associated mapping data.
  */
 struct nft_set_elem {
 	union {
@@ -312,11 +304,7 @@ static inline void *nft_elem_priv_cast(const struct nft_elem_priv *priv)
 
 
 /**
- * enum nft_iter_type - nftables set iterator type
- *
- * @NFT_ITER_UNSPEC: unspecified, to catch errors
- * @NFT_ITER_READ: read-only iteration over set elements
- * @NFT_ITER_UPDATE: iteration under mutex to update set element state
+ * @brief Enumeration of supported set iteration modes.
  */
 enum nft_iter_type {
 	NFT_ITER_UNSPEC,
@@ -325,6 +313,10 @@ enum nft_iter_type {
 };
 
 struct nft_set;
+/**
+ * @brief Descriptor for traversing set elements.
+ * Synchronization: genmask ensures iteration only sees elements valid in the target generation.
+ */
 struct nft_set_iter {
 	u8		genmask;
 	enum nft_iter_type type:8;
@@ -338,20 +330,7 @@ struct nft_set_iter {
 };
 
 /**
- *	struct nft_set_desc - description of set elements
- *
- *	@ktype: key type
- *	@klen: key length
- *	@dtype: data type
- *	@dlen: data length
- *	@objtype: object type
- *	@size: number of set elements
- *	@policy: set policy
- *	@gc_int: garbage collector interval
- *	@timeout: element timeout
- *	@field_len: length of each field in concatenation, bytes
- *	@field_count: number of concatenated fields in element
- *	@expr: set must support for expressions
+ * @brief Schema definition for elements within a specific set.
  */
 struct nft_set_desc {
 	u32			ktype;
@@ -369,11 +348,7 @@ struct nft_set_desc {
 };
 
 /**
- *	enum nft_set_class - performance class
- *
- *	@NFT_SET_CLASS_O_1: constant, O(1)
- *	@NFT_SET_CLASS_O_LOG_N: logarithmic, O(log N)
- *	@NFT_SET_CLASS_O_N: linear, O(N)
+ * @brief Classification of set backend performance profiles.
  */
 enum nft_set_class {
 	NFT_SET_CLASS_O_1,
@@ -382,12 +357,7 @@ enum nft_set_class {
 };
 
 /**
- *	struct nft_set_estimate - estimation of memory and performance
- *				  characteristics
- *
- *	@size: required memory
- *	@lookup: lookup performance class
- *	@space: memory class
+ * @brief Estimated operational overhead for a chosen set backend.
  */
 struct nft_set_estimate {
 	u64			size;
@@ -400,10 +370,8 @@ struct nft_set_estimate {
 					 ALIGN(size, __alignof__(struct nft_expr)))
 
 /**
- *	struct nft_expr - nf_tables expression
- *
- *	@ops: expression ops
- *	@data: expression private data
+ * @brief Base polymorphic structure for packet processing logic.
+ * State: Dynamically-sized private data following the ops pointer.
  */
 struct nft_expr {
 	const struct nft_expr_ops	*ops;
@@ -430,33 +398,8 @@ bool nft_expr_reduce_bitwise(struct nft_regs_track *track,
 struct nft_set_ext;
 
 /**
- *	struct nft_set_ops - nf_tables set operations
- *
- *	@lookup: look up an element within the set
- *	@update: update an element if exists, add it if doesn't exist
- *	@delete: delete an element
- *	@insert: insert new element into set
- *	@activate: activate new element in the next generation
- *	@deactivate: lookup for element and deactivate it in the next generation
- *	@flush: deactivate element in the next generation
- *	@remove: remove element from set
- *	@walk: iterate over all set elements
- *	@get: get set elements
- *	@ksize: kernel set size
- * 	@usize: userspace set size
- *	@adjust_maxsize: delta to adjust maximum set size
- *	@commit: commit set elements
- *	@abort: abort set elements
- *	@privsize: function to return size of set private data
- *	@estimate: estimate the required memory size and the lookup complexity class
- *	@init: initialize private data of new set instance
- *	@destroy: destroy private data of set instance
- *	@gc_init: initialize garbage collection
- *	@elemsize: element private size
- *
- *	Operations lookup, update and delete have simpler interfaces, are faster
- *	and currently only used in the packet path. All the rest are slower,
- *	control plane functions.
+ * @brief Function table for set backend implementations (hash, rbtree, bitmap, etc.).
+ * Functional Utility: Abstracts the storage and retrieval logic from the core netfilter pipeline.
  */
 struct nft_set_ops {
 	const struct nft_set_ext *	(*lookup)(const struct net *net,
@@ -513,10 +456,7 @@ struct nft_set_ops {
 };
 
 /**
- *      struct nft_set_type - nf_tables set type
- *
- *      @ops: set ops for this type
- *      @features: features supported by the implementation
+ * @brief Metadata defining a supported set backend type.
  */
 struct nft_set_type {
 	const struct nft_set_ops	ops;
@@ -524,6 +464,9 @@ struct nft_set_type {
 };
 #define to_set_type(o) container_of(o, struct nft_set_type, ops)
 
+/**
+ * @brief Container for stateful expressions attached to a set element.
+ */
 struct nft_set_elem_expr {
 	u8				size;
 	unsigned char			data[]
@@ -541,40 +484,10 @@ struct nft_set_elem_expr {
 #define NFT_SET_EXPR_MAX	2
 
 /**
- * 	struct nft_set - nf_tables set instance
- *
- *	@list: table set list node
- *	@bindings: list of set bindings
- *	@refs: internal refcounting for async set destruction
- *	@table: table this set belongs to
- *	@net: netnamespace this set belongs to
- * 	@name: name of the set
- *	@handle: unique handle of the set
- * 	@ktype: key type (numeric type defined by userspace, not used in the kernel)
- * 	@dtype: data type (verdict or numeric type defined by userspace)
- * 	@objtype: object type (see NFT_OBJECT_* definitions)
- * 	@size: maximum set size
- *	@field_len: length of each field in concatenation, bytes
- *	@field_count: number of concatenated fields in element
- *	@use: number of rules references to this set
- * 	@nelems: number of elements
- * 	@ndeact: number of deactivated elements queued for removal
- *	@timeout: default timeout value in jiffies
- * 	@gc_int: garbage collection interval in msecs
- *	@policy: set parameterization (see enum nft_set_policies)
- *	@udlen: user data length
- *	@udata: user data
- *	@pending_update: list of pending update set element
- * 	@ops: set ops
- * 	@flags: set flags
- *	@dead: set will be freed, never cleared
- *	@genmask: generation mask
- * 	@klen: key length
- * 	@dlen: data length
- *	@num_exprs: numbers of exprs
- *	@exprs: stateful expression
- *	@catchall_list: list of catch-all set element
- * 	@data: private set data
+ * @brief Runtime instance of an nftables set.
+ * Domain: Dynamic State Management.
+ * State: Tracks membership, handles, timeouts, and stateful expressions (counters, etc.).
+ * Synchronization: uses ____cacheline_aligned on performance-critical 'ops' pointer.
  */
 struct nft_set {
 	struct list_head		list;
@@ -655,14 +568,7 @@ static inline unsigned long nft_set_gc_interval(const struct nft_set *set)
 }
 
 /**
- *	struct nft_set_binding - nf_tables set binding
- *
- *	@list: set bindings list node
- *	@chain: chain containing the rule bound to the set
- *	@flags: set action flags
- *
- *	A set binding contains all information necessary for validation
- *	of new elements added to a bound set.
+ * @brief Representation of a reference to a set from a chain/rule.
  */
 struct nft_set_binding {
 	struct list_head		list;
@@ -680,17 +586,7 @@ int nf_tables_bind_set(const struct nft_ctx *ctx, struct nft_set *set,
 void nf_tables_destroy_set(const struct nft_ctx *ctx, struct nft_set *set);
 
 /**
- *	enum nft_set_extensions - set extension type IDs
- *
- *	@NFT_SET_EXT_KEY: element key
- *	@NFT_SET_EXT_KEY_END: upper bound element key, for ranges
- *	@NFT_SET_EXT_DATA: mapping data
- *	@NFT_SET_EXT_FLAGS: element flags
- *	@NFT_SET_EXT_TIMEOUT: element timeout
- *	@NFT_SET_EXT_USERDATA: user data associated with the element
- *	@NFT_SET_EXT_EXPRESSIONS: expressions associated with the element
- *	@NFT_SET_EXT_OBJREF: stateful object reference associated with element
- *	@NFT_SET_EXT_NUM: number of extension types
+ * @brief Identifier enumeration for set element extensions.
  */
 enum nft_set_extensions {
 	NFT_SET_EXT_KEY,
@@ -705,10 +601,7 @@ enum nft_set_extensions {
 };
 
 /**
- *	struct nft_set_ext_type - set extension type
- *
- * 	@len: fixed part length of the extension
- * 	@align: alignment requirements of the extension
+ * @brief Typing metadata for set extensions.
  */
 struct nft_set_ext_type {
 	u8	len;
@@ -718,11 +611,7 @@ struct nft_set_ext_type {
 extern const struct nft_set_ext_type nft_set_ext_types[];
 
 /**
- *	struct nft_set_ext_tmpl - set extension template
- *
- *	@len: length of extension area
- *	@offset: offsets of individual extension types
- *	@ext_len: length of the expected extension(used to sanity check)
+ * @brief Blueprint for allocating memory and tracking offsets for set element extensions.
  */
 struct nft_set_ext_tmpl {
 	u16	len;
@@ -731,14 +620,9 @@ struct nft_set_ext_tmpl {
 };
 
 /**
- *	struct nft_set_ext - set extensions
- *
- *	@genmask: generation mask, but also flags (see NFT_SET_ELEM_DEAD_BIT)
- *	@offset: offsets of individual extension types
- *	@data: beginning of extension data
- *
- *	This structure must be aligned to word size, otherwise atomic bitops
- *	on genmask field can cause alignment failure on some archs.
+ * @brief Compact storage for optional set element features.
+ * Memory Layout: Uses a header with bit-offsets to locate extensions within an opaque data block.
+ * Synchronization: Alignment constrained to word-size for atomic bit-ops on 'genmask'.
  */
 struct nft_set_ext {
 	u8	genmask;
@@ -812,6 +696,9 @@ static inline u8 *nft_set_ext_flags(const struct nft_set_ext *ext)
 	return nft_set_ext(ext, NFT_SET_EXT_FLAGS);
 }
 
+/**
+ * @brief Representation of element-level expiration metadata.
+ */
 struct nft_timeout {
 	u64	timeout;
 	u64	expiration;
@@ -878,19 +765,7 @@ void nf_tables_set_elem_destroy(const struct nft_ctx *ctx,
 
 struct nft_expr_ops;
 /**
- *	struct nft_expr_type - nf_tables expression type
- *
- *	@select_ops: function to select nft_expr_ops
- *	@release_ops: release nft_expr_ops
- *	@ops: default ops, used when no select_ops functions is present
- *	@inner_ops: inner ops, used for inner packet operation
- *	@list: used internally
- *	@name: Identifier
- *	@owner: module reference
- *	@policy: netlink attribute policy
- *	@maxattr: highest netlink attribute number
- *	@family: address family for AF-specific types
- *	@flags: expression type flags
+ * @brief Metadata for expression types (e.g. counter, cmp, meta).
  */
 struct nft_expr_type {
 	const struct nft_expr_ops	*(*select_ops)(const struct nft_ctx *,
@@ -922,26 +797,8 @@ struct nft_flow_rule;
 struct nft_offload_ctx;
 
 /**
- *	struct nft_expr_ops - nf_tables expression operations
- *
- *	@eval: Expression evaluation function
- *	@clone: Expression clone function
- *	@size: full expression size, including private data size
- *	@init: initialization function
- *	@activate: activate expression in the next generation
- *	@deactivate: deactivate expression in next generation
- *	@destroy: destruction function, called after synchronize_rcu
- *	@destroy_clone: destruction clone function
- *	@dump: function to dump parameters
- *	@validate: validate expression, called during loop detection
- *	@reduce: reduce expression
- *	@gc: garbage collection expression
- *	@offload: hardware offload expression
- *	@offload_action: function to report true/false to allocate one slot or not in the flow
- *			 offload array
- *	@offload_stats: function to synchronize hardware stats via updating the counter expression
- *	@type: expression type
- *	@data: extra data to attach to this expression operation
+ * @brief Logic table for expression-specific behavior.
+ * Mapping: defines how each expression evaluates, clones, and interacts with hardware offload.
  */
 struct nft_expr_ops {
 	void				(*eval)(const struct nft_expr *expr,
@@ -983,14 +840,8 @@ struct nft_expr_ops {
 };
 
 /**
- *	struct nft_rule - nf_tables rule
- *
- *	@list: used internally
- *	@handle: rule handle
- *	@genmask: generation mask
- *	@dlen: length of expression data
- *	@udata: user data is appended to the rule
- *	@data: expression data
+ * @brief Representation of a packet classification rule.
+ * Architecture: Packed binary blob containing a sequence of expressions terminated by dlen.
  */
 struct nft_rule {
 	struct list_head		list;
@@ -1033,6 +884,9 @@ void nft_rule_expr_deactivate(const struct nft_ctx *ctx, struct nft_rule *rule,
 			      enum nft_trans_phase phase);
 void nf_tables_rule_destroy(const struct nft_ctx *ctx, struct nft_rule *rule);
 
+/**
+ * @brief Iteratively executes stateful expressions attached to a set element.
+ */
 static inline void nft_set_elem_update_expr(const struct nft_set_ext *ext,
 					    struct nft_regs *regs,
 					    const struct nft_pktinfo *pkt)
@@ -1051,11 +905,7 @@ static inline void nft_set_elem_update_expr(const struct nft_set_ext *ext,
 	}
 }
 
-/*
- * The last pointer isn't really necessary, but the compiler isn't able to
- * determine that the result of nft_expr_last() is always the same since it
- * can't assume that the dlen value wasn't changed within calls in the loop.
- */
+/* Macro for traversing the expression list within a rule. */
 #define nft_rule_for_each_expr(expr, last, rule) \
 	for ((expr) = nft_expr_first(rule), (last) = nft_expr_last(rule); \
 	     (expr) != (last); \
@@ -1063,6 +913,9 @@ static inline void nft_set_elem_update_expr(const struct nft_set_ext *ext,
 
 #define NFT_CHAIN_POLICY_UNSET		U8_MAX
 
+/**
+ * @brief Runtime-optimized representation of rules within the packet path.
+ */
 struct nft_rule_dp {
 	u64				is_last:1,
 					dlen:12,
@@ -1083,6 +936,9 @@ static inline const struct nft_rule_dp *nft_rule_next(const struct nft_rule_dp *
 	return (void *)rule + sizeof(*rule) + rule->dlen;
 }
 
+/**
+ * @brief Binary blob containing a linear sequence of data-plane rules.
+ */
 struct nft_rule_blob {
 	unsigned long			size;
 	unsigned char			data[]
@@ -1090,23 +946,9 @@ struct nft_rule_blob {
 };
 
 /**
- *	struct nft_chain - nf_tables chain
- *
- *	@blob_gen_0: rule blob pointer to the current generation
- *	@blob_gen_1: rule blob pointer to the future generation
- *	@rules: list of rules in the chain
- *	@list: used internally
- *	@rhlhead: used internally
- *	@table: table that this chain belongs to
- *	@handle: chain handle
- *	@use: number of jump references to this chain
- *	@flags: bitmask of enum NFTA_CHAIN_FLAGS
- *	@bound: bind or not
- *	@genmask: generation mask
- *	@name: name of the chain
- *	@udlen: user data length
- *	@udata: user data in the chain
- *	@blob_next: rule blob pointer to the next in the chain
+ * @brief A container (list) of rules evaluated in sequence.
+ * Architecture: Supports generation-based double-buffering (blob_gen_0/1) for zero-latency ruleset swaps.
+ * State: Includes handle for management and tracking of jump references (use counter).
  */
 struct nft_chain {
 	struct nft_rule_blob		__rcu *blob_gen_0;
@@ -1144,16 +986,7 @@ enum nft_chain_types {
 };
 
 /**
- * 	struct nft_chain_type - nf_tables chain type info
- *
- * 	@name: name of the type
- * 	@type: numeric identifier
- * 	@family: address family
- * 	@owner: module owner
- * 	@hook_mask: mask of valid hooks
- * 	@hooks: array of hook functions
- *	@ops_register: base chain register function
- *	@ops_unregister: base chain unregister function
+ * @brief Metadata for base chains linked to netfilter hooks.
  */
 struct nft_chain_type {
 	const char			*name;
@@ -1185,12 +1018,18 @@ int nft_chain_add(struct nft_table *table, struct nft_chain *chain);
 void nft_chain_del(struct nft_chain *chain);
 void nf_tables_chain_destroy(struct nft_chain *chain);
 
+/**
+ * @brief Performance statistics tracking for chains.
+ */
 struct nft_stats {
 	u64			bytes;
 	u64			pkts;
 	struct u64_stats_sync	syncp;
 };
 
+/**
+ * @brief Instance of a hook linkage for netdev protocol families.
+ */
 struct nft_hook {
 	struct list_head	list;
 	struct list_head	ops_list;
@@ -1205,16 +1044,7 @@ struct nf_hook_ops *nft_hook_find_ops_rcu(const struct nft_hook *hook,
 					  const struct net_device *dev);
 
 /**
- *	struct nft_base_chain - nf_tables base chain
- *
- *	@ops: netfilter hook ops
- *	@hook_list: list of netfilter hooks (for NFPROTO_NETDEV family)
- *	@type: chain type
- *	@policy: default policy
- *	@flags: indicate the base chain disabled or not
- *	@stats: per-cpu chain stats
- *	@chain: the chain
- *	@flow_block: flow block (for hardware offload)
+ * @brief Specialized chain type that directly interfaces with netfilter engine hooks.
  */
 struct nft_base_chain {
 	struct nf_hook_ops		ops;
@@ -1263,25 +1093,7 @@ static inline void nft_use_inc_restore(u32 *use)
 #define nft_use_dec_restore	nft_use_dec
 
 /**
- *	struct nft_table - nf_tables table
- *
- *	@list: used internally
- *	@chains_ht: chains in the table
- *	@chains: same, for stable walks
- *	@sets: sets in the table
- *	@objects: stateful objects in the table
- *	@flowtables: flow tables in the table
- *	@hgenerator: handle generator state
- *	@handle: table handle
- *	@use: number of chain references to this table
- *	@family:address family
- *	@flags: table flag (see enum nft_table_flags)
- *	@genmask: generation mask
- *	@nlpid: netlink port ID
- *	@name: name of the table
- *	@udlen: length of the user data
- *	@udata: user data
- *	@validate_state: internal, set when transaction adds jumps
+ * @brief Top-level namespace for nftables objects within a protocol family.
  */
 struct nft_table {
 	struct list_head		list;
@@ -1330,10 +1142,7 @@ int nft_verdict_dump(struct sk_buff *skb, int type,
 		     const struct nft_verdict *v);
 
 /**
- *	struct nft_object_hash_key - key to lookup nft_object
- *
- *	@name: name of the stateful object to look up
- *	@table: table the object belongs to
+ * @brief Internal key structure for hashing stateful objects.
  */
 struct nft_object_hash_key {
 	const char                      *name;
@@ -1341,18 +1150,8 @@ struct nft_object_hash_key {
 };
 
 /**
- *	struct nft_object - nf_tables stateful object
- *
- *	@list: table stateful object list node
- *	@rhlhead: nft_objname_ht node
- *	@key: keys that identify this object
- *	@genmask: generation mask
- *	@use: number of references to this stateful object
- *	@handle: unique object handle
- *	@udlen: length of user data
- *	@udata: user data
- *	@ops: object operations
- *	@data: object data, layout depends on type
+ * @brief Polymorphic container for persistent rule state (e.g., quotas, limiters).
+ * Strategy: Decouples rule logic from stateful metrics to allow shared state across rules.
  */
 struct nft_object {
 	struct list_head		list;
@@ -1386,16 +1185,7 @@ void nft_obj_notify(struct net *net, const struct nft_table *table,
 		    int event, u16 flags, int family, int report, gfp_t gfp);
 
 /**
- *	struct nft_object_type - stateful object type
- *
- *	@select_ops: function to select nft_object_ops
- *	@ops: default ops, used when no select_ops functions is present
- *	@list: list node in list of object types
- *	@type: stateful object numeric type
- *	@owner: module owner
- *	@maxattr: maximum netlink attribute
- *	@family: address family for AF-specific object types
- *	@policy: netlink attribute policy
+ * @brief Registry info for stateful object types.
  */
 struct nft_object_type {
 	const struct nft_object_ops	*(*select_ops)(const struct nft_ctx *,
@@ -1410,15 +1200,7 @@ struct nft_object_type {
 };
 
 /**
- *	struct nft_object_ops - stateful object operations
- *
- *	@eval: stateful object evaluation function
- *	@size: stateful object size
- *	@init: initialize object from netlink attributes
- *	@destroy: release existing stateful object
- *	@dump: netlink dump stateful object
- *	@update: update stateful object
- *	@type: pointer to object type
+ * @brief Operations table for stateful objects.
  */
 struct nft_object_ops {
 	void				(*eval)(struct nft_object *obj,
@@ -1444,18 +1226,7 @@ void nft_unregister_obj(struct nft_object_type *obj_type);
 #define NFT_NETDEVICE_MAX	256
 
 /**
- *	struct nft_flowtable - nf_tables flow table
- *
- *	@list: flow table list node in table list
- * 	@table: the table the flow table is contained in
- *	@name: name of this flow table
- *	@hooknum: hook number
- *	@ops_len: number of hooks in array
- *	@genmask: generation mask
- *	@use: number of references to this flow table
- * 	@handle: unique object handle
- *	@hook_list: hook list for hooks per net_device in flowtables
- *	@data: rhashtable and garbage collector
+ * @brief Representation of an accelerated flow-offload table.
  */
 struct nft_flowtable {
 	struct list_head		list;
@@ -1484,14 +1255,7 @@ void nft_register_flowtable_type(struct nf_flowtable_type *type);
 void nft_unregister_flowtable_type(struct nf_flowtable_type *type);
 
 /**
- *	struct nft_traceinfo - nft tracing information and state
- *
- *	@trace: other struct members are initialised
- *	@nf_trace: copy of skb->nf_trace before rule evaluation
- *	@type: event type (enum nft_trace_types)
- *	@skbid: hash of skb to be used as trace id
- *	@packet_dumped: packet headers sent in a previous traceinfo message
- *	@basechain: base chain currently processed
+ * @brief Snapshot of packet path tracing information.
  */
 struct nft_traceinfo {
 	bool				trace;
@@ -1525,16 +1289,9 @@ void nft_trace_notify(const struct nft_pktinfo *pkt,
 #if IS_ENABLED(CONFIG_NF_TABLES)
 
 /*
- * The gencursor defines two generations, the currently active and the
- * next one. Objects contain a bitmask of 2 bits specifying the generations
- * they're active in. A set bit means they're inactive in the generation
- * represented by that bit.
- *
- * New objects start out as inactive in the current and active in the
- * next generation. When committing the ruleset the bitmask is cleared,
- * meaning they're active in all generations. When removing an object,
- * it is set inactive in the next generation. After committing the ruleset,
- * the objects are removed.
+ * Generation cursors and masks for transactional atomicity.
+ * Logic: Implements a 2-bit generation scheme. 00 indicates active in all generations.
+ * 01 or 10 indicate inactivity in specific generations (current vs next).
  */
 static inline unsigned int nft_gencursor_next(const struct net *net)
 {
@@ -1555,34 +1312,25 @@ static inline u8 nft_genmask_cur(const struct net *net)
 #define NFT_GENMASK_ANY		((1 << 0) | (1 << 1))
 
 /*
- * Generic transaction helpers
+ * Transaction state helpers for determining object visibility.
  */
 
-/* Check if this object is currently active. */
 #define nft_is_active(__net, __obj)				\
 	(((__obj)->genmask & nft_genmask_cur(__net)) == 0)
 
-/* Check if this object is active in the next generation. */
 #define nft_is_active_next(__net, __obj)			\
 	(((__obj)->genmask & nft_genmask_next(__net)) == 0)
 
-/* This object becomes active in the next generation. */
 #define nft_activate_next(__net, __obj)				\
 	(__obj)->genmask = nft_genmask_cur(__net)
 
-/* This object becomes inactive in the next generation. */
 #define nft_deactivate_next(__net, __obj)			\
         (__obj)->genmask = nft_genmask_next(__net)
 
-/* After committing the ruleset, clear the stale generation bit. */
 #define nft_clear(__net, __obj)					\
 	(__obj)->genmask &= ~nft_genmask_next(__net)
 #define nft_active_genmask(__obj, __genmask)			\
 	!((__obj)->genmask & __genmask)
-
-/*
- * Set element transaction helpers
- */
 
 static inline bool nft_set_elem_active(const struct nft_set_ext *ext,
 				       u8 genmask)
@@ -1609,6 +1357,10 @@ static inline void nft_set_elem_change_active(const struct net *net,
 #error
 #endif
 
+/**
+ * @brief Logical deletion primitive for set elements.
+ * Optimization: Uses atomic bitops on aligned extension data.
+ */
 static inline void nft_set_elem_dead(struct nft_set_ext *ext)
 {
 	unsigned long *word = (unsigned long *)ext;
@@ -1626,19 +1378,7 @@ static inline int nft_set_elem_is_dead(const struct nft_set_ext *ext)
 }
 
 /**
- * struct nft_trans - nf_tables object update in transaction
- *
- * @list: used internally
- * @net: struct net
- * @table: struct nft_table the object resides in
- * @msg_type: message type
- * @seq: netlink sequence number
- * @flags: modifiers to new request
- * @report: notify via unicast netlink message
- * @put_net: net needs to be put
- *
- * This is the information common to all objects in the transaction,
- * this must always be the first member of derived sub-types.
+ * @brief Base structure for objects participating in an nftables Netlink transaction.
  */
 struct nft_trans {
 	struct list_head		list;
@@ -1652,11 +1392,7 @@ struct nft_trans {
 };
 
 /**
- * struct nft_trans_binding - nf_tables object with binding support in transaction
- * @nft_trans:    base structure, MUST be first member
- * @binding_list: list of objects with possible bindings
- *
- * This is the base type used by objects that can be bound to a chain.
+ * @brief Transaction base type for objects with parent-chain bindings.
  */
 struct nft_trans_binding {
 	struct nft_trans nft_trans;
@@ -1826,6 +1562,9 @@ struct nft_trans_flowtable {
 
 #define NFT_TRANS_GC_BATCHCOUNT	256
 
+/**
+ * @brief Batch container for asynchronous set element garbage collection.
+ */
 struct nft_trans_gc {
 	struct list_head	list;
 	struct net		*net;
@@ -1901,6 +1640,11 @@ __printf(2, 3) int nft_request_module(struct net *net, const char *fmt, ...);
 static inline int nft_request_module(struct net *net, const char *fmt, ...) { return -ENOENT; }
 #endif
 
+/**
+ * @brief Per-network-namespace metadata for the nftables subsystem.
+ * State: Maintains global lists of tables, transaction status, and GC sequence numbers.
+ * Synchronization: Uses 'commit_mutex' to serialize control-plane operations across Netlink tasks.
+ */
 struct nftables_pernet {
 	struct list_head	tables;
 	struct list_head	commit_list;

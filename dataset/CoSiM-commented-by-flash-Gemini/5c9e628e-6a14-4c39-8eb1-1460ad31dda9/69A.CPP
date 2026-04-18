@@ -1,3 +1,16 @@
+
+/**
+ * @5c9e628e-6a14-4c39-8eb1-1460ad31dda9/69A.CPP
+ * @brief Discrete static equilibrium validation for a system of 3D force vectors.
+ * This program evaluates whether a set of N force vectors (represented by 
+ * x, y, z components) results in a zero net force (static equilibrium).
+ * 
+ * Algorithm: Component-wise summation of independent vector dimensions.
+ * Time Complexity: $O(N)$ where N is the number of force vectors.
+ * Space Complexity: $O(N)$ to store the vector components.
+ * Domain: Competitive Programming, Computational Physics.
+ */
+
 #include <bits/stdc++.h>
 using namespace std;
 
@@ -169,16 +182,35 @@ template <typename Heads, typename... Tails> void dbgs(Heads H, Tails... T) {
 #define n_l '\n'
 
 int main() {
+  /**
+   * Functional Utility: Optimizes standard I/O for competitive programming 
+   * by decoupling C and C++ streams and avoiding unnecessary flushes.
+   */
   ios_base::sync_with_stdio(false);
   cin.tie(NULL);
   cout.tie(NULL);
+  
   ll n;
   cin >> n;
+  
+  // Storage for vector components across three dimensions.
   vll x(n);
   vll y(n);
   vll z(n);
+
+  /**
+   * Block Logic: Vector acquisition loop.
+   * Logic: Populates the coordinate vectors with input force components.
+   */
   forr(i, n) cin >> x[i] >> y[i] >> z[i];
+  
   ll sum = 0;
+
+  /**
+   * Block Logic: Equilibrium check.
+   * Logic: Uses std::accumulate to compute the scalar sum of each vector component.
+   * Equilibrium is reached only if the net sum of every coordinate axis is zero.
+   */
   if (accumulate(x.begin(), x.end(), sum) or accumulate(all(y), sum) or
       accumulate(all(z), sum))
     cout << "NO";

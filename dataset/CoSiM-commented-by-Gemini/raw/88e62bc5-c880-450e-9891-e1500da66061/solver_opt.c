@@ -1,8 +1,15 @@
-
+/**
+ * @raw/88e62bc5-c880-450e-9891-e1500da66061/solver_opt.c
+ * @brief Optimized dense matrix multiplication solver computing C = (A * B) * B^T + A^T * A.
+ * Algorithm: Matrix multiplication employing pointer arithmetic and CPU registers for sum aggregation.
+ * Time Complexity: $O(N^3)$
+ * Space Complexity: $O(N^2)$ tracking internal partial product evaluations.
+ */
 #include "utils.h"
 
-
-
+/**
+ * Inline: Evaluates the minimum boundary to prune matrix multiplication loops dynamically.
+ */
 #define min(x, y) (((x) < (y)) ? (x) : (y))
 
 double* my_solver(int N, double *A, double* B) {
@@ -13,6 +20,10 @@ double* my_solver(int N, double *A, double* B) {
 	register double *orig_a, *a, *b;
 	register int i, j, k, aux;
 
+	/**
+	 * Block Logic: Computes term = A * B.
+	 * Optimization: Employs explicit pointer tracking to evade multiplication overheads during indexing.
+	 */
         for (i = 0;i < N;i++) {
 		aux = i * N;
                 orig_a = A + (aux + i);
@@ -29,6 +40,10 @@ double* my_solver(int N, double *A, double* B) {
                 }
         }
 
+	/**
+	 * Block Logic: Computes C = term * B^T.
+	 * Optimization: Accesses B in sequential memory chunks simulating transposed layout.
+	 */
         for (i = 0;i < N;i++) {
 		aux = i * N;
 		orig_a = term + aux;
@@ -45,6 +60,10 @@ double* my_solver(int N, double *A, double* B) {
                 }
         }
 
+	/**
+	 * Block Logic: Computes term = A^T * A.
+	 * Optimization: Strides the internal pointer arrays vertically while skipping trailing zeroes.
+	 */
         for (i = 0;i < N;i++) {
         	aux = i * N;
 		orig_a = A + i;     
@@ -61,6 +80,10 @@ double* my_solver(int N, double *A, double* B) {
 		}
 	}
 
+	/**
+	 * Block Logic: Final summation step synthesizing C += term.
+	 * Invariant: Aggregates computed matrices into a cohesive single array.
+	 */
 	for (i = 0;i < N;i++) {
 		aux = i * N;
 		orig_a = term + aux;

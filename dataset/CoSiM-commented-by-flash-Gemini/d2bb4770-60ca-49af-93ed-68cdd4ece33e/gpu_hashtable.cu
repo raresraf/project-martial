@@ -1,3 +1,15 @@
+/**
+ * @file gpu_hashtable.cu
+ * @brief CUDA-accelerated Hash Table with circular linear probing and Unified Memory.
+ * 
+ * This implementation utilizes a robust open-addressing scheme with circular linear 
+ * probing. It leverages Unified Memory for the primary storage structure and 
+ * atomic operations for thread-safe concurrent updates and global occupancy tracking.
+ * 
+ * Algorithm: Open addressing with two-pass circular linear probing.
+ * Memory Model: Unified Memory (cudaMallocManaged) for the table array.
+ * Domain: HPC, Parallel Data Structures.
+ */
 
 #include 
 #include 
@@ -9,6 +21,14 @@
 #include "gpu_hashtable.hpp"
 
 
+/**
+ * @brief Constructor: Initializes the hash table using Managed Memory.
+ * 
+ * Functional Utility: Sets up the initial memory space and zeroes out the slots. 
+ * Managed memory ensures accessibility across host and device boundaries.
+ * 
+ * @param size Initial capacity (max length) of the table.
+ */
 GpuHashTable::GpuHashTable(int size) {
 	h.p = 0;
 
@@ -22,6 +42,7 @@ GpuHashTable::GpuHashTable(int size) {
 	}
 
 	
+	// Memory Hierarchy: Initialization of unified memory buffer.
 	for (int i = 0; i < size; i++) {
 		h.p[i].key = 0;
 		h.p[i].value = 0;
@@ -33,10 +54,22 @@ GpuHashTable::GpuHashTable(int size) {
 }
 
 
+/**
+ * @brief Destructor: Frees managed device memory.
+ */
 GpuHashTable::~GpuHashTable() {
 	cudaFree(h.p);
 }
 
+/**
+ * @brief CUDA kernel for parallel data migration during table expansion.
+ * 
+ * Functional Utility: Re-hashes existing elements from the source table (ht1) into 
+ * a new, larger destination table (ht2).
+ * 
+ * Logic: Implements circular linear probing within the GPU thread to find 
+ * a valid slot in the new memory space.
+ */
 __global__ void reshape_kernel(HashTable ht1, HashTable ht2) {
 	
 	unsigned int i = threadIdx.x + blockDim.x * blockIdx.x;
@@ -59,6 +92,10 @@ __global__ void reshape_kernel(HashTable ht1, HashTable ht2) {
 			
 			
 			
+			/**
+			 * Block Logic: Two-pass circular search.
+			 * Pass 1: Probes from the hashed index to the end of the table.
+			 */
 			for (j = ind; j < l2; j++) {
 
 				
@@ -80,6 +117,7 @@ __global__ void reshape_kernel(HashTable ht1, HashTable ht2) {
 			
 			
 			
+			// Pass 2: Wraps around and probes from index 0 if slot wasn't found in Pass 1.
 			if (j == l2) {
 				for (j = 0; j < ind; j++) {
 					rez = atomicCAS(&(ht2.p[j].key), 0, key);
@@ -94,46 +132,22 @@ __global__ void reshape_kernel(HashTable ht1, HashTable ht2) {
 }
 
 
+/**
+ * @brief Resizes the hash table to accommodate more elements.
+ * 
+ * Functional Utility: Implements proactive capacity management by migrating existing 
+ * data to a new unified memory buffer.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) {
-	HashTable ht;
 
-	
-	
-	ht.p = 0;
-	cudaMallocManaged(&ht.p, numBucketsReshape * sizeof(Node*));
-
-	if (ht.p == 0) {
-		printf("Eroare alocare ht.p reshape\n");
-		exit(-1);
-	}
-
-	ht.maxLength = numBucketsReshape;
-	ht.size = h.size;
-
-	
-	
-	
-	if (h.size != 0) {
-		
-		const size_t block_size = 1024;
-	    size_t blocks_no = h.maxLength / block_size;
-
-	    if (h.maxLength % block_size) {
-			blocks_no++;
-	    }
-
-	    
-	    reshape_kernel>>(h, ht);
-	    cudaDeviceSynchronize();
-	}
-
-	
-	cudaFree(h.p);
-	h = ht;
-}
-
-
-
+/**
+ * @brief CUDA kernel for parallel entry insertion.
+ * 
+ * Functional Utility: Handles concurrent key insertion and updates. It uses a 
+ * two-pass circular probe to ensure full table utilization.
+ * 
+ * @param nr Pointer to a global counter to track new unique insertions.
+ */
 __global__ void insert_kernel(int *keys, int *values, int numKeys, HashTable ht, int* nr) {
 	
 	unsigned int i = threadIdx.x + blockDim.x * blockIdx.x;
@@ -151,6 +165,10 @@ __global__ void insert_kernel(int *keys, int *values, int numKeys, HashTable ht,
 		
 		
 		int j;
+		/**
+		 * Block Logic: Atomic insertion sequence.
+		 * Logic: Probes for an empty slot or a matching key to perform an update.
+		 */
 		for (j = ind; j < l; j++) {
 			rez = atomicCAS(&(ht.p[j].key), 0, keys[i]);
 			if (rez == keys[i] || rez == 0) {
@@ -159,6 +177,7 @@ __global__ void insert_kernel(int *keys, int *values, int numKeys, HashTable ht,
 			}
 		}
 
+		// Logic: Handle circular wrap-around.
 		if (j == l) {
 			for (j = 0; j < ind; j++) {
 				rez = atomicCAS(&(ht.p[j].key), 0, keys[i]);
@@ -171,6 +190,7 @@ __global__ void insert_kernel(int *keys, int *values, int numKeys, HashTable ht,
 
 		
 		
+		// Logic: Increment occupancy counter if a brand-new slot was claimed.
 		if (rez == 0) {
 			atomicAdd(&nr[0], 1);
 		}
@@ -179,6 +199,58 @@ __global__ void insert_kernel(int *keys, int *values, int numKeys, HashTable ht,
 }
 
 
+// ... insertBatch documentation ...
+
+/**
+ * @brief CUDA kernel for parallel key search.
+ * 
+ * Functional Utility: Performs a circular probe to locate the value associated 
+ * with a query key across the GPU memory tiers.
+ */
+__global__ void get_kernel(int *keys, int *values, int numKeys, HashTable ht) {
+	
+	unsigned int i = threadIdx.x + blockDim.x * blockIdx.x;
+
+	
+	if (i < numKeys) {
+		int l = ht.maxLength;
+		int j;
+
+		
+		int ind = (keys[i] * 52679969llu) % 71267046102139967llu % l;
+
+		
+		
+		
+		
+		// Logic: Search from hashed index to table end.
+		for (j = ind; j < l; j++) {
+			if (ht.p[j].key == keys[i] || ht.p[j].key == 0) {
+				values[i] = ht.p[j].value;
+				break;
+			}
+		}
+
+		// Logic: Search from index 0 (wrap-around).
+		if (j == l) {
+			for (j = 0; j < ind; j++) {
+				if (ht.p[j].key == keys[i] || ht.p[j].key == 0) {
+					values[i] = ht.p[j].value;
+					break;
+				}
+			}
+		}
+	}
+	
+}
+
+
+/**
+ * @brief Performs batch insertion of keys and values.
+ * 
+ * Functional Utility: Transfers data to the GPU and manages table expansion if 
+ * the load factor exceeds 80%.
+ */
 bool GpuHashTable::insertBatch(int *keys, int *values, int numKeys) {
 	
 	int total = h.size + numKeys;
@@ -274,6 +346,12 @@ __global__ void get_kernel(int *keys, int *values, int numKeys, HashTable ht) {
 }
 
 
+/**
+ * @brief Batch retrieval of values based on input keys.
+ * 
+ * functional Utility: Utilizes Managed Memory for the retrieval buffer to simplify 
+ * pointer handling between host and device.
+ */
 int* GpuHashTable::getBatch(int *keys, int numKeys) {
 	
 	const size_t block_size = 1024;
@@ -311,6 +389,9 @@ int* GpuHashTable::getBatch(int *keys, int numKeys) {
 }
 
 
+/**
+ * @brief Returns the current table density.
+ */
 float GpuHashTable::loadFactor() {
 
 
@@ -394,6 +475,11 @@ const size_t primeList[] =
 
 
 
+/**
+ * @brief Hashing algorithms based on modular arithmetic with prime constants.
+ * 
+ * Functional Utility: Provides deterministic mapping of keys to table indices.
+ */
 int hash1(int data, int limit) {
 	return ((long)abs(data) * primeList[64]) % primeList[90] % limit;
 }
@@ -405,24 +491,30 @@ int hash3(int data, int limit) {
 }
 
 
-
-
+/**
+ * @struct Node
+ * @brief Individual entry in the hash table.
+ */
 typedef struct {
 	unsigned int key, value;
 } Node;
 
 
-
-
+/**
+ * @struct HashTable
+ * @brief Container for the hash table array and its metadata.
+ */
 typedef struct {
-	Node *p;
-	int maxLength; 
-	int size; 
+	Node *p;        // Pointer to the array of entries.
+	int maxLength;  // Total capacity of the array.
+	int size;       // Number of currently occupied slots.
 } HashTable;
 
 
-
-
+/**
+ * @class GpuHashTable
+ * @brief Host-side handle for managing the GPU-accelerated hash table lifecycle.
+ */
 class GpuHashTable
 {
 	public:

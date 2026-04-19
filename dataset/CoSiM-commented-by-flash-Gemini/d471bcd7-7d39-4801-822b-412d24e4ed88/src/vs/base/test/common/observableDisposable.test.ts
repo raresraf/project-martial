@@ -2,6 +2,18 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
+
+/**
+ * @file observableDisposable.test.ts
+ * @brief Unit tests for the ObservableDisposable lifecycle management class.
+ * 
+ * This test suite validates the state tracking, event notification, and hierarchical 
+ * disposal logic of the ObservableDisposable base class. It ensures proper resource 
+ * cleanup and memory management patterns used across the production system.
+ * 
+ * Domain: Resource Lifecycle Management, Reactive Programming, Memory Leak Prevention.
+ */
+
 import assert from 'assert';
 import { spy } from 'sinon';
 import { wait, waitRandom } from './testUtils.js';
@@ -13,6 +25,10 @@ import { assertNotDisposed, ObservableDisposable } from '../../common/observable
 suite('ObservableDisposable', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
+	/**
+	 * Test Case: disposal state integrity.
+	 * Verifies that the 'disposed' flag correctly reflects the object's lifecycle phase.
+	 */
 	test('• tracks `disposed` state', () => {
 		// this is an abstract class, so we have to create
 		// an anonymous class that extends it
@@ -42,7 +58,15 @@ suite('ObservableDisposable', () => {
 		);
 	});
 
+	/**
+	 * Test Suite: onDispose event lifecycle.
+	 * Ensures that callbacks are fired correctly during and after the disposal process.
+	 */
 	suite('• onDispose()', () => {
+		/**
+		 * Logic: Event-driven cleanup verification.
+		 * Invariant: onDispose handlers must be called exactly once during the first dispose call.
+		 */
 		test('• fires the event on dispose', async () => {
 			// this is an abstract class, so we have to create
 			// an anonymous class that extends it
@@ -107,6 +131,10 @@ suite('ObservableDisposable', () => {
 			);
 		});
 
+		/**
+		 * Logic: Just-in-time callback execution.
+		 * Invariant: Registering a handler on an already-disposed object should trigger it immediately.
+		 */
 		test('• executes callback immediately if already disposed', async () => {
 			// this is an abstract class, so we have to create
 			// an anonymous class that extends it
@@ -145,7 +173,15 @@ suite('ObservableDisposable', () => {
 		});
 	});
 
+	/**
+	 * Test Suite: Hierarchical disposal management.
+	 * Validates the recursive cleanup of children and trees of disposable objects.
+	 */
 	suite('• addDisposable()', () => {
+		/**
+		 * Logic: Batch resource management.
+		 * Invariant: All added sub-disposables must be cleaned up when the parent is disposed.
+		 */
 		test('• disposes provided object with itself', async () => {
 			class TestDisposable implements IDisposable {
 				private _disposed = false;
@@ -204,6 +240,10 @@ suite('ObservableDisposable', () => {
 			);
 		});
 
+		/**
+		 * Logic: Recursive tree cleanup.
+		 * Invariant: Disposal of a root node must propagate through all levels of the dependency tree.
+		 */
 		test('• disposes the entire tree of disposables', async () => {
 			class TestDisposable extends ObservableDisposable { }
 
@@ -286,6 +326,11 @@ suite('ObservableDisposable', () => {
 		});
 	});
 
+	/**
+	 * Test Suite: Operational assertions.
+	 * Verifies that the system raises exceptions when performing operations on 
+	 * invalidated (disposed) instances.
+	 */
 	suite('• asserts', () => {
 		test('• not disposed (method)', async () => {
 			// this is an abstract class, so we have to create

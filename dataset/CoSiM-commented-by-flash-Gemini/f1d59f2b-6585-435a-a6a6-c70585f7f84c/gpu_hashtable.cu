@@ -1,3 +1,16 @@
+/**
+ * @file gpu_hashtable.cu
+ * @brief High-throughput CUDA Hash Table with atomic occupancy tracking.
+ * 
+ * This module implements a thread-safe parallel hash table using open addressing 
+ * and circular linear probing. It utilizes hardware-accelerated atomic 
+ * Compare-And-Swap (CAS) for synchronization and atomicInc for global element 
+ * counting, enabling accurate load factor calculation and proactive capacity scaling.
+ * 
+ * Algorithm: Open addressing with circular linear probing and atomic counter-based occupancy.
+ * Memory Model: Global memory (cudaMalloc) for pair storage.
+ * Domain: HPC, Parallel Data Structures.
+ */
 
 #include 
 #include 
@@ -9,11 +22,20 @@
 #include "gpu_hashtable.hpp"
 
 
+/**
+ * @brief Device-side hash function utilizing prime modular arithmetic.
+ */
  __device__ int hashFunction(int key, int size) {
 	return ((long)abs(key) * 55238957008387llu) % 11493228998133068689llu % size;
 }
 
 
+/**
+ * @brief CUDA kernel for parallel entry insertion.
+ * 
+ * functional Utility: Performs atomic reservations. Uses atomicInc to track 
+ * successful new insertions for global occupancy consistency.
+ */
 __global__ void insert_batch(Data *data, unsigned int *inserted, int size, int *keys, int *values, int numKeys) {
 	
 	unsigned int index = threadIdx.x + blockDim.x * blockIdx.x;
@@ -29,23 +51,33 @@ __global__ void insert_batch(Data *data, unsigned int *inserted, int size, int *
 	
 	position = hashFunction(key, size);
 
+	/**
+	 * Block Logic: Atomic probe loop.
+	 * Invariant: Probes until an available slot is claimed or the key is matched.
+	 */
 	while (true) {
 		old_entry = atomicCAS(&data[position].key, 0, key);
 		if (old_entry == 0) {
 			data[position].value = value;
 			
+			// Logic: Atomically update the global occupancy counter.
 			atomicInc(inserted, size);
 			return;
 		} else if (old_entry == key) { 
+			// Logic: Key matches; perform thread-safe update.
 			data[position].value = value;
 			return;
 		}
 		
+		// Logic: Linear probing offset.
 		position = (position + 1) % size;
 	}
 }
 
 
+/**
+ * @brief CUDA kernel for parallel entry retrieval.
+ */
 __global__ void get_batch(Data *data, int size, int *keys, int *values, int numKeys) {
 	
 	unsigned int index = threadIdx.x + blockDim.x * blockIdx.x;
@@ -62,7 +94,11 @@ __global__ void get_batch(Data *data, int size, int *keys, int *values, int numK
 	initial_position = position;
 
 	
+	/**
+	 * Block Logic: Multi-pass search traversal.
+	 */
 	while (true) {
+		// Optimization: Uses CAS to ensure memory consistency during key comparison.
 		old_entry = atomicCAS(&data[position].key, key, key);
 		if (old_entry == key) {
 			values[index] = data[position].value;
@@ -70,6 +106,7 @@ __global__ void get_batch(Data *data, int size, int *keys, int *values, int numK
 		}
 		position = (position + 1) % size;
 		
+		// Logic: Termination condition for exhaustive search.
 		if (initial_position == position) {
 			return;
 		}
@@ -79,6 +116,9 @@ __global__ void get_batch(Data *data, int size, int *keys, int *values, int numK
 
 
 
+/**
+ * @brief CUDA kernel for re-hashing data during capacity migration.
+ */
  __global__ void resize_hashtable(Data *data, Data *new_data, int old_size, int new_size) {
 	
 	unsigned int index = threadIdx.x + blockDim.x * blockIdx.x;
@@ -101,6 +141,7 @@ __global__ void get_batch(Data *data, int size, int *keys, int *values, int numK
 
 	while (true) {
 		
+		// Logic: Re-insertion probe loop in the expanded memory pool.
 		old_entry = atomicCAS(&new_data[position].key, 0, key);
 		
 		if (old_entry == 0 || old_entry == key) {
@@ -113,10 +154,14 @@ __global__ void get_batch(Data *data, int size, int *keys, int *values, int numK
 }
 
 
+/**
+ * @brief Constructor: Initializes table and resets metadata.
+ */
 GpuHashTable::GpuHashTable(int size) {
 	this->size = size;
 	this->actualSize = 0;
 	
+	// Memory Hierarchy: Global memory allocation for entries.
 	cudaMalloc((void **) &this->data, sizeof(Data) * size);
 	if (cudaSuccess != cudaGetLastError()) {
 		cout << "init: cudaMalloc failed (hashtable data)" << endl;
@@ -131,12 +176,18 @@ GpuHashTable::GpuHashTable(int size) {
 }
 
 
+/**
+ * @brief Destructor: Releases device-resident entries.
+ */
 GpuHashTable::~GpuHashTable() {
 	
 	cudaFree(this->data);
 }
 
 
+/**
+ * @brief Resizes the hash table using parallel re-hashing.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) {
 	
 	Data *new_data = NULL;
@@ -159,6 +210,7 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 		++blocks_no;
 	}
 
+	// Synchronization: Ensures all mappings are migrated before cleaning up old memory.
 	resize_hashtable>>(data, new_data, this->size, numBucketsReshape);
 	if (cudaSuccess != cudaGetLastError()) {
 		cout << "reshape: kernel function failed" << endl;
@@ -181,6 +233,12 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 }
 
 
+/**
+ * @brief Performs host-initiated batch parallel insertion.
+ * 
+ * Logic: Monitors load factor and triggers expansion if density > 85%. 
+ * Uses atomic counters to reconcile new unique insertions.
+ */
 bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	int *device_keys = 0, *device_values = 0;
 	unsigned int *device_inserted = 0, *host_inserted = 0;
@@ -251,6 +309,9 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 }
 
 
+/**
+ * @brief Performs host-initiated batch parallel retrieval.
+ */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	int *device_keys = 0, *device_values, *values = 0;
 	const int num_bytes = numKeys * sizeof(int);
@@ -299,6 +360,9 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 }
 
 
+/**
+ * @brief Returns the current table density.
+ */
 float GpuHashTable::loadFactor() {
 	if (this->size == 0) {
 		return 0.f;
@@ -400,6 +464,10 @@ int hash3(int data, int limit) {
 
 
 
+/**
+ * @struct Data
+ * @brief Atomic storage unit for a key-value mapping on the GPU.
+ */
 typedef struct Data {
 	uint32_t key;
 
@@ -410,12 +478,16 @@ typedef struct Data {
 
 
 
+/**
+ * @class GpuHashTable
+ * @brief Host controller for Managing the GPU hash mapping lifecycle.
+ */
 class GpuHashTable
 {
 	public:
-		Data *data;
-		int size;
-		int actualSize;
+		Data *data;         // Pointer to device entry buffer.
+		int size;           // Total buffer capacity.
+		int actualSize;     // Current occupancy count.
 
 		GpuHashTable(int size);
 		void reshape(int sizeReshape);

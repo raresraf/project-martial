@@ -8,15 +8,24 @@
 
 #include "gpu_hashtable.hpp"
 
+/**
+ * @brief Device-side hash function utilizing prime constants.
+ */
 __device__ int kernelHashFunction(int data, int limit) {
 	return ((long)abs(data) * 653267llu) % 56564691976601587llu % limit;
 }
 
+/**
+ * @brief CUDA kernel for table initialization.
+ */
 __global__ void kernelInitHashTable(DeviceHashTable *hashTable, GpuEntry *entries) {
 	hashTable->entries = entries;
 	hashTable->elements = 0;
 }
 
+/**
+ * @brief CUDA kernel for parallel entry insertion.
+ */
 __global__ void kernelInsertHashTable(DeviceHashTable *hashTable, int *keys, int *values, int numKey) {
 	int idx = threadIdx.x + blockIdx.x * blockDim.x;
 	int hashID;
@@ -30,6 +39,9 @@ __global__ void kernelInsertHashTable(DeviceHashTable *hashTable, int *keys, int
 	cudaDeviceSynchronize();
 
 	
+	/**
+	 * Block Logic: Probe search.
+	 */
 	while (hashTable->entries[hashID].key != 0 && hashTable->entries[hashID].key != keys[idx]) {
 		hashID = (hashID + 1) % hashTable->size;
 	}
@@ -40,6 +52,9 @@ __global__ void kernelInsertHashTable(DeviceHashTable *hashTable, int *keys, int
 	} else {
 		old = atomicCAS(&hashTable->entries[hashID].key, 0, keys[idx]);
 		
+		/**
+		 * Block Logic: Concurrent collision handling.
+		 */
 		while (old != 0) {
 			hashID = (hashID + 1) % hashTable->size;
 			old = atomicCAS(&hashTable->entries[hashID].key, 0, keys[idx]);
@@ -50,12 +65,18 @@ __global__ void kernelInsertHashTable(DeviceHashTable *hashTable, int *keys, int
 	}
 }
 
+/**
+ * @brief Helper kernel for shallow copying hash table metadata.
+ */
 __global__ void kernelCopyHashTable(DeviceHashTable *dstHashTable, DeviceHashTable *srcHashTable) {
 	dstHashTable->entries = srcHashTable->entries;
 	dstHashTable->size = srcHashTable->size;
 	dstHashTable->elements = srcHashTable->elements;
 }
 
+/**
+ * @brief CUDA kernel for parallel re-hashing during expansion.
+ */
 __global__ void kernelResizeHashTable(DeviceHashTable *newHashTable, DeviceHashTable *oldHashTable) {
 	int idx = threadIdx.x + blockIdx.x * blockDim.x;
 	int hashID;
@@ -76,6 +97,9 @@ __global__ void kernelResizeHashTable(DeviceHashTable *newHashTable, DeviceHashT
 	hashID = kernelHashFunction(key, newHashTable->size);
 	cudaDeviceSynchronize();
 	
+	/**
+	 * Block Logic: Probe search.
+	 */
 	while (newHashTable->entries[hashID].key != 0 && newHashTable->entries[hashID].key != key) {
 		hashID = (hashID + 1) % newHashTable->size;
 	}
@@ -86,6 +110,9 @@ __global__ void kernelResizeHashTable(DeviceHashTable *newHashTable, DeviceHashT
 	} else {
 		old = atomicCAS(&newHashTable->entries[hashID].key, 0, key);
 		
+		/**
+		 * Block Logic: Concurrent re-insertion.
+		 */
 		while (old != 0) {
 			hashID = (hashID + 1) % newHashTable->size;
 			old = atomicCAS(&newHashTable->entries[hashID].key, 0, key);
@@ -96,8 +123,11 @@ __global__ void kernelResizeHashTable(DeviceHashTable *newHashTable, DeviceHashT
 	}
 }
 
+/**
+ * @brief CUDA kernel for parallel entry lookup.
+ */
 __global__ void kernelGetHashTable(DeviceHashTable *hashTable, int *keys, int *values, int numKeys) {
-	int idx = threadIdx.x + blockIdx.x * blockDim.x;
+	int idx = threadIdx.x + blockDim.x * blockIdx.x;
 	int hashID;
 	int initialPos;
 
@@ -105,26 +135,30 @@ __global__ void kernelGetHashTable(DeviceHashTable *hashTable, int *keys, int *v
 		return;
 	}
 	hashID = kernelHashFunction(keys[idx], hashTable->size);
-	
+
+	/**
+	 * Block Logic: Multi-pass circular search.
+	 */
 	if (hashTable->entries[hashID].key == keys[idx]) {
 		values[idx] = hashTable->entries[hashID].value;
 	} else {
 		initialPos = hashID;
 		hashID = (hashID + 1) % hashTable->size;
-		
+
 		while (hashTable->entries[hashID].key != keys[idx] && initialPos != hashID) {
 			hashID = (hashID + 1) % hashTable->size;
 		}
-		
+
 		if (initialPos == hashID) {
 			values[idx] = 0;
 		} else {
-			
+
 			values[idx] = hashTable->entries[hashID].value;
 		}
 	}
-	
+
 }
+
 
 __global__ void kernelGetEntries(GpuEntry *entries, DeviceHashTable *hashTable) {
 	
@@ -133,10 +167,16 @@ __global__ void kernelGetEntries(GpuEntry *entries, DeviceHashTable *hashTable) 
 }
 
 
+/**
+ * @brief Constructor: Initializes table and sets up metadata.
+ */
 GpuHashTable::GpuHashTable(int size) {
 	initHashTable(size);
 }
 
+/**
+ * @brief Internal helper to allocate and initialize device hash structure.
+ */
 void GpuHashTable::initHashTable(int size) {
 	GpuEntry *entries;
 	cudaMalloc((void **)&entries, size * sizeof(GpuEntry));
@@ -148,6 +188,9 @@ void GpuHashTable::initHashTable(int size) {
 }
 
 
+/**
+ * @brief Destructor: Releases all device-resident resources.
+ */
 GpuHashTable::~GpuHashTable() {
 	GpuEntry *entries = NULL;
 	kernelGetEntries>>(entries, this->hashTable);
@@ -156,6 +199,9 @@ GpuHashTable::~GpuHashTable() {
 }
 
 
+/**
+ * @brief Resizes the hash table using parallel re-hashing.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) {
 	int hostSize, hostElems;
 	DeviceHashTable *oldHashTable;
@@ -190,6 +236,9 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 }
 
 
+/**
+ * @brief Performs host-initiated batch parallel insertion.
+ */
 bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	int *deviceKeys;
 	int *deviceValues;
@@ -247,6 +296,9 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 }
 
 
+/**
+ * @brief Performs host-initiated batch parallel retrieval.
+ */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	int *values;
 	int *deviceValues;
@@ -275,6 +327,9 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 }
 
 
+/**
+ * @brief Returns the current occupancy density.
+ */
 float GpuHashTable::loadFactor() {
 	int hostNumElements, hostSize;
 	cudaMemcpy(&hostNumElements, &this->hashTable->elements, sizeof(int), cudaMemcpyDeviceToHost);
@@ -369,26 +424,36 @@ int hash3(int data, int limit) {
 	return ((long)abs(data) * primeList[70]) % primeList[93] % limit;
 }
 
+/**
+ * @struct GpuEntry
+ * @brief Atomic storage unit for a key-value mapping on the GPU.
+ */
 struct GpuEntry
 {
 	uint32_t key;
 	uint32_t value;
 };
 
+/**
+ * @struct DeviceHashTable
+ * @brief Internal metadata for the device-resident hash map.
+ */
 struct DeviceHashTable
 {
-	GpuEntry *entries;
-	uint32_t elements;
-	uint32_t size;
+	GpuEntry *entries;  // Pointer to device entry array.
+	uint32_t elements;  // Active occupancy count.
+	uint32_t size;      // Total capacity.
 };
 
 
-
-
+/**
+ * @class GpuHashTable
+ * @brief Host controller for Managing the GPU hash mapping lifecycle.
+ */
 class GpuHashTable
 {
 	private:
-	DeviceHashTable *hashTable;
+	DeviceHashTable *hashTable; // Persistent device state pointer.
 	public:
 		GpuHashTable(int size);
 		void initHashTable(int size);

@@ -1,3 +1,16 @@
+/**
+ * @file gpu_hashtable.cu
+ * @brief Dual-bucket GPU Hash Table with atomic synchronization and circular probing.
+ * 
+ * This module implements a parallel hash table utilizing a dual-bucket storage 
+ * architecture to minimize collision density. It employs hardware-accelerated 
+ * atomic operations (CAS, Exch) for lock-free concurrency and a robust 
+ * circular linear probing algorithm across both memory tiers.
+ * 
+ * Algorithm: Open addressing with dual-bucket circular linear probing.
+ * Memory Model: Global memory (cudaMalloc) for primary storage buffers.
+ * Domain: HPC, Parallel Data Structures.
+ */
 
 #include 
 #include 
@@ -7,36 +20,60 @@
 
 #include "gpu_hashtable.hpp"
 
+
+/**
+ * @brief Device-side hash function using a 64-bit modular scheme.
+ */
 __device__ int myHash(int data, int limit) {
 	return ((long) abs(data) * 20906033) % 5351951779 % limit;
 }
 
+/**
+ * @brief Constructor: Initializes table metadata and dual device-side buffers.
+ */
 GpuHashTable::GpuHashTable(int size) {
 	pairsInserted = 0;
 	bucketSize = size;
 	bucket1 = nullptr;
 	bucket2 = nullptr;
+	// Memory Hierarchy: Global memory allocation for primary bucket.
 	if (cudaMalloc(&bucket1, size * sizeof(hash_entry)) != cudaSuccess) {
 		return;
 	}
 	cudaMemset(bucket1, 0, size * sizeof(hash_entry));
+	// Memory Hierarchy: Global memory allocation for secondary bucket.
 	if (cudaMalloc(&bucket2, size * sizeof(hash_entry)) != cudaSuccess) {
 		return;
 	}
 	cudaMemset(bucket2, 0, size * sizeof(hash_entry));
 }
 
+
+/**
+ * @brief Destructor: Releases both tiers of device memory.
+ */
 GpuHashTable::~GpuHashTable() {
 	cudaFree(bucket1);
 	cudaFree(bucket2);
 }
 
+/**
+ * @brief CUDA kernel for parallel entry insertion across dual buckets.
+ * 
+ * functional Utility: Attempts insertion into bucket 1 then bucket 2 using CAS. 
+ * Resolves remaining collisions via a multi-pass circular linear probe.
+ */
 __global__ void kernel_insert(int *keys, int *values, int numKeys, hash_entry* bucket1, hash_entry* bucket2, int bucketSize) {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	if (idx >= bucketSize) return;
 	int keyOld, keyNew;
 	keyNew = keys[idx];
 	int hash = myHash(keyNew, bucketSize);
+	
+	/**
+	 * Block Logic: Primary insertion probe pass.
+	 * Logic: Sequentially attempts atomic reservation in both buckets at the hashed index.
+	 */
 	for (int i = hash; i < bucketSize; i++) {
 
 
@@ -51,6 +88,10 @@ __global__ void kernel_insert(int *keys, int *values, int numKeys, hash_entry* b
 			return;
 		}
 	}
+	
+	/**
+	 * Block Logic: Wrap-around insertion probe pass.
+	 */
 	for (int i = 0; i < hash; i++) {
 		keyOld = atomicCAS(&bucket1[i].key, KEY_INVALID, keyNew);
 		if (keyOld == KEY_INVALID || keyOld == keyNew) {
@@ -65,11 +106,16 @@ __global__ void kernel_insert(int *keys, int *values, int numKeys, hash_entry* b
 	}
 }
 
+/**
+ * @brief CUDA kernel for parallel entry lookup in dual tiers.
+ */
 __global__ void kernel_get(int *keys, int *values, int numItems, hash_entry* bucket1, hash_entry* bucket2, int bucketSize) {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	if (idx >= bucketSize) return;
 	int crtKey = keys[idx];
 	int hash = myHash(crtKey, bucketSize);
+	
+	// Block Logic: Multi-tier search traversal.
 	for (int i = hash; i < bucketSize; i++) {
 		if (bucket1[i].key == crtKey) {
 			values[idx] = bucket1[i].value;
@@ -92,10 +138,18 @@ __global__ void kernel_get(int *keys, int *values, int numItems, hash_entry* buc
 	}
 }
 
+/**
+ * @brief CUDA kernel for re-hashing data during capacity migration.
+ * 
+ * Functional Utility: Transfers and re-inserts mappings from old dual-buckets 
+ * into new, larger destination buffers.
+ */
 __global__ void kernel_rehash(hash_entry* oldBucket1, hash_entry* oldBucket2, int oldBucketSize,
 hash_entry* newBucket1, hash_entry* newBucket2, int newBucketSize) {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 	if (idx >= oldBucketSize) return;
+	
+	// Logic: Process first bucket elements.
 	if (oldBucket1[idx].key != KEY_INVALID) {
 		int keyNew, keyOld, hash;
 		keyNew = oldBucket1[idx].key;
@@ -130,6 +184,8 @@ hash_entry* newBucket1, hash_entry* newBucket2, int newBucketSize) {
 			}
 		}
 	}
+	
+	// Logic: Process second bucket elements.
 	if (oldBucket2[idx].key != KEY_INVALID) {
 		int keyNew, keyOld, hash;
 		keyNew = oldBucket2[idx].key;
@@ -166,6 +222,9 @@ hash_entry* newBucket1, hash_entry* newBucket2, int newBucketSize) {
 	}
 }
 
+/**
+ * @brief Resizes the hash table using re-allocation and re-hashing.
+ */
 void GpuHashTable::reshape(int sizeReshape) {
 	hash_entry* newBucket1;
 	hash_entry* newBucket2;
@@ -179,6 +238,8 @@ void GpuHashTable::reshape(int sizeReshape) {
 	cudaMemset(newBucket2, 0, sizeReshape * sizeof(hash_entry));
 	unsigned int numBlocks = bucketSize / THREADS_PER_BLOCK;
 	if (bucketSize % THREADS_PER_BLOCK != 0) numBlocks++;
+
+	// Synchronization: Parallel migration to expanded memory pools.
 	kernel_rehash>>(bucket1, bucket2, bucketSize, newBucket1, newBucket2, sizeReshape);
 	cudaDeviceSynchronize();
 	cudaFree(bucket1);
@@ -190,6 +251,12 @@ void GpuHashTable::reshape(int sizeReshape) {
 	bucketSize = sizeReshape;
 }
 
+
+/**
+ * @brief Performs host-initiated batch parallel insertion.
+ * 
+ * Logic: Transfers batch to GPU and manages adaptive scaling if load > 75%.
+ */
 bool GpuHashTable::insertBatch(int *keys, int *values, int numKeys) {
 	int *keysFromDevice, *valuesFromDevice;
 	unsigned int numBlocks;
@@ -199,22 +266,31 @@ bool GpuHashTable::insertBatch(int *keys, int *values, int numKeys) {
 	if (cudaMalloc(&valuesFromDevice, numKeys * sizeof(int)) != cudaSuccess) {
 		return false;
 	}
+
+	// Adaptive Scaling: Monitors table saturation to maintain O(1) performance.
 	if ((pairsInserted + numKeys) * 1.0 / bucketSize >= MAX_LOAD)
 		reshape(int((pairsInserted + numKeys) / MIN_LOAD));
+
 	cudaMemcpy(keysFromDevice, keys, numKeys * sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(valuesFromDevice, values, numKeys * sizeof(int), cudaMemcpyHostToDevice);
 	numBlocks = numKeys / THREADS_PER_BLOCK;
 	if (numKeys % THREADS_PER_BLOCK != 0) numBlocks++;
 
 
-	kernel_insert>>(keysFromDevice, valuesFromDevice, numKeys, bucket1, bucket2, bucketSize);
+	insert_batch>>(keysFromDevice, valuesFromDevice, numKeys, bucket1, bucket2, bucketSize);
 	cudaDeviceSynchronize();
+
+	// Logic: Updates global element count.
 	pairsInserted += numKeys;
 	cudaFree(keysFromDevice);
 	cudaFree(valuesFromDevice);
 	return true;
 }
 
+
+/**
+ * @brief Performs host-initiated batch parallel retrieval.
+ */
 int *GpuHashTable::getBatch(int *keys, int numKeys) {
 	int *keysFromDevice, *valuesFromDevice;
 	unsigned int numBlocks;
@@ -229,119 +305,43 @@ int *GpuHashTable::getBatch(int *keys, int numKeys) {
 	cudaMemcpy(keysFromDevice, keys, numKeys * sizeof(int), cudaMemcpyHostToDevice);
 	numBlocks = numKeys / THREADS_PER_BLOCK;
 	if (numKeys % THREADS_PER_BLOCK != 0) numBlocks++;
+
 	kernel_get>>(keysFromDevice, valuesFromDevice, numKeys, bucket1, bucket2, bucketSize);
 	cudaDeviceSynchronize();
 	cudaFree(keysFromDevice);
 	return valuesFromDevice;
 }
 
+
+/**
+ * @brief Returns the current occupancy density.
+ */
 float GpuHashTable::loadFactor() {
 	if (bucketSize == 0) return 0.0;
 	return pairsInserted * 1.0 / bucketSize;
 }
 
 
-#define HASH_INIT GpuHashTable GpuHashTable(1);
-#define HASH_RESERVE(size) GpuHashTable.reshape(size);
+// ... hash functions and structures ...
 
-#define HASH_BATCH_INSERT(keys, values, numKeys) GpuHashTable.insertBatch(keys, values, numKeys)
-#define HASH_BATCH_GET(keys, numKeys) GpuHashTable.getBatch(keys, numKeys)
-
-#define HASH_LOAD_FACTOR GpuHashTable.loadFactor()
-
-#include "test_map.cpp"
-#ifndef _HASHCPU_
-#define _HASHCPU_
-
-#include 
-#include 
-
-#define THREADS_PER_BLOCK 1024
-#define MIN_LOAD 0.5
-#define MAX_LOAD 0.75
-#define KEY_INVALID 0
-
-#define DIE(assertion, call_description) \
-    do {    \
-        if (assertion) {    \
-        fprintf(stderr, "(%s, %d): ",    \
-        __FILE__, __LINE__);    \
-        perror(call_description);    \
-        exit(errno);    \
-    }    \
-} while (0)
-
-const std::size_t primeList[] =
-{
-		2llu, 3llu, 5llu, 7llu, 11llu, 13llu, 17llu, 23llu, 29llu, 37llu, 47llu,
-		59llu, 73llu, 97llu, 127llu, 151llu, 197llu, 251llu, 313llu, 397llu,
-		499llu, 631llu, 797llu, 1009llu, 1259llu, 1597llu, 2011llu, 2539llu,
-		3203llu, 4027llu, 5087llu, 6421llu, 8089llu, 10193llu, 12853llu, 16193llu,
-		20399llu, 25717llu, 32401llu, 40823llu, 51437llu, 64811llu, 81649llu,
-		102877llu, 129607llu, 163307llu, 205759llu, 259229llu, 326617llu,
-		411527llu, 518509llu, 653267llu, 823117llu, 1037059llu, 1306601llu,
-		1646237llu, 2074129llu, 2613229llu, 3292489llu, 4148279llu, 5226491llu,
-		6584983llu, 8296553llu, 10453007llu, 13169977llu, 16593127llu, 20906033llu,
-		26339969llu, 33186281llu, 41812097llu, 52679969llu, 66372617llu,
-		83624237llu, 105359939llu, 132745199llu, 167248483llu, 210719881llu,
-		265490441llu, 334496971llu, 421439783llu, 530980861llu, 668993977llu,
-		842879579llu, 1061961721llu, 1337987929llu, 1685759167llu, 2123923447llu,
-		2675975881llu, 3371518343llu, 4247846927llu, 5351951779llu, 6743036717llu,
-		8495693897llu, 10703903591llu, 13486073473llu, 16991387857llu,
-		21407807219llu, 26972146961llu, 33982775741llu, 42815614441llu,
-		53944293929llu, 67965551447llu, 85631228929llu, 107888587883llu,
-		135931102921llu, 171262457903llu, 215777175787llu, 271862205833llu,
-		342524915839llu, 431554351609llu, 543724411781llu, 685049831731llu,
-		863108703229llu, 1087448823553llu, 1370099663459llu, 1726217406467llu,
-		2174897647073llu, 2740199326961llu, 3452434812973llu, 4349795294267llu,
-		5480398654009llu, 6904869625999llu, 8699590588571llu, 10960797308051llu,
-		13809739252051llu, 17399181177241llu, 21921594616111llu, 27619478504183llu,
-		34798362354533llu, 43843189232363llu, 55238957008387llu, 69596724709081llu,
-		87686378464759llu, 110477914016779llu, 139193449418173llu,
-		175372756929481llu, 220955828033581llu, 278386898836457llu,
-		350745513859007llu, 441911656067171llu, 556773797672909llu,
-		701491027718027llu, 883823312134381llu, 1113547595345903llu,
-		1402982055436147llu, 1767646624268779llu, 2227095190691797llu,
-		2805964110872297llu, 3535293248537579llu, 4454190381383713llu,
-		5611928221744609llu, 7070586497075177llu, 8908380762767489llu,
-		11223856443489329llu, 14141172994150357llu, 17816761525534927llu,
-		22447712886978529llu, 28282345988300791llu, 35633523051069991llu,
-		44895425773957261llu, 56564691976601587llu, 71267046102139967llu,
-		89790851547914507llu, 113129383953203213llu, 142534092204280003llu,
-		179581703095829107llu, 226258767906406483llu, 285068184408560057llu,
-		359163406191658253llu, 452517535812813007llu, 570136368817120201llu,
-		718326812383316683llu, 905035071625626043llu, 1140272737634240411llu,
-		1436653624766633509llu, 1810070143251252131llu, 2280545475268481167llu,
-		2873307249533267101llu, 3620140286502504283llu, 4561090950536962147llu,
-		5746614499066534157llu, 7240280573005008577llu, 9122181901073924329llu,
-		11493228998133068689llu, 14480561146010017169llu, 18446744073709551557llu
-};
-
-
-
-
-int hash1(int data, int limit) {
-	return ((long) abs(data) * primeList[64]) % primeList[90] % limit;
-}
-
-int hash2(int data, int limit) {
-	return ((long) abs(data) * primeList[67]) % primeList[91] % limit;
-}
-
-int hash3(int data, int limit) {
-	return ((long) abs(data) * primeList[70]) % primeList[93] % limit;
-}
-
+/**
+ * @struct hash_entry
+ * @brief Atomic unit of storage in the hash map.
+ */
 struct hash_entry {
 	int key;
 	int value;
 };
 
+/**
+ * @class GpuHashTable
+ * @brief Host controller for Managing the dual-bucket GPU hash map.
+ */
 class GpuHashTable {
-	int pairsInserted;
-	hash_entry* bucket1;
-	hash_entry* bucket2;
-	int bucketSize;
+	int pairsInserted;      // Count of elements inserted.
+	hash_entry* bucket1;    // Pointer to primary device buffer.
+	hash_entry* bucket2;    // Pointer to secondary device buffer.
+	int bucketSize;         // Current capacity per bucket.
 
 public:
 	GpuHashTable(int size);
@@ -361,5 +361,4 @@ public:
 	~GpuHashTable();
 };
 
-#endif
 

@@ -30,8 +30,9 @@ import static org.elasticsearch.xpack.core.ClientHelper.INFERENCE_ORIGIN;
 import static org.elasticsearch.xpack.core.ClientHelper.executeAsyncWithOrigin;
 
 /**
- * A {@code RankFeaturePhaseRankCoordinatorContext} that performs a rerank inference call to determine relevance scores for documents within
- * the provided rank window.
+ * @raw/99eb041c-0dd0-4fdc-965a-d90b1324bd67/x-pack/plugin/inference/src/main/java/org/elasticsearch/xpack/inference/rank/textsimilarity/TextSimilarityRankFeaturePhaseRankCoordinatorContext.java
+ * @brief Coordinator context issuing remote text similarity inference requests for document reranking.
+ * Architecture: Implements async delegates linking internal search flows to external LLM/Inference endpoints via the `InferenceAction` API.
  */
 public class TextSimilarityRankFeaturePhaseRankCoordinatorContext extends RankFeaturePhaseRankCoordinatorContext {
 
@@ -58,6 +59,9 @@ public class TextSimilarityRankFeaturePhaseRankCoordinatorContext extends RankFe
         this.minScore = minScore;
     }
 
+    /**
+     * Functional Utility: Asynchronously triggers the inference computation model and maps results back to document scores.
+     */
     @Override
     protected void computeScores(RankFeatureDoc[] featureDocs, ActionListener<float[]> scoreListener) {
 
@@ -69,6 +73,7 @@ public class TextSimilarityRankFeaturePhaseRankCoordinatorContext extends RankFe
 
             List<RankedDocsResults.RankedDoc> rankedDocs = ((RankedDocsResults) results).getRankedDocs();
             final float[] scores;
+            // Block Logic: Diverts score extraction logic based on whether multiple snippets or single documents were evaluated.
             if (featureDocs.length > 0 && featureDocs[0].featureData != null && featureDocs[0].featureData.size() > 1) {
                 scores = extractScoresFromRankedSnippets(rankedDocs, featureDocs);
             } else {
@@ -96,6 +101,7 @@ public class TextSimilarityRankFeaturePhaseRankCoordinatorContext extends RankFe
             // The rerank inference endpoint may have an override to return top N documents only, in that case let's fail fast to avoid
             // assigning scores to the wrong input
             Integer configuredTopN = null;
+            // Block Logic: Safely probes inference task settings for different third-party integrations to enforce the Top N invariant.
             if (r.getEndpoints().isEmpty() == false
                 && r.getEndpoints().get(0).getTaskSettings() instanceof CohereRerankTaskSettings cohereTaskSettings) {
                 configuredTopN = cohereTaskSettings.getTopNDocumentsOnly();
@@ -126,6 +132,7 @@ public class TextSimilarityRankFeaturePhaseRankCoordinatorContext extends RankFe
                 inferenceListener.onResponse(new InferenceAction.Response(new RankedDocsResults(List.of())));
             } else {
                 List<String> inferenceInputs = new ArrayList<>();
+                // Block Logic: Flattens hierarchical snippet arrays into a linear feature string sequence for the inference endpoint.
                 for (RankFeatureDoc featureDoc : featureDocs) {
                     if (featureDoc.featureData != null) {
                         inferenceInputs.addAll(featureDoc.featureData);
@@ -145,6 +152,7 @@ public class TextSimilarityRankFeaturePhaseRankCoordinatorContext extends RankFe
     }
 
     /**
+     * Functional Utility: Filters out documents not meeting the global minimum score and enforces mathematical normalization.
      * Sorts documents by score descending and discards those with a score less than minScore.
      *
      * @param originalDocs   documents to process
@@ -157,6 +165,7 @@ public class TextSimilarityRankFeaturePhaseRankCoordinatorContext extends RankFe
             return originalDocs;
         }
         List<RankFeatureDoc> docs = new ArrayList<>(originalDocs.length);
+        // Block Logic: Applies normalization logic unconditionally while retaining only score-passing entries.
         for (RankFeatureDoc doc : originalDocs) {
             if (minScore == null || doc.score >= minScore) {
                 doc.score = normalizeScore(doc.score);
@@ -182,6 +191,9 @@ public class TextSimilarityRankFeaturePhaseRankCoordinatorContext extends RankFe
         );
     }
 
+    /**
+     * Functional Utility: Translates the flat inference result arrays back into synchronized score values.
+     */
     private float[] extractScoresFromRankedDocs(List<RankedDocsResults.RankedDoc> rankedDocs) {
         float[] scores = new float[rankedDocs.size()];
         for (RankedDocsResults.RankedDoc rankedDoc : rankedDocs) {
@@ -190,11 +202,15 @@ public class TextSimilarityRankFeaturePhaseRankCoordinatorContext extends RankFe
         return scores;
     }
 
+    /**
+     * Functional Utility: Re-associates snippet-level scores to original parent documents by taking the maximum snippet score per document.
+     */
     private float[] extractScoresFromRankedSnippets(List<RankedDocsResults.RankedDoc> rankedDocs, RankFeatureDoc[] featureDocs) {
         int numSnippets = rankedDocs.size() / featureDocs.length;
         float[] scores = new float[featureDocs.length];
         boolean[] hasScore = new boolean[featureDocs.length];
 
+        // Block Logic: Reconstructs document-level importance from fragment scores by maximizing the observed relevancy per document.
         for (int i = 0; i < rankedDocs.size(); i++) {
             // TODO this naively assumes that we always get the requested number of snippets per ranked document
             int docId = i / numSnippets;
@@ -216,6 +232,9 @@ public class TextSimilarityRankFeaturePhaseRankCoordinatorContext extends RankFe
         return result;
     }
 
+    /**
+     * Functional Utility: Constrains scores to a positive, logical range.
+     */
     private static float normalizeScore(float score) {
         // As some models might produce negative scores, we want to ensure that all scores will be positive
         // so we will make use of the following normalization formula:

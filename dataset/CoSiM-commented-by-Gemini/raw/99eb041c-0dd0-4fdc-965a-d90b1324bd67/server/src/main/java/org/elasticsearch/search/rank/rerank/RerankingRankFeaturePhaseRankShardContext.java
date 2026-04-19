@@ -27,9 +27,9 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * The {@code ReRankingRankFeaturePhaseRankShardContext} is handles the {@code SearchHits} generated from the {@code RankFeatureShardPhase}
- * and builds the {@code RankFeatureShardResult} for the reranking phase, by reading the field info for the specified {@code field} during
- * construction.
+ * @raw/99eb041c-0dd0-4fdc-965a-d90b1324bd67/server/src/main/java/org/elasticsearch/search/rank/rerank/RerankingRankFeaturePhaseRankShardContext.java
+ * @brief Context processor that parses document hits from shards to prepare feature data payloads for reranking.
+ * Architecture: Converts Lucene SearchHits and their highlight/field values into {@code RankFeatureDoc} structures before distributing to coordinators.
  */
 public class RerankingRankFeaturePhaseRankShardContext extends RankFeaturePhaseRankShardContext {
 
@@ -45,18 +45,24 @@ public class RerankingRankFeaturePhaseRankShardContext extends RankFeaturePhaseR
         this.snippets = snippets;
     }
 
+    /**
+     * Functional Utility: Transforms raw search hits into structured rank feature results by extracting text fields and highlights.
+     */
     @Override
     public RankShardResult buildRankFeatureShardResult(SearchHits hits, int shardId) {
         try {
             RankFeatureDoc[] rankFeatureDocs = new RankFeatureDoc[hits.getHits().length];
+            // Block Logic: Iterates over the raw shard hits to extract textual features.
             for (int i = 0; i < hits.getHits().length; i++) {
                 rankFeatureDocs[i] = new RankFeatureDoc(hits.getHits()[i].docId(), hits.getHits()[i].getScore(), shardId);
                 SearchHit hit = hits.getHits()[i];
                 DocumentField docField = hit.field(field);
+                // Block Logic: Extracts the primary document field if snippets are not explicitly requested.
                 if (docField != null && snippets == null) {
                     rankFeatureDocs[i].featureData(docField.getValue().toString());
                 }
                 Map<String, HighlightField> highlightFields = hit.getHighlightFields();
+                // Block Logic: Captures query-highlighted fragments to send as granular reranking inputs.
                 if (highlightFields != null) {
                     if (highlightFields.containsKey(field)) {
                         List<String> snippets = Arrays.stream(highlightFields.get(field).fragments()).map(Text::string).toList();

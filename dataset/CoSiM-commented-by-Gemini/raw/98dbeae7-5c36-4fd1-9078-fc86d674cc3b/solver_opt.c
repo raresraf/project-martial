@@ -1,9 +1,17 @@
+/**
+ * @raw/98dbeae7-5c36-4fd1-9078-fc86d674cc3b/solver_opt.c
+ * @brief Optimized dense matrix multiplication solver computing C = A^T * A + A * (B * B^T).
+ * Algorithm: Implementation employing pointer iterations and cached transpose configurations.
+ * Time Complexity: $O(N^3)$
+ * Space Complexity: $O(N^2)$ due to explicit copies and transpositions.
+ */
 
 #include "utils.h"
 #include "string.h"
 
-
-
+/**
+ * Functional Utility: Accelerates element-wise matrix addition utilizing contiguous pointer mapping.
+ */
 void sum(double *c, double *b, int N) {
 	int i;
 	for (i = 0; i < N * N; i++) {
@@ -13,6 +21,10 @@ void sum(double *c, double *b, int N) {
 	}
 }
 
+/**
+ * Block Logic: Transforms dot product sequences computing A^T * A incorporating upper triangular constraints.
+ * Optimization: Replaces constant indexing with incremental caching across nested array traversals.
+ */
 void mulAtA(double *c, double *a, double *b, int N) {
 	int i, j, k;
 	for (j = 0; j < N; j++) {
@@ -30,6 +42,10 @@ void mulAtA(double *c, double *a, double *b, int N) {
 	}
 }
 
+/**
+ * Block Logic: Evaluates BBt = B * B^T leveraging symmetric multiplication.
+ * Optimization: Limits redundant index multiplication extracting static factors (like `row_i` and `row_j`) out of deeper loops.
+ */
 void mulBBt(double *c, double *a, double *b, int N) {
 	int i, j, k;
 	double sum;
@@ -51,6 +67,9 @@ void mulBBt(double *c, double *a, double *b, int N) {
 	}
 }
 
+/**
+ * Block Logic: Derives A * (B * B^T) ensuring spatial cache awareness utilizing variables allocated within processor registers.
+ */
 void mulABBt(double *c, double *a, double *b, int N) {
 	int i, j, k;
 	for (i = 0; i < N; i++) {
@@ -70,6 +89,9 @@ void mulABBt(double *c, double *a, double *b, int N) {
 	}
 }
 
+/**
+ * Functional Utility: Instantiates and maps dynamic memory regions calling underlying optimizations chronologically.
+ */
 double* my_solver(int N, double *A, double* B) {
 	double *C = (double*)calloc(N * N, sizeof(double));
 	double *D = (double*)calloc(N * N, sizeof(double));

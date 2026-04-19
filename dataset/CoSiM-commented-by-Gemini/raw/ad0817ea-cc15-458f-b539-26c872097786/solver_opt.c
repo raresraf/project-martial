@@ -1,7 +1,12 @@
+/**
+ * @raw/ad0817ea-cc15-458f-b539-26c872097786/solver_opt.c
+ * @brief Optimized dense matrix multiplication solver computing C = A^T * A + (A * B) * B^T.
+ * Algorithm: Improves loop ordering taking cache latency constraints into consideration by utilizing explicitly tracked variables.
+ * Time Complexity: $O(N^3)$
+ * Space Complexity: $O(N^2)$ due to auxiliary storage buffers.
+ */
 
 #include "utils.h"
-
-
 
 double* my_solver(int N, double *A, double* B) {
 
@@ -10,11 +15,18 @@ double* my_solver(int N, double *A, double* B) {
 	register int min;
 	register int IN;
 	int size = N * N * sizeof(double);
+	
+	/**
+	 * Functional Utility: Provisions intermediary matrices enforcing clean bounds tracking elements.
+	 */
 	res1 = malloc(size);
 	res2 = malloc(size);
 	res3 = malloc(size);
 
-	
+	/**
+	 * Block Logic: Solves AtA = A^T * A.
+	 * Optimization: Extends local memory optimization logic avoiding sequential recalculation delays defining arrays individually inside execution.
+	 */
 	for (i = 0; i < N; i++) {
 		register double *orig_pa = &A[i];	
 		IN = i * N;
@@ -39,7 +51,10 @@ double* my_solver(int N, double *A, double* B) {
    		}
 	}
 
-	
+	/**
+	 * Block Logic: Generates res2 = A * B mapping index strides locally using predefined array elements.
+	 * Optimization: Decreases execution footprint substituting indexing steps with additive pointer bounds.
+	 */
 	for (i = 0; i < N; i++) {
 		IN = i * N;
 
@@ -58,7 +73,10 @@ double* my_solver(int N, double *A, double* B) {
    		}
 	}
 
-	
+	/**
+	 * Block Logic: Evaluates the sub-component producing res3 = res2 * B^T effectively resolving (A * B) * B^T.
+	 * Optimization: Sequences cache allocations extracting identical constants externally to mitigate inner processing operations.
+	 */
 	for (i = 0; i < N; i++) {
 		IN = i * N;
 
@@ -76,7 +94,10 @@ double* my_solver(int N, double *A, double* B) {
    		}
 	}
 
-	
+	/**
+	 * Block Logic: Solves the equation consolidating previously completed structures rendering final vector inside res3.
+	 * Invariant: Executes sequential iterations traversing contiguous cache elements linearly mitigating spatial cache misses.
+	 */
 	for (i = 0; i < N; i++) {
    		for (j = 0; j < N; j++) {
       		res3[i * N + j] += res1[i * N + j];

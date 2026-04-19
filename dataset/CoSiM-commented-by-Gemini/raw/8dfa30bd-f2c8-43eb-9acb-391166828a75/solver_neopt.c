@@ -1,12 +1,20 @@
+/**
+ * @raw/8dfa30bd-f2c8-43eb-9acb-391166828a75/solver_neopt.c
+ * @brief Unoptimized dense matrix multiplication solver computing C = (A * B) * B^T + A^T * A.
+ * Algorithm: Standard nested loops traversing the matrices.
+ * Time Complexity: $O(N^3)$
+ * Space Complexity: $O(N^2)$ for intermediate accumulation matrices.
+ */
 
 #include "utils.h"
-
 
 double* my_solver(int N, double *A, double* B) {
 	int i, j, k;
 	double *AB, *ABBt, *AtA, *C;
 
-	
+	/**
+	 * Functional Utility: Allocates memory for intermediate computation matrices and the final result.
+	 */
 	AB = calloc(N * N, sizeof(double));
 	if (AB == NULL)
 		exit(-1);
@@ -20,7 +28,10 @@ double* my_solver(int N, double *A, double* B) {
 	if (C == NULL)
 		exit(-1);
 
-	
+	/**
+	 * Block Logic: Computes intermediate matrix AB = A * B.
+	 * Invariant: Evaluates the dot product assuming matrix A is upper triangular (k >= i).
+	 */
 	for (i = 0; i < N; i++) {
 		for (j = 0; j < N; j++) {
 			for (k = i; k < N; k++) {
@@ -29,7 +40,10 @@ double* my_solver(int N, double *A, double* B) {
 		}
 	}
 
-	
+	/**
+	 * Block Logic: Computes ABBt = AB * B^T.
+	 * Invariant: Accesses B simulating transposed layout utilizing `[j * N + k]` logic.
+	 */
 	for (i = 0; i < N; i++) { 
 		for (j = 0; j < N; j++) {
 			for (k = 0; k < N; k++) {
@@ -38,7 +52,10 @@ double* my_solver(int N, double *A, double* B) {
 		}
 	}
 
-	
+	/**
+	 * Block Logic: Computes AtA = A^T * A.
+	 * Invariant: Tracks structural properties to prematurely exit loop via `k == i || k == j`.
+	 */
 	for (i = 0; i < N; i++) {
 		for (j = 0; j < N; j++) {
 			for (k = 0; k < N; k++) {
@@ -49,14 +66,16 @@ double* my_solver(int N, double *A, double* B) {
 		}
 	}
 
-	
+	/**
+	 * Block Logic: Accumulates the previously computed terms determining C = ABBt + AtA.
+	 * Invariant: Executes an element-wise matrix addition to construct the target output.
+	 */
 	for (i = 0; i < N; i++) {
 		for (j = 0; j < N; j++) {
 			C[i * N + j] = ABBt[i * N + j] + AtA[i * N + j];
 		}
 	}
 
-	
 	free(AB);
 	free(ABBt);
 	free(AtA);

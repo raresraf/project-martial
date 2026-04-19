@@ -1,3 +1,10 @@
+/**
+ * @raw/aeb31e2b-0ab9-4296-9704-30003e34fa86/solver_neopt.c
+ * @brief Unoptimized dense matrix multiplication solver computing C = (A * B) * B^T + A^T * A.
+ * Algorithm: Standard nested loops generating explicit transposition maps and partial multiplications via symmetric optimizations.
+ * Time Complexity: $O(N^3)$
+ * Space Complexity: $O(N^2)$ representing intermediate target buffers.
+ */
 
 #include "utils.h"
 
@@ -6,9 +13,17 @@ double* my_solver(int N, double *A, double* B) {
 	printf("NEOPT SOLVER\n");
 	double *C, sum, *aux;
 	int i, j, k;
+
+	/**
+	 * Functional Utility: Initializes dynamically allocated matrix buffers and caches for intermediate outputs.
+	 */
 	C = (double *)malloc(N * N * sizeof(double));
 	aux = (double *)malloc(N * N * sizeof(double));
 
+	/**
+	 * Block Logic: Computes the base product aux = A * B.
+	 * Invariant: Operates independently of specific matrix bounds traversing the full NxN block structure, pruning over k >= i.
+	 */
 	for (i = 0; i < N; ++i) {
 		for (j = 0; j < N; ++j) {
 			aux[i * N + j] = 0;
@@ -19,6 +34,10 @@ double* my_solver(int N, double *A, double* B) {
 		}
 	}
 
+	/**
+	 * Block Logic: Evaluates trailing product aux * B^T defining the vector output inside C.
+	 * Invariant: Extracts parameters directly reflecting matrix B transposition sequentially mapping indices.
+	 */
 	for (i = 0; i < N; ++i) {
 		for (j = 0; j < N; ++j) {
 			C[i * N + j] = 0;
@@ -29,6 +48,10 @@ double* my_solver(int N, double *A, double* B) {
 		}
 	}
 
+	/**
+	 * Block Logic: Derives A^T * A internally setting the solution inside C.
+	 * Invariant: Evaluates over the upper triangle taking advantage of symmetric products limiting the traversal logic bounds structurally.
+	 */
 	for (i = 0; i < N; ++i) {
 		for (j = 0; j < N; ++j) {
 			int lim;

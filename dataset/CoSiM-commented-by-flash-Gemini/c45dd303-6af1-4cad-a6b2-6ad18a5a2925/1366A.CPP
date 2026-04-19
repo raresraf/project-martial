@@ -1,8 +1,17 @@
+/**
+ * @c45dd303-6af1-4cad-a6b2-6ad18a5a2925/1366A.CPP
+ * @brief Greedy maximization of item production under resource constraints.
+ * Domain: Competitive Programming, Mathematical Optimization.
+ * Algorithm: Closed-form greedy analysis using resource pooling.
+ * Time Complexity: $O(T)$ where T is the number of test cases.
+ * Space Complexity: $O(1)$ constant overhead.
+ */
+
 #include <bits/stdc++.h>
 #include <ext/pb_ds/assoc_container.hpp>
 using namespace __gnu_pbds;
 using namespace std;
-// Optimisations
+// Optimisations: Compiler directives to enhance performance for high-frequency resource calculations.
 #pragma GCC target("avx2")
 #pragma GCC optimization("unroll-loops")
 #pragma GCC optimize("O2")
@@ -69,6 +78,9 @@ typedef tree<int, null_type, less<int>, rb_tree_tag,
              tree_order_statistics_node_update>
     pbds;
 struct _ {
+  /**
+   * Functional Utility: Decouples C++ streams from standard C streams for faster I/O.
+   */
   ios_base::Init i;
   _() { ios_base::sync_with_stdio(false), cin.tie(NULL), cout.tie(NULL); }
 } _;
@@ -161,10 +173,19 @@ template <typename Heads, typename... Tails> void dbgs(Heads H, Tails... T) {
   cout << "[" << #__VA_ARGS__ << "]: ";                                        \
   dbgs(__VA_ARGS__);                                                           \
   cout << endl;
+
+/**
+ * @brief Orchestrates the maximization of item crafting.
+ * Crafting Rules: 1 sword = 1 diamond + 2 sticks; 1 shovel = 2 diamonds + 1 stick.
+ */
 int main() {
   w(t) {
     ll a, b;
     cin >> a >> b;
+    /**
+     * Logic: Production is bounded by both total resource count (sum/3) and individual resource availability (a, b).
+     * Since both recipes consume 3 resources total, total items cannot exceed (a+b)/3.
+     */
     cout << min({(a + b) / 3, a, b}) << endl;
   }
 }

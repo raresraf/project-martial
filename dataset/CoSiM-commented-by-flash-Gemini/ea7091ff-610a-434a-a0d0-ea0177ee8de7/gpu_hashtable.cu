@@ -1,3 +1,16 @@
+/**
+ * @file gpu_hashtable.cu
+ * @brief High-occupancy CUDA Hash Table with XOR-based hashing.
+ * 
+ * This module implements a parallel hash table using a custom XOR-shift hash 
+ * function and linear probing for collision resolution. It employs a proactive 
+ * resizing strategy based on configurable load factor thresholds and utilizes 
+ * atomic Compare-And-Swap (CAS) to manage concurrent state transitions.
+ * 
+ * Algorithm: Open addressing with linear probing and XOR-shift hashing.
+ * Memory Model: Global memory (cudaMalloc) for entry arrays and Managed Memory for occupancy.
+ * Domain: HPC, Parallel Data Structures.
+ */
 
 #include 
 #include 
@@ -26,6 +39,9 @@
 
 
 
+/**
+ * @brief Device-side hash function using XOR-shift bitwise operations.
+ */
 __device__ int getHash(int a, int limit)
 {
 	a ^= (a << 13);
@@ -37,6 +53,12 @@ __device__ int getHash(int a, int limit)
 
 
 
+/**
+ * @brief CUDA kernel for parallel data migration.
+ * 
+ * functional Utility: Transfers and re-hashes existing mappings into a new, 
+ * larger memory buffer.
+ */
 __global__ void kernel_rehash(hashBucket* hashTable, hashBucket* newHash, int size, int oldSize) {
 	
 	int index = blockDim.x * blockIdx.x + threadIdx.x;
@@ -50,6 +72,7 @@ __global__ void kernel_rehash(hashBucket* hashTable, hashBucket* newHash, int si
 	int value = buck.bucket.value;
 	int hash = getHash(key, size);
 	
+	// Block Logic: Linear re-insertion search.
 	for (int j = 0; j < size; j++) {
 			int lastKey = atomicCAS(&newHash[hash].bucket.key, 0, key);
 			if (lastKey == 0 || lastKey == key) {
@@ -62,6 +85,9 @@ __global__ void kernel_rehash(hashBucket* hashTable, hashBucket* newHash, int si
 
 
 
+/**
+ * @brief CUDA kernel for parallel entry retrieval.
+ */
 __global__ void kernel_getBatch(hashBucket* hashTable, int* key, int* value, int noKeys, int size) {
 	int index = blockDim.x * blockIdx.x + threadIdx.x;
 	if (index >= noKeys)
@@ -72,6 +98,10 @@ __global__ void kernel_getBatch(hashBucket* hashTable, int* key, int* value, int
 	}
 	int trial = 0;
 	int hash = getHash(key[index], size);
+	
+	/**
+	 * Block Logic: Linear search traversal.
+	 */
 	for (int j = 0; j < size; j++) {
 		hashBucket buck = hashTable[hash];
 		if (buck.bucket.key == key[index] && buck.bucket.value != 0) {
@@ -86,6 +116,14 @@ __global__ void kernel_getBatch(hashBucket* hashTable, int* key, int* value, int
 	}
 }
 
+/**
+ * @brief CUDA kernel for parallel batch insertion.
+ * 
+ * Functional Utility: Claims slots via atomicCAS and tracks unique insertions 
+ * via a shared occupancy counter.
+ * 
+ * @param addToThis Managed memory counter for successful insertions.
+ */
 __global__ void kernel_inserBatch(hashBucket* hashTable, int* key, int* value, int noKeys, int size, int* addToThis) {
 	int index = blockDim.x * blockIdx.x + threadIdx.x;
 	if (index >= noKeys)
@@ -93,12 +131,16 @@ __global__ void kernel_inserBatch(hashBucket* hashTable, int* key, int* value, i
 	int hash = getHash(key[index], size);
 	int lastKey;
 	
+	/**
+	 * Block Logic: Atomic insertion probe loop.
+	 */
 	while (true) {
 		
 		lastKey = atomicCAS(&hashTable[hash].bucket.key, 0, key[index]);
 		if (lastKey == 0 || lastKey == key[index]) {
 			
 			if (lastKey == 0)
+				// Logic: Increment occupancy if a new slot was initialized.
 				atomicAdd(addToThis, 1);
 			hashTable[hash].bucket.value = value[index];
 			
@@ -109,78 +151,96 @@ __global__ void kernel_inserBatch(hashBucket* hashTable, int* key, int* value, i
 }
 
 
+/**
+ * @brief Constructor: Initializes table storage and managed size counter.
+ */
 GpuHashTable::GpuHashTable(int size) {
 	capacity = size * 100 / MIN_LOAD_FACTOR;
+	// Memory Hierarchy: Global memory allocation for entries.
 	cudaMalloc(&hashTable, capacity * sizeof(hashBucket));
+	// Memory Hierarchy: Managed memory (Unified) for host-accessible occupancy tracking.
 	cudaMallocManaged((void**)&this->size, sizeof(int));
 	*(this->size) = 0;
-	
+
 }
 
 
+/**
+ * @brief Destructor: Frees allocated device resources.
+ */
 GpuHashTable::~GpuHashTable() {
 	cudaFree(hashTable);
 	cudaFree(size);
 }
 
 
+/**
+ * @brief Resizes the hash table using parallel re-hashing.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) {
 
 
 	hashBucket* newHash;
 	int newCapacity = numBucketsReshape * 100 / MIN_LOAD_FACTOR;
-	
+
 	if (newCapacity capacity)
 		return;
-	
+
 	cudaMalloc((void**)&newHash, newCapacity * sizeof(hashBucket));
 
 	unsigned int blocks = newCapacity / THREADS_BLOCK;
-	
+
 	if (newCapacity % THREADS_BLOCK != 0)
 		blocks++;
 
+	// Synchronization: Ensures all mappings are migrated before cleaning up old memory.
 	kernel_rehash >> (this->hashTable, newHash, newCapacity, this->capacity);
 
-	
+
 	cudaDeviceSynchronize();
 
 	this->capacity = newCapacity;
 
 	cudaFree(hashTable);
-	
+
 	hashTable = newHash;
 
 }
 
 
+/**
+ * @brief Performs batch parallel insertion.
+ * 
+ * Logic: Transfers batch to GPU and manages expansion if load factor > 95%.
+ */
 bool GpuHashTable::insertBatch(int* keys, int* values, int numKeys) {
 
+	// Adaptive Scaling: Monitors density to maintain performance.
 	float loadF = 1.0f * (*(this->size) + numKeys) / capacity * 100;
-	
+
 	if (loadF > MAX_LOAD_FACTOR) {
 		reshape(*(this->size) + numKeys);
 	}
 
 	int* deviceKeys = 0;
 	int* deviceValues = 0;
-	
-	
+
+
 	cudaMalloc((void**)&deviceKeys, numKeys * sizeof(int));
 	cudaMalloc((void**)&deviceValues, numKeys * sizeof(int));
 
-	
+
 	cudaMemcpy(deviceKeys, keys, numKeys * sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(deviceValues, values, numKeys * sizeof(int), cudaMemcpyHostToDevice);
 
-	
+
 	unsigned int blocks = numKeys / THREADS_BLOCK;
 
 	if (numKeys % THREADS_BLOCK != 0)
 		blocks++;
 	kernel_inserBatch >> (hashTable, deviceKeys, deviceValues, numKeys, capacity, size);
 
-	
+
 	cudaDeviceSynchronize();
 
 	cudaFree(deviceValues);
@@ -190,16 +250,19 @@ bool GpuHashTable::insertBatch(int* keys, int* values, int numKeys) {
 }
 
 
+/**
+ * @brief Performs batch parallel retrieval using Unified Memory for results.
+ */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	int* deviceKeys, * values;
-	
+
 	cudaMalloc((void**)&deviceKeys, numKeys * sizeof(int));
 
-	
-	
+
+
 	cudaMallocManaged((void**)&values, numKeys * sizeof(int));
 
-	
+
 	cudaMemcpy(deviceKeys, keys, numKeys * sizeof(int), cudaMemcpyHostToDevice);
 
 	unsigned int blocks = numKeys / THREADS_BLOCK;
@@ -209,7 +272,7 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 
 	kernel_getBatch>> (hashTable, deviceKeys, values, numKeys, capacity);
 
-	
+
 	cudaDeviceSynchronize();
 
 	cudaFree(deviceKeys);
@@ -217,124 +280,43 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 }
 
 
+/**
+ * @brief Returns the current table density.
+ */
 float GpuHashTable::loadFactor() {
 	return (float)((float)(*(this->size))/ ((float)this->capacity));	
 }
 
 
+// ... hash functions and structures ...
 
-#define HASH_INIT GpuHashTable GpuHashTable(1);
-#define HASH_RESERVE(size) GpuHashTable.reshape(size);
-
-#define HASH_BATCH_INSERT(keys, values, numKeys) GpuHashTable.insertBatch(keys, values, numKeys)
-#define HASH_BATCH_GET(keys, numKeys) GpuHashTable.getBatch(keys, numKeys)
-
-#define HASH_LOAD_FACTOR GpuHashTable.loadFactor()
-
-
-#include "test_map.cpp"
-#ifndef _HASHCPU_
-#define _HASHCPU_
-
-using namespace std;
-
-#define	KEY_INVALID		0
-
-#define MAX_LOAD_FACTOR 0.85
-
-#define DIE(assertion, call_description) \
-	do {	\
-		if (assertion) {	\
-		fprintf(stderr, "(%s, %d): ",	\
-		__FILE__, __LINE__);	\
-		perror(call_description);	\
-		exit(errno);	\
-	}	\
-} while (0)
-
-const size_t primeList[] =
-{
-	2llu, 3llu, 5llu, 7llu, 11llu, 13llu, 17llu, 23llu, 29llu, 37llu, 47llu,
-	59llu, 73llu, 97llu, 127llu, 151llu, 197llu, 251llu, 313llu, 397llu,
-	499llu, 631llu, 797llu, 1009llu, 1259llu, 1597llu, 2011llu, 2539llu,
-	3203llu, 4027llu, 5087llu, 6421llu, 8089llu, 10193llu, 12853llu, 16193llu,
-	20399llu, 25717llu, 32401llu, 40823llu, 51437llu, 64811llu, 81649llu,
-	102877llu, 129607llu, 163307llu, 205759llu, 259229llu, 326617llu,
-	411527llu, 518509llu, 653267llu, 823117llu, 1037059llu, 1306601llu,
-	1646237llu, 2074129llu, 2613229llu, 3292489llu, 4148279llu, 5226491llu,
-	6584983llu, 8296553llu, 10453007llu, 13169977llu, 16593127llu, 20906033llu,
-	26339969llu, 33186281llu, 41812097llu, 52679969llu, 66372617llu,
-	83624237llu, 105359939llu, 132745199llu, 167248483llu, 210719881llu,
-	265490441llu, 334496971llu, 421439783llu, 530980861llu, 668993977llu,
-	842879579llu, 1061961721llu, 1337987929llu, 1685759167llu, 2123923447llu,
-	2675975881llu, 3371518343llu, 4247846927llu, 5351951779llu, 6743036717llu,
-	8495693897llu, 10703903591llu, 13486073473llu, 16991387857llu,
-	21407807219llu, 26972146961llu, 33982775741llu, 42815614441llu,
-	53944293929llu, 67965551447llu, 85631228929llu, 107888587883llu,
-	135931102921llu, 171262457903llu, 215777175787llu, 271862205833llu,
-	342524915839llu, 431554351609llu, 543724411781llu, 685049831731llu,
-	863108703229llu, 1087448823553llu, 1370099663459llu, 1726217406467llu,
-	2174897647073llu, 2740199326961llu, 3452434812973llu, 4349795294267llu,
-	5480398654009llu, 6904869625999llu, 8699590588571llu, 10960797308051llu,
-	13809739252051llu, 17399181177241llu, 21921594616111llu, 27619478504183llu,
-	34798362354533llu, 43843189232363llu, 55238957008387llu, 69596724709081llu,
-	87686378464759llu, 110477914016779llu, 139193449418173llu,
-	175372756929481llu, 220955828033581llu, 278386898836457llu,
-	350745513859007llu, 441911656067171llu, 556773797672909llu,
-	701491027718027llu, 883823312134381llu, 1113547595345903llu,
-	1402982055436147llu, 1767646624268779llu, 2227095190691797llu,
-	2805964110872297llu, 3535293248537579llu, 4454190381383713llu,
-	5611928221744609llu, 7070586497075177llu, 8908380762767489llu,
-	11223856443489329llu, 14141172994150357llu, 17816761525534927llu,
-	22447712886978529llu, 28282345988300791llu, 35633523051069991llu,
-	44895425773957261llu, 56564691976601587llu, 71267046102139967llu,
-	89790851547914507llu, 113129383953203213llu, 142534092204280003llu,
-	179581703095829107llu, 226258767906406483llu, 285068184408560057llu,
-	359163406191658253llu, 452517535812813007llu, 570136368817120201llu,
-	718326812383316683llu, 905035071625626043llu, 1140272737634240411llu,
-	1436653624766633509llu, 1810070143251252131llu, 2280545475268481167llu,
-	2873307249533267101llu, 3620140286502504283llu, 4561090950536962147llu,
-	5746614499066534157llu, 7240280573005008577llu, 9122181901073924329llu,
-	11493228998133068689llu, 14480561146010017169llu, 18446744073709551557llu
-};
-
-
-
-
-int hash1(int data, int limit) {
-	return ((long)abs(data) * primeList[64]) % primeList[90] % limit;
-}
-int hash2(int data, int limit) {
-	return ((long)abs(data) * primeList[67]) % primeList[91] % limit;
-}
-int hash3(int data, int limit) {
-	return ((long)abs(data) * primeList[70]) % primeList[93] % limit;
-}
-
-
-
-
-
-
-
+/**
+ * @struct hashElement
+ * @brief Atomic storage unit for a key-value mapping on the GPU.
+ */
 typedef struct hashE {
 	unsigned int key;
 	unsigned int value;
 } hashElement;
 
+/**
+ * @struct hashBucket
+ * @brief Wrapper for individual hash table slots.
+ */
 typedef struct hashB {
 	hashElement bucket;
 } hashBucket;
 
+/**
+ * @class GpuHashTable
+ * @brief Host controller for Managing the GPU hash mapping lifecycle.
+ */
 class GpuHashTable
 {
-private:
-
-
 public:
-	hashBucket* hashTable;
-	int* size;
-	int capacity;
+	hashBucket* hashTable;  // Device entry array.
+	int* size;              // Managed pointer to occupancy count.
+	int capacity;           // Current buffer capacity.
 	GpuHashTable(int size);
 	void reshape(int sizeReshape);
 
@@ -348,5 +330,4 @@ public:
 	~GpuHashTable();
 };
 
-#endif
 

@@ -1,34 +1,59 @@
 
+"""
+@file consumer.py
+@brief Thread-safe Marketplace simulation with centralized logging.
 
+This implementation provides a concurrent framework for a simulated marketplace. 
+It utilizes Python's threading primitives and specialized locks to manage shared 
+state across producers and consumers. A dedicated Logger class ensures 
+comprehensive audit trails for all transaction events.
+
+Algorithm: Concurrent state management with centralized mutual exclusion and logging.
+Domain: Multi-threaded Production Systems.
+"""
 
 from threading import Thread
 from time import sleep
 
 
 class Consumer(Thread):
-    
+    """
+    Independent consumer thread executing a predefined schedule of shopping operations.
+    """
 
     def __init__(self, carts, marketplace, retry_wait_time, **kwargs):
-        
+        """
+        :param carts: Sequence of cart operations to be performed.
+        :param marketplace: Shared hub for transactions.
+        :param retry_wait_time: Cooldown interval for resource contention.
+        """
         super().__init__(**kwargs)
         self.carts = carts
         self.marketplace = marketplace
         self.retry = retry_wait_time
 
     def run(self):
+        """
+        Main execution lifecycle for the consumer.
+        Logic: Onboards a new cart and iteratively processes all assigned actions (add/remove).
+        """
         cart_id = self.marketplace.new_cart()
         for cart in self.carts:
             for cart_action in cart:
+                # Block Logic: Operation routing.
                 if cart_action['type'] == 'add':
                     for _ in range(cart_action['quantity']):
                         done = self.marketplace.add_to_cart(cart_id, cart_action['product'])
                         
+                        # Logic: Retries addition until the item is successfully acquired.
                         while not done:
                             sleep(self.retry)
                             done = self.marketplace.add_to_cart(cart_id, cart_action['product'])
                 else:
                     for _ in range(cart_action['quantity']):
                         self.marketplace.remove_from_cart(cart_id, cart_action['product'])
+            
+            # Finalization: Finalizes current shopping state.
             self.marketplace.place_order(cart_id)
 
 from threading import Lock
@@ -38,8 +63,14 @@ from logging.handlers import RotatingFileHandler
 from time import gmtime
 
 class Logger:
+    """
+    Wrapper for Python's logging module, specialized for Marketplace audit logging.
+    """
     
     def __init__(self):
+        """
+        Initializes a rotating file handler with GMT timestamp formatting.
+        """
         formatter = logging.Formatter('%(asctime)s-%(message)s')
         formatter.converter = gmtime
 
@@ -51,28 +82,41 @@ class Logger:
         self.logger.addHandler(handler)
 
     def info(self, msg):
-        
+        """
+        Log an informational message.
+        """
         self.logger.info(msg)
 
 class Marketplace:
+    """
+    Shared resource coordinator mediating interactions between producers and consumers.
+    """
     
     def __init__(self, queue_size_per_producer):
-        
+        """
+        :param queue_size_per_producer: Capacity limit for individual producer buffers.
+        """
         self.logger = Logger()
         self.logger.info(f'Initialized marketplace with max queue:{queue_size_per_producer}')
         self.max_queue_size = queue_size_per_producer
         self.producer_index = 0
         self.cart_index = 0
+        
+        # Internal Synchronization: Isolated locks for identifier generation.
         self.lock_producer = Lock()
         self.lock_cart = Lock()
+        
         self.producer_lists = []
         self.cart_lists = []
 
     def register_producer(self):
-        
+        """
+        Registers a new producer and initializes its private storage and lock.
+        """
         with self.lock_producer:
             producer_id = self.producer_index
             self.producer_index += 1
+            # Initialization: Bootstraps producer-specific thread safety.
             self.producer_lists.append({'lock': Lock(), 'products': []})
 
 
@@ -82,10 +126,14 @@ class Marketplace:
         return producer_id
 
     def publish(self, producer_id, product):
-        
+        """
+        Adds a product unit to a producer's inventory.
+        Logic: Enforces buffer limits using per-producer locks.
+        """
         self.logger.info(f'Producer {producer_id} tried publishing {product}:')
         producer_dic = self.producer_lists[producer_id]
 
+        # Critical Section: Thread-safe inventory increment.
         producer_dic['lock'].acquire()
         if len(producer_dic['products']) < self.max_queue_size:
             producer_dic['products'].append({'product': product, 'available': True})
@@ -101,10 +149,13 @@ class Marketplace:
         return product_published
 
     def new_cart(self):
-        
+        """
+        Creates a new shopping session for a consumer.
+        """
         with self.lock_cart:
             cart_index = self.cart_index
             self.cart_index += 1
+            # Initialization: Sets up cart-specific state and lock.
             self.cart_lists.append({'lock': Lock(), 'products': []})
 
 
@@ -114,21 +165,28 @@ class Marketplace:
         return cart_index
 
     def add_to_cart(self, cart_id, product):
-        
+        """
+        Atomic acquisition of a product from any available producer.
+        Logic: Scans all producer inventories for the requested item.
+        """
         self.logger.info(f'Consumer {cart_id} tried tried to add {product}:')
         added_product = False
+        
+        # Block Logic: Exhaustive search across all producer buffers.
         for index in range(len(self.producer_lists)):
             producer = self.producer_lists[index]
             producer['lock'].acquire()
 
             for prod in producer['products']:
                 if (prod['product'] == product) and prod['available']:
+                    # Critical Section: Reserves the item atomically.
                     prod['available'] = False
                     added_product = True
                     break
 
             producer['lock'].release()
             if added_product:
+                # Synchronization: Updates consumer cart state.
                 self.cart_lists[cart_id]['products'].append((product, index))
                 break
         self.logger.info(f'Product:{product} added to cart status:{added_product}')
@@ -136,9 +194,12 @@ class Marketplace:
         return added_product
 
     def remove_from_cart(self, cart_id, product):
-        
+        """
+        Reverts an item from a cart back to its producer stock.
+        """
         found = False
 
+        # Synchronization: Ensures thread-safe removal from consumer cart.
         with self.cart_lists[cart_id]['lock']:
             for item in self.cart_lists[cart_id]['products']:
                 if item[0] == product:
@@ -148,7 +209,7 @@ class Marketplace:
                     break
 
         if found:
-            
+            # Critical Section: Restores item availability in producer buffer.
             producer = self.producer_lists[producer_id]
             with producer['lock']:
                 for prod in producer['products']:
@@ -163,7 +224,9 @@ class Marketplace:
             self.logger.info(f'Product :{product} was not found in cart:{cart_id}')
 
     def place_order(self, cart_id):
-        
+        """
+        Finalizes order, permanently removing items from global state.
+        """
         final_list = []
         cart = self.cart_lists[cart_id]
         with cart['lock']:
@@ -171,6 +234,7 @@ class Marketplace:
                 
                 final_list.append(prod[0])
                 
+                # Logic: Purges purchased items from producer storage.
                 producer = self.producer_lists[prod[1]]
                 producer['products'].remove({'product': prod[0], 'available': False})
 
@@ -272,10 +336,16 @@ from time import sleep
 
 
 class Producer(Thread):
-    
+    """
+    Supply-side background thread that continuously produces items for the marketplace.
+    """
 
     def __init__(self, products, marketplace, republish_wait_time, **kwargs):
-        
+        """
+        :param products: Catalog of product metadata (product, quantity, prod_time).
+        :param marketplace: Reference to the shared buffer.
+        :param retry: Throttling delay for full inventory.
+        """
         super().__init__(**kwargs)
         self.products = products
         self.marketplace = marketplace
@@ -283,13 +353,20 @@ class Producer(Thread):
         self.producer_id = marketplace.register_producer()
 
     def run(self):
+        """
+        Infinite production lifecycle.
+        Logic: Iteratively produces and publishes items while respecting 
+        marketplace capacity and production times.
+        """
         while True:
             for product in self.products:
                 for _ in range(product[1]):
                     
+                    # Logic: Simulated manufacturing time.
                     sleep(product[2])
                     done = self.marketplace.publish(self.producer_id, product[0])
                     
+                    # Logic: Retries publishing until space permits.
                     while not done:
                         sleep(self.retry)
                         done = self.marketplace.publish(self.producer_id, product[0])
@@ -301,19 +378,25 @@ from dataclasses import dataclass
 
 @dataclass(init=True, repr=True, order=False, frozen=True)
 class Product:
-    
+    """
+    Immutable representation of a generic marketplace unit.
+    """
     name: str
     price: int
 
 
 @dataclass(init=True, repr=True, order=False, frozen=True)
 class Tea(Product):
-    
+    """
+    Specialized metadata for tea varieties.
+    """
     type: str
 
 
 @dataclass(init=True, repr=True, order=False, frozen=True)
 class Coffee(Product):
-    
+    """
+    Specialized metadata for coffee roast profiles.
+    """
     acidity: str
     roast_level: str

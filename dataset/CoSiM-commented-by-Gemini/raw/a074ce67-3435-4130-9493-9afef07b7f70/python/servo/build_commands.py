@@ -7,6 +7,12 @@
 # option. This file may not be copied, modified, or distributed
 # except according to those terms.
 
+"""
+@raw/a074ce67-3435-4130-9493-9afef07b7f70/python/servo/build_commands.py
+@brief Defines the Mach commands for building and cleaning the Servo browser engine.
+Architecture: Uses the Mach framework to provide a command-line interface, managing Cargo builds, cross-compilation environments, and sanitizer configurations.
+"""
+
 import datetime
 import os
 import os.path as path

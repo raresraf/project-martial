@@ -1,3 +1,15 @@
+/**
+ * @file gpu_hashtable.cu
+ * @brief GPGPU Hash Table with linear probing and duplicate tracking.
+ * 
+ * This implementation features a single-hash linear probing algorithm with manual 
+ * circularity handling. It manages global memory entries and attempts to track 
+ * redundant key insertions via a dedicated device-side counter.
+ * 
+ * Algorithm: Open addressing with two-loop linear probing.
+ * Memory Model: Global memory (cudaMalloc) for entry buffers.
+ * Domain: HPC, Parallel Data Structures.
+ */
 
 #include 
 #include 
@@ -8,10 +20,21 @@
 
 #include "gpu_hashtable.hpp"
 
+/**
+ * @brief Device-side hash function using a multiplicative constant.
+ */
 __device__ int myHash(int data, int limit) {
 	return ((long)abs(data) * 2654435761llu) % 4294967296llu % limit;
 }
 
+/**
+ * @brief CUDA kernel for parallel entry insertion.
+ * 
+ * Functional Utility: Claims empty slots using atomicCAS. Employs a manual 
+ * circular probe strategy (two distinct loops) to resolve collisions.
+ * 
+ * @param duplicate Pointer to an integer for tracking redundant insertions.
+ */
 __global__ void kernel_insert(int *keys, int *values, int limitBound, hashtable hashmap, int *duplicate) {
 	unsigned int i = threadIdx.x + blockDim.x * blockIdx.x;
 
@@ -22,17 +45,25 @@ __global__ void kernel_insert(int *keys, int *values, int limitBound, hashtable 
 	int extractKey = keys[i], size = hashmap.size, oldK, check = 0;
 	int hash = myHash(extractKey, size);
 
+	/**
+	 * Block Logic: Forward probe sequence.
+	 * Logic: Searches from the initial hash index to the end of the memory buffer.
+	 */
 	for (int k = hash; k < size; ++k) {
 		oldK = atomicCAS(&hashmap.list[k].key, KEY_INVALID, extractKey);
 		if (oldK == KEY_INVALID || oldK == extractKey) {
 			hashmap.list[k].value  = values[i];
 			check = 1;
 			if (oldK == extractKey)
-				*duplicate++;
+				*duplicate++; // Note: Incrementing the pointer itself (potential logic bug in original).
 			break;
 		}
 	}
 
+	/**
+	 * Block Logic: Wrap-around probe sequence.
+	 * Logic: Searches from the start of the buffer to the original hash index.
+	 */
 	if (check == 0) {
 		for (int k = 0; k < hash; ++k) {
 			oldK = atomicCAS(&hashmap.list[k].key, KEY_INVALID, extractKey);
@@ -48,6 +79,12 @@ __global__ void kernel_insert(int *keys, int *values, int limitBound, hashtable 
 	return;
 }
 
+/**
+ * @brief CUDA kernel for parallel value retrieval.
+ * 
+ * Functional Utility: Implements a two-pass linear search to find values 
+ * mapped to specific keys in the concurrent hash table.
+ */
 __global__ void kernel_get(int *keys, int *values, int limitBound, hashtable hashmap) {
 	unsigned int i = threadIdx.x + blockDim.x * blockIdx.x;
 
@@ -58,6 +95,9 @@ __global__ void kernel_get(int *keys, int *values, int limitBound, hashtable has
 	int extractKey = keys[i], size = hashmap.size, check = 0;
 	int hash = myHash(extractKey, size);
 
+	/**
+	 * Block Logic: Forward search pass.
+	 */
 	for (int k = hash; k < size; ++k) {
 
 
@@ -68,6 +108,9 @@ __global__ void kernel_get(int *keys, int *values, int limitBound, hashtable has
 		}
 	}
 
+	/**
+	 * Block Logic: Backward wrap-around search pass.
+	 */
 	if (check == 0) {
 		for (int k = 0; k < hash; ++k) {
 
@@ -81,6 +124,9 @@ __global__ void kernel_get(int *keys, int *values, int limitBound, hashtable has
 
 }
 
+/**
+ * @brief CUDA kernel for data migration during table expansion.
+ */
 __global__ void kernel_reshape(hashtable hashmap, hashtable newHashmap) {
 	unsigned int i = threadIdx.x + blockDim.x * blockIdx.x;
 
@@ -88,6 +134,7 @@ __global__ void kernel_reshape(hashtable hashmap, hashtable newHashmap) {
 		return;
 	}
 
+	// Logic: Re-inserts valid entries into the new structure.
 	if (hashmap.list[i].key != KEY_INVALID) {
 		int extractKey = hashmap.list[i].key, oldK, isInserted = 0, size = newHashmap.size;
 		int hash = myHash(extractKey, size);
@@ -116,6 +163,9 @@ __global__ void kernel_reshape(hashtable hashmap, hashtable newHashmap) {
 }
 
 
+/**
+ * @brief Constructor: Initializes the hash map on the GPU.
+ */
 GpuHashTable::GpuHashTable(int size) {
 	length = 0;
 	hashmap.size = size;
@@ -130,11 +180,17 @@ GpuHashTable::GpuHashTable(int size) {
 }
 
 
+/**
+ * @brief Destructor: Frees GPU memory.
+ */
 GpuHashTable::~GpuHashTable() {
 	cudaFree(hashmap.list);
 }
 
 
+/**
+ * @brief Rebuilds the hash table with a new size.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) {
 	hashtable newHashmap;
 	newHashmap.size = numBucketsReshape;
@@ -155,6 +211,9 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 }
 
 
+/**
+ * @brief Batch insertion with automatic resizing.
+ */
 bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	int *deviceKeys, *deviceValues, *duplicate;
 	int dupl;
@@ -170,6 +229,7 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	cudaMemcpy(deviceValues, values, numKeys * sizeof(int), cudaMemcpyHostToDevice);	
 	cudaMemset(duplicate, 0, sizeof(int));
 
+	 // Adaptive Scaling: Resizes if the incoming batch might overflow the table.
 	 if (float(length + numKeys) >= hashmap.size) {                                             
                 reshape(int(((length + numKeys) / 0.83)));                                                                                                                                                                  }
 	int numBlocks = ((numKeys % 1024 == 0) ? (numKeys / 1024) : (numKeys / 1024 + 1));
@@ -178,6 +238,7 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	int dup = dupl;
 
 	cudaDeviceSynchronize();
+	// Logic: Updates host-side element count, compensating for duplicates.
 	length += numKeys;
 	length -= dup;
 
@@ -188,6 +249,9 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 }
 
 
+/**
+ * @brief Batch retrieval using Managed Memory for output.
+ */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	int *deviceKeys, *values;
 	cudaMalloc(&deviceKeys, numKeys * sizeof(int));
@@ -205,6 +269,9 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 }
 
 
+/**
+ * @brief Current load factor.
+ */
 float GpuHashTable::loadFactor() {
 	
 	if (hashmap.size == 0) {
@@ -301,12 +368,20 @@ int hash3(int data, int limit) {
 }
 
 
+/**
+ * @struct entry
+ * @brief Representation of a key-value mapping on the device.
+ */
 typedef struct entry {
 	int key;
 	int value;
 } entry;
 
 
+/**
+ * @struct hashtable
+ * @brief Device-resident hash table container.
+ */
 typedef struct hashtable {
 	int size;
 	entry *list;
@@ -315,10 +390,14 @@ typedef struct hashtable {
 
 
 
+/**
+ * @class GpuHashTable
+ * @brief Host controller for GPU-based hash mapping.
+ */
 class GpuHashTable
 {	
-	int length;
-	hashtable hashmap;
+	int length;         // Host-side tracking of valid elements.
+	hashtable hashmap;  // Metadata for the device structure.
 	public:
 		GpuHashTable(int size);
 		void reshape(int sizeReshape);

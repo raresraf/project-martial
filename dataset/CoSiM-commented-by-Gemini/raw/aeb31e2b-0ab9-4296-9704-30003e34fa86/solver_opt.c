@@ -1,3 +1,10 @@
+/**
+ * @raw/aeb31e2b-0ab9-4296-9704-30003e34fa86/solver_opt.c
+ * @brief Optimized dense matrix multiplication solver computing C = (A * B) * B^T + A^T * A.
+ * Algorithm: Improves loop ordering taking cache latency constraints into consideration by utilizing explicitly tracked variables.
+ * Time Complexity: $O(N^3)$
+ * Space Complexity: $O(N^2)$ due to auxiliary storage buffers.
+ */
 
 #include <string.h>
 #include "utils.h"
@@ -8,11 +15,19 @@ double* my_solver(int N, double *A, double* B) {
 	double *C, *aux;
 	register double *first, *second, *third;
 	int i, j, k;
+
+	/**
+	 * Functional Utility: Provisions intermediary matrices enforcing clean bounds tracking elements.
+	 */
 	C = (double *)malloc(N * N * sizeof(double));
 	aux = (double *)malloc(N * N * sizeof(double));
 	memset(C, 0, N * N * sizeof(double));
 	memset(aux, 0, N * N * sizeof(double));
 
+	/**
+	 * Block Logic: Generates aux = A * B mapping index strides locally using predefined array elements.
+	 * Optimization: Uses cache efficient striding via fast localized pointers tracking over `k`.
+	 */
 	for (i = 0; i < N; ++i) {
 		for (k = i; k < N; ++k) {
 			first = A + i * N + k;
@@ -29,6 +44,10 @@ double* my_solver(int N, double *A, double* B) {
 		}
 	}
 
+	/**
+	 * Block Logic: Evaluates the sub-component producing C = aux * B^T effectively resolving (A * B) * B^T.
+	 * Optimization: Sequences cache allocations extracting identical constants externally to mitigate inner processing operations.
+	 */
 	for (i = 0; i < N; ++i) {
 		for (j = 0; j < N; ++j) {
 			first = aux + i * N;
@@ -45,6 +64,10 @@ double* my_solver(int N, double *A, double* B) {
 		}
 	}
 
+	/**
+	 * Block Logic: Solves C = C + A^T * A.
+	 * Optimization: Explores symmetric patterns mitigating half of the iterations utilizing local registers.
+	 */
 	for (i = 0; i < N; ++i) {
 		for (j = 0; j < N; ++j) {
 			first = A + i;

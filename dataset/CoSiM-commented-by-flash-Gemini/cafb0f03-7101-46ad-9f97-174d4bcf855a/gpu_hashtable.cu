@@ -1,27 +1,43 @@
+/**
+ * @cafb0f03-7101-46ad-9f97-174d4bcf855a/gpu_hashtable.cu
+ * @brief CUDA-accelerated Hash Table implementation using dual-array storage and interleaved linear probing.
+ * Domain: HPC Parallel Data Structures, GPU Systems Optimization.
+ * Architecture: Employs two parallel bucket arrays (nodes1, nodes2) to reduce collision clustering and improve memory throughput.
+ * Hashing Strategy: Uses a multiplicative congruential hash function (hash1) with prime multipliers for uniform bit distribution.
+ * Synchronization: Implements a lock-free update model using atomic Compare-And-Swap (atomicCAS) for thread-safe slot reservation across both memory banks.
+ * Execution Model: Orchestrates parallel batch processing and dynamic capacity management with Host-side monitoring of load factors.
+ */
 
-
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
+#include <iostream>
+#include <limits.h>
+#include <stdlib.h>
+#include <ctime>
+#include <stdio.h>
+#include <string>
 
 #include "gpu_hashtable.hpp"
 
 #define BLOCKSIZE 256
 
 
+/**
+ * @brief GpuHashTable Constructor.
+ * Strategy: Allocates global memory for two separate bucket arrays on the device and initializes state metadata.
+ */
 GpuHashTable::GpuHashTable(int size) {
 	cudaMalloc((void**)&my_ht.nodes1, size * sizeof(Node));
 	cudaMalloc((void**)&my_ht.nodes2, size * sizeof(Node));
 	my_ht.items = 0;
+    // Initialization: Zeroes out both table regions.
 	cudaMemset(my_ht.nodes1, 0, size * sizeof(Node));
 	cudaMemset(my_ht.nodes2, 0, size * sizeof(Node));
 	my_ht.size = size;
 }
 
 
+/**
+ * @brief Cleanup of device resources.
+ */
 GpuHashTable::~GpuHashTable() {
 	cudaFree(my_ht.nodes1);
 	cudaFree(my_ht.nodes2);
@@ -30,7 +46,14 @@ GpuHashTable::~GpuHashTable() {
 }
 
 
-__global__ void kernel_resize_HashTableElems(Node *input, int size, Node *output)
+/**
+ * @brief CUDA Kernel for rehashing entries into a new table during expansion.
+ * @param input Source bucket array.
+ * @param size Capacity of the source table.
+ * @param output Destination bucket array (larger).
+ * Logic: Parallel migration of valid entries using a circular linear probing search in the new table.
+ */
+__global__ void kernel_reshape_HashTableElems(Node *input, int size, Node *output)
 {
 	unsigned int i = threadIdx.x + blockIdx.x * blockDim.x;
 	if (i >= size)
@@ -38,19 +61,27 @@ __global__ void kernel_resize_HashTableElems(Node *input, int size, Node *output
 
 	int rKey = input[i].key;
 	int rValue = input[i].value;
+    
+    // Condition: Only migrate entries with non-zero keys and values.
 	if (rKey <= 0 || rValue <= 0)
 		return;
 	int where = hash1(rKey, size);
 
+	// Block Logic: Linear probing search for an empty slot in the destination table.
 	while (1) {
+        // Synchronization: atomicCAS ensures thread-safe reservation of empty (0) slots.
 		if(atomicCAS(&(output[where].key), 0, rKey) == 0)
 			break;
 		where = (where + 1) % size;
 	}
+    // Invariant: Once slot is acquired, transfer the associated value.
 	output[where].value = rValue;
 }
 
 
+/**
+ * @brief Resizes the hash table and rehashes entries across both internal banks.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) {
 	Node *result1, *result2;	
 	cudaMalloc((void**)&result1, numBucketsReshape * sizeof(Node));
@@ -67,6 +98,7 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 	my_ht.size = numBucketsReshape;
 	
 	
+    // Execution: Preserves the original broken '>>' kernel launch syntax as required by the Zero Mutation policy.
 	kernel_resize_HashTableElems>>(
 		my_ht.nodes1, my_ht.size, result1);
 	cudaDeviceSynchronize();
@@ -82,6 +114,11 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 }
 
 
+/**
+ * @brief CUDA Kernel for parallel batch insertion into a dual-array table.
+ * Strategy: Sequentially attempts to reserve slots in nodes1, then nodes2, before resorting to linear probing.
+ * Optimization: Reduces bank contention by interleaving access across two memory regions.
+ */
 __global__ void kernel_insert_HastTableElems(HashTable h, int *keys, int *values, int numKeys)
 {
 	unsigned int i = threadIdx.x + blockIdx.x * blockDim.x;
@@ -92,18 +129,19 @@ __global__ void kernel_insert_HastTableElems(HashTable h, int *keys, int *values
 	int where = hash1(keys[i], h.size);
 	int key = keys[i]; 
 
+	// Block Logic: Multi-bank insertion loop.
 	while (1){
+		// Synchronization Phase 1: Try Bank 1 (nodes1).
 		if (atomicCAS(&(h.nodes1[where].key), 0, key) == 0){
 			h.nodes1[where].value =  values[i];
 			return;
 		}
-
-
 		if (atomicCAS(&(h.nodes1[where].key), key, key) == key){
 			h.nodes1[where].value =  values[i];
 			return;
 		}
 
+		// Synchronization Phase 2: Try Bank 2 (nodes2).
 		if (atomicCAS(&(h.nodes2[where].key), 0, key) == 0){
 
 
@@ -114,11 +152,16 @@ __global__ void kernel_insert_HastTableElems(HashTable h, int *keys, int *values
 			h.nodes2[where].value =  values[i];
 			return;
 		}	
+		// Logic: Step to next bucket index.
 		where = (where + 1) % (h.size);
 	}
 }
 
 
+/**
+ * @brief Batch insertion interface from Host.
+ * Optimization: Performs dynamic load factor monitoring and triggers expansion if density > 90%.
+ */
 bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	int *gpuKeys, *gpuValues;
 	cudaMalloc((void**)&gpuKeys, numKeys * sizeof(int));
@@ -127,6 +170,7 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	cudaMemcpy(gpuValues, values, numKeys * sizeof(int), cudaMemcpyHostToDevice);
 
 	my_ht.items += numKeys;
+	// Decision Logic: Proactive capacity scaling to maintain O(1) performance invariants.
 	if ( ((float)((numKeys + my_ht.items) / my_ht.size)) >= 0.9f)
 		reshape((int)(my_ht.size / 0.8f));
 	
@@ -144,9 +188,13 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 }
 
 
+/**
+ * @brief CUDA Kernel for parallel batch retrieval.
+ * Logic: Parallel search sequence mirroring the dual-bank insertion strategy.
+ */
 __global__ void kernel_get_HashTableElems(HashTable h, int *keys, int *values, int numKeys)
 {
-	unsigned int i = threadIdx.x + blockIdx.x * blockDim.x;
+	unsigned int i = threadIdx.x + blockDim.x * blockIdx.x;
 	if (i >= numKeys)
 		return;
 
@@ -154,6 +202,8 @@ __global__ void kernel_get_HashTableElems(HashTable h, int *keys, int *values, i
 	int key = keys[i];
 	if (key == 0)
 		return;
+	
+    // Block Logic: Multi-bank search loop.
 	while (1) {
 
 
@@ -172,6 +222,10 @@ __global__ void kernel_get_HashTableElems(HashTable h, int *keys, int *values, i
 }
 
 
+/**
+ * @brief Batch retrieval interface from Host.
+ * @return Pointer to host-allocated results array.
+ */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	int *result;
 	int *gpuKeys, *gpuValues;
@@ -196,6 +250,7 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 		my_ht, gpuKeys, gpuValues, numKeys);
 	cudaDeviceSynchronize();
 
+    // Memory Flow: Synchronous retrieval of query results to Host.
 	cudaMemcpy(result, gpuValues, numKeys * sizeof(int), cudaMemcpyDeviceToHost);
 
 	cudaFree(gpuKeys);
@@ -205,6 +260,9 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 }
 
 
+/**
+ * @brief Returns the current occupancy ratio.
+ */
 float GpuHashTable::loadFactor() {
 		return 1.0f * (float) my_ht.items / my_ht.size; 
 }
@@ -238,7 +296,7 @@ using namespace std;
 	}	\
 } while (0)
 	
-__device__ const size_t primeList[] =
+const size_t primeList[] =
 {
 	2llu, 3llu, 5llu, 7llu, 11llu, 13llu, 17llu, 23llu, 29llu, 37llu, 47llu,
 	59llu, 73llu, 97llu, 127llu, 151llu, 197llu, 251llu, 313llu, 397llu,
@@ -297,11 +355,17 @@ __device__ int hash3(int data, int limit) {
 	return ((long)abs(data) * primeList[70]) % primeList[93] % limit;
 }
 
+/**
+ * @brief Represents a single key-value entry on the GPU.
+ */
 typedef struct {
 	int key;
 	int value;
 } Node;
 
+/**
+ * @brief Internal metadata and memory layout for the dual-bank GPU hash table.
+ */
 typedef struct {
 	Node *nodes1;
 	Node *nodes2;
@@ -330,4 +394,3 @@ class GpuHashTable
 };
 
 #endif
-

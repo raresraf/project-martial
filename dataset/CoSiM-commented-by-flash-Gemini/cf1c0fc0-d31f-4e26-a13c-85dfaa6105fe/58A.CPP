@@ -1,3 +1,12 @@
+/**
+ * @cf1c0fc0-d31f-4e26-a13c-85dfaa6105fe/58A.CPP
+ * @brief Subsequence detection for the target word "hello" in an input stream.
+ * Domain: Competitive Programming, String Matching.
+ * Algorithm: Greedy nested-loop search for character indices.
+ * Time Complexity: $O(N)$ where N is the length of the input string.
+ * Space Complexity: $O(N)$ to store the character sequence.
+ */
+
 /*
 
                 Name: Mehul Chaturvedi
@@ -133,7 +142,7 @@ cout << s.order_of_key(2) << endl; // the number of elements in the s less than
 s(0-based)
 */
 
-// Custom hash for unordered map
+// Custom hash for unordered map: uses splitmix64 for reliable distribution and anti-collision.
 struct custom_hash {
   static uint64_t splitmix64(uint64_t x) {
     // http://xorshift.di.unimi.it/splitmix64.c
@@ -150,7 +159,9 @@ struct custom_hash {
   }
 };
 
-// Power Function O(log(n))
+/**
+ * @brief Binary exponentiation for O(log N) power calculation.
+ */
 ll poww(ll a, ll b, ll mod) {
   if (b == 0)
     return 1;
@@ -160,11 +171,20 @@ ll poww(ll a, ll b, ll mod) {
   return (((ans * ans) % mod) * a) % mod;
 }
 
+/**
+ * @brief Logic kernel for subsequence verification.
+ * Functional Utility: Checks if the characters 'h', 'e', 'l', 'l', 'o' appear in order within the input string.
+ */
 void solve() {
   string s;
   cin >> s;
 
   ll n = s.size();
+  /**
+   * Block Logic: Multi-pass greedy search.
+   * Strategy: Each nested loop searches for the next required character starting from the position after the previous match.
+   * Invariant: Success requires finding all 5 characters ('h','e','l','l','o') sequentially.
+   */
   rep(i, n) {
     if (s[i] == 'h') {
       fr(j, i + 1, n - 1) {
@@ -201,6 +221,9 @@ void solve() {
 }
 
 int main(int argc, char **argv) {
+  /**
+   * Functional Utility: Stream decoupling for faster competitive programming I/O.
+   */
   ios_base::sync_with_stdio(false);
   cin.tie(NULL);
 #ifdef mehul

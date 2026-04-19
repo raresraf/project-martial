@@ -1,3 +1,9 @@
+/**
+ * @raw/a1fa757e-499a-4893-af6c-367c10869b3b/drivers/spi/spi-sg2044-nor.c
+ * @brief SG2044 SPI NOR controller driver.
+ * Architecture: Integrates with the Linux spi-mem subsystem to facilitate fast flash read/write via memory-mapped I/O and FIFO queues.
+ * Functional Utility: Implements underlying hardware configuration, polling, and synchronous transfer operations for NOR flash operations.
+ */
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * SG2044 SPI NOR controller driver

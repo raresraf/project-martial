@@ -1,3 +1,10 @@
+/**
+ * @raw/a69ca05c-428b-40f8-a052-d61e98e9c412/dima.cl
+ * @brief OpenCL kernel codebase for texture block compression.
+ * Algorithm: Block-based image compression utilizing OpenCL hardware acceleration.
+ * Time Complexity: $O(W \times H)$ evaluated parallelly over the GPU architecture.
+ * Space Complexity: $O(W \times H)$ for the input and output buffer allocations on device.
+ */
 
 #define ALIGNAS(X)	__attribute__((aligned(X)))
 

@@ -1,4 +1,16 @@
 
+/**
+ * @file gpu_hashtable.cu
+ * @brief High-performance GPU-based hash table implementation using CUDA.
+ * 
+ * This module implements a thread-safe, massively parallel hash table designed for 
+ * high-throughput key-value operations on NVIDIA GPUs. It employs a multi-level 
+ * hashing strategy with atomic operations to resolve collisions without blocking.
+ * 
+ * Algorithm: Open addressing with multi-tier hashing and linear probing for overflow resolution.
+ * Threading Model: Lock-free concurrency via hardware-accelerated atomic Compare-And-Swap (CAS).
+ * Domain: HPC, Parallel Data Structures.
+ */
 
 #include 
 #include 
@@ -9,23 +21,51 @@
 
 #include "gpu_hashtable.hpp"
 
-
+/**
+ * @brief Initializes the GPU hash table with specified capacity.
+ * 
+ * Allocates and zeroes out device memory for two primary data buckets to facilitate 
+ * two-way hashing, reducing collision probability and improving load balancing.
+ * 
+ * @param size Total number of slots per data bucket.
+ */
 GpuHashTable::GpuHashTable(int size) {
 	ht.size = size;
 	ht.nrElem = 0;
+	// Memory Hierarchy: Global memory allocation for the primary hash tier.
 	cudaMalloc((void **)&(ht.data1), size * sizeof(Pair));
 	cudaMemset(ht.data1, 0, size * sizeof(Pair));
+	// Memory Hierarchy: Global memory allocation for the secondary hash tier.
 	cudaMalloc((void **)&(ht.data2), size * sizeof(Pair));
 	cudaMemset(ht.data2, 0, size * sizeof(Pair));
 }
 
-
+/**
+ * @brief Releases all allocated GPU resources.
+ */
 GpuHashTable::~GpuHashTable() {
 	cudaFree(ht.data1);
 	cudaFree(ht.data2);
 }
 
 
+/**
+ * @brief CUDA kernel for massively parallel insertion into the hash table.
+ * 
+ * Functional Utility: Implements a multi-stage lock-free insertion logic 
+ * using atomicCAS (Compare-And-Swap) and atomicExch (Atomic Exchange) to manage 
+ * concurrent state transitions in global memory.
+ * 
+ * Logic Flow:
+ * 1. Thread Indexing: Maps 1D grid indices to dataset elements.
+ * 2. Collision Handling: Attempts atomic reservation in data1, then data2. 
+ *    If both fail, it employs linear probing for overflow resolution.
+ * 
+ * @param ht The hash table structure.
+ * @param N Total number of keys to insert.
+ * @param keys Array of keys to be indexed.
+ * @param values Array of corresponding values.
+ */
 __global__ void insert(HashTable ht, int N, int *keys, int *values){
 	int idx = threadIdx.x + blockDim.x * blockIdx.x;
 
@@ -39,12 +79,19 @@ __global__ void insert(HashTable ht, int N, int *keys, int *values){
 
 	int hashIdx = hash1(keyToInsert, ht.size);
 
+	/**
+	 * Block Logic: Atomic state transition loop.
+	 * Invariant: The loop continues until the key is successfully assigned to a bucket
+	 * and its value is atomically swapped into place.
+	 */
 	while(1){
+		// Logic: Case 1 - Key already exists in tier 1 (Update existing entry).
 		if(atomicCAS(&(ht.data1[hashIdx].key), keyToInsert, keyToInsert) == keyToInsert){
 			atomicExch(&(ht.data1[hashIdx].value), valueToInsert);
 			break;
 		}
 
+		// Logic: Case 2 - Tier 1 slot is empty (Claim new entry).
 		if(atomicCAS(&(ht.data1[hashIdx].key), 
 			0, keyToInsert) == 0){
 			
@@ -52,22 +99,32 @@ __global__ void insert(HashTable ht, int N, int *keys, int *values){
 			break;
 		}
 
+		// Logic: Case 3 - Key already exists in tier 2 (Update existing entry).
 		if(atomicCAS(&(ht.data2[hashIdx].key), keyToInsert, keyToInsert) == keyToInsert){
 			atomicExch(&(ht.data2[hashIdx].value), valueToInsert);
 			break;
 		}
 
+		// Logic: Case 4 - Tier 2 slot is empty (Claim new entry).
 		if(atomicCAS(&(ht.data2[hashIdx].key), 0, keyToInsert) == 0){
 			
 			atomicExch(&(ht.data2[hashIdx].value), valueToInsert);
 			break;
 		}
+		// Inline: Linear probing step to resolve local collisions within the bucket set.
 		hashIdx++;
 		hashIdx = hashIdx % ht.size;
 	}
 
 
 }
+
+/**
+ * @brief CUDA kernel for massively parallel value retrieval.
+ * 
+ * functional Utility: Performs a thread-parallel search across memory tiers 
+ * to find the value associated with a given key.
+ */
 __global__ void get(HashTable ht, int N, int *keys, int *values){
 	int idx = threadIdx.x + blockDim.x * blockIdx.x;
 
@@ -76,6 +133,11 @@ __global__ void get(HashTable ht, int N, int *keys, int *values){
 	int keyToGet = keys[idx];
 	int hashIdx = hash1(keyToGet, ht.size);
 
+	/**
+	 * Block Logic: Parallel search traversal.
+	 * Invariant: Probes memory until the key is found, utilizing atomicCAS 
+	 * to ensure memory consistency during concurrent access.
+	 */
 	while(1){
 		if(atomicCAS(&(ht.data1[hashIdx].key), keyToGet, keyToGet) == keyToGet){
 			values[idx] = ht.data1[hashIdx].value;
@@ -91,6 +153,13 @@ __global__ void get(HashTable ht, int N, int *keys, int *values){
 	}
 
 }
+
+/**
+ * @brief CUDA kernel to dump the hash table state back into arrays.
+ * 
+ * Functional Utility: Acts as a bridge for the reshape operation, converting 
+ * sparse GPU memory buffers into contiguous key-value pairs.
+ */
 __global__ void getKeysAndValues(HashTable ht, int N, int *keys, int *values, int slot) {
 
 	int idx = threadIdx.x + blockDim.x * blockIdx.x;
@@ -105,6 +174,20 @@ __global__ void getKeysAndValues(HashTable ht, int N, int *keys, int *values, in
 		values[idx] = ht.data2[idx].value;
 	}
 }
+/**
+ * @brief Dynamically resizes the hash table to a new capacity.
+ * 
+ * Functional Utility: Orchestrates a global re-hashing of all existing elements. 
+ * It allocates a new, larger table, dumps the current state into temporary device 
+ * arrays, and re-inserts them into the new structure to resolve saturation.
+ * 
+ * Logic Flow:
+ * 1. Allocation: Sets up new data tiers in global memory.
+ * 2. Data Migration: Transfers elements from old to new buckets via kernel launches.
+ * 3. Cleanup: Frees old memory and updates the internal table reference.
+ * 
+ * @param numBucketsReshape The new capacity for each hash tier.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) {
 	HashTable newHt;
 	newHt.size = numBucketsReshape;
@@ -126,6 +209,7 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 	if(ht.size % BLOCK_SIZE != 0)
 		numBlocks++;
 	
+	// Synchronization: Ensures all data from tier 1 is extracted before re-insertion.
 	getKeysAndValues>>(ht, ht.size, keys, values, 1);
 	cudaDeviceSynchronize();
 
@@ -134,6 +218,7 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 
 	
 
+	// Synchronization: Ensures all data from tier 2 is extracted before re-insertion.
 	getKeysAndValues>>(ht, ht.size, keys, values, 2);
 	cudaDeviceSynchronize();
 
@@ -150,7 +235,18 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 	cudaFree(values);
 }
 
-
+/**
+ * @brief Performs high-throughput batch insertion from host memory.
+ * 
+ * Functional Utility: Transfers data from host to device and invokes the 
+ * massively parallel insertion kernel. It monitors the load factor and 
+ * triggers an automatic reshape if density exceeds 90%.
+ * 
+ * @param keys Host array of keys.
+ * @param values Host array of values.
+ * @param numKeys Size of the input batch.
+ * @return true if operation succeeded, false otherwise.
+ */
 bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	int *devKeys, *devValues;
 	cudaMalloc((void **)&(devKeys), numKeys * sizeof(int));
@@ -163,6 +259,7 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	cudaMemcpy(devKeys, keys, sizeof(int) * numKeys, cudaMemcpyHostToDevice);
 	cudaMemcpy(devValues, values, sizeof(float) * numKeys, cudaMemcpyHostToDevice);
 
+	// Adaptive Scaling: Proactively expands table capacity to maintain performance.
 	if( (float)(ht.nrElem + numKeys)/(float)(ht.size) >= 0.9)
 		reshape((int)(ht.size / 0.8));
 	
@@ -185,7 +282,16 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	return true;
 }
 
-
+/**
+ * @brief Performs high-throughput batch retrieval for a set of keys.
+ * 
+ * Functional Utility: Synchronizes host/device memory and launches the 
+ * search kernel to resolve a batch of queries in parallel.
+ * 
+ * @param keys Host array of query keys.
+ * @param numKeys Number of keys to retrieve.
+ * @return Pointer to host-allocated array containing retrieved values.
+ */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
 
 	int *devKeys, *devValues, *values;
@@ -216,7 +322,11 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	return values;
 }
 
-
+/**
+ * @brief Calculates the current saturation level of the hash table.
+ * 
+ * @return Density ratio as a floating point value [0.0, 1.0].
+ */
 float GpuHashTable::loadFactor() {
 	return (float)ht.nrElem/(float)ht.size; 
 }
@@ -299,6 +409,13 @@ __device__ const size_t primeList[] =
 
 
 
+/**
+ * @brief Multi-tier hash functions utilizing prime number modular arithmetic.
+ * 
+ * Functional Utility: Provides high-entropy distribution of keys across the 
+ * global memory buckets to minimize clustering and collisions in massively 
+ * parallel environments.
+ */
 __device__ int hash1(int data, int limit) {
 	return ((long)abs(data) * 73llu) % 7240280573005008577llu % limit;
 }
@@ -312,23 +429,36 @@ __device__ int hash3(int data, int limit) {
 }
 
 
-
-
+/**
+ * @struct pair
+ * @brief Atomic unit of storage in the hash table.
+ */
 typedef struct pair {
 	int key;
 	int value;
 } Pair;
 
 
+/**
+ * @struct hashtable
+ * @brief Internal representation of the GPU-resident hash table state.
+ */
 typedef struct hashtable {
-	int nrElem;
-	int size;
-	Pair *data1;
-	Pair *data2;
+	int nrElem;     // Total count of active key-value pairs.
+	int size;       // Capacity of each data bucket tier.
+	Pair *data1;    // Primary memory tier.
+	Pair *data2;    // Secondary memory tier for collision fallback.
 } HashTable;
 
 
 
+/**
+ * @class GpuHashTable
+ * @brief Host-side controller for the GPU-accelerated hash table.
+ * 
+ * Logic: Manages the lifecycle of device-side hash table structures and 
+ * provides a synchronous batch interface for host-to-device operations.
+ */
 class GpuHashTable
 {
 	HashTable ht;

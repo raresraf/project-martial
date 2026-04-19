@@ -17,6 +17,11 @@ __device__ int hash4(int data, int limit) {
 }
 
 
+/**
+ * @brief CUDA kernel for parallel data migration.
+ * 
+ * functional Utility: Re-hashes existing elements into a new destination table.
+ */
 __global__ void kernel_copyVec(struct hash_pair *old_vec, struct hash_pair *new_vec, int old_n, int new_n) {
 	
 
@@ -31,6 +36,7 @@ __global__ void kernel_copyVec(struct hash_pair *old_vec, struct hash_pair *new_
 		int end = new_n;
 
 		int flag = 0;	
+		// Block Logic: Re-insertion probe pass.
 		for (int k = start; k < end; k++) {
 			int oldKey = atomicCAS(&new_vec[k].key, KEY_INVALID, newKey);
 			if (oldKey == KEY_INVALID) {
@@ -39,6 +45,7 @@ __global__ void kernel_copyVec(struct hash_pair *old_vec, struct hash_pair *new_
 				break;
 			}
 		}
+		// Logic: Handle re-insertion wrap-around.
 		if (flag == 0) {
 			for (int k = 0; k < start; k++) {
 				int oldKey = atomicCAS(&new_vec[k].key, KEY_INVALID, newKey);
@@ -54,6 +61,12 @@ __global__ void kernel_copyVec(struct hash_pair *old_vec, struct hash_pair *new_
 
 
 
+/**
+ * @brief CUDA kernel for parallel entry insertion.
+ * 
+ * Functional Utility: Claims slots or updates existing entries using atomicCAS. 
+ * Increments the shared occupancy counter for new unique keys.
+ */
 __global__ void kernel_insertVec(int *keys, int *values, int numKeys, struct hash_pair *hashtable, int full_capacity, int *capacity) {
 	unsigned int i = threadIdx.x + blockDim.x * blockIdx.x;
 
@@ -64,6 +77,9 @@ __global__ void kernel_insertVec(int *keys, int *values, int numKeys, struct has
 		int end = full_capacity;
 
 		int flag = 0;
+		/**
+		 * Block Logic: Primary insertion probe pass.
+		 */
 		for(int k = start; k < end; k++) {
 			int oldKey = atomicCAS(&hashtable[k].key, KEY_INVALID, newKey);
 
@@ -72,17 +88,22 @@ __global__ void kernel_insertVec(int *keys, int *values, int numKeys, struct has
 				hashtable[k].value = values[i];
 				flag = 1;
 				
+				// Logic: Concurrent occupancy increment.
 				atomicAdd(&(*capacity), 1);
 				break;
 			}
 			if (oldKey == newKey) {
 				
+				// Logic: Key matches; perform thread-safe update.
 				hashtable[k].value = values[i];
 				flag = 1;
 				break;
 			}
 			
 		}
+		/**
+		 * Block Logic: Secondary wrap-around probe pass.
+		 */
 		if (flag == 0) {
 			
 			for (int k = 0; k < start; k++) {
@@ -103,6 +124,9 @@ __global__ void kernel_insertVec(int *keys, int *values, int numKeys, struct has
 }
 
 
+/**
+ * @brief CUDA kernel for parallel value retrieval.
+ */
 __global__ void kernel_getVec(int *keys, int *values, int numKeys, struct hash_pair *hashtable, int full_capacity) {
 
 
@@ -115,6 +139,7 @@ __global__ void kernel_getVec(int *keys, int *values, int numKeys, struct hash_p
 		int end = full_capacity;
 
 		int flag = 0;
+		// Logic: Two-pass linear search traversal.
 		for(int k = start; k < end; k++) {
 			if (hashtable[k].key == key) {
 				
@@ -136,10 +161,16 @@ __global__ void kernel_getVec(int *keys, int *values, int numKeys, struct hash_p
 
 
 
+/**
+ * @brief Constructor: Initializes table storage and occupancy tracking.
+ * 
+ * @param size Initial capacity of the hash buffer.
+ */
 GpuHashTable::GpuHashTable(int size) {
 	cudaError_t err;
 
 	
+	// Memory Hierarchy: Managed memory for the occupancy counter to facilitate CPU-GPU visibility.
 	err = cudaMallocManaged(&capacity, sizeof(int));
 	DIE(err != cudaSuccess, "cudaMallocManaged");
 
@@ -148,6 +179,7 @@ GpuHashTable::GpuHashTable(int size) {
 	full_capacity = size;
 
 	
+	// Memory Hierarchy: Global memory allocation for the primary hash buffer.
 	err = cudaMalloc(&hashtable, sizeof(struct hash_pair) * full_capacity);
 	DIE(err != cudaSuccess, "cudaMalloc");
 
@@ -168,23 +200,26 @@ GpuHashTable::~GpuHashTable() {
 }
 
 
+/**
+ * @brief Dynmically resizes the table via re-hashing into new memory.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) {
 	cudaError_t err;
 	struct hash_pair *copy_hashtable;
 
-	
-	err = cudaMalloc(©_hashtable, sizeof(struct hash_pair) * numBucketsReshape);
+
+	err = cudaMalloc(&copy_hashtable, sizeof(struct hash_pair) * numBucketsReshape);
 	DIE(err != cudaSuccess, "cudaMalloc");
 
 	err = cudaMemset(copy_hashtable, 0, numBucketsReshape * sizeof(hash_pair));
 	DIE(err != cudaSuccess, "cudaMalloc");
 
-	
+
 	int blocks_no = full_capacity / BLOCKSIZE;
 	if (full_capacity % BLOCKSIZE)
   		++blocks_no;
 
-  	
+
 	kernel_copyVec>>(hashtable, copy_hashtable, full_capacity, numBucketsReshape);
 	err = cudaDeviceSynchronize();
 	DIE(err != cudaSuccess, "cudaDeviceSynchronize");
@@ -197,6 +232,12 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 }
 
 
+
+/**
+ * @brief Batch parallel insertion from host memory.
+ * 
+ * Logic: Monitors load factor and triggers expansion if density > 90%.
+ */
 bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	cudaError_t err;
 	int *deviceKeys, *deviceValues;
@@ -214,6 +255,7 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	DIE(err != cudaSuccess, "cudaMemcpy");
 
 	
+	// Adaptive Scaling: Ensures performance by maintaining low collision density.
 	float new_factor = ( (float) (*capacity + numKeys) / full_capacity );
 	if (new_factor > 0.9f)
 		reshape((int)(((float) *capacity + numKeys) / 0.8f));
@@ -236,6 +278,9 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 }
 
 
+/**
+ * @brief Batch parallel retrieval.
+ */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	cudaError_t err;
 	int *deviceKeys, *deviceValues, *hostValues;
@@ -271,10 +316,49 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 }
 
 
+/**
+ * @brief Returns current saturation ratio.
+ */
 float GpuHashTable::loadFactor() {
 	float factor = ((float) *capacity / full_capacity);
 	return factor;
 }
+
+
+// ... hash functions and structures ...
+
+/**
+ * @struct hash_pair
+ * @brief Representation of a key-value mapping on the GPU.
+ */
+struct hash_pair {
+	int key;
+	int value;
+};
+
+/**
+ * @class GpuHashTable
+ * @brief Host controller for managing device-side hash mapping.
+ */
+class GpuHashTable
+{
+	int *capacity;              // Managed memory counter for occupancy.
+	int full_capacity;          // Total size of the allocation.
+	struct hash_pair *hashtable; // Pointer to device hash buffer.
+
+	public:
+		GpuHashTable(int size);
+		void reshape(int sizeReshape);
+		
+		bool insertBatch(int *keys, int* values, int numKeys);
+		int* getBatch(int* key, int numItems);
+		
+		float loadFactor();
+		void occupancy();
+		void print(string info);
+	
+		~GpuHashTable();
+};
 
 
 

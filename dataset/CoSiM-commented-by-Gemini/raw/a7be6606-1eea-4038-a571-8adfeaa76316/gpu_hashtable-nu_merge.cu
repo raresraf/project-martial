@@ -1,4 +1,10 @@
-
+/**
+ * @raw/a7be6606-1eea-4038-a571-8adfeaa76316/gpu_hashtable-nu_merge.cu
+ * @brief Concurrent hash table implementation targeting CUDA architectures.
+ * Algorithm: GPU-accelerated hash table exploiting atomic operations for parallel insertions and lookups with dynamic reshaping capability.
+ * Time Complexity: $O(1)$ expected amortized for inserts and gets.
+ * Space Complexity: $O(N)$ for preallocating capacity relative to inserted elements.
+ */
 #include "gpu_hashtable.hpp"
 #include 
 #include 

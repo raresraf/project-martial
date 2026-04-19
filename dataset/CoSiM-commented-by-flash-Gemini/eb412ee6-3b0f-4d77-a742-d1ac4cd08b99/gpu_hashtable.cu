@@ -1,3 +1,16 @@
+/**
+ * @file gpu_hashtable.cu
+ * @brief CUDA Hash Table with stateful initialization and manual resizing.
+ * 
+ * This module implements a parallel hash table that manages its lifecycle using 
+ * state flags (e.g., firstTime). It employs a single-hash linear probing 
+ * algorithm with atomic CAS for concurrency and includes custom host-side logic 
+ * to handle batch allocations and device-to-device memory migrations.
+ * 
+ * Algorithm: Open addressing with circular linear probing and stateful batching.
+ * Memory Model: Global memory (cudaMalloc) for pair arrays.
+ * Domain: HPC, Parallel Data Structures.
+ */
 
 #include 
 #include 
@@ -10,6 +23,9 @@
 
 
 
+/**
+ * @brief Device-side hash function utilizing prime constants.
+ */
 __device__
 int hash_func(int data, int limit) {
 	const size_t val_1 = 26339969llu;
@@ -19,6 +35,12 @@ int hash_func(int data, int limit) {
 
 
 
+/**
+ * @brief CUDA kernel for parallel entry insertion.
+ * 
+ * functional Utility: Performs thread-parallel atomic reservations. Resolves 
+ * collisions via manual circular linear probing.
+ */
 __global__ 
 void insert(int *keys, int *values, int numKeys, HashTable *table, int table_dim, int insertedElements)
 {
@@ -38,6 +60,11 @@ void insert(int *keys, int *values, int numKeys, HashTable *table, int table_dim
 		return;
 	} else {
 
+		/**
+		 * Block Logic: Atomic insertion/update.
+		 * Logic: If slot is empty or matches key, perform thread-safe update. 
+		 * Otherwise, enter linear probe loop.
+		 */
 		if (old == -1 || old == key) {
 			atomicExch(&table[pos].value, val);
 			return;
@@ -58,6 +85,11 @@ void insert(int *keys, int *values, int numKeys, HashTable *table, int table_dim
 }
 
 
+/**
+ * @brief CUDA kernel for memory pool initialization.
+ * 
+ * functional Utility: Resets the hash table state to an uninitialized pattern (key=-1).
+ */
 __global__ void initialize (HashTable *table, int table_dim)
 {
 	unsigned int thread_idx = threadIdx.x + blockDim.x * blockIdx.x;
@@ -69,6 +101,9 @@ __global__ void initialize (HashTable *table, int table_dim)
 }
 
 
+/**
+ * @brief Constructor: Initializes table metadata and primary device buffer.
+ */
 GpuHashTable::GpuHashTable(int size) {
 	
 	int num_blocks = size / 512;
@@ -79,20 +114,28 @@ GpuHashTable::GpuHashTable(int size) {
 	table_dim = size;
 	firstTime = 0;
 	cnt = 0;
+	// Memory Hierarchy: Global memory allocation for entries.
 	cudaMalloc((void **)&table, sizeof(HashTable)*size);
 	
 	initialize>>(table, table_dim);
 }
 
 
-
-
+/**
+ * @brief Destructor: Releases device-resident entries.
+ */
 GpuHashTable::~GpuHashTable() {
 	cudaFree(table);
 }
 
 
 
+/**
+ * @brief CUDA kernel for parallel data migration.
+ * 
+ * functional Utility: Re-hashes valid entries into a new memory space using 
+ * linear probing.
+ */
 __global__ void reshape_table(HashTable *new_table, HashTable *table, int table_dim, int insertedElements)
 {
 	unsigned int thread_idx = threadIdx.x + blockDim.x * blockIdx.x;
@@ -115,6 +158,9 @@ __global__ void reshape_table(HashTable *new_table, HashTable *table, int table_
 
         old = atomicCAS(&new_table[pos].key, -1, key);
 
+		/**
+		 * Block Logic: Re-insertion probe loop.
+		 */
 		if (old == -1 || old == key) {
 			atomicExch(&new_table[pos].value, val);
 			return;
@@ -136,6 +182,9 @@ __global__ void reshape_table(HashTable *new_table, HashTable *table, int table_
 }
 
 
+/**
+ * @brief Resizes the hash table using re-allocation and parallel migration.
+ */
 void GpuHashTable::reshape(int numBucketsReshape)
 {
 	int new_dim = numBucketsReshape;
@@ -146,12 +195,19 @@ void GpuHashTable::reshape(int numBucketsReshape)
 	
 	table_dim = new_dim;
 
+	// Synchronization: Resets table state.
 	cudaFree(table);
 	cudaMalloc(&table, sizeof(HashTable) * new_dim);
 	initialize>>(table, new_dim);
 }
 
 
+/**
+ * @brief Performs host-initiated batch parallel insertion.
+ * 
+ * Logic: Handles stateful initialization (firstTime) and proactive expansion 
+ * based on available free slots vs. batch size.
+ */
 bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	
 	int new_dim;
@@ -178,7 +234,7 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	cudaMemcpy(device_k, keys,   numKeys * sizeof(int), cudaMemcpyHostToDevice);
     cudaMemcpy(device_v, values, numKeys * sizeof(int), cudaMemcpyHostToDevice);
 	
-		
+	// Stateful Logic: Bootstraps the table on the first call.
 	if (firstTime == 0) {
 		new_dim = (numKeys / table_dim) * numKeys + 0.2 * numKeys;
 		int num_blocks_init = new_dim / 512;
@@ -191,6 +247,7 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
         insertedElements += numKeys;
 	} else
 	
+	// Adaptive Scaling: Expands if the remaining capacity is less than the batch size.
 	if (((table_dim - insertedElements) < numKeys)) {
 		int old_dim = table_dim;
 		table_dim = table_dim + numKeys;
@@ -206,6 +263,7 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 		reshape_table>> (new_table_device, table, table_dim, old_dim);
         cudaFree(table);
 		cudaDeviceSynchronize();
+		// Memory Hierarchy: Direct device-to-device migration for persistence.
 		cudaMalloc((void **) &table, sizeof(HashTable) * table_dim);
 		cudaMemcpy(table, new_table_device, table_dim * sizeof(HashTable), cudaMemcpyDeviceToDevice);
 		cudaFree(new_table_device);
@@ -229,6 +287,9 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 
 
 
+/**
+ * @brief CUDA kernel for parallel value lookup.
+ */
 __global__ void get_values(HashTable *table,int *vec, int *keys, int table_dim, int numKeys, int insertedElements) {
 	
 	int inserted = 0;
@@ -241,6 +302,7 @@ __global__ void get_values(HashTable *table,int *vec, int *keys, int table_dim, 
 	if (thread_idx >= numKeys) {
 		return;
 	} else {        	
+		// Block Logic: Standard linear probe search traversal.
 		if (table[pos].key == key) {
 			atomicExch(&vec[thread_idx], table[pos].value);
 			return;
@@ -258,6 +320,9 @@ __global__ void get_values(HashTable *table,int *vec, int *keys, int table_dim, 
     }
 }
 
+/**
+ * @brief Performs host-initiated batch retrieval.
+ */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	
 	int *vec;
@@ -291,6 +356,9 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 }
 
 
+/**
+ * @brief Returns current table density ratio.
+ */
 float GpuHashTable::loadFactor() {
 	return (float)insertedElements / table_dim; 
 }
@@ -373,6 +441,10 @@ const size_t primeList[] =
 
 
 
+/**
+ * @struct HashTable
+ * @brief Representation of an individual mapping on the device.
+ */
 struct HashTable {
 	int value;
 	int key;
@@ -393,13 +465,17 @@ int hash3(int data, int limit) {
 
 
 
+/**
+ * @class GpuHashTable
+ * @brief Host controller for Managing the GPU hash mapping lifecycle.
+ */
 class GpuHashTable
 {	
-	int table_dim;
-	int insertedElements;
-	int firstTime;
-	int cnt;	
-	HashTable *table;
+	int table_dim;          // Current buffer capacity.
+	int insertedElements;   // High-water mark of entries.
+	int firstTime;          // Flag for lazy initialization.
+	int cnt;	            // Scratch counter.
+	HashTable *table;       // Device pointer to the hash buffer.
 	public:
 		GpuHashTable(int size);
 		void reshape(int sizeReshape);

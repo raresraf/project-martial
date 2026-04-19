@@ -1,20 +1,36 @@
+/**
+ * @cd515a9c-fe36-4b11-95b6-a5357a58f681/gpu_hashtable.cu
+ * @brief High-performance GPU Hash Table implementation featuring parallel open addressing and linear probing.
+ * Domain: HPC Data Structures, GPU Systems Optimization.
+ * Hashing Strategy: Employs a multiplicative hash function (hash_function) with prime constants for uniform bucket distribution.
+ * Synchronization: Implements a lock-free update model using atomic Compare-And-Swap (atomicCAS) for thread-safe slot allocation and key verification.
+ * Execution Model: Offloads bulk insertions and queries to the device using grid-stride kernels and optimized memory management.
+ */
 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
+#include <iostream>
+#include <limits.h>
+#include <stdlib.h>
+#include <ctime>
+#include <stdio.h>
+#include <string>
 
 #include "gpu_hashtable.hpp"
 
 
-
+/**
+ * @brief Device-side hashing primitive.
+ * Logic: maps an integer key to a bucket index within [0, limit-1] using prime constant multipliers.
+ */
 __device__ int hash_function(int data, int limit) {
 	return ((long)abs(data) * 51437llu) % 543724411781llu % limit;
 }
 
 
+/**
+ * @brief CUDA Kernel for parallel batch insertion of key-value pairs.
+ * Logic: Circular linear probing. Invariant: Atomically reserves an empty (0) slot or updates an existing key (upsert).
+ * Synchronization: Uses atomicCAS to acquire buckets.
+ */
 __global__ void insert(int *keys, int *values, int numKeys, hashmap hm,
 			struct cell *device_hashmap) {
 	int hash_value, last_key, stop_condition, start_condition, index;
@@ -31,9 +47,12 @@ __global__ void insert(int *keys, int *values, int numKeys, hashmap hm,
 	start_condition = hash_value;
 
 	
+	// Block Logic: Finite linear probing loop with circular wrap-around handling.
 	for (index = start_condition; index < stop_condition; index++) {
+        // Synchronization: atomicCAS ensures thread-safe reservation of empty (0) slots.
 		last_key = atomicCAS(&device_hashmap[index].key, 0, keys[i]);
 		if (last_key == 0 || last_key == keys[i]) {
+            // Invariant: Once slot ownership is confirmed, perform value update.
 			device_hashmap[index].value = values[i];
 			if (last_key == keys[i])
 				hm.numElem--;
@@ -41,6 +60,7 @@ __global__ void insert(int *keys, int *values, int numKeys, hashmap hm,
 		}
 		
 		if (index + 1 == hm.size) {
+            // Logic: Circular step back to index 0 and set stop condition to original hash.
 			index = -1;
 			stop_condition = hash_value;
 		}
@@ -48,6 +68,10 @@ __global__ void insert(int *keys, int *values, int numKeys, hashmap hm,
 }
 
 
+/**
+ * @brief CUDA Kernel for parallel batch retrieval.
+ * Logic: Parallel search sequence mirroring the insertion strategy.
+ */
 __global__ void get(int *keys, int *values, int numKeys, hashmap hm,
 			struct cell *device_hashmap) {
 	int hash_value, start_condition, stop_condition, index;
@@ -78,6 +102,9 @@ __global__ void get(int *keys, int *values, int numKeys, hashmap hm,
 }
 
 
+/**
+ * @brief CUDA Kernel for rehashing data during table capacity expansion.
+ */
 __global__ void reshape_hashmap(int size, int new_size, struct cell *device_hashmap,
 				struct cell *device_hashmap_reshaped) {
 	int hash_value, start_condition, stop_condition, index, last_key;
@@ -87,6 +114,7 @@ __global__ void reshape_hashmap(int size, int new_size, struct cell *device_hash
 
 	if (i >= size)
 		return;
+    // Condition: Only migrate non-empty source buckets.
 	if (device_hashmap[i].key == 0)
 		return;
 	
@@ -112,6 +140,10 @@ __global__ void reshape_hashmap(int size, int new_size, struct cell *device_hash
 }
 
 
+/**
+ * @brief GpuHashTable Constructor.
+ * Strategy: Allocates global memory for entries and initializes keys to 0.
+ */
 GpuHashTable::GpuHashTable(int size) {
 	hm.size = size;
 	hm.numElem = 0;
@@ -127,11 +159,17 @@ GpuHashTable::GpuHashTable(int size) {
 }
 
 
+/**
+ * @brief Cleanup of GPU resources.
+ */
 GpuHashTable::~GpuHashTable() {
 	cudaFree(device_hashmap);
 }
 
 
+/**
+ * @brief Resizes the hash table and triggers a rehash into the new capacity.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) {
 	int last_size = hm.size;
 	const size_t block_size = 256;
@@ -153,6 +191,7 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 	cudaMemset(device_hashmap_reshaped, 0, numBucketsReshape *
 			sizeof(struct cell));
 
+    // Execution: Preserves the original broken '>>' kernel launch syntax as required by the Zero Mutation policy.
 	reshape_hashmap>>(last_size, hm.size,
 				device_hashmap, device_hashmap_reshaped);
 	cudaDeviceSynchronize();
@@ -162,6 +201,10 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 }
 
 
+/**
+ * @brief Batch insertion interface from Host.
+ * Optimization: Performs dynamic load factor monitoring and triggers expansion if density > 90%.
+ */
 bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	int *device_keys;
 	int *device_values;
@@ -181,6 +224,7 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	}
 
 	
+	// Decision Logic: Proactive capacity scaling to maintain O(1) performance.
 	if (((hm.numElem + numKeys) * 1.0) / hm.size >= 0.9)
 		reshape((hm.numElem + numKeys) / 0.8);
 
@@ -200,6 +244,10 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 }
 
 
+/**
+ * @brief Batch retrieval interface from Host.
+ * @return Pointer to host-allocated array containing found values.
+ */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	int *device_keys;
 	int *result_values;
@@ -235,6 +283,7 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 		return NULL;
 	}	
 
+    // Memory Flow: Synchronous retrieval of query results to Host.
 	cudaMemcpy(result_values_host, result_values, numKeys * sizeof(int),
 						cudaMemcpyDeviceToHost);
 	cudaFree(result_values);
@@ -242,6 +291,9 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 }
 
 
+/**
+ * @brief Returns the current occupancy ratio.
+ */
 float GpuHashTable::loadFactor() {
 	return (1.f * hm.numElem) / hm.size;
 }
@@ -330,12 +382,14 @@ int hash2(int data, int limit) {
 	return ((long)abs(data) * primeList[67]) % primeList[91] % limit;
 }
 int hash3(int data, int limit) {
+
+
 	return ((long)abs(data) * primeList[70]) % primeList[93] % limit;
 }
 
-
-
-
+/**
+ * @brief State container for hash table metadata.
+ */
 struct hashmap
 {
 	int size;
@@ -343,8 +397,9 @@ struct hashmap
 };
 
 
-
-
+/**
+ * @brief Represents a single key-value bucket on the GPU.
+ */
 struct cell
 {
 	int key;
@@ -374,4 +429,3 @@ class GpuHashTable
 };
 
 #endif
-

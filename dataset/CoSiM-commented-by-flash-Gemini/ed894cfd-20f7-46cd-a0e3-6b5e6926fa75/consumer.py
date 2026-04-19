@@ -1,14 +1,32 @@
 
+"""
+@file consumer.py
+@brief Multi-threaded Marketplace simulation with centralized resource coordination.
 
+This module implements a Producer-Consumer marketplace model using Python's 
+threading and RLock primitives. It features a Marketplace registry that manages 
+multiple producer-consumer interactions, utilizing dedicated locks for 
+registration, cart management, and inventory removal to ensure transactional 
+atomicity and prevent race conditions during high-concurrency operations.
+
+Algorithm: Concurrent state management with centralized mutual exclusion.
+Domain: Multi-threaded Production Systems.
+"""
 
 from threading import Thread
 from time import sleep
 
 class Consumer(Thread):
-    
+    """
+    Independent consumer thread that executes a predefined schedule of shopping carts.
+    """
 
     def __init__(self, carts, marketplace, retry_wait_time, **kwargs):
-        
+        """
+        :param carts: A list of shopping task sequences.
+        :param marketplace: Reference to the shared coordination hub.
+        :param retry_wait_time: Interval to wait for failed product acquisition.
+        """
 
         Thread.__init__(self, **kwargs)
         self.carts = carts
@@ -19,7 +37,11 @@ class Consumer(Thread):
         self.consumer_carts = []
 
     def run(self):
-
+        """
+        Main execution lifecycle loop for the consumer thread.
+        Logic: Onboards new carts and iteratively processes instructions (add/remove) 
+        before placing final orders.
+        """
         for i in range(len(self.carts)):
             self.cart_id = self.marketplace.new_cart()
             self.consumer_carts.append((self.cart_id, self.carts[i]))
@@ -27,11 +49,14 @@ class Consumer(Thread):
 
 
             for j in range(len(self.carts[i])):
+                # Block Logic: Command routing.
                 if self.carts[i][j]['type'] == 'add':
                     
                     for _ in range(self.carts[i][j]['quantity']):
                         cart_product = self.carts[i][j]['product']
                         self.is_added = self.marketplace.add_to_cart(self.cart_id, cart_product)
+                        
+                        # Logic: Retries addition until product is successfully claimed.
                         while not self.is_added:
                             
                             sleep(self.retry_wait_time)
@@ -40,10 +65,12 @@ class Consumer(Thread):
 
                 else:
                     
+                    # Logic: Batch removal from current cart.
                     for _ in range(self.carts[i][j]['quantity']):
                         self.marketplace.remove_from_cart(self.cart_id, self.carts[i][j]['product'])
 
             
+            # Finalization: Converts session state into a completed purchase.
             order = self.marketplace.place_order(self.cart_id)
             
             for j in range(len(order)):
@@ -66,50 +93,64 @@ HANDLER.setFormatter(FORMATTER)
 LOGGER.addHandler(HANDLER)
 
 class Marketplace:
+    """
+    Central hub for marketplace transactions, ensuring thread-safe access to shared inventories.
+    """
     
 
     def __init__(self, queue_size_per_producer):
-        
+        """
+        :param queue_size_per_producer: Buffering limit for producer stocks.
+        """
         self.queue_size_per_producer = queue_size_per_producer
         self.producer_id = 0
         self.cart_id = 0
-        self.producers_queue_size = {}
-        self.producers_queue = []
+        self.producers_queue_size = {} # Tracks current occupancy per producer.
+        self.producers_queue = [] # Global indexed inventory.
 
         
-        self.producers = {}
+        self.producers = {} # Partitioned inventory by producer.
 
         
-        self.carts_queue = {}
+        self.carts_queue = {} # Active consumer session contents.
 
+        # Partitioned Locking: Separates registration from operational logic to minimize bottlenecking.
         self.register_lock = RLock()
         self.new_cart_lock = RLock()
         self.remove_prod_lock = RLock()
         self.remove_cart_lock = RLock()
 
     def register_producer(self):
-        
+        """
+        Onboards a new producer with a unique identifier and dedicated partition.
+        """
         LOGGER.info("Enter register_producer")
 
-        self.register_lock.acquire()
-        self.producer_id += 1
-        self.register_lock.release()
+        with self.register_lock:
+            # Logic: Atomic unique identifier generation.
+            self.producer_id += 1
+            prod_id = self.producer_id
 
         
-        self.producers_queue_size[self.producer_id] = 0
-        self.producers[self.producer_id] = []
+        # Initialization: Sets up empty tracking state for the producer.
+        self.producers_queue_size[prod_id] = 0
+        self.producers[prod_id] = []
 
         LOGGER.info("Exit register_producer")
-        return self.producer_id
+        return prod_id
 
     def publish(self, producer_id, product):
-        
+        """
+        Adds a product unit to a producer's buffer.
+        Logic: Enforces production quotas using thread-safe state checks.
+        """
         LOGGER.info("Enter publish(%s, %s)", producer_id, product)
 
         
         if self.producers_queue_size[producer_id] >= self.queue_size_per_producer:
             return False
 
+        # Critical Section: Update partitioned and global inventory state.
         self.producers_queue_size[producer_id] += 1
 
         
@@ -120,74 +161,80 @@ class Marketplace:
         return True
 
     def new_cart(self):
-        
+        """
+        Creates a new shopping session for a consumer.
+        """
         LOGGER.info("Enter new_cart")
-        self.new_cart_lock.acquire()
-        self.cart_id += 1
-        self.new_cart_lock.release()
+        with self.new_cart_lock:
+            # Logic: Atomic cart ID generation.
+            self.cart_id += 1
+            cart_id = self.cart_id
 
         
-        self.carts_queue[self.cart_id] = []
+        self.carts_queue[cart_id] = []
 
         LOGGER.info("Exit new_cart")
-        return self.cart_id
+        return cart_id
 
     def add_to_cart(self, cart_id, product):
-        
+        """
+        Transfers an item unit from any global stock to a consumer cart.
+        Logic: Performs a global search across all partitions and reservations.
+        """
         LOGGER.info("Enter add_to_cart(%s, %s)", cart_id, product)
 
-        self.remove_prod_lock.acquire()
-
-        
-        if len(self.producers_queue) == 0:
-            self.remove_prod_lock.release()
-            LOGGER.info("Exit add_to_cart")
-            return False
-
-        
-        for i in range(len(self.producers_queue)):
-            
-            if self.producers_queue[i][1] == product:
-                
-                
-                self.carts_queue[cart_id].append((self.producers_queue[i][0], product))
-
-                
-                self.producers_queue_size[self.producers_queue[i][0]] -= 1
-                self.producers[self.producers_queue[i][0]].remove(product)
-                self.producers_queue.remove((self.producers_queue[i][0], product))
-                self.remove_prod_lock.release()
+        with self.remove_prod_lock:
+            # Block Logic: Inventory availability check.
+            if len(self.producers_queue) == 0:
                 LOGGER.info("Exit add_to_cart")
-                return True
+                return False
 
-        self.remove_prod_lock.release()
+            
+            # Logic: Global inventory traversal for atomic acquisition.
+            for i in range(len(self.producers_queue)):
+                
+                if self.producers_queue[i][1] == product:
+                    
+                    # Critical Section: Multi-registry state transition.
+                    self.carts_queue[cart_id].append((self.producers_queue[i][0], product))
+
+                    
+                    self.producers_queue_size[self.producers_queue[i][0]] -= 1
+                    self.producers[self.producers_queue[i][0]].remove(product)
+                    self.producers_queue.remove((self.producers_queue[i][0], product))
+                    LOGGER.info("Exit add_to_cart")
+                    return True
+
         LOGGER.info("Exit add_to_cart")
         return False
 
     def remove_from_cart(self, cart_id, product):
-        
+        """
+        Reverts a cart item back to the original producer partition.
+        """
         LOGGER.info("Enter remove_from_cart(%s, %s)", cart_id, product)
 
-        self.remove_cart_lock.acquire()
+        with self.remove_cart_lock:
+            
+            # Logic: Locates the originating producer for restoration.
+            product_tuple = [product_tuple_item for product_tuple_item in self.carts_queue[cart_id] if
+                             product_tuple_item[1] == product]
+            producer_id = product_tuple[0][0]
 
-        
-        product_tuple = [product_tuple_item for product_tuple_item in self.carts_queue[cart_id] if
-                         product_tuple_item[1] == product]
-        producer_id = product_tuple[0][0]
+            # Critical Section: Restoration of global and partitioned inventory.
+            self.producers[producer_id].append(product)
+            self.producers_queue_size[producer_id] += 1
+            self.producers_queue.append((producer_id, product))
 
-        
-        self.producers[producer_id].append(product)
-        self.producers_queue_size[producer_id] += 1
-        self.producers_queue.append((producer_id, product))
+            # Synchronization: Finalize removal from consumer session.
+            self.carts_queue[cart_id].remove((producer_id, product))
 
-        
-        self.carts_queue[cart_id].remove((producer_id, product))
-
-        self.remove_cart_lock.release()
         LOGGER.info("Exit remove_from_cart")
 
     def place_order(self, cart_id):
-        
+        """
+        Finalizes the order record and purges session state.
+        """
         LOGGER.info("Enter place_order(%s)", cart_id)
         return self.carts_queue[cart_id]
 import unittest
@@ -306,10 +353,16 @@ from threading import Thread
 from time import sleep
 
 class Producer(Thread):
-    
+    """
+    Supply-side background thread that continuously manufactures and publishes products.
+    """
 
     def __init__(self, products, marketplace, republish_wait_time, **kwargs):
-        
+        """
+        :param products: Catalog of product metadata.
+        :param marketplace: Shared hub for publishing.
+        :param republish_wait_time: Throttling delay on full inventory.
+        """
         Thread.__init__(self, **kwargs)
         self.products = products
         self.marketplace = marketplace
@@ -318,6 +371,11 @@ class Producer(Thread):
         self.is_published = True
 
     def run(self):
+        """
+        Main lifecycle loop.
+        Logic: Onboards with the marketplace and iteratively produces the catalog 
+        while respecting capacity constraints and manufacturing times.
+        """
         self.producer_id = self.marketplace.register_producer()
 
 
@@ -329,6 +387,7 @@ class Producer(Thread):
                 for _ in range(self.products[i][1]):
 
                     
+                    # Logic: Attempts to publish until marketplace buffer has space.
                     self.is_published = self.marketplace.publish(self.producer_id, self.products[i][0])
 
                     while not self.is_published:
@@ -338,6 +397,7 @@ class Producer(Thread):
 
                     if self.is_published:
                         
+                        # Logic: Simulated production time.
                         sleep(self.products[i][2])
 
 
@@ -346,19 +406,25 @@ from dataclasses import dataclass
 
 @dataclass(init=True, repr=True, order=False, frozen=True)
 class Product:
-    
+    """
+    Immutable representation of a generic marketplace unit.
+    """
     name: str
     price: int
 
 
 @dataclass(init=True, repr=True, order=False, frozen=True)
 class Tea(Product):
-    
+    """
+    Variety metadata for tea items.
+    """
     type: str
 
 
 @dataclass(init=True, repr=True, order=False, frozen=True)
 class Coffee(Product):
-    
+    """
+    Roast metadata for coffee items.
+    """
     acidity: str
     roast_level: str

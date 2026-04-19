@@ -2,8 +2,10 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
+//! @raw/a67a118b-785f-431a-b11a-d3c7734d04d0/components/devtools/actors/network_event.rs
+//! @brief Handles interaction with the remote web console on network events (HTTP requests, responses) in Servo.
+//! Architecture: Acts as a devtools protocol actor that bridges internal network handler events with the Firefox DevTools JS frontend, translating raw headers, timings, and statuses into JSON streams.
 //! Liberally derived from the [Firefox JS implementation](http://mxr.mozilla.org/mozilla-central/source/toolkit/devtools/server/actors/webconsole.js).
-//! Handles interaction with the remote web console on network events (HTTP requests, responses) in Servo.
 
 use std::net::TcpStream;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};

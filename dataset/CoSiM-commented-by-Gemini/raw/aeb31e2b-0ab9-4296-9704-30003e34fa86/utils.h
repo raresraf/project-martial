@@ -1,13 +1,26 @@
-
+/**
+ * @raw/aeb31e2b-0ab9-4296-9704-30003e34fa86/utils.h
+ * @brief Common utility types, macros, and function prototypes for the dense matrix operations suite.
+ */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/time.h>
 
+/**
+ * Functional Utility: Defines a standardized function pointer for interchangeable solver backends.
+ */
 typedef double* (*Solver)(int, double *, double*);
 
+/**
+ * Inline: Generates a uniformly distributed random floating-point value within [-limit, limit] 
+ * for dataset initialization and fuzzing.
+ */
 #define get_rand_double(limit) ((((double)rand()) / RAND_MAX) * (2 * limit) - limit)
 
+/**
+ * Functional Utility: Wraps parameters required to orchestrate a distinct matrix testing run.
+ */
 struct test {
 	int seed;
 	int N;

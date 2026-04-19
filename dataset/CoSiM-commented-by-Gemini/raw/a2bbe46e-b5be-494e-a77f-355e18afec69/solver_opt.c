@@ -1,6 +1,12 @@
+/**
+ * @raw/a2bbe46e-b5be-494e-a77f-355e18afec69/solver_opt.c
+ * @brief Optimized dense matrix multiplication solver computing C = (A * B) * B^T + A^T * A.
+ * Algorithm: Focuses on cache-locality and explicit loop optimizations via transposition, pointers, and CPU registers.
+ * Time Complexity: $O(N^3)$
+ * Space Complexity: $O(N^2)$ tracking internal partial product evaluations.
+ */
 
 #include "utils.h"
-
 
 int min(int i, int j)
 {
@@ -10,19 +16,20 @@ int min(int i, int j)
 	return j;
 }
 
-
 double *alloc_matrix(int N)
 {
 	return (double *)calloc(N * N, sizeof(double));
 }
-
 
 void free_matrix(double *A)
 {
 	free(A);
 }
 
-
+/**
+ * Block Logic: Evaluates res = A * B utilizing variable pointers dynamically stored inside processor CPU registers.
+ * Optimization: Isolates memory address lookups ensuring tight inner bounds targeting cache-optimized dimensions.
+ */
 double *multiply(int N, double *A, double *B)
 {
 	register int i = 0;
@@ -34,7 +41,6 @@ double *multiply(int N, double *A, double *B)
 
 	for (i = 0; i < N; i++)
 		for (j = 0; j < N; j++) {
-			
 			line_A = &A[i * N];
 			sum = 0.0;
 			for (k = i; k < N; k++)
@@ -45,7 +51,9 @@ double *multiply(int N, double *A, double *B)
 	return res;
 }
 
-
+/**
+ * Block Logic: Evaluates res = A * At^T utilizing variable pointers.
+ */
 double *multiply_with_transpose_right(int N, double *A, double *At)
 {
 	register int i = 0;
@@ -69,7 +77,10 @@ double *multiply_with_transpose_right(int N, double *A, double *At)
 	return res;
 }
 
-
+/**
+ * Block Logic: Derives mapping symmetric elements evaluating res = At^T * A.
+ * Optimization: Eliminates repetitive coordinate calculation copying elements over reflected boundary `res[i*N+j] = res[j*N+i]`.
+ */
 double *multiply_with_transpose_left(int N, double *A, double *At)
 {
 	register int i = 0;
@@ -79,9 +90,7 @@ double *multiply_with_transpose_left(int N, double *A, double *At)
 	double *res = alloc_matrix(N);
 
 	for (i = 0; i < N; i++)
-		
 		for (j = i; j < N; j++) {
-			
 			sum = 0.0;
 			for (k = 0; k < min(i, j) + 1; k++)
 				sum += At[k * N + i] * A[k * N + j];
@@ -92,7 +101,9 @@ double *multiply_with_transpose_left(int N, double *A, double *At)
 	return res;
 }
 
-
+/**
+ * Functional Utility: Accelerates element-wise matrix addition utilizing contiguous pointer mapping.
+ */
 double *add(int N, double *A, double *B)
 {
 	register int i = 0;
@@ -114,23 +125,18 @@ double *add(int N, double *A, double *B)
 	return res;
 }
 
-
+/**
+ * Functional Utility: Orchestrates the calculation sequence allocating explicit logic matrices sequentially.
+ */
 double* my_solver(int N, double *A, double *B) {
 	double *AB = NULL;
 	double *ABBt = NULL;
 	double *AtA = NULL;
 	double *C = NULL;
 
-	
 	AB = multiply(N, A, B);
-
-	
 	ABBt = multiply_with_transpose_right(N, AB, B);
-
-	
 	AtA = multiply_with_transpose_left(N, A, A);
-
-	
 	C = add(N, ABBt, AtA);
 
 	free_matrix(AB);

@@ -1,3 +1,17 @@
+/**
+ * @file gpu_hashtable.cu
+ * @brief High-throughput GPU Hash Table with bitwise-optimized hashing.
+ * 
+ * This module implements a parallel hash table designed for massive concurrency. 
+ * It utilizes a bitwise-optimized hash function for high-entropy distribution 
+ * and employs a robust circular linear probing strategy. Key updates are 
+ * reconciled via atomic counters, allowing for accurate host-side tracking of 
+ * unique elements and adaptive resizing.
+ * 
+ * Algorithm: Open addressing with circular linear probing and update tracking.
+ * Memory Model: Global memory (cudaMalloc) for hash table state and update counters.
+ * Domain: HPC, Parallel Data Structures.
+ */
 
 #include 
 #include 
@@ -9,15 +23,21 @@
 #include "gpu_hashtable.hpp"
 
 
-
+/**
+ * @brief Constructor: Initializes table storage and synchronization counters.
+ * 
+ * @param size Initial capacity of the hash buffer.
+ */
 GpuHashTable::GpuHashTable(int size) {
 	
+	// Memory Hierarchy: Global memory allocation for the primary hash structure.
 	cudaError_t __cudaCalloc_err = cudaMalloc(&this->hashtable, size * sizeof(gpu_hashtable));
 	if (__cudaCalloc_err == cudaSuccess) 
 		cudaMemset(this->hashtable, 0, size * sizeof(gpu_hashtable));
 
 
 	
+	// Memory Hierarchy: Device-side atomic counter for update reconciliation.
 	__cudaCalloc_err = cudaMalloc(&this->update_device, sizeof(int));
 	DIE(__cudaCalloc_err != cudaSuccess, "cudaMalloc error");
 
@@ -36,6 +56,9 @@ GpuHashTable::GpuHashTable(int size) {
 }
 
 
+/**
+ * @brief Destructor: Frees GPU and host-resident state.
+ */
 GpuHashTable::~GpuHashTable() {
 	
 	cudaFree(this->hashtable);
@@ -49,6 +72,9 @@ GpuHashTable::~GpuHashTable() {
 
 
 
+/**
+ * @brief Device-side hash function using bitwise shifts and multipliers.
+ */
 __device__ int hashFunction(int key, int maxim){
     key ^= key >> 16;
     key *= 0x85ebca6b;
@@ -61,6 +87,12 @@ __device__ int hashFunction(int key, int maxim){
 }
 
 
+/**
+ * @brief CUDA kernel for parallel entry insertion.
+ * 
+ * functional Utility: Performs thread-parallel atomic reservations. Uses atomicCAS 
+ * to handle new keys and atomicAdd to track overrides of existing keys.
+ */
 __global__ void gpu_hashtable_insert_kernel(gpu_hashtable *hashtable, int *keys, int *values, int numKeys, int maxim, int *update)
 {
 	int threadId = blockIdx.x * blockDim.x + threadIdx.x;
@@ -72,9 +104,13 @@ __global__ void gpu_hashtable_insert_kernel(gpu_hashtable *hashtable, int *keys,
 		int slot = hashFunction(key, maxim);
 		
 		
+		/**
+		 * Block Logic: Multi-pass circular probing.
+		 */
 		for(i = slot; i < maxim; i++)
 		{
 			
+			// Logic: Atomic claim or matching key check.
 			int prev = atomicCAS(&hashtable[i].key, KEY_INVALID, key);
 			
 			if (prev == KEY_INVALID) {
@@ -82,11 +118,13 @@ __global__ void gpu_hashtable_insert_kernel(gpu_hashtable *hashtable, int *keys,
 				return;
 			}
 			else if (prev == key) {
+				// Logic: Key already exists; track as an update.
 				atomicAdd(update, 1);
 				hashtable[i].value = value;
 				return;
 			}
 		}
+		// Logic: Probe wrap-around.
 		for(i = 0; i < slot; i++){
 			
 			int prev = atomicCAS(&hashtable[i].key, KEY_INVALID, key);
@@ -105,8 +143,11 @@ __global__ void gpu_hashtable_insert_kernel(gpu_hashtable *hashtable, int *keys,
 }
 
 
-
-
+/**
+ * @brief CUDA kernel for parallel data migration.
+ * 
+ * functional Utility: Re-hashes existing entries into a new, larger buffer.
+ */
 __global__ void gpu_hashtable_insert_kernel(gpu_hashtable *hashtable, gpu_hashtable *hash, int numKeys, int maxim)
 {
 	int threadId = blockIdx.x * blockDim.x + threadIdx.x;
@@ -118,6 +159,7 @@ __global__ void gpu_hashtable_insert_kernel(gpu_hashtable *hashtable, gpu_hashta
 		int slot = hashFunction(key, maxim);
 		
 		
+		// Logic: Two-pass linear re-insertion.
 		for(i = slot; i < maxim; i++)
 		{
 			int prev = atomicCAS(&hashtable[i].key, KEY_INVALID, key);
@@ -137,6 +179,9 @@ __global__ void gpu_hashtable_insert_kernel(gpu_hashtable *hashtable, gpu_hashta
 }
 
 
+/**
+ * @brief Dynmically resizes the table and re-hashes existing mappings.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) {
 
 	
@@ -152,6 +197,7 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 	
 	int block_no = (*this->maxim_host + THREAD_BLOCKSIZE - 1) / THREAD_BLOCKSIZE;
 	
+	// Synchronization: Parallel re-insertion into the new expanded memory space.
 	gpu_hashtable_insert_kernel>>(this->hashtable, old_hash, *this->maxim_host, new_size);
 	
 	cudaDeviceSynchronize();
@@ -164,6 +210,12 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 }
 
 
+/**
+ * @brief Performs host-initiated batch parallel insertion.
+ * 
+ * Logic: Monitors real occupancy (size minus updates) and triggers 
+ * expansion if the table would overflow.
+ */
 bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	int *keys_device, *values_device;
 
@@ -174,7 +226,8 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 
 	
 	
-	if (this->current_host - update + numKeys > this->maxim_host)
+	// Adaptive Scaling: Monitors true occupancy to maintain efficiency.
+	if (*this->current_host - update + numKeys > *this->maxim_host)
 		reshape(*this->current_host + numKeys);
 
 	
@@ -203,12 +256,16 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	return true;
 }
 
+/**
+ * @brief Device helper for retrieving a single key's value.
+ */
 __device__ int gpu_hashtable_get(gpu_hashtable *hashtable, int key, int maxim)
 {
 	
     int slot = hashFunction(key, maxim);
 	int i;
 	
+	// Block Logic: Multi-pass linear search.
 	for(i = slot; i < maxim; i++)
 		if (hashtable[i].key == key)
 			return hashtable[i].value;
@@ -223,6 +280,9 @@ __device__ int gpu_hashtable_get(gpu_hashtable *hashtable, int key, int maxim)
 
 
 
+/**
+ * @brief CUDA kernel for batch retrieval.
+ */
 __global__ void gpu_hashtable_get_kernel(gpu_hashtable *hashtable, int *keys, int *values, int numKeys, int maxim)
 {
 	int threadId = blockIdx.x * blockDim.x + threadIdx.x;
@@ -235,6 +295,9 @@ __global__ void gpu_hashtable_get_kernel(gpu_hashtable *hashtable, int *keys, in
 }
 
 
+/**
+ * @brief Performs host-initiated batch parallel retrieval.
+ */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	int *values_host, *values_device, *keys_device;
 
@@ -266,6 +329,9 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 }
 
 
+/**
+ * @brief Returns the current occupancy density.
+ */
 float GpuHashTable::loadFactor() {
 	int update;
 	cudaMemcpy(&update, this->update_device, sizeof(int), cudaMemcpyDeviceToHost);
@@ -365,11 +431,19 @@ int hash3(int data, int limit) {
 
 
 
+/**
+ * @struct gpu_hashtable
+ * @brief Representation of an individual key-value mapping on the device.
+ */
 struct gpu_hashtable
 {
 	int key, value;
 };
 
+/**
+ * @class GpuHashTable
+ * @brief Host controller for Managing the GPU hash mapping lifecycle.
+ */
 class GpuHashTable
 {
 	public:
@@ -385,9 +459,10 @@ class GpuHashTable
 	
 		~GpuHashTable();
 	private:
-		gpu_hashtable *hashtable;
-		int *maxim_host, *current_host;
-		int *update_device;
+		gpu_hashtable *hashtable;   // Device pointer to the hash structure.
+		int *maxim_host;            // Pointer to current capacity (host).
+		int *current_host;          // Pointer to current insertion count (host).
+		int *update_device;         // Device-side counter for overridden keys.
 };
 
 #endif

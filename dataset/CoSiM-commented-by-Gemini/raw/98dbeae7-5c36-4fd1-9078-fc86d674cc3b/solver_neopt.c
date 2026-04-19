@@ -1,9 +1,17 @@
+/**
+ * @raw/98dbeae7-5c36-4fd1-9078-fc86d674cc3b/solver_neopt.c
+ * @brief Unoptimized dense matrix multiplication solver computing C = A^T * A + A * (B * B^T).
+ * Algorithm: Standard nested loops traversing the matrices generating element-wise answers.
+ * Time Complexity: $O(N^3)$
+ * Space Complexity: $O(N^2)$ for intermediate target buffers.
+ */
 
 #include "utils.h"
 #include "string.h"
 
-
-
+/**
+ * Functional Utility: Cumulates array `b` into array `c` simulating element-wise vector addition.
+ */
 void sum(double *c, double *b, int N) {
 	int i, j;
 	for (i = 0; i < N; i++) {
@@ -13,6 +21,10 @@ void sum(double *c, double *b, int N) {
 	}
 }
 
+/**
+ * Block Logic: Solves c = a^T * b. Since a == b == A, it computes A^T * A.
+ * Invariant: Limits internal multiplicative limits `k <= (i > j ? j : i)` based on symmetric upper triangular constraints.
+ */
 void mulAtA(double *c, double *a, double *b, int N) {
 	int i, j, k;
 	for (i = 0; i < N; i++) {
@@ -24,6 +36,9 @@ void mulAtA(double *c, double *a, double *b, int N) {
 	}
 }
 
+/**
+ * Block Logic: Evaluates B * B^T utilizing symmetric row by row multiplication.
+ */
 void mulBBt(double *c, double *a, double *b, int N) {
 	int i, j, k;
 	for (i = 0; i < N; i++) {
@@ -35,6 +50,10 @@ void mulBBt(double *c, double *a, double *b, int N) {
 	}
 }
 
+/**
+ * Block Logic: Generates c = a * b. Solves A * (B * B^T).
+ * Invariant: Adheres to the upper-triangular structure of A by starting the third loop from `i`.
+ */
 void mulABBt(double *c, double *a, double *b, int N) {
 	int i, j, k;
 	for (i = 0; i < N; i++) {
@@ -46,6 +65,9 @@ void mulABBt(double *c, double *a, double *b, int N) {
 	}
 }
 
+/**
+ * Functional Utility: Orchestrates the calculation sequence and orchestrates temporary memory allocation.
+ */
 double* my_solver(int N, double *A, double* B) {
 	double *C = (double*)calloc(N * N, sizeof(double));
 	double *D = (double*)calloc(N * N, sizeof(double));

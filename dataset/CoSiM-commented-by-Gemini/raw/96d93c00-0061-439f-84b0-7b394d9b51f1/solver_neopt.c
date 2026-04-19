@@ -1,6 +1,12 @@
+/**
+ * @raw/96d93c00-0061-439f-84b0-7b394d9b51f1/solver_neopt.c
+ * @brief Unoptimized dense matrix multiplication solver computing RES = (A * B) * B^T + A^T * A.
+ * Algorithm: Standard nested loops evaluating separate mathematical terms. Explicit transpositions used.
+ * Time Complexity: $O(N^3)$
+ * Space Complexity: $O(N^2)$ for storing multiple matrices including explicitly transposed copies.
+ */
 
 #include "utils.h"
-
 
 double* my_solver(int N, double *A, double* B) {
 	double *A_star_B;
@@ -11,6 +17,9 @@ double* my_solver(int N, double *A, double* B) {
 	double *RES;
 	int numMatrixElems = N * N;
 
+	/**
+	 * Functional Utility: Initializes intermediate computation buffers matching the matrix dimensions.
+	 */
 	A_star_B = calloc(numMatrixElems, sizeof(*A_star_B));
 	B_tr = calloc(numMatrixElems, sizeof(*B_tr));
 	OP1 = calloc(numMatrixElems, sizeof(*OP1));
@@ -18,7 +27,10 @@ double* my_solver(int N, double *A, double* B) {
 	OP2 = calloc(numMatrixElems, sizeof(*OP2));
 	RES = calloc(numMatrixElems, sizeof(*RES));
 
-	
+	/**
+	 * Block Logic: Computes the partial matrix multiplication A_star_B = A * B.
+	 * Invariant: Matrix A is constrained structurally as an upper triangular matrix, pruning checks via `k >= i`.
+	 */
 	for (int i = 0; i < N; i++) {
 		for (int j = 0; j < N; j++) {
 			for (int k = 0; k < N; k++) {
@@ -29,14 +41,20 @@ double* my_solver(int N, double *A, double* B) {
 		}
 	}
 
-	
+	/**
+	 * Block Logic: Explicitly computes the transposition of matrix B generating B_tr = B^T.
+	 * Invariant: Caches B^T spatially to allow row-major iterations.
+	 */
 	for (int i = 0; i < N; i++) {
     	for (int j = 0; j < N; j++) {
     		B_tr[j * N + i] = B[i * N + j];
     	}
 	}
 
-	
+	/**
+	 * Block Logic: Computes OP1 = A_star_B * B_tr.
+	 * Resolves to the expression OP1 = (A * B) * B^T.
+	 */
 	for (int i = 0; i < N; i++) {
 		for (int j = 0; j < N; j++) {
 			for (int k = 0; k < N; k++) {
@@ -45,14 +63,19 @@ double* my_solver(int N, double *A, double* B) {
 		}
 	}
 
-	
+	/**
+	 * Block Logic: Derives A_tr = A^T dynamically.
+	 */
 	for (int i = 0; i < N; i++) {
     	for (int j = 0; j < N; j++) {
     		A_tr[j * N + i] = A[i * N + j];
     	}
 	}
 
-	
+	/**
+	 * Block Logic: Computes OP2 = A_tr * A.
+	 * Invariant: Exploits the combined upper-lower triangular traits preventing calculation over `j < k`.
+	 */
 	for (int i = 0; i < N; i++) {
 		for (int j = 0; j < N; j++) {
 			for (int k = 0; k < N; k++) {
@@ -63,7 +86,10 @@ double* my_solver(int N, double *A, double* B) {
 		}
 	}
 
-	
+	/**
+	 * Block Logic: Final synthesis step producing RES = OP1 + OP2.
+	 * Invariant: Evaluates the formula completely via element-wise addition.
+	 */
 	for (int i = 0; i < N; i++) {
 		for (int j = 0; j < N; j++) {
 			RES[i * N + j] = OP1[i * N + j] + OP2[i * N + j];

@@ -1,4 +1,5 @@
 /**
+ * @raw/a9ccc276-5397-462b-9180-82af6ce8968c/gpu_hashtable.cu
  * @file gpu_hashtable.cu
  * @brief Implements a GPU-accelerated hash table using CUDA.
  *

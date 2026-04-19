@@ -1,4 +1,10 @@
-
+/**
+ * @raw/8890c616-fbd7-4a4e-98ec-ad5ad4a09f55/compare.c
+ * @brief Memory-mapped verification utility for confirming accuracy between binary matrix outputs.
+ * Algorithm: Element-wise numeric validation utilizing memory mapping to optimize file I/O for large datasets.
+ * Time Complexity: $O(N^2)$ for comparing elements.
+ * Space Complexity: $O(1)$ RAM usage excluding virtual memory bounds from mmap.
+ */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -9,9 +15,17 @@
 #include <unistd.h>
 #include <math.h>
 
+/**
+ * Inline: Precision-aware equality checker avoiding false negatives from floating-point accumulation errors.
+ */
 #define check_err(a,b,err) ((fabs((a) - (b)) <= (err)) ? 0 : -1)
 
-
+/**
+ * @brief Compares two binary dumps of dense matrices element-by-element using mmap.
+ * @param file_path1 Path to the baseline/first binary matrix file.
+ * @param file_path2 Path to the candidate/second binary matrix file.
+ * @param precision Configurable threshold for acceptable floating point drift.
+ */
 int cmp_files(char const *file_path1, char const *file_path2, double precision) {
 	struct stat fileInfo1, fileInfo2;
 	double *mat1, *mat2;
@@ -30,6 +44,10 @@ int cmp_files(char const *file_path1, char const *file_path2, double precision) 
 		return -1;
 	}
 
+	/**
+	 * Functional Utility: Employs mmap for shared memory projection, enabling
+	 * efficient large-file traversal without explicit read buffer allocations.
+	 */
 	mat1 = (double*) mmap(0, fileInfo1.st_size, PROT_READ, MAP_SHARED, fd1, 0);
 	if (mat1 == MAP_FAILED)
 	{
@@ -51,6 +69,10 @@ int cmp_files(char const *file_path1, char const *file_path2, double precision) 
 
 	N = sqrt(fileInfo1.st_size / sizeof(double));
 
+	/**
+	 * Block Logic: Linearly sweeps mapped memory regions performing element-wise tolerance validations.
+	 * Invariant: Retains synchronization of pointer offsets over the unified spatial dimension (N * N).
+	 */
 	for (i = 0; i < N; i++ ) {
 		for (j = 0; j< N; j++) {
 			ret = check_err(mat1[i * N + j], mat2[i * N + j], precision); 

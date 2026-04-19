@@ -1,10 +1,18 @@
+/**
+ * @b2271018-c908-47f8-b818-d6f3d5b8bfae/gpu_hashtable.cu
+ * @brief CUDA-accelerated Hash Table implementation using parallel open addressing and circular linear probing.
+ * Domain: Parallel Data Structures, GPU Systems Programming.
+ * Hashing Strategy: Employs a multiplicative congruential hash function using prime constants (primeNr1, primeNr2) for bucket indexing.
+ * Synchronization: Implements a lock-free update model using atomic Compare-And-Swap (atomicCAS) for thread-safe slot allocation.
+ * Execution Model: Uses a 1D grid with a block size of 1024, optimized for high-throughput batch operations.
+ */
 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
+#include <iostream>
+#include <limits.h>
+#include <stdlib.h>
+#include <ctime>
+#include <stdio.h>
+#include <string>
 
 #include "gpu_hashtable.hpp"
 #define SIZE 1
@@ -12,8 +20,10 @@
 #define primeNr2 5351951779llu
 
 
-
-
+/**
+ * @brief GpuHashTable Constructor.
+ * Strategy: Allocates global memory for separate key and value arrays on the device, plus an occupancy counter.
+ */
 GpuHashTable::GpuHashTable(int size) {
 	limit = 0;
 	totalSpace = 0;
@@ -24,6 +34,7 @@ GpuHashTable::GpuHashTable(int size) {
 	cudaMalloc((void **)&(hvalues), SIZE * limit * sizeof(int));
 	cudaMalloc((void **)&(usedSpaceDev), 1 * sizeof(int));
 
+    // Initialization: Zeroes the state metadata.
 	cudaMemset((void **)&(hkeys), 0, SIZE * limit * sizeof(int));
 	cudaMemset((void **)&(hvalues), 0, SIZE * limit * sizeof(int));
 	cudaMemset((void **)&(usedSpaceDev), 0, 1 * sizeof(int));
@@ -31,15 +42,19 @@ GpuHashTable::GpuHashTable(int size) {
 }
 
 
+/**
+ * @brief Cleanup device resources.
+ */
 GpuHashTable::~GpuHashTable() {
 }
 
 
-
-
-
-
-
+/**
+ * @brief CUDA Kernel for parallel insertion of key-value pairs.
+ * @param usedSpaceDev Device pointer for tracking the count of unique keys stored.
+ * Synchronization: Uses atomicCAS to acquire slots or identify existing ownership for updates.
+ * Logic: Circular linear probing. Invariant: Atomically increments occupancy count only on successful reservation of a new bucket.
+ */
 __global__ void hashCompute(int *keysDev, int *valuesDev, int *hkeys, int *hvalues,
 	int numKeys, int limit, int *usedSpaceDev) {
 
@@ -51,18 +66,23 @@ __global__ void hashCompute(int *keysDev, int *valuesDev, int *hkeys, int *hvalu
 		bool found = false;
 		int first = 0;
 
+		// Block Logic: Collision resolution loop.
 		while (first == 0 || !found && j != hash) {
 			first = 1;
+            
+            // Synchronization: attempts to reserve an empty (0) slot.
 			if (atomicCAS(&hkeys[j], 0, keysDev[i]) == 0) {
 				atomicAdd(usedSpaceDev, 1);
 				hvalues[j] = valuesDev[i];
 				found = true;
                 break;
 			} else if (atomicCAS(&hkeys[j], 0, keysDev[i]) == keysDev[i]) {
+				// Logic: Key exists; perform update (Upsert semantics).
 				hvalues[j] = valuesDev[i];
 				found = true;
 				break;
 			}
+            // Logic: Circular step.
 			j = (j + 1) % limit;
 		}
 	}
@@ -70,8 +90,11 @@ __global__ void hashCompute(int *keysDev, int *valuesDev, int *hkeys, int *hvalu
 } 
 
 
-
-
+/**
+ * @brief Resizes the hash table capacity.
+ * Logic: Transfers valid entries back to Host, reallocates Device memory, and re-inserts data.
+ * Performance: Note that this implementation uses a Host-round-trip rehashing strategy.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) {
 	int oldLimit = limit;
 	limit = numBucketsReshape;
@@ -95,6 +118,7 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 		cudaMalloc((void**)&(keysDev), oldLimit * sizeof(int));
 		cudaMalloc((void**)&(valuesDev), oldLimit * sizeof(int));
 		
+		// Data Migration: Collects non-empty buckets into Host buffers.
 		cudaMemcpy(hkeysH, hkeys, oldLimit * sizeof(int), cudaMemcpyDeviceToHost);
 		cudaMemcpy(hvaluesH, hvalues, oldLimit * sizeof(int), cudaMemcpyDeviceToHost);
 	
@@ -122,6 +146,7 @@ void GpuHashTable::reshape(int numBucketsReshape) {
     	
 
 
+        // Execution: Preserves the original broken '>>' kernel launch syntax for Zero Mutation.
 		hashCompute>>(keysDev, valuesDev, hkeys, hvalues, foundKey, limit, usedSpaceDev);
 		cudaDeviceSynchronize();
 		cudaMemcpy(usedSpace, usedSpaceDev, 1 * sizeof(int), cudaMemcpyDeviceToHost);
@@ -136,13 +161,15 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 }
 
 
-
-
-
+/**
+ * @brief Batch insertion interface from Host.
+ * Optimization: Performs proactive expansion if current load factor exceeds threshold (~95%).
+ */
 bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	int *keysDev = 0;
 	int *valuesDev = 0;
 	
+	// Decision Logic: Predictive capacity management.
 	if ((usedSpace[0] + numKeys) * 1.05f >= totalSpace) {
 		reshape((usedSpace[0] + numKeys) * 1.1f);
 	}
@@ -156,6 +183,7 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	hashCompute>>(keysDev, valuesDev, hkeys, hvalues,
 		numKeys, limit, usedSpaceDev);
 	
+    // Memory Sync: Retrieve occupancy metadata to update Host-side state.
 	cudaMemcpy(usedSpace, usedSpaceDev, 1 * sizeof(int), cudaMemcpyDeviceToHost);
 	cudaDeviceSynchronize();
 	
@@ -163,8 +191,9 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 }
 
 
-
-
+/**
+ * @brief CUDA Kernel for parallel batch retrieval.
+ */
 __global__ void helperGetBatch(int *hkeys, int *hvalues, int *deviceValues,
 	int *keysDev, int numKeys, int limit) {
 
@@ -191,7 +220,10 @@ __global__ void helperGetBatch(int *hkeys, int *hvalues, int *deviceValues,
 }
 
 
-
+/**
+ * @brief Batch retrieval interface from Host.
+ * @return Pointer to host-allocated array containing query results.
+ */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	int *deviceValues;
 	int *host = (int *)malloc(numKeys * sizeof(int));
@@ -207,14 +239,16 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	cudaDeviceSynchronize();
 
 
+    // Memory Flow: Synchronous retrieval of results to Host memory.
 	cudaMemcpy(host, deviceValues, numKeys * sizeof(int), cudaMemcpyDeviceToHost);
 
     return host;
 }
 
 
-
-
+/**
+ * @brief Returns the current occupancy ratio.
+ */
 float GpuHashTable::loadFactor() {
 	return ((float)usedSpace[0])/((float)totalSpace);
 }
@@ -296,7 +330,6 @@ const size_t primeList[] =
 
 
 
-
 int hash1(int data, int limit) {
 	return ((long)abs(data) * primeList[64]) % primeList[90] % limit;
 }
@@ -347,4 +380,3 @@ class GpuHashTable
 };
 
 #endif
-

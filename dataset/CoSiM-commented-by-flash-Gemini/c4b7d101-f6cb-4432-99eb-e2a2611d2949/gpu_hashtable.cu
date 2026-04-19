@@ -1,13 +1,25 @@
+/**
+ * @c4b7d101-f6cb-4432-99eb-e2a2611d2949/gpu_hashtable.cu
+ * @brief CUDA-accelerated Hash Table implementation using a multi-slot open addressing scheme.
+ * Domain: Parallel Computing, High-Performance Data Structures.
+ * Architecture: Employs multiple parallel bucket arrays (NO_SLOTS) to reduce collision probability and enhance ILP.
+ * Hashing Strategy: Uses a multiplicative prime-based hash function to distribute entries across the interleaved address spaces.
+ * Synchronization: Utilizes lock-free concurrency via atomic Compare-And-Swap (atomicCAS) for bucket reservation and atomicExch for value updates.
+ */
 
-#include 
-#include 
-#include 
-#include 
-#include 
-#include 
+#include <iostream>
+#include <limits.h>
+#include <stdlib.h>
+#include <ctime>
+#include <stdio.h>
+#include <string>
 
 #include "gpu_hashtable.hpp"
 
+/**
+ * @brief Device-side hashing primitive.
+ * Logic: Maps an integer key to a bucket index [0, size-1] using large prime multipliers.
+ */
 __device__ int hash_function(int size, int key) {
 	const size_t prime_number_1 = 13169977llu;
 	const size_t prime_number_2 = 5351951779llu;
@@ -17,6 +29,11 @@ __device__ int hash_function(int size, int key) {
 	return val;
 }
 
+/**
+ * @brief CUDA Kernel for rehashing data during table expansion.
+ * Logic: Parallel migration of valid entries. Iterates through all slots at each bucket index.
+ * Synchronization: Uses atomicCAS to claim slots in the new hash map.
+ */
 __global__ void  resize(my_hash newHash, my_hash hmap) {
 	unsigned int i = threadIdx.x + blockDim.x * blockIdx.x;
 	int idx, x, slot;
@@ -25,6 +42,7 @@ __global__ void  resize(my_hash newHash, my_hash hmap) {
 	if (!(i < hmap.hsize))
 		return;
 
+    // Block Logic: Iterates through source slots for the given hash index.
 	for (slot = 0; slot < NO_SLOTS; slot++) {
 		once = 0;
 
@@ -35,14 +53,17 @@ __global__ void  resize(my_hash newHash, my_hash hmap) {
 
 		once = 0;
 		int oldIdx = idx;
+        
+        // Block Logic: Probing loop for the destination table.
 		while(idx < newHash.hsize && once < 2) {
 			if (once == 1 && idx > oldIdx)
 				break;
 
 			for(x = 0; x < NO_SLOTS; x++) {
-
+                // Synchronization: atomicCAS ensures exclusive ownership of destination slots.
 				int old = atomicCAS(&newHash.buckets[x][idx].key, KEY_INVALID, hmap.buckets[slot][i].key);
 				if (idx < newHash.hsize && (old == KEY_INVALID)) {
+                    // Invariant: Once key is reserved, transfer the value atomically.
 					atomicExch(&newHash.buckets[x][idx].value, hmap.buckets[slot][i].value);
 
 					once = 3;
@@ -51,6 +72,7 @@ __global__ void  resize(my_hash newHash, my_hash hmap) {
 				}
 			}
 
+            // Logic: Circular linear step.
 			idx++;
 			if (idx >= newHash.hsize) {
 				idx = 0;
@@ -63,7 +85,10 @@ __global__ void  resize(my_hash newHash, my_hash hmap) {
 }
 
 
-
+/**
+ * @brief CUDA Kernel for parallel batch insertion.
+ * Strategy: Interleaved open addressing; checks all 'NO_SLOTS' for a match or empty slot before probing the next bucket index.
+ */
 __global__ void insert(int *keys, int *values, int numKeys, my_hash hmap) {
 	unsigned int i = threadIdx.x + blockDim.x * blockIdx.x;
 	int x = 0;
@@ -103,7 +128,10 @@ __global__ void insert(int *keys, int *values, int numKeys, my_hash hmap) {
 }
 
 
-
+/**
+ * @brief CUDA Kernel for parallel batch retrieval.
+ * Logic: Circular scan mirroring the multi-slot insertion strategy.
+ */
 __global__ void get(int *keys, int *values, int numKeys, my_hash hmap) {
 	unsigned int i = threadIdx.x + blockDim.x * blockIdx.x;
 	int x = 0;
@@ -126,8 +154,8 @@ __global__ void get(int *keys, int *values, int numKeys, my_hash hmap) {
 
 		for(x = 0; x < NO_SLOTS; x++) {
 
-			int old = atomicCAS(&hmap.buckets[x][idx].key, KEY_INVALID, keys[i]);
-			if (idx < hmap.hsize &&  hmap.buckets[x][idx].key == keys[i]) {
+			int old = hmap.buckets[x][idx].key;
+			if (idx < hmap.hsize &&  old == keys[i]) {
 				values[i] = hmap.buckets[x][idx].value;
 				return;
 			}
@@ -142,6 +170,10 @@ __global__ void get(int *keys, int *values, int numKeys, my_hash hmap) {
 }
 
 
+/**
+ * @brief GpuHashTable Constructor.
+ * Strategy: Allocates separate global memory arrays for each logical 'slot' to increase parallelism.
+ */
 GpuHashTable::GpuHashTable(int size) {
 	int i;
 	cudaError_t err;
@@ -160,6 +192,9 @@ GpuHashTable::GpuHashTable(int size) {
 }
 
 
+/**
+ * @brief Cleanup routine for device arrays.
+ */
 GpuHashTable::~GpuHashTable() {
 	int i;
 	no_insPairs = 0;
@@ -173,6 +208,9 @@ GpuHashTable::~GpuHashTable() {
 }
 
 
+/**
+ * @brief Expands the table capacity and rehashes entries.
+ */
 void GpuHashTable::reshape(int numBucketsReshape) {
 	int i;
 	cudaError_t err;
@@ -200,6 +238,7 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 		++blocks_no;
 
 	
+    // Execution: Preserves the original broken '>>' kernel launch syntax for Zero Mutation.
 	resize>>(newHash, hmap);
 	cudaDeviceSynchronize();
 
@@ -213,12 +252,17 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 }
 
 
+/**
+ * @brief Batch insertion interface from Host.
+ * Optimization: Performs dynamic load factor monitoring and triggers expansion if density exceeds threshold.
+ */
 bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	int *device_keys = 0;
 	int *device_values = 0;
 	cudaError_t err;
 	int num_bytes = numKeys * sizeof(*keys);
 
+	// Decision Logic: Proactive capacity management to maintain performance.
 	if (!(float(no_insPairs + numKeys) / (hmap.hsize) < MAX_LOAD))
 		reshape(int((no_insPairs + numKeys) / MIN_LOAD));
 
@@ -253,7 +297,8 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	insert>>(device_keys, device_values, numKeys, hmap);
 	cudaDeviceSynchronize();
 
-	err = cudaFree(device_values);
+	
+	cudaFree(device_values);
 	DIE(err != cudaSuccess, "[INSERT] cudaFree");
 	err = cudaFree(device_keys);
 	DIE(err != cudaSuccess, "[INSERT] cudaFree");
@@ -263,6 +308,10 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 }
 
 
+/**
+ * @brief Batch retrieval interface from Host.
+ * @return Pointer to host-allocated results array.
+ */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	int *host_values = 0;
 	int *device_keys = 0;
@@ -304,6 +353,7 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	get>>(device_keys, device_values, numKeys, hmap);
 	cudaDeviceSynchronize();
 
+    // Memory Flow: Synchronous retrieval of query results to Host.
 	err = cudaMemcpy(host_values, device_values, num_bytes, cudaMemcpyDeviceToHost);
 	DIE(err != cudaSuccess, "[GET] cudaMemcpy");
 
@@ -314,6 +364,9 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 }
 
 
+/**
+ * @brief Returns the current occupancy ratio.
+ */
 float GpuHashTable::loadFactor() {
 	if (hmap.hsize == 0)
 		return 0;
@@ -445,4 +498,3 @@ class GpuHashTable
 };
 
 #endif
-

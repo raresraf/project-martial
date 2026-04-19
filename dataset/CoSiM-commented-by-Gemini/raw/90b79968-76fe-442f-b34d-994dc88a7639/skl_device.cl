@@ -1,4 +1,11 @@
 
+/**
+ * @raw/90b79968-76fe-442f-b34d-994dc88a7639/skl_device.cl
+ * @brief OpenCL kernel codebase for texture block compression.
+ * Algorithm: Block-based image compression utilizing OpenCL hardware acceleration.
+ * Time Complexity: $O(W \times H)$ evaluated parallelly over the GPU architecture.
+ * Space Complexity: $O(W \times H)$ for the input and output buffer allocations on device.
+ */
 
 typedef uchar uint8_t;
 

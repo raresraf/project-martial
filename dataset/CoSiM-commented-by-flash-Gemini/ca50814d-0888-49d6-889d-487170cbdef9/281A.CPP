@@ -1,8 +1,20 @@
+/**
+ * @ca50814d-0888-49d6-889d-487170cbdef9/281A.CPP
+ * @brief simulation of a conditional string capitalization process.
+ * Domain: Competitive Programming, String Normalization.
+ * Algorithm: Single-character check and ASCII manipulation.
+ * Time Complexity: $O(1)$ constant time for the primary transformation logic.
+ * Space Complexity: $O(L)$ where L is the string length.
+ */
+
 // please refer from line no. 207
 /////*31022618*/////
 //_MONU KUMAR
 #include <bits/stdc++.h>
 using namespace std;
+/**
+ * Functional Utility: stream decoupling and tie-removal for high-throughput I/O optimization.
+ */
 #define fast                                                                   \
   ios_base::sync_with_stdio(false);                                            \
   cin.tie(0);                                                                  \
@@ -60,6 +72,9 @@ using namespace std;
   lp(i, 0, n) cin >> a[i];
 #define ona(a, n) lp(i, 0, n) cout << a[i] << " ";
 //#########################################################################################
+/**
+ * @brief Lexicographical anagram detection kernel.
+ */
 bool anagram(char *s1, char *s2) {
   ll count[siz];
   mem(count, 0);
@@ -79,6 +94,9 @@ bool anagram(char *s1, char *s2) {
   return true;
 }
 //###########################################################################################
+/**
+ * @brief Binary multiplication under modulo to prevent overflow.
+ */
 // modulo Multiplication
 ll moduloMultiplication(ll a, ll b, ll zz) {
   ll res = 0;
@@ -95,6 +113,9 @@ ll moduloMultiplication(ll a, ll b, ll zz) {
 }
 //###########################################################################################
 
+/**
+ * @brief Utility for decimal string to integer conversion.
+ */
 ll convert(string s) {
   bool o = true;
   ll ans = 0;
@@ -104,6 +125,9 @@ ll convert(string s) {
   return ans;
 }
 //###########################################################################################
+/**
+ * @brief Modular exponentiation using binary exponentiation (Square and Multiply).
+ */
 // function to calculate a^b under mod...
 ll powmod(ll a, ll b, ll modulo) {
   if (b == 0 || a == 1)
@@ -116,6 +140,9 @@ ll powmod(ll a, ll b, ll modulo) {
   return full % modulo;
 }
 //###########################################################################################
+/**
+ * @brief Computes modular multiplicative inverse using Fermat's Little Theorem.
+ */
 // function to calculate inverse modulo under mod...assuming gcd is 1
 ll invmod(ll a, ll modulo) {
   ll check = powmod(a, modulo - 2, modulo) % modulo;
@@ -141,7 +168,6 @@ ll min(ll a, ll b) {
 //###########################################################################################
 ll min(ll a, ll b, ll c) {
   if (a < b) {
-    /* code */
     return min(a, c);
   } else {
     return min(b, c);
@@ -150,7 +176,6 @@ ll min(ll a, ll b, ll c) {
 //###########################################################################################
 ll max(ll a, ll b, ll c) {
   if (a < b) {
-    /* code */
     return max(b, c);
   } else {
     return min(a, c);
@@ -181,6 +206,9 @@ ll max(int a, ll b) {
   return b;
 }
 //###########################################################################################
+/**
+ * @brief Greatest Common Divisor calculation using Euclidean Algorithm.
+ */
 ll gcd(ll a, ll b) {
   if (b == 0)
     return a;
@@ -200,6 +228,9 @@ void no() {
 }
 //###########################################################################################
 int main() {
+  /**
+   * Functional Utility: stream decoupling and tie-removal for high-throughput I/O optimization.
+   */
   fast
       //  clock_t launch=clock();
       //  string r = s1.substr(1, 3);
@@ -212,6 +243,11 @@ int main() {
          xx = 0, minn1 = big, minn2 = big, maxx1 = small, maxx2 = small;
   string s;
   cin >> s;
+  /**
+   * Block Logic: Normalization process for the input string.
+   * Transformation: Ensures the first character is in uppercase.
+   * Logic: If first character is lowercase ('a'-'z'), applies an ASCII offset (-32) to capitalize it.
+   */
   if (s[0] < 'a') {
     /* code */
     p1(s)

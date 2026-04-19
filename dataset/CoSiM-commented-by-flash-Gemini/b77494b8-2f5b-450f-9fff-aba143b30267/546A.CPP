@@ -1,3 +1,12 @@
+/**
+ * @b77494b8-2f5b-450f-9fff-aba143b30267/546A.CPP
+ * @brief Arithmetic progression sum calculation for resource acquisition cost.
+ * Domain: Competitive Programming, Discrete Mathematics.
+ * Algorithm: Closed-form summation of an arithmetic series.
+ * Time Complexity: $O(1)$ constant time evaluation.
+ * Space Complexity: $O(1)$ constant overhead.
+ */
+
 // Igorjan94, template version from 19 March 2015
 #include <bits/stdc++.h>
 
@@ -95,8 +104,17 @@ vector<string> split(const string &s, char c) {
 ///-------------------------------------------------------------------------------------------------------------------------------------
 // Igorjan
 
+/**
+ * @brief Logic kernel for the cost calculation.
+ * Functional Utility: Computes the total cost of 'w' bananas where the i-th banana costs i*k, then returns the required borrow amount.
+ */
 void run() {
   ints(k, n, w);
+  /**
+   * Block Logic: Evaluates the sum of an arithmetic progression.
+   * Formula: Sum = $k \times \frac{w(w+1)}{2}$
+   * Result: max(0, total_cost - initial_balance).
+   */
   writeln(max(0ll, k * 1ll * w * (w + 1) / 2 - n));
 }
 
@@ -104,6 +122,9 @@ int main() {
 #ifndef ONLINE_JUDGE
   double time = clock();
 #endif
+  /**
+   * Functional Utility: Stream decoupling to enhance I/O throughput.
+   */
   ios_base::sync_with_stdio(false);
   //    freopen(FILENAME".in", "r", stdin);
   //    freopen(FILENAME".out", "w", stdout);

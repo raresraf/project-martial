@@ -14,6 +14,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+/**
+ * @raw/965f93de-2d52-4364-9bc2-0cd7ad40cc30/test/e2e/cluster_size_autoscaling.go
+ * @brief End-to-end test suite for validating Kubernetes Cluster Autoscaler behavior on GCE/GKE providers.
+ * Architecture: Evaluates infrastructure-level elastic scaling triggered by synthetic pod scheduling constraints and resource demands.
+ */
 package e2e
 
 import (

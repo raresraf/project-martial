@@ -1,8 +1,10 @@
-
-
-
-
-
+/**
+ * @raw/98906696-382b-461e-9a85-9c7e1025245b/compress.cl
+ * @brief OpenCL kernel codebase for texture block compression.
+ * Algorithm: Block-based image compression utilizing OpenCL hardware acceleration.
+ * Time Complexity: $O(W \times H)$ evaluated parallelly over the GPU architecture.
+ * Space Complexity: $O(W \times H)$ for the input and output buffer allocations on device.
+ */
 typedef union Tag {
 	struct BgraColorType {
 		unsigned char b;

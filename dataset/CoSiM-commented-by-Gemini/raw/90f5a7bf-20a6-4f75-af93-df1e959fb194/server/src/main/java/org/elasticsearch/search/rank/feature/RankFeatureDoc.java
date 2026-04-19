@@ -21,7 +21,9 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * A {@link RankDoc} that contains field data to be used later by the reranker on the coordinator node.
+ * @raw/90f5a7bf-20a6-4f75-af93-df1e959fb194/server/src/main/java/org/elasticsearch/search/rank/feature/RankFeatureDoc.java
+ * @brief Represents a ranking document enriched with feature data (like text snippets) destined for the reranking inference phase.
+ * Architecture: Inherits from {@link RankDoc} and acts as a transport-friendly DTO carrying unstructured text arrays to be scored.
  */
 public class RankFeatureDoc extends RankDoc {
 
@@ -31,12 +33,19 @@ public class RankFeatureDoc extends RankDoc {
     public List<String> featureData;
     public List<Integer> docIndices;
 
+    /**
+     * Functional Utility: Instantiates a basic ranking document with initial score and shard routing metadata.
+     */
     public RankFeatureDoc(int doc, float score, int shardIndex) {
         super(doc, score, shardIndex);
     }
 
+    /**
+     * Functional Utility: Deserializes the document over the network, providing backward compatibility for pre-snippet versions.
+     */
     public RankFeatureDoc(StreamInput in) throws IOException {
         super(in);
+        // Block Logic: Checks transport protocol version to conditionally read multi-snippet collections.
         if (in.getTransportVersion().onOrAfter(TransportVersions.RERANK_SNIPPETS)) {
             featureData = in.readOptionalStringCollectionAsList();
             docIndices = in.readOptionalCollectionAsList(StreamInput::readVInt);
@@ -59,8 +68,12 @@ public class RankFeatureDoc extends RankDoc {
         this.docIndices = docIndices;
     }
 
+    /**
+     * Functional Utility: Serializes the document for network transit, handling version-dependent snippet formatting.
+     */
     @Override
     protected void doWriteTo(StreamOutput out) throws IOException {
+        // Block Logic: Ensures older nodes receive only a single text snippet to prevent protocol breakdown.
         if (out.getTransportVersion().onOrAfter(TransportVersions.RERANK_SNIPPETS)) {
             out.writeOptionalStringCollection(featureData);
             out.writeOptionalCollection(docIndices, StreamOutput::writeVInt);

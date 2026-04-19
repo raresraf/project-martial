@@ -1,15 +1,34 @@
 
 
 
+"""
+@file consumer.py
+@brief Integrated multi-threaded Marketplace simulation.
+
+This file contains an integrated implementation of a marketplace simulation, 
+combining consumer, producer, and marketplace entities into a single module. 
+It uses thread-safe synchronization primitives (Locks) to manage shared state 
+and ensure atomic transactions across different logic tiers.
+
+Algorithm: Concurrent state management with distributed locking.
+Domain: Multi-threaded Production Systems.
+"""
+
 from threading import Thread
 import time
 
 
 class Consumer(Thread):
-    
+    """
+    Independent consumer thread executing scheduled shopping instructions.
+    """
 
     def __init__(self, carts, marketplace, retry_wait_time, **kwargs):
-        
+        """
+        :param carts: Sequence of carts and their respective operations.
+        :param marketplace: Shared hub for transactions.
+        :param retry_wait_time: Throttling interval for failed resource acquisition.
+        """
 
         Thread.__init__(self, **kwargs)
         self.carts = carts
@@ -18,6 +37,11 @@ class Consumer(Thread):
         self.name = kwargs["name"]
 
     def run(self):
+        """
+        Main execution loop for the consumer session.
+        Logic: Orchestrates cart creation and sequential operation processing (add/remove) 
+        before final order placement.
+        """
         cart_id = self.marketplace.new_cart()
 
         for cart in self.carts:
@@ -26,8 +50,10 @@ class Consumer(Thread):
                 product_name = action["product"]
                 quantity = int(action["quantity"])
 
+                # Block Logic: Operation routing based on action type.
                 if action_type == "add":
                     while quantity > 0:
+                        # Logic: Retries until the product is successfully claimed from inventory.
                         if self.marketplace.add_to_cart(cart_id, product_name) == True:
                             quantity -= 1
                         else:
@@ -37,9 +63,11 @@ class Consumer(Thread):
                         self.marketplace.remove_from_cart(cart_id, product_name)
                         quantity -= 1
 
+        # Finalization: Converts session state into confirmed purchases.
         orders = self.marketplace.place_order(cart_id)
         for order in orders:
-            print(str(self.name) + " bought " + str(order))>>>> file: marketplace.py
+            print(str(self.name) + " bought " + str(order))
+>>>> file: marketplace.py
 
 
 
@@ -53,9 +81,14 @@ from tema.product import Coffee
 
 
 class Marketplace:
+    """
+    Stateful transaction hub coordinating resource access across producers and consumers.
+    """
     
     def __init__(self, queue_size_per_producer):
-        
+        """
+        :param queue_size_per_producer: Capacity limit for individual producer buffers.
+        """
         self.queue_size_per_producer = queue_size_per_producer
         self.producers = {}
         self.producers_locks = {}
@@ -63,10 +96,13 @@ class Marketplace:
         self.carts = {}
         self.create_cart_lock = Lock()
 
+        # Monitoring: Configures centralized logging for audit trails.
         logging.basicConfig(filename='marketplace.log', level=logging.INFO)
 
     def register_producer(self):
-        
+        """
+        Onboards a new producer with dedicated storage and mutual exclusion locks.
+        """
         
 
         self.create_producer_lock.acquire()
@@ -83,7 +119,10 @@ class Marketplace:
         return new_id
 
     def publish(self, producer_id, product):
-        
+        """
+        Allows a producer to submit a product for sale.
+        Logic: Enforces per-producer quotas using thread-specific locking.
+        """
         logging.info("Start adding new product " + str(product) + " from producer " + str(producer_id))
 
         product_lock = self.producers_locks[producer_id]
@@ -92,6 +131,7 @@ class Marketplace:
         product_lock.acquire()
         products = self.producers[producer_id]
 
+        # Block Logic: Quota enforcement.
         if len(products) >= self.queue_size_per_producer:
             add_flag = False
         else:
@@ -103,7 +143,9 @@ class Marketplace:
         return add_flag
 
     def new_cart(self):
-        
+        """
+        Registers a new shopping cart for a consumer session.
+        """
         
 
         self.create_cart_lock.acquire()
@@ -119,7 +161,11 @@ class Marketplace:
         return new_id
 
     def add_to_cart(self, cart_id, product):
-        
+        """
+        Moves a product from global stock into a private consumer cart.
+        Logic: Performs a global search across all producer partitions, utilizing 
+        nested locks for atomic transfer.
+        """
         logging.info("In add cart adding " + str(product) + " to cart " + str(cart_id))
         producers_no = len(self.producers)
 
@@ -128,10 +174,12 @@ class Marketplace:
         
         self.create_producer_lock.acquire()
 
+        # Block Logic: Inventory scanning for product availability.
         for producer_id, producer_products in self.producers.items():
             product_lock = self.producers_locks[producer_id]
             product_lock.acquire()
             if product in producer_products:
+                # Critical Section: Atomic resource transfer.
                 cart.append((product, producer_id))
                 producer_products.remove(product)
                 add_flag = True
@@ -147,7 +195,9 @@ class Marketplace:
         return add_flag
 
     def remove_from_cart(self, cart_id, product):
-        
+        """
+        Restores a product from a cart back to its original producer's stock.
+        """
         logging.info("Removing product " + str(product) + " from cart " + str(cart_id))
 
         cart = self.carts[cart_id]
@@ -158,6 +208,7 @@ class Marketplace:
                 producer_id = cart_producer_id
                 break
 
+        # Synchronization: Ensures thread-safe restoration of global stock.
         self.producers_locks[producer_id].acquire()
         self.producers[producer_id].append(product)
         self.producers_locks[producer_id].release()
@@ -166,6 +217,9 @@ class Marketplace:
 
 
     def place_order(self, cart_id):
+        """
+        Extracts final product list from the cart state.
+        """
         
         products = []
 
@@ -241,10 +295,16 @@ from threading import Thread
 import time
 
 class Producer(Thread):
-    
+    """
+    Supply-side background thread that continuously produces items for the marketplace.
+    """
 
     def __init__(self, products, marketplace, republish_wait_time, **kwargs):
-        
+        """
+        :param products: Catalog of product metadata.
+        :param marketplace: Shared hub for publishing.
+        :param republish_wait_time: Throttling delay when inventory is full.
+        """
         Thread.__init__(self, **kwargs)
         self.products = products
         self.marketplace = marketplace
@@ -252,6 +312,11 @@ class Producer(Thread):
         self.name = kwargs["name"]
 
     def run(self):
+        """
+        Main lifecycle loop for the producer.
+        Logic: Onboards with the marketplace and iteratively produces products 
+        while respecting capacity constraints and production times.
+        """
         max_product_number = self.marketplace.queue_size_per_producer
         producer_id = self.marketplace.register_producer()
 
@@ -264,10 +329,12 @@ class Producer(Thread):
                 while quantity > 0:
                     time.sleep(process_time)
 
+                    # Logic: Retries publishing until space is available in the marketplace buffer.
                     if self.marketplace.publish(producer_id, product_name) == True:
                         quantity -= 1
                     else:
-                        time.sleep(self.republish_wait_time)>>>> file: product.py
+                        time.sleep(self.republish_wait_time)
+>>>> file: product.py
 
 
 from dataclasses import dataclass
@@ -275,19 +342,25 @@ from dataclasses import dataclass
 
 @dataclass(init=True, repr=True, order=False, frozen=True)
 class Product:
-    
+    """
+    Immutable representation of a marketplace item.
+    """
     name: str
     price: int
 
 
 @dataclass(init=True, repr=True, order=False, frozen=True)
 class Tea(Product):
-    
+    """
+    Variety metadata for tea products.
+    """
     type: str
 
 
 @dataclass(init=True, repr=True, order=False, frozen=True)
 class Coffee(Product):
-    
+    """
+    Quality metadata for coffee products.
+    """
     acidity: str
     roast_level: str

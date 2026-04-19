@@ -8,6 +8,16 @@
         Verdict	:	OK
 */
 
+/**
+ * @file 282A.CPP
+ * @brief Simulation of a simple register-based instruction set (Bit++ language).
+ * 
+ * Algorithm: Linear sweep with pattern matching for state modification.
+ * Time Complexity: $O(N)$ where N is the number of instructions.
+ * Space Complexity: $O(1)$ excluding the instruction input buffer.
+ * Domain: Competitive Programming, Implementation.
+ */
+
 #include <algorithm>
 #include <bitset>
 #include <cctype>
@@ -123,15 +133,33 @@ const double pi = 3.141592654;
     cout << array[i] << " ";
 #define maxn 100010
 
+/**
+ * @brief Main execution entry point for the instruction interpreter.
+ * 
+ * Logic: Reads a series of instructions and updates a single integer register 'x' 
+ * based on the presence of increment (++) or decrement (--) tokens.
+ */
 int main() {
+  /**
+   * Functional Utility: Optimizes standard I/O streams for competitive programming 
+   * by decoupling from C stdio and disabling synchronization.
+   */
   ios::sync_with_stdio(false);
   cin.tie(NULL);
   int n;
   cin >> n;
   int x = 0;
+  /**
+   * Block Logic: Sequential instruction processing.
+   * Invariant: After each iteration, 'x' reflects the cumulative effect of first k instructions.
+   */
   while (n--) {
     string s;
     cin >> s;
+    /**
+     * Block Logic: Instruction decoding via character analysis.
+     * Logic: Identifies decrement operations by checking for '-' in any valid instruction position.
+     */
     if (s[1] == '-' || s[0] == '-' || s[2] == '-')
       x--;
     else

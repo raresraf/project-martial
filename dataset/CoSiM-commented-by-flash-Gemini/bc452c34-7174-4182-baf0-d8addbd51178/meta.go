@@ -1,3 +1,12 @@
+/**
+ * @bc452c34-7174-4182-baf0-d8addbd51178/meta.go
+ * @brief Metadata orchestration and reflection-based accessors for Kubernetes API objects.
+ * Domain: Distributed Systems, API Infrastructure, Object Metadata.
+ * Architecture: Implements the 'Object' interface via the 'ObjectMeta' structure, providing standardized access to cross-cutting fields (Name, Namespace, UID).
+ * Functional Utility: Facilitates system-level metadata initialization (timestamps, UUIDs) and uses reflection-based enforcement to extract metadata from opaque runtime objects.
+ * Synchronization: Stateless accessor methods designed for safe concurrent usage within the Kubernetes control plane.
+ */
+
 /*
 Copyright 2014 The Kubernetes Authors All rights reserved.
 
@@ -24,6 +33,10 @@ import (
 	"k8s.io/kubernetes/pkg/util"
 )
 
+/**
+ * @brief Bootstraps system-controlled metadata fields for a new object.
+ * Logic: Generates a persistent unique identifier and sets the initial creation timestamp.
+ */
 // FillObjectMetaSystemFields populates fields that are managed by the system on ObjectMeta.
 func FillObjectMetaSystemFields(ctx Context, meta *ObjectMeta) {
 	meta.CreationTimestamp = unversioned.Now()
@@ -31,12 +44,19 @@ func FillObjectMetaSystemFields(ctx Context, meta *ObjectMeta) {
 	meta.SelfLink = ""
 }
 
+/**
+ * @brief Predicate to verify if an object has already been processed by the system.
+ */
 // HasObjectMetaSystemFieldValues returns true if fields that are managed by the system on ObjectMeta have values.
 func HasObjectMetaSystemFieldValues(meta *ObjectMeta) bool {
 	return !meta.CreationTimestamp.Time.IsZero() ||
 		len(meta.UID) != 0
 }
 
+/**
+ * @brief Dynamic extraction of ObjectMeta from an arbitrary runtime object.
+ * Logic: Uses the conversion and runtime libraries to reflectively locate the "ObjectMeta" field.
+ */
 // ObjectMetaFor returns a pointer to a provided object's ObjectMeta.
 // TODO: allow runtime.Unknown to extract this object
 func ObjectMetaFor(obj runtime.Object) (*ObjectMeta, error) {
@@ -49,6 +69,9 @@ func ObjectMetaFor(obj runtime.Object) (*ObjectMeta, error) {
 	return meta, err
 }
 
+/**
+ * @brief Dynamic extraction of ListMeta from an arbitrary list object.
+ */
 // ListMetaFor returns a pointer to a provided object's ListMeta,
 // or an error if the object does not have that pointer.
 // TODO: allow runtime.Unknown to extract this object
@@ -61,6 +84,11 @@ func ListMetaFor(obj runtime.Object) (*unversioned.ListMeta, error) {
 	err = runtime.FieldPtr(v, "ListMeta", &meta)
 	return meta, err
 }
+
+/*
+ * Implementation of the meta.Object interface for ObjectMeta.
+ * Functional Utility: Provides direct, high-performance access to standard API metadata without using reflection.
+ */
 
 // Namespace implements meta.Object for any object with an ObjectMeta typed field. Allows
 // fast, direct access to metadata fields for API objects.

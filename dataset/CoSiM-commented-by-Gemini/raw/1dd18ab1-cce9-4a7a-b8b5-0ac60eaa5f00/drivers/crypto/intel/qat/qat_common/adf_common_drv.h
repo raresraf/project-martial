@@ -1,3 +1,8 @@
+/**
+ * @file adf_common_drv.h
+ * @brief Core functionality implementation.
+ * Provides the fundamental algorithm logic and state management.
+ */
 /* SPDX-License-Identifier: (BSD-3-Clause OR GPL-2.0-only) */
 /* Copyright(c) 2014 - 2021 Intel Corporation */
 #ifndef ADF_DRV_H
@@ -64,12 +69,12 @@ void adf_clean_vf_map(bool);
 int adf_notify_fatal_error(struct adf_accel_dev *accel_dev);
 void adf_error_notifier(struct adf_accel_dev *accel_dev);
 int adf_devmgr_add_dev(struct adf_accel_dev *accel_dev,
-		       struct adf_accel_dev *pf);
+		       struct adf_accel_dev *pf); /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 void adf_devmgr_rm_dev(struct adf_accel_dev *accel_dev,
-		       struct adf_accel_dev *pf);
+		       struct adf_accel_dev *pf); /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 struct list_head *adf_devmgr_get_head(void);
 struct adf_accel_dev *adf_devmgr_get_dev_by_id(u32 id);
-struct adf_accel_dev *adf_devmgr_pci_to_accel_dev(struct pci_dev *pci_dev);
+struct adf_accel_dev *adf_devmgr_pci_to_accel_dev(struct pci_dev *pci_dev); /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 int adf_devmgr_verify_id(u32 id);
 void adf_devmgr_get_num_dev(u32 *num);
 int adf_devmgr_in_reset(struct adf_accel_dev *accel_dev);
@@ -191,7 +196,7 @@ bool adf_misc_wq_queue_delayed_work(struct delayed_work *work,
 				    unsigned long delay);
 void adf_misc_wq_flush(void);
 #if defined(CONFIG_PCI_IOV)
-int adf_sriov_configure(struct pci_dev *pdev, int numvfs);
+int adf_sriov_configure(struct pci_dev *pdev, int numvfs); /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 void adf_disable_sriov(struct adf_accel_dev *accel_dev);
 void adf_reenable_sriov(struct adf_accel_dev *accel_dev);
 void adf_enable_vf2pf_interrupts(struct adf_accel_dev *accel_dev, u32 vf_mask);
@@ -241,9 +246,9 @@ static inline void adf_exit_vf_wq(void)
 static inline void __iomem *adf_get_pmisc_base(struct adf_accel_dev *accel_dev)
 {
 	struct adf_hw_device_data *hw_data = accel_dev->hw_device;
-	struct adf_bar *pmisc;
+	struct adf_bar *pmisc; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 
-	pmisc = &GET_BARS(accel_dev)[hw_data->get_misc_bar_id(hw_data)];
+	pmisc = &GET_BARS(accel_dev)[hw_data->get_misc_bar_id(hw_data)]; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 
 	return pmisc->virt_addr;
 }
@@ -253,7 +258,7 @@ static inline void __iomem *adf_get_etr_base(struct adf_accel_dev *accel_dev)
 	struct adf_hw_device_data *hw_data = accel_dev->hw_device;
 	struct adf_bar *etr;
 
-	etr = &GET_BARS(accel_dev)[hw_data->get_etr_bar_id(hw_data)];
+	etr = &GET_BARS(accel_dev)[hw_data->get_etr_bar_id(hw_data)]; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 
 	return etr->virt_addr;
 }
@@ -261,9 +266,9 @@ static inline void __iomem *adf_get_etr_base(struct adf_accel_dev *accel_dev)
 static inline void __iomem *adf_get_aram_base(struct adf_accel_dev *accel_dev)
 {
 	struct adf_hw_device_data *hw_data = accel_dev->hw_device;
-	struct adf_bar *param;
+	struct adf_bar *param; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 
-	param = &GET_BARS(accel_dev)[hw_data->get_sram_bar_id(hw_data)];
+	param = &GET_BARS(accel_dev)[hw_data->get_sram_bar_id(hw_data)]; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 
 	return param->virt_addr;
 }

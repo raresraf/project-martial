@@ -1,32 +1,34 @@
 /**
- * @file TestBuildInfoPluginFuncTest.groovy
- * @brief Functional tests for the `elasticsearch.test-build-info` Gradle plugin.
- *
- * This file contains integration tests to verify the functionality of the
- * `elasticsearch.test-build-info` Gradle plugin. It ensures that the plugin
- * correctly generates a JSON file containing build information, including
- * component names, and details about Java module locations and their representative classes.
- * It covers scenarios for basic Java projects and projects with various types of dependencies
- * (e.g., those with `module-info.class`, `Automatic-Module-Name` in manifest, or inferred from JAR names).
+ * @6b6d4370-6289-492f-8e61-732146b6e06d/build-tools/src/integTest/groovy/org/elasticsearch/gradle/test/TestBuildInfoPluginFuncTest.groovy
+ * @brief Functional verification suite for the `elasticsearch.test-build-info` Gradle plugin.
+ * 
+ * Functional Intent: Ensures that the build information plugin correctly metadata-tags 
+ * Java modules during the build process. It validates the extraction of module names 
+ * and representative classes from project sources and external dependencies (via 
+ * module-info, manifest headers, or JAR name heuristics), producing a deterministic 
+ * JSON descriptor used for downstream testing and isolation.
+ * 
+ * Domain: Build Engineering, Gradle Plugins, Java Module System (JPMS).
  */
+
 package org.elasticsearch.gradle.test
 
 import com.fasterxml.jackson.databind.ObjectMapper
-
 import org.elasticsearch.gradle.fixtures.AbstractGradleFuncTest
 import org.gradle.testkit.runner.TaskOutcome
-
 import java.nio.file.Path
 
 /**
- * @brief Functional test class for the `elasticsearch.test-build-info` Gradle plugin.
- * Extends `AbstractGradleFuncTest` to leverage common setup for Gradle functional tests.
+ * @brief Integration tests for JPMS-aware build metadata generation.
  */
 class TestBuildInfoPluginFuncTest extends AbstractGradleFuncTest {
+    
     /**
-     * @brief Tests the basic functionality of the `elasticsearch.test-build-info` plugin.
-     * Verifies that the plugin correctly generates build information for a simple Java project
-     * with a `module-info.java` and a basic class.
+     * Block Logic: Validates metadata extraction for local project modules.
+     * Logic: 
+     * 1. Scaffolds a minimal Java module with a package and module-info.
+     * 2. Executes the 'generateTestBuildInfo' task.
+     * 3. Verifies that the produced JSON aligns with the project's structural identity.
      */
     def "basic functionality"() {
         given: "A simple Java project with a module-info and an example class"
@@ -72,24 +74,27 @@ class TestBuildInfoPluginFuncTest extends AbstractGradleFuncTest {
         def output = file("build/generated-build-info/plugin-test-build-info.json")
         output.exists() == true
 
-        // Block Logic: Defines the expected structure and content for the 'locations' entry in the JSON output.
+        // Functional Utility: Verification of local module metadata serialization.
         def location = Map.of(
             "module", "com.example",
             "representative_class", "com/example/Example.class"
         )
-        // Block Logic: Defines the overall expected JSON output structure.
         def expectedOutput = Map.of(
             "component", "example-component",
             "locations", List.of(location)
         )
-        // Block Logic: Deserializes the generated JSON file and compares it with the expected output.
         new ObjectMapper().readValue(output, Map.class) == expectedOutput
     }
 
     /**
-     * @brief Tests the plugin's ability to extract build information from various types of dependencies.
-     * This includes dependencies that define modules via `module-info.class`, `Automatic-Module-Name`
-     * in their JAR manifest, or by inferring from the JAR file name.
+     * Block Logic: Validates metadata extraction across various external dependency types.
+     * Logic: 
+     * 1. Includes specific dependencies showcasing:
+     *    - Explicit JPMS (asm).
+     *    - Automatic-Module-Name (junit).
+     *    - Inferred module naming (hamcrest).
+     * 2. Asserts that the plugin correctly resolves and maps these distinct patterns 
+     *    to their respective representative classes.
      */
     def "dependencies"() {
         buildFile << """
@@ -106,9 +111,8 @@ class TestBuildInfoPluginFuncTest extends AbstractGradleFuncTest {
 
         dependencies {
             // We pin to specific versions here because they are known to have the properties we want to test.
-            // We're not actually running this code.
-            implementation "org.ow2.asm:asm:9.7.1" // has module-info.class
-            implementation "junit:junit:4.13" // has Automatic-Module-Name, and brings in hamcrest which does not
+            implementation "org.ow2.asm:asm:9.7.1" 
+            implementation "junit:junit:4.13" 
         }
 
         tasks.withType(GenerateTestBuildInfoTask.class) {
@@ -128,28 +132,25 @@ class TestBuildInfoPluginFuncTest extends AbstractGradleFuncTest {
         def output = file("build/generated-build-info/plugin-test-build-info.json")
         output.exists() == true
 
-        // Block Logic: Defines the expected location entry for a dependency with `module-info.class`.
+        // Block Logic: Mapping of dependency-specific resolution rules.
         def locationFromModuleInfo = Map.of(
             "module", "org.objectweb.asm",
             "representative_class", Path.of('org', 'objectweb', 'asm', 'AnnotationVisitor.class').toString()
         )
-        // Block Logic: Defines the expected location entry for a dependency with `Automatic-Module-Name` in manifest.
         def locationFromManifest = Map.of(
             "module", "junit",
             "representative_class", Path.of('junit', 'textui', 'TestRunner.class').toString()
         )
-        // Block Logic: Defines the expected location entry for a dependency where module name is inferred from JAR file name.
         def locationFromJarFileName = Map.of(
             "module", "hamcrest.core",
             "representative_class", Path.of('org', 'hamcrest', 'BaseDescription.class').toString()
         )
-        // Block Logic: Defines the overall expected JSON output structure, including multiple dependency locations.
         def expectedOutput = Map.of(
             "component", "example-component",
             "locations", List.of(locationFromModuleInfo, locationFromManifest, locationFromJarFileName)
         )
 
-        // Block Logic: Deserializes the generated JSON file and compares it with the expected output.
+        // Final assertion ensures that the heterogeneous dependency set was correctly serialized.
         def value = new ObjectMapper().readValue(output, Map.class)
         value == expectedOutput
     }

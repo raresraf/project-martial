@@ -14,6 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+/**
+ * @2c2eecda-43dd-4b44-afa8-7156e40e7d12/test/e2e/scheduling/nvidia-gpus.go
+ * @brief End-to-End (E2E) validation suite for NVIDIA GPU scheduling in Kubernetes.
+ * 
+ * Functional Intent: Verifies the end-to-end lifecycle of GPU-accelerated workloads 
+ * on Container-Optimized OS (COS). This includes driver installation via DaemonSets, 
+ * resource capacity advertising by nodes, and successful execution of CUDA-based 
+ * containerized applications using both legacy and Device Plugin resource models.
+ * 
+ * Domain: Kubernetes Scheduling, Hardware Acceleration, NVIDIA GPU Integration.
+ */
+
 package scheduling
 
 import (
@@ -47,6 +59,11 @@ var (
 	podCreationFunc podCreationFuncType
 )
 
+/**
+ * makeCudaAdditionTestPod - Constructs a pod spec for the legacy GPU resource model.
+ * Logic: Defines a pod that requests a single GPU and mounts host-path NVIDIA 
+ * libraries required for CUDA execution outside of the Device Plugin framework.
+ */
 func makeCudaAdditionTestPod() *v1.Pod {
 	podName := testPodNamePrefix + string(uuid.NewUUID())
 	testPod := &v1.Pod{
@@ -87,6 +104,12 @@ func makeCudaAdditionTestPod() *v1.Pod {
 	return testPod
 }
 
+/**
+ * makeCudaAdditionDevicePluginTestPod - Constructs a pod spec for the Device Plugin model.
+ * Logic: Defines a standard pod requesting one GPU resource. Unlike the legacy 
+ * model, it relies on the Device Plugin to inject necessary drivers and libraries 
+ * without explicit host mounts.
+ */
 func makeCudaAdditionDevicePluginTestPod() *v1.Pod {
 	podName := testPodNamePrefix + string(uuid.NewUUID())
 	testPod := &v1.Pod{
@@ -111,17 +134,11 @@ func makeCudaAdditionDevicePluginTestPod() *v1.Pod {
 	return testPod
 }
 
-func isClusterRunningCOS(f *framework.Framework) bool {
-	nodeList, err := f.ClientSet.CoreV1().Nodes().List(metav1.ListOptions{})
-	framework.ExpectNoError(err, "getting node list")
-	for _, node := range nodeList.Items {
-		if !strings.Contains(node.Status.NodeInfo.OSImage, cosOSImage) {
-			return false
-		}
-	}
-	return true
-}
-
+/**
+ * areGPUsAvailableOnAllSchedulableNodes - Predicate to verify cluster readiness.
+ * Logic: Iterates through all nodes in the cluster, ensuring that every 
+ * schedulable node has advertised a non-zero capacity for the active GPU resource.
+ */
 func areGPUsAvailableOnAllSchedulableNodes(f *framework.Framework) bool {
 	framework.Logf("Getting list of Nodes from API server")
 	nodeList, err := f.ClientSet.CoreV1().Nodes().List(metav1.ListOptions{})
@@ -140,28 +157,24 @@ func areGPUsAvailableOnAllSchedulableNodes(f *framework.Framework) bool {
 	return true
 }
 
-func getGPUsAvailable(f *framework.Framework) int64 {
-	nodeList, err := f.ClientSet.CoreV1().Nodes().List(metav1.ListOptions{})
-	framework.ExpectNoError(err, "getting node list")
-	var gpusAvailable int64
-	for _, node := range nodeList.Items {
-		if val, ok := node.Status.Capacity[gpuResourceName]; ok {
-			gpusAvailable += (&val).Value()
-		}
-	}
-	return gpusAvailable
-}
-
+/**
+ * testNvidiaGPUsOnCOS - Orchestrates the full GPU validation cycle.
+ * Logic: 
+ * 1. Validates the host OS (COS required for portable CUDA host mounts).
+ * 2. Deploys the driver installer DaemonSet.
+ * 3. Monitors node capacity until GPUs are advertised.
+ * 4. Schedules one test pod per available GPU to verify parallel execution.
+ * 5. Aggregates resource usage metrics for final test summary.
+ */
 func testNvidiaGPUsOnCOS(f *framework.Framework) {
-	// Skip the test if the base image is not COS.
-	// TODO: Add support for other base images.
-	// CUDA apps require host mounts which is not portable across base images (yet).
+	// Block Logic: Initial environment validation.
 	framework.Logf("Checking base image")
 	if !isClusterRunningCOS(f) {
 		Skip("Nvidia GPU tests are supproted only on Container Optimized OS image currently")
 	}
 	framework.Logf("Cluster is running on COS. Proceeding with test")
 
+	// Block Logic: Resource model selection.
 	if f.BaseName == "device-plugin-gpus" {
 		dsYamlUrl = "https://raw.githubusercontent.com/GoogleCloudPlatform/container-engine-accelerators/master/daemonset.yaml"
 		gpuResourceName = framework.NVIDIAGPUResourceName
@@ -172,8 +185,7 @@ func testNvidiaGPUsOnCOS(f *framework.Framework) {
 		podCreationFunc = makeCudaAdditionTestPod
 	}
 
-	// Creates the DaemonSet that installs Nvidia Drivers.
-	// The DaemonSet also runs nvidia device plugin for device plugin test.
+	// Block Logic: Driver deployment.
 	ds, err := framework.DsFromManifest(dsYamlUrl)
 	Expect(err).NotTo(HaveOccurred())
 	ds.Namespace = f.Namespace.Name
@@ -181,6 +193,7 @@ func testNvidiaGPUsOnCOS(f *framework.Framework) {
 	framework.ExpectNoError(err, "failed to create daemonset")
 	framework.Logf("Successfully created daemonset to install Nvidia drivers.")
 
+	// Block Logic: Resource usage monitoring setup.
 	pods, err := framework.WaitForControlledPods(f.ClientSet, ds.Namespace, ds.Name, extensionsinternal.Kind("DaemonSet"))
 	framework.ExpectNoError(err, "getting pods controlled by the daemonset")
 	devicepluginPods, err := framework.WaitForControlledPods(f.ClientSet, "kube-system", "nvidia-gpu-device-plugin", extensionsinternal.Kind("DaemonSet"))
@@ -193,26 +206,26 @@ func testNvidiaGPUsOnCOS(f *framework.Framework) {
 	framework.ExpectNoError(err, "creating ResourceUsageGather for the daemonset pods")
 	go rsgather.StartGatheringData()
 
-	// Wait for Nvidia GPUs to be available on nodes
+	// Block Logic: Waiting for hardware readiness.
 	framework.Logf("Waiting for drivers to be installed and GPUs to be available in Node Capacity...")
 	Eventually(func() bool {
 		return areGPUsAvailableOnAllSchedulableNodes(f)
 	}, driverInstallTimeout, time.Second).Should(BeTrue())
 
+	// Block Logic: Workload execution.
 	framework.Logf("Creating as many pods as there are Nvidia GPUs and have the pods run a CUDA app")
 	podList := []*v1.Pod{}
 	for i := int64(0); i < getGPUsAvailable(f); i++ {
 		podList = append(podList, f.PodClient().Create(podCreationFunc()))
 	}
 	framework.Logf("Wait for all test pods to succeed")
-	// Wait for all pods to succeed
 	for _, po := range podList {
 		f.PodClient().WaitForSuccess(po.Name, 5*time.Minute)
 	}
 
+	// Block Logic: Cleanup and reporting.
 	framework.Logf("Stopping ResourceUsageGather")
 	constraints := make(map[string]framework.ResourceConstraint)
-	// For now, just gets summary. Can pass valid constraints in the future.
 	summary, err := rsgather.StopAndSummarize([]int{50, 90, 100}, constraints)
 	f.TestSummaries = append(f.TestSummaries, summary)
 	framework.ExpectNoError(err, "getting resource usage summary")

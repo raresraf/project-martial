@@ -1,3 +1,5 @@
+// Package provides architecture-aware components for error_test.go.
+// Focuses on production system reliability and error handling.
 /*
 Copyright 2016 The Kubernetes Authors.
 
@@ -23,6 +25,7 @@ import (
 	"k8s.io/kubernetes/cmd/kubeadm/app/preflight"
 )
 
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func TestCheckErr(t *testing.T) {
 	var codeReturned int
 	errHandle := func(err string, code int) {
@@ -38,9 +41,11 @@ func TestCheckErr(t *testing.T) {
 		{&preflight.Error{}, PreFlightExitCode},
 	}
 
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
 	for _, rt := range tokenTest {
 		codeReturned = 0
 		checkErr("", rt.e, errHandle)
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if codeReturned != rt.expected {
 			t.Errorf(
 				"failed checkErr:\n\texpected: %d\n\t  actual: %d",

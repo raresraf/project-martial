@@ -1,10 +1,11 @@
-# @file Makefile
-# @brief Manages the building and pushing of Kubernetes End-to-End (E2E) test container images.
+# @6d0b435b-a35f-4979-bc5a-6c9e73a8350c/test/images/Makefile
+# @brief Build orchestration for Kubernetes End-to-End (E2E) containerized test artifacts.
 #
-# This Makefile automates the process of creating container images for various
-# test components and optionally pushing them to a specified container registry.
-# It relies on an external `image-util.sh` script to perform the core build
-# and push operations.
+# Functional Intent: Automates the lifecycle of multi-architecture container images 
+# required for Kubernetes integration testing. It provides a standardized interface 
+# to build and distribute specialized test components across various registries.
+#
+# Domain: Kubernetes CI/CD, Containerization, Build Systems.
 #
 # Copyright 2017 The Kubernetes Authors.
 #
@@ -20,39 +21,35 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# @brief The container registry to use for pulling and pushing images.
-# Defaults to `gcr.io/kubernetes-e2e-test-images`.
+# Functional Utility: Configurable parameters for image distribution and compilation targets.
+# REGISTRY: Target repository for artifact storage.
+# GOARM: Instruction set version for ARM-based cross-compilation.
 REGISTRY ?= gcr.io/kubernetes-e2e-test-images
-# @brief The ARM version for Go cross-compilation, defaults to 7.
 GOARM ?= 7
-# @brief The QEMU version used for multi-architecture builds.
 QEMUVERSION=v2.9.1
-# @brief The GoLang version used for building.
 GOLANG_VERSION=1.13.6
-export # Export all variables to sub-processes.
+export # Ensures environment consistency for the image-util.sh sub-shell.
 
-# Block Logic: Checks if the WHAT variable is set, which is mandatory for build operations.
+# Block Logic: Validation of mandatory input parameters.
+# Pre-condition: The 'WHAT' variable must specify one or more target image directories.
+# Invariant: Build processes will not initiate without a defined target scope.
 ifndef WHAT
 $(error WHAT is a required variable, ex: make all WHAT=net)
 endif
 
-# @brief Default target: Builds the container image(s) specified by the WHAT variable.
-# Example: `make all WHAT=clusterapi-tester`
+# Functional Utility: Aggregates all build-related tasks into a single entry point.
 all: all-container
 
-# @brief Builds the container image(s) specified by the WHAT variable.
-# This target invokes the `image-util.sh` script with the 'build' command.
-# Args:
-#   WHAT: Directory names corresponding to the images to build.
+# Block Logic: Orchestrates the image construction phase.
+# Logic: Delegates the low-level container assembly to an external utility script, 
+# passing the targeted components as arguments.
 all-container:
 	./image-util.sh build $(WHAT)
 
-# @brief Builds and then pushes the container image(s) specified by the WHAT variable.
-# This target first calls `all-container` to build, then invokes `image-util.sh` with the 'push' command.
-# Args:
-#   WHAT: Directory names corresponding to the images to push.
+# Block Logic: Orchestrates the artifact distribution phase.
+# Logic: Sequences the build process (dependency) before initiating the registry push operation.
 all-push: all-container
 	./image-util.sh push $(WHAT)
 
-# .PHONY: Declares targets that do not correspond to actual files, ensuring they are always executed.
+# .PHONY: Ensures that targets are treated as actions rather than filesystem lookups.
 .PHONY: all all-push all-container

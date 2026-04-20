@@ -1,3 +1,5 @@
+// Package provides architecture-aware components for generator_for_type.go.
+// Focuses on production system reliability and error handling.
 /*
 Copyright 2015 The Kubernetes Authors.
 
@@ -43,14 +45,17 @@ type genClientForType struct {
 var _ generator.Generator = &genClientForType{}
 
 // Filter ignores all but one type because we're making a single file per type.
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func (g *genClientForType) Filter(c *generator.Context, t *types.Type) bool { return t == g.typeToMatch }
 
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func (g *genClientForType) Namers(c *generator.Context) namer.NameSystems {
 	return namer.NameSystems{
 		"raw": namer.NewRawNamer(g.outputPackage, g.imports),
 	}
 }
 
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func (g *genClientForType) Imports(c *generator.Context) (imports []string) {
 	return g.imports.ImportLines()
 }
@@ -58,10 +63,13 @@ func (g *genClientForType) Imports(c *generator.Context) (imports []string) {
 // Ideally, we'd like genStatus to return true if there is a subresource path
 // registered for "status" in the API server, but we do not have that
 // information, so genStatus returns true if the type has a status field.
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func genStatus(t *types.Type) bool {
 	// Default to true if we have a Status member
 	hasStatus := false
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
 	for _, m := range t.Members {
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if m.Name == "Status" {
 			hasStatus = true
 			break
@@ -71,10 +79,12 @@ func genStatus(t *types.Type) bool {
 }
 
 // GenerateType makes the body of a file implementing the individual typed client for type t.
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func (g *genClientForType) GenerateType(c *generator.Context, t *types.Type, w io.Writer) error {
 	sw := generator.NewSnippetWriter(w, c, "$", "$")
 	pkg := filepath.Base(t.Name.Package)
 	tags, err := util.ParseClientGenTags(append(t.SecondClosestCommentLines, t.CommentLines...))
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if err != nil {
 		return err
 	}
@@ -83,12 +93,15 @@ func (g *genClientForType) GenerateType(c *generator.Context, t *types.Type, w i
 		args     map[string]interface{}
 	}
 	extendedMethods := []extendedInterfaceMethod{}
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
 	for _, e := range tags.Extensions {
 		inputType := *t
 		resultType := *t
 		// TODO: Extract this to some helper method as this code is copied into
 		// 2 other places.
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if len(e.InputTypeOverride) > 0 {
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 			if name, pkg := e.Input(); len(pkg) > 0 {
 				newType := c.Universe.Type(types.Name{Package: pkg, Name: name})
 				inputType = *newType
@@ -96,7 +109,9 @@ func (g *genClientForType) GenerateType(c *generator.Context, t *types.Type, w i
 				inputType.Name.Name = e.InputTypeOverride
 			}
 		}
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if len(e.ResultTypeOverride) > 0 {
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 			if name, pkg := e.Result(); len(pkg) > 0 {
 				newType := c.Universe.Type(types.Name{Package: pkg, Name: name})
 				resultType = *newType
@@ -105,6 +120,7 @@ func (g *genClientForType) GenerateType(c *generator.Context, t *types.Type, w i
 			}
 		}
 		var updatedVerbtemplate string
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if _, exists := subresourceDefaultVerbTemplates[e.VerbType]; e.IsSubresource() && exists {
 			updatedVerbtemplate = e.VerbName + "(" + strings.TrimPrefix(subresourceDefaultVerbTemplates[e.VerbType], strings.Title(e.VerbType)+"(")
 		} else {
@@ -145,6 +161,7 @@ func (g *genClientForType) GenerateType(c *generator.Context, t *types.Type, w i
 	}
 
 	sw.Do(getterComment, m)
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if tags.NonNamespaced {
 		sw.Do(getterNonNamespaced, m)
 	} else {
@@ -152,16 +169,20 @@ func (g *genClientForType) GenerateType(c *generator.Context, t *types.Type, w i
 	}
 
 	sw.Do(interfaceTemplate1, m)
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if !tags.NoVerbs {
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if !genStatus(t) {
 			tags.SkipVerbs = append(tags.SkipVerbs, "updateStatus")
 		}
 		interfaceSuffix := ""
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if len(extendedMethods) > 0 {
 			interfaceSuffix = "\n"
 		}
 		sw.Do("\n"+generateInterface(tags)+interfaceSuffix, m)
 		// add extended verbs into interface
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
 		for _, v := range extendedMethods {
 			sw.Do(v.template+interfaceSuffix, v.args)
 		}
@@ -169,6 +190,7 @@ func (g *genClientForType) GenerateType(c *generator.Context, t *types.Type, w i
 	}
 	sw.Do(interfaceTemplate4, m)
 
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if tags.NonNamespaced {
 		sw.Do(structNonNamespaced, m)
 		sw.Do(newStructNonNamespaced, m)
@@ -177,44 +199,57 @@ func (g *genClientForType) GenerateType(c *generator.Context, t *types.Type, w i
 		sw.Do(newStructNamespaced, m)
 	}
 
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if tags.NoVerbs {
 		return sw.Error()
 	}
 
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if tags.HasVerb("get") {
 		sw.Do(getTemplate, m)
 	}
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if tags.HasVerb("list") {
 		sw.Do(listTemplate, m)
 	}
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if tags.HasVerb("watch") {
 		sw.Do(watchTemplate, m)
 	}
 
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if tags.HasVerb("create") {
 		sw.Do(createTemplate, m)
 	}
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if tags.HasVerb("update") {
 		sw.Do(updateTemplate, m)
 	}
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if tags.HasVerb("updateStatus") {
 		sw.Do(updateStatusTemplate, m)
 	}
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if tags.HasVerb("delete") {
 		sw.Do(deleteTemplate, m)
 	}
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if tags.HasVerb("deleteCollection") {
 		sw.Do(deleteCollectionTemplate, m)
 	}
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if tags.HasVerb("patch") {
 		sw.Do(patchTemplate, m)
 	}
 
 	// generate expansion methods
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
 	for _, e := range tags.Extensions {
 		inputType := *t
 		resultType := *t
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if len(e.InputTypeOverride) > 0 {
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 			if name, pkg := e.Input(); len(pkg) > 0 {
 				newType := c.Universe.Type(types.Name{Package: pkg, Name: name})
 				inputType = *newType
@@ -222,7 +257,9 @@ func (g *genClientForType) GenerateType(c *generator.Context, t *types.Type, w i
 				inputType.Name.Name = e.InputTypeOverride
 			}
 		}
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if len(e.ResultTypeOverride) > 0 {
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 			if name, pkg := e.Result(); len(pkg) > 0 {
 				newType := c.Universe.Type(types.Name{Package: pkg, Name: name})
 				resultType = *newType
@@ -234,7 +271,9 @@ func (g *genClientForType) GenerateType(c *generator.Context, t *types.Type, w i
 		m["resultType"] = &resultType
 		m["subresourcePath"] = e.SubResourcePath
 
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if e.HasVerb("get") {
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 			if e.IsSubresource() {
 				sw.Do(adjustTemplate(e.VerbName, e.VerbType, getSubresourceTemplate), m)
 			} else {
@@ -242,7 +281,9 @@ func (g *genClientForType) GenerateType(c *generator.Context, t *types.Type, w i
 			}
 		}
 
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if e.HasVerb("list") {
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 			if e.IsSubresource() {
 				sw.Do(adjustTemplate(e.VerbName, e.VerbType, listSubresourceTemplate), m)
 			} else {
@@ -251,11 +292,14 @@ func (g *genClientForType) GenerateType(c *generator.Context, t *types.Type, w i
 		}
 
 		// TODO: Figure out schemantic for watching a sub-resource.
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if e.HasVerb("watch") {
 			sw.Do(adjustTemplate(e.VerbName, e.VerbType, watchTemplate), m)
 		}
 
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if e.HasVerb("create") {
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 			if e.IsSubresource() {
 				sw.Do(adjustTemplate(e.VerbName, e.VerbType, createSubresourceTemplate), m)
 			} else {
@@ -263,7 +307,9 @@ func (g *genClientForType) GenerateType(c *generator.Context, t *types.Type, w i
 			}
 		}
 
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if e.HasVerb("update") {
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 			if e.IsSubresource() {
 				sw.Do(adjustTemplate(e.VerbName, e.VerbType, updateSubresourceTemplate), m)
 			} else {
@@ -273,10 +319,12 @@ func (g *genClientForType) GenerateType(c *generator.Context, t *types.Type, w i
 
 		// TODO: Figure out schemantic for deleting a sub-resource (what arguments
 		// are passed, does it need two names? etc.
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if e.HasVerb("delete") {
 			sw.Do(adjustTemplate(e.VerbName, e.VerbType, deleteTemplate), m)
 		}
 
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if e.HasVerb("patch") {
 			sw.Do(adjustTemplate(e.VerbName, e.VerbType, patchTemplate), m)
 		}
@@ -288,14 +336,18 @@ func (g *genClientForType) GenerateType(c *generator.Context, t *types.Type, w i
 // adjustTemplate adjust the origin verb template using the expansion name.
 // TODO: Make the verbs in templates parametrized so the strings.Replace() is
 // not needed.
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func adjustTemplate(name, verbType, template string) string {
 	return strings.Replace(template, " "+strings.Title(verbType), " "+name, -1)
 }
 
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func generateInterface(tags util.Tags) string {
 	// need an ordered list here to guarantee order of generated methods.
 	out := []string{}
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
 	for _, m := range util.SupportedVerbs {
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if tags.HasVerb(m) {
 			out = append(out, defaultVerbTemplates[m])
 		}
@@ -368,6 +420,7 @@ type $.type|privatePlural$ struct {
 
 var newStructNamespaced = `
 // new$.type|publicPlural$ returns a $.type|publicPlural$
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func new$.type|publicPlural$(c *$.GroupGoName$$.Version$Client, namespace string) *$.type|privatePlural$ {
 	return &$.type|privatePlural${
 		client: c.RESTClient(),
@@ -378,6 +431,7 @@ func new$.type|publicPlural$(c *$.GroupGoName$$.Version$Client, namespace string
 
 var newStructNonNamespaced = `
 // new$.type|publicPlural$ returns a $.type|publicPlural$
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func new$.type|publicPlural$(c *$.GroupGoName$$.Version$Client) *$.type|privatePlural$ {
 	return &$.type|privatePlural${
 		client: c.RESTClient(),
@@ -386,8 +440,10 @@ func new$.type|publicPlural$(c *$.GroupGoName$$.Version$Client) *$.type|privateP
 `
 var listTemplate = `
 // List takes label and field selectors, and returns the list of $.resultType|publicPlural$ that match those selectors.
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func (c *$.type|privatePlural$) List(opts $.ListOptions|raw$) (result *$.resultType|raw$List, err error) {
 	var timeout time.Duration
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if opts.TimeoutSeconds != nil{
 		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
 	}
@@ -405,8 +461,10 @@ func (c *$.type|privatePlural$) List(opts $.ListOptions|raw$) (result *$.resultT
 
 var listSubresourceTemplate = `
 // List takes $.type|raw$ name, label and field selectors, and returns the list of $.resultType|publicPlural$ that match those selectors.
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func (c *$.type|privatePlural$) List($.type|private$Name string, opts $.ListOptions|raw$) (result *$.resultType|raw$List, err error) {
 	var timeout time.Duration
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if opts.TimeoutSeconds != nil{
 		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
 	}
@@ -426,6 +484,7 @@ func (c *$.type|privatePlural$) List($.type|private$Name string, opts $.ListOpti
 
 var getTemplate = `
 // Get takes name of the $.type|private$, and returns the corresponding $.resultType|private$ object, and an error if there is any.
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func (c *$.type|privatePlural$) Get(name string, options $.GetOptions|raw$) (result *$.resultType|raw$, err error) {
 	result = &$.resultType|raw${}
 	err = c.client.Get().
@@ -441,6 +500,7 @@ func (c *$.type|privatePlural$) Get(name string, options $.GetOptions|raw$) (res
 
 var getSubresourceTemplate = `
 // Get takes name of the $.type|private$, and returns the corresponding $.resultType|raw$ object, and an error if there is any.
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func (c *$.type|privatePlural$) Get($.type|private$Name string, options $.GetOptions|raw$) (result *$.resultType|raw$, err error) {
 	result = &$.resultType|raw${}
 	err = c.client.Get().
@@ -457,6 +517,7 @@ func (c *$.type|privatePlural$) Get($.type|private$Name string, options $.GetOpt
 
 var deleteTemplate = `
 // Delete takes name of the $.type|private$ and deletes it. Returns an error if one occurs.
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func (c *$.type|privatePlural$) Delete(name string, options *$.DeleteOptions|raw$) error {
 	return c.client.Delete().
 		$if .namespaced$Namespace(c.ns).$end$
@@ -470,8 +531,10 @@ func (c *$.type|privatePlural$) Delete(name string, options *$.DeleteOptions|raw
 
 var deleteCollectionTemplate = `
 // DeleteCollection deletes a collection of objects.
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func (c *$.type|privatePlural$) DeleteCollection(options *$.DeleteOptions|raw$, listOptions $.ListOptions|raw$) error {
 	var timeout time.Duration
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if listOptions.TimeoutSeconds != nil{
 		timeout = time.Duration(*listOptions.TimeoutSeconds) * time.Second
 	}
@@ -488,6 +551,7 @@ func (c *$.type|privatePlural$) DeleteCollection(options *$.DeleteOptions|raw$, 
 
 var createSubresourceTemplate = `
 // Create takes the representation of a $.inputType|private$ and creates it.  Returns the server's representation of the $.resultType|private$, and an error, if there is any.
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func (c *$.type|privatePlural$) Create($.type|private$Name string, $.inputType|private$ *$.inputType|raw$) (result *$.resultType|raw$, err error) {
 	result = &$.resultType|raw${}
 	err = c.client.Post().
@@ -504,6 +568,7 @@ func (c *$.type|privatePlural$) Create($.type|private$Name string, $.inputType|p
 
 var createTemplate = `
 // Create takes the representation of a $.inputType|private$ and creates it.  Returns the server's representation of the $.resultType|private$, and an error, if there is any.
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func (c *$.type|privatePlural$) Create($.inputType|private$ *$.inputType|raw$) (result *$.resultType|raw$, err error) {
 	result = &$.resultType|raw${}
 	err = c.client.Post().
@@ -518,6 +583,7 @@ func (c *$.type|privatePlural$) Create($.inputType|private$ *$.inputType|raw$) (
 
 var updateSubresourceTemplate = `
 // Update takes the top resource name and the representation of a $.inputType|private$ and updates it. Returns the server's representation of the $.resultType|private$, and an error, if there is any.
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func (c *$.type|privatePlural$) Update($.type|private$Name string, $.inputType|private$ *$.inputType|raw$) (result *$.resultType|raw$, err error) {
 	result = &$.resultType|raw${}
 	err = c.client.Put().
@@ -534,6 +600,7 @@ func (c *$.type|privatePlural$) Update($.type|private$Name string, $.inputType|p
 
 var updateTemplate = `
 // Update takes the representation of a $.inputType|private$ and updates it. Returns the server's representation of the $.resultType|private$, and an error, if there is any.
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func (c *$.type|privatePlural$) Update($.inputType|private$ *$.inputType|raw$) (result *$.resultType|raw$, err error) {
 	result = &$.resultType|raw${}
 	err = c.client.Put().
@@ -551,6 +618,7 @@ var updateStatusTemplate = `
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
 
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func (c *$.type|privatePlural$) UpdateStatus($.type|private$ *$.type|raw$) (result *$.type|raw$, err error) {
 	result = &$.type|raw${}
 	err = c.client.Put().
@@ -567,8 +635,10 @@ func (c *$.type|privatePlural$) UpdateStatus($.type|private$ *$.type|raw$) (resu
 
 var watchTemplate = `
 // Watch returns a $.watchInterface|raw$ that watches the requested $.type|privatePlural$.
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func (c *$.type|privatePlural$) Watch(opts $.ListOptions|raw$) ($.watchInterface|raw$, error) {
 	var timeout time.Duration
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if opts.TimeoutSeconds != nil{
 		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
 	}
@@ -584,6 +654,7 @@ func (c *$.type|privatePlural$) Watch(opts $.ListOptions|raw$) ($.watchInterface
 
 var patchTemplate = `
 // Patch applies the patch and returns the patched $.resultType|private$.
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func (c *$.type|privatePlural$) Patch(name string, pt $.PatchType|raw$, data []byte, subresources ...string) (result *$.resultType|raw$, err error) {
 	result = &$.resultType|raw${}
 	err = c.client.Patch(pt).

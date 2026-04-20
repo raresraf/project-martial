@@ -1,46 +1,48 @@
 #!/bin/sh
 # @494c8974-b02e-4988-a478-fb0670e9f3bd/tools/bootconfig/scripts/ftrace.sh
-# @brief Manages the Linux ftrace tracing utility, providing functions to clear, enable, disable, and reset various ftrace components.
-# This script is designed to bring the ftrace system to a clean, initial state,
-# often used for debugging kernel boot processes or setting up specific tracing scenarios.
+# @brief Utility script for lifecycle management and state restoration of the Linux ftrace subsystem.
+#
+# Functional Intent: Provides a suite of functions to purge, disable, and reset 
+# ftrace components (tracers, events, triggers, filters). It is primarily used 
+# during kernel boot sequence debugging and in automated test harnesses to 
+# ensure a deterministic baseline tracing state.
+#
+# Domain: Linux Kernel Tracing, System Observability, Boot Configuration.
 #
 # SPDX-License-Identifier: GPL-2.0-only
 
+# Functional Utility: Purges the primary trace buffer.
 clear_trace() {
-    # Functional Utility: Resets the content of the trace buffer.
-    # This effectively clears all previously recorded trace events.
     echo > trace
 }
 
+# Functional Utility: Globally suspends ftrace activity.
 disable_tracing() {
-    # Functional Utility: Stops the ftrace recording mechanism.
-    # When tracing is disabled, no new events are written to the trace buffer.
     echo 0 > tracing_on
 }
 
+# Functional Utility: Resumes global ftrace recording.
 enable_tracing() {
-    # Functional Utility: Starts the ftrace recording mechanism.
-    # When tracing is enabled, events are written to the trace buffer.
     echo 1 > tracing_on
 }
 
+# Functional Utility: Reverts the active tracer to 'nop', effectively disabling function/graph tracking.
 reset_tracer() {
-    # Functional Utility: Resets the currently active ftrace tracer to the default 'nop' (no operation) tracer.
     echo nop > current_tracer
 }
 
+# Block Logic: Internal helper for dismantling event triggers.
+# Logic: Identifies active triggers and issues the negation ('!') command to the 
+# respective ftrace control files to safely unregister them.
 reset_trigger_file() {
-    # Functional Utility: Resets event triggers within specified trigger files.
-    # This function is used internally to clear all active triggers for ftrace events.
-    # @param $@: List of trigger files to process.
-    # Block Logic: Removes 'on' action triggers by prepending '!' to the command and writing to the file.
+    # Block Logic: Handling of conditional 'on' triggers.
     grep -H ':on[^:]*(' $@ |
     while read line; do
         cmd=`echo $line | cut -f2- -d: | cut -f1 -d"["`
 	file=`echo $line | cut -f1 -d:`
 	echo "!$cmd" >> $file
     done
-    # Block Logic: Resets all other triggers (excluding comments) by prepending '!' to the command.
+    # Block Logic: Handling of generic event triggers.
     grep -Hv ^# $@ |
     while read line; do
         cmd=`echo $line | cut -f2- -d: | cut -f1 -d"["`
@@ -49,35 +51,31 @@ reset_trigger_file() {
     done
 }
 
+# Functional Utility: Aggregates trigger reset logic for all event types.
 reset_trigger() {
-    # Functional Utility: Resets all current event triggers, including synthetic and regular event triggers.
     if [ -d events/synthetic ]; then
         reset_trigger_file events/synthetic/*/trigger
     fi
     reset_trigger_file events/*/*/trigger
 }
 
+# Block Logic: Resets filtering rules for dynamic events.
+# Logic: Iterates through all subsystem filters and clears active predicates.
 reset_events_filter() {
-    # Functional Utility: Resets all active filters for ftrace events.
-    # This sets all event filters to '0' (disabled), effectively allowing all events to pass if enabled.
-    # Block Logic: Iterates through event filter files that are not already set to 'none' and disables them.
     grep -v ^none events/*/*/filter |
     while read line; do
 	echo 0 > `echo $line | cut -f1 -d:`
     done
 }
 
+# Block Logic: Resets function-level tracer filters.
+# Pre-condition: 'set_ftrace_filter' must be available in the tracefs hierarchy.
+# Logic: Clears the filter list and negation-disables all complex function triggers.
 reset_ftrace_filter() {
-    # Functional Utility: Resets all filters defined in `set_ftrace_filter`.
-    # This clears function-specific filters applied to the function tracer.
-    # Precondition: `set_ftrace_filter` file must exist.
     if [ ! -f set_ftrace_filter ]; then
       return 0
     fi
-    # Block Logic: Clears the existing `set_ftrace_filter` content.
     echo > set_ftrace_filter
-    # Block Logic: Iterates through previously set ftrace filters (excluding comments)
-    # and disables them by prepending '!' to the filter command.
     grep -v '^#' set_ftrace_filter | while read t; do
 	tr=`echo $t | cut -d: -f2`
 	if [ "$tr" = "" ]; then
@@ -101,33 +99,32 @@ reset_ftrace_filter() {
     done
 }
 
+# Functional Utility: Globally disables all event groups.
 disable_events() {
-    # Functional Utility: Disables all ftrace events globally.
     echo 0 > events/enable
 }
 
+# Functional Utility: Dismantles all user-defined synthetic events.
 clear_synthetic_events() {
-    # Functional Utility: Clears all currently defined synthetic events.
     grep -v ^# synthetic_events |
     while read line; do
         echo "!$line" >> synthetic_events
     done
 }
 
+# Block Logic: Orchestrates a comprehensive system-wide ftrace reset.
+# Invariant: Upon completion, ftrace is in a clean state with 'nop' tracer 
+# and active recording, but with zero events or filters enabled.
 initialize_ftrace() {
-# Functional Utility: Resets the entire ftrace system to an initial, clean state.
-# This function is a comprehensive reset, ensuring no tracers, events, triggers,
-# or filters are active.
-# As the initial state, ftrace will be set to nop tracer,
-# no events, no triggers, no filters, no function filters,
-# no probes, and tracing on.
     disable_tracing
     reset_tracer
     reset_trigger
     reset_events_filter
     reset_ftrace_filter
     disable_events
-    # Block Logic: Clears various ftrace configuration files if they exist.
+    
+    # Block Logic: Purge persistent configuration state.
+    # Logic: Sequentially clears process-level filters, probes, and snapshots.
     [ -f set_event_pid ] && echo > set_event_pid
     [ -f set_ftrace_pid ] && echo > set_ftrace_pid
     [ -f set_ftrace_notrace ] && echo > set_ftrace_notrace
@@ -137,6 +134,7 @@ initialize_ftrace() {
     [ -f uprobe_events ] && echo > uprobe_events
     [ -f synthetic_events ] && echo > synthetic_events
     [ -f snapshot ] && echo 0 > snapshot
+    
     clear_trace
     enable_tracing
 }

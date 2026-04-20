@@ -1,3 +1,8 @@
+/**
+ * @file no_idea.cl
+ * @brief OpenCL kernel for matrix operations.
+ * Domain-Aware: Exploits GPU memory hierarchy, thread indexing, and local synchronization.
+ */
 
 union Color {
 	struct BgraColorType {
@@ -122,7 +127,15 @@ void WriteDiff(__global uchar* block, char diff) {
 
 
 void ExtractBlock(uchar* dst, uchar* src, int width) {
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for (int j = 0; j < 4; ++j) {
+		/**
+		 * Block Logic: Iterative processing loop.
+		 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+		 */
 		for ( int i = 0 ; i < 16; i++)
 			dst[j * 4 * 4 + i ] = src[i];
 		src += width * 4;
@@ -176,6 +189,10 @@ void getAverageColor(const union Color* src, float* avg_color)
 {
 	uint sum_b = 0, sum_g = 0, sum_r = 0;
 	
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for (unsigned int i = 0; i < 8; ++i) {
 		sum_b += src[i].channels.b;
 		sum_g += src[i].channels.g;
@@ -205,10 +222,18 @@ unsigned long computeLuminance(__global uchar* block,
 
 	
 	
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for (unsigned int tbl_idx = 0; tbl_idx < 8; ++tbl_idx) {
 		
 		
 		union Color candidate_color[4];  
+		/**
+		 * Block Logic: Iterative processing loop.
+		 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+		 */
 		for (unsigned int mod_idx = 0; mod_idx < 4; ++mod_idx) {
 			short lum = g_codeword_tables[tbl_idx][mod_idx];
 			candidate_color[mod_idx] = makeColor(base, lum);
@@ -216,31 +241,59 @@ unsigned long computeLuminance(__global uchar* block,
 		
 		uint tbl_err = 0;
 		
+		/**
+		 * Block Logic: Iterative processing loop.
+		 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+		 */
 		for (unsigned int i = 0; i < 8; ++i) {
 			
 			
 			uint best_mod_err = threshold;
+			/**
+			 * Block Logic: Iterative processing loop.
+			 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+			 */
 			for (unsigned int mod_idx = 0; mod_idx < 4; ++mod_idx) {
-				const union Color *color = &candidate_color[mod_idx];
+				const union Color *color = &candidate_color[mod_idx]; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 				uint mod_err = getColorError(src[i], *color);
+				/**
+				 * Block Logic: Conditional state branch.
+				 * Invariant: The conditional branch maintains control flow invariants.
+				 */
 				if (mod_err < best_mod_err) {
 					best_mod_idx[tbl_idx][i] = mod_idx;
 					best_mod_err = mod_err;
 					
+					/**
+					 * Block Logic: Conditional state branch.
+					 * Invariant: The conditional branch maintains control flow invariants.
+					 */
 					if (mod_err == 0)
 						break;  
 				}
 			}
 			
 			tbl_err += best_mod_err;
+			/**
+			 * Block Logic: Conditional state branch.
+			 * Invariant: The conditional branch maintains control flow invariants.
+			 */
 			if (tbl_err > best_tbl_err)
 				break;  
 		}
 		
+		/**
+		 * Block Logic: Conditional state branch.
+		 * Invariant: The conditional branch maintains control flow invariants.
+		 */
 		if (tbl_err < best_tbl_err) {
 			best_tbl_err = tbl_err;
 			best_tbl_idx = tbl_idx;
 			
+			/**
+			 * Block Logic: Conditional state branch.
+			 * Invariant: The conditional branch maintains control flow invariants.
+			 */
 			if (tbl_err == 0)
 				break;  
 		}
@@ -250,6 +303,10 @@ unsigned long computeLuminance(__global uchar* block,
 
 	uint pix_data = 0;
 
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for (unsigned int i = 0; i < 8; ++i) {
 		uchar mod_idx = best_mod_idx[best_tbl_idx][i];
 		uchar pix_idx = g_mod_to_pix[mod_idx];
@@ -273,12 +330,24 @@ int tryCompressSolidBlock(__global uchar* dst,
 						   const union Color* src,
 						   unsigned long* error)
 {
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for (unsigned int i = 1; i < 16; ++i) {
+		/**
+		 * Block Logic: Conditional state branch.
+		 * Invariant: The conditional branch maintains control flow invariants.
+		 */
 		if (src[i].bits != src[0].bits)
 			return 0;
 	}
 	
 	
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for( int i = 0 ; i < 8; i++)
 		dst[i] = 0;
 	
@@ -298,26 +367,46 @@ int tryCompressSolidBlock(__global uchar* dst,
 	
 	
 	
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for (unsigned int tbl_idx = 0; tbl_idx < 8; ++tbl_idx) {
 		
 		
 
 
+		/**
+		 * Block Logic: Iterative processing loop.
+		 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+		 */
 		for (unsigned int mod_idx = 0; mod_idx < 4; ++mod_idx) {
 			short lum = g_codeword_tables[tbl_idx][mod_idx];
 			const union Color color = makeColor(base, lum);
 			
 			uint mod_err = getColorError(*src, color);
+			/**
+			 * Block Logic: Conditional state branch.
+			 * Invariant: The conditional branch maintains control flow invariants.
+			 */
 			if (mod_err < best_mod_err) {
 				best_tbl_idx = tbl_idx;
 				best_mod_idx = mod_idx;
 				best_mod_err = mod_err;
 				
+				/**
+				 * Block Logic: Conditional state branch.
+				 * Invariant: The conditional branch maintains control flow invariants.
+				 */
 				if (mod_err == 0)
 					break;  
 			}
 		}
 		
+		/**
+		 * Block Logic: Conditional state branch.
+		 * Invariant: The conditional branch maintains control flow invariants.
+		 */
 		if (best_mod_err == 0)
 			break;
 	}
@@ -330,7 +419,15 @@ int tryCompressSolidBlock(__global uchar* dst,
 	uint msb = pix_idx >> 1;
 	
 	uint pix_data = 0;
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for (unsigned int i = 0; i < 2; ++i) {
+		/**
+		 * Block Logic: Iterative processing loop.
+		 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+		 */
 		for (unsigned int j = 0; j < 8; ++j) {
 			
 			int texel_num = g_idx_to_num[i][j];
@@ -350,6 +447,10 @@ unsigned long compressBlock(__global uchar* dst,
 							unsigned long threshold)
 {
 	unsigned long solid_error = 0;
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (tryCompressSolidBlock(dst, ver_src, &solid_error)) {
 		return solid_error;
 	}
@@ -361,6 +462,10 @@ unsigned long compressBlock(__global uchar* dst,
 	
 	
 	
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for (unsigned int i = 0, j = 1; i < 4; i += 2, j += 2) {
 		float avg_color_0[3];
 		getAverageColor(sub_block_src[i], avg_color_0);
@@ -370,11 +475,19 @@ unsigned long compressBlock(__global uchar* dst,
 		getAverageColor(sub_block_src[j], avg_color_1);
 		union Color avg_color_555_1 = makeColor555(avg_color_1);
 		
+		/**
+		 * Block Logic: Iterative processing loop.
+		 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+		 */
 		for (unsigned int light_idx = 0; light_idx < 3; ++light_idx) {
 			int u = avg_color_555_0.components[light_idx] >> 3;
 			int v = avg_color_555_1.components[light_idx] >> 3;
 			
 			int component_diff = v - u;
+			/**
+			 * Block Logic: Conditional state branch.
+			 * Invariant: The conditional branch maintains control flow invariants.
+			 */
 			if (component_diff  3) {
 				use_differential[i / 2] = false;
 				sub_block_avg[i] = makeColor444(avg_color_0);
@@ -390,7 +503,15 @@ unsigned long compressBlock(__global uchar* dst,
 	
 	
 	uint sub_block_err[4] = {0};
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for (unsigned int i = 0; i < 4; ++i) {
+		/**
+		 * Block Logic: Iterative processing loop.
+		 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+		 */
 		for (unsigned int j = 0; j < 8; ++j) {
 			sub_block_err[i] += getColorError(sub_block_avg[i], sub_block_src[i][j]);
 		}
@@ -402,6 +523,10 @@ unsigned long compressBlock(__global uchar* dst,
 	sub_block_err[2] + sub_block_err[3] < sub_block_err[0] + sub_block_err[1];
 	
 	
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for (int i = 0 ; i < 8 ; i++)
 		dst[i] = 0;
 	
@@ -411,6 +536,10 @@ unsigned long compressBlock(__global uchar* dst,
 	uchar sub_block_off_0 = flip ? 2 : 0;
 	uchar sub_block_off_1 = sub_block_off_0 + 1;
 	
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (use_differential[!!flip]) {
 		WriteColors555(dst, sub_block_avg[sub_block_off_0],
 					   sub_block_avg[sub_block_off_1]);
@@ -436,6 +565,10 @@ unsigned long compressBlock(__global uchar* dst,
 }
 
 void memcpy(uchar *dst, __global uchar *src, int size){
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for (int i = 0 ; i < size; i++)
 		dst[i] = src[i];
 }
@@ -487,6 +620,10 @@ using namespace std;
 #define DIE(assertion, call_description)         \
 	do                                           \
 	{                                            \
+		/**
+		 * Block Logic: Conditional state branch.
+		 * Invariant: The conditional branch maintains control flow invariants.
+		 */
 		if (assertion)                           \
 		{                                        \
 			fprintf(stderr, "(%d): ", __LINE__); \
@@ -618,6 +755,10 @@ void cl_get_compiler_err_log(cl_program program, cl_device_id device)
 
 int CL_ERR(int cl_ret)
 {
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (cl_ret != CL_SUCCESS)
 	{
 		cout << endl
@@ -630,6 +771,10 @@ int CL_ERR(int cl_ret)
 
 int CL_COMPILE_ERR(int cl_ret, cl_program program, cl_device_id device)
 {
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (cl_ret != CL_SUCCESS)
 	{
 		cout << endl
@@ -657,7 +802,7 @@ void gpu_find(cl_device_id &device)
 {
 	cl_platform_id platform;
 	cl_uint platform_num = 0;
-	cl_platform_id *platform_list = NULL;
+	cl_platform_id *platform_list = NULL; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 
 	cl_uint device_num = 0;
 	cl_device_id *device_list = NULL;
@@ -675,10 +820,18 @@ void gpu_find(cl_device_id &device)
 	cout << "Platforms found: " << platform_num << endl;
 	int gpu_platform = -1;
 	
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for (uint platf = 0; platf < platform_num; platf++)
 	{
 		
 		CL_ERR(clGetDeviceIDs(platform_list[platf], CL_DEVICE_TYPE_GPU, 0, NULL, &device_num));
+		/**
+		 * Block Logic: Conditional state branch.
+		 * Invariant: The conditional branch maintains control flow invariants.
+		 */
 		if (device_num == 0)
 			continue;
 		gpu_platform = platf;

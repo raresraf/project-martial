@@ -1,16 +1,42 @@
+/**
+ * @file solver_neopt.c
+ * @brief Unoptimized standard implementation to compute $C = A \times B \times B^T + A^T \times A$.
+ * Algorithm: Naive multi-loop dense matrix multiplication with upper triangular conditions.
+ * Time Complexity: $O(N^3)$.
+ * Space Complexity: $O(N^2)$ to store the intermediate matrices.
+ */
 
 #include "utils.h"
 #define MAX(x, y) x > y ? x : y 
 #define MIN(x, y) (x > y ? y : x)
 
+/**
+ * @brief Computes C = A * B * B^T + A^T * A.
+ * @param N Matrix dimension.
+ * @param A Input matrix A.
+ * @param B Input matrix B.
+ * @return Pointer to resulting matrix C.
+ */
 double* my_solver(int N, double *A, double* B) {
 	printf("NEOPT SOLVER\n");
 	int i, j, k;
 	double *result1 = malloc(N * N * sizeof(double));
 	
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for (i = 0; i < N; i++) {
+		/**
+		 * Block Logic: Iterative processing loop.
+		 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+		 */
 		for (j = 0; j < N; j++) {
 			result1[i * N + j] = 0.0;
+			/**
+			 * Block Logic: Iterative processing loop.
+			 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+			 */
 			for (k = i; k < N; k++) {
 				result1[i * N + j] += A[i * N + k] * B[k * N + j];
 			}
@@ -18,9 +44,21 @@ double* my_solver(int N, double *A, double* B) {
 	}
 	
 	double *result2 = malloc(N * N * sizeof(double));
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for (i = 0; i < N; i++) {
+		/**
+		 * Block Logic: Iterative processing loop.
+		 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+		 */
 		for (j = 0; j < N; j++) {
 			result2[i * N + j] = 0;
+      		/**
+      		 * Block Logic: Iterative processing loop.
+      		 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+      		 */
       		for (k = 0; k < N; k++) {
 				result2[i * N + j] += result1[i * N + k] * B[j * N + k];
       		}
@@ -28,16 +66,36 @@ double* my_solver(int N, double *A, double* B) {
 	}
 	
 	double *result3 = malloc(N * N * sizeof(double));
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for (i = 0; i < N; i++) {
+		/**
+		 * Block Logic: Iterative processing loop.
+		 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+		 */
 		for (j = 0; j < N; j++) {
 			result3[i * N + j] = 0;
+      		/**
+      		 * Block Logic: Iterative processing loop.
+      		 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+      		 */
       		for (k = 0; k <= MIN(i, j); k++) {
 				result3[i * N + j] += A[k * N + i] * A[k * N + j];
       		}
    		}
 	}
 	double *finalResult = malloc(N * N * sizeof(double));
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for (i = 0; i < N; i++) {
+		/**
+		 * Block Logic: Iterative processing loop.
+		 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+		 */
 		for (j = 0; j < N; j++) {
 			finalResult[i * N + j] = result2[i * N + j] + result3[i * N + j];
    		}

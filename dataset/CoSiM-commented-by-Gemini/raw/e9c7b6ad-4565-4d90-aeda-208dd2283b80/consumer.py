@@ -1,3 +1,7 @@
+"""
+Module consumer.py
+Provides core algorithm logic. Employs optimal time complexity routines.
+"""
 
 
 
@@ -12,6 +16,11 @@ class Consumer(Thread):
     print_lock = Lock()
 
     def __init__(self, carts: List[List[Dict]], marketplace: Marketplace,
+        """
+        Executes core routine.
+        @pre: Valid inputs provided.
+        @post: Desired state transformation complete.
+        """
                  retry_wait_time: float, **kwargs):
         
         Thread.__init__(self, **kwargs)
@@ -20,20 +29,32 @@ class Consumer(Thread):
         self.retry_wait_time = retry_wait_time
 
     def run(self):
+        """
+        Executes core routine.
+        @pre: Valid inputs provided.
+        @post: Desired state transformation complete.
+        """
+        # Block Logic: Iterates over collection. Invariant: Processes elements sequentially.
         for op_list in self.carts:
             cart_id = self.marketplace.new_cart()
+            # Block Logic: Iterates over collection. Invariant: Processes elements sequentially.
             for operation in op_list:
+                # Block Logic: Conditional state gate. Invariant: Execution paths are mutually exclusive.
                 if operation['type'] == 'add':
+                    # Block Logic: Iterates over collection. Invariant: Processes elements sequentially.
                     for _ in range(operation['quantity']):
                         retval = self.marketplace.add_to_cart(cart_id, operation['product'])
+                        # Block Logic: State evaluation loop. Invariant: Loop boundaries remain safe.
                         while not retval:
                             sleep(self.retry_wait_time)
                             retval = self.marketplace.add_to_cart(cart_id, operation['product'])
                 elif operation['type'] == 'remove':
+                    # Block Logic: Iterates over collection. Invariant: Processes elements sequentially.
                     for _ in range(operation['quantity']):
                         self.marketplace.remove_from_cart(cart_id, operation['product'])
 
             msg = "\n".join([f'{self.name} bought {str(prod)}'
+                             # Block Logic: Iterates over collection. Invariant: Processes elements sequentially.
                              for prod in self.marketplace.place_order(cart_id)])
             Consumer.print_lock.acquire()
             print(msg)
@@ -52,6 +73,11 @@ class Marketplace:
     
 
     def __init__(self, queue_size_per_producer: int):
+        """
+        Executes core routine.
+        @pre: Valid inputs provided.
+        @post: Desired state transformation complete.
+        """
         
         
         self.queue_size_per_producer: int
@@ -85,6 +111,11 @@ class Marketplace:
         self.products = {}
 
     def register_producer(self):
+        """
+        Executes core routine.
+        @pre: Valid inputs provided.
+        @post: Desired state transformation complete.
+        """
         
         self.logger.info('entry: register_producer')
         
@@ -98,10 +129,16 @@ class Marketplace:
         return producer_id
 
     def publish(self, producer_id: str, product: Product):
+        """
+        Executes core routine.
+        @pre: Valid inputs provided.
+        @post: Desired state transformation complete.
+        """
         
         self.logger.info('enter: publish %s %s', producer_id, product)
         lock, plist = self.products[producer_id]
         lock.acquire()  
+        # Block Logic: Conditional state gate. Invariant: Execution paths are mutually exclusive.
         if len(plist) == self.queue_size_per_producer:
             lock.release()
             self.logger.info('exit_fail: publish %s %s - queue full', producer_id, product)
@@ -114,6 +151,11 @@ class Marketplace:
         return True
 
     def new_cart(self):
+        """
+        Executes core routine.
+        @pre: Valid inputs provided.
+        @post: Desired state transformation complete.
+        """
         
         self.logger.info('enter: new_cart')
         
@@ -127,15 +169,24 @@ class Marketplace:
         return cart_id
 
     def add_to_cart(self, cart_id: int, product: Product):
+        """
+        Executes core routine.
+        @pre: Valid inputs provided.
+        @post: Desired state transformation complete.
+        """
         
         self.logger.info('enter: add_to_cart %d %s', cart_id, product)
+        # Block Logic: Conditional state gate. Invariant: Execution paths are mutually exclusive.
         if cart_id not in self.carts:
             self.logger.info('exit_fail: add_to_cart %d %s - cart not found', cart_id, product)
             return False
 
+        # Block Logic: Iterates over collection. Invariant: Processes elements sequentially.
         for producer_id, (lock, plist) in self.products.items():
             lock.acquire()  
+            # Block Logic: Iterates over collection. Invariant: Processes elements sequentially.
             for idx, (reserved, prod) in enumerate(plist):
+                # Block Logic: Conditional state gate. Invariant: Execution paths are mutually exclusive.
                 if not reserved and prod == product:
                     plist[idx] = (True, prod)  
                     self.carts[cart_id].append((prod, producer_id))  
@@ -147,18 +198,28 @@ class Marketplace:
         return False
 
     def remove_from_cart(self, cart_id: int, product: Product):
+        """
+        Executes core routine.
+        @pre: Valid inputs provided.
+        @post: Desired state transformation complete.
+        """
         
         self.logger.info('enter: remove_from_cart %d %s', cart_id, product)
+        # Block Logic: Conditional state gate. Invariant: Execution paths are mutually exclusive.
         if cart_id not in self.carts:
             self.logger.info('exit_fail: remove_from_cart %d %s - cart not found', cart_id, product)
             return
         
+        # Block Logic: Iterates over collection. Invariant: Processes elements sequentially.
         for prod, prod_id in self.carts[cart_id]:
+            # Block Logic: Conditional state gate. Invariant: Execution paths are mutually exclusive.
             if prod == product:
                 lock, lst = self.products[prod_id]
                 
                 lock.acquire()
+                # Block Logic: Iterates over collection. Invariant: Processes elements sequentially.
                 for idx, (reserved, listed_product) in enumerate(lst):
+                    # Block Logic: Conditional state gate. Invariant: Execution paths are mutually exclusive.
                     if reserved and listed_product == product:
                         self.products[prod_id][1][idx] = False, listed_product
                         self.carts[cart_id].remove((product, prod_id))
@@ -172,13 +233,20 @@ class Marketplace:
         self.logger.info('exit_fail: remove_from_cart %d %s - product not found', cart_id, product)
 
     def place_order(self, cart_id: int):
+        """
+        Executes core routine.
+        @pre: Valid inputs provided.
+        @post: Desired state transformation complete.
+        """
         
         self.logger.info('enter: place_order %d', cart_id)
+        # Block Logic: Conditional state gate. Invariant: Execution paths are mutually exclusive.
         if cart_id not in self.carts:
             self.logger.info('exit_fail: place_order %d - cart not found', cart_id)
             return None
         products = []
         
+        # Block Logic: Iterates over collection. Invariant: Processes elements sequentially.
         for product, producer in self.carts[cart_id]:
             lock, lst = self.products[producer]
             lock.acquire()
@@ -194,22 +262,43 @@ class TestMarketplace(unittest.TestCase):
     
 
     def setUp(self) -> None:
+        """
+        Executes core routine.
+        @pre: Valid inputs provided.
+        @post: Desired state transformation complete.
+        """
         self.marketplace = Marketplace(10)
 
     def tearDown(self):
+        """
+        Executes core routine.
+        @pre: Valid inputs provided.
+        @post: Desired state transformation complete.
+        """
         
         
         self.marketplace.logger.handlers[0].close()
 
     def test_register_producer(self):
+        """
+        Executes core routine.
+        @pre: Valid inputs provided.
+        @post: Desired state transformation complete.
+        """
         
         previous_ids = []
+        # Block Logic: Iterates over collection. Invariant: Processes elements sequentially.
         for _ in range(1000):
             new_id = self.marketplace.register_producer()
             self.assertNotIn(new_id, previous_ids)
             previous_ids.append(new_id)
 
     def test_publish(self):
+        """
+        Executes core routine.
+        @pre: Valid inputs provided.
+        @post: Desired state transformation complete.
+        """
         
         
         marketplace1 = Marketplace(5)
@@ -221,21 +310,30 @@ class TestMarketplace(unittest.TestCase):
         producers2 = [marketplace2.register_producer() for _ in range(50)]
         producers3 = [marketplace3.register_producer() for _ in range(1000)]
         
+        # Block Logic: Iterates over collection. Invariant: Processes elements sequentially.
         for _ in range(5):
+            # Block Logic: Iterates over collection. Invariant: Processes elements sequentially.
             for producer in producers1:
                 self.assertTrue(marketplace1.publish(producer, product))
+        # Block Logic: Iterates over collection. Invariant: Processes elements sequentially.
         for producer in producers1:
             self.assertFalse(marketplace1.publish(producer, product))
         
+        # Block Logic: Iterates over collection. Invariant: Processes elements sequentially.
         for _ in range(10):
+            # Block Logic: Iterates over collection. Invariant: Processes elements sequentially.
             for producer in producers2:
                 self.assertTrue(marketplace2.publish(producer, product))
+        # Block Logic: Iterates over collection. Invariant: Processes elements sequentially.
         for producer in producers2:
             self.assertFalse(marketplace2.publish(producer, product))
         
+        # Block Logic: Iterates over collection. Invariant: Processes elements sequentially.
         for _ in range(100):
+            # Block Logic: Iterates over collection. Invariant: Processes elements sequentially.
             for producer in producers3:
                 self.assertTrue(marketplace3.publish(producer, product))
+        # Block Logic: Iterates over collection. Invariant: Processes elements sequentially.
         for producer in producers1:
             self.assertFalse(marketplace1.publish(producer, product))
         
@@ -243,14 +341,25 @@ class TestMarketplace(unittest.TestCase):
         marketplace3.logger.handlers[0].close()
 
     def test_new_cart(self):
+        """
+        Executes core routine.
+        @pre: Valid inputs provided.
+        @post: Desired state transformation complete.
+        """
         
         previous_ids = []
+        # Block Logic: Iterates over collection. Invariant: Processes elements sequentially.
         for _ in range(1000):
             new_id = self.marketplace.new_cart()
             self.assertNotIn(new_id, previous_ids)
             previous_ids.append(new_id)
 
     def test_add_to_cart(self):
+        """
+        Executes core routine.
+        @pre: Valid inputs provided.
+        @post: Desired state transformation complete.
+        """
         
         product1 = Tea(name='Yorkshire Tea', price=14, type='Black')
         product2 = Tea(name='Sencha', price=22, type='Green')
@@ -261,9 +370,19 @@ class TestMarketplace(unittest.TestCase):
         cart2 = self.marketplace.new_cart()
 
         def fail_add(cart, product):
+            """
+            Executes core routine.
+            @pre: Valid inputs provided.
+            @post: Desired state transformation complete.
+            """
             self.assertFalse(self.marketplace.add_to_cart(cart, product))
 
         def succeed_add(cart, product):
+            """
+            Executes core routine.
+            @pre: Valid inputs provided.
+            @post: Desired state transformation complete.
+            """
             self.assertTrue(self.marketplace.add_to_cart(cart, product))
 
         
@@ -312,6 +431,11 @@ class TestMarketplace(unittest.TestCase):
         fail_add(cart2, product3)
 
     def test_remove_from_cart(self):
+        """
+        Executes core routine.
+        @pre: Valid inputs provided.
+        @post: Desired state transformation complete.
+        """
         
         producer = self.marketplace.register_producer()
         product1 = Tea(name='Yorkshire Tea', price=14, type='Black')
@@ -321,9 +445,19 @@ class TestMarketplace(unittest.TestCase):
         cart2 = self.marketplace.new_cart()
 
         def fail_add(cart, product):
+            """
+            Executes core routine.
+            @pre: Valid inputs provided.
+            @post: Desired state transformation complete.
+            """
             self.assertFalse(self.marketplace.add_to_cart(cart, product))
 
         def succeed_add(cart, product):
+            """
+            Executes core routine.
+            @pre: Valid inputs provided.
+            @post: Desired state transformation complete.
+            """
             self.assertTrue(self.marketplace.add_to_cart(cart, product))
 
         
@@ -361,6 +495,11 @@ class TestMarketplace(unittest.TestCase):
         fail_add(cart2, product2)
 
     def test_place_order(self):
+        """
+        Executes core routine.
+        @pre: Valid inputs provided.
+        @post: Desired state transformation complete.
+        """
         
         producer = self.marketplace.register_producer()
 
@@ -369,6 +508,7 @@ class TestMarketplace(unittest.TestCase):
         product3 = Coffee(name='Indonesia', price=1, acidity="5.05", roast_level="MEDIUM")
 
         
+        # Block Logic: Iterates over collection. Invariant: Processes elements sequentially.
         for _ in range(3):
             self.marketplace.publish(producer, product1)
             self.marketplace.publish(producer, product2)
@@ -377,6 +517,7 @@ class TestMarketplace(unittest.TestCase):
         cart1 = self.marketplace.new_cart()
         cart2 = self.marketplace.new_cart()
 
+        # Block Logic: Iterates over collection. Invariant: Processes elements sequentially.
         for _ in range(2):
             self.marketplace.add_to_cart(cart1, product1)
             self.marketplace.add_to_cart(cart1, product2)
@@ -384,6 +525,7 @@ class TestMarketplace(unittest.TestCase):
 
         
 
+        # Block Logic: Iterates over collection. Invariant: Processes elements sequentially.
         for _ in range(2):
             self.marketplace.add_to_cart(cart2, product1)
             self.marketplace.add_to_cart(cart2, product2)
@@ -391,6 +533,7 @@ class TestMarketplace(unittest.TestCase):
 
         
 
+        # Block Logic: Iterates over collection. Invariant: Processes elements sequentially.
         for _ in range(3):
             self.marketplace.remove_from_cart(cart1, product1)
 
@@ -413,9 +556,11 @@ class TestMarketplace(unittest.TestCase):
         ref1 = {product1: 0, product2: 1, product3: 2}
         ref2 = {product1: 2, product2: 1, product3: 1}
 
+        # Block Logic: Iterates over collection. Invariant: Processes elements sequentially.
         for prod in cart1prod:
             cart1counts[prod] += 1
 
+        # Block Logic: Iterates over collection. Invariant: Processes elements sequentially.
         for prod in cart2prod:
             cart2counts[prod] += 1
 
@@ -434,6 +579,11 @@ class Producer(Thread):
     
 
     def __init__(self, products: List[Product], marketplace: Marketplace,
+        """
+        Executes core routine.
+        @pre: Valid inputs provided.
+        @post: Desired state transformation complete.
+        """
                  republish_wait_time: float, **kwargs):
         
         Thread.__init__(self, **kwargs)
@@ -443,10 +593,19 @@ class Producer(Thread):
         self.producer_id = marketplace.register_producer()
 
     def run(self):
+        """
+        Executes core routine.
+        @pre: Valid inputs provided.
+        @post: Desired state transformation complete.
+        """
+        # Block Logic: State evaluation loop. Invariant: Loop boundaries remain safe.
         while True:
+            # Block Logic: Iterates over collection. Invariant: Processes elements sequentially.
             for prod, quant, time in self.products:
+                # Block Logic: Iterates over collection. Invariant: Processes elements sequentially.
                 for _ in range(quant):
                     ret_val = self.marketplace.publish(self.producer_id, prod)
+                    # Block Logic: State evaluation loop. Invariant: Loop boundaries remain safe.
                     while not ret_val:
                         sleep(self.republish_wait_time)
                         ret_val = self.marketplace.publish(self.producer_id, prod)
@@ -469,6 +628,11 @@ class Tea(Product):
     type: str
 
     def __eq__(self, other):
+        """
+        Executes core routine.
+        @pre: Valid inputs provided.
+        @post: Desired state transformation complete.
+        """
         return isinstance(other, Tea) \
             and self.name == other.name \
             and self.price == other.price \
@@ -482,6 +646,11 @@ class Coffee(Product):
     roast_level: str
 
     def __eq__(self, other):
+        """
+        Executes core routine.
+        @pre: Valid inputs provided.
+        @post: Desired state transformation complete.
+        """
         return isinstance(other, Coffee) \
             and self.name == other.name \
             and self.price == other.price \

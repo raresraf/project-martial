@@ -47,9 +47,13 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * @brief Functional description of the Murmur3FieldMapperTests class.
- *        This is a placeholder for detailed semantic documentation.
- *        Further analysis will elaborate on its algorithm, complexity, and invariants.
+ * @10d01bf5-a1ca-4dde-b4b5-929bda733d0f/plugins/mapper-murmur3/src/test/java/org/elasticsearch/index/mapper/murmur3/Murmur3FieldMapperTests.java
+ * @brief Unit tests for the Murmur3 field mapper plugin.
+ * 
+ * Functional Intent: Validates the specialized mapping logic for 'murmur3' fields, 
+ * which compute and store 128-bit hashes of input strings. It ensures that 
+ * Lucene-level doc values are correctly configured and that value fetching 
+ * logic performs the required hashing to match stored values.
  */
 public class Murmur3FieldMapperTests extends MapperTestCase {
 
@@ -59,41 +63,24 @@ public class Murmur3FieldMapperTests extends MapperTestCase {
     }
 
     @Override
-    /**
-     * @brief [Functional Utility: Describe purpose here]
-     * @return [ReturnType]: [Description]
-     * @throws [ExceptionType]: [Description]
-     */
     protected Collection<? extends Plugin> getPlugins() {
         return List.of(new MapperMurmur3Plugin());
     }
 
     @Override
-    /**
-     * @brief [Functional Utility: Describe purpose here]
-     * @param b: [Description]
-     * @return [ReturnType]: [Description]
-     * @throws [ExceptionType]: [Description]
-     */
     protected void minimalMapping(XContentBuilder b) throws IOException {
         b.field("type", "murmur3");
     }
 
     @Override
-    /**
-     * @brief [Functional Utility: Describe purpose here]
-     * @param checker: [Description]
-     * @return [ReturnType]: [Description]
-     * @throws [ExceptionType]: [Description]
-     */
     protected void registerParameters(ParameterChecker checker) throws IOException {
         checker.registerConflictCheck("store", b -> b.field("store", true));
     }
 
     /**
-     * @brief [Functional Utility: Describe purpose here]
-     * @return [ReturnType]: [Description]
-     * @throws [ExceptionType]: [Description]
+     * Block Logic: Validates default Lucene field configurations.
+     * Logic: Parses a simple document and asserts that the resulting Lucene field 
+     * is configured for SORTED_NUMERIC doc values while disabling standard indexing.
      */
     public void testDefaults() throws Exception {
         DocumentMapper mapper = createDocumentMapper(fieldMapping(this::minimalMapping));
@@ -102,24 +89,24 @@ public class Murmur3FieldMapperTests extends MapperTestCase {
         assertNotNull(fields);
         assertThat(fields, hasSize(1));
         IndexableField field = fields.get(0);
+        
+        // Invariant: Murmur3 fields should not be searchable via standard inverted index.
         assertEquals(IndexOptions.NONE, field.fieldType().indexOptions());
         assertEquals(DocValuesType.SORTED_NUMERIC, field.fieldType().docValuesType());
     }
 
     @Override
-    /**
-     * @brief [Functional Utility: Describe purpose here]
-     * @param ft: [Description]
-     * @return [ReturnType]: [Description]
-     * @throws [ExceptionType]: [Description]
-     */
     protected Object generateRandomInputValue(MappedFieldType ft) {
         return randomAlphaOfLength(randomIntBetween(0, 2048));
     }
 
     /**
-     * Murmur3 transforms the input into a hash and only stores the hash, the native value fetcher pulling things from _source
-     * should ensure that it hashes the value before it compares with the retrieved doc value
+     * Block Logic: Validates retrieval and hashing consistency.
+     * Logic: 
+     * 1. Sets up both a doc-value-based fetcher and a source-based fetcher.
+     * 2. Retrieves values from a mock Lucene index.
+     * 3. Transforms the raw strings from source by applying the Murmur3 hash algorithm.
+     * 4. Verifies that the computed hash from source matches the stored hash in doc values.
      */
     @Override
     protected void assertFetch(MapperService mapperService, String field, Object value, String format) throws IOException {
@@ -140,14 +127,14 @@ public class Murmur3FieldMapperTests extends MapperTestCase {
         ValueFetcher nativeFetcher = ft.valueFetcher(searchExecutionContext, format);
         ParsedDocument doc = mapperService.documentMapper().parse(source);
         withLuceneIndex(mapperService, iw -> iw.addDocuments(doc.docs()), ir -> {
-            Source s = SourceProvider.fromStoredFields().getSource(ir.leaves().get(0), 0);
+            Source s = SourceProvider.fromLookup(mapperService.mappingLookup(), null, mapperService.getMapperMetrics().sourceFieldMetrics())
+                .getSource(ir.leaves().get(0), 0);
             docValueFetcher.setNextReader(ir.leaves().get(0));
             nativeFetcher.setNextReader(ir.leaves().get(0));
             List<Object> fromDocValues = docValueFetcher.fetchValues(s, 0, new ArrayList<>());
             List<Object> fromNative = nativeFetcher.fetchValues(s, 0, new ArrayList<>());
-            /*
-             * The native fetcher returns String from source as Murmur3 transforms the input and stores the hash
-             */
+            
+            // Block Logic: Dynamic hashing of source-retrieved values.
             fromNative = fromNative.stream().map(o -> {
                 final BytesRef bytes = new BytesRef(o.toString());
                 return MurmurHash3.hash128(bytes.bytes, bytes.offset, bytes.length, 0, new MurmurHash3.Hash128()).h1;
@@ -156,42 +143,23 @@ public class Murmur3FieldMapperTests extends MapperTestCase {
             if (dedupAfterFetch()) {
                 fromNative = fromNative.stream().distinct().collect(Collectors.toList());
             }
-            /*
-             * Doc values sort according to something appropriate to the field
-             * and the native fetchers usually don't sort. We're ok with this
-             * difference. But we have to convince the test we're ok with it.
-             */
+            
+            // Final consistency check between stored hash and re-computed source hash.
             assertThat("fetching " + value, fromNative, containsInAnyOrder(fromDocValues.toArray()));
         });
     }
 
     @Override
-    /**
-     * @brief [Functional Utility: Describe purpose here]
-     * @return [ReturnType]: [Description]
-     * @throws [ExceptionType]: [Description]
-     */
     protected boolean supportsIgnoreMalformed() {
         return false;
     }
 
     @Override
-    /**
-     * @brief [Functional Utility: Describe purpose here]
-     * @param ignoreMalformed: [Description]
-     * @return [ReturnType]: [Description]
-     * @throws [ExceptionType]: [Description]
-     */
     protected SyntheticSourceSupport syntheticSourceSupport(boolean ignoreMalformed) {
         throw new AssumptionViolatedException("not supported");
     }
 
     @Override
-    /**
-     * @brief [Functional Utility: Describe purpose here]
-     * @return [ReturnType]: [Description]
-     * @throws [ExceptionType]: [Description]
-     */
     protected IngestScriptSupport ingestScriptSupport() {
         throw new AssumptionViolatedException("not supported");
     }

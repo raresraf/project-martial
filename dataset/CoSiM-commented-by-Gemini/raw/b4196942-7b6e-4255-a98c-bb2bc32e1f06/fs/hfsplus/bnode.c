@@ -1,3 +1,8 @@
+/**
+ * @file bnode.c
+ * @brief Core functionality implementation.
+ * Provides the fundamental algorithm logic and state management.
+ */
 // SPDX-License-Identifier: GPL-2.0
 /*
  *  linux/fs/hfsplus/bnode.c
@@ -23,6 +28,10 @@ bool is_bnode_offset_valid(struct hfs_bnode *node, int off)
 {
 	bool is_valid = off < node->tree->node_size;
 
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (!is_valid) {
 		pr_err("requested invalid offset: "
 		       "NODE: id %u, type %#x, height %u, "
@@ -39,11 +48,19 @@ int check_and_correct_requested_length(struct hfs_bnode *node, int off, int len)
 {
 	unsigned int node_size;
 
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (!is_bnode_offset_valid(node, off))
 		return 0;
 
 	node_size = node->tree->node_size;
 
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if ((off + len) > node_size) {
 		int new_len = (int)node_size - off;
 
@@ -63,12 +80,20 @@ int check_and_correct_requested_length(struct hfs_bnode *node, int off, int len)
 /* Copy a specified range of bytes from the raw data of a node */
 void hfs_bnode_read(struct hfs_bnode *node, void *buf, int off, int len)
 {
-	struct page **pagep;
+	struct page **pagep; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 	int l;
 
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (!is_bnode_offset_valid(node, off))
 		return;
 
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (len == 0) {
 		pr_err("requested zero length: "
 		       "NODE: id %u, type %#x, height %u, "
@@ -85,8 +110,12 @@ void hfs_bnode_read(struct hfs_bnode *node, void *buf, int off, int len)
 	off &= ~PAGE_MASK;
 
 	l = min_t(int, len, PAGE_SIZE - off);
-	memcpy_from_page(buf, *pagep, off, l);
+	memcpy_from_page(buf, *pagep, off, l); /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 
+	/**
+	 * Block Logic: State-driven evaluation.
+	 * Invariant: The loop condition reliably gates the execution state.
+	 */
 	while ((len -= l) != 0) {
 		buf += l;
 		l = min_t(int, len, PAGE_SIZE);
@@ -116,6 +145,10 @@ void hfs_bnode_read_key(struct hfs_bnode *node, void *key, int off)
 	int key_len;
 
 	tree = node->tree;
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (node->type == HFS_NODE_LEAF ||
 	    tree->attributes & HFS_TREE_VARIDXKEYS ||
 	    node->tree->cnid == HFSPLUS_ATTR_CNID)
@@ -123,6 +156,10 @@ void hfs_bnode_read_key(struct hfs_bnode *node, void *key, int off)
 	else
 		key_len = tree->max_key_len + 2;
 
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (key_len > sizeof(hfsplus_btree_key) || key_len < 1) {
 		memset(key, 0, sizeof(hfsplus_btree_key));
 		pr_err("hfsplus: Invalid key length: %d\n", key_len);
@@ -134,12 +171,20 @@ void hfs_bnode_read_key(struct hfs_bnode *node, void *key, int off)
 
 void hfs_bnode_write(struct hfs_bnode *node, void *buf, int off, int len)
 {
-	struct page **pagep;
+	struct page **pagep; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 	int l;
 
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (!is_bnode_offset_valid(node, off))
 		return;
 
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (len == 0) {
 		pr_err("requested zero length: "
 		       "NODE: id %u, type %#x, height %u, "
@@ -156,14 +201,18 @@ void hfs_bnode_write(struct hfs_bnode *node, void *buf, int off, int len)
 	off &= ~PAGE_MASK;
 
 	l = min_t(int, len, PAGE_SIZE - off);
-	memcpy_to_page(*pagep, off, buf, l);
-	set_page_dirty(*pagep);
+	memcpy_to_page(*pagep, off, buf, l); /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
+	set_page_dirty(*pagep); /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 
+	/**
+	 * Block Logic: State-driven evaluation.
+	 * Invariant: The loop condition reliably gates the execution state.
+	 */
 	while ((len -= l) != 0) {
 		buf += l;
 		l = min_t(int, len, PAGE_SIZE);
 		memcpy_to_page(*++pagep, 0, buf, l);
-		set_page_dirty(*pagep);
+		set_page_dirty(*pagep); /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 	}
 }
 
@@ -176,12 +225,20 @@ void hfs_bnode_write_u16(struct hfs_bnode *node, int off, u16 data)
 
 void hfs_bnode_clear(struct hfs_bnode *node, int off, int len)
 {
-	struct page **pagep;
+	struct page **pagep; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 	int l;
 
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (!is_bnode_offset_valid(node, off))
 		return;
 
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (len == 0) {
 		pr_err("requested zero length: "
 		       "NODE: id %u, type %#x, height %u, "
@@ -198,13 +255,17 @@ void hfs_bnode_clear(struct hfs_bnode *node, int off, int len)
 	off &= ~PAGE_MASK;
 
 	l = min_t(int, len, PAGE_SIZE - off);
-	memzero_page(*pagep, off, l);
-	set_page_dirty(*pagep);
+	memzero_page(*pagep, off, l); /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
+	set_page_dirty(*pagep); /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 
+	/**
+	 * Block Logic: State-driven evaluation.
+	 * Invariant: The loop condition reliably gates the execution state.
+	 */
 	while ((len -= l) != 0) {
 		l = min_t(int, len, PAGE_SIZE);
 		memzero_page(*++pagep, 0, l);
-		set_page_dirty(*pagep);
+		set_page_dirty(*pagep); /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 	}
 }
 
@@ -215,6 +276,10 @@ void hfs_bnode_copy(struct hfs_bnode *dst_node, int dst,
 	int l;
 
 	hfs_dbg(BNODE_MOD, "copybytes: %u,%u,%u\n", dst, src, len);
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (!len)
 		return;
 
@@ -228,11 +293,19 @@ void hfs_bnode_copy(struct hfs_bnode *dst_node, int dst,
 	dst_page = dst_node->page + (dst >> PAGE_SHIFT);
 	dst &= ~PAGE_MASK;
 
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (src == dst) {
 		l = min_t(int, len, PAGE_SIZE - src);
 		memcpy_page(*dst_page, src, *src_page, src, l);
 		set_page_dirty(*dst_page);
 
+		/**
+		 * Block Logic: State-driven evaluation.
+		 * Invariant: The loop condition reliably gates the execution state.
+		 */
 		while ((len -= l) != 0) {
 			l = min_t(int, len, PAGE_SIZE);
 			memcpy_page(*++dst_page, 0, *++src_page, 0, l);
@@ -244,6 +317,10 @@ void hfs_bnode_copy(struct hfs_bnode *dst_node, int dst,
 		do {
 			dst_ptr = kmap_local_page(*dst_page) + dst;
 			src_ptr = kmap_local_page(*src_page) + src;
+			/**
+			 * Block Logic: Conditional state branch.
+			 * Invariant: The conditional branch maintains control flow invariants.
+			 */
 			if (PAGE_SIZE - src < PAGE_SIZE - dst) {
 				l = PAGE_SIZE - src;
 				src = 0;
@@ -258,6 +335,10 @@ void hfs_bnode_copy(struct hfs_bnode *dst_node, int dst,
 			kunmap_local(src_ptr);
 			set_page_dirty(*dst_page);
 			kunmap_local(dst_ptr);
+			/**
+			 * Block Logic: Conditional state branch.
+			 * Invariant: The conditional branch maintains control flow invariants.
+			 */
 			if (!dst)
 				dst_page++;
 			else
@@ -273,6 +354,10 @@ void hfs_bnode_move(struct hfs_bnode *node, int dst, int src, int len)
 	int l;
 
 	hfs_dbg(BNODE_MOD, "movebytes: %u,%u,%u\n", dst, src, len);
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (!len)
 		return;
 
@@ -281,6 +366,10 @@ void hfs_bnode_move(struct hfs_bnode *node, int dst, int src, int len)
 
 	src += node->page_offset;
 	dst += node->page_offset;
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (dst > src) {
 		src += len - 1;
 		src_page = node->page + (src >> PAGE_SHIFT);
@@ -289,7 +378,15 @@ void hfs_bnode_move(struct hfs_bnode *node, int dst, int src, int len)
 		dst_page = node->page + (dst >> PAGE_SHIFT);
 		dst = (dst & ~PAGE_MASK) + 1;
 
+		/**
+		 * Block Logic: Conditional state branch.
+		 * Invariant: The conditional branch maintains control flow invariants.
+		 */
 		if (src == dst) {
+			/**
+			 * Block Logic: State-driven evaluation.
+			 * Invariant: The loop condition reliably gates the execution state.
+			 */
 			while (src < len) {
 				dst_ptr = kmap_local_page(*dst_page);
 				src_ptr = kmap_local_page(*src_page);
@@ -313,6 +410,10 @@ void hfs_bnode_move(struct hfs_bnode *node, int dst, int src, int len)
 			do {
 				dst_ptr = kmap_local_page(*dst_page) + dst;
 				src_ptr = kmap_local_page(*src_page) + src;
+				/**
+				 * Block Logic: Conditional state branch.
+				 * Invariant: The conditional branch maintains control flow invariants.
+				 */
 				if (src < dst) {
 					l = src;
 					src = PAGE_SIZE;
@@ -327,6 +428,10 @@ void hfs_bnode_move(struct hfs_bnode *node, int dst, int src, int len)
 				kunmap_local(src_ptr);
 				set_page_dirty(*dst_page);
 				kunmap_local(dst_ptr);
+				/**
+				 * Block Logic: Conditional state branch.
+				 * Invariant: The conditional branch maintains control flow invariants.
+				 */
 				if (dst == PAGE_SIZE)
 					dst_page--;
 				else
@@ -339,6 +444,10 @@ void hfs_bnode_move(struct hfs_bnode *node, int dst, int src, int len)
 		dst_page = node->page + (dst >> PAGE_SHIFT);
 		dst &= ~PAGE_MASK;
 
+		/**
+		 * Block Logic: Conditional state branch.
+		 * Invariant: The conditional branch maintains control flow invariants.
+		 */
 		if (src == dst) {
 			l = min_t(int, len, PAGE_SIZE - src);
 
@@ -349,6 +458,10 @@ void hfs_bnode_move(struct hfs_bnode *node, int dst, int src, int len)
 			set_page_dirty(*dst_page);
 			kunmap_local(dst_ptr);
 
+			/**
+			 * Block Logic: State-driven evaluation.
+			 * Invariant: The loop condition reliably gates the execution state.
+			 */
 			while ((len -= l) != 0) {
 				l = min_t(int, len, PAGE_SIZE);
 				dst_ptr = kmap_local_page(*++dst_page);
@@ -362,6 +475,10 @@ void hfs_bnode_move(struct hfs_bnode *node, int dst, int src, int len)
 			do {
 				dst_ptr = kmap_local_page(*dst_page) + dst;
 				src_ptr = kmap_local_page(*src_page) + src;
+				/**
+				 * Block Logic: Conditional state branch.
+				 * Invariant: The conditional branch maintains control flow invariants.
+				 */
 				if (PAGE_SIZE - src <
 						PAGE_SIZE - dst) {
 					l = PAGE_SIZE - src;
@@ -377,6 +494,10 @@ void hfs_bnode_move(struct hfs_bnode *node, int dst, int src, int len)
 				kunmap_local(src_ptr);
 				set_page_dirty(*dst_page);
 				kunmap_local(dst_ptr);
+				/**
+				 * Block Logic: Conditional state branch.
+				 * Invariant: The conditional branch maintains control flow invariants.
+				 */
 				if (!dst)
 					dst_page++;
 				else
@@ -399,12 +520,24 @@ void hfs_bnode_dump(struct hfs_bnode *node)
 		desc.type, desc.height, be16_to_cpu(desc.num_recs));
 
 	off = node->tree->node_size - 2;
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for (i = be16_to_cpu(desc.num_recs); i >= 0; off -= 2, i--) {
 		key_off = hfs_bnode_read_u16(node, off);
 		hfs_dbg(BNODE_MOD, " %d", key_off);
+		/**
+		 * Block Logic: Conditional state branch.
+		 * Invariant: The conditional branch maintains control flow invariants.
+		 */
 		if (i && node->type == HFS_NODE_INDEX) {
 			int tmp;
 
+			/**
+			 * Block Logic: Conditional state branch.
+			 * Invariant: The conditional branch maintains control flow invariants.
+			 */
 			if (node->tree->attributes & HFS_TREE_VARIDXKEYS ||
 					node->tree->cnid == HFSPLUS_ATTR_CNID)
 				tmp = hfs_bnode_read_u16(node, key_off) + 2;
@@ -430,8 +563,16 @@ void hfs_bnode_unlink(struct hfs_bnode *node)
 	__be32 cnid;
 
 	tree = node->tree;
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (node->prev) {
 		tmp = hfs_bnode_find(tree, node->prev);
+		/**
+		 * Block Logic: Conditional state branch.
+		 * Invariant: The conditional branch maintains control flow invariants.
+		 */
 		if (IS_ERR(tmp))
 			return;
 		tmp->next = node->next;
@@ -442,8 +583,16 @@ void hfs_bnode_unlink(struct hfs_bnode *node)
 	} else if (node->type == HFS_NODE_LEAF)
 		tree->leaf_head = node->next;
 
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (node->next) {
 		tmp = hfs_bnode_find(tree, node->next);
+		/**
+		 * Block Logic: Conditional state branch.
+		 * Invariant: The conditional branch maintains control flow invariants.
+		 */
 		if (IS_ERR(tmp))
 			return;
 		tmp->prev = node->prev;
@@ -455,8 +604,16 @@ void hfs_bnode_unlink(struct hfs_bnode *node)
 		tree->leaf_tail = node->prev;
 
 	/* move down? */
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (!node->prev && !node->next)
 		hfs_dbg(BNODE_MOD, "hfs_btree_del_level\n");
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (!node->parent) {
 		tree->root = 0;
 		tree->depth = 0;
@@ -475,14 +632,26 @@ struct hfs_bnode *hfs_bnode_findhash(struct hfs_btree *tree, u32 cnid)
 {
 	struct hfs_bnode *node;
 
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (cnid >= tree->node_count) {
 		pr_err("request for non-existent node %d in B*Tree\n",
 		       cnid);
 		return NULL;
 	}
 
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for (node = tree->node_hash[hfs_bnode_hash(cnid)];
 			node; node = node->next_hash)
+		/**
+		 * Block Logic: Conditional state branch.
+		 * Invariant: The conditional branch maintains control flow invariants.
+		 */
 		if (node->this == cnid)
 			return node;
 	return NULL;
@@ -492,10 +661,14 @@ static struct hfs_bnode *__hfs_bnode_create(struct hfs_btree *tree, u32 cnid)
 {
 	struct hfs_bnode *node, *node2;
 	struct address_space *mapping;
-	struct page *page;
+	struct page *page; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 	int size, block, i, hash;
 	loff_t off;
 
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (cnid >= tree->node_count) {
 		pr_err("request for non-existent node %d in B*Tree\n",
 		       cnid);
@@ -505,6 +678,10 @@ static struct hfs_bnode *__hfs_bnode_create(struct hfs_btree *tree, u32 cnid)
 	size = sizeof(struct hfs_bnode) + tree->pages_per_bnode *
 		sizeof(struct page *);
 	node = kzalloc(size, GFP_KERNEL);
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (!node)
 		return NULL;
 	node->tree = tree;
@@ -516,6 +693,10 @@ static struct hfs_bnode *__hfs_bnode_create(struct hfs_btree *tree, u32 cnid)
 	init_waitqueue_head(&node->lock_wq);
 	spin_lock(&tree->hash_lock);
 	node2 = hfs_bnode_findhash(tree, cnid);
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (!node2) {
 		hash = hfs_bnode_hash(cnid);
 		node->next_hash = tree->node_hash[hash];
@@ -534,8 +715,16 @@ static struct hfs_bnode *__hfs_bnode_create(struct hfs_btree *tree, u32 cnid)
 	off = (loff_t)cnid << tree->node_size_shift;
 	block = off >> PAGE_SHIFT;
 	node->page_offset = off & ~PAGE_MASK;
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for (i = 0; i < tree->pages_per_bnode; block++, i++) {
 		page = read_mapping_page(mapping, block, NULL);
+		/**
+		 * Block Logic: Conditional state branch.
+		 * Invariant: The conditional branch maintains control flow invariants.
+		 */
 		if (IS_ERR(page))
 			goto fail;
 		node->page[i] = page;
@@ -549,14 +738,18 @@ fail:
 
 void hfs_bnode_unhash(struct hfs_bnode *node)
 {
-	struct hfs_bnode **p;
+	struct hfs_bnode **p; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 
 	hfs_dbg(BNODE_REFS, "remove_node(%d:%d): %d\n",
 		node->tree->cnid, node->this, atomic_read(&node->refcnt));
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for (p = &node->tree->node_hash[hfs_bnode_hash(node->this)];
 	     *p && *p != node; p = &(*p)->next_hash)
 		;
-	BUG_ON(!*p);
+	BUG_ON(!*p); /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 	*p = node->next_hash;
 	node->tree->node_hash_cnt--;
 }
@@ -571,21 +764,41 @@ struct hfs_bnode *hfs_bnode_find(struct hfs_btree *tree, u32 num)
 
 	spin_lock(&tree->hash_lock);
 	node = hfs_bnode_findhash(tree, num);
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (node) {
 		hfs_bnode_get(node);
 		spin_unlock(&tree->hash_lock);
 		wait_event(node->lock_wq,
 			!test_bit(HFS_BNODE_NEW, &node->flags));
+		/**
+		 * Block Logic: Conditional state branch.
+		 * Invariant: The conditional branch maintains control flow invariants.
+		 */
 		if (test_bit(HFS_BNODE_ERROR, &node->flags))
 			goto node_error;
 		return node;
 	}
 	spin_unlock(&tree->hash_lock);
 	node = __hfs_bnode_create(tree, num);
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (!node)
 		return ERR_PTR(-ENOMEM);
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (test_bit(HFS_BNODE_ERROR, &node->flags))
 		goto node_error;
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (!test_bit(HFS_BNODE_NEW, &node->flags))
 		return node;
 
@@ -601,14 +814,26 @@ struct hfs_bnode *hfs_bnode_find(struct hfs_btree *tree, u32 num)
 	switch (node->type) {
 	case HFS_NODE_HEADER:
 	case HFS_NODE_MAP:
+		/**
+		 * Block Logic: Conditional state branch.
+		 * Invariant: The conditional branch maintains control flow invariants.
+		 */
 		if (node->height != 0)
 			goto node_error;
 		break;
 	case HFS_NODE_LEAF:
+		/**
+		 * Block Logic: Conditional state branch.
+		 * Invariant: The conditional branch maintains control flow invariants.
+		 */
 		if (node->height != 1)
 			goto node_error;
 		break;
 	case HFS_NODE_INDEX:
+		/**
+		 * Block Logic: Conditional state branch.
+		 * Invariant: The conditional branch maintains control flow invariants.
+		 */
 		if (node->height <= 1 || node->height > tree->depth)
 			goto node_error;
 		break;
@@ -618,20 +843,40 @@ struct hfs_bnode *hfs_bnode_find(struct hfs_btree *tree, u32 num)
 
 	rec_off = tree->node_size - 2;
 	off = hfs_bnode_read_u16(node, rec_off);
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (off != sizeof(struct hfs_bnode_desc))
 		goto node_error;
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for (i = 1; i <= node->num_recs; off = next_off, i++) {
 		rec_off -= 2;
 		next_off = hfs_bnode_read_u16(node, rec_off);
+		/**
+		 * Block Logic: Conditional state branch.
+		 * Invariant: The conditional branch maintains control flow invariants.
+		 */
 		if (next_off <= off ||
 		    next_off > tree->node_size ||
 		    next_off & 1)
 			goto node_error;
 		entry_size = next_off - off;
+		/**
+		 * Block Logic: Conditional state branch.
+		 * Invariant: The conditional branch maintains control flow invariants.
+		 */
 		if (node->type != HFS_NODE_INDEX &&
 		    node->type != HFS_NODE_LEAF)
 			continue;
 		key_size = hfs_bnode_read_u16(node, off) + 2;
+		/**
+		 * Block Logic: Conditional state branch.
+		 * Invariant: The conditional branch maintains control flow invariants.
+		 */
 		if (key_size >= entry_size || key_size & 1)
 			goto node_error;
 	}
@@ -651,7 +896,15 @@ void hfs_bnode_free(struct hfs_bnode *node)
 {
 	int i;
 
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for (i = 0; i < node->tree->pages_per_bnode; i++)
+		/**
+		 * Block Logic: Conditional state branch.
+		 * Invariant: The conditional branch maintains control flow invariants.
+		 */
 		if (node->page[i])
 			put_page(node->page[i]);
 	kfree(node);
@@ -660,32 +913,48 @@ void hfs_bnode_free(struct hfs_bnode *node)
 struct hfs_bnode *hfs_bnode_create(struct hfs_btree *tree, u32 num)
 {
 	struct hfs_bnode *node;
-	struct page **pagep;
+	struct page **pagep; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 	int i;
 
 	spin_lock(&tree->hash_lock);
 	node = hfs_bnode_findhash(tree, num);
 	spin_unlock(&tree->hash_lock);
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (node) {
 		pr_crit("new node %u already hashed?\n", num);
 		WARN_ON(1);
 		return node;
 	}
 	node = __hfs_bnode_create(tree, num);
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (!node)
 		return ERR_PTR(-ENOMEM);
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (test_bit(HFS_BNODE_ERROR, &node->flags)) {
 		hfs_bnode_put(node);
 		return ERR_PTR(-EIO);
 	}
 
 	pagep = node->page;
-	memzero_page(*pagep, node->page_offset,
+	memzero_page(*pagep, node->page_offset, /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 		     min_t(int, PAGE_SIZE, tree->node_size));
-	set_page_dirty(*pagep);
+	set_page_dirty(*pagep); /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for (i = 1; i < tree->pages_per_bnode; i++) {
 		memzero_page(*++pagep, 0, PAGE_SIZE);
-		set_page_dirty(*pagep);
+		set_page_dirty(*pagep); /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 	}
 	clear_bit(HFS_BNODE_NEW, &node->flags);
 	wake_up(&node->lock_wq);
@@ -695,6 +964,10 @@ struct hfs_bnode *hfs_bnode_create(struct hfs_btree *tree, u32 num)
 
 void hfs_bnode_get(struct hfs_bnode *node)
 {
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (node) {
 		atomic_inc(&node->refcnt);
 		hfs_dbg(BNODE_REFS, "get_node(%d:%d): %d\n",
@@ -706,6 +979,10 @@ void hfs_bnode_get(struct hfs_bnode *node)
 /* Dispose of resources used by a node */
 void hfs_bnode_put(struct hfs_bnode *node)
 {
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (node) {
 		struct hfs_btree *tree = node->tree;
 		int i;
@@ -714,17 +991,37 @@ void hfs_bnode_put(struct hfs_bnode *node)
 			node->tree->cnid, node->this,
 			atomic_read(&node->refcnt));
 		BUG_ON(!atomic_read(&node->refcnt));
+		/**
+		 * Block Logic: Conditional state branch.
+		 * Invariant: The conditional branch maintains control flow invariants.
+		 */
 		if (!atomic_dec_and_lock(&node->refcnt, &tree->hash_lock))
 			return;
+		/**
+		 * Block Logic: Iterative processing loop.
+		 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+		 */
 		for (i = 0; i < tree->pages_per_bnode; i++) {
+			/**
+			 * Block Logic: Conditional state branch.
+			 * Invariant: The conditional branch maintains control flow invariants.
+			 */
 			if (!node->page[i])
 				continue;
 			mark_page_accessed(node->page[i]);
 		}
 
+		/**
+		 * Block Logic: Conditional state branch.
+		 * Invariant: The conditional branch maintains control flow invariants.
+		 */
 		if (test_bit(HFS_BNODE_DELETED, &node->flags)) {
 			hfs_bnode_unhash(node);
 			spin_unlock(&tree->hash_lock);
+			/**
+			 * Block Logic: Conditional state branch.
+			 * Invariant: The conditional branch maintains control flow invariants.
+			 */
 			if (hfs_bnode_need_zeroout(tree))
 				hfs_bnode_clear(node, 0, tree->node_size);
 			hfs_bmap_free(node);

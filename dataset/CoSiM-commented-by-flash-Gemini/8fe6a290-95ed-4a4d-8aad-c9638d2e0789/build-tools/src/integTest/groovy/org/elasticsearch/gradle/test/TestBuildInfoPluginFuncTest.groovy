@@ -1,47 +1,37 @@
-/*
- * @file TestBuildInfoPluginFuncTest.groovy
- * @brief Functional tests for the Elasticsearch Gradle Build Info plugin.
- *
- * This file contains functional tests for a Gradle plugin that generates
- * build information. The tests verify that the plugin correctly identifies
- * module and class locations based on different build configurations and
- * dependency types (e.g., those with module-info, Automatic-Module-Name, or
- * inferred from JAR file names).
- *
- * The tests use Gradle TestKit to execute Gradle builds and assert
- * the generated JSON output for build information.
+/**
+ * @8fe6a290-95ed-4a4d-8aad-c9638d2e0789/build-tools/src/integTest/groovy/org/elasticsearch/gradle/test/TestBuildInfoPluginFuncTest.groovy
+ * @brief Functional verification suite for the `elasticsearch.test-build-info` Gradle plugin.
+ * 
+ * Functional Intent: Ensures that the build information plugin correctly metadata-tags 
+ * Java modules during the build process. It validates the extraction of module names 
+ * and representative classes from project sources and external dependencies (via 
+ * module-info, manifest headers, or JAR name heuristics), producing a deterministic 
+ * JSON descriptor used for downstream testing and isolation.
+ * 
+ * Domain: Build Engineering, Gradle Plugins, Java Module System (JPMS).
  */
+
 package org.elasticsearch.gradle.test
 
 import com.fasterxml.jackson.databind.ObjectMapper
-
 import org.elasticsearch.gradle.fixtures.AbstractGradleFuncTest
 import org.gradle.testkit.runner.TaskOutcome
-
 import java.nio.file.Path
 
 /**
- * @8fe6a290-95ed-4a4d-8aad-c9638d2e0789/build-tools/src/integTest/groovy/org/elasticsearch/gradle/test/TestBuildInfoPluginFuncTest.groovy
- * @brief Functional tests for the Elasticsearch Gradle Build Info plugin.
- *
- * This class contains integration tests to verify the correct behavior of the
- * {@code elasticsearch.test-build-info} Gradle plugin, ensuring it accurately
- * generates build information in various scenarios, including basic project
- * structures and complex dependency configurations.
+ * @brief Integration tests for JPMS-aware build metadata generation.
  */
 class TestBuildInfoPluginFuncTest extends AbstractGradleFuncTest {
+    
     /**
-     * @brief Tests the basic functionality of the build info plugin.
-     *
-     * This test case verifies that the {@code elasticsearch.test-build-info} plugin
-     * correctly generates build information for a simple Java project with a {@code module-info.java}.
-     * It sets up a basic project structure, applies the plugin, runs the
-     * {@code generateTestBuildInfo} task, and asserts that the output JSON file
-     * exists and contains the expected component and location information.
+     * Block Logic: Validates metadata extraction for local project modules.
+     * Logic: 
+     * 1. Scaffolds a minimal Java module with a package and module-info.
+     * 2. Executes the 'generateTestBuildInfo' task.
+     * 3. Verifies that the produced JSON aligns with the project's structural identity.
      */
     def "basic functionality"() {
         given: "A simple Java project with a module-info.java and a basic class"
-        // Block Logic: Creates a Java source file to be included in the test project.
         file("src/main/java/com/example/Example.java") << """
             package com.example;
 
@@ -49,17 +39,12 @@ class TestBuildInfoPluginFuncTest extends AbstractGradleFuncTest {
             }
         """
 
-        // Block Logic: Defines a module-info.java file for the test project,
-        // explicitly declaring the module 'com.example'.
         file("src/main/java/module-info.java") << """
             module com.example {
                 exports com.example;
             }
         """
 
-        // Block Logic: Configures the build.gradle file to apply the Java plugin
-        // and the elasticsearch.test-build-info plugin. It also sets up the
-        // output file for the generated build information.
         buildFile << """
         import org.elasticsearch.gradle.plugin.GenerateTestBuildInfoTask;
 
@@ -86,11 +71,10 @@ class TestBuildInfoPluginFuncTest extends AbstractGradleFuncTest {
         then: "The task completes successfully and produces the expected JSON output"
         task.outcome == TaskOutcome.SUCCESS
 
-        // Block Logic: Verifies that the output file exists and its content matches
-        // the expected build information, including component name and module location.
         def output = file("build/generated-build-info/plugin-test-build-info.json")
         output.exists() == true
 
+        // Functional Utility: Verification of local module metadata serialization.
         def location = Map.of(
             "module", "com.example",
             "representative_class", "com/example/Example.class"
@@ -103,20 +87,17 @@ class TestBuildInfoPluginFuncTest extends AbstractGradleFuncTest {
     }
 
     /**
-     * @brief Verifies the plugin's ability to extract build information from project dependencies.
-     *
-     * This test case asserts that the {@code elasticsearch.test-build-info} plugin
-     * correctly identifies and extracts module and representative class information
-     * from various types of dependencies:
-     * - Dependencies with an explicit {@code module-info.class} (e.g., ASM).
-     * - Dependencies with an {@code Automatic-Module-Name} in their manifest (e.g., JUnit).
-     * - Dependencies where module information is inferred from the JAR file name (e.g., Hamcrest).
-     * The test explicitly pins dependency versions to ensure predictable properties for testing.
+     * Block Logic: Validates metadata extraction across various external dependency types.
+     * Logic: 
+     * 1. Includes specific dependencies showcasing:
+     *    - Explicit JPMS (asm).
+     *    - Automatic-Module-Name (junit).
+     *    - Inferred module naming (hamcrest).
+     * 2. Asserts that the plugin correctly resolves and maps these distinct patterns 
+     *    to their respective representative classes.
      */
     def "dependencies"() {
         given: "A Gradle project with various types of dependencies"
-        // Block Logic: Configures the build.gradle file to apply necessary plugins
-        // and declare various dependencies to test module information extraction.
         buildFile << """
         import org.elasticsearch.gradle.plugin.GenerateTestBuildInfoTask;
 
@@ -130,11 +111,9 @@ class TestBuildInfoPluginFuncTest extends AbstractGradleFuncTest {
         }
 
         dependencies {
-            // Inline: Pinning to specific versions to ensure consistent testing
-            // against known module information characteristics. These dependencies
-            // are not actually executed but are analyzed for build info generation.
-            implementation "org.ow2.asm:asm:9.7.1" // has module-info.class
-            implementation "junit:junit:4.13" // has Automatic-Module-Name, and brings in hamcrest which does not
+            // We pin to specific versions here because they are known to have the properties we want to test.
+            implementation "org.ow2.asm:asm:9.7.1" 
+            implementation "junit:junit:4.13" 
         }
 
         tasks.withType(GenerateTestBuildInfoTask.class) {
@@ -151,13 +130,10 @@ class TestBuildInfoPluginFuncTest extends AbstractGradleFuncTest {
         then: "The task completes successfully and produces the expected JSON output with dependency module information"
         task.outcome == TaskOutcome.SUCCESS
 
-        // Block Logic: Verifies that the output file exists and its content contains
-        // the expected module and representative class information for each dependency.
         def output = file("build/generated-build-info/plugin-test-build-info.json")
         output.exists() == true
 
-        // Block Logic: Defines the expected location maps for dependencies,
-        // distinguishing how their module information is derived.
+        // Block Logic: Mapping of dependency-specific resolution rules.
         def locationFromModuleInfo = Map.of(
             "module", "org.objectweb.asm",
             "representative_class", Path.of('org', 'objectweb', 'asm', 'AnnotationVisitor.class').toString()
@@ -175,7 +151,7 @@ class TestBuildInfoPluginFuncTest extends AbstractGradleFuncTest {
             "locations", List.of(locationFromModuleInfo, locationFromManifest, locationFromJarFileName)
         )
 
-        // Block Logic: Compares the actual generated JSON output with the predefined expected output.
+        // Final assertion ensures that the heterogeneous dependency set was correctly serialized.
         def value = new ObjectMapper().readValue(output, Map.class)
         expectedOutput.forEach((k,v) -> value.get(k) == v)
         value == expectedOutput

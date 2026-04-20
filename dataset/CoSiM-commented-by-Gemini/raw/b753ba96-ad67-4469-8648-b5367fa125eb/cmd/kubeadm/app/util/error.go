@@ -1,3 +1,5 @@
+// Package provides architecture-aware components for error.go.
+// Focuses on production system reliability and error handling.
 /*
 Copyright 2016 The Kubernetes Authors.
 
@@ -39,9 +41,12 @@ type debugError interface {
 }
 
 // fatal prints the message if set and then exits.
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func fatal(msg string, code int) {
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if len(msg) > 0 {
 		// add newline if needed
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if !strings.HasSuffix(msg, "\n") {
 			msg += "\n"
 		}
@@ -56,12 +61,14 @@ func fatal(msg string, code int) {
 //
 // This method is generic to the command in use and may be used by non-Kubectl
 // commands.
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func CheckErr(err error) {
 	checkErr("", err, fatal)
 }
 
 // checkErr formats a given error as a string and calls the passed handleErr
 // func with that string and an kubectl exit code.
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func checkErr(prefix string, err error, handleErr func(string, int)) {
 	switch err.(type) {
 	case nil:

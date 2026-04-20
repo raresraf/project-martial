@@ -14,6 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+/**
+ * @80b25dee-01d0-45bf-a705-538101285ffd/test/integration/etcd/etcd_cross_group_test.go
+ * @brief Integration tests for cross-group resource storage compatibility in etcd.
+ * 
+ * Functional Intent: Ensures that Kubernetes objects shared across different API groups 
+ * (e.g., resources that moved from 'extensions' to 'apps') maintain storage consistency. 
+ * It validates that writing a resource via one API group correctly triggers watch 
+ * notifications and is readable via all other associated API groups, preserving 
+ * the correct versioning metadata.
+ * 
+ * Domain: Kubernetes API Server, etcd Storage, Multi-version API Compatibility.
+ */
+
 package etcd
 
 import (
@@ -34,7 +47,19 @@ import (
 	"k8s.io/kubernetes/cmd/kube-apiserver/app/options"
 )
 
-// TestCrossGroupStorage tests to make sure that all objects stored in an expected location in etcd can be converted/read.
+/**
+ * TestCrossGroupStorage - Orchestrates the storage interoperability test suite.
+ * Logic: 
+ * 1. Starts a live API server and initializes a test namespace.
+ * 2. Scans all available resources to identify "cross-group" candidates (GVKs present 
+ *    in multiple API groups).
+ * 3. For each candidate group:
+ *    - Creates a baseline object.
+ *    - Establishes watches and clients for every API group that shares the storage path.
+ *    - Sequentially writes the object into etcd using each group's version.
+ *    - Verifies that all watchers receive the correct versioned event and all 
+ *      clients retrieve the object in their respective expected version.
+ */
 func TestCrossGroupStorage(t *testing.T) {
 	apiServer := StartRealAPIServerOrDie(t, func(opts *options.ServerRunOptions) {
 		// force enable all resources so we can check storage.
@@ -47,7 +72,9 @@ func TestCrossGroupStorage(t *testing.T) {
 
 	apiServer.Client.CoreV1().Namespaces().Create(context.TODO(), &v1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: testNamespace}}, metav1.CreateOptions{})
 
-	// Group by persisted GVK
+	// Block Logic: Identification of cross-group resource clusters.
+	// Logic: Maps each system resource to its persisted GVK in etcd. Identifies 
+	// clusters where multiple API groups map to the same underlying storage GVK.
 	for _, resourceToPersist := range apiServer.Resources {
 		gvk := resourceToPersist.Mapping.GroupVersionKind
 		data, exists := etcdStorageData[resourceToPersist.Mapping.Resource]
@@ -61,7 +88,8 @@ func TestCrossGroupStorage(t *testing.T) {
 		crossGroupResources[storageGVK] = append(crossGroupResources[storageGVK], resourceToPersist)
 	}
 
-	// Clear any without cross-group sources
+	// Block Logic: Filtering for true cross-group overlaps.
+	// Invariant: Only retains GVK clusters that originate from at least two distinct API groups.
 	for gvk, resources := range crossGroupResources {
 		groups := sets.NewString()
 		for _, resource := range resources {
@@ -73,24 +101,20 @@ func TestCrossGroupStorage(t *testing.T) {
 	}
 
 	if len(crossGroupResources) == 0 {
-		// Sanity check
 		t.Fatal("no cross-group resources found")
 	}
 
-	// Test all potential cross-group sources can be watched and fetched from all other sources
+	// Block Logic: Cross-version interoperability validation loop.
 	for gvk, resources := range crossGroupResources {
 		t.Run(gvk.String(), func(t *testing.T) {
-			// use the first one to create the initial object
 			resource := resources[0]
 
-			// compute namespace
 			ns := ""
 			if resource.Mapping.Scope.Name() == meta.RESTScopeNameNamespace {
 				ns = testNamespace
 			}
 
 			data := etcdStorageData[resource.Mapping.Resource]
-			// create object
 			resourceClient, obj, err := JSONToUnstructured(data.Stub, ns, resource.Mapping, apiServer.Dynamic)
 			if err != nil {
 				t.Fatal(err)
@@ -101,7 +125,8 @@ func TestCrossGroupStorage(t *testing.T) {
 			}
 			name := actual.GetName()
 
-			// Set up clients, versioned data, and watches for all versions
+			// Block Logic: Infrastructure setup for multi-group monitoring.
+			// Logic: Initializes parallel clients and long-running watches for every overlapping API version.
 			var (
 				clients       = map[schema.GroupVersionResource]dynamic.ResourceInterface{}
 				versionedData = map[schema.GroupVersionResource]*unstructured.Unstructured{}
@@ -120,8 +145,10 @@ func TestCrossGroupStorage(t *testing.T) {
 			}
 
 			versioner := etcd3.APIObjectVersioner{}
+			// Block Logic: Round-robin storage updates.
+			// Logic: For each API version, prepare the object for storage (stripping runtime-only fields), 
+			// write it directly to etcd, and verify the resulting system state.
 			for _, resource := range resources {
-				// clear out the things cleared in etcd
 				versioned := versionedData[resource.Mapping.Resource]
 				versioner.PrepareObjectForStorage(versioned)
 				versionedJSON, err := versioned.MarshalJSON()
@@ -130,14 +157,15 @@ func TestCrossGroupStorage(t *testing.T) {
 					continue
 				}
 
-				// Update in etcd
 				if _, err := apiServer.KV.Put(context.Background(), data.ExpectedEtcdPath, string(versionedJSON)); err != nil {
 					t.Error(err)
 					continue
 				}
 				t.Logf("wrote %s to etcd", resource.Mapping.Resource.GroupVersion().String())
 
-				// Ensure everyone gets a watch event with the right version
+				// Block Logic: Watch propagation verification.
+				// Invariant: Every versioned watcher must receive exactly one 'Modified' 
+				// event where the object's GroupVersion matches the watcher's version.
 				for watchResource, watcher := range watches {
 					select {
 					case event, ok := <-watcher.ResultChan():
@@ -160,7 +188,10 @@ func TestCrossGroupStorage(t *testing.T) {
 					}
 				}
 
-				// Ensure everyone can do a direct get and gets the right version
+				// Block Logic: Direct read verification.
+				// Invariant: Every versioned client must be able to read the object back 
+				// and receive it in their specific API version, regardless of which 
+				// version was used to perform the etcd write.
 				for clientResource, client := range clients {
 					obj, err := client.Get(context.TODO(), name, metav1.GetOptions{})
 					if err != nil {

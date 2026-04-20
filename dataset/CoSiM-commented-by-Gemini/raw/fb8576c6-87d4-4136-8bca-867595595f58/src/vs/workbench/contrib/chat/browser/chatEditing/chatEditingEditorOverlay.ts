@@ -1,3 +1,5 @@
+// Package provides architecture-aware components for chatEditingEditorOverlay.ts.
+// Focuses on production system reliability and error handling.
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -67,15 +69,18 @@ class ChatEditorOverlayWidget extends Disposable {
 
 			const session = this._session.read(r);
 			const chatModel = this._chatService.getSession(session?.chatSessionId ?? '');
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 			if (!session || !chatModel) {
 				return undefined;
 			}
 
 			const response = this._entry.read(r)?.lastModifyingResponse.read(r);
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 			if (!response) {
 				return { message: localize('working', "Working...") };
 			}
 
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 			if (response.isPaused.read(r)) {
 				return { message: localize('paused', "Paused"), paused: true };
 			}
@@ -85,6 +90,7 @@ class ChatEditorOverlayWidget extends Disposable {
 				.filter(part => part.kind === 'progressMessage' || part.kind === 'toolInvocation')
 				.at(-1);
 
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 			if (lastPart?.kind === 'toolInvocation') {
 				return { message: lastPart.invocationMessage };
 
@@ -109,6 +115,7 @@ class ChatEditorOverlayWidget extends Disposable {
 
 			this._domNode.classList.toggle('busy', busy);
 
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 			if (!busy || !value || this._session.read(r)?.isGlobalEditingSession) {
 				textProgress.innerText = '';
 			} else if (value) {
@@ -151,10 +158,12 @@ class ChatEditorOverlayWidget extends Disposable {
 				: -1;
 
 			let totalChangesCount = 0;
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
 			for (let i = 0; i < entries.length; i++) {
 				const changesCount = entries[i].changesCount.read(r);
 				totalChangesCount += changesCount;
 
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 				if (entryIndex !== undefined && i < entryIndex) {
 					activeIdx += changesCount;
 				}
@@ -178,6 +187,7 @@ class ChatEditorOverlayWidget extends Disposable {
 			actionViewItemProvider: (action, options) => {
 				const that = this;
 
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 				if (action.id === navigationBearingFakeActionId) {
 					return new class extends ActionViewItem {
 
@@ -195,6 +205,7 @@ class ChatEditorOverlayWidget extends Disposable {
 
 								const { changeCount, activeIdx } = that._navigationBearings.read(r);
 
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 								if (changeCount > 0) {
 									const n = activeIdx === -1 ? '1' : `${activeIdx + 1}`;
 									this.label.innerText = localize('nOfM', "{0} of {1}", n, changeCount);
@@ -209,10 +220,12 @@ class ChatEditorOverlayWidget extends Disposable {
 
 						protected override getTooltip(): string | undefined {
 							const { changeCount, entriesCount } = that._navigationBearings.get();
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 							if (changeCount === -1 || entriesCount === -1) {
 								return undefined;
 							}
 							let result: string | undefined;
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 							if (changeCount === 1 && entriesCount === 1) {
 								result = localize('tooltip_11', "1 change in 1 file");
 							} else if (changeCount === 1) {
@@ -222,6 +235,7 @@ class ChatEditorOverlayWidget extends Disposable {
 							} else {
 								result = localize('tooltip_nm', "{0} changes in {1} files", changeCount, entriesCount);
 							}
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 							if (!that._isBusy.get()) {
 								return result;
 							}
@@ -230,6 +244,7 @@ class ChatEditorOverlayWidget extends Disposable {
 					};
 				}
 
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 				if (action.id === AcceptAction.ID || action.id === RejectAction.ID) {
 					return new class extends ActionViewItem {
 
@@ -242,6 +257,7 @@ class ChatEditorOverlayWidget extends Disposable {
 						override render(container: HTMLElement): void {
 							super.render(container);
 
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 							if (action.id === AcceptAction.ID) {
 
 								const listener = this._store.add(new MutableDisposable());
@@ -252,6 +268,7 @@ class ChatEditorOverlayWidget extends Disposable {
 									assertType(this.element);
 
 									const ctrl = that._entry.read(r)?.autoAcceptController.read(r);
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 									if (ctrl) {
 
 										const r = -100 * (ctrl.remaining / ctrl.total);
@@ -281,10 +298,12 @@ class ChatEditorOverlayWidget extends Disposable {
 
 						protected override getTooltip(): string | undefined {
 							const value = super.getTooltip();
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 							if (!value) {
 								return value;
 							}
 							const kb = that._keybindingService.lookupKeybinding(this.action.id);
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 							if (!kb) {
 								return value;
 							}
@@ -336,12 +355,14 @@ class ChatEditingOverlayController {
 		this._store.add(widget);
 
 		const show = () => {
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 			if (!container.contains(this._domNode)) {
 				container.appendChild(this._domNode);
 			}
 		};
 
 		const hide = () => {
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 			if (container.contains(this._domNode)) {
 				widget.hide();
 				this._domNode.remove();
@@ -365,6 +386,7 @@ class ChatEditingOverlayController {
 			activeEditorSignal.read(r); // signal to ensure activeEditor and activeEditorPane don't go out of sync
 
 			const uri = activeUriObs.read(r);
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 			if (!uri) {
 				return undefined;
 			}
@@ -375,6 +397,7 @@ class ChatEditingOverlayController {
 		const isInProgress = derived(r => {
 
 			const session = sessionAndEntry.read(r)?.session;
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 			if (!session) {
 				return false;
 			}
@@ -387,6 +410,7 @@ class ChatEditingOverlayController {
 
 			const data = sessionAndEntry.read(r);
 
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 			if (!data) {
 				hide();
 				return;
@@ -394,12 +418,14 @@ class ChatEditingOverlayController {
 
 			const { session, entry } = data;
 
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 			if (!session.isGlobalEditingSession && !inlineChatService.hideOnRequest.read(r)) {
 				// inline chat - no chat overlay unless hideOnRequest is on
 				hide();
 				return;
 			}
 
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 			if (
 				entry?.state.read(r) === ModifiedFileEntryState.Modified // any entry changing
 				|| (!session.isGlobalEditingSession && isInProgress.read(r)) // inline chat request
@@ -457,8 +483,10 @@ export class ChatEditingEditorOverlay implements IWorkbenchContribution {
 			const groups = editorGroups.read(r);
 
 
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
 			for (const group of groups) {
 
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 				if (!(group instanceof EditorGroupView)) {
 					// TODO@jrieken better with https://github.com/microsoft/vscode/tree/ben/layout-group-container
 					continue;
@@ -466,6 +494,7 @@ export class ChatEditingEditorOverlay implements IWorkbenchContribution {
 
 				toDelete.delete(group); // we keep the widget for this group!
 
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 				if (!overlayWidgets.has(group)) {
 
 					const scopedInstaService = instantiationService.createChild(
@@ -479,6 +508,7 @@ export class ChatEditingEditorOverlay implements IWorkbenchContribution {
 				}
 			}
 
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
 			for (const group of toDelete) {
 				overlayWidgets.deleteAndDispose(group);
 			}

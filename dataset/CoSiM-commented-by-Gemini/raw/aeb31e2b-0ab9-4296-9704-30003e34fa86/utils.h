@@ -1,4 +1,8 @@
 /**
+ * @file utils.h
+ * @brief Common definitions and declarations for the matrix solver benchmark suite.
+ */
+/**
  * @raw/aeb31e2b-0ab9-4296-9704-30003e34fa86/utils.h
  * @brief Common utility types, macros, and function prototypes for the dense matrix operations suite.
  */
@@ -28,6 +32,13 @@ struct test {
 	char output_save_file[100];
 };
 
+/**
+ * @brief Computes C = A * B * B^T + A^T * A.
+ * @param N Matrix dimension.
+ * @param A Input matrix A.
+ * @param B Input matrix B.
+ * @return Pointer to resulting matrix C.
+ */
 double* my_solver(int, double *, double *);
 
 int run_test(struct test, Solver, float *);

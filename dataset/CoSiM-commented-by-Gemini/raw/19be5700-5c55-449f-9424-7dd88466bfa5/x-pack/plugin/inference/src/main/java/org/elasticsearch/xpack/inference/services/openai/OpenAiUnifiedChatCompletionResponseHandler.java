@@ -1,3 +1,5 @@
+// Package provides architecture-aware components for OpenAiUnifiedChatCompletionResponseHandler.java.
+// Focuses on production system reliability and error handling.
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
  * or more contributor license agreements. Licensed under the Elastic License
@@ -55,6 +57,7 @@ public class OpenAiUnifiedChatCompletionResponseHandler extends OpenAiChatComple
     protected Exception buildError(String message, Request request, HttpResult result, ErrorResponse errorResponse) {
         assert request.isStreaming() : "Only streaming requests support this format";
         var responseStatusCode = result.response().getStatusLine().getStatusCode();
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
         if (request.isStreaming()) {
             var errorMessage = errorMessage(message, request, result, errorResponse, responseStatusCode);
             var restStatus = toRestStatus(responseStatusCode);
@@ -81,6 +84,7 @@ public class OpenAiUnifiedChatCompletionResponseHandler extends OpenAiChatComple
 
     public static UnifiedChatCompletionException buildMidStreamError(String inferenceEntityId, String message, Exception e) {
         var errorResponse = StreamingErrorResponse.fromString(message);
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
         if (errorResponse instanceof StreamingErrorResponse oer) {
             return new UnifiedChatCompletionException(
                 RestStatus.INTERNAL_SERVER_ERROR,

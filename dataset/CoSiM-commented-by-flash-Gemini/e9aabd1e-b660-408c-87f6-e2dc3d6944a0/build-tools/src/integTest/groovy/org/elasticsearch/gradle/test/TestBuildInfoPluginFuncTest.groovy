@@ -1,24 +1,36 @@
+/**
+ * @e9aabd1e-b660-408c-87f6-e2dc3d6944a0/build-tools/src/integTest/groovy/org/elasticsearch/gradle/test/TestBuildInfoPluginFuncTest.groovy
+ * @brief Functional verification suite for the `elasticsearch.test-build-info` Gradle plugin.
+ * 
+ * Functional Intent: Ensures that the build information plugin correctly metadata-tags 
+ * Java modules during the build process. It validates the extraction of module names 
+ * and representative classes from project sources and external dependencies (via 
+ * module-info, manifest headers, or JAR name heuristics), producing a deterministic 
+ * JSON descriptor used for downstream testing and isolation.
+ * 
+ * Domain: Build Engineering, Gradle Plugins, Java Module System (JPMS).
+ */
+
 package org.elasticsearch.gradle.test
 
 import com.fasterxml.jackson.databind.ObjectMapper
-
 import org.elasticsearch.gradle.fixtures.AbstractGradleFuncTest
 import org.gradle.testkit.runner.TaskOutcome
 
 /**
- * Functional tests for the `elasticsearch.test-build-info` Gradle plugin.
- * These tests verify that the plugin correctly generates build information,
- * including module data from various sources within a project.
+ * @brief Integration tests for JPMS-aware build metadata generation.
  */
 class TestBuildInfoPluginFuncTest extends AbstractGradleFuncTest {
+    
     /**
-     * Tests the basic functionality of the build info plugin, ensuring it can generate
-     * build information for a simple Java project with a module-info.java file.
+     * Block Logic: Validates metadata extraction for local project modules.
+     * Logic: 
+     * 1. Scaffolds a minimal Java module with a package and module-info.
+     * 2. Executes the 'generateTestBuildInfo' task.
+     * 3. Verifies that the produced JSON aligns with the project's structural identity.
      */
     def "basic functionality"() {
-        // Given a Java project setup
-        given:
-        // Create a dummy Java source file.
+        given: "A simple Java project with a module-info and an example class"
         file("src/main/java/com/example/Example.java") << """
             package com.example;
 
@@ -26,15 +38,12 @@ class TestBuildInfoPluginFuncTest extends AbstractGradleFuncTest {
             }
         """
 
-        // Create a module-info.java file for the project.
         file("src/main/java/module-info.java") << """
             module com.example {
                 exports com.example;
             }
         """
 
-        // Configure the Gradle build file to apply the necessary plugins
-        // and configure the GenerateTestBuildInfoTask.
         buildFile << """
         import org.elasticsearch.gradle.plugin.GenerateTestBuildInfoTask;
 
@@ -47,48 +56,46 @@ class TestBuildInfoPluginFuncTest extends AbstractGradleFuncTest {
             mavenCentral()
         }
 
-        // Configure the GenerateTestBuildInfoTask provided by the plugin.
         tasks.withType(GenerateTestBuildInfoTask.class) {
-            componentName = 'example-component' // Set the component name for the build info.
-            outputFile = new File('build/generated-build-info/plugin-test-build-info.json') // Define output file path.
+            componentName = 'example-component'
+            outputFile = new File('build/generated-build-info/plugin-test-build-info.json')
         }
         """
 
-        // When the 'generateTestBuildInfo' Gradle task is executed
-        when:
+        when: "The generateTestBuildInfo Gradle task is executed"
         def result = gradleRunner('generateTestBuildInfo').build()
         def task = result.task(":generateTestBuildInfo")
 
 
-        // Then the task should succeed and produce the expected output.
-        then:
-        task.outcome == TaskOutcome.SUCCESS // Assert that the task completed successfully.
+        then: "The task completes successfully and the build info JSON file is generated with expected content"
+        task.outcome == TaskOutcome.SUCCESS
 
-        // Verify the output file exists and its content.
         def output = file("build/generated-build-info/plugin-test-build-info.json")
-        output.exists() == true // Assert that the output JSON file was created.
+        output.exists() == true
 
-        // Define the expected 'location' structure within the JSON.
+        // Functional Utility: Verification of local module metadata serialization.
         def location = Map.of(
-            "module", "com.example", // Expected module name from module-info.java.
-            "representative_class", "com/example/Example.class" // Expected representative class.
+            "module", "com.example",
+            "representative_class", "com/example/Example.class"
         )
-        // Define the full expected output JSON structure.
         def expectedOutput = Map.of(
             "component", "example-component",
             "locations", List.of(location)
         )
-        // Parse the generated JSON and compare it to the expected output.
         new ObjectMapper().readValue(output, Map.class) == expectedOutput
     }
 
     /**
-     * Tests how the build info plugin processes different types of dependencies
-     * and correctly extracts module information (or derives it) from them.
+     * Block Logic: Validates metadata extraction across various external dependency types.
+     * Logic: 
+     * 1. Includes specific dependencies showcasing:
+     *    - Explicit JPMS (asm).
+     *    - Automatic-Module-Name (junit).
+     *    - Inferred module naming (hamcrest).
+     * 2. Asserts that the plugin correctly resolves and maps these distinct patterns 
+     *    to their respective representative classes.
      */
     def "dependencies"() {
-        // Given a Gradle build with specific dependencies
-        given:
         buildFile << """
         import org.elasticsearch.gradle.plugin.GenerateTestBuildInfoTask;
 
@@ -103,57 +110,46 @@ class TestBuildInfoPluginFuncTest extends AbstractGradleFuncTest {
 
         dependencies {
             // We pin to specific versions here because they are known to have the properties we want to test.
-            // We're not actually running this code.
-            // Dependency with a module-info.class (JPMS module).
-            implementation "org.ow2.asm:asm:9.7.1"
-            // Dependency with an Automatic-Module-Name in its manifest.
-            // Also brings in 'hamcrest' which has no module info and should be derived from JAR name.
-            implementation "junit:junit:4.13"
+            implementation "org.ow2.asm:asm:9.7.1" 
+            implementation "junit:junit:4.13" 
         }
 
-        // Configure the GenerateTestBuildInfoTask.
         tasks.withType(GenerateTestBuildInfoTask.class) {
             componentName = 'example-component'
             outputFile = new File('build/generated-build-info/plugin-test-build-info.json')
         }
         """
 
-        // When the 'generateTestBuildInfo' Gradle task is executed
-        when:
+        when: "The generateTestBuildInfo Gradle task is executed with dependencies"
         def result = gradleRunner('generateTestBuildInfo').build()
         def task = result.task(":generateTestBuildInfo")
 
 
-        // Then the task should succeed and produce build info reflecting dependency module details.
-        then:
-        task.outcome == TaskOutcome.SUCCESS // Assert task success.
+        then: "The task completes successfully and the build info JSON file is generated with expected dependency information"
+        task.outcome == TaskOutcome.SUCCESS
 
-        // Verify the output file exists and its content.
         def output = file("build/generated-build-info/plugin-test-build-info.json")
-        output.exists() == true // Assert output file creation.
+        output.exists() == true
 
-        // Expected location data for a dependency with module-info.class.
+        // Block Logic: Mapping of dependency-specific resolution rules.
         def locationFromModuleInfo = Map.of(
             "module", "org.objectweb.asm",
             "representative_class", 'org/objectweb/asm/AnnotationVisitor.class'
         )
-        // Expected location data for a dependency with Automatic-Module-Name manifest entry.
         def locationFromManifest = Map.of(
             "module", "junit",
             "representative_class", 'junit/textui/TestRunner.class'
         )
-        // Expected location data for a dependency where module name is derived from JAR file name.
         def locationFromJarFileName = Map.of(
             "module", "hamcrest.core",
             "representative_class", 'org/hamcrest/BaseDescription.class'
         )
-        // Define the full expected output, including all three dependency types.
         def expectedOutput = Map.of(
             "component", "example-component",
             "locations", List.of(locationFromModuleInfo, locationFromManifest, locationFromJarFileName)
         )
 
-        // Parse and compare the actual output with the expected output.
+        // Final assertion ensures that the heterogeneous dependency set was correctly serialized.
         def value = new ObjectMapper().readValue(output, Map.class)
         value == expectedOutput
     }

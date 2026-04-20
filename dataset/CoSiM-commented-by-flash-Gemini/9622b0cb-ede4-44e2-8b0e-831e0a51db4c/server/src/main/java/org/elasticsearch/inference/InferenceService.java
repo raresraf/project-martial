@@ -22,94 +22,78 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+/**
+ * @9622b0cb-ede4-44e2-8b0e-831e0a51db4c/server/src/main/java/org/elasticsearch/inference/InferenceService.java
+ * @brief SPI (Service Provider Interface) for integrating AI/ML inference providers with Elasticsearch.
+ * 
+ * Functional Intent: Defines the contract for all inference engines (e.g., OpenAI, HuggingFace, 
+ * local models). It handles model lifecycle management (start/stop), configuration 
+ * serialization, and the execution of diverse task types like text embeddings, 
+ * completion, and re-ranking.
+ */
 public interface InferenceService extends Closeable {
 
+    /**
+     * @brief Post-initialization hook.
+     * @param client The internal Elasticsearch client for inter-node or inter-index operations.
+     */
     default void init(Client client) {}
 
+    /**
+     * @brief Canonical identifier for the service provider (e.g., 'openai').
+     */
     String name();
 
     /**
-     * The aliases that map to {@link #name()}. {@link InferenceServiceRegistry} allows users to create and use inference services by one
-     * of their aliases.
+     * @brief Alternative identifiers for service resolution.
      */
     default List<String> aliases() {
         return List.of();
     }
 
     /**
-     * Parse model configuration from the {@code config map} from a request and return
-     * the parsed {@link Model}. This requires that both the secrets and service settings be contained in the
-     * {@code service_settings} field.
-     * This function modifies {@code config map}, fields are removed
-     * from the map as they are read.
-     * <p>
-     * If the map contains unrecognized configuration option an
-     * {@code ElasticsearchStatusException} is thrown.
-     *
-     * @param modelId               Model Id
-     * @param taskType              The model task type
-     * @param config                Configuration options including the secrets
-     * @param parsedModelListener   A listener which will handle the resulting model or failure
+     * Block Logic: Configuration ingestion.
+     * Logic: Parses a raw request map, identifying and extracting sensitive credentials 
+     * (secrets) alongside public service settings.
+     * Invariant: Modifies the input map by removing processed keys.
      */
     void parseRequestConfig(String modelId, TaskType taskType, Map<String, Object> config, ActionListener<Model> parsedModelListener);
 
     /**
-     * Parse model configuration from {@code config map} from persisted storage and return the parsed {@link Model}. This requires that
-     * secrets and service settings be in two separate maps.
-     * This function modifies {@code config map}, fields are removed from the map as they are read.
-     *
-     * If the map contains unrecognized configuration options, no error is thrown.
-     *
-     * @param modelId Model Id
-     * @param taskType The model task type
-     * @param config Configuration options
-     * @param secrets Sensitive configuration options (e.g. api key)
-     * @return The parsed {@link Model}
+     * Block Logic: Persistence-to-model mapping (with secrets).
+     * Logic: Reconstructs a model instance from separate settings and secure maps.
      */
     Model parsePersistedConfigWithSecrets(String modelId, TaskType taskType, Map<String, Object> config, Map<String, Object> secrets);
 
     /**
-     * Parse model configuration from {@code config map} from persisted storage and return the parsed {@link Model}.
-     * This function modifies {@code config map}, fields are removed from the map as they are read.
-     *
-     * If the map contains unrecognized configuration options, no error is thrown.
-     *
-     * @param modelId Model Id
-     * @param taskType The model task type
-     * @param config Configuration options
-     * @return The parsed {@link Model}
+     * Block Logic: Persistence-to-model mapping (settings only).
      */
     Model parsePersistedConfig(String modelId, TaskType taskType, Map<String, Object> config);
 
+    /**
+     * @brief Retrieves the static service capabilities and constraints.
+     */
     InferenceServiceConfiguration getConfiguration();
 
     /**
-     * Whether this service should be hidden from the API. Should be used for services
-     * that are not ready to be used.
+     * @brief Visibility control for administrative APIs.
      */
     default boolean hideFromConfigurationApi() {
         return false;
     }
 
     /**
-     * The task types supported by the service
-     * @return Set of supported.
+     * @brief Returns the set of task archetypes (e.g., completion, embedding) supported by this provider.
      */
     EnumSet<TaskType> supportedTaskTypes();
 
     /**
-     * Perform inference on the model.
-     *
-     * @param model           The model
-     * @param query           Inference query, mainly for re-ranking
-     * @param returnDocuments For re-ranking task type, whether to return documents
-     * @param topN            For re-ranking task type, how many docs to return
-     * @param input           Inference input
-     * @param stream          Stream inference results
-     * @param taskSettings    Settings in the request to override the model's defaults
-     * @param inputType       For search, ingest etc
-     * @param timeout         The timeout for the request
-     * @param listener        Inference result listener
+     * infer - Primary execution path for standard inference tasks.
+     * 
+     * Block Logic: Request dispatch.
+     * Logic: Processes raw text input through the specified model, applying 
+     * overrides from taskSettings. Handles optional re-ranking parameters (query, topN).
+     * Invariant: Asynchronous execution via the provided listener.
      */
     void infer(
         Model model,
@@ -120,17 +104,12 @@ public interface InferenceService extends Closeable {
         boolean stream,
         Map<String, Object> taskSettings,
         InputType inputType,
-        TimeValue timeout,
+        @Nullable TimeValue timeout,
         ActionListener<InferenceServiceResults> listener
     );
 
     /**
-     * Perform completion inference on the model using the unified schema.
-     *
-     * @param model        The model
-     * @param request Parameters for the request
-     * @param timeout      The timeout for the request
-     * @param listener     Inference result listener
+     * unifiedCompletionInfer - Specialized path for chat/text completion using a normalized schema.
      */
     void unifiedCompletionInfer(
         Model model,
@@ -140,15 +119,8 @@ public interface InferenceService extends Closeable {
     );
 
     /**
-     * Chunk long text.
-     *
-     * @param model            The model
-     * @param query            Inference query, mainly for re-ranking
-     * @param input            Inference input
-     * @param taskSettings     Settings in the request to override the model's defaults
-     * @param inputType        For search, ingest etc
-     * @param timeout          The timeout for the request
-     * @param listener         Chunked Inference result listener
+     * chunkedInfer - Advanced inference for oversized inputs.
+     * Logic: Handles input segmentation and parallel/sequential processing of document chunks.
      */
     void chunkedInfer(
         Model model,
@@ -161,61 +133,45 @@ public interface InferenceService extends Closeable {
     );
 
     /**
-     * Start or prepare the model for use.
-     * @param model The model
-     * @param timeout Start timeout
-     * @param listener The listener
+     * @brief Prepares hardware or network resources for model execution.
      */
     void start(Model model, TimeValue timeout, ActionListener<Boolean> listener);
 
     /**
-     * Stop the model deployment.
-     * The default action does nothing except acknowledge the request (true).
-     * @param model The model configuration
-     * @param listener The listener
+     * @brief Tears down resources associated with a specific model deployment.
      */
     default void stop(Model model, ActionListener<Boolean> listener) {
         listener.onResponse(true);
     }
 
     /**
-     * Update a text embedding model's dimensions based on a provided embedding
-     * size and set the default similarity if required. The default behaviour is to just return the model.
-     * @param model The original model without updated embedding details
-     * @param embeddingSize The embedding size to update the model with
-     * @return The model with updated embedding details
+     * @brief Metadata enrichment for embedding models.
      */
     default Model updateModelWithEmbeddingDetails(Model model, int embeddingSize) {
         return model;
     }
 
     /**
-     * Update a chat completion model's max tokens if required. The default behaviour is to just return the model.
-     * @param model The original model without updated embedding details
-     * @return The model with updated chat completion details
+     * @brief Metadata enrichment for completion models.
      */
     default Model updateModelWithChatCompletionDetails(Model model) {
         return model;
     }
 
     /**
-     * Defines the version required across all clusters to use this service
-     * @return {@link TransportVersion} specifying the version
+     * @brief Minimum required TransportVersion for inter-node compatibility.
      */
     TransportVersion getMinimalSupportedVersion();
 
     /**
-     * The set of tasks where this service provider supports using the streaming API.
-     * @return set of supported task types. Defaults to empty.
+     * @brief Identifies tasks where the provider supports reactive streaming responses.
      */
     default Set<TaskType> supportedStreamingTasks() {
         return Set.of();
     }
 
     /**
-     * Checks the task type against the set of supported streaming tasks returned by {@link #supportedStreamingTasks()}.
-     * @param taskType the task that supports streaming
-     * @return true if the taskType is supported
+     * @brief Predicate to check if a specific task can utilize the stream interface.
      */
     default boolean canStream(TaskType taskType) {
         return supportedStreamingTasks().contains(taskType);
@@ -224,37 +180,33 @@ public interface InferenceService extends Closeable {
     record DefaultConfigId(String inferenceId, MinimalServiceSettings settings, InferenceService service) {};
 
     /**
-     * Get the Ids and task type of any default configurations provided by this service
-     * @return Defaults
+     * @brief Returns a list of out-of-the-box model configurations provided by this service.
      */
     default List<DefaultConfigId> defaultConfigIds() {
         return List.of();
     }
 
     /**
-     * Call the listener with the default model configurations defined by
-     * the service
-     * @param defaultsListener The listener
+     * @brief Hydrates and returns full model configurations for default IDs.
      */
     default void defaultConfigs(ActionListener<List<Model>> defaultsListener) {
         defaultsListener.onResponse(List.of());
     }
 
+    /**
+     * @brief Dynamic field expansion hook.
+     */
     default void updateModelsWithDynamicFields(List<Model> model, ActionListener<List<Model>> listener) {
         listener.onResponse(model);
     }
 
     /**
-     * Called after the Elasticsearch node has completed its start up. This allows the service to perform initialization
-     * after ensuring the node's internals are set up (for example if this ensures the internal ES client is ready for use).
+     * @brief Lifecycle hook triggered when the host node reaches a healthy state.
      */
     default void onNodeStarted() {}
 
     /**
-     * Get the service integration validator for the given task type.
-     * This allows services to provide custom validation logic.
-     * @param taskType The task type
-     * @return The service integration validator or null if the default should be used
+     * @brief Retrieves specialized validation logic for a given task type.
      */
     default ServiceIntegrationValidator getServiceIntegrationValidator(TaskType taskType) {
         return null;

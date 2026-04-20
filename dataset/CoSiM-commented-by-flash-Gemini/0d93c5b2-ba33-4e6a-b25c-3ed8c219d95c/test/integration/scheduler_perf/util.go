@@ -14,6 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+/**
+ * @0d93c5b2-ba33-4e6a-b25c-3ed8c219d95c/test/integration/scheduler_perf/util.go
+ * @brief Performance benchmarking utilities for the Kubernetes Scheduler.
+ * 
+ * Functional Intent: Provides infrastructure for high-fidelity scheduler performance 
+ * measurements. It automates the lifecycle of mock API servers and schedulers, 
+ * facilitates the collection of latency histograms and scheduling throughput 
+ * metrics, and handles the serialization of performance data for dashboarding.
+ * 
+ * Domain: Kubernetes Scheduler, Performance Engineering, Integration Testing.
+ */
+
 package benchmark
 
 import (
@@ -51,13 +63,16 @@ const (
 
 var dataItemsDir = flag.String("data-items-dir", "", "destination directory for storing generated data items for perf dashboard")
 
-// mustSetupScheduler starts the following components:
-// - k8s api server (a.k.a. master)
-// - scheduler
-// It returns clientset and destroyFunc which should be used to
-// remove resources after finished.
-// Notes on rate limiter:
-//   - client rate limit is set to 5000.
+/**
+ * mustSetupScheduler - Scaffolds a complete, in-process Kubernetes control plane for testing.
+ * 
+ * Block Logic: Environment bootstrap.
+ * Logic: 
+ * 1. Spawns a real API server using integration test utilities.
+ * 2. Initializes a client set with aggressive QPS limits (5000) to avoid client-side throttling.
+ * 3. Mounts the scheduler and a fake PV controller to satisfy persistent volume constraints.
+ * 4. Returns a composite shutdown function for idempotent resource cleanup.
+ */
 func mustSetupScheduler() (util.ShutdownFunc, coreinformers.PodInformer, clientset.Interface) {
 	apiURL, apiShutdown := util.StartApiserver()
 	clientSet := clientset.NewForConfigOrDie(&restclient.Config{
@@ -78,8 +93,11 @@ func mustSetupScheduler() (util.ShutdownFunc, coreinformers.PodInformer, clients
 	return shutdownFunc, podInformer, clientSet
 }
 
-// Returns the list of scheduled pods in the specified namespaces.
-// Note that no namespces specified matches all namespaces.
+/**
+ * getScheduledPods - Scans the cluster for successfully placed pods.
+ * Logic: Queries the local pod informer cache and filters for entities with 
+ * a non-empty NodeName, indicating a successful scheduling decision.
+ */
 func getScheduledPods(podInformer coreinformers.PodInformer, namespaces ...string) ([]*v1.Pod, error) {
 	pods, err := podInformer.Lister().List(labels.Everything())
 	if err != nil {
@@ -97,25 +115,27 @@ func getScheduledPods(podInformer coreinformers.PodInformer, namespaces ...strin
 	return scheduled, nil
 }
 
-// DataItem is the data point.
+/**
+ * DataItem - Atomic data point for performance reporting.
+ * Units: 'ms' for latency, 'pods/s' for throughput.
+ */
 type DataItem struct {
-	// Data is a map from bucket to real data point (e.g. "Perc90" -> 23.5). Notice
-	// that all data items with the same label combination should have the same buckets.
 	Data map[string]float64 `json:"data"`
-	// Unit is the data unit. Notice that all data items with the same label combination
-	// should have the same unit.
 	Unit string `json:"unit"`
-	// Labels is the labels of the data item.
 	Labels map[string]string `json:"labels,omitempty"`
 }
 
-// DataItems is the data point set. It is the struct that perf dashboard expects.
+/**
+ * DataItems - Versioned collection of performance metrics.
+ */
 type DataItems struct {
 	Version   string     `json:"version"`
 	DataItems []DataItem `json:"dataItems"`
 }
 
-// makeBasePod creates a Pod object to be used as a template.
+/**
+ * @brief Constructs a baseline Pod template for benchmark scenarios.
+ */
 func makeBasePod() *v1.Pod {
 	basePod := &v1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -126,6 +146,9 @@ func makeBasePod() *v1.Pod {
 	return basePod
 }
 
+/**
+ * @brief Serializes gathered metrics to a timestamped JSON file.
+ */
 func dataItems2JSONFile(dataItems DataItems, namePrefix string) error {
 	b, err := json.Marshal(dataItems)
 	if err != nil {
@@ -140,13 +163,15 @@ func dataItems2JSONFile(dataItems DataItems, namePrefix string) error {
 	return ioutil.WriteFile(destFile, b, 0644)
 }
 
-// metricsCollectorConfig is the config to be marshalled to YAML config file.
 type metricsCollectorConfig struct {
 	Metrics []string
 }
 
-// metricsCollector collects metrics from legacyregistry.DefaultGatherer.Gather() endpoint.
-// Currently only Histrogram metrics are supported.
+/**
+ * metricsCollector - Scraper for internal scheduler latency histograms.
+ * Logic: Interfaces with the legacy metrics registry to extract P50, P90, 
+ * and average latencies for specific scheduler operations.
+ */
 type metricsCollector struct {
 	*metricsCollectorConfig
 	labels map[string]string
@@ -163,6 +188,9 @@ func (*metricsCollector) run(ctx context.Context) {
 	// metricCollector doesn't need to start before the tests, so nothing to do here.
 }
 
+/**
+ * collect - Iterates through target metrics and generates DataItems.
+ */
 func (pc *metricsCollector) collect() []DataItem {
 	var dataItems []DataItem
 	for _, metric := range pc.Metrics {
@@ -174,6 +202,11 @@ func (pc *metricsCollector) collect() []DataItem {
 	return dataItems
 }
 
+/**
+ * collectHistogram - Decodes a specific Prometheus-style histogram.
+ * Logic: Calculates quantiles and averages, then resets the metric to 
+ * prevent cumulative leakage across benchmark iterations.
+ */
 func collectHistogram(metric string, labels map[string]string) *DataItem {
 	hist, err := testutil.GetHistogramFromGatherer(legacyregistry.DefaultGatherer, metric)
 	if err != nil {
@@ -194,13 +227,10 @@ func collectHistogram(metric string, labels map[string]string) *DataItem {
 	q99 := hist.Quantile(0.95)
 	avg := hist.Average()
 
-	// clear the metrics so that next test always starts with empty prometheus
-	// metrics (since the metrics are shared among all tests run inside the same binary)
 	hist.Clear()
 
 	msFactor := float64(time.Second) / float64(time.Millisecond)
 
-	// Copy labels and add "Metric" label for this metric.
 	labelMap := map[string]string{"Metric": metric}
 	for k, v := range labels {
 		labelMap[k] = v
@@ -217,6 +247,13 @@ func collectHistogram(metric string, labels map[string]string) *DataItem {
 	}
 }
 
+/**
+ * throughputCollector - Real-time monitor for scheduling velocity.
+ * 
+ * Block Logic: Sampling loop.
+ * Invariant: Periodically calculates the delta of scheduled pods 
+ * over the last sample interval to derive pods/second throughput.
+ */
 type throughputCollector struct {
 	podInformer           coreinformers.PodInformer
 	schedulingThroughputs []float64
@@ -261,6 +298,9 @@ func (tc *throughputCollector) run(ctx context.Context) {
 	}
 }
 
+/**
+ * collect - Computes summary statistics (Mean/Quantiles) for the throughput series.
+ */
 func (tc *throughputCollector) collect() []DataItem {
 	throughputSummary := DataItem{Labels: tc.labels}
 	if length := len(tc.schedulingThroughputs); length > 0 {

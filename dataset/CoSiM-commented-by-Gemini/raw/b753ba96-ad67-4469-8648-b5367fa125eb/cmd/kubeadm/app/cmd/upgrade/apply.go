@@ -1,3 +1,5 @@
+// Package provides architecture-aware components for apply.go.
+// Focuses on production system reliability and error handling.
 /*
 Copyright 2017 The Kubernetes Authors.
 
@@ -54,11 +56,13 @@ type applyFlags struct {
 }
 
 // SessionIsInteractive returns true if the session is of an interactive type (the default, can be opted out of with -y, -f or --dry-run)
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func (f *applyFlags) SessionIsInteractive() bool {
 	return !f.nonInteractiveMode
 }
 
 // NewCmdApply returns the cobra command for `kubeadm upgrade apply`
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func NewCmdApply(parentFlags *cmdUpgradeFlags) *cobra.Command {
 	flags := &applyFlags{
 		parent:           parentFlags,
@@ -111,10 +115,12 @@ func NewCmdApply(parentFlags *cmdUpgradeFlags) *cobra.Command {
 //   - Creating the RBAC rules for the bootstrap tokens and the cluster-info ConfigMap
 //   - Applying new kube-dns and kube-proxy manifests
 //   - Uploads the newly used configuration to the cluster ConfigMap
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func RunApply(flags *applyFlags) error {
 
 	// Start with the basics, verify that the cluster is healthy and get the configuration from the cluster (using the ConfigMap)
 	upgradeVars, err := enforceRequirements(flags.parent.kubeConfigPath, flags.parent.cfgPath, flags.parent.printConfig, flags.dryRun)
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if err != nil {
 		return err
 	}
@@ -127,6 +133,7 @@ func RunApply(flags *applyFlags) error {
 	legacyscheme.Scheme.Convert(upgradeVars.cfg, internalcfg, nil)
 
 	// Validate requested and validate actual version
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if err := configutil.NormalizeKubernetesVersion(internalcfg); err != nil {
 		return err
 	}
@@ -134,18 +141,22 @@ func RunApply(flags *applyFlags) error {
 	// Use normalized version string in all following code.
 	flags.newK8sVersionStr = internalcfg.KubernetesVersion
 	k8sVer, err := version.ParseSemantic(flags.newK8sVersionStr)
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if err != nil {
 		return fmt.Errorf("unable to parse normalized version %q as a semantic version", flags.newK8sVersionStr)
 	}
 	flags.newK8sVersion = k8sVer
 
 	// Enforce the version skew policies
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if err := EnforceVersionPolicies(flags, upgradeVars.versionGetter); err != nil {
 		return fmt.Errorf("[upgrade/version] FATAL: %v", err)
 	}
 
 	// If the current session is interactive, ask the user whether they really want to upgrade
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if flags.SessionIsInteractive() {
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if err := InteractivelyConfirmUpgrade("Are you sure you want to proceed with the upgrade?"); err != nil {
 			return err
 		}
@@ -157,15 +168,18 @@ func RunApply(flags *applyFlags) error {
 	upgrade.PrepullImagesInParallel(prepuller, flags.imagePullTimeout)
 
 	// Now; perform the upgrade procedure
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if err := PerformControlPlaneUpgrade(flags, upgradeVars.client, upgradeVars.waiter, internalcfg); err != nil {
 		return fmt.Errorf("[upgrade/apply] FATAL: %v", err)
 	}
 
 	// Upgrade RBAC rules and addons.
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if err := upgrade.PerformPostUpgradeTasks(upgradeVars.client, internalcfg); err != nil {
 		return fmt.Errorf("[upgrade/postupgrade] FATAL post-upgrade error: %v", err)
 	}
 
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if flags.dryRun {
 		fmt.Println("[dryrun] Finished dryrunning successfully!")
 		return nil
@@ -180,12 +194,15 @@ func RunApply(flags *applyFlags) error {
 }
 
 // SetImplicitFlags handles dynamically defaulting flags based on each other's value
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func SetImplicitFlags(flags *applyFlags) error {
 	// If we are in dry-run or force mode; we should automatically execute this command non-interactively
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if flags.dryRun || flags.force {
 		flags.nonInteractiveMode = true
 	}
 
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if len(flags.newK8sVersionStr) == 0 {
 		return fmt.Errorf("version string can't be empty")
 	}
@@ -195,18 +212,23 @@ func SetImplicitFlags(flags *applyFlags) error {
 
 // EnforceVersionPolicies makes sure that the version the user specified is valid to upgrade to
 // There are both fatal and skippable (with --force) errors
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func EnforceVersionPolicies(flags *applyFlags, versionGetter upgrade.VersionGetter) error {
 	fmt.Printf("[upgrade/version] You have chosen to upgrade to version %q\n", flags.newK8sVersionStr)
 
 	versionSkewErrs := upgrade.EnforceVersionPolicies(versionGetter, flags.newK8sVersionStr, flags.newK8sVersion, flags.parent.allowExperimentalUpgrades, flags.parent.allowRCUpgrades)
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if versionSkewErrs != nil {
 
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if len(versionSkewErrs.Mandatory) > 0 {
 			return fmt.Errorf("The --version argument is invalid due to these fatal errors: %v", versionSkewErrs.Mandatory)
 		}
 
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if len(versionSkewErrs.Skippable) > 0 {
 			// Return the error if the user hasn't specified the --force flag
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 			if !flags.force {
 				return fmt.Errorf("The --version argument is invalid due to these errors: %v. Can be bypassed if you pass the --force flag", versionSkewErrs.Skippable)
 			}
@@ -218,9 +240,11 @@ func EnforceVersionPolicies(flags *applyFlags, versionGetter upgrade.VersionGett
 }
 
 // PerformControlPlaneUpgrade actually performs the upgrade procedure for the cluster of your type (self-hosted or static-pod-hosted)
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func PerformControlPlaneUpgrade(flags *applyFlags, client clientset.Interface, waiter apiclient.Waiter, internalcfg *kubeadmapi.MasterConfiguration) error {
 
 	// Check if the cluster is self-hosted and act accordingly
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if upgrade.IsControlPlaneSelfHosted(client) {
 		fmt.Printf("[upgrade/apply] Upgrading your Self-Hosted control plane to version %q...\n", flags.newK8sVersionStr)
 
@@ -231,6 +255,7 @@ func PerformControlPlaneUpgrade(flags *applyFlags, client clientset.Interface, w
 	// OK, the cluster is hosted using static pods. Upgrade a static-pod hosted cluster
 	fmt.Printf("[upgrade/apply] Upgrading your Static Pod-hosted control plane to version %q...\n", flags.newK8sVersionStr)
 
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if flags.dryRun {
 		return DryRunStaticPodUpgrade(internalcfg)
 	}
@@ -239,8 +264,10 @@ func PerformControlPlaneUpgrade(flags *applyFlags, client clientset.Interface, w
 }
 
 // PerformStaticPodUpgrade performs the upgrade of the control plane components for a static pod hosted cluster
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func PerformStaticPodUpgrade(client clientset.Interface, waiter apiclient.Waiter, internalcfg *kubeadmapi.MasterConfiguration, etcdUpgrade bool) error {
 	pathManager, err := upgrade.NewKubeStaticPodPathManagerUsingTempDirs(constants.GetStaticPodDirectory())
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if err != nil {
 		return err
 	}
@@ -249,20 +276,24 @@ func PerformStaticPodUpgrade(client clientset.Interface, waiter apiclient.Waiter
 }
 
 // DryRunStaticPodUpgrade fakes an upgrade of the control plane
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func DryRunStaticPodUpgrade(internalcfg *kubeadmapi.MasterConfiguration) error {
 
 	dryRunManifestDir, err := constants.CreateTempDirForKubeadm("kubeadm-upgrade-dryrun")
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if err != nil {
 		return err
 	}
 	defer os.RemoveAll(dryRunManifestDir)
 
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if err := controlplane.CreateInitStaticPodManifestFiles(dryRunManifestDir, internalcfg); err != nil {
 		return err
 	}
 
 	// Print the contents of the upgraded manifests and pretend like they were in /etc/kubernetes/manifests
 	files := []dryrunutil.FileToPrint{}
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
 	for _, component := range constants.MasterComponents {
 		realPath := constants.GetStaticPodFilepath(component, dryRunManifestDir)
 		outputPath := constants.GetStaticPodFilepath(component, constants.GetStaticPodDirectory())

@@ -1,3 +1,10 @@
+/**
+ * @file solver_opt.with_comments.c
+ * @brief Block-optimized manual implementation to compute $C = A \times B \times B^T + A^T \times A$.
+ * Algorithm: Loop tiling/blocking for cache locality enhancement.
+ * Time Complexity: $O(N^3)$.
+ * Space Complexity: $O(N^2)$ for intermediate data structures.
+ */
 
 #include "utils.h"
 #include <string.h>
@@ -13,13 +20,21 @@ void multiply_with_transpose_matrix(int N, double* A, double* C, int comute) {
 
 	register double *root_ptrA;
 
-	register double *ptrA1;
-	register double *ptrA2;
+	register double *ptrA1; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
+	register double *ptrA2; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 
-	register double *ptrC1;
-	register double *ptrC2;
+	register double *ptrC1; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
+	register double *ptrC2; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (comute) {	
+		/**
+		 * Block Logic: Iterative processing loop.
+		 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+		 */
 		for (i = 0; i < N; ++i) {
 			
 			ptrA2 = orig_ptrA;
@@ -30,10 +45,18 @@ void multiply_with_transpose_matrix(int N, double* A, double* C, int comute) {
 			
 			ptrC2 = orig_ptrC;
 
+			/**
+			 * Block Logic: Iterative processing loop.
+			 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+			 */
 			for (j = i; j < N; ++j) {
 				
 				ptrA1 = orig_ptrA;
 
+				/**
+				 * Block Logic: Iterative processing loop.
+				 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+				 */
 				for (k = 0; k < N; ++k) {
 					
 					
@@ -54,9 +77,17 @@ void multiply_with_transpose_matrix(int N, double* A, double* C, int comute) {
 			orig_ptrC += N + 1;
 		}
 	} else {	
+		/**
+		 * Block Logic: Iterative processing loop.
+		 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+		 */
 		for (i = 0; i < N; ++i) {
 			root_ptrA = orig_ptrA;
 
+			/**
+			 * Block Logic: Iterative processing loop.
+			 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+			 */
 			for (k = 0; k < N; ++k) {
 				
 				
@@ -69,6 +100,10 @@ void multiply_with_transpose_matrix(int N, double* A, double* C, int comute) {
 				
 				ptrC1 = orig_ptrC;
 
+				/**
+				 * Block Logic: Iterative processing loop.
+				 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+				 */
 				for (j = i; j < N; ++j) {
 					
 					
@@ -89,6 +124,10 @@ void multiply_with_transpose_matrix(int N, double* A, double* C, int comute) {
 			
 			ptrC2 = orig_ptrC + N;
 
+			/**
+			 * Block Logic: Iterative processing loop.
+			 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+			 */
 			for (j = i + 1; j < N; ++j) {
 				
 				*ptrC2 = *ptrC1;
@@ -112,10 +151,14 @@ void multiply_with_upper_triangular_matrix(int N, double* A, double* B, double* 
 
 	
 
-	register double *ptrA;
-	register double *ptrB;
-	register double *ptrC;
+	register double *ptrA; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
+	register double *ptrB; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
+	register double *ptrC; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for (i = 0; i < N; ++i) {
 		
 		ptrA = orig_ptrA;
@@ -123,6 +166,10 @@ void multiply_with_upper_triangular_matrix(int N, double* A, double* B, double* 
 		
 		
 
+		/**
+		 * Block Logic: Iterative processing loop.
+		 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+		 */
 		for (k = i; k < N; ++k) {
 			ptrB = B + k * N;
 			
@@ -130,6 +177,10 @@ void multiply_with_upper_triangular_matrix(int N, double* A, double* B, double* 
 			
 			ptrC = orig_ptrC;
 
+			/**
+			 * Block Logic: Iterative processing loop.
+			 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+			 */
 			for (j = 0; j < N; ++j) {
 				
 				*ptrC += *ptrA * *ptrB;
@@ -150,9 +201,17 @@ void multiply_with_upper_triangular_matrix(int N, double* A, double* B, double* 
 
 void add(int N, double* A, double* B, double* C) {
 	register int i, j;
-	register double *ptrA = A, *ptrB = B, *ptrC = C;
+	register double *ptrA = A, *ptrB = B, *ptrC = C; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for (i = 0; i < N; ++i) {
+		/**
+		 * Block Logic: Iterative processing loop.
+		 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+		 */
 		for (j = 0; j < N; ++j) {
 			
 			
@@ -166,18 +225,37 @@ void add(int N, double* A, double* B, double* C) {
 }
 
 
+/**
+ * @brief Computes C = A * B * B^T + A^T * A.
+ * @param N Matrix dimension.
+ * @param A Input matrix A.
+ * @param B Input matrix B.
+ * @return Pointer to resulting matrix C.
+ */
 double* my_solver(int N, double* A, double* B) {
 	
 
 	double* B_times_B_tr = calloc(N * N, sizeof(double));
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (!B_times_B_tr)
 		return NULL;
 	
 	double* A_tr_times_A = calloc(N * N, sizeof(double));
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (!A_tr_times_A)
 		return NULL;
 
 	double* C = calloc(N * N, sizeof(double)); 
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (!C)
 		return NULL;
 

@@ -11,47 +11,30 @@ package org.elasticsearch.xcontent;
 
 import java.nio.ByteBuffer;
 
+/**
+ * @391d40c8-9021-4519-941e-3c1e7d277aa6/libs/x-content/src/main/java/org/elasticsearch/xcontent/XContentString.java
+ * @brief Interface for optimized string representations during XContent serialization.
+ * 
+ * Functional Intent: Provides a dual-view abstraction (UTF-16 String and UTF-8 ByteBuffer) 
+ * for string data. It allows serialization engines to avoid redundant UTF-8 encoding 
+ * steps by providing direct access to pre-encoded byte buffers.
+ */
 public interface XContentString {
-    record EncodedBytes(byte[] bytes, int offset, int length) implements Comparable<EncodedBytes> {
-        public EncodedBytes(byte[] bytes) {
-            this(bytes, 0, bytes.length);
-        }
-
-        @Override
-        public int compareTo(EncodedBytes o) {
-            return ByteBuffer.wrap(bytes, offset, length).compareTo(ByteBuffer.wrap(o.bytes, o.offset, o.length));
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-
-            return this.compareTo((EncodedBytes) o) == 0;
-        }
-
-        @Override
-        public int hashCode() {
-            return ByteBuffer.wrap(bytes, offset, length).hashCode();
-        }
-    }
-
     /**
-     * Returns a {@link String} view of the data.
+     * @brief Accessor for the high-level Java String representation.
+     * @return Standard UTF-16 encoded string.
      */
     String string();
 
     /**
-     * Returns a UTF8-encoded {@link ByteBuffer} view of the data.
+     * @brief Accessor for the low-level UTF-8 encoded byte representation.
+     * Logic: Returns a read-only buffer suitable for direct I/O without extra allocations.
+     * @return ByteBuffer containing the UTF-8 encoded sequence.
      */
-    EncodedBytes bytes();
+    ByteBuffer bytes();
 
     /**
-     * Returns the number of characters in the represented string.
+     * @brief Returns the character count (not byte count) of the sequence.
      */
     int stringLength();
 }

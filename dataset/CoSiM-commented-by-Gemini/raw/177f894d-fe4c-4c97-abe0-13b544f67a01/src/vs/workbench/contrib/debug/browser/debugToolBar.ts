@@ -3,6 +3,14 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/**
+ * @raw/177f894d-fe4c-4c97-abe0-13b544f67a01/src/vs/workbench/contrib/debug/browser/debugToolBar.ts
+ * @brief Provides the UI overlay and action management for the floating/docked Debug Toolbar.
+ * * Architectural Intent: Encapsulates the logic to render, position, and update the debug 
+ *   controls (Play, Step Over, etc.) as the debug session state changes. It also handles drag 
+ *   interactions and persistence of its on-screen location via local storage.
+ */
+
 import * as dom from '../../../../base/browser/dom.js';
 import { StandardMouseEvent } from '../../../../base/browser/mouseEvent.js';
 import { PixelRatio } from '../../../../base/browser/pixelRatio.js';
@@ -45,6 +53,11 @@ import './media/debugToolBar.css';
 const DEBUG_TOOLBAR_POSITION_KEY = 'debug.actionswidgetposition';
 const DEBUG_TOOLBAR_Y_KEY = 'debug.actionswidgety';
 
+/**
+ * @brief Renders and orchestrates the Debug Toolbar.
+ * * Logic: Listens to configuration changes (e.g., floating vs docked) and debug state 
+ *   transitions to dynamically show/hide the toolbar and swap out active debugging actions.
+ */
 export class DebugToolBar extends Themable implements IWorkbenchContribution {
 
 	private $el: HTMLElement;
@@ -145,6 +158,11 @@ export class DebugToolBar extends Themable implements IWorkbenchContribution {
 		this.hide();
 	}
 
+	/**
+	 * @brief Wires up DOM events and global workbench state listeners.
+	 * * Logic: Reacts to mouse events for dragging, and triggers re-layout when the window 
+	 *   resizes or the layout part visibility changes to ensure the toolbar stays in bounds.
+	 */
 	private registerListeners(): void {
 		this._register(this.debugService.onDidChangeState(() => this.updateScheduler.schedule()));
 		this._register(this.configurationService.onDidChangeConfiguration(e => {
@@ -293,6 +311,11 @@ export class DebugToolBar extends Themable implements IWorkbenchContribution {
 		return storedY ?? this.yDefault;
 	}
 
+	/**
+	 * @brief Applies CSS transforms to position the toolbar.
+	 * * Logic: Enforces minimum and maximum Y bounds based on active workbench UI parts 
+	 *   (like the title bar and editor tabs) to prevent the toolbar from moving off-screen.
+	 */
 	private setCoordinates(x?: number, y?: number): void {
 		if (!this.isVisible) {
 			return;

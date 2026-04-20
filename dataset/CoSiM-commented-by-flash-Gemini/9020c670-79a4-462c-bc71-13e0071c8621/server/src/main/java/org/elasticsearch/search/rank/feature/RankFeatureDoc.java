@@ -21,13 +21,23 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * A {@link RankDoc} that contains field data to be used later by the reranker on the coordinator node.
+ * @9020c670-79a4-462c-bc71-13e0071c8621/server/src/main/java/org/elasticsearch/search/rank/feature/RankFeatureDoc.java
+ * @brief Specialized RankDoc container for transporting feature data during search re-ranking.
+ * 
+ * Functional Intent: Extends the base RankDoc to include raw feature values and 
+ * associated document indices. This data is extracted at the shard level and 
+ * transmitted to the coordinator node, where it serves as input for complex 
+ * re-ranking algorithms (e.g., LTR or learning-to-rank models).
  */
 public class RankFeatureDoc extends RankDoc {
 
     public static final String NAME = "rank_feature_doc";
 
-    // TODO: update to support more than 1 fields; and not restrict to string data
+    /**
+     * Functional Utility: Buffers for feature extraction.
+     * featureData: Raw string representations of extracted document features.
+     * docIndices: Mapping of features to their original document context.
+     */
     public List<String> featureData;
     public List<Integer> docIndices;
 
@@ -35,6 +45,11 @@ public class RankFeatureDoc extends RankDoc {
         super(doc, score, shardIndex);
     }
 
+    /**
+     * Block Logic: Version-aware deserialization.
+     * Logic: Handles legacy single-string feature data for older transport versions 
+     * while supporting efficient collection streaming for newer versions (RERANK_SNIPPETS).
+     */
     public RankFeatureDoc(StreamInput in) throws IOException {
         super(in);
         if (in.getTransportVersion().onOrAfter(TransportVersions.RERANK_SNIPPETS)) {
@@ -59,12 +74,18 @@ public class RankFeatureDoc extends RankDoc {
         this.docIndices = docIndices;
     }
 
+    /**
+     * Block Logic: Version-aware serialization.
+     * Logic: Maintains backwards compatibility by down-sampling multi-feature lists 
+     * to a single element when communicating with older cluster nodes.
+     */
     @Override
     protected void doWriteTo(StreamOutput out) throws IOException {
         if (out.getTransportVersion().onOrAfter(TransportVersions.RERANK_SNIPPETS)) {
             out.writeOptionalStringCollection(featureData);
             out.writeOptionalCollection(docIndices, StreamOutput::writeVInt);
         } else {
+            // Functional Utility: Legacy fallback (first feature only).
             out.writeOptionalString(featureData.get(0));
         }
     }
@@ -85,6 +106,9 @@ public class RankFeatureDoc extends RankDoc {
         return NAME;
     }
 
+    /**
+     * Block Logic: JSON serialization for diagnostic endpoints.
+     */
     @Override
     protected void doToXContent(XContentBuilder builder, Params params) throws IOException {
         builder.array("featureData", featureData);

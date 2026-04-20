@@ -11,19 +11,30 @@ package org.elasticsearch.xcontent;
 
 import java.nio.ByteBuffer;
 
+/**
+ * @70adc879-bf7b-427b-89ae-eb337de7fff6/libs/x-content/src/main/java/org/elasticsearch/xcontent/XContentString.java
+ * @brief Interface for optimized string representations during XContent serialization.
+ * 
+ * Functional Intent: Provides a dual-view abstraction (UTF-16 String and UTF-8 ByteBuffer) 
+ * for string data. It allows serialization engines to avoid redundant UTF-8 encoding 
+ * steps by providing direct access to pre-encoded byte buffers.
+ */
 public interface XContentString {
     /**
-     * Returns a {@link String} view of the data.
+     * @brief Accessor for the high-level Java String representation.
+     * @return Standard UTF-16 encoded string.
      */
     String string();
 
     /**
-     * Returns a UTF8-encoded {@link ByteBuffer} view of the data.
+     * @brief Accessor for the low-level UTF-8 encoded byte representation.
+     * Logic: Returns a read-only buffer suitable for direct I/O without extra allocations.
+     * @return ByteBuffer containing the UTF-8 encoded sequence.
      */
     ByteBuffer bytes();
 
     /**
-     * Returns the number of characters in the represented string.
+     * @brief Returns the character count (not byte count) of the sequence.
      */
     int stringLength();
 }

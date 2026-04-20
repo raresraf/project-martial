@@ -1,3 +1,5 @@
+// Package provides architecture-aware components for MistralErrorResponse.java.
+// Focuses on production system reliability and error handling.
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
  * or more contributor license agreements. Licensed under the Elastic License

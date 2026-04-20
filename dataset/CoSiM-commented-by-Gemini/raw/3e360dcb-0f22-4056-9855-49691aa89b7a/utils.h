@@ -1,5 +1,9 @@
 /**
  * @file utils.h
+ * @brief Common definitions and declarations for the matrix solver benchmark suite.
+ */
+/**
+ * @file utils.h
  * @brief Utility functions and data structures for a matrix solver benchmark.
  *
  * This header file defines the common data structures (`test`), function prototypes,
@@ -45,6 +49,13 @@ struct test {
 
 /**
  * @brief Prototype for the solver function to be implemented.
+ */
+/**
+ * @brief Computes C = A * B * B^T + A^T * A.
+ * @param N Matrix dimension.
+ * @param A Input matrix A.
+ * @param B Input matrix B.
+ * @return Pointer to resulting matrix C.
  */
 double* my_solver(int, double *, double *);
 

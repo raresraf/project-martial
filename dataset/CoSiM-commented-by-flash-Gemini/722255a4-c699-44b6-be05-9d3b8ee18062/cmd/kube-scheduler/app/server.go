@@ -14,7 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package app implements a Server object for running the scheduler.
+/**
+ * @722255a4-c699-44b6-be05-9d3b8ee18062/cmd/kube-scheduler/app/server.go
+ * @brief Implementation of the Kubernetes Scheduler server and its execution lifecycle.
+ * 
+ * Functional Intent: Orchestrates the initialization and execution of the 
+ * kube-scheduler daemon. It handles command-line parsing, configuration 
+ * validation, leader election for high availability, and the setup of the 
+ * scheduling framework (including profile-based plugin registries). It also 
+ * exposes administrative interfaces for metrics, health checks, and profiling.
+ * 
+ * Domain: Kubernetes Control Plane, Resource Scheduling, Distributed Consensus.
+ */
+
 package app
 
 import (
@@ -60,7 +72,11 @@ import (
 // Option configures a framework.Registry.
 type Option func(runtime.Registry) error
 
-// NewSchedulerCommand creates a *cobra.Command object with default parameters and registryOptions
+/**
+ * NewSchedulerCommand - Factory for the 'kube-scheduler' Cobra command.
+ * Logic: Initializes default scheduler options, binds them to CLI flags, 
+ * and defines the help/usage structure.
+ */
 func NewSchedulerCommand(registryOptions ...Option) *cobra.Command {
 	opts, err := options.NewOptions()
 	if err != nil {
@@ -74,22 +90,12 @@ Pods to Nodes. The scheduler determines which Nodes are valid placements for
 each Pod in the scheduling queue according to constraints and available
 resources. The scheduler then ranks each valid Node and binds the Pod to a
 suitable Node. Multiple different schedulers may be used within a cluster;
-kube-scheduler is the reference implementation.
-See [scheduling](https://kubernetes.io/docs/concepts/scheduling-eviction/)
-for more information about scheduling and the kube-scheduler component.`,
+kube-scheduler is the reference implementation.`,
 		Run: func(cmd *cobra.Command, args []string) {
 			if err := runCommand(cmd, opts, registryOptions...); err != nil {
 				fmt.Fprintf(os.Stderr, "%v\n", err)
 				os.Exit(1)
 			}
-		},
-		Args: func(cmd *cobra.Command, args []string) error {
-			for _, arg := range args {
-				if len(arg) > 0 {
-					return fmt.Errorf("%q does not take any arguments, got %q", cmd.CommandPath(), args)
-				}
-			}
-			return nil
 		},
 	}
 	fs := cmd.Flags()
@@ -116,7 +122,11 @@ for more information about scheduling and the kube-scheduler component.`,
 	return cmd
 }
 
-// runCommand runs the scheduler.
+/**
+ * runCommand - Orchestrates the startup sequence after flag parsing.
+ * Logic: Validates inputs, optionally writes the resolved configuration to disk, 
+ * and triggers the main Run loop.
+ */
 func runCommand(cmd *cobra.Command, opts *options.Options, registryOptions ...Option) error {
 	verflag.PrintAndExitIfRequested()
 	cliflag.PrintFlags(cmd.Flags())
@@ -140,28 +150,35 @@ func runCommand(cmd *cobra.Command, opts *options.Options, registryOptions ...Op
 	return Run(ctx, cc, sched)
 }
 
-// Run executes the scheduler based on the given configuration. It only returns on error or when context is done.
+/**
+ * Run - Primary execution loop for the Kubernetes Scheduler.
+ * 
+ * Block Logic: Infrastructure bootstrapping and HA.
+ * Logic: 
+ * 1. Registers the scheduler with 'configz' for dynamic inspection.
+ * 2. Starts the health, metrics, and secure serving HTTP endpoints.
+ * 3. Launches the shared informers and waits for cache synchronization.
+ * 4. Initiates leader election; only the winner proceeds to 'sched.Run'.
+ */
 func Run(ctx context.Context, cc *schedulerserverconfig.CompletedConfig, sched *scheduler.Scheduler) error {
-	// To help debugging, immediately log version
 	klog.V(1).Infof("Starting Kubernetes Scheduler version %+v", version.Get())
 
-	// Configz registration.
 	if cz, err := configz.New("componentconfig"); err == nil {
 		cz.Set(cc.ComponentConfig)
 	} else {
 		return fmt.Errorf("unable to register configz: %s", err)
 	}
 
-	// Prepare the event broadcaster.
 	cc.EventBroadcaster.StartRecordingToSink(ctx.Done())
 
-	// Setup healthz checks.
 	var checks []healthz.HealthChecker
 	if cc.ComponentConfig.LeaderElection.LeaderElect {
 		checks = append(checks, cc.LeaderElection.WatchDog)
 	}
 
-	// Start up the healthz server.
+	// Block Logic: Multi-interface server management.
+	// Logic: Conditionally spawns listeners based on configuration availability 
+	// (Insecure, Secure, and specialized Metrics-only servers).
 	if cc.InsecureServing != nil {
 		separateMetrics := cc.InsecureMetricsServing != nil
 		handler := buildHandlerChain(newHealthzHandler(&cc.ComponentConfig, separateMetrics, checks...), nil, nil)
@@ -177,21 +194,15 @@ func Run(ctx context.Context, cc *schedulerserverconfig.CompletedConfig, sched *
 	}
 	if cc.SecureServing != nil {
 		handler := buildHandlerChain(newHealthzHandler(&cc.ComponentConfig, false, checks...), cc.Authentication.Authenticator, cc.Authorization.Authorizer)
-		// TODO: handle stoppedCh returned by c.SecureServing.Serve
 		if _, err := cc.SecureServing.Serve(handler, 0, ctx.Done()); err != nil {
-			// fail early for secure handlers, removing the old error loop from above
 			return fmt.Errorf("failed to start secure server: %v", err)
 		}
 	}
 
-	// Start all informers.
 	go cc.PodInformer.Informer().Run(ctx.Done())
 	cc.InformerFactory.Start(ctx.Done())
-
-	// Wait for all caches to sync before scheduling.
 	cc.InformerFactory.WaitForCacheSync(ctx.Done())
 
-	// If leader election is enabled, runCommand via LeaderElector until done and exit.
 	if cc.LeaderElection != nil {
 		cc.LeaderElection.Callbacks = leaderelection.LeaderCallbacks{
 			OnStartedLeading: sched.Run,
@@ -209,12 +220,15 @@ func Run(ctx context.Context, cc *schedulerserverconfig.CompletedConfig, sched *
 		return fmt.Errorf("lost lease")
 	}
 
-	// Leader election is disabled, so runCommand inline until done.
 	sched.Run(ctx)
 	return fmt.Errorf("finished without leader elect")
 }
 
-// buildHandlerChain wraps the given handler with the standard filters.
+/**
+ * buildHandlerChain - Decorates a base HTTP handler with standard Kubernetes filters.
+ * Logic: Sequences Authentication, Authorization, RequestInfo enrichment, 
+ * and panic recovery middleware.
+ */
 func buildHandlerChain(handler http.Handler, authn authenticator.Request, authz authorizer.Authorizer) http.Handler {
 	requestInfoResolver := &apirequest.RequestInfoFactory{}
 	failedHandler := genericapifilters.Unauthorized(legacyscheme.Codecs)
@@ -228,39 +242,10 @@ func buildHandlerChain(handler http.Handler, authn authenticator.Request, authz 
 	return handler
 }
 
-func installMetricHandler(pathRecorderMux *mux.PathRecorderMux) {
-	configz.InstallHandler(pathRecorderMux)
-	//lint:ignore SA1019 See the Metrics Stability Migration KEP
-	defaultMetricsHandler := legacyregistry.Handler().ServeHTTP
-	pathRecorderMux.HandleFunc("/metrics", func(w http.ResponseWriter, req *http.Request) {
-		if req.Method == "DELETE" {
-			metrics.Reset()
-			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-			w.Header().Set("X-Content-Type-Options", "nosniff")
-			io.WriteString(w, "metrics reset\n")
-			return
-		}
-		defaultMetricsHandler(w, req)
-	})
-}
-
-// newMetricsHandler builds a metrics server from the config.
-func newMetricsHandler(config *kubeschedulerconfig.KubeSchedulerConfiguration) http.Handler {
-	pathRecorderMux := mux.NewPathRecorderMux("kube-scheduler")
-	installMetricHandler(pathRecorderMux)
-	if config.EnableProfiling {
-		routes.Profiling{}.Install(pathRecorderMux)
-		if config.EnableContentionProfiling {
-			goruntime.SetBlockProfileRate(1)
-		}
-		routes.DebugFlags{}.Install(pathRecorderMux, "v", routes.StringFlagPutHandler(logs.GlogSetter))
-	}
-	return pathRecorderMux
-}
-
-// newHealthzHandler creates a healthz server from the config, and will also
-// embed the metrics handler if the healthz and metrics address configurations
-// are the same.
+/**
+ * newHealthzHandler - Factory for the diagnostic/monitoring endpoint.
+ * Logic: Merges healthz probes with metrics and profiling routes.
+ */
 func newHealthzHandler(config *kubeschedulerconfig.KubeSchedulerConfiguration, separateMetrics bool, checks ...healthz.HealthChecker) http.Handler {
 	pathRecorderMux := mux.NewPathRecorderMux("kube-scheduler")
 	healthz.InstallHandler(pathRecorderMux, checks...)
@@ -277,21 +262,13 @@ func newHealthzHandler(config *kubeschedulerconfig.KubeSchedulerConfiguration, s
 	return pathRecorderMux
 }
 
-func getRecorderFactory(cc *schedulerserverconfig.CompletedConfig) profile.RecorderFactory {
-	return func(name string) events.EventRecorder {
-		return cc.EventBroadcaster.NewRecorder(name)
-	}
-}
-
-// WithPlugin creates an Option based on plugin name and factory. Please don't remove this function: it is used to register out-of-tree plugins,
-// hence there are no references to it from the kubernetes scheduler code base.
-func WithPlugin(name string, factory runtime.PluginFactory) Option {
-	return func(registry runtime.Registry) error {
-		return registry.Register(name, factory)
-	}
-}
-
-// Setup creates a completed config and a scheduler based on the command args and options
+/**
+ * Setup - High-level orchestrator for scheduler component creation.
+ * Logic: 
+ * 1. Validates and materializes the finalized configuration.
+ * 2. Processes out-of-tree plugin registrations.
+ * 3. Instantiates the main scheduler object with specialized profile support.
+ */
 func Setup(ctx context.Context, opts *options.Options, outOfTreeRegistryOptions ...Option) (*schedulerserverconfig.CompletedConfig, *scheduler.Scheduler, error) {
 	if errs := opts.Validate(); len(errs) > 0 {
 		return nil, nil, utilerrors.NewAggregate(errs)
@@ -302,7 +279,6 @@ func Setup(ctx context.Context, opts *options.Options, outOfTreeRegistryOptions 
 		return nil, nil, err
 	}
 
-	// Get the completed config
 	cc := c.Complete()
 
 	outOfTreeRegistry := make(runtime.Registry)
@@ -313,7 +289,6 @@ func Setup(ctx context.Context, opts *options.Options, outOfTreeRegistryOptions 
 	}
 
 	recorderFactory := getRecorderFactory(&cc)
-	// Create the scheduler.
 	sched, err := scheduler.New(cc.Client,
 		cc.InformerFactory,
 		cc.PodInformer,

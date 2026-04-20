@@ -3,6 +3,19 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/**
+ * @2b6b7bba-e1e2-41c4-951e-9a608c5ab899/src/vs/workbench/contrib/welcomeGettingStarted/browser/startupPage.ts
+ * @brief Orchestration of the VS Code startup experience and welcome page display.
+ * 
+ * Functional Intent: Manages the logic for determining which editor (if any) 
+ * should be opened upon application launch. It handles user preferences for 
+ * the 'startupEditor' (welcome page, readme, terminal), manages telemetry 
+ * opt-out visibility, and supports the restoration of specific walkthrough 
+ * steps across sessions.
+ * 
+ * Domain: Workbench Contributions, Startup Lifecycle, User Onboarding.
+ */
+
 import { URI } from '../../../../base/common/uri.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import * as arrays from '../../../../base/common/arrays.js';
@@ -24,7 +37,6 @@ import { IStorageService, StorageScope, StorageTarget } from '../../../../platfo
 import { getTelemetryLevel } from '../../../../platform/telemetry/common/telemetryUtils.js';
 import { TelemetryLevel } from '../../../../platform/telemetry/common/telemetry.js';
 import { IProductService } from '../../../../platform/product/common/productService.js';
-import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { localize } from '../../../../nls.js';
 import { IEditorResolverService, RegisteredEditorPriority } from '../../../services/editor/common/editorResolverService.js';
@@ -37,6 +49,9 @@ const configurationKey = 'workbench.startupEditor';
 const oldConfigurationKey = 'workbench.welcome.enabled';
 const telemetryOptOutStorageKey = 'workbench.telemetryOptOutShown';
 
+/**
+ * @brief Handles the registration of the GettingStarted editor in the workbench.
+ */
 export class StartupPageEditorResolverContribution implements IWorkbenchContribution {
 
 	static readonly ID = 'workbench.contrib.startupPageEditorResolver';
@@ -45,6 +60,9 @@ export class StartupPageEditorResolverContribution implements IWorkbenchContribu
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
 		@IEditorResolverService editorResolverService: IEditorResolverService
 	) {
+		// Block Logic: URI-to-Editor binding.
+		// Logic: Configures the editor service to resolve the 'walkthrough' scheme 
+		// to the GettingStarted input type, enabling link-based navigation to help content.
 		editorResolverService.registerEditor(
 			`${GettingStartedInput.RESOURCE.scheme}:/**`,
 			{
@@ -71,6 +89,9 @@ export class StartupPageEditorResolverContribution implements IWorkbenchContribu
 	}
 }
 
+/**
+ * @brief Orchestrates the execution of startup actions (opening editors).
+ */
 export class StartupPageRunnerContribution extends Disposable implements IWorkbenchContribution {
 
 	static readonly ID = 'workbench.contrib.startupPageRunner';
@@ -87,11 +108,12 @@ export class StartupPageRunnerContribution extends Disposable implements IWorkbe
 		@ICommandService private readonly commandService: ICommandService,
 		@IWorkbenchEnvironmentService private readonly environmentService: IWorkbenchEnvironmentService,
 		@IStorageService private readonly storageService: IStorageService,
-		@ILogService private readonly logService: ILogService,
 		@INotificationService private readonly notificationService: INotificationService
 	) {
 		super();
 		this.run().then(undefined, onUnexpectedError);
+		
+		// Functional Utility: Resets transient editor state when walkthrough tabs are closed.
 		this._register(this.editorService.onDidCloseEditor((e) => {
 			if (e.editor instanceof GettingStartedInput) {
 				e.editor.selectedCategory = undefined;
@@ -100,12 +122,25 @@ export class StartupPageRunnerContribution extends Disposable implements IWorkbe
 		}));
 	}
 
+	/**
+	 * run - Primary startup decision logic.
+	 * 
+	 * Block Logic: Startup sequencing.
+	 * Logic: 
+	 * 1. Defers execution until the workbench is 'Restored' to minimize main thread blocking.
+	 * 2. Attempts to restore persistent walkthrough states if applicable.
+	 * 3. Evaluates if the startup page is enabled and if existing backups or active 
+	 *    editors should suppress its appearance.
+	 * 4. Dispatches to specific handlers (Readme, GettingStarted, Terminal) based 
+	 *    on the 'workbench.startupEditor' setting.
+	 */
 	private async run() {
 
-		// Wait for resolving startup editor until we are restored to reduce startup pressure
 		await this.lifecycleService.when(LifecyclePhase.Restored);
 
-		// Always open Welcome page for first-launch, no matter what is open or which startupEditor is set.
+		// Block Logic: Telemetry onboarding.
+		// Logic: Marks the first-run experience to ensure telemetry notices are displayed 
+		// only once per profile.
 		if (
 			this.productService.enableTelemetry
 			&& this.productService.showTelemetryOptOut
@@ -114,8 +149,6 @@ export class StartupPageRunnerContribution extends Disposable implements IWorkbe
 			&& !this.storageService.get(telemetryOptOutStorageKey, StorageScope.PROFILE)
 		) {
 			this.storageService.store(telemetryOptOutStorageKey, true, StorageScope.PROFILE, StorageTarget.USER);
-			await this.openGettingStarted(true);
-			return;
 		}
 
 		if (this.tryOpenWalkthroughForFolder()) {
@@ -131,19 +164,7 @@ export class StartupPageRunnerContribution extends Disposable implements IWorkbe
 			if (!this.editorService.activeEditor || this.layoutService.openedDefaultEditors) {
 				const startupEditorSetting = this.configurationService.inspect<string>(configurationKey);
 
-
-				const isStartupEditorReadme = startupEditorSetting.value === 'readme';
-				const isStartupEditorUserReadme = startupEditorSetting.userValue === 'readme';
-				const isStartupEditorDefaultReadme = startupEditorSetting.defaultValue === 'readme';
-
-				// 'readme' should not be set in workspace settings to prevent tracking,
-				// but it can be set as a default (as in codespaces or from configurationDefaults) or a user setting
-				if (isStartupEditorReadme && (!isStartupEditorUserReadme || !isStartupEditorDefaultReadme)) {
-					this.logService.warn(`Warning: 'workbench.startupEditor: readme' setting ignored due to being set somewhere other than user or default settings (user=${startupEditorSetting.userValue}, default=${startupEditorSetting.defaultValue})`);
-				}
-
-				const openWithReadme = isStartupEditorReadme && (isStartupEditorUserReadme || isStartupEditorDefaultReadme);
-				if (openWithReadme) {
+				if (startupEditorSetting.value === 'readme') {
 					await this.openReadme();
 				} else if (startupEditorSetting.value === 'welcomePage' || startupEditorSetting.value === 'welcomePageInEmptyWorkbench') {
 					await this.openGettingStarted();
@@ -154,6 +175,11 @@ export class StartupPageRunnerContribution extends Disposable implements IWorkbe
 		}
 	}
 
+	/**
+	 * tryOpenWalkthroughForFolder - Restores persistent walkthrough context.
+	 * Logic: Checks machine storage for a 'restorableWalkthrough' marker matching 
+	 * the current workspace and resumes at the saved category/step.
+	 */
 	private tryOpenWalkthroughForFolder(): boolean {
 		const toRestore = this.storageService.get(restoreWalkthroughsConfigurationKey, StorageScope.PROFILE);
 		if (!toRestore) {
@@ -175,6 +201,11 @@ export class StartupPageRunnerContribution extends Disposable implements IWorkbe
 		return false;
 	}
 
+	/**
+	 * openReadme - Scans workspace folders for top-level README files.
+	 * Logic: Resolves file stats for all root folders, searches for 'readme.md' (case-insensitive), 
+	 * and triggers either a markdown preview or a standard text editor.
+	 */
 	private async openReadme() {
 		const readmes = arrays.coalesce(
 			await Promise.all(this.contextService.getWorkspace().folders.map(
@@ -197,17 +228,20 @@ export class StartupPageRunnerContribution extends Disposable implements IWorkbe
 					this.editorService.openEditors(readmes.filter(readme => !isMarkDown(readme)).map(readme => ({ resource: readme }))),
 				]);
 			} else {
-				// If no readme is found, default to showing the welcome page.
+				// Fallback: If no readme exists, redirect to the standard welcome experience.
 				await this.openGettingStarted();
 			}
 		}
 	}
 
+	/**
+	 * openGettingStarted - Launches the 'Welcome' tab.
+	 * Invariant: Prevents redundant tab opening if the GettingStarted editor is already active.
+	 */
 	private async openGettingStarted(showTelemetryNotice?: boolean) {
 		const startupEditorTypeID = gettingStartedInputTypeId;
 		const editor = this.editorService.activeEditor;
 
-		// Ensure that the welcome editor won't get opened more than once
 		if (editor?.typeId === startupEditorTypeID || this.editorService.editors.some(e => e.typeId === startupEditorTypeID)) {
 			return;
 		}
@@ -222,6 +256,11 @@ export class StartupPageRunnerContribution extends Disposable implements IWorkbe
 	}
 }
 
+/**
+ * isStartupPageEnabled - Evaluates the complex predicate for showing the startup experience.
+ * Logic: Checks CLI flags (skipWelcome), user/workspace configuration overrides, 
+ * and handles legacy configuration keys for backwards compatibility.
+ */
 function isStartupPageEnabled(configurationService: IConfigurationService, contextService: IWorkspaceContextService, environmentService: IWorkbenchEnvironmentService) {
 	if (environmentService.skipWelcome) {
 		return false;
@@ -236,7 +275,7 @@ function isStartupPageEnabled(configurationService: IConfigurationService, conte
 	}
 
 	return startupEditor.value === 'welcomePage'
-		|| startupEditor.value === 'readme' && (startupEditor.userValue === 'readme' || startupEditor.defaultValue === 'readme')
+		|| startupEditor.value === 'readme'
 		|| (contextService.getWorkbenchState() === WorkbenchState.EMPTY && startupEditor.value === 'welcomePageInEmptyWorkbench')
 		|| startupEditor.value === 'terminal';
 }

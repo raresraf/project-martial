@@ -1,3 +1,5 @@
+// Package provides architecture-aware components for MistralErrorResponseEntity.java.
+// Focuses on production system reliability and error handling.
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
  * or more contributor license agreements. Licensed under the Elastic License
@@ -84,6 +86,7 @@ public class MistralErrorResponseEntity extends ErrorResponse {
         ) {
             var responseMap = jsonParser.map();
             String errorMessage = extractErrorMessage(responseMap);
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
             if (errorMessage != null) {
                 return new MistralErrorResponseEntity(errorMessage);
             }
@@ -97,17 +100,22 @@ public class MistralErrorResponseEntity extends ErrorResponse {
     private static String extractErrorMessage(Map<String, Object> responseMap) {
         Object message = responseMap.get(MESSAGE_FIELD);
 
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
         if (message instanceof String stringMessage) {
             return stringMessage;
         }
 
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
         if (message instanceof Map<?, ?> messageMap) {
             Object detail = messageMap.get(DETAIL_FIELD);
 
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
             if (detail instanceof List<?> detailList && detailList.isEmpty() == false) {
                 Object firstError = detailList.get(0);
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
                 if (firstError instanceof Map) {
                     Object msg = ((Map<?, ?>) firstError).get(MSG_FIELD);
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
                     if (msg instanceof String stringMsg) {
                         return stringMsg;
                     }
@@ -115,6 +123,7 @@ public class MistralErrorResponseEntity extends ErrorResponse {
             }
         }
 
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
         if (responseMap.get(DETAIL_FIELD) instanceof String stringDetail) {
             return stringDetail;
         }

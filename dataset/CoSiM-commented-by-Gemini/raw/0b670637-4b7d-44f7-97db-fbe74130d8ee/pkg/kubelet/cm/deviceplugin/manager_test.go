@@ -14,6 +14,13 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+/**
+ * @raw/0b670637-4b7d-44f7-97db-fbe74130d8ee/pkg/kubelet/cm/deviceplugin/manager_test.go
+ * @brief Tests for the Kubernetes Kubelet device plugin manager.
+ * * Architectural Intent: Validates the lifecycle of device plugins including registration,
+ *   capacity updates, device allocation to pods/containers, and state checkpointing.
+ */
+
 package deviceplugin
 
 import (
@@ -58,6 +65,11 @@ func TestNewManagerImplStart(t *testing.T) {
 // Tests that the device plugin manager correctly handles registration and re-registration by
 // making sure that after registration, devices are correctly updated and if a re-registration
 // happens, we will NOT delete devices; and no orphaned devices left.
+/**
+ * @brief Tests registration and re-registration of device plugins.
+ * * Logic: Emulates plugin starts and restarts. Verifies that re-registering an existing
+ *   plugin does not drop active devices and correctly updates the device list if it changes.
+ */
 func TestDevicePluginReRegistration(t *testing.T) {
 	devs := []*pluginapi.Device{
 		{ID: "Dev1", Health: pluginapi.Healthy},
@@ -138,6 +150,11 @@ func cleanup(t *testing.T, m Manager, p *Stub) {
 	m.Stop()
 }
 
+/**
+ * @brief Tests the manager's ability to compute device capacities.
+ * * Logic: Exercises scenarios where devices are added, deleted, or their health status changes,
+ *   and ensures that the GetCapacity method correctly reflects only the healthy devices.
+ */
 func TestUpdateCapacity(t *testing.T) {
 	testManager, err := newManagerImpl(socketName)
 	as := assert.New(t)
@@ -249,6 +266,12 @@ func constructAllocResp(devices, mounts, envs map[string]string) *pluginapi.Allo
 	return resp
 }
 
+/**
+ * @brief Tests serialization and deserialization of the device plugin manager state.
+ * * Logic: Populates the manager with fake allocated devices, pod assignments, and global 
+ *   device lists. Serializes them to a checkpoint file and restores them into a new manager
+ *   instance to verify data integrity is preserved across restarts.
+ */
 func TestCheckpoint(t *testing.T) {
 	resourceName1 := "domain1.com/resource1"
 	resourceName2 := "domain2.com/resource2"
@@ -475,6 +498,12 @@ type TestResource struct {
 	devs             []string
 }
 
+/**
+ * @brief Tests the allocation logic of device plugins to pod containers.
+ * * Logic: Emulates multiple pod admission scenarios where varying quantities of different
+ *   resources are requested. Checks if the manager handles allocation (or lack of resources) 
+ *   properly and correctly updates its internal data structures mapping devices to containers.
+ */
 func TestPodContainerDeviceAllocation(t *testing.T) {
 	flag.Set("alsologtostderr", fmt.Sprintf("%t", true))
 	var logLevel string
@@ -570,6 +599,12 @@ func TestPodContainerDeviceAllocation(t *testing.T) {
 
 }
 
+/**
+ * @brief Tests the allocation logic with respect to init containers vs normal containers.
+ * * Logic: An init container runs to completion before regular containers start.
+ *   This ensures that the manager allows init containers to temporarily consume devices,
+ *   and safely overlaps them or frees them for the main containers without causing resource exhaustion.
+ */
 func TestInitContainerDeviceAllocation(t *testing.T) {
 	// Requesting to create a pod that requests resourceName1 in init containers and normal containers
 	// should succeed with devices allocated to init containers reallocated to normal containers.
@@ -659,6 +694,12 @@ func TestInitContainerDeviceAllocation(t *testing.T) {
 	as.Equal(0, normalCont1Devices.Intersection(normalCont2Devices).Len())
 }
 
+/**
+ * @brief Tests the sanitizeNodeAllocatable function for correctness.
+ * * Logic: Creates a fake node with a mismatched state of allocated devices versus 
+ *   what it reports as allocatable, and validates that `sanitizeNodeAllocatable` 
+ *   fixes the allocatable amounts to reflect truth.
+ */
 func TestSanitizeNodeAllocatable(t *testing.T) {
 	resourceName1 := "domain1.com/resource1"
 	devID1 := "dev1"

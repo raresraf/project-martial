@@ -1,6 +1,25 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0
 
+"""
+@4bb87088-7b56-47c6-88ae-d972a286c73b/tools/testing/selftests/damon/sysfs.py
+@brief Validation script for the DAMON (Data Access MONitor) sysfs interface.
+
+Functional Intent: Verifies that configuration parameters (watermarks, quotas, 
+access patterns, and filters) written to the DAMON sysfs hierarchy are correctly 
+internalized by the kernel. It uses 'drgn' for deep inspection of kernel-side 
+state to ensure the sysfs 'commit' logic is consistent with the active monitor.
+
+Algorithm:
+1. State Capture: Uses drgn to dump the internal 'kdamond' status into a JSON format.
+2. Comparative Analysis: Performs hierarchical validation of the dumped state 
+   against the expected configuration (schemes, targets, and attributes).
+3. Lifecycle Testing: Starts and stops a kdamond instance to verify the 
+   sysfs control path.
+
+Domain: Memory Management, Kernel Observability, Linux Testing.
+"""
+
 import json
 import os
 import subprocess
@@ -8,6 +27,11 @@ import subprocess
 import _damon_sysfs
 
 def dump_damon_status_dict(pid):
+    """
+    @brief Extracts the internal DAMON kernel state using drgn.
+    Logic: Orchestrates an external drgn script to probe the specified PID, 
+    mapping kernel structures to a JSON-serializable dictionary.
+    """
     try:
         subprocess.check_output(['which', 'drgn'], stderr=subprocess.DEVNULL)
     except:
@@ -25,6 +49,9 @@ def dump_damon_status_dict(pid):
         return None, 'json.load fail (%s)' % e
 
 def fail(expectation, status):
+    """
+    @brief Terminates the test on expectation failure.
+    """
     print('unexpected %s' % expectation)
     print(json.dumps(status, indent=4))
     exit(1)
@@ -33,7 +60,14 @@ def assert_true(condition, expectation, status):
     if condition is not True:
         fail(expectation, status)
 
+# Block Logic: Validation functions for DAMOS (Data Access Monitoring-based Operation Schemes).
+# Logic: Each function maps high-level object attributes (e.g., watermarks, quotas) 
+# to their numeric representations in the kernel-side dump.
+
 def assert_watermarks_committed(watermarks, dump):
+    """
+    @brief Validates that watermark metrics and intervals match the kernel state.
+    """
     wmark_metric_val = {
             'none': 0,
             'free_mem_rate': 1,
@@ -46,6 +80,9 @@ def assert_watermarks_committed(watermarks, dump):
     assert_true(dump['low'] == watermarks.low, 'low', dump)
 
 def assert_quota_goal_committed(qgoal, dump):
+    """
+    @brief Ensures quota goals for self-tuning schemes are correctly applied.
+    """
     metric_val = {
             'user_input': 0,
             'some_mem_psi_us': 1,
@@ -61,6 +98,9 @@ def assert_quota_goal_committed(qgoal, dump):
     assert_true(dump['nid'] == qgoal.nid, 'nid', dump)
 
 def assert_quota_committed(quota, dump):
+    """
+    @brief Validates scheme-specific limits (time/size) and weights.
+    """
     assert_true(dump['reset_interval'] == quota.reset_interval_ms,
                 'reset_interval', dump)
     assert_true(dump['ms'] == quota.ms, 'ms', dump)
@@ -75,12 +115,18 @@ def assert_quota_committed(quota, dump):
 
 
 def assert_migrate_dests_committed(dests, dump):
+    """
+    @brief Checks if migration target nodes and their weights are synchronized.
+    """
     assert_true(dump['nr_dests'] == len(dests.dests), 'nr_dests', dump)
     for idx, dest in enumerate(dests.dests):
         assert_true(dump['node_id_arr'][idx] == dest.id, 'node_id', dump)
         assert_true(dump['weight_arr'][idx] == dest.weight, 'weight', dump)
 
 def assert_filter_committed(filter_, dump):
+    """
+    @brief Validates operation filters (e.g., address ranges, target indices).
+    """
     assert_true(filter_.type_ == dump['type'], 'type', dump)
     assert_true(filter_.matching == dump['matching'], 'matching', dump)
     assert_true(filter_.allow == dump['allow'], 'allow', dump)
@@ -96,6 +142,9 @@ def assert_filter_committed(filter_, dump):
                     'sz_range', dump)
 
 def assert_access_pattern_committed(pattern, dump):
+    """
+    @brief Verifies the target access metrics (size, count, age) are registered.
+    """
     assert_true(dump['min_sz_region'] == pattern.size[0], 'min_sz_region',
                 dump)
     assert_true(dump['max_sz_region'] == pattern.size[1], 'max_sz_region',
@@ -110,6 +159,9 @@ def assert_access_pattern_committed(pattern, dump):
                 dump)
 
 def assert_scheme_committed(scheme, dump):
+    """
+    @brief Root validator for a DAMON scheme, aggregating sub-component checks.
+    """
     assert_access_pattern_committed(scheme.access_pattern, dump['pattern'])
     action_val = {
             'willneed': 0,
@@ -137,6 +189,11 @@ def assert_scheme_committed(scheme, dump):
         assert_filter_committed(f, dump['ops_filters'][idx])
 
 def main():
+    """
+    @brief Main test sequence.
+    Logic: Scaffolds a minimal kdamond instance with one context and scheme, 
+    starts it, and performs a full structural validation against the kernel dump.
+    """
     kdamonds = _damon_sysfs.Kdamonds(
             [_damon_sysfs.Kdamond(
                 contexts=[_damon_sysfs.DamonCtx(

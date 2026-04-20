@@ -1,17 +1,21 @@
 #!/usr/bin/gawk -f
-# SPDX-License-Identifier: GPL-2.0
-
-# Script to check sysctl documentation against source files
+# @e93fde22-e8a6-49d9-ada3-5e36ec6410ea/scripts/check-sysctl-docs
+# @brief Static analysis tool to validate sysctl documentation against kernel source implementations.
 #
+# Functional Intent: This script synchronizes the documentation (reStructuredText) with the actual 
+# kernel sysctl table registrations. It identifies undocumented sysctl entries and documented 
+# entries that no longer exist in the source code.
+#
+# Logic Flow:
+# 1. Stage 1: Parses documentation files to build a set of documented sysctl names.
+# 2. Stage 2: Scans C source files to identify ctl_table structures and their procnames.
+# 3. Final: Cross-references the two sets and reports discrepancies.
+#
+# SPDX-License-Identifier: GPL-2.0
 # Copyright (c) 2020 Stephen Kitt
 
-# Example invocation:
-#	scripts/check-sysctl-docs -vtable="kernel" \
-#		Documentation/admin-guide/sysctl/kernel.rst \
-#		$(git grep -l register_sysctl)
-#
-# Specify -vdebug=1 to see debugging information
-
+# Block Logic: Initialization and mandatory parameter validation.
+# Pre-condition: The 'table' variable must be passed (e.g., -vtable="kernel") to scope the search.
 BEGIN {
     if (!table) {
 	print "Please specify the table to look for using the table variable" > "/dev/stderr"
@@ -29,7 +33,8 @@ BEGIN {
 #           a ctl_table, constructed path when parsing a ctl_path)
 
 
-# Remove punctuation from the given value
+# Functional Utility: Sanitizes strings by removing leading/trailing markers and punctuation.
+# Logic: Strips quotes, ampersands, and bracket markers to extract the raw symbol name.
 function trimpunct(value) {
     while (value ~ /^["&]/) {
 	value = substr(value, 2)
@@ -40,7 +45,7 @@ function trimpunct(value) {
     return value
 }
 
-# Print the information for the given entry
+# Functional Utility: Reports findings for a specific sysctl entry and tracks occurrences.
 function printentry(entry) {
     seen[entry]++
     printf "* %s from %s", entry, file[entry]
@@ -51,14 +56,16 @@ function printentry(entry) {
 }
 
 
-# Stage 1: build the list of documented entries
+# Stage 1: Documentation Parsing Logic.
+# Pre-condition: Processing the documentation file (FNR == NR indicates first file in ARGV).
+# Logic: Detects section titles (underlined by '=') and extracts sysctl names from the previous line.
 FNR == NR && /^=+$/ {
     if (prevline ~ /Documentation for/) {
 	# This is the main title
 	next
     }
 
-    # The previous line is a section title, parse it
+    # Block Logic: Tokenizes the title line to find documented sysctl keywords.
     $0 = prevline
     if (debug) print "Parsing " $0
     inbrackets = 0
@@ -88,7 +95,8 @@ FNR == NR {
 }
 
 
-# Stage 2: process each file and find all sysctl tables
+# Stage 2: Source Code Analysis Logic.
+# Logic: Scans C files for sysctl table definitions and registration calls.
 BEGINFILE {
     delete entries
     curtable = ""
@@ -97,18 +105,21 @@ BEGINFILE {
     if (debug) print "Processing file " FILENAME
 }
 
+# Block Logic: Detects the start of a ctl_table structure definition.
 /^static( const)? struct ctl_table/ {
     match($0, /static( const)? struct ctl_table ([^][]+)/, tables)
     curtable = tables[2]
     if (debug) print "Processing table " curtable
 }
 
+# Block Logic: Detects the end of the current table definition.
 /^};$/ {
     curtable = ""
     curentry = ""
     delete vars
 }
 
+# Block Logic: Extracts individual sysctl entry names from table fields.
 curtable && /\.procname[\t ]*=[\t ]*".+"/ {
     match($0, /.procname[\t ]*=[\t ]*"([^"]+)"/, names)
     curentry = names[1]
@@ -117,6 +128,8 @@ curtable && /\.procname[\t ]*=[\t ]*".+"/ {
     file[curentry] = FILENAME
 }
 
+# Block Logic: Identifies where sysctl tables are registered with the kernel.
+# Logic: Cross-references registered tables with the current 'table' scope to report entries.
 /register_sysctl.*/ {
     match($0, /register_sysctl(|_init|_sz)\("([^"]+)" *, *([^,)]+)/, tables)
     if (debug) print "Registering table " tables[3] " at " tables[2]
@@ -127,6 +140,8 @@ curtable && /\.procname[\t ]*=[\t ]*".+"/ {
     }
 }
 
+# Block Logic: Handles dynamic table duplication via kmemdup.
+# Logic: Tracks variable assignments to ensure dynamically allocated tables are still linked.
 /kmemdup.*/ {
     match($0, /([^ \t]+) *= *kmemdup\(([^,]+) *,/, names)
     if (debug) print "Found variable " names[1] " for table " names[2]
@@ -135,6 +150,7 @@ curtable && /\.procname[\t ]*=[\t ]*".+"/ {
     }
 }
 
+# Block Logic: Handles internal kernel table registration helper calls.
 /__register_sysctl_table.*/ {
     match($0, /__register_sysctl_table\([^,]+, *"([^"]+)" *, *([^,]+)/, tables)
     if (debug) print "Registering variable table " tables[2] " at " tables[1]
@@ -145,6 +161,8 @@ curtable && /\.procname[\t ]*=[\t ]*".+"/ {
     }
 }
 
+# Final Stage: Discrepancy Reporting.
+# Logic: Identifies documented items that were never encountered in the source code.
 END {
     for (entry in documented) {
 	if (!seen[entry]) {

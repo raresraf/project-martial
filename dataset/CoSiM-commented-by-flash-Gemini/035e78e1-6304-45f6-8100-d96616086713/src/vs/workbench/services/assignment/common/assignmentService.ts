@@ -3,6 +3,16 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/**
+ * @035e78e1-6304-45f6-8100-d96616086713/src/vs/workbench/services/assignment/common/assignmentService.ts
+ * @brief Workbench-level implementation of the Experimentation (A/B Testing) Assignment Service.
+ * 
+ * Functional Intent: Integrates the Treatment Assignment Service (TAS) client with VS Code's 
+ * workbench. It manages experiment state persistence using Mementos and handles 
+ * telemetry reporting for feature treatments and assignment contexts, adhering to 
+ * GDPR and privacy constraints.
+ */
+
 import { localize } from '../../../../nls.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import type { IKeyValueStorage, IExperimentationTelemetry } from 'tas-client-umd';
@@ -27,6 +37,12 @@ export interface IWorkbenchAssignmentService extends IAssignmentService {
 	getCurrentExperiments(): Promise<string[] | undefined>;
 }
 
+/**
+ * @brief Adapter for TAS client to use VS Code's Memento-based persistent storage.
+ * 
+ * Logic: Maps high-level key-value operations to an APPLICATION-scoped, 
+ * MACHINE-targeted Memento, ensuring data persists across sessions on the same device.
+ */
 class MementoKeyValueStorage implements IKeyValueStorage {
 	private mementoObj: MementoObject;
 	constructor(private memento: Memento) {
@@ -44,6 +60,13 @@ class MementoKeyValueStorage implements IKeyValueStorage {
 	}
 }
 
+/**
+ * @brief Telemetry provider for the Experimentation Service.
+ * 
+ * Functional Intent: Forwards assignment events and shared properties to the 
+ * global telemetry service. It tracks the latest assignment context for 
+ * diagnostic and verification purposes.
+ */
 class WorkbenchAssignmentServiceTelemetry implements IExperimentationTelemetry {
 	private _lastAssignmentContext: string | undefined;
 	constructor(
@@ -56,6 +79,11 @@ class WorkbenchAssignmentServiceTelemetry implements IExperimentationTelemetry {
 	}
 
 	// __GDPR__COMMON__ "abexp.assignmentcontext" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+	/**
+	 * Block Logic: Updates shared telemetry state.
+	 * Logic: Identifies specific assignment context keys based on product configuration 
+	 * and broadcasts them to the experiment property store.
+	 */
 	setSharedProperty(name: string, value: string): void {
 		if (name === this.productService.tasConfig?.assignmentContextTelemetryPropertyName) {
 			this._lastAssignmentContext = value;
@@ -64,6 +92,11 @@ class WorkbenchAssignmentServiceTelemetry implements IExperimentationTelemetry {
 		this.telemetryService.setExperimentProperty(name, value);
 	}
 
+	/**
+	 * Block Logic: Event dispatch for experimentation queries.
+	 * Logic: Flattens Map-based properties into a plain object for compatibility 
+	 * with the ITelemetryService public logging interface.
+	 */
 	postEvent(eventName: string, props: Map<string, string>): void {
 		const data: ITelemetryData = {};
 		for (const [key, value] of props.entries()) {
@@ -81,6 +114,13 @@ class WorkbenchAssignmentServiceTelemetry implements IExperimentationTelemetry {
 	}
 }
 
+/**
+ * @brief Primary implementation of IWorkbenchAssignmentService.
+ * 
+ * Functional Intent: Orchestrates the initialization of the TAS client and provides 
+ * predicates to determine if experimentation is permitted based on environment 
+ * variables (smoke tests, extension tests) and user configuration.
+ */
 export class WorkbenchAssignmentService extends BaseAssignmentService {
 	constructor(
 		@ITelemetryService private telemetryService: ITelemetryService,
@@ -101,6 +141,11 @@ export class WorkbenchAssignmentService extends BaseAssignmentService {
 		);
 	}
 
+	/**
+	 * Block Logic: Validation logic for experiment activation.
+	 * Pre-condition: Checks global environment flags and user-specific settings.
+	 * Invariant: Returns false if any safety-critical test mode (smoke/extension) is active.
+	 */
 	protected override get experimentsEnabled(): boolean {
 		return !this.environmentService.disableExperiments &&
 			!this.environmentService.extensionTestsLocationURI &&
@@ -108,6 +153,11 @@ export class WorkbenchAssignmentService extends BaseAssignmentService {
 			this.configurationService.getValue('workbench.enableExperiments') === true;
 	}
 
+	/**
+	 * Block Logic: Retrieves a specific experimental treatment.
+	 * Logic: Fetches the value from the base service and logs a telemetry event 
+	 * including the treatment name and resolved value for downstream analysis.
+	 */
 	override async getTreatment<T extends string | number | boolean>(name: string): Promise<T | undefined> {
 		const result = await super.getTreatment<T>(name);
 		type TASClientReadTreatmentData = {
@@ -128,6 +178,11 @@ export class WorkbenchAssignmentService extends BaseAssignmentService {
 		return result;
 	}
 
+	/**
+	 * Functional Utility: Returns the set of currently active experiments.
+	 * Logic: Waits for the TAS client to initialize and then retrieves the 
+	 * cached assignment context from the telemetry provider.
+	 */
 	async getCurrentExperiments(): Promise<string[] | undefined> {
 		if (!this.tasClient) {
 			return undefined;
@@ -144,6 +199,8 @@ export class WorkbenchAssignmentService extends BaseAssignmentService {
 }
 
 registerSingleton(IWorkbenchAssignmentService, WorkbenchAssignmentService, InstantiationType.Delayed);
+
+// Block Logic: Contribution of experiment-related settings to the configuration registry.
 const registry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration);
 registry.registerConfiguration({
 	...workbenchConfigurationNodeBase,

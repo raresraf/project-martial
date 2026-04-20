@@ -5,6 +5,14 @@
 //! Liberally derived from the [Firefox JS implementation](http://mxr.mozilla.org/mozilla-central/source/toolkit/devtools/server/actors/webconsole.js).
 //! Handles interaction with the remote web console on network events (HTTP requests, responses) in Servo.
 
+/**
+ * @raw/127ee0ec-f41c-4698-b2c9-da8e34319580/components/devtools/actors/network_event.rs
+ * @brief Manages the DevTools state for a single HTTP network request/response lifecycle.
+ * * Architectural Intent: Acts as a stateful DevTools Actor that accumulates telemetry 
+ *   (timings, headers, body, cookies) about a network event and fulfills asynchronous 
+ *   inspection queries from the remote DevTools frontend.
+ */
+
 use std::net::TcpStream;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -211,6 +219,11 @@ impl Actor for NetworkEventActor {
         self.name.clone()
     }
 
+    /**
+     * @brief Maps incoming DevTools JSON messages to network event data queries.
+     * * Logic: Parses the "msg_type" command and replies by serializing the requested 
+     *   subset of cached HTTP data (headers, cookies, body, timings) back onto the TCP stream.
+     */
     fn handle_message(
         &self,
         _registry: &ActorRegistry,
@@ -392,6 +405,11 @@ impl NetworkEventActor {
         }
     }
 
+    /**
+     * @brief Incorporates outgoing request properties into the actor's state.
+     * * Logic: Parses timings, headers, and payload from the network layer to cache 
+     *   them for subsequent inspection by the remote console.
+     */
     pub fn add_request(&mut self, request: DevtoolsHttpRequest) {
         request.url.as_str().clone_into(&mut self.request.url);
 
@@ -405,6 +423,11 @@ impl NetworkEventActor {
         self.is_xhr = request.is_xhr;
     }
 
+    /**
+     * @brief Incorporates incoming response properties into the actor's state.
+     * * Logic: Aggregates the returned payload, HTTP status, and response headers 
+     *   into the DevTools-consumable format.
+     */
     pub fn add_response(&mut self, response: DevtoolsHttpResponse) {
         self.response.headers.clone_from(&response.headers);
         self.response.status = response.status;

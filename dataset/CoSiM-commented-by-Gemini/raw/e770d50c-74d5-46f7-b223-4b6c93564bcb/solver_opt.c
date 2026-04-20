@@ -1,61 +1,80 @@
+/**
+ * @file solver_opt.c
+ * @brief Block-optimized manual implementation to compute $C = A \times B \times B^T + A^T \times A$.
+ * Algorithm: Loop tiling/blocking for cache locality enhancement.
+ * Time Complexity: $O(N^3)$.
+ * Space Complexity: $O(N^2)$ for intermediate data structures.
+ */
 
 #include "utils.h"
 #include <stdint.h>
 
 double* multiply(uint_fast32_t N, double *A, double *B) {
 	double* res = (double*)calloc(N*N, sizeof(double));
+		/**
+		 * Block Logic: Iterative processing loop.
+		 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+		 */
 		for (register uint_fast32_t i = 0; i < N; i++) {
 		register uint_fast32_t p = i * N;
 		uint_fast32_t indexA = p +i;
 			 indexA = i*N;
 			
 		 
-		register double *orig_pa = &A[indexA];
+		register double *orig_pa = &A[indexA]; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
+		/**
+		 * Block Logic: Iterative processing loop.
+		 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+		 */
 		for (register uint_fast32_t j = 0; j < N; j++) {
 					 uint_fast32_t indexB = p +j;
 
 			 indexB = j;
 			
 		 
-			register double *pa = orig_pa;
-			register double *pb = &B[indexB] ;
+			register double *pa = orig_pa; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
+			register double *pb = &B[indexB] ; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 			register double sum = 0.0;
+			/**
+			 * Block Logic: Iterative processing loop.
+			 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+			 */
 			for (uint_fast32_t k = 0; k < N; k+=8) {
 				 
-					sum += *pa * *pb;
+					sum += *pa * *pb; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 					pa++;
-					pb += N;
+					pb += N; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 				
 			
-					sum += *pa * *pb;
+					sum += *pa * *pb; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 					pa++;
-					pb += N;
+					pb += N; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 				
 				
-					sum += *pa * *pb;
+					sum += *pa * *pb; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 					pa++;
-					pb += N;
+					pb += N; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 				
 				
-					sum += *pa * *pb;
+					sum += *pa * *pb; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 					pa++;
-					pb += N;
+					pb += N; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 				
-					sum += *pa * *pb;
+					sum += *pa * *pb; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 					pa++;
-					pb += N;
+					pb += N; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 				
-					sum += *pa * *pb;
+					sum += *pa * *pb; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 					pa++;
-					pb += N;
+					pb += N; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 				
-					sum += *pa * *pb;
+					sum += *pa * *pb; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 					pa++;
-					pb += N;
+					pb += N; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 				
-					sum += *pa * *pb;
+					sum += *pa * *pb; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 					pa++;
-					pb += N;
+					pb += N; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 				
 
 				
@@ -69,57 +88,101 @@ double* multiply(uint_fast32_t N, double *A, double *B) {
 
 double* multiplyAux(uint_fast32_t N, double *A, double *B) {
 	double* res = (double*)calloc(N*N, sizeof(double));
+		/**
+		 * Block Logic: Iterative processing loop.
+		 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+		 */
 		for (register uint_fast32_t i = 0; i < N; i++) {
 		register uint_fast32_t p = i * N;
 		uint_fast32_t indexA = p +i;
 
-		register double *orig_pa = &A[indexA];
+		register double *orig_pa = &A[indexA]; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
+		/**
+		 * Block Logic: Iterative processing loop.
+		 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+		 */
 		for (register uint_fast32_t j = 0; j < N; j++) {
 					 uint_fast32_t indexB = p +j;
 
-			register double *pa = orig_pa;
-			register double *pb = &B[indexB] ;
+			register double *pa = orig_pa; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
+			register double *pb = &B[indexB] ; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 			register double sum = 0.0;
+			/**
+			 * Block Logic: Iterative processing loop.
+			 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+			 */
 			for (uint_fast32_t k = 0; k < N; k+=8) {
+				 /**
+				  * Block Logic: Conditional state branch.
+				  * Invariant: The conditional branch maintains control flow invariants.
+				  */
 				 if(k >= i ){
-					sum += *pa * *pb;
+					sum += *pa * *pb; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 					pa++;
-					pb += N;
+					pb += N; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 				}
+				/**
+				 * Block Logic: Conditional state branch.
+				 * Invariant: The conditional branch maintains control flow invariants.
+				 */
 				if(k + 1 >= i ){
-					sum += *pa * *pb;
+					sum += *pa * *pb; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 					pa++;
-					pb += N;
+					pb += N; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 				}
+				/**
+				 * Block Logic: Conditional state branch.
+				 * Invariant: The conditional branch maintains control flow invariants.
+				 */
 				if(k + 2>= i ){
-					sum += *pa * *pb;
+					sum += *pa * *pb; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 					pa++;
-					pb += N;
+					pb += N; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 				}
+				/**
+				 * Block Logic: Conditional state branch.
+				 * Invariant: The conditional branch maintains control flow invariants.
+				 */
 				if(k + 3>= i ){
-					sum += *pa * *pb;
+					sum += *pa * *pb; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 					pa++;
-					pb += N;
+					pb += N; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 				}
+				/**
+				 * Block Logic: Conditional state branch.
+				 * Invariant: The conditional branch maintains control flow invariants.
+				 */
 				if(k + 4>= i ){
-					sum += *pa * *pb;
+					sum += *pa * *pb; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 					pa++;
-					pb += N;
+					pb += N; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 				}
+				/**
+				 * Block Logic: Conditional state branch.
+				 * Invariant: The conditional branch maintains control flow invariants.
+				 */
 				if(k + 5>= i ){
-					sum += *pa * *pb;
+					sum += *pa * *pb; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 					pa++;
-					pb += N;
+					pb += N; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 				}
+				/**
+				 * Block Logic: Conditional state branch.
+				 * Invariant: The conditional branch maintains control flow invariants.
+				 */
 				if(k + 6>= i ){
-					sum += *pa * *pb;
+					sum += *pa * *pb; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 					pa++;
-					pb += N;
+					pb += N; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 				}
+				/**
+				 * Block Logic: Conditional state branch.
+				 * Invariant: The conditional branch maintains control flow invariants.
+				 */
 				if(k + 7>= i ){
-					sum += *pa * *pb;
+					sum += *pa * *pb; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 					pa++;
-					pb += N;
+					pb += N; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 				}
 
 				
@@ -133,6 +196,10 @@ double* multiplyAux(uint_fast32_t N, double *A, double *B) {
 
 double* add(uint_fast32_t N, double *A, double *B) {
 	double* res = (double*)calloc(N*N, sizeof(double));
+        /**
+         * Block Logic: Iterative processing loop.
+         * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+         */
         for (register uint_fast32_t j = 0; j < N * N; j+=8) {
             res[j] = A[j] + B[j];
 
@@ -156,7 +223,15 @@ double* add(uint_fast32_t N, double *A, double *B) {
 
 double* transpose(uint_fast32_t N, double *A) {
 	double* res = (double*)calloc(N*N, sizeof(double));
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for (register uint_fast32_t i = 0; i < N; i++) {
+        /**
+         * Block Logic: Iterative processing loop.
+         * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+         */
         for (register uint_fast32_t j = 0; j < N; j+=8) {
           register uint_fast32_t index1 = i*N+j;
           register uint_fast32_t index2 = j*N+i;
@@ -196,6 +271,13 @@ double* transpose(uint_fast32_t N, double *A) {
 }
 
 
+/**
+ * @brief Computes C = A * B * B^T + A^T * A.
+ * @param N Matrix dimension.
+ * @param A Input matrix A.
+ * @param B Input matrix B.
+ * @return Pointer to resulting matrix C.
+ */
 double* my_solver(int N, double* A, double* B) {
 	double* a_trans = transpose(N, A);
 	double* b_trans = transpose(N, B);

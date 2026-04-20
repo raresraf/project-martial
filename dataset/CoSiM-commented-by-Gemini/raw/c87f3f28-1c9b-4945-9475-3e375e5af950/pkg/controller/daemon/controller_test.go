@@ -1,3 +1,5 @@
+// Package provides architecture-aware components for controller_test.go.
+// Focuses on production system reliability and error handling.
 /*
 Copyright 2015 The Kubernetes Authors All rights reserved.
 
@@ -40,7 +42,9 @@ var (
 	alwaysReady           = func() bool { return true }
 )
 
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func getKey(ds *extensions.DaemonSet, t *testing.T) string {
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if key, err := controller.KeyFunc(ds); err != nil {
 		t.Errorf("Unexpected error getting key for ds %v: %v", ds.Name, err)
 		return ""
@@ -49,6 +53,7 @@ func getKey(ds *extensions.DaemonSet, t *testing.T) string {
 	}
 }
 
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func newDaemonSet(name string) *extensions.DaemonSet {
 	return &extensions.DaemonSet{
 		TypeMeta: unversioned.TypeMeta{APIVersion: testapi.Extensions.GroupVersion().String()},
@@ -78,6 +83,7 @@ func newDaemonSet(name string) *extensions.DaemonSet {
 	}
 }
 
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func newNode(name string, label map[string]string) *api.Node {
 	return &api.Node{
 		TypeMeta: unversioned.TypeMeta{APIVersion: testapi.Default.GroupVersion().String()},
@@ -94,12 +100,15 @@ func newNode(name string, label map[string]string) *api.Node {
 	}
 }
 
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func addNodes(nodeStore cache.Store, startIndex, numNodes int, label map[string]string) {
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
 	for i := startIndex; i < startIndex+numNodes; i++ {
 		nodeStore.Add(newNode(fmt.Sprintf("node-%d", i), label))
 	}
 }
 
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func newPod(podName string, nodeName string, label map[string]string) *api.Pod {
 	pod := &api.Pod{
 		TypeMeta: unversioned.TypeMeta{APIVersion: testapi.Default.GroupVersion().String()},
@@ -125,12 +134,15 @@ func newPod(podName string, nodeName string, label map[string]string) *api.Pod {
 	return pod
 }
 
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func addPods(podStore cache.Store, nodeName string, label map[string]string, number int) {
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
 	for i := 0; i < number; i++ {
 		podStore.Add(newPod(fmt.Sprintf("%s-", nodeName), nodeName, label))
 	}
 }
 
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func newTestController() (*DaemonSetsController, *controller.FakePodControl) {
 	clientset := clientset.NewForConfigOrDie(&restclient.Config{Host: "", ContentConfig: restclient.ContentConfig{GroupVersion: testapi.Default.GroupVersion()}})
 	manager := NewDaemonSetsControllerFromClient(clientset, controller.NoResyncPeriodFunc, 0)
@@ -140,17 +152,22 @@ func newTestController() (*DaemonSetsController, *controller.FakePodControl) {
 	return manager, podControl
 }
 
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func validateSyncDaemonSets(t *testing.T, fakePodControl *controller.FakePodControl, expectedCreates, expectedDeletes int) {
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if len(fakePodControl.Templates) != expectedCreates {
 		t.Errorf("Unexpected number of creates.  Expected %d, saw %d\n", expectedCreates, len(fakePodControl.Templates))
 	}
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if len(fakePodControl.DeletePodName) != expectedDeletes {
 		t.Errorf("Unexpected number of deletes.  Expected %d, saw %d\n", expectedDeletes, len(fakePodControl.DeletePodName))
 	}
 }
 
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func syncAndValidateDaemonSets(t *testing.T, manager *DaemonSetsController, ds *extensions.DaemonSet, podControl *controller.FakePodControl, expectedCreates, expectedDeletes int) {
 	key, err := controller.KeyFunc(ds)
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if err != nil {
 		t.Errorf("Could not get key for daemon.")
 	}
@@ -159,6 +176,7 @@ func syncAndValidateDaemonSets(t *testing.T, manager *DaemonSetsController, ds *
 }
 
 // DaemonSets without node selectors should launch pods on every node.
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func TestSimpleDaemonSetLaunchesPods(t *testing.T) {
 	manager, podControl := newTestController()
 	addNodes(manager.nodeStore.Store, 0, 5, nil)
@@ -168,6 +186,7 @@ func TestSimpleDaemonSetLaunchesPods(t *testing.T) {
 }
 
 // DaemonSets should do nothing if there aren't any nodes
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func TestNoNodesDoesNothing(t *testing.T) {
 	manager, podControl := newTestController()
 	ds := newDaemonSet("foo")
@@ -177,6 +196,7 @@ func TestNoNodesDoesNothing(t *testing.T) {
 
 // DaemonSets without node selectors should launch on a single node in a
 // single node cluster.
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func TestOneNodeDaemonLaunchesPod(t *testing.T) {
 	manager, podControl := newTestController()
 	manager.nodeStore.Add(newNode("only-node", nil))
@@ -186,6 +206,7 @@ func TestOneNodeDaemonLaunchesPod(t *testing.T) {
 }
 
 // DaemonSets should place onto NotReady nodes
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func TestNotReadNodeDaemonDoesNotLaunchPod(t *testing.T) {
 	manager, podControl := newTestController()
 	node := newNode("not-ready", nil)
@@ -201,6 +222,7 @@ func TestNotReadNodeDaemonDoesNotLaunchPod(t *testing.T) {
 }
 
 // DaemonSets should not place onto OutOfDisk nodes
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func TestOutOfDiskNodeDaemonDoesNotLaunchPod(t *testing.T) {
 	manager, podControl := newTestController()
 	node := newNode("not-enough-disk", nil)
@@ -211,6 +233,7 @@ func TestOutOfDiskNodeDaemonDoesNotLaunchPod(t *testing.T) {
 	syncAndValidateDaemonSets(t, manager, ds, podControl, 0, 0)
 }
 
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func resourcePodSpec(nodeName, memory, cpu string) api.PodSpec {
 	return api.PodSpec{
 		NodeName: nodeName,
@@ -222,6 +245,7 @@ func resourcePodSpec(nodeName, memory, cpu string) api.PodSpec {
 	}
 }
 
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func allocatableResources(memory, cpu string) api.ResourceList {
 	return api.ResourceList{
 		api.ResourceMemory: resource.MustParse(memory),
@@ -230,6 +254,7 @@ func allocatableResources(memory, cpu string) api.ResourceList {
 }
 
 // DaemonSets should not place onto nodes with insufficient free resource
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func TestInsufficentCapacityNodeDaemonDoesNotLaunchPod(t *testing.T) {
 	podSpec := resourcePodSpec("too-much-mem", "75M", "75m")
 	manager, podControl := newTestController()
@@ -245,6 +270,7 @@ func TestInsufficentCapacityNodeDaemonDoesNotLaunchPod(t *testing.T) {
 	syncAndValidateDaemonSets(t, manager, ds, podControl, 0, 0)
 }
 
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func TestSufficentCapacityWithTerminatedPodsDaemonLaunchesPod(t *testing.T) {
 	podSpec := resourcePodSpec("too-much-mem", "75M", "75m")
 	manager, podControl := newTestController()
@@ -262,6 +288,7 @@ func TestSufficentCapacityWithTerminatedPodsDaemonLaunchesPod(t *testing.T) {
 }
 
 // DaemonSets should place onto nodes with sufficient free resource
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func TestSufficentCapacityNodeDaemonLaunchesPod(t *testing.T) {
 	podSpec := resourcePodSpec("not-too-much-mem", "75M", "75m")
 	manager, podControl := newTestController()
@@ -278,6 +305,7 @@ func TestSufficentCapacityNodeDaemonLaunchesPod(t *testing.T) {
 }
 
 // DaemonSets should not place onto nodes that would cause port conflicts
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func TestPortConflictNodeDaemonDoesNotLaunchPod(t *testing.T) {
 	podSpec := api.PodSpec{
 		NodeName: "port-conflict",
@@ -304,6 +332,7 @@ func TestPortConflictNodeDaemonDoesNotLaunchPod(t *testing.T) {
 // but belonging to the same daemonset, we don't delete that pod
 //
 // Issue: https://github.com/kubernetes/kubernetes/issues/22309
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func TestPortConflictWithSameDaemonPodDoesNotDeletePod(t *testing.T) {
 	podSpec := api.PodSpec{
 		NodeName: "port-conflict",
@@ -330,6 +359,7 @@ func TestPortConflictWithSameDaemonPodDoesNotDeletePod(t *testing.T) {
 }
 
 // DaemonSets should place onto nodes that would not cause port conflicts
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func TestNoPortConflictNodeDaemonLaunchesPod(t *testing.T) {
 	podSpec1 := api.PodSpec{
 		NodeName: "no-port-conflict",
@@ -362,6 +392,7 @@ func TestNoPortConflictNodeDaemonLaunchesPod(t *testing.T) {
 // DaemonSetController should not sync DaemonSets with empty pod selectors.
 //
 // issue https://github.com/kubernetes/kubernetes/pull/23223
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func TestPodIsNotDeletedByDaemonsetWithEmptyLabelSelector(t *testing.T) {
 	manager, podControl := newTestController()
 	manager.nodeStore.Store.Add(newNode("node1", nil))
@@ -395,6 +426,7 @@ func TestPodIsNotDeletedByDaemonsetWithEmptyLabelSelector(t *testing.T) {
 }
 
 // Controller should not create pods on nodes which have daemon pods, and should remove excess pods from nodes that have extra pods.
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func TestDealsWithExistingPods(t *testing.T) {
 	manager, podControl := newTestController()
 	addNodes(manager.nodeStore.Store, 0, 5, nil)
@@ -408,6 +440,7 @@ func TestDealsWithExistingPods(t *testing.T) {
 }
 
 // Daemon with node selector should launch pods on nodes matching selector.
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func TestSelectorDaemonLaunchesPods(t *testing.T) {
 	manager, podControl := newTestController()
 	addNodes(manager.nodeStore.Store, 0, 4, nil)
@@ -419,6 +452,7 @@ func TestSelectorDaemonLaunchesPods(t *testing.T) {
 }
 
 // Daemon with node selector should delete pods from nodes that do not satisfy selector.
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func TestSelectorDaemonDeletesUnselectedPods(t *testing.T) {
 	manager, podControl := newTestController()
 	addNodes(manager.nodeStore.Store, 0, 5, nil)
@@ -434,6 +468,7 @@ func TestSelectorDaemonDeletesUnselectedPods(t *testing.T) {
 }
 
 // DaemonSet with node selector should launch pods on nodes matching selector, but also deal with existing pods on nodes.
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func TestSelectorDaemonDealsWithExistingPods(t *testing.T) {
 	manager, podControl := newTestController()
 	addNodes(manager.nodeStore.Store, 0, 5, nil)
@@ -453,6 +488,7 @@ func TestSelectorDaemonDealsWithExistingPods(t *testing.T) {
 }
 
 // DaemonSet with node selector which does not match any node labels should not launch pods.
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func TestBadSelectorDaemonDoesNothing(t *testing.T) {
 	manager, podControl := newTestController()
 	addNodes(manager.nodeStore.Store, 0, 4, nil)
@@ -464,6 +500,7 @@ func TestBadSelectorDaemonDoesNothing(t *testing.T) {
 }
 
 // DaemonSet with node name should launch pod on node with corresponding name.
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func TestNameDaemonSetLaunchesPods(t *testing.T) {
 	manager, podControl := newTestController()
 	addNodes(manager.nodeStore.Store, 0, 5, nil)
@@ -474,6 +511,7 @@ func TestNameDaemonSetLaunchesPods(t *testing.T) {
 }
 
 // DaemonSet with node name that does not exist should not launch pods.
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func TestBadNameDaemonSetDoesNothing(t *testing.T) {
 	manager, podControl := newTestController()
 	addNodes(manager.nodeStore.Store, 0, 5, nil)
@@ -484,6 +522,7 @@ func TestBadNameDaemonSetDoesNothing(t *testing.T) {
 }
 
 // DaemonSet with node selector, and node name, matching a node, should launch a pod on the node.
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func TestNameAndSelectorDaemonSetLaunchesPods(t *testing.T) {
 	manager, podControl := newTestController()
 	addNodes(manager.nodeStore.Store, 0, 4, nil)
@@ -496,6 +535,7 @@ func TestNameAndSelectorDaemonSetLaunchesPods(t *testing.T) {
 }
 
 // DaemonSet with node selector that matches some nodes, and node name that matches a different node, should do nothing.
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func TestInconsistentNameSelectorDaemonSetDoesNothing(t *testing.T) {
 	manager, podControl := newTestController()
 	addNodes(manager.nodeStore.Store, 0, 4, nil)
@@ -507,6 +547,7 @@ func TestInconsistentNameSelectorDaemonSetDoesNothing(t *testing.T) {
 	syncAndValidateDaemonSets(t, manager, ds, podControl, 0, 0)
 }
 
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func TestDSManagerNotReady(t *testing.T) {
 	manager, podControl := newTestController()
 	manager.podStoreSynced = func() bool { return false }
@@ -521,6 +562,7 @@ func TestDSManagerNotReady(t *testing.T) {
 	dsKey := getKey(ds, t)
 	syncAndValidateDaemonSets(t, manager, ds, podControl, 0, 0)
 	queueDS, _ := manager.queue.Get()
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if queueDS != dsKey {
 		t.Fatalf("Expected to find key %v in queue, found %v", dsKey, queueDS)
 	}

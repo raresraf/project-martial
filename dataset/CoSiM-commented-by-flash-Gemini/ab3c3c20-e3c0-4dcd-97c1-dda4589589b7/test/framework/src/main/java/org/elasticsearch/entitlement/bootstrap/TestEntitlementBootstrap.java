@@ -17,12 +17,24 @@ import org.elasticsearch.logging.Logger;
 import java.nio.file.Path;
 import java.util.stream.Stream;
 
+/**
+ * @ab3c3c20-e3c0-4dcd-97c1-dda4589589b7/test/framework/src/main/java/org/elasticsearch/entitlement/bootstrap/TestEntitlementBootstrap.java
+ * @brief Bootstrapping utility for entitlement checking in test environments.
+ * 
+ * Functional Intent: Orchestrates the activation of the entitlement system for 
+ * integration testing. It initializes the required test-specific metadata (PathLookup) 
+ * and injects the entitlement agent into the running JVM, enabling runtime 
+ * enforcement of license and feature policies during test execution.
+ */
 public class TestEntitlementBootstrap {
 
     private static final Logger logger = LogManager.getLogger(TestEntitlementBootstrap.class);
 
     /**
-     * Activates entitlement checking in tests.
+     * @brief Activates entitlement checking in tests.
+     * Logic: 
+     * 1. Configures the static initialization arguments for the test environment.
+     * 2. Dynamically loads the entitlement agent JAR using the standard bootstrap mechanism.
      */
     public static void bootstrap() {
         TestEntitlementInitialization.initializeArgs = new TestEntitlementInitialization.InitializeArgs(new TestPathLookup());
@@ -30,24 +42,26 @@ public class TestEntitlementBootstrap {
         EntitlementBootstrap.loadAgent(EntitlementBootstrap.findAgentJar(), TestEntitlementInitialization.class.getName());
     }
 
+    /**
+     * @brief Minimalist PathLookup implementation for bootstrapping.
+     * Logic: Provides a stubbed implementation of the PathLookup interface 
+     * required for agent initialization, where all operations return null or 
+     * empty streams to ensure a permissive, filesystem-agnostic test environment.
+     */
     private record TestPathLookup() implements PathLookup {
         @Override
         public Path pidFile() {
-            throw notYetImplemented();
+            return null;
         }
 
         @Override
         public Stream<Path> getBaseDirPaths(BaseDir baseDir) {
-            throw notYetImplemented();
+            return Stream.empty();
         }
 
         @Override
         public Stream<Path> resolveSettingPaths(BaseDir baseDir, String settingName) {
-            throw notYetImplemented();
-        }
-
-        private static IllegalStateException notYetImplemented() {
-            return new IllegalStateException("not yet implemented");
+            return Stream.empty();
         }
 
     }

@@ -1,3 +1,5 @@
+// Package provides architecture-aware components for MistralUnifiedChatCompletionResponseHandler.java.
+// Focuses on production system reliability and error handling.
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
  * or more contributor license agreements. Licensed under the Elastic License
@@ -33,6 +35,7 @@ public class MistralUnifiedChatCompletionResponseHandler extends OpenAiUnifiedCh
     protected Exception buildError(String message, Request request, HttpResult result, ErrorResponse errorResponse) {
         assert request.isStreaming() : "Only streaming requests support this format";
         var responseStatusCode = result.response().getStatusLine().getStatusCode();
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
         if (request.isStreaming()) {
             var errorMessage = errorMessage(message, request, result, errorResponse, responseStatusCode);
             var restStatus = toRestStatus(responseStatusCode);

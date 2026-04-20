@@ -1,4 +1,11 @@
 /**
+ * @file compare.c
+ * @brief Utility for validating numerical equivalence of dense matrices stored in binary files.
+ * Algorithm: Element-wise comparison with floating-point tolerance.
+ * Time Complexity: $O(N^2)$ where $N$ is the matrix dimension.
+ * Space Complexity: $O(N^2)$ via memory-mapped IO.
+ */
+/**
  * @raw/aeb31e2b-0ab9-4296-9704-30003e34fa86/compare.c
  * @brief Memory-mapped verification utility for confirming accuracy between binary matrix outputs.
  * Algorithm: Element-wise numeric validation utilizing memory mapping to optimize file I/O for large datasets.
@@ -26,6 +33,13 @@
  * @param file_path2 Path to the candidate/second binary matrix file.
  * @param precision Configurable threshold for acceptable floating point drift.
  */
+/**
+ * @brief Compares two binary matrix files using memory mapping.
+ * @param file_path1 Path to first file.
+ * @param file_path2 Path to second file.
+ * @param precision Allowed absolute error.
+ * @return 0 if matched, -1 otherwise.
+ */
 int cmp_files(char const *file_path1, char const *file_path2, double precision) {
 	struct stat fileInfo1, fileInfo2;
 	double *mat1, *mat2;
@@ -37,6 +51,10 @@ int cmp_files(char const *file_path1, char const *file_path2, double precision) 
 	fstat(fd1, &fileInfo1);
 	fstat(fd2, &fileInfo2);
 
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if(fileInfo1.st_size != fileInfo2.st_size) {
 		printf("Files length differ\n");
 		close(fd1);
@@ -49,6 +67,10 @@ int cmp_files(char const *file_path1, char const *file_path2, double precision) 
 	 * efficient large-file traversal without explicit read buffer allocations.
 	 */
 	mat1 = (double*) mmap(0, fileInfo1.st_size, PROT_READ, MAP_SHARED, fd1, 0);
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (mat1 == MAP_FAILED)
 	{
 		close(fd1);
@@ -58,6 +80,10 @@ int cmp_files(char const *file_path1, char const *file_path2, double precision) 
 	}
 
 	mat2 = (double*) mmap(0, fileInfo2.st_size, PROT_READ, MAP_SHARED, fd2, 0);
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (mat2 == MAP_FAILED)
 	{
 		munmap(mat1, fileInfo1.st_size);
@@ -73,9 +99,21 @@ int cmp_files(char const *file_path1, char const *file_path2, double precision) 
 	 * Block Logic: Linearly sweeps mapped memory regions performing element-wise tolerance validations.
 	 * Invariant: Retains synchronization of pointer offsets over the unified spatial dimension (N * N).
 	 */
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for (i = 0; i < N; i++ ) {
+		/**
+		 * Block Logic: Iterative processing loop.
+		 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+		 */
 		for (j = 0; j< N; j++) {
 			ret = check_err(mat1[i * N + j], mat2[i * N + j], precision); 
+			/**
+			 * Block Logic: Conditional state branch.
+			 * Invariant: The conditional branch maintains control flow invariants.
+			 */
 			if (ret != 0) {
 				printf("Matrixes differ on index [%d, %d]. Expected %.8lf got %.8lf\n",
 						i, j, mat1[i * N + j], mat2[i * N + j]);
@@ -99,6 +137,10 @@ int main(int argc, const char **argv)
 	double precision;
 	int ret = 0;
 
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if(argc < 4) {
 		printf("Usage: %s mat1 mat2 tolerance\n",argv[0]);
 		exit(-1);

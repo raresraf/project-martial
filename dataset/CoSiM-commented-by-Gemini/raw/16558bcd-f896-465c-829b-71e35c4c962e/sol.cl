@@ -1,3 +1,10 @@
+/**
+ * @raw/16558bcd-f896-465c-829b-71e35c4c962e/sol.cl
+ * @brief OpenCL kernel and host API for block-based texture compression.
+ * * Domain-Specific Awareness: Implements an ETC1-style compression algorithm on the GPU. 
+ *   It quantizes 4x4 pixel blocks into base colors (444 or 555 formats) and encodes luminance 
+ *   variations using predefined codeword tables to optimize memory footprint for graphics hardware.
+ */
 
 #define ALIGNAS(X)	__attribute__((aligned(X)))
 
@@ -243,7 +250,12 @@ void getAverageColor(const union Color* src, float* avg_color)
 	avg_color[1] = (float)(sum_g) * kInv8;
 	avg_color[2] = (float)(sum_r) * kInv8;
 }
-	
+
+/**
+ * @brief Selects the optimal luminance modulation and encodes the block data.
+ * * Logic: Exhaustively searches predefined luminance tables to find the smallest color 
+ *   deviation between the quantized base color and the original source pixels.
+ */
 unsigned long computeLuminance(__global uchar* block,
 						   const union Color* src,
 						   const union Color base,
@@ -427,7 +439,11 @@ const uchar g_mod_to_pix[4] = {3, 2, 0, 1};
 	return true;
 }
 
-
+/**
+ * @brief Evaluates solid, differential, and independent color compression modes for a 4x4 block.
+ * * Logic: Determines whether to split the block vertically or horizontally, 
+ *   calculates optimal base colors, and selects the encoding that minimizes visual error.
+ */
 unsigned long compressBlock(__global uchar* dst,
 												   const union Color* ver_src,
 												   const union Color* hor_src,
@@ -522,7 +538,11 @@ unsigned long compressBlock(__global uchar* dst,
 	return lumi_error1 + lumi_error2;
 }
 
-
+/**
+ * @brief GPU entry point for compressing an image matrix tile by tile.
+ * * Logic: Resolves global coordinates to memory locations, fetches a 4x4 contiguous 
+ *   pixel patch, delegates to compressBlock, and writes the resulting encoded 8-byte chunk.
+ */
 __kernel void compress(__global uchar* src,
 											  __global uchar* dst,
 											  int width,
@@ -756,6 +776,12 @@ int CL_COMPILE_ERR(int cl_ret, cl_program program, cl_device_id device)
 	return 0;
 }
  
+/**
+ * @brief Orchestrates the host-side OpenCL setup and kernel dispatch.
+ * * Logic: Creates contexts and command queues, loads the kernel source, sets up 
+ *   device buffers, dispatches the NDRange computation, and blocks to read 
+ *   back the compressed results.
+ */
  void gpu_execute(cl_device_id device, const uint8_t* src, uint8_t* dst, int width, int height)
  {
  	cl_int ret;

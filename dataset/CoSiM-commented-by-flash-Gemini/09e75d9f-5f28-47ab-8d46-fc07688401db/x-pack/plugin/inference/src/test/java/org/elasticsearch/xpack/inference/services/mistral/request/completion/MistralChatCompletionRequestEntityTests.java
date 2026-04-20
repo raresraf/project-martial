@@ -24,24 +24,26 @@ import static org.elasticsearch.xpack.inference.services.mistral.completion.Mist
 
 /**
  * @09e75d9f-5f28-47ab-8d46-fc07688401db/x-pack/plugin/inference/src/test/java/org/elasticsearch/xpack/inference/services/mistral/request/completion/MistralChatCompletionRequestEntityTests.java
- * @brief Unit tests for `MistralChatCompletionRequestEntity`.
- * This class verifies the correct serialization of Mistral chat completion requests,
- * ensuring that the request entity correctly transforms unified completion requests
- * into the Mistral API format, specifically focusing on user-defined fields and model parameters.
- * Domain: Inference, Machine Learning, Testing, API Serialization.
+ * @brief Unit tests for the Mistral API request serialization logic.
+ * 
+ * Functional Intent: Validates the transformation of unified completion requests 
+ * into JSON payloads compatible with Mistral's chat completion endpoint. 
+ * Ensures message content, roles, and model-specific parameters (like streaming 
+ * and choice count) are correctly mapped.
  */
 public class MistralChatCompletionRequestEntityTests extends ESTestCase {
 
     private static final String ROLE = "user";
 
     /**
-     * @brief Tests the serialization of user-defined fields within the Mistral chat completion request.
-     * This method ensures that the `MistralChatCompletionRequestEntity` correctly serializes
-     * a `UnifiedCompletionRequest` containing a user message into the expected JSON format
-     * for the Mistral API, including the message content, role, model, and streaming parameters.
-     * @throws IOException If an I/O error occurs during XContent serialization.
-     * Pre-condition: UnifiedCompletionRequest with user message is properly formed.
-     * Post-condition: Generated JSON matches the expected Mistral API request structure.
+     * Block Logic: Validates serialization of chat messages and model metadata.
+     * Logic: 
+     * 1. Constructs a high-level message sequence.
+     * 2. Orchestrates the creation of a Mistral-specific request entity.
+     * 3. Performs JSON serialization and asserts structural equivalence with 
+     *    the Mistral API specification (messages, model, streaming flag).
+     * 
+     * @throws IOException If serialization fails.
      */
     public void testModelUserFieldsSerialization() throws IOException {
         // Block Logic: Construct a unified completion request with a single user message.
@@ -57,16 +59,13 @@ public class MistralChatCompletionRequestEntityTests extends ESTestCase {
 
         var unifiedRequest = UnifiedCompletionRequest.of(messageList);
 
-        // Block Logic: Initialize `UnifiedChatInput` and `MistralChatCompletionModel` for the request entity.
-        // Invariant: Model and input objects are correctly configured for the test scenario.
+        // Block Logic: Initialize state for the request entity.
         UnifiedChatInput unifiedChatInput = new UnifiedChatInput(unifiedRequest, true);
         MistralChatCompletionModel model = createCompletionModel("api-key", "test-endpoint");
 
-        // Block Logic: Create the `MistralChatCompletionRequestEntity` from the unified input and model.
         MistralChatCompletionRequestEntity entity = new MistralChatCompletionRequestEntity(unifiedChatInput, model);
 
-        // Block Logic: Serialize the request entity to JSON using XContentBuilder.
-        // Invariant: The XContentBuilder correctly captures the entity's state in JSON.
+        // Block Logic: Execution of serialization and verification.
         XContentBuilder builder = JsonXContent.contentBuilder();
         entity.toXContent(builder, ToXContent.EMPTY_PARAMS);
         String expectedJson = """
@@ -82,8 +81,8 @@ public class MistralChatCompletionRequestEntityTests extends ESTestCase {
                 "stream": true
             }
             """;
-        // Block Logic: Assert that the generated JSON matches the expected JSON structure.
-        // This verifies the correct serialization of the request for the Mistral API.
+        
+        // Final assertion to ensure the generated payload meets API requirements.
         assertEquals(XContentHelper.stripWhitespace(expectedJson), Strings.toString(builder));
     }
 }

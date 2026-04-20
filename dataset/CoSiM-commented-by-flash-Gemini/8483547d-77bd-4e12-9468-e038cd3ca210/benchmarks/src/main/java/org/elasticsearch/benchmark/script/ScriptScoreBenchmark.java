@@ -30,10 +30,8 @@ import org.elasticsearch.index.fielddata.FieldDataContext;
 import org.elasticsearch.index.fielddata.IndexFieldDataCache;
 import org.elasticsearch.index.fielddata.IndexNumericFieldData;
 import org.elasticsearch.index.mapper.MappedFieldType;
-import org.elasticsearch.index.mapper.MappingLookup;
 import org.elasticsearch.index.mapper.NumberFieldMapper.NumberFieldType;
 import org.elasticsearch.index.mapper.NumberFieldMapper.NumberType;
-import org.elasticsearch.index.mapper.SourceFieldMetrics;
 import org.elasticsearch.indices.breaker.CircuitBreakerService;
 import org.elasticsearch.indices.breaker.NoneCircuitBreakerService;
 import org.elasticsearch.plugins.PluginsLoader;
@@ -66,15 +64,20 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 /**
- * A race between Lucene Expressions, Painless, and a hand optimized script
- * implementing a {@link ScriptScoreQuery}.
+ * @8483547d-77bd-4e12-9468-e038cd3ca210/benchmarks/src/main/java/org/elasticsearch/benchmark/script/ScriptScoreBenchmark.java
+ * @brief JMH-based performance comparison of script-based document scoring.
+ * 
+ * Functional Intent: Evaluates the execution overhead of various scripting strategies 
+ * (Lucene Expressions, Painless, and hand-optimized Java) within the context of 
+ * a ScriptScoreQuery. It focuses on the performance of field-data access ('doc[n].value') 
+ * and identifies the performance ceiling provided by "bare metal" Java-to-Lucene integration.
  */
 @Fork(2)
 @Warmup(iterations = 10)
 @Measurement(iterations = 5)
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
-@OperationsPerInvocation(1_000_000)   // The index has a million documents in it.
+@OperationsPerInvocation(1_000_000)
 @State(Scope.Benchmark)
 public class ScriptScoreBenchmark {
     private final PluginsService pluginsService = new PluginsService(
@@ -92,7 +95,7 @@ public class ScriptScoreBenchmark {
     private final SearchLookup lookup = new SearchLookup(
         fieldTypes::get,
         (mft, lookup, fdo) -> mft.fielddataBuilder(FieldDataContext.noRuntimeFields("benchmark")).build(fieldDataCache, breakerService),
-        SourceProvider.fromLookup(MappingLookup.EMPTY, null, SourceFieldMetrics.NOOP)
+        SourceProvider.fromStoredFields()
     );
 
     @Param({ "expression", "metal", "painless_cast", "painless_def" })
@@ -105,6 +108,9 @@ public class ScriptScoreBenchmark {
 
     private IndexReader reader;
 
+    /**
+     * setupScript - Initializes the target script engine for the current benchmark iteration.
+     */
     @Setup
     public void setupScript() {
         factory = switch (script) {
@@ -122,6 +128,9 @@ public class ScriptScoreBenchmark {
         };
     }
 
+    /**
+     * setupIndex - Bootstraps the test dataset (1M documents).
+     */
     @Setup
     public void setupIndex() throws IOException {
         Path path = Path.of(System.getProperty("tests.index"));
@@ -141,6 +150,9 @@ public class ScriptScoreBenchmark {
         reader = DirectoryReader.open(directory);
     }
 
+    /**
+     * benchmark - Measures execution time of a full query lifecycle.
+     */
     @Benchmark
     public TopDocs benchmark() throws IOException {
         TopDocs topDocs = new IndexSearcher(reader).search(scriptScoreQuery(factory), 10);
@@ -155,6 +167,12 @@ public class ScriptScoreBenchmark {
         return new ScriptScoreQuery(new MatchAllDocsQuery(), null, leafFactory, lookup, null, "test", 0, IndexVersion.current());
     }
 
+    /**
+     * bareMetalScript - Provides an "ideal" implementation using direct Lucene APIs.
+     * Logic: Manually resolves doc values from the leaf reader context, bypassing 
+     * the overhead of the scripting engine abstraction. Serves as the performance 
+     * baseline (the theoretical maximum).
+     */
     private ScoreScript.Factory bareMetalScript() {
         return (params, lookup) -> {
             MappedFieldType type = fieldTypes.get("n");
@@ -166,6 +184,11 @@ public class ScriptScoreBenchmark {
                     return new ScoreScript(params, null, docReader) {
                         private int docId;
 
+                        /**
+                         * Block Logic: Critical path scoring.
+                         * Logic: Advances the doc values iterator to the current document ID 
+                         * and performs a raw retrieval of the numeric value.
+                         */
                         @Override
                         public double execute(ExplanationHolder explanation) {
                             try {

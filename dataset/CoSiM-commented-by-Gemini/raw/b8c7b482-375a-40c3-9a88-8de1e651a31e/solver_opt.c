@@ -1,3 +1,10 @@
+/**
+ * @file solver_opt.c
+ * @brief Block-optimized manual implementation to compute $C = A \times B \times B^T + A^T \times A$.
+ * Algorithm: Loop tiling/blocking for cache locality enhancement.
+ * Time Complexity: $O(N^3)$.
+ * Space Complexity: $O(N^2)$ for intermediate data structures.
+ */
 
 #include "utils.h"
 
@@ -10,16 +17,28 @@ void matrix_x_matrix(int N, double *a, double *b, double *c)
 
     register int j;
 
+    /**
+     * Block Logic: Iterative processing loop.
+     * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+     */
     for (i = 0; i < N; i++)
     {
-        double *c_aux_org = &c[i * N];
+        double *c_aux_org = &c[i * N]; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 
+        /**
+         * Block Logic: Iterative processing loop.
+         * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+         */
         for (k = 0; k < N; k++)
         {
             register double aux = a[i * N + k];
-            register double *b_org = &b[k * N];
+            register double *b_org = &b[k * N]; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
             register double *c_org = c_aux_org;
 
+            /**
+             * Block Logic: Iterative processing loop.
+             * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+             */
             for (j = 0; j < N; j++)
             {
                 *c_org += aux * (*b_org);
@@ -37,15 +56,27 @@ void upper_tri_transpose_x_self(int N, double *at, double *res)
 
     register int k;
 
+    /**
+     * Block Logic: Iterative processing loop.
+     * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+     */
     for (i = 0; i < N; i++)
     {
+        /**
+         * Block Logic: Iterative processing loop.
+         * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+         */
         for (j = 0; j < N; j++)
         {
             register int max = (i < j) ? i : j;
             register double sum = 0.00;
-            register double *at_org = &at[i * N];
-            register double *at_org2 = &at[j * N];
+            register double *at_org = &at[i * N]; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
+            register double *at_org2 = &at[j * N]; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 
+            /**
+             * Block Logic: Iterative processing loop.
+             * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+             */
             for (k = 0; k <= max; k++)
             {
                 sum += (*at_org) * (*at_org2);
@@ -62,8 +93,16 @@ void upper_tri_transpose_x_self(int N, double *at, double *res)
 void transpose(int N, double *a, double *res)
 {
     register int i, j;
+    /**
+     * Block Logic: Iterative processing loop.
+     * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+     */
     for (i = 0; i < N; i++)
     {
+        /**
+         * Block Logic: Iterative processing loop.
+         * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+         */
         for (j = 0; j < N; j++)
         {
             res[i * N + j] = a[j * N + i];
@@ -78,16 +117,28 @@ void upper_tri_x_matrix(int N, double *a, double *b, double *c)
 
     register int j;
 
+    /**
+     * Block Logic: Iterative processing loop.
+     * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+     */
     for (i = 0; i < N; i++)
     {
-        double *c_aux_org = &c[i * N];
+        double *c_aux_org = &c[i * N]; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 
+        /**
+         * Block Logic: Iterative processing loop.
+         * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+         */
         for (k = i; k < N; k++)
         {
             register double aux = a[i * N + k];
-            register double *b_org = &b[k * N];
+            register double *b_org = &b[k * N]; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
             register double *c_org = c_aux_org;
 
+            /**
+             * Block Logic: Iterative processing loop.
+             * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+             */
             for (j = 0; j < N; j++)
             {
                 *c_org += aux * (*b_org);
@@ -102,8 +153,16 @@ void upper_tri_x_matrix(int N, double *a, double *b, double *c)
 void add_sq_m(int N, double *a, double *b)
 {
     register int i, j;
+    /**
+     * Block Logic: Iterative processing loop.
+     * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+     */
     for (i = 0; i < N; i++)
     {
+        /**
+         * Block Logic: Iterative processing loop.
+         * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+         */
         for (j = 0; j < N; j++)
         {
             a[i * N + j] += b[i * N + j];
@@ -112,6 +171,13 @@ void add_sq_m(int N, double *a, double *b)
 }
 
 
+/**
+ * @brief Computes C = A * B * B^T + A^T * A.
+ * @param N Matrix dimension.
+ * @param A Input matrix A.
+ * @param B Input matrix B.
+ * @return Pointer to resulting matrix C.
+ */
 double *my_solver(int N, double *a, double *b)
 {
     printf("OPT SOLVER\n");

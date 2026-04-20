@@ -29,8 +29,13 @@ import static org.elasticsearch.xpack.inference.services.ServiceUtils.extractReq
 import static org.elasticsearch.xpack.inference.services.mistral.MistralConstants.MODEL_FIELD;
 
 /**
- * Represents the settings for the Mistral chat completion service.
- * This class encapsulates the model ID and rate limit settings for the Mistral chat completion service.
+ * @8b6d7f96-71c4-4a07-8b69-1c7fa3832596/x-pack/plugin/inference/src/main/java/org/elasticsearch/xpack/inference/services/mistral/completion/MistralChatCompletionServiceSettings.java
+ * @brief Configuration container for Mistral AI chat completion service settings.
+ * 
+ * Functional Intent: Encapsulates immutable settings required for interacting with 
+ * Mistral's API, including the specific model identifier and client-side rate 
+ * limiting thresholds. It provides logic for deserialization from both maps 
+ * (cluster state) and streams (inter-node transport).
  */
 public class MistralChatCompletionServiceSettings extends FilteredXContentObject implements ServiceSettings {
     public static final String NAME = "mistral_completions_service_settings";
@@ -38,10 +43,21 @@ public class MistralChatCompletionServiceSettings extends FilteredXContentObject
     private final String modelId;
     private final RateLimitSettings rateLimitSettings;
 
-    // default for Mistral is 5 requests / sec
-    // setting this to 240 (4 requests / sec) is a sane default for us
+    // Functional Utility: Defines conservative default rate limits for Mistral (4 req/sec) 
+    // to prevent aggressive throttling by the external provider.
     protected static final RateLimitSettings DEFAULT_RATE_LIMIT_SETTINGS = new RateLimitSettings(240);
 
+    /**
+     * Block Logic: Deserialization from configuration map.
+     * Logic: 
+     * 1. Extracts the mandatory model identifier.
+     * 2. Resolves rate limit settings, falling back to system defaults if unspecified.
+     * 3. Aggregates and throws validation errors if any required fields are missing.
+     * 
+     * @param map Raw configuration map from the REST request or cluster metadata.
+     * @param context Context for parsing (e.g., handling sensitive fields).
+     * @return Initialized settings object.
+     */
     public static MistralChatCompletionServiceSettings fromMap(Map<String, Object> map, ConfigurationParseContext context) {
         ValidationException validationException = new ValidationException();
 
@@ -61,11 +77,19 @@ public class MistralChatCompletionServiceSettings extends FilteredXContentObject
         return new MistralChatCompletionServiceSettings(model, rateLimitSettings);
     }
 
+    /**
+     * @brief Deserializes settings from a binary stream.
+     */
     public MistralChatCompletionServiceSettings(StreamInput in) throws IOException {
         this.modelId = in.readString();
         this.rateLimitSettings = new RateLimitSettings(in);
     }
 
+    /**
+     * @brief Direct constructor with optional rate limits.
+     * @param modelId External model name (e.g., 'mistral-large-latest').
+     * @param rateLimitSettings Specific rate limits, or null to use defaults.
+     */
     public MistralChatCompletionServiceSettings(String modelId, @Nullable RateLimitSettings rateLimitSettings) {
         this.modelId = modelId;
         this.rateLimitSettings = Objects.requireNonNullElse(rateLimitSettings, DEFAULT_RATE_LIMIT_SETTINGS);
@@ -104,6 +128,10 @@ public class MistralChatCompletionServiceSettings extends FilteredXContentObject
         return builder;
     }
 
+    /**
+     * Block Logic: Serializes public fields to XContent format.
+     * Logic: Writes the model ID and flattens rate limit settings into the current JSON object level.
+     */
     @Override
     protected XContentBuilder toXContentFragmentOfExposedFields(XContentBuilder builder, Params params) throws IOException {
         builder.field(MODEL_FIELD, this.modelId);

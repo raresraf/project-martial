@@ -1,3 +1,10 @@
+/**
+ * @file solver_blas.c
+ * @brief BLAS-based optimized matrix solver computing $C = A \times B \times B^T + A^T \times A$.
+ * Algorithm: Relies on optimized numerical linear algebra kernels (DGEMM, DTRMM).
+ * Time Complexity: $O(N^3)$ due to dense matrix multiplications.
+ * Space Complexity: $O(N^2)$ for storing the result matrix C.
+ */
 
 #include "utils.h"
 #include <string.h>
@@ -8,6 +15,10 @@ double *sum(int N, double *X, double *Y) {
 	double *identity = calloc(N * N, sizeof(double));\
 	double *result = malloc(N * N * sizeof(double));
 	memcpy(result, Y, N * N * sizeof(double));
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for(int i = 0; i < N; i++) {
 		identity[i * N + i] = 1;
 	}
@@ -57,6 +68,13 @@ double *mul_AT_A(int N, double *A) {
 	return A_CPY;
 }
 
+/**
+ * @brief Computes C = A * B * B^T + A^T * A.
+ * @param N Matrix dimension.
+ * @param A Input matrix A.
+ * @param B Input matrix B.
+ * @return Pointer to resulting matrix C.
+ */
 double* my_solver(int N, double *A, double *B) {
 	double *B_X_BT = mul_B_BT(N, B);
 	double *A_X_B_X_BT = mul_A_MAT(N, A, B_X_BT);

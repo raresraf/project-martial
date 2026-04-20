@@ -1,3 +1,7 @@
+/**
+ * @file utils.h
+ * @brief Common definitions and declarations for the matrix solver benchmark suite.
+ */
 
 
 #include <stdio.h>
@@ -15,6 +19,13 @@ struct test {
 	char output_save_file[100];
 };
 
+/**
+ * @brief Computes C = A * B * B^T + A^T * A.
+ * @param N Matrix dimension.
+ * @param A Input matrix A.
+ * @param B Input matrix B.
+ * @return Pointer to resulting matrix C.
+ */
 double* my_solver(int, double *, double *);
 
 int run_test(struct test, Solver, float *);

@@ -1,4 +1,7 @@
-
+/**
+ * @file utils.h
+ * @brief Common definitions and declarations for the matrix solver benchmark suite.
+ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,6 +9,7 @@
 
 typedef double* (*Solver)(int, double *, double*);
 
+// Inline: Generates a random double within [-limit, limit]
 #define get_rand_double(limit) ((((double)rand()) / RAND_MAX) * (2 * limit) - limit)
 
 struct test {

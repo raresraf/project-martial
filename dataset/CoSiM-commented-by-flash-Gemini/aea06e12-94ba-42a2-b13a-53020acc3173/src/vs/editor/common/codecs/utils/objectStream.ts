@@ -1,11 +1,13 @@
 /**
- * @file objectStream.ts
- * @brief Asynchronous stream wrapper for generator-driven object propagation.
- * @details Implements a bridge between ECMAScript Generators and VS Code's ReadableStream 
- * interface. Supports flow control (pause/resume), lifecycle management (disposal), 
- * and cancellation-aware iteration.
+ * @aea06e12-94ba-42a2-b13a-53020acc3173/src/vs/editor/common/codecs/utils/objectStream.ts
+ * @brief Asynchronous stream adapter for ECMAScript generators.
  * 
- * Domain: Platform Utility, Stream Processing, Resource Management.
+ * Functional Intent: Bridges the gap between push-based ReadableStream consumers 
+ * and pull-based Generators. It manages the lifecycle of asynchronous data 
+ * propagation, providing backpressure-aware buffering, pausing/resuming 
+ * capabilities, and integrated cancellation support.
+ * 
+ * Domain: Reactive Programming, Stream Processing, VS Code Core.
  */
 
 import { ITextModel } from '../../model.js';
@@ -16,25 +18,14 @@ import { ObservableDisposable } from '../../../../base/common/observableDisposab
 import { newWriteableStream, WriteableStream, ReadableStream } from '../../../../base/common/stream.js';
 
 /**
- * @class ObjectStream
- * @brief A high-level readable stream that emits objects produced by a Generator.
+ * @brief High-level readable stream that emits objects produced by a Generator.
+ * 
  * Functional Utility: Decouples object generation from consumption by providing 
  * an event-driven stream interface over synchronous or asynchronous data sources.
  */
 export class ObjectStream<T extends object> extends ObservableDisposable implements ReadableStream<T> {
-	/**
-	 * State: Indicates if the stream reached its terminal state.
-	 */
 	private ended: boolean = false;
-
-	/**
-	 * Buffer: Internal writable sink that handles the backpressure and event emission.
-	 */
 	private readonly stream: WriteableStream<T>;
-
-	/**
-	 * Scheduling: Handle for the background data pumping task.
-	 */
 	private timeoutHandle: ReturnType<typeof setTimeout> | undefined;
 
 	constructor(
@@ -42,24 +33,28 @@ export class ObjectStream<T extends object> extends ObservableDisposable impleme
 		private readonly cancellationToken?: CancellationToken,
 	) {
 		super();
-
-		// Initialization: Creates a standard writable stream to act as the primary buffer.
 		this.stream = newWriteableStream<T>(null);
 
-		// Protocol: Immediate termination if the token is pre-cancelled.
+		// Block Logic: Early termination check.
 		if (cancellationToken?.isCancellationRequested) {
 			this.end();
 			return;
 		}
 
-		// Execution: Triggers the first batch of data emission asynchronously.
+		// Initial pump: Triggers data flow on construction.
 		this.send(true);
 	}
 
 	/**
-	 * @brief Primary data pump orchestrator.
-	 * @param stopAfterFirstSend Flag to control the iterative nature of the pump.
-	 * Logic: Executes a data dispatch and schedules the next iteration via microtask/timer.
+	 * send - Orchestrates asynchronous data batches.
+	 * @param stopAfterFirstSend If true, suspends the pump after a single successful batch.
+	 * 
+	 * Block Logic: Flow control and scheduling.
+	 * Logic: 
+	 * 1. Validates cancellation and stream state.
+	 * 2. Invokes the data loader.
+	 * 3. Schedules the next execution slice via microtask (setTimeout) to prevent 
+	 *    long-running loops from starving the UI thread.
 	 */
 	public send(
 		stopAfterFirstSend: boolean = false,
@@ -69,17 +64,11 @@ export class ObjectStream<T extends object> extends ObservableDisposable impleme
 			return;
 		}
 
-		// Pre-condition: Operations are only valid on active streams.
 		assert(
 			this.ended === false,
 			'Cannot send on already ended stream.',
 		);
 
-		/**
-		 * Functional Utility: Asynchronous batch processing.
-		 * Logic: Pumps a slice of data and then decides whether to schedule 
-		 * further iterations based on the configuration and stream state.
-		 */
 		this.sendData()
 			.then(() => {
 				if (this.cancellationToken?.isCancellationRequested || this.ended) {
@@ -92,18 +81,16 @@ export class ObjectStream<T extends object> extends ObservableDisposable impleme
 					return;
 				}
 
-				// Iteration: Defers the next batch to prevent blocking the event loop.
 				this.timeoutHandle = setTimeout(this.send.bind(this));
 			})
 			.catch((error) => {
-				// Exception Handling: Propagates errors to the stream and cleans up resources.
 				this.stream.error(error);
 				this.dispose();
 			});
 	}
 
 	/**
-	 * @brief Suspends the background data pumping loop.
+	 * @brief Suspends the background scheduling loop.
 	 */
 	public stopStream(): this {
 		if (this.timeoutHandle === undefined) {
@@ -117,9 +104,12 @@ export class ObjectStream<T extends object> extends ObservableDisposable impleme
 	}
 
 	/**
-	 * @brief Iterates the generator to populate the internal stream buffer.
-	 * @param objectsCount Bound on the number of iterations per batch to ensure fairness.
-	 * Invariant: Consumes up to 'objectsCount' elements unless the source is exhausted.
+	 * sendData - Iterates the source generator to fill the internal buffer.
+	 * @param objectsCount Maximum number of yields allowed per execution slice.
+	 * 
+	 * Block Logic: Internal consumption loop.
+	 * Invariant: Maintains 'objectsCount' as a fairness bound to ensure 
+	 * cooperative multitasking.
 	 */
 	private async sendData(
 		objectsCount: number = 25,
@@ -127,13 +117,12 @@ export class ObjectStream<T extends object> extends ObservableDisposable impleme
 		while (objectsCount > 0) {
 			try {
 				const next = this.data.next();
-				// Condition: Check for generator completion or external cancellation.
+				// Block Logic: Source exhaustion handling.
 				if (next.done || this.cancellationToken?.isCancellationRequested) {
 					this.end();
 					return;
 				}
 
-				// Dispatch: Writes the generated value into the stream buffer.
 				await this.stream.write(next.value);
 				objectsCount--;
 			} catch (error) {
@@ -145,8 +134,7 @@ export class ObjectStream<T extends object> extends ObservableDisposable impleme
 	}
 
 	/**
-	 * @brief Finalizes the stream state.
-	 * Functional Utility: Transition to 'ended' state, stopping all background activity.
+	 * @brief Finalizes the stream and shuts down the data pump.
 	 */
 	private end(): this {
 		if (this.ended) {
@@ -159,17 +147,11 @@ export class ObjectStream<T extends object> extends ObservableDisposable impleme
 		return this;
 	}
 
-	/**
-	 * @brief Implements ReadableStream.pause().
-	 */
 	public pause(): void {
 		this.stopStream();
 		this.stream.pause();
 	}
 
-	/**
-	 * @brief Implements ReadableStream.resume().
-	 */
 	public resume(): void {
 		this.send();
 		this.stream.resume();
@@ -184,9 +166,9 @@ export class ObjectStream<T extends object> extends ObservableDisposable impleme
 	}
 
 	/**
-	 * @brief Event registration proxy.
-	 * Logic: Standard NodeJS-style stream event handling. Registering 'data' 
-	 * automatically triggers stream emission.
+	 * on - Event listener registration with auto-trigger.
+	 * Logic: Overrides standard 'on' to initiate the data pump immediately 
+	 * when a 'data' listener is attached, ensuring a pull-on-demand model.
 	 */
 	public on(event: 'data', callback: (data: T) => void): void;
 	public on(event: 'error', callback: (err: Error) => void): void;
@@ -194,7 +176,6 @@ export class ObjectStream<T extends object> extends ObservableDisposable impleme
 	public on(event: 'data' | 'error' | 'end', callback: (...args: any[]) => void): void {
 		if (event === 'data') {
 			this.stream.on(event, callback);
-			// Trigger: Stream starts on first data listener registration.
 			this.send();
 			return;
 		}
@@ -207,9 +188,6 @@ export class ObjectStream<T extends object> extends ObservableDisposable impleme
 		assertNever(event, `Unexpected event name '${event}'.`);
 	}
 
-	/**
-	 * @brief Comprehensive resource teardown.
-	 */
 	public override dispose(): void {
 		this.stopStream();
 		this.stream.destroy();
@@ -217,7 +195,7 @@ export class ObjectStream<T extends object> extends ObservableDisposable impleme
 	}
 
 	/**
-	 * @brief Factory: Creates a stream from a static array.
+	 * @brief Specialized factory for array-based sources.
 	 */
 	public static fromArray<T extends object>(
 		array: T[],
@@ -227,8 +205,7 @@ export class ObjectStream<T extends object> extends ObservableDisposable impleme
 	}
 
 	/**
-	 * @brief Factory: Creates a stream from a VS Code TextModel.
-	 * Architecture: Provides line-by-line streaming of document content.
+	 * @brief High-level factory for streaming VS Code models line-by-line.
 	 */
 	public static fromTextModel(
 		model: ITextModel,
@@ -239,7 +216,7 @@ export class ObjectStream<T extends object> extends ObservableDisposable impleme
 }
 
 /**
- * @brief Helper: Converts an Array into a Generator.
+ * @brief Utility: Standard iterator-to-generator converter.
  */
 export const arrayToGenerator = <T extends NonNullable<unknown>>(array: T[]): Generator<T, undefined> => {
 	return (function* (): Generator<T, undefined> {
@@ -250,8 +227,9 @@ export const arrayToGenerator = <T extends NonNullable<unknown>>(array: T[]): Ge
 };
 
 /**
- * @brief Helper: Converts a TextModel into a line-by-line Generator.
- * Logic: Iterates through document lines and EOL sequences to reconstruct content.
+ * modelToGenerator - Adapts an ITextModel to a generator interface.
+ * Logic: Iteratively yields document lines and their respective EOL markers, 
+ * respecting the model's disposal state to prevent stale access.
  */
 export const modelToGenerator = (model: ITextModel): Generator<VSBuffer, undefined> => {
 	return (function* (): Generator<VSBuffer, undefined> {
@@ -259,15 +237,12 @@ export const modelToGenerator = (model: ITextModel): Generator<VSBuffer, undefin
 		let currentLine = 1;
 
 		while (currentLine <= totalLines) {
-			// Constraint: Termination if the model is closed during iteration.
 			if (model.isDisposed()) {
 				return undefined;
 			}
 
-			// Yield: Line content.
 			yield VSBuffer.fromString(model.getLineContent(currentLine));
 			
-			// Yield: Line terminator (except for the final line).
 			if (currentLine !== totalLines) {
 				yield VSBuffer.fromString(model.getEOL());
 			}

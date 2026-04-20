@@ -46,6 +46,17 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+/**
+ * @8483547d-77bd-4e12-9468-e038cd3ca210/plugins/mapper-murmur3/src/test/java/org/elasticsearch/index/mapper/murmur3/Murmur3FieldMapperTests.java
+ * @brief Unit tests for the Murmur3 field mapper plugin.
+ * 
+ * Functional Intent: Validates the specialized mapping logic for 'murmur3' fields, 
+ * which compute and store 128-bit hashes of input strings. It ensures that 
+ * Lucene-level doc values are correctly configured and that value fetching 
+ * logic performs the required hashing to match stored values.
+ * 
+ * Domain: Search Indices, Hashing Algorithms, Elasticsearch Mapping System.
+ */
 public class Murmur3FieldMapperTests extends MapperTestCase {
 
     @Override
@@ -68,6 +79,12 @@ public class Murmur3FieldMapperTests extends MapperTestCase {
         checker.registerConflictCheck("store", b -> b.field("store", true));
     }
 
+    /**
+     * Block Logic: Validates default Lucene field configurations.
+     * Logic: Parses a simple document and asserts that the resulting Lucene field 
+     * is configured for SORTED_NUMERIC doc values while disabling standard indexing 
+     * (as only the hash is stored for lookups, not the raw text).
+     */
     public void testDefaults() throws Exception {
         DocumentMapper mapper = createDocumentMapper(fieldMapping(this::minimalMapping));
         ParsedDocument parsedDoc = mapper.parse(source(b -> b.field("field", "value")));
@@ -75,6 +92,8 @@ public class Murmur3FieldMapperTests extends MapperTestCase {
         assertNotNull(fields);
         assertThat(fields, hasSize(1));
         IndexableField field = fields.get(0);
+        
+        // Invariant: Murmur3 fields should not be searchable via standard inverted index.
         assertEquals(IndexOptions.NONE, field.fieldType().indexOptions());
         assertEquals(DocValuesType.SORTED_NUMERIC, field.fieldType().docValuesType());
     }
@@ -85,8 +104,18 @@ public class Murmur3FieldMapperTests extends MapperTestCase {
     }
 
     /**
-     * Murmur3 transforms the input into a hash and only stores the hash, the native value fetcher pulling things from _source
-     * should ensure that it hashes the value before it compares with the retrieved doc value
+     * Block Logic: Validates retrieval and hashing consistency.
+     * Logic: 
+     * 1. Sets up both a doc-value-based fetcher and a source-based fetcher.
+     * 2. Retrieves values from a mock Lucene index.
+     * 3. Transforms the raw strings from source by applying the Murmur3 hash algorithm.
+     * 4. Verifies that the computed hash from source matches the stored hash in doc values.
+     * 
+     * @param mapperService The active mapper registry.
+     * @param field Target field name.
+     * @param value Original input value to test.
+     * @param format Expected output format.
+     * @throws IOException If index access fails.
      */
     @Override
     protected void assertFetch(MapperService mapperService, String field, Object value, String format) throws IOException {
@@ -113,9 +142,10 @@ public class Murmur3FieldMapperTests extends MapperTestCase {
             nativeFetcher.setNextReader(ir.leaves().get(0));
             List<Object> fromDocValues = docValueFetcher.fetchValues(s, 0, new ArrayList<>());
             List<Object> fromNative = nativeFetcher.fetchValues(s, 0, new ArrayList<>());
-            /*
-             * The native fetcher returns String from source as Murmur3 transforms the input and stores the hash
-             */
+            
+            // Block Logic: Dynamic hashing of source-retrieved values.
+            // Logic: Simulates the on-the-fly hashing required to compare original 
+            // source data with the pre-hashed stored doc values.
             fromNative = fromNative.stream().map(o -> {
                 final BytesRef bytes = new BytesRef(o.toString());
                 return MurmurHash3.hash128(bytes.bytes, bytes.offset, bytes.length, 0, new MurmurHash3.Hash128()).h1;
@@ -124,11 +154,8 @@ public class Murmur3FieldMapperTests extends MapperTestCase {
             if (dedupAfterFetch()) {
                 fromNative = fromNative.stream().distinct().collect(Collectors.toList());
             }
-            /*
-             * Doc values sort according to something appropriate to the field
-             * and the native fetchers usually don't sort. We're ok with this
-             * difference. But we have to convince the test we're ok with it.
-             */
+            
+            // Final consistency check between stored hash and re-computed source hash.
             assertThat("fetching " + value, fromNative, containsInAnyOrder(fromDocValues.toArray()));
         });
     }

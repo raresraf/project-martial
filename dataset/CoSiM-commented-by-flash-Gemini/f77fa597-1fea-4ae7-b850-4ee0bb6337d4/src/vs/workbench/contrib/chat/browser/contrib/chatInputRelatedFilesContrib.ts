@@ -1,38 +1,37 @@
 /**
- * @fileoverview This file defines the `ChatRelatedFilesContribution`, a workbench contribution
- * responsible for suggesting files related to the user's input within a chat editing session.
- * It automatically fetches relevant files and adds them to the session's working set as
- * suggestions, updating them dynamically as the user types.
+ * @f77fa597-1fea-4ae7-b850-4ee0bb6337d4/src/vs/workbench/contrib/chat/browser/contrib/chatInputRelatedFilesContrib.ts
+ * @brief Workbench contribution for automated related-file suggestions in chat editing sessions.
+ * 
+ * Functional Intent: Proactively identifies and suggests workspace files that are 
+ * semantically or topologically related to the user's active chat prompt. It 
+ * manages the lifecycle of 'Suggested' working set entries, ensuring they 
+ * remain relevant to the conversation context without interfering with manual 
+ * user selections.
+ * 
+ * Domain: AI-Assisted Development, Contextual Suggestion, Reactive UI.
  */
-/*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
- *--------------------------------------------------------------------------------------------*/
 
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { Event } from '../../../../../base/common/event.js';
 import { Disposable, DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { ResourceMap } from '../../../../../base/common/map.js';
+import { autorun } from '../../../../../base/common/observable.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { localize } from '../../../../../nls.js';
 import { IWorkbenchContribution } from '../../../../common/contributions.js';
-import { ChatAgentLocation } from '../../common/chatAgents.js';
 import { ChatEditingSessionChangeType, IChatEditingService, IChatEditingSession, WorkingSetEntryRemovalReason, WorkingSetEntryState } from '../../common/chatEditingService.js';
-import { IChatWidget, IChatWidgetService } from '../chat.js';
+import { IChatWidgetService } from '../chat.js';
 
 /**
- * A workbench contribution that manages suggesting related files in a chat editing session.
+ * @brief Manages the lifecycle and state transitions of suggested files in a chat's working set.
+ * 
+ * Logic: Leverages a reactive observer on the global editing session to bind 
+ * listeners to user input and structural session changes.
  */
 export class ChatRelatedFilesContribution extends Disposable implements IWorkbenchContribution {
 	static readonly ID = 'chat.relatedFilesWorkingSet';
 
-	/**
-	 * A map to store disposable stores for each chat editing session to manage listeners.
-	 */
-	private readonly chatEditingSessionDisposables = new Map<string, DisposableStore>();
-	/**
-	 * A promise that tracks the current in-progress file retrieval operation to prevent concurrent calls.
-	 */
+	private readonly chatEditingSessionDisposables = new DisposableStore();
 	private _currentRelatedFilesRetrievalOperation: Promise<void> | undefined;
 
 	constructor(
@@ -41,41 +40,48 @@ export class ChatRelatedFilesContribution extends Disposable implements IWorkben
 	) {
 		super();
 
-		/**
-		 * Register a listener for when a new chat widget is added. If it's part of an
-		 * editing session, set up the necessary handlers for that session.
-		 */
-		this._register(
-			this.chatWidgetService.onDidAddWidget(widget => {
-				if (widget.location === ChatAgentLocation.EditingSession && widget.viewModel?.sessionId) {
-					const editingSession = this.chatEditingService.getEditingSession(widget.viewModel.sessionId);
-					if (editingSession) {
-						this._handleNewEditingSession(editingSession, widget);
-					}
-				}
-			}),
-		);
+		// Block Logic: Global session lifecycle tracking.
+		// Invariant: Maintains exactly one set of handlers for the active global session.
+		this._register(autorun(r => {
+			this.chatEditingSessionDisposables.clear();
+			const session = this.chatEditingService.globalEditingSessionObs.read(r);
+			if (session) {
+				this._handleNewEditingSession(session);
+			}
+		}));
 	}
 
 	/**
-	 * Asynchronously fetches and updates related file suggestions for the current chat editing session.
-	 * This method is designed to provide initial file suggestions when the working set is empty.
-	 * @param currentEditingSession The active chat editing session.
-	 * @param widget The associated chat widget.
+	 * _updateRelatedFileSuggestions - Orchestrates retrieval and pruning of suggestions.
+	 * 
+	 * Algorithm: Debounced context-aware suggestions.
+	 * Logic: 
+	 * 1. Blocks concurrent retrieval attempts (atomicity).
+	 * 2. Only triggers for fresh sessions with empty working sets (safety).
+	 * 3. Invokes AI-driven file resolution based on current widget input.
+	 * 4. Merges results into the working set, applying a capacity limit (max 2) 
+	 *    and evicting stale suggestions that no longer appear in the resolve set.
 	 */
-	private _updateRelatedFileSuggestions(currentEditingSession: IChatEditingSession, widget: IChatWidget) {
-		// Block concurrent retrieval operations.
+	private _updateRelatedFileSuggestions() {
 		if (this._currentRelatedFilesRetrievalOperation) {
 			return;
 		}
 
-		// Only provide initial suggestions if the working set is empty.
+		const currentEditingSession = this.chatEditingService.globalEditingSessionObs.get();
+		if (!currentEditingSession) {
+			return;
+		}
+		
 		const workingSetEntries = currentEditingSession.entries.get();
 		if (workingSetEntries.length > 0) {
 			return;
 		}
 
-		// Asynchronously get related files from the editing service.
+		const widget = this.chatWidgetService.getWidgetBySessionId(currentEditingSession.chatSessionId);
+		if (!widget) {
+			return;
+		}
+
 		this._currentRelatedFilesRetrievalOperation = this.chatEditingService.getRelatedFiles(currentEditingSession.chatSessionId, widget.getInput(), CancellationToken.None)
 			.then((files) => {
 				if (!files?.length) {
@@ -83,12 +89,11 @@ export class ChatRelatedFilesContribution extends Disposable implements IWorkben
 				}
 
 				const currentEditingSession = this.chatEditingService.globalEditingSessionObs.get();
-				// Check if the session is still valid and unchanged.
 				if (!currentEditingSession || currentEditingSession.chatSessionId !== widget.viewModel?.sessionId || currentEditingSession.entries.get().length) {
-					return; // Might have been disposed or modified while calculating.
+					return;
 				}
 
-				// Determine the maximum number of suggestions to add (up to 2).
+				// Block Logic: Result set pruning and transformation.
 				const maximumRelatedFiles = Math.min(2, this.chatEditingService.editingSessionFileLimit - widget.input.chatEditWorkingSetFiles.length);
 				const newSuggestions = new ResourceMap<{ description: string; group: string }>();
 				for (const group of files) {
@@ -100,7 +105,7 @@ export class ChatRelatedFilesContribution extends Disposable implements IWorkben
 					}
 				}
 
-				// Identify and remove any existing suggestions that are no longer relevant.
+				// Block Logic: Delta application to the working set.
 				const existingSuggestedEntriesToRemove: URI[] = [];
 				for (const entry of currentEditingSession.workingSet) {
 					if (entry[1].state === WorkingSetEntryState.Suggested && !newSuggestions.has(entry[0])) {
@@ -109,59 +114,47 @@ export class ChatRelatedFilesContribution extends Disposable implements IWorkben
 				}
 				currentEditingSession?.remove(WorkingSetEntryRemovalReason.Programmatic, ...existingSuggestedEntriesToRemove);
 
-				// Add the new file suggestions to the working set.
 				for (const [uri, data] of newSuggestions) {
 					currentEditingSession.addFileToWorkingSet(uri, localize('relatedFile', "{0} (Suggested)", data.description), WorkingSetEntryState.Suggested);
 				}
 			})
 			.finally(() => {
-				// Release the operation lock.
 				this._currentRelatedFilesRetrievalOperation = undefined;
 			});
 
 	}
 
 	/**
-	 * Sets up listeners for a new chat editing session to dynamically update related file suggestions.
-	 * @param currentEditingSession The new chat editing session.
-	 * @param widget The associated chat widget.
+	 * _handleNewEditingSession - Binds session-specific observers.
+	 * Logic: Sets up debounced listeners (3000ms) on the editor content to trigger 
+	 * re-evaluations only during typing pauses, minimizing service pressure.
 	 */
-	private _handleNewEditingSession(currentEditingSession: IChatEditingSession, widget: IChatWidget) {
-		const disposableStore = new DisposableStore();
-		disposableStore.add(currentEditingSession.onDidDispose(() => {
-			disposableStore.clear();
+	private _handleNewEditingSession(currentEditingSession: IChatEditingSession) {
+		const widget = this.chatWidgetService.getWidgetBySessionId(currentEditingSession.chatSessionId);
+		if (!widget || widget.viewModel?.sessionId !== currentEditingSession.chatSessionId) {
+			return;
+		}
+
+		this.chatEditingSessionDisposables.add(currentEditingSession.onDidDispose(() => {
+			this.chatEditingSessionDisposables.clear();
 		}));
 
-		// Trigger an initial update for suggestions.
-		this._updateRelatedFileSuggestions(currentEditingSession, widget);
+		this._updateRelatedFileSuggestions();
 
-		// Set up a debounced listener to update suggestions as the user types.
 		const onDebouncedType = Event.debounce(widget.inputEditor.onDidChangeModelContent, () => null, 3000);
-		disposableStore.add(onDebouncedType(() => {
-			this._updateRelatedFileSuggestions(currentEditingSession, widget);
+		this.chatEditingSessionDisposables.add(onDebouncedType(() => {
+			this._updateRelatedFileSuggestions();
 		}));
 
-		// Listen for manual changes to the working set to re-evaluate suggestions.
-		disposableStore.add(currentEditingSession.onDidChange((e) => {
+		this.chatEditingSessionDisposables.add(currentEditingSession.onDidChange((e) => {
 			if (e === ChatEditingSessionChangeType.WorkingSet) {
-				this._updateRelatedFileSuggestions(currentEditingSession, widget);
+				this._updateRelatedFileSuggestions();
 			}
 		}));
-
-		// Ensure cleanup when the session is disposed.
-		disposableStore.add(currentEditingSession.onDidDispose(() => {
-			disposableStore.dispose();
-		}));
-		this.chatEditingSessionDisposables.set(currentEditingSession.chatSessionId, disposableStore);
 	}
 
-	/**
-	 * Disposes of the contribution, cleaning up all listeners for all tracked sessions.
-	 */
 	override dispose() {
-		for (const store of this.chatEditingSessionDisposables.values()) {
-			store.dispose();
-		}
+		this.chatEditingSessionDisposables.dispose();
 		super.dispose();
 	}
 }

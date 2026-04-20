@@ -8,7 +8,7 @@
 package org.elasticsearch.xpack.inference.external.unified;
 
 import org.elasticsearch.inference.UnifiedCompletionRequest;
-import org.elasticsearch.xcontent.ToXContentFragment;
+import org.elasticsearch.xcontent. ToXContentFragment;
 import org.elasticsearch.xcontent.XContentBuilder;
 import org.elasticsearch.xpack.inference.external.http.sender.UnifiedChatInput;
 
@@ -18,8 +18,13 @@ import java.util.Objects;
 import static org.elasticsearch.inference.UnifiedCompletionRequest.INCLUDE_STREAM_OPTIONS_PARAM;
 
 /**
- * Represents a unified chat completion request entity.
- * This class is used to convert the unified chat input into a format that can be serialized to XContent.
+ * @615d42bc-1164-4ac5-a8ee-3d406b670272/x-pack/plugin/inference/src/main/java/org/elasticsearch/xpack/inference/external/unified/UnifiedChatCompletionRequestEntity.java
+ * @brief Serializer for unified chat completion requests within the Elasticsearch inference plugin.
+ * 
+ * Functional Intent: Encapsulates the logic for converting internal chat completion 
+ * request models into an XContent (JSON) format compatible with external providers 
+ * (primarily OpenAI-compatible APIs). It handles provider-specific defaults and 
+ * streaming options.
  */
 public class UnifiedChatCompletionRequestEntity implements ToXContentFragment {
 
@@ -31,24 +36,48 @@ public class UnifiedChatCompletionRequestEntity implements ToXContentFragment {
     private final UnifiedCompletionRequest unifiedRequest;
     private final boolean stream;
 
+    /**
+     * @brief Constructs a request entity from a UnifiedChatInput.
+     * @param unifiedChatInput High-level chat input containing the base request and streaming preference.
+     */
     public UnifiedChatCompletionRequestEntity(UnifiedChatInput unifiedChatInput) {
         this(Objects.requireNonNull(unifiedChatInput).getRequest(), Objects.requireNonNull(unifiedChatInput).stream());
     }
 
+    /**
+     * @brief Constructs a request entity from raw components.
+     * @param unifiedRequest The core completion request parameters.
+     * @param stream Flag indicating whether the response should be streamed.
+     */
     public UnifiedChatCompletionRequestEntity(UnifiedCompletionRequest unifiedRequest, boolean stream) {
         this.unifiedRequest = Objects.requireNonNull(unifiedRequest);
         this.stream = stream;
     }
 
+    /**
+     * Block Logic: Serializes the chat completion request to XContent format.
+     * Logic: 
+     * 1. Delegates base request serialization to the unifiedRequest object.
+     * 2. Overrides the choice count to 1 (provider compatibility requirement).
+     * 3. Appends the streaming flag and conditional stream options (e.g., usage reports).
+     * 
+     * @param builder The XContentBuilder to write into.
+     * @param params Serialization parameters.
+     * @return The updated XContentBuilder.
+     * @throws IOException If an error occurs during serialization.
+     */
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         unifiedRequest.toXContent(builder, params);
 
-        // Underlying providers expect OpenAI to only return 1 possible choice.
+        // Functional Utility: Enforces a single choice return for OpenAI provider compatibility.
         builder.field(NUMBER_OF_RETURNED_CHOICES_FIELD, 1);
 
         builder.field(STREAM_FIELD, stream);
-        // If request is streamed and skip stream options parameter is not true, include stream options in the request.
+        
+        // Block Logic: Conditional inclusion of stream metadata.
+        // Logic: If streaming is enabled and not explicitly suppressed via params, 
+        // requests token usage statistics in the stream metadata.
         if (stream && params.paramAsBoolean(INCLUDE_STREAM_OPTIONS_PARAM, true)) {
             builder.startObject(STREAM_OPTIONS_FIELD);
             builder.field(INCLUDE_USAGE_FIELD, true);

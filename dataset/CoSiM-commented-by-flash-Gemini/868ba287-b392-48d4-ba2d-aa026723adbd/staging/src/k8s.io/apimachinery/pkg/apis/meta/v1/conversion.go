@@ -1,12 +1,3 @@
-/**
- * @868ba287-b392-48d4-ba23-0126fc7278ab/staging/src/k8s.io/apimachinery/pkg/apis/meta/v1/conversion.go
- * @brief Type conversion registry and implementation for Kubernetes meta/v1 API objects.
- * Domain: Distributed Systems, API Versioning, Serialization.
- * Architecture: Part of the apimachinery conversion framework, enabling seamless translation between internal and versioned API representations.
- * Functional Utility: Provides atomic conversion routines for primitive types, pointers, and complex meta types (Selectors, Quantities, Durations).
- * Synchronization: Stateless functions designed for concurrent invocation within a conversion scope.
- */
-
 /*
 Copyright 2014 The Kubernetes Authors.
 
@@ -22,6 +13,19 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
+/**
+ * @868ba287-b392-48d4-ba2d-aa026723adbd/staging/src/k8s.io/apimachinery/pkg/apis/meta/v1/conversion.go
+ * @brief Schema conversion logic for Kubernetes Meta V1 API.
+ * 
+ * Functional Intent: Defines a suite of manual conversion functions for transforming 
+ * data between internal Kubernetes representations and their external V1 API 
+ * counterparts. It handles complex mappings for nullable pointers, selectors, 
+ * time formats, and collections, ensuring consistent state reconciliation 
+ * across different API versions during serialization/deserialization.
+ * 
+ * Domain: Kubernetes API Machinery, Schema Versioning, Data Mapping.
+ */
 
 package v1
 
@@ -39,16 +43,15 @@ import (
 )
 
 /**
- * @brief Registers all manual and auto-generated conversion functions into a runtime scheme.
- * Logic: Orchestrates the mapping between various pointer and value types to support flexible API field resolution.
+ * AddConversionFuncs - Registers Meta V1 conversion primitives with the runtime scheme.
+ * Logic: Bootstraps the conversion subsystem by linking internal types (selectors, 
+ * times, quantities) to their external V1 wire formats.
  */
 func AddConversionFuncs(scheme *runtime.Scheme) error {
 	return scheme.AddConversionFuncs(
 		Convert_v1_TypeMeta_To_v1_TypeMeta,
 
 		Convert_v1_ListMeta_To_v1_ListMeta,
-
-		Convert_v1_DeleteOptions_To_v1_DeleteOptions,
 
 		Convert_intstr_IntOrString_To_intstr_IntOrString,
 		Convert_Pointer_intstr_IntOrString_To_intstr_IntOrString,
@@ -100,9 +103,12 @@ func AddConversionFuncs(scheme *runtime.Scheme) error {
 }
 
 /**
- * @brief Safe dereferencing conversion for float64 pointers.
- * Logic: Maps nil pointers to a zero-value (0.0).
+ * Block Logic: Pointer Unwrapping Conversions.
+ * Logic: Maps double-pointer inputs (FFI or reflection artifacts) to single 
+ * pointers or values, providing zero-value defaults for nil inputs to 
+ * maintain API stability.
  */
+
 func Convert_Pointer_float64_To_float64(in **float64, out *float64, s conversion.Scope) error {
 	if *in == nil {
 		*out = 0
@@ -112,19 +118,12 @@ func Convert_Pointer_float64_To_float64(in **float64, out *float64, s conversion
 	return nil
 }
 
-/**
- * @brief Pointer assignment for float64 values.
- * Logic: Creates a new heap allocation for the result pointer.
- */
 func Convert_float64_To_Pointer_float64(in *float64, out **float64, s conversion.Scope) error {
 	temp := float64(*in)
 	*out = &temp
 	return nil
 }
 
-/**
- * @brief Safe dereferencing for int32 pointers.
- */
 func Convert_Pointer_int32_To_int32(in **int32, out *int32, s conversion.Scope) error {
 	if *in == nil {
 		*out = 0
@@ -155,9 +154,6 @@ func Convert_int64_To_Pointer_int64(in *int64, out **int64, s conversion.Scope) 
 	return nil
 }
 
-/**
- * @brief Lossy conversion from int64 pointer to platform-dependent int.
- */
 func Convert_Pointer_int64_To_int(in **int64, out *int, s conversion.Scope) error {
 	if *in == nil {
 		*out = 0
@@ -211,21 +207,16 @@ func Convert_bool_To_Pointer_bool(in *bool, out **bool, s conversion.Scope) erro
 	return nil
 }
 
-/**
- * @brief Identity conversion for TypeMeta (API versioning info).
- * Logic: Explicitly drops fields to prevent version leakage during specific conversion paths.
- */
 // +k8s:conversion-fn=drop
+/**
+ * Functional Utility: Explicitly ignores TypeMeta during conversion.
+ * Logic: Kind and Version are managed by the scheme's GVK resolution logic 
+ * and must not be overwritten by data mapping.
+ */
 func Convert_v1_TypeMeta_To_v1_TypeMeta(in, out *TypeMeta, s conversion.Scope) error {
-	// These values are explicitly not copied
-	//out.APIVersion = in.APIVersion
-	//out.Kind = in.Kind
 	return nil
 }
 
-/**
- * @brief Performs a shallow copy of List metadata.
- */
 // +k8s:conversion-fn=copy-only
 func Convert_v1_ListMeta_To_v1_ListMeta(in, out *ListMeta, s conversion.Scope) error {
 	*out = *in
@@ -244,62 +235,55 @@ func Convert_intstr_IntOrString_To_intstr_IntOrString(in, out *intstr.IntOrStrin
 	return nil
 }
 
-/**
- * @brief Handles conversion from a pointer-to-pointer IntOrString to a value.
- * Invariant: Returns an empty IntOrString if input is nil.
- */
 func Convert_Pointer_intstr_IntOrString_To_intstr_IntOrString(in **intstr.IntOrString, out *intstr.IntOrString, s conversion.Scope) error {
 	if *in == nil {
-		*out = intstr.IntOrString{} // zero value
+		*out = intstr.IntOrString{}
 		return nil
 	}
-	*out = **in // copy
+	*out = **in
 	return nil
 }
 
 func Convert_intstr_IntOrString_To_Pointer_intstr_IntOrString(in *intstr.IntOrString, out **intstr.IntOrString, s conversion.Scope) error {
-	temp := *in // copy
+	temp := *in
 	*out = &temp
 	return nil
 }
 
-/**
- * @brief Time conversion implementation.
- * Logic: Performs a value-copy to bypass internal private field constraints of time.Time.
- */
 // +k8s:conversion-fn=copy-only
 func Convert_v1_Time_To_v1_Time(in *Time, out *Time, s conversion.Scope) error {
-	// Cannot deep copy these, because time.Time has unexported fields.
+	// Poiner-to-value copy for time.Time (atomic replacement).
 	*out = *in
 	return nil
 }
 
 // +k8s:conversion-fn=copy-only
 func Convert_v1_MicroTime_To_v1_MicroTime(in *MicroTime, out *MicroTime, s conversion.Scope) error {
-	// Cannot deep copy these, because time.Time has unexported fields.
 	*out = *in
 	return nil
 }
 
 func Convert_Pointer_v1_Duration_To_v1_Duration(in **Duration, out *Duration, s conversion.Scope) error {
 	if *in == nil {
-		*out = Duration{} // zero duration
+		*out = Duration{}
 		return nil
 	}
-	*out = **in // copy
+	*out = **in
 	return nil
 }
 
 func Convert_v1_Duration_To_Pointer_v1_Duration(in *Duration, out **Duration, s conversion.Scope) error {
-	temp := *in //copy
+	temp := *in
 	*out = &temp
 	return nil
 }
 
 /**
- * @brief Decodes a Time object from a string slice, typically from URL parameters.
+ * Block Logic: Parameter-to-Type conversions.
+ * Logic: Extracts values from URL query parameters (string slices) and 
+ * deserializes them into structured types (Time, Selector, PropagationPolicy).
  */
-// Convert_Slice_string_To_v1_Time allows converting a URL query parameter value
+
 func Convert_Slice_string_To_v1_Time(in *[]string, out *Time, s conversion.Scope) error {
 	str := ""
 	if len(*in) > 0 {
@@ -308,9 +292,6 @@ func Convert_Slice_string_To_v1_Time(in *[]string, out *Time, s conversion.Scope
 	return out.UnmarshalQueryParameter(str)
 }
 
-/**
- * @brief Parses a Label Selector from a string representation.
- */
 func Convert_string_To_labels_Selector(in *string, out *labels.Selector, s conversion.Scope) error {
 	selector, err := labels.Parse(*in)
 	if err != nil {
@@ -320,9 +301,6 @@ func Convert_string_To_labels_Selector(in *string, out *labels.Selector, s conve
 	return nil
 }
 
-/**
- * @brief Parses a Field Selector from a string representation.
- */
 func Convert_string_To_fields_Selector(in *string, out *fields.Selector, s conversion.Scope) error {
 	selector, err := fields.ParseSelector(*in)
 	if err != nil {
@@ -355,7 +333,9 @@ func Convert_resource_Quantity_To_resource_Quantity(in *resource.Quantity, out *
 }
 
 /**
- * @brief Populates a LabelSelector from a raw string map.
+ * Block Logic: Complex Collection Mapping.
+ * Logic: Flattens or expands structured types (LabelSelectors) to/from 
+ * generic map[string]string representations for wire-format compatibility.
  */
 func Convert_Map_string_To_string_To_v1_LabelSelector(in *map[string]string, out *LabelSelector, s conversion.Scope) error {
 	if in == nil {
@@ -373,14 +353,6 @@ func Convert_v1_LabelSelector_To_Map_string_To_string(in *LabelSelector, out *ma
 	return err
 }
 
-/**
- * @brief Converts multiple string parameters (or comma-delimited single strings) into an int32 slice.
- * Logic: Validates input strings as base-10 unsigned integers before casting.
- * Functional Utility: Primarily used for port-mapping and network forwarding configurations.
- */
-// Convert_Slice_string_To_Slice_int32 converts multiple query parameters or
-// a single query parameter with a comma delimited value to multiple int32.
-// This is used for port forwarding which needs the ports as int32.
 func Convert_Slice_string_To_Slice_int32(in *[]string, out *[]int32, s conversion.Scope) error {
 	for _, s := range *in {
 		for _, v := range strings.Split(s, ",") {
@@ -394,10 +366,6 @@ func Convert_Slice_string_To_Slice_int32(in *[]string, out *[]int32, s conversio
 	return nil
 }
 
-/**
- * @brief Parses Deletion Propagation policy from query parameters.
- */
-// Convert_Slice_string_To_v1_DeletionPropagation allows converting a URL query parameter propagationPolicy
 func Convert_Slice_string_To_v1_DeletionPropagation(in *[]string, out *DeletionPropagation, s conversion.Scope) error {
 	if len(*in) > 0 {
 		*out = DeletionPropagation((*in)[0])
@@ -407,10 +375,6 @@ func Convert_Slice_string_To_v1_DeletionPropagation(in *[]string, out *DeletionP
 	return nil
 }
 
-/**
- * @brief Parses Include Object policy from query parameters.
- */
-// Convert_Slice_string_To_v1_IncludeObjectPolicy allows converting a URL query parameter value
 func Convert_Slice_string_To_v1_IncludeObjectPolicy(in *[]string, out *IncludeObjectPolicy, s conversion.Scope) error {
 	if len(*in) > 0 {
 		*out = IncludeObjectPolicy((*in)[0])

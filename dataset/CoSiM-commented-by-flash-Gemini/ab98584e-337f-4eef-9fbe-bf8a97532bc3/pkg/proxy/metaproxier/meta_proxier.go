@@ -14,10 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package metaproxier implements a dual-stack Kubernetes proxy provider that
-// dispatches API calls to separate IPv4 and IPv6 proxy implementations.
-// It acts as a facade, allowing a single proxy instance to manage network
-// rules for both address families.
+/**
+ * @ab98584e-337f-4eef-9fbe-bf8a97532bc3/pkg/proxy/metaproxier/meta_proxier.go
+ * @brief Dual-stack network proxy dispatcher utilizing the Composite pattern.
+ * 
+ * Functional Intent: Orchestrates the synchronization of networking rules across 
+ * independent IPv4 and IPv6 stacks. It acts as a transparent router for cluster 
+ * events (Services, Nodes, EndpointSlices), ensuring that dual-stack configurations 
+ * are consistently realized in the underlying data plane by delegating to family-specific 
+ * providers.
+ * 
+ * Domain: Kubernetes Networking, Dual-Stack Proxies, Composite Design Pattern.
+ */
+
 package metaproxier
 
 import (
@@ -28,29 +37,20 @@ import (
 	"k8s.io/kubernetes/pkg/proxy/config"
 )
 
-// metaProxier is a dual-stack proxy that wraps separate IPv4 and IPv6
-// proxy providers. It dispatches API events (Service, EndpointSlice, Node)
-// to the appropriate underlying proxier based on the address family.
+/**
+ * @brief Internal container for the dual backend proxy providers.
+ */
 type metaProxier struct {
-	// ipv4Proxier is the actual proxy provider for IPv4 traffic.
 	ipv4Proxier proxy.Provider
-	// ipv6Proxier is the actual proxy provider for IPv6 traffic.
 	ipv6Proxier proxy.Provider
-	// NoopNodeHandler provides a default, no-operation implementation for node events,
-	// as node handling is not yet implemented for the meta proxier.
 	config.NoopNodeHandler
 }
 
-// NewMetaProxier returns a new dual-stack "meta-proxier".
-// Proxier API calls will be dispatched to the provided ProxyProvider instances
-// based on their address family.
-//
-// Args:
-//   ipv4Proxier: The ProxyProvider instance responsible for IPv4 proxying.
-//   ipv6Proxier: The ProxyProvider instance responsible for IPv6 proxying.
-//
-// Returns:
-//   A proxy.Provider interface implemented by the metaProxier.
+/**
+ * NewMetaProxier - Factory for a unified dual-stack proxy provider.
+ * Logic: Aggregates family-specific providers into a single interface compliant 
+ * with the standard Kubernetes proxy.Provider.
+ */
 func NewMetaProxier(ipv4Proxier, ipv6Proxier proxy.Provider) proxy.Provider {
 	return proxy.Provider(&metaProxier{
 		ipv4Proxier: ipv4Proxier,
@@ -58,58 +58,53 @@ func NewMetaProxier(ipv4Proxier, ipv6Proxier proxy.Provider) proxy.Provider {
 	})
 }
 
-// Sync immediately synchronizes the ProxyProvider's current state to
-// proxy rules for both IPv4 and IPv6.
+/**
+ * Sync - Triggers immediate rule reconciliation for both stacks.
+ */
 func (proxier *metaProxier) Sync() {
-	proxier.ipv4Proxier.Sync() // Synchronize IPv4 proxy rules.
-	proxier.ipv6Proxier.Sync() // Synchronize IPv6 proxy rules.
+	proxier.ipv4Proxier.Sync()
+	proxier.ipv6Proxier.Sync()
 }
 
-// SyncLoop runs periodic work for both IPv4 and IPv6 proxiers.
-// This method is expected to run as a goroutine or as the main loop of the app.
-// It will not return; the IPv6 SyncLoop runs in a separate goroutine,
-// while the IPv4 SyncLoop blocks the current goroutine.
+/**
+ * SyncLoop - Orchestrates continuous background rule maintenance.
+ * Logic: Parallelizes stack maintenance by launching the IPv6 loop in a 
+ * separate goroutine while the IPv4 loop occupies the primary thread.
+ */
 func (proxier *metaProxier) SyncLoop() {
-	// Start the IPv6 proxy's SyncLoop in a new goroutine to allow concurrent execution.
 	go proxier.ipv6Proxier.SyncLoop()
-	// Run the IPv4 proxy's SyncLoop, which is typically a blocking call.
 	proxier.ipv4Proxier.SyncLoop()
 }
 
-// OnServiceAdd is called whenever creation of a new service object is observed.
-// It dispatches the event to both the IPv4 and IPv6 proxy providers.
+/* --- Service Event Delegation Logic --- */
+
 func (proxier *metaProxier) OnServiceAdd(service *v1.Service) {
-	proxier.ipv4Proxier.OnServiceAdd(service) // Notify IPv4 proxier of new service.
-	proxier.ipv6Proxier.OnServiceAdd(service) // Notify IPv6 proxier of new service.
+	proxier.ipv4Proxier.OnServiceAdd(service)
+	proxier.ipv6Proxier.OnServiceAdd(service)
 }
 
-// OnServiceUpdate is called whenever modification of an existing
-// service object is observed. It dispatches the event to both the
-// IPv4 and IPv6 proxy providers.
 func (proxier *metaProxier) OnServiceUpdate(oldService, service *v1.Service) {
-	proxier.ipv4Proxier.OnServiceUpdate(oldService, service) // Notify IPv4 proxier of service update.
-	proxier.ipv6Proxier.OnServiceUpdate(oldService, service) // Notify IPv6 proxier of service update.
+	proxier.ipv4Proxier.OnServiceUpdate(oldService, service)
+	proxier.ipv6Proxier.OnServiceUpdate(oldService, service)
 }
 
-// OnServiceDelete is called whenever deletion of an existing service
-// object is observed. It dispatches the event to both the IPv4 and IPv6
-// proxy providers.
 func (proxier *metaProxier) OnServiceDelete(service *v1.Service) {
-	proxier.ipv4Proxier.OnServiceDelete(service) // Notify IPv4 proxier of service deletion.
-	proxier.ipv6Proxier.OnServiceDelete(service) // Notify IPv6 proxier of service deletion.
+	proxier.ipv4Proxier.OnServiceDelete(service)
+	proxier.ipv6Proxier.OnServiceDelete(service)
 }
 
-// OnServiceSynced is called once all the initial service event handlers were
-// called and the state is fully propagated to local cache.
-// It dispatches the event to both the IPv4 and IPv6 proxy providers.
 func (proxier *metaProxier) OnServiceSynced() {
-	proxier.ipv4Proxier.OnServiceSynced() // Notify IPv4 proxier that services are synced.
-	proxier.ipv6Proxier.OnServiceSynced() // Notify IPv6 proxier that services are synced.
+	proxier.ipv4Proxier.OnServiceSynced()
+	proxier.ipv6Proxier.OnServiceSynced()
 }
 
-// OnEndpointSliceAdd is called whenever creation of a new endpoint slice object
-// is observed. It dispatches the event to the appropriate proxy provider
-// based on the EndpointSlice's AddressType (IPv4 or IPv6).
+/* --- EndpointSlice Event Routing Logic --- */
+
+/**
+ * Block Logic: Type-aware event dispatching.
+ * Logic: Routes EndpointSlice updates based on their AddressType (IPv4 vs IPv6), 
+ * as EndpointSlices are inherently single-family resources.
+ */
 func (proxier *metaProxier) OnEndpointSliceAdd(endpointSlice *discovery.EndpointSlice) {
 	switch endpointSlice.AddressType {
 	case discovery.AddressTypeIPv4:
@@ -117,14 +112,10 @@ func (proxier *metaProxier) OnEndpointSliceAdd(endpointSlice *discovery.Endpoint
 	case discovery.AddressTypeIPv6:
 		proxier.ipv6Proxier.OnEndpointSliceAdd(endpointSlice)
 	default:
-		// Log an error if an unsupported EndpointSlice address type is encountered.
 		klog.ErrorS(nil, "EndpointSlice address type not supported", "addressType", endpointSlice.AddressType)
 	}
 }
 
-// OnEndpointSliceUpdate is called whenever modification of an existing endpoint
-// slice object is observed. It dispatches the event to the appropriate proxy
-// provider based on the new EndpointSlice's AddressType.
 func (proxier *metaProxier) OnEndpointSliceUpdate(oldEndpointSlice, newEndpointSlice *discovery.EndpointSlice) {
 	switch newEndpointSlice.AddressType {
 	case discovery.AddressTypeIPv4:
@@ -132,14 +123,10 @@ func (proxier *metaProxier) OnEndpointSliceUpdate(oldEndpointSlice, newEndpointS
 	case discovery.AddressTypeIPv6:
 		proxier.ipv6Proxier.OnEndpointSliceUpdate(oldEndpointSlice, newEndpointSlice)
 	default:
-		// Log an error if an unsupported EndpointSlice address type is encountered.
 		klog.ErrorS(nil, "EndpointSlice address type not supported", "addressType", newEndpointSlice.AddressType)
 	}
 }
 
-// OnEndpointSliceDelete is called whenever deletion of an existing endpoint slice
-// object is observed. It dispatches the event to the appropriate proxy provider
-// based on the EndpointSlice's AddressType.
 func (proxier *metaProxier) OnEndpointSliceDelete(endpointSlice *discovery.EndpointSlice) {
 	switch endpointSlice.AddressType {
 	case discovery.AddressTypeIPv4:
@@ -147,54 +134,41 @@ func (proxier *metaProxier) OnEndpointSliceDelete(endpointSlice *discovery.Endpo
 	case discovery.AddressTypeIPv6:
 		proxier.ipv6Proxier.OnEndpointSliceDelete(endpointSlice)
 	default:
-		// Log an error if an unsupported EndpointSlice address type is encountered.
 		klog.ErrorS(nil, "EndpointSlice address type not supported", "addressType", endpointSlice.AddressType)
 	}
 }
 
-// OnEndpointSlicesSynced is called once all the initial endpoint slice event handlers were
-// called and the state is fully propagated to local cache.
-// It dispatches the event to both the IPv4 and IPv6 proxy providers.
 func (proxier *metaProxier) OnEndpointSlicesSynced() {
-	proxier.ipv4Proxier.OnEndpointSlicesSynced() // Notify IPv4 proxier that endpoint slices are synced.
-	proxier.ipv6Proxier.OnEndpointSlicesSynced() // Notify IPv6 proxier that endpoint slices are synced.
+	proxier.ipv4Proxier.OnEndpointSlicesSynced()
+	proxier.ipv6Proxier.OnEndpointSlicesSynced()
 }
 
-// OnNodeAdd is called whenever creation of new node object is observed.
-// It dispatches the event to both the IPv4 and IPv6 proxy providers.
+/* --- Node Event Delegation Logic --- */
+
 func (proxier *metaProxier) OnNodeAdd(node *v1.Node) {
-	proxier.ipv4Proxier.OnNodeAdd(node) // Notify IPv4 proxier of new node.
-	proxier.ipv6Proxier.OnNodeAdd(node) // Notify IPv6 proxier of new node.
+	proxier.ipv4Proxier.OnNodeAdd(node)
+	proxier.ipv6Proxier.OnNodeAdd(node)
 }
 
-// OnNodeUpdate is called whenever modification of an existing
-// node object is observed. It dispatches the event to both the
-// IPv4 and IPv6 proxy providers.
 func (proxier *metaProxier) OnNodeUpdate(oldNode, node *v1.Node) {
-	proxier.ipv4Proxier.OnNodeUpdate(oldNode, node) // Notify IPv4 proxier of node update.
-	proxier.ipv6Proxier.OnNodeUpdate(oldNode, node) // Notify IPv6 proxier of node update.
+	proxier.ipv4Proxier.OnNodeUpdate(oldNode, node)
+	proxier.ipv6Proxier.OnNodeUpdate(oldNode, node)
 }
 
-// OnNodeDelete is called whenever deletion of an existing node
-// object is observed. It dispatches the event to both the IPv4 and IPv6
-// proxy providers.
 func (proxier *metaProxier) OnNodeDelete(node *v1.Node) {
-	proxier.ipv4Proxier.OnNodeDelete(node) // Notify IPv4 proxier of node deletion.
-	proxier.ipv6Proxier.OnNodeDelete(node) // Notify IPv6 proxier of node deletion.
+	proxier.ipv4Proxier.OnNodeDelete(node)
+	proxier.ipv6Proxier.OnNodeDelete(node)
 }
 
-// OnNodeSynced is called once all the initial node event handlers were
-// called and the state is fully propagated to local cache.
-// It dispatches the event to both the IPv4 and IPv6 proxy providers.
 func (proxier *metaProxier) OnNodeSynced() {
-	proxier.ipv4Proxier.OnNodeSynced() // Notify IPv4 proxier that nodes are synced.
-	proxier.ipv6Proxier.OnNodeSynced() // Notify IPv6 proxier that nodes are synced.
+	proxier.ipv4Proxier.OnNodeSynced()
+	proxier.ipv6Proxier.OnNodeSynced()
 }
 
-// OnServiceCIDRsChanged is called whenever a change is observed
-// in any of the ServiceCIDRs, and provides a complete list of service CIDRs.
-// It dispatches the event to both the IPv4 and IPv6 proxy providers.
+/**
+ * OnServiceCIDRsChanged - Broadcasts subnet reconfigurations to both providers.
+ */
 func (proxier *metaProxier) OnServiceCIDRsChanged(cidrs []string) {
-	proxier.ipv4Proxier.OnServiceCIDRsChanged(cidrs) // Notify IPv4 proxier of Service CIDR changes.
-	proxier.ipv6Proxier.OnServiceCIDRsChanged(cidrs) // Notify IPv6 proxier of Service CIDR changes.
+	proxier.ipv4Proxier.OnServiceCIDRsChanged(cidrs)
+	proxier.ipv6Proxier.OnServiceCIDRsChanged(cidrs)
 }

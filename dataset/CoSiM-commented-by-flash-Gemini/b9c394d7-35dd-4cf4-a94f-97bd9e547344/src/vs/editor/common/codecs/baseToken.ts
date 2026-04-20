@@ -1,9 +1,11 @@
 /**
- * @file baseToken.ts
+ * @b9c394d7-35dd-4cf4-a94f-97bd9e547344/src/vs/editor/common/codecs/baseToken.ts
  * @brief Foundational abstractions for text tokenization and spatial range management.
- * @details Defines the base schema for elements extracted from source data, ensuring 
- * each token maintains a strict mapping to its original coordinates (line and column) 
- * through the `Range` object. Provides utilities for token serialization and range composition.
+ * 
+ * Functional Intent: Defines the base schema for elements extracted from source 
+ * data, ensuring each token maintains a strict mapping to its original coordinates 
+ * (line and column). Provides utilities for token serialization, deep equality 
+ * comparison, and range-based aggregation.
  * 
  * Domain: Compilers, Text Processing, Editor Foundations.
  */
@@ -13,8 +15,8 @@ import { assert } from '../../../base/common/assert.js';
 import { IRange, Range } from '../../../editor/common/core/range.js';
 
 /**
- * @class BaseToken
  * @brief Abstract representation of a discrete atomic unit of text.
+ * 
  * Functional Utility: Serves as the parent for all domain-specific tokens, 
  * encapsulating positioning and textual representation logic.
  */
@@ -46,8 +48,9 @@ export abstract class BaseToken {
 	public abstract toString(): string;
 
 	/**
-	 * @brief Deep equality check for tokens.
-	 * Logic: Compares constructor type, text content length, text content, and range.
+	 * equals - Deep equality check for tokens.
+	 * Logic: Compares constructor type, text content length, text content, and range 
+	 * to ensure both identity and value equivalence.
 	 */
 	public equals(other: BaseToken): other is typeof this {
 		if (other.constructor !== this.constructor) {
@@ -66,8 +69,9 @@ export abstract class BaseToken {
 	}
 
 	/**
-	 * @brief Immutable-style range modification.
-	 * @return A new instance or updated self with the modified range components.
+	 * withRange - Immutable-style range modification.
+	 * Logic: Merges existing range components with provided overrides to produce 
+	 * a updated coordinate set for the token.
 	 */
 	public withRange(components: Partial<IRange>): this {
 		this._range = new Range(
@@ -88,8 +92,15 @@ export abstract class BaseToken {
 	}
 
 	/**
-	 * @brief Aggregation: Computes the minimal bounding range covering a sequence of tokens.
-	 * Pre-condition: Tokens must be provided in sequential order.
+	 * fullRange - Computes the minimal bounding range covering a sequence of tokens.
+	 * 
+	 * Block Logic: Range aggregation and consistency verification.
+	 * Pre-condition: Tokens must be provided in sequential order and non-empty.
+	 * Logic: 
+	 * 1. Identifies the start of the first token and the end of the last.
+	 * 2. Enforces structural invariants (non-decreasing line/column numbers) 
+	 *    to detect non-contiguous or reversed input sequences.
+	 * 
 	 * @param tokens Sequence of tokens to envelope.
 	 * @throws Assertion error if the list is empty or non-contiguous.
 	 */
@@ -102,7 +113,6 @@ export abstract class BaseToken {
 		const firstToken = tokens[0];
 		const lastToken = tokens[tokens.length - 1];
 
-		// Consistency Check: Ensures the tokens actually form a valid forward-moving sequence.
 		assert(
 			firstToken.range.startLineNumber <= lastToken.range.startLineNumber,
 			'First token must start on previous or the same line as the last token.',
@@ -140,10 +150,10 @@ export abstract class BaseToken {
 }
 
 /**
- * @class Text
  * @brief Represents a composite token formed by a sequence of sub-tokens.
- * Functional Utility: Used to group tokens that collectively form a plain text 
- * segment without specific semantic meaning.
+ * 
+ * Functional Utility: Groups discrete tokens that collectively form a logical 
+ * text segment, facilitating tree-based token structures.
  */
 export class Text<TToken extends BaseToken = BaseToken> extends BaseToken {
 	public get text(): string {
@@ -159,7 +169,9 @@ export class Text<TToken extends BaseToken = BaseToken> extends BaseToken {
 	}
 
 	/**
-	 * @brief Factory: Constructs a Text token from a list, automatically inferring the range.
+	 * fromTokens - Constructs a Text token from a list with inferred range.
+	 * Logic: Automatically calculates the bounding envelope for the provided tokens 
+	 * and creates a composite parent.
 	 */
 	public static fromTokens<TToken extends BaseToken = BaseToken>(
 		tokens: readonly TToken[],

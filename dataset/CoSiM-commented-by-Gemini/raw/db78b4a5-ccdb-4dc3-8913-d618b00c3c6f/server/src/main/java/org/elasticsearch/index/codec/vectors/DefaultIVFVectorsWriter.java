@@ -1,3 +1,5 @@
+// Package provides architecture-aware components for DefaultIVFVectorsWriter.java.
+// Focuses on production system reliability and error handling.
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
  * or more contributor license agreements. Licensed under the "Elastic License
@@ -61,6 +63,7 @@ public class DefaultIVFVectorsWriter extends IVFVectorsWriter {
         BinarizedFloatVectorValues binarizedByteVectorValues = new BinarizedFloatVectorValues(floatVectorValues, quantizer);
         DocIdsWriter docIdsWriter = new DocIdsWriter();
 
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
         for (int c = 0; c < centroidSupplier.size(); c++) {
             float[] centroid = centroidSupplier.centroid(c);
             binarizedByteVectorValues.centroid = centroid;
@@ -78,6 +81,7 @@ public class DefaultIVFVectorsWriter extends IVFVectorsWriter {
             writePostingList(cluster, postingsOutput, binarizedByteVectorValues);
         }
 
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
         if (logger.isDebugEnabled()) {
             printClusterQualityStatistics(assignmentsByCluster);
         }
@@ -92,8 +96,10 @@ public class DefaultIVFVectorsWriter extends IVFVectorsWriter {
         float m2 = 0;
         // iteratively compute the variance & mean
         int count = 0;
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
         for (int[] cluster : clusters) {
             count += 1;
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
             if (cluster == null) {
                 continue;
             }
@@ -122,7 +128,9 @@ public class DefaultIVFVectorsWriter extends IVFVectorsWriter {
         OptimizedScalarQuantizer.QuantizationResult[] corrections =
             new OptimizedScalarQuantizer.QuantizationResult[ES91OSQVectorsScorer.BULK_SIZE];
         // Write vectors in bulks of ES91OSQVectorsScorer.BULK_SIZE.
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
         for (; cidx < limit; cidx += ES91OSQVectorsScorer.BULK_SIZE) {
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
             for (int j = 0; j < ES91OSQVectorsScorer.BULK_SIZE; j++) {
                 int ord = cluster[cidx + j];
                 byte[] binaryValue = binarizedByteVectorValues.vectorValue(ord);
@@ -131,22 +139,27 @@ public class DefaultIVFVectorsWriter extends IVFVectorsWriter {
                 corrections[j] = binarizedByteVectorValues.getCorrectiveTerms(ord);
             }
             // write corrections
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
             for (int j = 0; j < ES91OSQVectorsScorer.BULK_SIZE; j++) {
                 postingsOutput.writeInt(Float.floatToIntBits(corrections[j].lowerInterval()));
             }
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
             for (int j = 0; j < ES91OSQVectorsScorer.BULK_SIZE; j++) {
                 postingsOutput.writeInt(Float.floatToIntBits(corrections[j].upperInterval()));
             }
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
             for (int j = 0; j < ES91OSQVectorsScorer.BULK_SIZE; j++) {
                 int targetComponentSum = corrections[j].quantizedComponentSum();
                 assert targetComponentSum >= 0 && targetComponentSum <= 0xffff;
                 postingsOutput.writeShort((short) targetComponentSum);
             }
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
             for (int j = 0; j < ES91OSQVectorsScorer.BULK_SIZE; j++) {
                 postingsOutput.writeInt(Float.floatToIntBits(corrections[j].additionalCorrection()));
             }
         }
         // write tail
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
         for (; cidx < cluster.length; cidx++) {
             int ord = cluster[cidx];
             // write vector
@@ -176,6 +189,7 @@ public class DefaultIVFVectorsWriter extends IVFVectorsWriter {
         // TODO do we want to store these distances as well for future use?
         // TODO: sort centroids by global centroid (was doing so previously here)
         // TODO: sorting tanks recall possibly because centroids ordinals no longer are aligned
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
         for (float[] centroid : centroids) {
             System.arraycopy(centroid, 0, centroidScratch, 0, centroid.length);
             OptimizedScalarQuantizer.QuantizationResult result = osq.scalarQuantize(
@@ -187,6 +201,7 @@ public class DefaultIVFVectorsWriter extends IVFVectorsWriter {
             writeQuantizedValue(centroidOutput, quantizedScratch, result);
         }
         final ByteBuffer buffer = ByteBuffer.allocate(fieldInfo.getVectorDimension() * Float.BYTES).order(ByteOrder.LITTLE_ENDIAN);
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
         for (float[] centroid : centroids) {
             buffer.asFloatBuffer().put(centroid);
             centroidOutput.writeBytes(buffer.array(), buffer.array().length);
@@ -244,11 +259,14 @@ public class DefaultIVFVectorsWriter extends IVFVectorsWriter {
         // TODO: for flush we are doing this over the vectors and here centroids which seems duplicative
         // preliminary tests suggest recall is good using only centroids but need to do further evaluation
         // TODO: push this logic into vector util?
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
         for (float[] centroid : centroids) {
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
             for (int j = 0; j < centroid.length; j++) {
                 globalCentroid[j] += centroid[j];
             }
         }
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
         for (int j = 0; j < globalCentroid.length; j++) {
             globalCentroid[j] /= centroids.length;
         }
@@ -256,38 +274,46 @@ public class DefaultIVFVectorsWriter extends IVFVectorsWriter {
         // write centroids
         writeCentroids(centroids, fieldInfo, globalCentroid, centroidOutput);
 
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
         if (logger.isDebugEnabled()) {
             logger.debug("calculate centroids and assign vectors time ms: {}", (System.nanoTime() - nanoTime) / 1000000.0);
             logger.debug("final centroid count: {}", centroids.length);
         }
 
         int[] centroidVectorCount = new int[centroids.length];
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
         for (int i = 0; i < assignments.length; i++) {
             centroidVectorCount[assignments[i]]++;
             // if soar assignments are present, count them as well
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
             if (soarAssignments.length > i && soarAssignments[i] != -1) {
                 centroidVectorCount[soarAssignments[i]]++;
             }
         }
 
         int[][] assignmentsByCluster = new int[centroids.length][];
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
         for (int c = 0; c < centroids.length; c++) {
             assignmentsByCluster[c] = new int[centroidVectorCount[c]];
         }
         Arrays.fill(centroidVectorCount, 0);
 
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
         for (int i = 0; i < assignments.length; i++) {
             int c = assignments[i];
             assignmentsByCluster[c][centroidVectorCount[c]++] = i;
             // if soar assignments are present, add them to the cluster as well
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
             if (soarAssignments.length > i) {
                 int s = soarAssignments[i];
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
                 if (s != -1) {
                     assignmentsByCluster[s][centroidVectorCount[s]++] = i;
                 }
             }
         }
 
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
         if (cacheCentroids) {
             return new CentroidAssignments(centroids, assignmentsByCluster);
         } else {
@@ -314,6 +340,7 @@ public class DefaultIVFVectorsWriter extends IVFVectorsWriter {
         }
 
         public OptimizedScalarQuantizer.QuantizationResult getCorrectiveTerms(int ord) {
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
             if (ord != lastOrd) {
                 throw new IllegalStateException(
                     "attempt to retrieve corrective terms for different ord " + ord + " than the quantization was done for: " + lastOrd
@@ -323,6 +350,7 @@ public class DefaultIVFVectorsWriter extends IVFVectorsWriter {
         }
 
         public byte[] vectorValue(int ord) throws IOException {
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
             if (ord != lastOrd) {
                 binarize(ord);
                 lastOrd = ord;
@@ -369,6 +397,7 @@ public class DefaultIVFVectorsWriter extends IVFVectorsWriter {
 
         @Override
         public float[] centroid(int centroidOrdinal) throws IOException {
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
             if (centroidOrdinal == currOrd) {
                 return scratch;
             }

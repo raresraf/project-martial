@@ -1,3 +1,10 @@
+/**
+ * @file solver_blas.c
+ * @brief BLAS-based optimized matrix solver computing $C = A \times B \times B^T + A^T \times A$.
+ * Algorithm: Relies on optimized numerical linear algebra kernels (DGEMM, DTRMM).
+ * Time Complexity: $O(N^3)$ due to dense matrix multiplications.
+ * Space Complexity: $O(N^2)$ for storing the result matrix C.
+ */
 
 #include "utils.h"
 #include "cblas.h"
@@ -5,9 +12,16 @@
 
 
 
+/**
+ * @brief Computes C = A * B * B^T + A^T * A.
+ * @param N Matrix dimension.
+ * @param A Input matrix A.
+ * @param B Input matrix B.
+ * @return Pointer to resulting matrix C.
+ */
 double* my_solver(int N, double *A, double *B) {
 	int i, j;
-	double *prod_Bt_B = NULL;
+	double *prod_Bt_B = NULL; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 	double *result = NULL;
 	double *identity_matrix = NULL;
 	double alpha = 1.0;
@@ -15,12 +29,24 @@ double* my_solver(int N, double *A, double *B) {
 
 	
 	result = (double *)calloc(N * N, sizeof(double));
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (result == NULL) {
 		fprintf(stderr, "Error calloc tranpose.\n");
 		exit(0);
 	}
 
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for (i = 0; i < N; i++) {
+		/**
+		 * Block Logic: Iterative processing loop.
+		 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+		 */
 		for (j = i; j < N; j++) {
 			result[i * N + j] = A[i * N + j];
 		}
@@ -37,6 +63,10 @@ double* my_solver(int N, double *A, double *B) {
 
 	
 	prod_Bt_B = (double *)calloc(N * N, sizeof(double));
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (prod_Bt_B== NULL) {
 		fprintf(stderr, "Error calloc tranpose.\n");
 		exit(0);
@@ -63,11 +93,19 @@ double* my_solver(int N, double *A, double *B) {
 
 	
 	identity_matrix = (double *)calloc(N * N, sizeof(double));
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (identity_matrix == NULL) {
 		fprintf(stderr, "Error calloc tranpose.\n");
 		exit(0);
 	}
 
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for (i = 0; i < N; i++) {
 		identity_matrix[i * N + i] = 1.0;
 	}

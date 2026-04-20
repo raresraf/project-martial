@@ -1,123 +1,97 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * AppArmor security module
- *
- * This file contains AppArmor policy loading interface function definitions.
- *
+ * @b9377395-0640-42a5-8f73-82ff9c50719f/security/apparmor/crypto.c
+ * @brief Policy integrity verification logic for the AppArmor LSM.
+ * 
+ * Functional Intent: Provides cryptographic hashing utilities to generate 
+ * stable fingerprints of loaded security profiles. These hashes allow 
+ * userspace tools to verify that the kernel's active policy matches the 
+ * intended source, facilitating auditing and detection of unauthorized 
+ * policy modifications.
+ * 
+ * Domain: Kernel Security, AppArmor, Cryptographic Hashing.
+ * 
  * Copyright 2013 Canonical Ltd.
- *
- * Fns to provide a checksum of policy that has been loaded this can be
- * compared to userspace policy compiles to check loaded policy is what
- * it should be.
  */
 
-#include <crypto/hash.h>
+#include <crypto/sha2.h>
 
 #include "include/apparmor.h"
 #include "include/crypto.h"
 
-static unsigned int apparmor_hash_size;
-
-static struct crypto_shash *apparmor_tfm;
-
+/**
+ * @brief Returns the byte size of the SHA256 digest used for policy hashing.
+ */
 unsigned int aa_hash_size(void)
 {
-	return apparmor_hash_size;
+	return SHA256_DIGEST_SIZE;
 }
 
+/**
+ * aa_calc_hash - Generates a standalone SHA256 fingerprint for arbitrary data.
+ * @data: Buffer containing policy fragments.
+ * @len: Size of the data in bytes.
+ * 
+ * Logic: Allocates a kernel buffer for the digest and performs a single-pass 
+ * SHA256 transformation.
+ * @return Pointer to the allocated hash or an error pointer on allocation failure.
+ */
 char *aa_calc_hash(void *data, size_t len)
 {
-	SHASH_DESC_ON_STACK(desc, apparmor_tfm);
 	char *hash;
-	int error;
 
-	if (!apparmor_tfm)
-		return NULL;
-
-	hash = kzalloc(apparmor_hash_size, GFP_KERNEL);
+	hash = kzalloc(SHA256_DIGEST_SIZE, GFP_KERNEL);
 	if (!hash)
 		return ERR_PTR(-ENOMEM);
 
-	desc->tfm = apparmor_tfm;
-
-	error = crypto_shash_init(desc);
-	if (error)
-		goto fail;
-	error = crypto_shash_update(desc, (u8 *) data, len);
-	if (error)
-		goto fail;
-	error = crypto_shash_final(desc, hash);
-	if (error)
-		goto fail;
-
+	sha256(data, len, hash);
 	return hash;
-
-fail:
-	kfree(hash);
-
-	return ERR_PTR(error);
 }
 
+/**
+ * aa_calc_profile_hash - Computes the aggregate fingerprint for a security profile.
+ * @profile: Target AppArmor profile to associate the hash with.
+ * @version: Policy binary format version.
+ * @start: Start of the raw profile data.
+ * @len: Length of the raw profile data.
+ * 
+ * Block Logic: Multi-part hashing sequence.
+ * Logic: 
+ * 1. Checks global 'aa_g_hash_policy' toggle to decide if hashing is required.
+ * 2. Initializes a SHA256 context.
+ * 3. Incorporates the policy version (little-endian) into the hash.
+ * 4. Incorporates the profile body.
+ * 5. Finalizes and stores the digest in the profile structure.
+ * 
+ * @return 0 on success, -ENOMEM on failure.
+ */
 int aa_calc_profile_hash(struct aa_profile *profile, u32 version, void *start,
 			 size_t len)
 {
-	SHASH_DESC_ON_STACK(desc, apparmor_tfm);
-	int error;
+	struct sha256_ctx sctx;
 	__le32 le32_version = cpu_to_le32(version);
 
 	if (!aa_g_hash_policy)
 		return 0;
 
-	if (!apparmor_tfm)
-		return 0;
-
-	profile->hash = kzalloc(apparmor_hash_size, GFP_KERNEL);
+	profile->hash = kzalloc(SHA256_DIGEST_SIZE, GFP_KERNEL);
 	if (!profile->hash)
 		return -ENOMEM;
 
-	desc->tfm = apparmor_tfm;
-
-	error = crypto_shash_init(desc);
-	if (error)
-		goto fail;
-	error = crypto_shash_update(desc, (u8 *) &le32_version, 4);
-	if (error)
-		goto fail;
-	error = crypto_shash_update(desc, (u8 *) start, len);
-	if (error)
-		goto fail;
-	error = crypto_shash_final(desc, profile->hash);
-	if (error)
-		goto fail;
-
+	sha256_init(&sctx);
+	sha256_update(&sctx, (u8 *)&le32_version, 4);
+	sha256_update(&sctx, (u8 *)start, len);
+	sha256_final(&sctx, profile->hash);
 	return 0;
-
-fail:
-	kfree(profile->hash);
-	profile->hash = NULL;
-
-	return error;
 }
 
+/**
+ * @brief Late initialization hook to announce hashing status.
+ */
 static int __init init_profile_hash(void)
 {
-	struct crypto_shash *tfm;
-
-	if (!apparmor_initialized)
-		return 0;
-
-	tfm = crypto_alloc_shash("sha256", 0, 0);
-	if (IS_ERR(tfm)) {
-		int error = PTR_ERR(tfm);
-		AA_ERROR("failed to setup profile sha256 hashing: %d\n", error);
-		return error;
-	}
-	apparmor_tfm = tfm;
-	apparmor_hash_size = crypto_shash_digestsize(apparmor_tfm);
-
-	aa_info_message("AppArmor sha256 policy hashing enabled");
-
+	if (apparmor_initialized)
+		aa_info_message("AppArmor sha256 policy hashing enabled");
 	return 0;
 }
-
 late_initcall(init_profile_hash);

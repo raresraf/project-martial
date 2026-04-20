@@ -2,8 +2,18 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
-//! Configuration options for a single run of the servo application. Created
-//! from command line arguments.
+/**
+ * @8e984681-7fbe-4cce-b46d-2d82d106378a/components/config/opts.rs
+ * @brief Global runtime configuration management for the Servo browser engine.
+ * 
+ * Functional Intent: Defines the schema and lifecycle for Servo's execution 
+ * parameters. It aggregates standard web browser flags with deep engine-level 
+ * debug toggles, facilitating fine-grained control over layout, rendering, 
+ * and script execution behavior. Options are typically initialized from 
+ * command-line arguments and made globally accessible via a thread-safe singleton.
+ * 
+ * Domain: Browser Configuration, Engine Tuning, Runtime Lifecycle.
+ */
 
 use std::default::Default;
 use std::path::PathBuf;
@@ -12,142 +22,113 @@ use std::sync::{LazyLock, RwLock, RwLockReadGuard};
 use serde::{Deserialize, Serialize};
 use servo_url::ServoUrl;
 
-/// Global flags for Servo, currently set on the command line.
+/**
+ * @brief Primary configuration container for a Servo execution instance.
+ * 
+ * Logic: Encapsulates feature toggles (multiprocess, sandbox), performance 
+ * monitoring settings (profiling, layout strategy), and networking 
+ * constraints (SSL verification, WebDriver ports).
+ */
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Opts {
-    /// Whether or not Servo should wait for web content to go into an idle state, therefore
-    /// likely producing a stable output image. This is useful for taking screenshots of pages
-    /// after they have loaded.
+    /// Functional Utility: Synchronizes image capture with engine quiescence (stable state).
     pub wait_for_stable_image: bool,
 
-    /// `None` to disable the time profiler or `Some` to enable it with:
-    ///
-    ///  - an interval in seconds to cause it to produce output on that interval.
-    ///    (`i.e. -p 5`).
-    ///  - a file path to write profiling info to a TSV file upon Servo's termination.
-    ///    (`i.e. -p out.tsv`).
+    /// Functional Utility: Configures temporal performance metric collection.
     pub time_profiling: Option<OutputOptions>,
 
-    /// When the profiler is enabled, this is an optional path to dump a self-contained HTML file
-    /// visualizing the traces as a timeline.
     pub time_profiler_trace_path: Option<String>,
 
-    /// True to turn off incremental layout.
+    /// Block Logic: Layout strategy toggle.
+    /// Invariant: If true, disables partial reflows, forcing full tree reconciliation.
     pub nonincremental_layout: bool,
 
     pub user_stylesheets: Vec<(Vec<u8>, ServoUrl)>,
 
-    /// True to exit on thread failure instead of displaying about:failure.
+    /// Functional Utility: Enforces immediate process termination on thread panic.
     pub hard_fail: bool,
 
-    /// Debug options that are used by developers to control Servo
-    /// behavior for debugging purposes.
+    /// Block Logic: Low-level engine instrumentation.
     pub debug: DebugOptions,
 
-    /// `None` to disable WebDriver or `Some` with a port number to start a server to listen to
-    /// remote WebDriver commands.
     pub webdriver_port: Option<u16>,
 
-    /// Whether we're running in multiprocess mode.
     pub multiprocess: bool,
 
-    /// Whether we want background hang monitor enabled or not
     pub background_hang_monitor: bool,
 
-    /// Whether we're running inside the sandbox.
     pub sandbox: bool,
 
-    /// Probability of randomly closing a pipeline,
-    /// used for testing the hardening of the constellation.
+    /// Block Logic: Fuzzing and resilience testing.
+    /// Logic: Simulates constellation instability for hardening verification.
     pub random_pipeline_closure_probability: Option<f32>,
 
-    /// The seed for the RNG used to randomly close pipelines,
-    /// used for testing the hardening of the constellation.
     pub random_pipeline_closure_seed: Option<usize>,
 
-    /// Load shaders from disk.
     pub shaders_dir: Option<PathBuf>,
 
-    /// Directory for a default config directory
     pub config_dir: Option<PathBuf>,
 
-    /// Path to PEM encoded SSL CA certificate store.
     pub certificate_path: Option<String>,
 
-    /// Whether or not to completely ignore SSL certificate validation errors.
-    /// TODO: We should see if we can eliminate the need for this by fixing
-    /// <https://github.com/servo/servo/issues/30080>.
     pub ignore_certificate_errors: bool,
 
-    /// Unminify Javascript.
+    /// Block Logic: Source code auditing and de-obfuscation.
     pub unminify_js: bool,
 
-    /// Directory path that was created with "unminify-js"
     pub local_script_source: Option<String>,
 
-    /// Unminify Css.
     pub unminify_css: bool,
 
-    /// Print Progressive Web Metrics to console.
     pub print_pwm: bool,
 }
 
-/// Debug options for Servo, currently set on the command line with -Z
+/**
+ * @brief Developer-centric debugging and tree visualization toggles.
+ */
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct DebugOptions {
-    /// List all the debug options.
     pub help: bool,
 
-    /// Print the DOM after each restyle.
+    /// Block Logic: Visual structure inspection.
+    /// Logic: Serializes various internal engine trees to stdout for analysis.
     pub dump_style_tree: bool,
-
-    /// Dumps the rule tree.
     pub dump_rule_tree: bool,
-
-    /// Print the fragment tree after each layout.
     pub dump_flow_tree: bool,
-
-    /// Print the stacking context tree after each layout.
     pub dump_stacking_context_tree: bool,
-
-    /// Print the scroll tree after each layout.
     pub dump_scroll_tree: bool,
-
-    /// Print the display list after each layout.
     pub dump_display_list: bool,
 
-    /// Print notifications when there is a relayout.
     pub relayout_event: bool,
 
-    /// Periodically print out on which events script threads spend their processing time.
     pub profile_script_events: bool,
 
-    /// True if each step of layout is traced to an external JSON file
-    /// for debugging purposes. Setting this implies sequential layout
-    /// and paint.
+    /// Block Logic: Deterministic debugging.
+    /// Invariant: Enabling layout tracing forces sequential execution to maintain order.
     pub trace_layout: bool,
 
-    /// Disable the style sharing cache.
     pub disable_share_style_cache: bool,
 
-    /// Whether to show in stdout style sharing cache stats after a restyle.
     pub dump_style_statistics: bool,
 
-    /// Translate mouse input into touch events.
     pub convert_mouse_to_touch: bool,
 
-    /// Log GC passes and their durations.
     pub gc_profile: bool,
 
-    /// Show webrender profiling stats on screen.
     pub webrender_stats: bool,
 
-    /// True to use OS native signposting facilities. This makes profiling events (script activity,
-    /// reflow, compositing, etc.) appear in Instruments.app on macOS.
     pub signpost: bool,
 }
 
 impl DebugOptions {
+    /**
+     * extend - Incremental configuration updates via string-based flags.
+     * @debug_string: Comma-separated list of debug keys (e.g., from -Z).
+     * 
+     * Block Logic: String-to-feature mapping.
+     * Logic: Iteratively parses flag tokens and activates corresponding 
+     * boolean toggles in the DebugOptions struct.
+     */
     pub fn extend(&mut self, debug_string: String) -> Result<(), String> {
         for option in debug_string.split(',') {
             match option {
@@ -176,14 +157,19 @@ impl DebugOptions {
     }
 }
 
+/**
+ * @brief Output destinations for profiling data.
+ */
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum OutputOptions {
-    /// Database connection config (hostname, name, user, pass)
     FileName(String),
     Stdout(f64),
 }
 
 impl Default for Opts {
+    /**
+     * @brief Baseline configuration with safety-first defaults.
+     */
     fn default() -> Self {
         Self {
             wait_for_stable_image: false,
@@ -211,15 +197,24 @@ impl Default for Opts {
     }
 }
 
-// Make Opts available globally. This saves having to clone and pass
-// opts everywhere it is used, which gets particularly cumbersome
-// when passing through the DOM structures.
+/**
+ * Functional Utility: Global configuration singleton.
+ * Logic: Uses RwLock for safe multi-threaded reads while allowing late-bound 
+ * initialization from CLI parsers. Encapsulated in LazyLock for O(1) start-up 
+ * overhead before options are needed.
+ */
 static OPTIONS: LazyLock<RwLock<Opts>> = LazyLock::new(|| RwLock::new(Opts::default()));
 
+/**
+ * @brief Commits a new configuration state to the global store.
+ */
 pub fn set_options(opts: Opts) {
     *OPTIONS.write().unwrap() = opts;
 }
 
+/**
+ * @brief Retrieves a read-only handle to the active configuration.
+ */
 #[inline]
 pub fn get() -> RwLockReadGuard<'static, Opts> {
     OPTIONS.read().unwrap()

@@ -1,4 +1,11 @@
 /**
+ * @file solver_blas.c
+ * @brief BLAS-based optimized matrix solver computing $C = A \times B \times B^T + A^T \times A$.
+ * Algorithm: Relies on optimized numerical linear algebra kernels (DGEMM, DTRMM).
+ * Time Complexity: $O(N^3)$ due to dense matrix multiplications.
+ * Space Complexity: $O(N^2)$ for storing the result matrix C.
+ */
+/**
  * @raw/aeb31e2b-0ab9-4296-9704-30003e34fa86/solver_blas.c
  * @brief High-performance dense matrix solver using Level 3 BLAS operations.
  * Algorithm: Hardware-accelerated computation of C = (A * B) * B^T + A^T * A.
@@ -10,6 +17,13 @@
 #include "cblas.h"
 
 
+/**
+ * @brief Computes C = A * B * B^T + A^T * A.
+ * @param N Matrix dimension.
+ * @param A Input matrix A.
+ * @param B Input matrix B.
+ * @return Pointer to resulting matrix C.
+ */
 double* my_solver(int N, double *A, double *B) {
 	printf("BLAS SOLVER\n");
 	double *C, *aux;

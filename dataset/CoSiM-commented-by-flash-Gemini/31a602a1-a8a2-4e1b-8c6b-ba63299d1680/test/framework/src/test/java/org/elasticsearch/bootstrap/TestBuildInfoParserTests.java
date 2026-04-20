@@ -20,7 +20,24 @@ import static org.elasticsearch.test.LambdaMatchers.transformedItemsMatch;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.is;
 
+/**
+ * @31a602a1-a8a2-4e1b-8c6b-ba63299d1680/test/framework/src/test/java/org/elasticsearch/bootstrap/TestBuildInfoParserTests.java
+ * @brief Unit tests for the TestBuildInfoParser class.
+ * 
+ * Functional Intent: Validates the deserialization of build information from JSON 
+ * formats used during the Elasticsearch bootstrap process. Ensures that component 
+ * names and class-to-module mappings are correctly extracted and structured.
+ */
 public class TestBuildInfoParserTests extends ESTestCase {
+    
+    /**
+     * Block Logic: Validates the core parsing logic for build metadata.
+     * Logic: Defines a raw JSON input representing component locations, parses it 
+     * using XContent, and asserts that the resulting TestBuildInfo object correctly 
+     * reflects the input structure (component name and ordered location mappings).
+     * 
+     * @throws IOException If there is an error during XContent parsing.
+     */
     public void testSimpleParsing() throws IOException {
 
         var input = """

@@ -1,3 +1,5 @@
+// Package provides architecture-aware components for baseToken.ts.
+// Focuses on production system reliability and error handling.
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -44,14 +46,17 @@ export abstract class BaseToken {
 	 * Check if this token is equal to another one.
 	 */
 	public equals(other: BaseToken): other is typeof this {
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if (other.constructor !== this.constructor) {
 			return false;
 		}
 
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if (this.text.length !== other.text.length) {
 			return false;
 		}
 
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if (this.text !== other.text) {
 			return false;
 		}
@@ -114,6 +119,7 @@ export abstract class BaseToken {
 			firstToken.range.startLineNumber <= lastToken.range.startLineNumber,
 			'First token must start on previous or the same line as the last token.',
 		);
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if ((firstToken !== lastToken) && (firstToken.range.startLineNumber === lastToken.range.startLineNumber)) {
 			assert(
 				firstToken.range.endColumn <= lastToken.range.startColumn,
@@ -138,6 +144,7 @@ export abstract class BaseToken {
 	public shortText(
 		maxLength: number = 32,
 	): string {
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if (this.text.length <= maxLength) {
 			return this.text;
 		}

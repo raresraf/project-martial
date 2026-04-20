@@ -23,56 +23,53 @@ import static org.elasticsearch.xpack.inference.Utils.assertJsonEquals;
 import static org.elasticsearch.xpack.inference.services.mistral.completion.MistralChatCompletionModelTests.createCompletionModel;
 
 /**
- * @file MistralChatCompletionRequestEntityTests.java
- * @brief Unit tests for the MistralChatCompletionRequestEntity class.
- *
- * This file contains tests to ensure that the `MistralChatCompletionRequestEntity`
- * correctly serializes unified chat completion requests into the format expected
- * by the Mistral API. It focuses on verifying the JSON output for various input scenarios.
+ * @c5041973-3060-49b1-8eae-e7a370fe996a/x-pack/plugin/inference/src/test/java/org/elasticsearch/xpack/inference/services/mistral/request/completion/MistralChatCompletionRequestEntityTests.java
+ * @brief Unit tests for the Mistral API request serialization logic.
+ * 
+ * Functional Intent: Validates the transformation of unified completion requests 
+ * into JSON payloads compatible with Mistral's chat completion endpoint. 
+ * Ensures message content, roles, and model-specific parameters (like streaming 
+ * and choice count) are correctly mapped.
  */
 public class MistralChatCompletionRequestEntityTests extends ESTestCase {
 
     private static final String ROLE = "user";
 
     /**
-     * @brief Tests the serialization of user fields within the Mistral chat completion request entity.
-     *
-     * Functional Utility: This test verifies that the `MistralChatCompletionRequestEntity`
-     * correctly transforms a `UnifiedCompletionRequest` containing chat messages
-     * into a JSON structure that adheres to the Mistral chat completion API specification.
-     * It checks for correct mapping of message content, role, model name, and streaming preference.
-     *
-     * @throws IOException if there is an error during JSON serialization.
+     * Block Logic: Validates serialization of chat messages and model metadata.
+     * Logic: 
+     * 1. Constructs a high-level message sequence.
+     * 2. Orchestrates the creation of a Mistral-specific request entity.
+     * 3. Performs JSON serialization and asserts structural equivalence with 
+     *    the Mistral API specification (messages, model, streaming flag).
+     * 
+     * @throws IOException If serialization fails.
      */
     public void testModelUserFieldsSerialization() throws IOException {
-        // Block Logic: Prepare a single chat message for the unified request.
+        // Block Logic: Construct a unified completion request with a single user message.
+        // Invariant: The message object accurately represents a user's input with content and role.
         UnifiedCompletionRequest.Message message = new UnifiedCompletionRequest.Message(
             new UnifiedCompletionRequest.ContentString("Hello, world!"),
             ROLE,
-            null, // No name specified for this message
-            null  // No tool calls specified for this message
+            null,
+            null
         );
-        // Block Logic: Create a list containing the prepared message.
         var messageList = new ArrayList<UnifiedCompletionRequest.Message>();
         messageList.add(message);
 
-        // Block Logic: Construct a unified completion request from the message list.
         var unifiedRequest = UnifiedCompletionRequest.of(messageList);
 
-        // Block Logic: Create a UnifiedChatInput with the unified request and set streaming to true.
+        // Block Logic: Initialize state for the request entity.
         UnifiedChatInput unifiedChatInput = new UnifiedChatInput(unifiedRequest, true);
-        // Block Logic: Create a mock MistralChatCompletionModel for testing purposes.
         MistralChatCompletionModel model = createCompletionModel("api-key", "test-endpoint");
 
-        // Block Logic: Instantiate the MistralChatCompletionRequestEntity with the prepared input and model.
         MistralChatCompletionRequestEntity entity = new MistralChatCompletionRequestEntity(unifiedChatInput, model);
 
-        // Block Logic: Use XContentBuilder to serialize the entity into a JSON string.
+        // Block Logic: Execution of serialization and verification.
         XContentBuilder builder = JsonXContent.contentBuilder();
         entity.toXContent(builder, ToXContent.EMPTY_PARAMS);
 
         String jsonString = Strings.toString(builder);
-        // Block Logic: Define the expected JSON output string for comparison.
         String expectedJson = """
             {
                 "messages": [
@@ -86,8 +83,8 @@ public class MistralChatCompletionRequestEntityTests extends ESTestCase {
                 "stream": true
             }
             """;
-        // Block Logic: Assert that the generated JSON string matches the expected JSON string.
-        // Functional Utility: `assertJsonEquals` compares two JSON strings for structural and value equality.
+        
+        // Final assertion ensures that the generated payload meets API requirements.
         assertJsonEquals(jsonString, expectedJson);
     }
 }

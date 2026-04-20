@@ -1,4 +1,10 @@
-
+/**
+ * @file compare.c
+ * @brief Utility for validating numerical equivalence of dense matrices stored in binary files.
+ * Algorithm: Element-wise comparison with floating-point tolerance.
+ * Time Complexity: $O(N^2)$ where $N$ is the matrix dimension.
+ * Space Complexity: $O(N^2)$ via memory-mapped IO.
+ */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -51,6 +57,10 @@ int cmp_files(char const *file_path1, char const *file_path2, double precision) 
 
 	N = sqrt(fileInfo1.st_size / sizeof(double));
 
+    /**
+     * Block Logic: Linearly traverses both matrices mapped in memory to verify error bounds.
+     * Invariant: All elements validated up to (i, j) are within the prescribed tolerance `precision`.
+     */
 	for (i = 0; i < N; i++ ) {
 		for (j = 0; j< N; j++) {
 			ret = check_err(mat1[i * N + j], mat2[i * N + j], precision); 

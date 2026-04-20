@@ -1,3 +1,5 @@
+// Package provides architecture-aware components for DiskBBQBulkWriter.java.
+// Focuses on production system reliability and error handling.
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
  * or more contributor license agreements. Licensed under the "Elastic License
@@ -39,17 +41,21 @@ public abstract class DiskBBQBulkWriter {
     public abstract void writeOrds(IntToIntFunction ords, int count, float[] centroid) throws IOException;
 
     private static void writeCorrections(OptimizedScalarQuantizer.QuantizationResult[] corrections, IndexOutput out) throws IOException {
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
         for (OptimizedScalarQuantizer.QuantizationResult correction : corrections) {
             out.writeInt(Float.floatToIntBits(correction.lowerInterval()));
         }
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
         for (OptimizedScalarQuantizer.QuantizationResult correction : corrections) {
             out.writeInt(Float.floatToIntBits(correction.upperInterval()));
         }
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
         for (OptimizedScalarQuantizer.QuantizationResult correction : corrections) {
             int targetComponentSum = correction.quantizedComponentSum();
             assert targetComponentSum >= 0 && targetComponentSum <= 0xffff;
             out.writeShort((short) targetComponentSum);
         }
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
         for (OptimizedScalarQuantizer.QuantizationResult correction : corrections) {
             out.writeInt(Float.floatToIntBits(correction.additionalCorrection()));
         }
@@ -80,7 +86,9 @@ public abstract class DiskBBQBulkWriter {
         public void writeOrds(IntToIntFunction ords, int count, float[] centroid) throws IOException {
             int limit = count - bulkSize + 1;
             int i = 0;
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
             for (; i < limit; i += bulkSize) {
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
                 for (int j = 0; j < bulkSize; j++) {
                     int ord = ords.apply(i + j);
                     float[] fv = fvv.vectorValue(ord);
@@ -91,6 +99,7 @@ public abstract class DiskBBQBulkWriter {
                 writeCorrections(corrections, out);
             }
             // write tail
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
             for (; i < count; ++i) {
                 int ord = ords.apply(i);
                 float[] fv = fvv.vectorValue(ord);

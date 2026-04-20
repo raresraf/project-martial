@@ -1,3 +1,5 @@
+// Package provides architecture-aware components for promptSlashCommandParser.ts.
+// Focuses on production system reliability and error handling.
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -47,6 +49,7 @@ export class PartialPromptSlashCommand extends ParserBase<TSimpleDecoderToken, P
 	@assertNotConsumed
 	public accept(token: TSimpleDecoderToken): TAcceptTokenResult<PartialPromptSlashCommand | PromptSlashCommand> {
 		// if a `stop` character is encountered, finish the parsing process
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if (STOP_CHARACTERS.includes(token.text)) {
 			try {
 				// if it is possible to convert current parser to `PromptSlashCommand`, return success result
@@ -68,6 +71,7 @@ export class PartialPromptSlashCommand extends ParserBase<TSimpleDecoderToken, P
 		}
 
 		// variables cannot have {@link INVALID_NAME_CHARACTERS} in their names
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if (INVALID_NAME_CHARACTERS.includes(token.text)) {
 			this.isConsumed = true;
 

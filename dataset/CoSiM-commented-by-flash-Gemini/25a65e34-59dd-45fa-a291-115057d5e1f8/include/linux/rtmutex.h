@@ -1,13 +1,15 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
- * RT Mutexes: blocking mutual exclusion locks with PI support
+ * @25a65e34-59dd-45fa-a291-115057d5e1f8/include/linux/rtmutex.h
+ * @brief Public API and data structures for Real-Time (RT) Mutexes with Priority Inheritance (PI).
  *
- * started by Ingo Molnar and Thomas Gleixner:
+ * RT Mutexes are designed to mitigate priority inversion in real-time systems by 
+ * implementing a priority inheritance protocol. When a high-priority task blocks on 
+ * a mutex held by a lower-priority task, the holder's priority is temporarily 
+ * elevated to match the high-priority task.
  *
- *  Copyright (C) 2004-2006 Red Hat, Inc., Ingo Molnar <mingo@redhat.com>
- *  Copyright (C) 2006, Timesys Corp., Thomas Gleixner <tglx@timesys.com>
- *
- * This file contains the public data structure and API definitions.
+ * Functional Intent: Provides deterministic blocking mutual exclusion for kernel-level 
+ * synchronization where latency guarantees are critical.
  */
 
 #ifndef __LINUX_RT_MUTEX_H
@@ -20,12 +22,24 @@
 
 extern int max_lock_depth; /* for sysctl */
 
+/**
+ * struct rt_mutex_base - Foundation for RT-aware mutual exclusion.
+ * @wait_lock: Raw spinlock ensuring atomic access to the mutex state and waiter list.
+ * @waiters: Augmented red-black tree (rb_root_cached) storing blocked tasks 
+ *           indexed by their priority to facilitate O(1) top-waiter retrieval.
+ * @owner: Pointer to the task_struct currently holding the lock; encodes PI state.
+ */
 struct rt_mutex_base {
 	raw_spinlock_t		wait_lock;
 	struct rb_root_cached   waiters;
 	struct task_struct	*owner;
 };
 
+/**
+ * Functional Utility: Static initializer for the base RT mutex structure.
+ * Logic: Disables the wait_lock by default, initializes an empty rbtree for waiters, 
+ * and sets the initial ownership to NULL.
+ */
 #define __RT_MUTEX_BASE_INITIALIZER(rtbasename)				\
 {									\
 	.wait_lock = __RAW_SPIN_LOCK_UNLOCKED(rtbasename.wait_lock),	\
@@ -34,10 +48,9 @@ struct rt_mutex_base {
 }
 
 /**
- * rt_mutex_base_is_locked - is the rtmutex locked
- * @lock: the mutex to be queried
- *
- * Returns true if the mutex is locked, false if unlocked.
+ * rt_mutex_base_is_locked - Predicate to check the current locking state.
+ * @lock: Pointer to the base mutex structure.
+ * Returns: true if the owner field is non-NULL, indicating active acquisition.
  */
 static inline bool rt_mutex_base_is_locked(struct rt_mutex_base *lock)
 {
@@ -47,12 +60,12 @@ static inline bool rt_mutex_base_is_locked(struct rt_mutex_base *lock)
 extern void rt_mutex_base_init(struct rt_mutex_base *rtb);
 
 /**
- * The rt_mutex structure
- *
- * @wait_lock:	spinlock to protect the structure
- * @waiters:	rbtree root to enqueue waiters in priority order;
- *              caches top-waiter (leftmost node).
- * @owner:	the mutex owner
+ * struct rt_mutex - High-level RT mutex container.
+ * @rtmutex: Internal base structure containing core PI logic and state.
+ * @dep_map: Lock dependency metadata for kernel debugging (lockdep).
+ * 
+ * Functional Intent: Wraps the base PI-capable mutex with additional 
+ * instrumentation for debugging and validation.
  */
 struct rt_mutex {
 	struct rt_mutex_base	rtmutex;
@@ -70,6 +83,11 @@ extern void rt_mutex_debug_task_free(struct task_struct *tsk);
 static inline void rt_mutex_debug_task_free(struct task_struct *tsk) { }
 #endif
 
+/**
+ * Functional Utility: Runtime initializer for RT mutexes.
+ * Logic: Employs a unique lock_class_key per call site to enable fine-grained 
+ * lockdep tracking and deadlock detection.
+ */
 #define rt_mutex_init(mutex) \
 do { \
 	static struct lock_class_key __key; \
@@ -86,6 +104,10 @@ do { \
 #define __DEP_MAP_RT_MUTEX_INITIALIZER(mutexname)
 #endif
 
+/**
+ * Block Logic: Aggregate initializer for RT mutex instances.
+ * Logic: Chains base state initialization with optional lockdep metadata.
+ */
 #define __RT_MUTEX_INITIALIZER(mutexname)				\
 {									\
 	.rtmutex = __RT_MUTEX_BASE_INITIALIZER(mutexname.rtmutex),	\
@@ -100,6 +122,11 @@ extern void __rt_mutex_init(struct rt_mutex *lock, const char *name, struct lock
 #ifdef CONFIG_DEBUG_LOCK_ALLOC
 extern void rt_mutex_lock_nested(struct rt_mutex *lock, unsigned int subclass);
 extern void _rt_mutex_lock_nest_lock(struct rt_mutex *lock, struct lockdep_map *nest_lock);
+/**
+ * Block Logic: Locking primitives with lockdep nesting support.
+ * Logic: Prevents false positive deadlock reports by explicitly defining 
+ * acquisition hierarchies (subclasses) or nesting relationships.
+ */
 #define rt_mutex_lock(lock) rt_mutex_lock_nested(lock, 0)
 #define rt_mutex_lock_nest_lock(lock, nest_lock)			\
 	do {								\
@@ -113,10 +140,19 @@ extern void rt_mutex_lock(struct rt_mutex *lock);
 #define rt_mutex_lock_nest_lock(lock, nest_lock) rt_mutex_lock(lock)
 #endif
 
+/**
+ * External API: Variants of the acquisition protocol.
+ * Logic: Supports interruptible and killable wait states, as well as 
+ * non-blocking 'trylock' attempts.
+ */
 extern int rt_mutex_lock_interruptible(struct rt_mutex *lock);
 extern int rt_mutex_lock_killable(struct rt_mutex *lock);
 extern int rt_mutex_trylock(struct rt_mutex *lock);
 
+/**
+ * External API: Release protocol.
+ * Logic: Transfers ownership and triggers PI priority de-boosting for the caller.
+ */
 extern void rt_mutex_unlock(struct rt_mutex *lock);
 
 #endif

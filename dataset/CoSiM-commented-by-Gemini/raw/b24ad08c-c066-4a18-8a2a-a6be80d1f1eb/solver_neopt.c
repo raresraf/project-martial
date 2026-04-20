@@ -1,7 +1,21 @@
+/**
+ * @file solver_neopt.c
+ * @brief Unoptimized standard implementation to compute $C = A \times B \times B^T + A^T \times A$.
+ * Algorithm: Naive multi-loop dense matrix multiplication with upper triangular conditions.
+ * Time Complexity: $O(N^3)$.
+ * Space Complexity: $O(N^2)$ to store the intermediate matrices.
+ */
 
 #include "utils.h"
 
 
+/**
+ * @brief Computes C = A * B * B^T + A^T * A.
+ * @param N Matrix dimension.
+ * @param A Input matrix A.
+ * @param B Input matrix B.
+ * @return Pointer to resulting matrix C.
+ */
 double* my_solver(int N, double *A, double* B) {
 	printf("NEOPT SOLVER\n");
 	
@@ -12,6 +26,10 @@ double* my_solver(int N, double *A, double* B) {
 	
 	double *C = calloc(N * N, sizeof(double));
 
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (C == NULL) {
 		perror("Calloc C");
 		exit(EXIT_FAILURE);
@@ -20,6 +38,10 @@ double* my_solver(int N, double *A, double* B) {
 	
 	double *AB = calloc(N * N, sizeof(double));
 
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (AB == NULL) {
 		perror("Calloc AB");
 		exit(EXIT_FAILURE);
@@ -28,6 +50,10 @@ double* my_solver(int N, double *A, double* B) {
 	
 	double *P1 = calloc(N * N, sizeof(double));
 
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (P1 == NULL) {
 		perror("Calloc P1");
 		exit(EXIT_FAILURE);
@@ -36,16 +62,32 @@ double* my_solver(int N, double *A, double* B) {
 	
 	double *P2 = calloc(N * N, sizeof(double));
 
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (P2 == NULL) {
 		perror("Calloc P2");
 		exit(EXIT_FAILURE);
 	}
 
 	
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for (i = 0; i < N; ++i) {
+		/**
+		 * Block Logic: Iterative processing loop.
+		 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+		 */
 		for (j = 0; j < N; ++j) {
 			double sum = 0.0;
 
+			/**
+			 * Block Logic: Iterative processing loop.
+			 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+			 */
 			for (k = i; k < N; ++k) {
 				sum += A[i * N + k] * B[k * N + j];
 			}
@@ -55,10 +97,22 @@ double* my_solver(int N, double *A, double* B) {
 	}
 
 	
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for (i = 0; i < N; ++i) {
+		/**
+		 * Block Logic: Iterative processing loop.
+		 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+		 */
 		for (j = 0; j < N; ++j) {
 			double sum = 0.0;
 
+			/**
+			 * Block Logic: Iterative processing loop.
+			 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+			 */
 			for (k = 0; k < N; ++k) {
 				sum += AB[i * N + k] * B[j * N + k];
 			}
@@ -68,10 +122,22 @@ double* my_solver(int N, double *A, double* B) {
 	}
 
 	
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for (i = 0; i < N; ++i) {
+		/**
+		 * Block Logic: Iterative processing loop.
+		 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+		 */
 		for (j = 0; j < N; ++j) {
 			double sum = 0.0;
 
+			/**
+			 * Block Logic: Iterative processing loop.
+			 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+			 */
 			for (k = 0; k <= i && k <= j; ++k) {
 				sum += A[k * N + i] * A[k * N + j];
 			}
@@ -81,6 +147,10 @@ double* my_solver(int N, double *A, double* B) {
 	}
 
 	
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for (i = 0; i < N * N; ++i) {
 		C[i] = P1[i] + P2[i];
 	}

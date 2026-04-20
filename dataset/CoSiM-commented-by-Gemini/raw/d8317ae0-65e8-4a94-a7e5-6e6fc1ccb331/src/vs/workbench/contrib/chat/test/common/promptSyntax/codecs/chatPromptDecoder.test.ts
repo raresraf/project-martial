@@ -1,3 +1,5 @@
+// Package provides architecture-aware components for chatPromptDecoder.test.ts.
+// Focuses on production system reliability and error handling.
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.

@@ -7,6 +7,14 @@
  * Author: Maxime Coquelin <maxime.coquelin@st.com>
  */
 
+/**
+ * @raw/0e4bb687-fd47-41b6-b162-3b6482a5c26d/drivers/i2c/busses/i2c-st.c
+ * @brief I2C controller driver for STMicroelectronics SoCs.
+ * * Architectural Intent: Provides standard and fast mode I2C bus operations using the ST 
+ *   hardware SSC block. Handles message transfers, error recovery, FIFO management, and 
+ *   interrupts using the Linux I2C subsystem.
+ */
+
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/err.h>
@@ -233,6 +241,11 @@ static struct st_i2c_timings i2c_timings[] = {
 	},
 };
 
+/**
+ * @brief Empties the hardware RX FIFO.
+ * * Logic: Iterates over the reported count of bytes in the FIFO and reads them from 
+ *   the receive buffer register, discarding the values.
+ */
 static void st_i2c_flush_rx_fifo(struct st_i2c_dev *i2c_dev)
 {
 	int count, i;
@@ -335,6 +348,11 @@ static void st_i2c_hw_config(struct st_i2c_dev *i2c_dev)
 	writel_relaxed(val, i2c_dev->base + SSC_NOISE_SUPP_WIDTH_DATAOUT);
 }
 
+/**
+ * @brief Recovers a stuck I2C bus by generating 9 clock pulses.
+ * * Logic: Temporarily switches the IP from I2C mode to SPI mode and writes a 0 to 
+ *   send 9 clock pulses on SCL, aiming to clear any target device holding SDA low.
+ */
 static int st_i2c_recover_bus(struct i2c_adapter *i2c_adap)
 {
 	struct st_i2c_dev *i2c_dev = i2c_get_adapdata(i2c_adap);
@@ -454,6 +472,11 @@ static void st_i2c_rd_fill_tx_fifo(struct st_i2c_dev *i2c_dev, u32 max)
 		st_i2c_write_tx_fifo(i2c_dev, 0xff);
 }
 
+/**
+ * @brief Reads incoming data from the RX FIFO into the client buffer.
+ * * Logic: Empties available bytes from the RX FIFO to the host memory buffer, ensuring 
+ *   we do not read more bytes than expected by the current message.
+ */
 static void st_i2c_read_rx_fifo(struct st_i2c_dev *i2c_dev)
 {
 	struct st_i2c_client *c = &i2c_dev->client;
@@ -789,6 +812,12 @@ static int st_i2c_of_get_deglitch(struct device_node *np,
 	return 0;
 }
 
+/**
+ * @brief Initializes the driver, sets up interrupt handling, and registers the adapter.
+ * * Functional Utility: Configures the initial ST SSC I2C controller state from device 
+ *   tree node properties (like frequency and deglitch limits) and exposes the bus 
+ *   to the rest of the kernel.
+ */
 static int st_i2c_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;

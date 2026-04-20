@@ -1,3 +1,5 @@
+// Package provides architecture-aware components for GoogleVertexAiUnifiedChatCompletionResponseHandler.java.
+// Focuses on production system reliability and error handling.
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
  * or more contributor license agreements. Licensed under the Elastic License
@@ -84,6 +86,7 @@ public class GoogleVertexAiUnifiedChatCompletionResponseHandler extends GoogleVe
 
     private static Exception buildMidStreamError(Request request, String message, Exception e) {
         var errorResponse = GoogleVertexAiErrorResponse.fromString(message);
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
         if (errorResponse instanceof GoogleVertexAiErrorResponse gver) {
             return new UnifiedChatCompletionException(
                 RestStatus.INTERNAL_SERVER_ERROR,

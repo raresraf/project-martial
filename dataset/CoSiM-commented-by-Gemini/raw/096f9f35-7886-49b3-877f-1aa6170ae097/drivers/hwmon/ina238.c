@@ -1,3 +1,10 @@
+/**
+ * @raw/096f9f35-7886-49b3-877f-1aa6170ae097/drivers/hwmon/ina238.c
+ * @brief Hardware monitor driver for Texas Instruments INA238 and compatible power monitors.
+ * * Architectural Intent: Provides a unified hwmon sysfs interface to configure and read 
+ *   voltage, current, power, and temperature from I2C-attached telemetry sensors. 
+ *   It abstracts device-specific calibration and scaling via the regmap subsystem.
+ */
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Driver for Texas Instruments INA238 power monitor chip
@@ -199,6 +206,11 @@ static int ina238_read_reg40(const struct i2c_client *client, u8 reg, u64 *val)
 	return 0;
 }
 
+/**
+ * @brief Reads voltage-related metrics from the device's registers.
+ * * Functional Utility: Translates hwmon sysfs attributes into specific register 
+ *   reads and scales the raw ADC values to millivolts (mV).
+ */
 static int ina238_read_in(struct device *dev, u32 attr, int channel,
 			  long *val)
 {
@@ -356,6 +368,11 @@ static int ina238_read_current(struct device *dev, u32 attr, long *val)
 	return 0;
 }
 
+/**
+ * @brief Fetches and scales power measurements from the sensor.
+ * * Logic: Computes power in microwatts (uW) by reading 24-bit registers and applying 
+ *   device-specific scaling factors against the calibrated shunt resistance.
+ */
 static int ina238_read_power(struct device *dev, u32 attr, long *val)
 {
 	struct ina238_data *data = dev_get_drvdata(dev);
@@ -651,6 +668,11 @@ static struct attribute *ina238_attrs[] = {
 };
 ATTRIBUTE_GROUPS(ina238);
 
+/**
+ * @brief Initializes the device, calibrates the shunt resistor, and registers it with the hwmon subsystem.
+ * * Functional Utility: Sets up I2C communication, computes and writes calibration constants 
+ *   based on device tree properties, and exposes the sensor attributes to user-space.
+ */
 static int ina238_probe(struct i2c_client *client)
 {
 	struct ina2xx_platform_data *pdata = dev_get_platdata(&client->dev);

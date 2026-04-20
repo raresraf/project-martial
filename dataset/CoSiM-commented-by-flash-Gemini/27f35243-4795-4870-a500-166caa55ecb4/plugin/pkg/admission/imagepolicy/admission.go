@@ -14,8 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package imagepolicy contains an admission controller that configures a webhook to which policy
-// decisions are delegated.
+/**
+ * @27f35243-4795-4870-a500-166caa55ecb4/plugin/pkg/admission/imagepolicy/admission.go
+ * @brief Admission controller for external container image policy enforcement.
+ * 
+ * Functional Intent: Implements an ImagePolicyWebhook that delegates pod admission 
+ * decisions to a remote backend. It validates that all container images within 
+ * a pod request comply with external security or governance policies. It features 
+ * an LRU cache with TTL to minimize webhook latency and configurable "fail-open" 
+ * behavior for backend connectivity issues.
+ * 
+ * Domain: Kubernetes Security, Admission Control, Webhook Integration.
+ */
+
 package imagepolicy
 
 import (
@@ -47,18 +58,11 @@ import (
 // PluginName indicates name of admission plugin.
 const PluginName = "ImagePolicyWebhook"
 
-// AuditKeyPrefix is used as the prefix for all audit keys handled by this
-// pluggin. Some well known suffixes are listed below.
+// AuditKeyPrefix identifies annotations handled by this specific linter.
 var AuditKeyPrefix = strings.ToLower(PluginName) + ".image-policy.k8s.io/"
 
 const (
-	// ImagePolicyFailedOpenKeySuffix in an annotation indicates the image
-	// review failed open when the image policy webhook backend connection
-	// failed.
 	ImagePolicyFailedOpenKeySuffix string = "failed-open"
-
-	// ImagePolicyAuditRequiredKeySuffix in an annotation indicates the pod
-	// should be audited.
 	ImagePolicyAuditRequiredKeySuffix string = "audit-required"
 )
 
@@ -66,7 +70,9 @@ var (
 	groupVersions = []schema.GroupVersion{v1alpha1.SchemeGroupVersion}
 )
 
-// Register registers a plugin
+/**
+ * Register - Global entry point for plugin activation.
+ */
 func Register(plugins *admission.Plugins) {
 	plugins.Register(PluginName, func(config io.Reader) (admission.Interface, error) {
 		newImagePolicyWebhook, err := NewImagePolicyWebhook(config)
@@ -77,7 +83,12 @@ func Register(plugins *admission.Plugins) {
 	})
 }
 
-// Plugin is an implementation of admission.Interface.
+/**
+ * Plugin - State container for the ImagePolicy admission handler.
+ * @webhook: Generic client for remote policy evaluation.
+ * @responseCache: Concurrent-safe storage for approved/denied image sets.
+ * @allowTTL/denyTTL: Expiration intervals for positive and negative cache entries.
+ */
 type Plugin struct {
 	*admission.Handler
 	webhook       *webhook.GenericWebhook
@@ -89,6 +100,9 @@ type Plugin struct {
 
 var _ admission.ValidationInterface = &Plugin{}
 
+/**
+ * @brief Logic: Selects the appropriate TTL based on the backend's allowed state.
+ */
 func (a *Plugin) statusTTL(status v1alpha1.ImageReviewStatus) time.Duration {
 	if status.Allowed {
 		return a.allowTTL
@@ -96,7 +110,9 @@ func (a *Plugin) statusTTL(status v1alpha1.ImageReviewStatus) time.Duration {
 	return a.denyTTL
 }
 
-// Filter out annotations that don't match *.image-policy.k8s.io/*
+/**
+ * @brief Functional Utility: Sanitizes metadata by retaining only image-policy relevant annotations.
+ */
 func (a *Plugin) filterAnnotations(allAnnotations map[string]string) map[string]string {
 	annotations := make(map[string]string)
 	for k, v := range allAnnotations {
@@ -107,13 +123,16 @@ func (a *Plugin) filterAnnotations(allAnnotations map[string]string) map[string]
 	return annotations
 }
 
-// Function to call on webhook failure; behavior determined by defaultAllow flag
+/**
+ * webhookError - Failure handler for backend communication.
+ * Logic: Implements the 'fail-open' policy. If defaultAllow is true, the request 
+ * proceeds with an 'audit-required' annotation; otherwise, it is rejected with 403 Forbidden.
+ */
 func (a *Plugin) webhookError(pod *api.Pod, attributes admission.Attributes, err error) error {
 	if err != nil {
 		klog.V(2).Infof("error contacting webhook backend: %s", err)
 		if a.defaultAllow {
 			attributes.AddAnnotation(AuditKeyPrefix+ImagePolicyFailedOpenKeySuffix, "true")
-			// TODO(wteiken): Remove the annotation code for the 1.13 release
 			annotations := pod.GetAnnotations()
 			if annotations == nil {
 				annotations = make(map[string]string)
@@ -130,9 +149,17 @@ func (a *Plugin) webhookError(pod *api.Pod, attributes admission.Attributes, err
 	return nil
 }
 
-// Validate makes an admission decision based on the request attributes
+/**
+ * Validate - Primary hook for intercepting Pod creation/updates.
+ * 
+ * Block Logic: Target extraction and request assembly.
+ * Logic: 
+ * 1. Filters for non-subresource Pod operations.
+ * 2. Aggregates all images from InitContainers and standard Containers into 
+ *    a unified ImageReview specification.
+ * 3. Delegates the decision to admitPod.
+ */
 func (a *Plugin) Validate(ctx context.Context, attributes admission.Attributes, o admission.ObjectInterfaces) (err error) {
-	// Ignore all calls to subresources or resources other than pods.
 	if attributes.GetSubresource() != "" || attributes.GetResource().GroupResource() != api.Resource("pods") {
 		return nil
 	}
@@ -142,7 +169,6 @@ func (a *Plugin) Validate(ctx context.Context, attributes admission.Attributes, 
 		return apierrors.NewBadRequest("Resource was marked with kind Pod but was unable to be converted")
 	}
 
-	// Build list of ImageReviewContainerSpec
 	var imageReviewContainerSpecs []v1alpha1.ImageReviewContainerSpec
 	containers := make([]api.Container, 0, len(pod.Spec.Containers)+len(pod.Spec.InitContainers))
 	containers = append(containers, pod.Spec.Containers...)
@@ -165,6 +191,16 @@ func (a *Plugin) Validate(ctx context.Context, attributes admission.Attributes, 
 	return nil
 }
 
+/**
+ * admitPod - Orchestrates the synchronous validation via remote webhook.
+ * 
+ * Block Logic: Cache-First evaluation loop.
+ * Logic: 
+ * 1. Computes a hash of the image request spec for cache lookup.
+ * 2. On miss: Executes a POST request to the remote endpoint using exponential backoff.
+ * 3. Populates the local cache with the backend response and defined TTL.
+ * 4. Merges returned audit annotations into the Kubernetes request metadata.
+ */
 func (a *Plugin) admitPod(ctx context.Context, pod *api.Pod, attributes admission.Attributes, review *v1alpha1.ImageReview) error {
 	cacheKey, err := json.Marshal(review.Spec)
 	if err != nil {
@@ -206,49 +242,17 @@ func (a *Plugin) admitPod(ctx context.Context, pod *api.Pod, attributes admissio
 	return nil
 }
 
-// NewImagePolicyWebhook a new ImagePolicyWebhook plugin from the provided config file.
-// The config file is specified by --admission-control-config-file and has the
-// following format for a webhook:
-//
-//   {
-//     "imagePolicy": {
-//        "kubeConfigFile": "path/to/kubeconfig/for/backend",
-//        "allowTTL": 30,           # time in s to cache approval
-//        "denyTTL": 30,            # time in s to cache denial
-//        "retryBackoff": 500,      # time in ms to wait between retries
-//        "defaultAllow": true      # determines behavior if the webhook backend fails
-//     }
-//   }
-//
-// The config file may be json or yaml.
-//
-// The kubeconfig property refers to another file in the kubeconfig format which
-// specifies how to connect to the webhook backend.
-//
-// The kubeconfig's cluster field is used to refer to the remote service, user refers to the returned authorizer.
-//
-//     # clusters refers to the remote service.
-//     clusters:
-//     - name: name-of-remote-imagepolicy-service
-//       cluster:
-//         certificate-authority: /path/to/ca.pem      # CA for verifying the remote service.
-//         server: https://images.example.com/policy # URL of remote service to query. Must use 'https'.
-//
-//     # users refers to the API server's webhook configuration.
-//     users:
-//     - name: name-of-api-server
-//       user:
-//         client-certificate: /path/to/cert.pem # cert for the webhook plugin to use
-//         client-key: /path/to/key.pem          # key matching the cert
-//
-// For additional HTTP configuration, refer to the kubeconfig documentation
-// http://kubernetes.io/v1.1/docs/user-guide/kubeconfig-file.html.
+/**
+ * NewImagePolicyWebhook - Factory for plugin instantiation from external config.
+ * Logic: Deserializes the admission config (JSON or YAML), normalizes webhook 
+ * parameters, and initializes the generic webhook infrastructure with the 
+ * provided kubeconfig file.
+ */
 func NewImagePolicyWebhook(configFile io.Reader) (*Plugin, error) {
 	if configFile == nil {
 		return nil, fmt.Errorf("no config specified")
 	}
 
-	// TODO: move this to a versioned configuration file format
 	var config AdmissionConfig
 	d := yaml.NewYAMLOrJSONDecoder(configFile, 4096)
 	err := d.Decode(&config)

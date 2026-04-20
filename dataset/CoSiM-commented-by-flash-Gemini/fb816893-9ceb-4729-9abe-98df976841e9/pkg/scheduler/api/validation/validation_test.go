@@ -14,6 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// @fb816893-9ceb-4729-9abe-98df976841e9/pkg/scheduler/api/validation/validation_test.go
+// @brief Unit tests for Kubernetes scheduler policy validation logic.
+//
+// Functional Intent: Ensures the structural and semantic integrity of scheduler 
+// policies. Validates constraints on priority weights, extender configurations, 
+// binding implementations, and managed resource naming conventions.
 package validation
 
 import (
@@ -24,7 +30,14 @@ import (
 	"k8s.io/kubernetes/pkg/scheduler/api"
 )
 
+/**
+ * TestValidatePolicy - Entry point for policy validation test suite.
+ * Logic: Employs table-driven testing to verify various edge cases and failure 
+ * modes in scheduler policies, including weight overflows and duplicate configurations.
+ */
 func TestValidatePolicy(t *testing.T) {
+	// Block Logic: Definition of test vectors for policy validation.
+	// Invariant: Each test case maps a policy configuration to its expected error outcome.
 	tests := []struct {
 		policy   api.Policy
 		expected error
@@ -90,6 +103,9 @@ func TestValidatePolicy(t *testing.T) {
 		},
 	}
 
+	// Block Logic: Execution of the test battery.
+	// Logic: Iterates through each test case, invokes the validator, and performs 
+	// string-based comparison of error messages to confirm behavioral correctness.
 	for _, test := range tests {
 		actual := ValidatePolicy(test.policy)
 		if fmt.Sprint(test.expected) != fmt.Sprint(actual) {

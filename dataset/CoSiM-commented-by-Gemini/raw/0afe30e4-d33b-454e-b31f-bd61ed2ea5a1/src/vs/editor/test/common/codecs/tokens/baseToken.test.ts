@@ -1,3 +1,5 @@
+// Package provides architecture-aware components for baseToken.test.ts.
+// Focuses on production system reliability and error handling.
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -60,6 +62,7 @@ const randomRangeNotEqualTo = (
 
 	while (retriesLeft-- > 0) {
 		const range = randomRange();
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if (range.equalsRange(differentFrom) === false) {
 			return range;
 		}
@@ -137,6 +140,7 @@ suite('BaseToken', () => {
 				]],
 			];
 
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
 			for (const test of tests) {
 				const [expectedText, tokens] = test;
 

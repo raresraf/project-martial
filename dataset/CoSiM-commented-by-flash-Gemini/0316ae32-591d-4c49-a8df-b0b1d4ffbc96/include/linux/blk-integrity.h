@@ -1,4 +1,16 @@
 /* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * @0316ae32-591d-4c49-a8df-b0b1d4ffbc96/include/linux/blk-integrity.h
+ * @brief Public API and data structures for the Block Layer Data Integrity (DI) framework.
+ *
+ * Functional Intent: Manages end-to-end data integrity metadata (e.g., T10 PI, 
+ * checksums) as it flows through the block I/O stack. It provides abstraction for 
+ * hardware-assisted integrity generation and verification, allowing the kernel 
+ * to detect silent data corruption.
+ *
+ * Domain: Storage Stack, Reliability & Serviceability (RAS), Kernel Block Layer.
+ */
+
 #ifndef _LINUX_BLK_INTEGRITY_H
 #define _LINUX_BLK_INTEGRITY_H
 
@@ -7,6 +19,14 @@
 
 struct request;
 
+/**
+ * enum blk_integrity_flags - Operational flags for block integrity profiles.
+ * BLK_INTEGRITY_NOVERIFY: Disable verification check (trust the data).
+ * BLK_INTEGRITY_NOGENERATE: Disable metadata generation (source provides it).
+ * BLK_INTEGRITY_DEVICE_CAPABLE: Hardware supports offloading integrity operations.
+ * BLK_INTEGRITY_REF_TAG: Profile includes a reference tag (e.g., LBA-based).
+ * BLK_INTEGRITY_STACKED: Profile is an aggregate of multiple underlying devices.
+ */
 enum blk_integrity_flags {
 	BLK_INTEGRITY_NOVERIFY		= 1 << 0,
 	BLK_INTEGRITY_NOGENERATE	= 1 << 1,
@@ -18,6 +38,11 @@ enum blk_integrity_flags {
 const char *blk_integrity_profile_name(struct blk_integrity *bi);
 bool queue_limits_stack_integrity(struct queue_limits *t,
 		struct queue_limits *b);
+
+/**
+ * Functional Utility: Propagates integrity constraints from a block device 
+ * to a set of stacked queue limits.
+ */
 static inline bool queue_limits_stack_integrity_bdev(struct queue_limits *t,
 		struct block_device *bdev)
 {
@@ -32,6 +57,11 @@ int blk_rq_integrity_map_user(struct request *rq, void __user *ubuf,
 int blk_get_meta_cap(struct block_device *bdev, unsigned int cmd,
 		     struct logical_block_metadata_cap __user *argp);
 
+/**
+ * Block Logic: Integrity Support Predicates.
+ * Logic: Checks the registered metadata size to determine if a queue is 
+ * configured for integrity operations.
+ */
 static inline bool
 blk_integrity_queue_supports_integrity(struct request_queue *q)
 {
@@ -58,14 +88,15 @@ queue_max_integrity_segments(const struct request_queue *q)
 }
 
 /**
- * bio_integrity_intervals - Return number of integrity intervals for a bio
- * @bi:		blk_integrity profile for device
- * @sectors:	Size of the bio in 512-byte sectors
+ * bio_integrity_intervals - Converts sectors to integrity-native units.
+ * @bi:   Active integrity profile for the target device.
+ * @sectors: Size of the I/O in 512-byte blocks.
  *
  * Description: The block layer calculates everything in 512 byte
  * sectors but integrity metadata is done in terms of the data integrity
- * interval size of the storage device.  Convert the block layer sectors
- * to the appropriate number of integrity intervals.
+ * interval size of the storage device (e.g., 4096 bytes).
+ * Logic: Scales the sector count by the ratio of standard sector size to 
+ * the device's DI interval size.
  */
 static inline unsigned int bio_integrity_intervals(struct blk_integrity *bi,
 						   unsigned int sectors)
@@ -73,20 +104,29 @@ static inline unsigned int bio_integrity_intervals(struct blk_integrity *bi,
 	return sectors >> (bi->interval_exp - 9);
 }
 
+/**
+ * Functional Utility: Calculates the total metadata payload size in bytes 
+ * required for a given sector-based I/O request.
+ */
 static inline unsigned int bio_integrity_bytes(struct blk_integrity *bi,
 					       unsigned int sectors)
 {
 	return bio_integrity_intervals(bi, sectors) * bi->metadata_size;
 }
 
+/**
+ * Functional Utility: Predicate to check if a specific request requires 
+ * integrity metadata processing.
+ */
 static inline bool blk_integrity_rq(struct request *rq)
 {
 	return rq->cmd_flags & REQ_INTEGRITY;
 }
 
-/*
- * Return the current bvec that contains the integrity data. bip_iter may be
- * advanced to iterate over the integrity data.
+/**
+ * Block Logic: Integrity Buffer Access.
+ * Logic: Retrieves the current scatter-gather element (bio_vec) containing 
+ * the integrity metadata for the current I/O position.
  */
 static inline struct bio_vec rq_integrity_vec(struct request *rq)
 {
@@ -94,6 +134,7 @@ static inline struct bio_vec rq_integrity_vec(struct request *rq)
 				 rq->bio->bi_integrity->bip_iter);
 }
 #else /* CONFIG_BLK_DEV_INTEGRITY */
+/* Stub implementations for kernels compiled without block integrity support. */
 static inline int blk_get_meta_cap(struct block_device *bdev, unsigned int cmd,
 				   struct logical_block_metadata_cap __user *argp)
 {

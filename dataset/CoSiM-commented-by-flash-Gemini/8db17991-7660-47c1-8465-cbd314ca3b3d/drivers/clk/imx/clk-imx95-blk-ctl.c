@@ -1,5 +1,17 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
+ * @8db17991-7660-47c1-8465-cbd314ca3b3d/drivers/clk/imx/clk-imx95-blk-ctl.c
+ * @brief Block Control (blk-ctl) clock driver for the NXP i.MX95 SoC.
+ * 
+ * Functional Intent: Manages specialized clock hierarchies within various 
+ * functional blocks (VPU, Camera, Display, HSIO, Networking) of the i.MX95. 
+ * It handles the registration of gates, muxes, and dividers that are 
+ * private to these blocks and provides runtime power management (RPM) 
+ * coordination to ensure clocks are correctly sequenced with block-level 
+ * power domains.
+ * 
+ * Domain: Clock Framework, SoC Infrastructure, Power Management.
+ * 
  * Copyright 2024 NXP
  */
 
@@ -27,6 +39,14 @@ enum {
 	CLK_MUX,
 };
 
+/**
+ * struct imx95_blk_ctl - Private state for a block control instance.
+ * @dev: Pointer to the platform device.
+ * @lock: Spinlock protecting concurrent register access across clocks.
+ * @clk_apb: Access clock for the block's control registers.
+ * @base: MMIO base address for the block's CSR (Control and Status Register) space.
+ * @clk_reg_restore: Backup of register state for system-wide suspend/resume.
+ */
 struct imx95_blk_ctl {
 	struct device *dev;
 	spinlock_t lock;
@@ -37,6 +57,11 @@ struct imx95_blk_ctl {
 	u32 clk_reg_restore;
 };
 
+/**
+ * struct imx95_blk_ctl_clk_dev_data - Static metadata for a single internal clock.
+ * Logic: Encapsulates hardware-specific parameters required by the common 
+ * clock framework (gate bits, mux widths, parent relationships).
+ */
 struct imx95_blk_ctl_clk_dev_data {
 	const char *name;
 	const char * const *parent_names;
@@ -50,12 +75,22 @@ struct imx95_blk_ctl_clk_dev_data {
 	u32 type;
 };
 
+/**
+ * struct imx95_blk_ctl_dev_data - Static metadata for a functional block's clock set.
+ */
 struct imx95_blk_ctl_dev_data {
 	const struct imx95_blk_ctl_clk_dev_data *clk_dev_data;
 	u32 num_clks;
 	bool rpm_enabled;
 	u32 clk_reg_offset;
 };
+
+/* Block Logic: Device-specific clock maps.
+ * Logic: Defines the hard-wired topology for different i.MX95 subsystems.
+ * vpublk: Video Processing Unit clocks (WAVE, JPEG).
+ * camblk: Image Signal Processing and CSI-2 interface clocks.
+ * lvds/dispmix: Display and serializer PHY clocks.
+ */
 
 static const struct imx95_blk_ctl_clk_dev_data vpublk_clk_dev_data[] = {
 	[IMX95_CLK_VPUBLK_WAVE] = {
@@ -296,6 +331,18 @@ static const struct imx95_blk_ctl_dev_data hsio_blk_ctl_dev_data = {
 	.clk_reg_offset = 0,
 };
 
+/**
+ * imx95_bc_probe - Driver initialization engine.
+ * @pdev: Targeted platform device matching a blk-ctl compatible string.
+ * 
+ * Block Logic: Block control instantiation.
+ * Logic: 
+ * 1. Remaps the register space and acquires the mandatory APB access clock.
+ * 2. Iterates through the block-specific metadata (bc_data) to register 
+ *    individual CCF clocks (muxes, dividers, or gates).
+ * 3. Populates the device tree with a HW clock provider handle.
+ * 4. Enables Runtime PM if specified for the functional block.
+ */
 static int imx95_bc_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -344,6 +391,7 @@ static int imx95_bc_probe(struct platform_device *pdev)
 	clk_hw_data->num = bc_data->num_clks;
 	hws = clk_hw_data->hws;
 
+	// Loop Logic: Clock registration dispatcher.
 	for (i = 0; i < bc_data->num_clks; i++) {
 		const struct imx95_blk_ctl_clk_dev_data *data = &bc_data->clk_dev_data[i];
 		void __iomem *reg = base + data->reg;
@@ -398,6 +446,12 @@ cleanup:
 }
 
 #ifdef CONFIG_PM
+/**
+ * Block Logic: Runtime Power Management.
+ * Logic: Gate-level control for the APB access clock. Disabling the APB clock 
+ * saves power when registers are not being accessed, assuming the underlying 
+ * IP block's functional clocks are managed independently by CCF.
+ */
 static int imx95_bc_runtime_suspend(struct device *dev)
 {
 	struct imx95_blk_ctl *bc = dev_get_drvdata(dev);
@@ -415,6 +469,11 @@ static int imx95_bc_runtime_resume(struct device *dev)
 #endif
 
 #ifdef CONFIG_PM_SLEEP
+/**
+ * Block Logic: System Sleep State Management.
+ * Logic: Captures and restores the volatile clock gate register across 
+ * system suspend cycles to maintain consistent hardware state.
+ */
 static int imx95_bc_suspend(struct device *dev)
 {
 	struct imx95_blk_ctl *bc = dev_get_drvdata(dev);
@@ -461,6 +520,9 @@ static const struct dev_pm_ops imx95_bc_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(imx95_bc_suspend, imx95_bc_resume)
 };
 
+/**
+ * Block Logic: Device Tree compatibility mapping.
+ */
 static const struct of_device_id imx95_bc_of_match[] = {
 	{ .compatible = "nxp,imx95-camera-csr", .data = &camblk_dev_data },
 	{ .compatible = "nxp,imx95-display-master-csr", },

@@ -2,6 +2,19 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
+
+/**
+ * @1b96fe0a-d0cd-4961-8599-ac5dab31ffe3/src/vs/base/test/common/observableDisposable.test.ts
+ * @brief Unit tests for the ObservableDisposable resource management pattern.
+ * 
+ * Functional Intent: Validates the state machine and event propagation of 
+ * the ObservableDisposable class. It ensures that 'disposed' predicates, 
+ * termination callbacks, and tree-based resource cleanup operate correctly 
+ * under both synchronous and asynchronous conditions.
+ * 
+ * Domain: Platform Testing, Resource Lifecycle, Reactive Patterns.
+ */
+
 import assert from 'assert';
 import { spy } from 'sinon';
 import { wait, waitRandom } from './testUtils.js';
@@ -13,9 +26,12 @@ import { assertNotDisposed, ObservableDisposable } from '../../common/observable
 suite('ObservableDisposable', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
+	/**
+	 * Block Logic: State tracking validation.
+	 * Logic: Verifies the 'disposed' flag transitions correctly from false to true 
+	 * upon invocation of the dispose() method.
+	 */
 	test('tracks `disposed` state', () => {
-		// this is an abstract class, so we have to create
-		// an anonymous class that extends it
 		const object = new class extends ObservableDisposable { }();
 		disposables.add(object);
 
@@ -43,9 +59,12 @@ suite('ObservableDisposable', () => {
 	});
 
 	suite('onDispose', () => {
+		/**
+		 * Block Logic: Asynchronous event propagation.
+		 * Logic: Validates that listeners registered via 'onDispose' are 
+		 * triggered exactly once during the object's termination cycle.
+		 */
 		test('fires the event on dispose', async () => {
-			// this is an abstract class, so we have to create
-			// an anonymous class that extends it
 			const object = new class extends ObservableDisposable { }();
 			disposables.add(object);
 
@@ -69,13 +88,9 @@ suite('ObservableDisposable', () => {
 				'`onDispose` callback must not be called yet.',
 			);
 
-			// dispose object and wait for the event to be fired/received
+			// Logic: Trigger disposal and verify signal receipt.
 			object.dispose();
 			await wait(1);
-
-			/**
-			 * Validate that the callback was called.
-			 */
 
 			assert(
 				object.disposed,
@@ -87,10 +102,8 @@ suite('ObservableDisposable', () => {
 				'`onDispose` callback must be called.',
 			);
 
-			/**
-			 * Validate that the callback is not called again.
-			 */
-
+			// Block Logic: Idempotency check.
+			// Invariant: Multiple dispose() calls must not re-trigger lifecycle events.
 			object.dispose();
 			object.dispose();
 			await waitRandom(10);
@@ -107,13 +120,15 @@ suite('ObservableDisposable', () => {
 			);
 		});
 
+		/**
+		 * Block Logic: Post-termination subscription.
+		 * Logic: Verifies that adding a listener to an already-disposed object 
+		 * results in immediate execution of the callback (synchronous or next-tick).
+		 */
 		test('executes callback immediately if already disposed', async () => {
-			// this is an abstract class, so we have to create
-			// an anonymous class that extends it
 			const object = new class extends ObservableDisposable { }();
 			disposables.add(object);
 
-			// dispose object and wait for the event to be fired/received
 			object.dispose();
 			await wait(1);
 
@@ -134,7 +149,6 @@ suite('ObservableDisposable', () => {
 				'`onDispose` callback must be called immediately the second time.',
 			);
 
-			// dispose object and wait for the event to be fired/received
 			object.dispose();
 			await wait(1);
 
@@ -146,6 +160,11 @@ suite('ObservableDisposable', () => {
 	});
 
 	suite('addDisposable()', () => {
+		/**
+		 * Block Logic: Aggregate cleanup validation.
+		 * Logic: Ensures that child resources registered via 'addDisposable' are 
+		 * recursively terminated when the parent object is disposed.
+		 */
 		test('disposes provided object with itself', async () => {
 			class TestDisposable implements IDisposable {
 				private _disposed = false;
@@ -158,8 +177,6 @@ suite('ObservableDisposable', () => {
 				}
 			}
 
-			// this is an abstract class, so we have to create
-			// an anonymous class that extends it
 			const object = new class extends ObservableDisposable { }();
 			disposables.add(object);
 
@@ -173,7 +190,6 @@ suite('ObservableDisposable', () => {
 				disposableObjects.push(new TestDisposable());
 			}
 
-			// a sanity check for the initial state of the objects
 			for (const disposable of disposableObjects) {
 				assert(
 					disposable.disposed === false,
@@ -183,7 +199,6 @@ suite('ObservableDisposable', () => {
 
 			object.addDisposable(...disposableObjects);
 
-			// a sanity check after the 'addDisposable' call
 			for (const disposable of disposableObjects) {
 				assert(
 					disposable.disposed === false,
@@ -193,7 +208,6 @@ suite('ObservableDisposable', () => {
 
 			object.dispose();
 
-			// finally validate that all objects are disposed
 			const allDisposed = disposableObjects.reduce((acc, disposable) => {
 				return acc && disposable.disposed;
 			}, true);
@@ -204,11 +218,16 @@ suite('ObservableDisposable', () => {
 			);
 		});
 
+		/**
+		 * Block Logic: Deep tree traversal validation.
+		 * Logic: Generates a random recursive tree of disposables and verifies 
+		 * that top-level disposal propagates to every leaf node in the hierarchy.
+		 */
 		test('disposes the entire tree of disposables', async () => {
 			class TestDisposable extends ObservableDisposable { }
 
 			/**
-			 * Generate a tree of disposable objects.
+			 * @brief Utility for procedural tree generation.
 			 */
 			const disposableObjects = (
 				count: number = randomInt(20, 10),
@@ -227,8 +246,7 @@ suite('ObservableDisposable', () => {
 						parent.addDisposable(disposableObject);
 					}
 
-					// generate child disposable objects recursively
-					// to create a tree structure
+					// Recursive Logic: Probabilistic branching to create tree depth.
 					const countMax = count / 2;
 					const countMin = count / 5;
 
@@ -246,8 +264,6 @@ suite('ObservableDisposable', () => {
 				return allDisposables;
 			};
 
-			// this is an abstract class, so we have to create
-			// an anonymous class that extends it
 			const object = new class extends ObservableDisposable { }();
 			disposables.add(object);
 
@@ -264,7 +280,6 @@ suite('ObservableDisposable', () => {
 				'Must have some of the nested disposable objects for this test to be valid.',
 			);
 
-			// a sanity check for the initial state of the objects
 			for (const disposable of allDisposableObjects) {
 				assert(
 					disposable.disposed === false,
@@ -274,7 +289,6 @@ suite('ObservableDisposable', () => {
 
 			object.dispose();
 
-			// finally validate that all objects are disposed
 			const allDisposed = allDisposableObjects.reduce((acc, disposable) => {
 				return acc && disposable.disposed;
 			}, true);
@@ -287,9 +301,10 @@ suite('ObservableDisposable', () => {
 	});
 
 	suite('asserts', () => {
+		/**
+		 * Block Logic: Invariant guard validation (method).
+		 */
 		test('not disposed (method)', async () => {
-			// this is an abstract class, so we have to create
-			// an anonymous class that extends it
 			const object: ObservableDisposable = new class extends ObservableDisposable { }();
 			disposables.add(object);
 
@@ -303,7 +318,6 @@ suite('ObservableDisposable', () => {
 				object.assertNotDisposed('Object must not be disposed.');
 			});
 
-			// dispose object and wait for the event to be fired/received
 			object.dispose();
 			await wait(1);
 
@@ -318,9 +332,10 @@ suite('ObservableDisposable', () => {
 			});
 		});
 
+		/**
+		 * Block Logic: Invariant guard validation (function).
+		 */
 		test('not disposed (function)', async () => {
-			// this is an abstract class, so we have to create
-			// an anonymous class that extends it
 			const object: ObservableDisposable = new class extends ObservableDisposable { }();
 			disposables.add(object);
 
@@ -340,7 +355,6 @@ suite('ObservableDisposable', () => {
 				);
 			});
 
-			// dispose object and wait for the event to be fired/received
 			object.dispose();
 			await wait(1);
 

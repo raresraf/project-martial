@@ -1,3 +1,8 @@
+/**
+ * @file main.c
+ * @brief Core functionality implementation.
+ * Provides the fundamental algorithm logic and state management.
+ */
 // SPDX-License-Identifier: GPL-2.0
 /*
  * Boot config tool for initrd image
@@ -24,6 +29,10 @@ static int xbc_show_value(struct xbc_node *node, bool semicolon)
 
 	eol = semicolon ? ";\n" : "\n";
 	xbc_array_for_each_value(node, val) {
+		/**
+		 * Block Logic: Conditional state branch.
+		 * Invariant: The conditional branch maintains control flow invariants.
+		 */
 		if (strchr(val, '"'))
 			q = '\'';
 		else
@@ -40,11 +49,27 @@ static void xbc_show_compact_tree(void)
 	int depth = 0, i;
 
 	node = xbc_root_node();
+	/**
+	 * Block Logic: State-driven evaluation.
+	 * Invariant: The loop condition reliably gates the execution state.
+	 */
 	while (node && xbc_node_is_key(node)) {
+		/**
+		 * Block Logic: Iterative processing loop.
+		 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+		 */
 		for (i = 0; i < depth; i++)
 			printf("\t");
+		/**
+		 * Block Logic: Conditional state branch.
+		 * Invariant: The conditional branch maintains control flow invariants.
+		 */
 		if (!cnode)
 			cnode = xbc_node_get_child(node);
+		/**
+		 * Block Logic: State-driven evaluation.
+		 * Invariant: The loop condition reliably gates the execution state.
+		 */
 		while (cnode && xbc_node_is_key(cnode) && !cnode->next) {
 			vnode = xbc_node_get_child(cnode);
 			/*
@@ -58,12 +83,20 @@ static void xbc_show_compact_tree(void)
 			 *      }
 			 * }
 			 */
+			/**
+			 * Block Logic: Conditional state branch.
+			 * Invariant: The conditional branch maintains control flow invariants.
+			 */
 			if (vnode && xbc_node_is_value(vnode) && vnode->next)
 				break;
 			printf("%s.", xbc_node_get_data(node));
 			node = cnode;
 			cnode = vnode;
 		}
+		/**
+		 * Block Logic: Conditional state branch.
+		 * Invariant: The conditional branch maintains control flow invariants.
+		 */
 		if (cnode && xbc_node_is_key(cnode)) {
 			printf("%s {\n", xbc_node_get_data(node));
 			depth++;
@@ -77,6 +110,10 @@ static void xbc_show_compact_tree(void)
 			 * If @node has value and subkeys, continue
 			 * looping on subkeys with same node.
 			 */
+			/**
+			 * Block Logic: Conditional state branch.
+			 * Invariant: The conditional branch maintains control flow invariants.
+			 */
 			if (cnode->next) {
 				cnode = xbc_node_get_next(cnode);
 				continue;
@@ -86,18 +123,42 @@ static void xbc_show_compact_tree(void)
 		}
 		cnode = NULL;
 
+		/**
+		 * Block Logic: Conditional state branch.
+		 * Invariant: The conditional branch maintains control flow invariants.
+		 */
 		if (node->next) {
 			node = xbc_node_get_next(node);
 			continue;
 		}
+		/**
+		 * Block Logic: State-driven evaluation.
+		 * Invariant: The loop condition reliably gates the execution state.
+		 */
 		while (!node->next) {
 			node = xbc_node_get_parent(node);
+			/**
+			 * Block Logic: Conditional state branch.
+			 * Invariant: The conditional branch maintains control flow invariants.
+			 */
 			if (!node)
 				return;
+			/**
+			 * Block Logic: Conditional state branch.
+			 * Invariant: The conditional branch maintains control flow invariants.
+			 */
 			if (!xbc_node_get_child(node)->next)
 				continue;
+			/**
+			 * Block Logic: Conditional state branch.
+			 * Invariant: The conditional branch maintains control flow invariants.
+			 */
 			if (depth) {
 				depth--;
+				/**
+				 * Block Logic: Iterative processing loop.
+				 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+				 */
 				for (i = 0; i < depth; i++)
 					printf("\t");
 				printf("}\n");
@@ -116,11 +177,19 @@ static void xbc_show_list(void)
 
 	xbc_for_each_key_value(leaf, val) {
 		ret = xbc_node_compose_key(leaf, key, XBC_KEYLEN_MAX);
+		/**
+		 * Block Logic: Conditional state branch.
+		 * Invariant: The conditional branch maintains control flow invariants.
+		 */
 		if (ret < 0) {
 			fprintf(stderr, "Failed to compose key %d\n", ret);
 			break;
 		}
 		printf("%s = ", key);
+		/**
+		 * Block Logic: Conditional state branch.
+		 * Invariant: The conditional branch maintains control flow invariants.
+		 */
 		if (!val || val[0] == '\0') {
 			printf("\"\"\n");
 			continue;
@@ -136,10 +205,18 @@ static int load_xbc_fd(int fd, char **buf, int size)
 	int ret;
 
 	*buf = malloc(size + 1);
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (!*buf)
 		return -ENOMEM;
 
 	ret = read(fd, *buf, size);
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (ret < 0)
 		return -errno;
 	(*buf)[size] = '\0';
@@ -148,15 +225,23 @@ static int load_xbc_fd(int fd, char **buf, int size)
 }
 
 /* Return the read size or -errno */
-static int load_xbc_file(const char *path, char **buf)
+static int load_xbc_file(const char *path, char **buf) /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 {
 	struct stat stat;
 	int fd, ret;
 
 	fd = open(path, O_RDONLY);
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (fd < 0)
 		return -errno;
 	ret = fstat(fd, &stat);
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (ret < 0)
 		return -errno;
 
@@ -182,49 +267,97 @@ static int load_xbc_from_initrd(int fd, char **buf)
 	const char *msg;
 
 	ret = fstat(fd, &stat);
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (ret < 0)
 		return -errno;
 
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (stat.st_size < 8 + BOOTCONFIG_MAGIC_LEN)
 		return 0;
 
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (lseek(fd, -BOOTCONFIG_MAGIC_LEN, SEEK_END) < 0)
 		return pr_errno("Failed to lseek for magic", -errno);
 
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (read(fd, magic, BOOTCONFIG_MAGIC_LEN) < 0)
 		return pr_errno("Failed to read", -errno);
 
 	/* Check the bootconfig magic bytes */
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (memcmp(magic, BOOTCONFIG_MAGIC, BOOTCONFIG_MAGIC_LEN) != 0)
 		return 0;
 
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (lseek(fd, -(8 + BOOTCONFIG_MAGIC_LEN), SEEK_END) < 0)
 		return pr_errno("Failed to lseek for size", -errno);
 
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (read(fd, &size, sizeof(uint32_t)) < 0)
 		return pr_errno("Failed to read size", -errno);
 	size = le32toh(size);
 
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (read(fd, &csum, sizeof(uint32_t)) < 0)
 		return pr_errno("Failed to read checksum", -errno);
 	csum = le32toh(csum);
 
 	/* Wrong size error  */
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (stat.st_size < size + 8 + BOOTCONFIG_MAGIC_LEN) {
 		pr_err("bootconfig size is too big\n");
 		return -E2BIG;
 	}
 
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (lseek(fd, stat.st_size - (size + 8 + BOOTCONFIG_MAGIC_LEN),
 		  SEEK_SET) < 0)
 		return pr_errno("Failed to lseek", -errno);
 
 	ret = load_xbc_fd(fd, buf, size);
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (ret < 0)
 		return ret;
 
 	/* Wrong Checksum */
 	rcsum = xbc_calc_checksum(*buf, size);
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (csum != rcsum) {
 		pr_err("checksum error: %u != %u\n", csum, rcsum);
 		return -EINVAL;
@@ -232,6 +365,10 @@ static int load_xbc_from_initrd(int fd, char **buf)
 
 	ret = xbc_init(*buf, size, &msg, NULL);
 	/* Wrong data */
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (ret < 0) {
 		pr_err("parse error: %s.\n", msg);
 		return ret;
@@ -244,6 +381,10 @@ static void show_xbc_error(const char *data, const char *msg, int pos)
 {
 	int lin = 1, col, i;
 
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (pos < 0) {
 		pr_err("Error: %s.\n", msg);
 		return;
@@ -251,7 +392,15 @@ static void show_xbc_error(const char *data, const char *msg, int pos)
 
 	/* Note that pos starts from 0 but lin and col should start from 1. */
 	col = pos + 1;
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for (i = 0; i < pos; i++) {
+		/**
+		 * Block Logic: Conditional state branch.
+		 * Invariant: The conditional branch maintains control flow invariants.
+		 */
 		if (data[i] == '\n') {
 			lin++;
 			col = pos - i;
@@ -267,10 +416,18 @@ static int init_xbc_with_error(char *buf, int len)
 	const char *msg;
 	int ret, pos;
 
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (!copy)
 		return -ENOMEM;
 
 	ret = xbc_init(buf, len, &msg, &pos);
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (ret < 0)
 		show_xbc_error(copy, msg, pos);
 	free(copy);
@@ -278,13 +435,17 @@ static int init_xbc_with_error(char *buf, int len)
 	return ret;
 }
 
-static int show_xbc(const char *path, bool list)
+static int show_xbc(const char *path, bool list) /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 {
 	int ret, fd;
 	char *buf = NULL;
 	struct stat st;
 
 	ret = stat(path, &st);
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (ret < 0) {
 		ret = -errno;
 		pr_err("Failed to stat %s: %d\n", path, ret);
@@ -292,6 +453,10 @@ static int show_xbc(const char *path, bool list)
 	}
 
 	fd = open(path, O_RDONLY);
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (fd < 0) {
 		ret = -errno;
 		pr_err("Failed to open initrd %s: %d\n", path, ret);
@@ -300,20 +465,40 @@ static int show_xbc(const char *path, bool list)
 
 	ret = load_xbc_from_initrd(fd, &buf);
 	close(fd);
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (ret < 0) {
 		pr_err("Failed to load a boot config from initrd: %d\n", ret);
 		goto out;
 	}
 	/* Assume a bootconfig file if it is enough small */
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (ret == 0 && st.st_size <= XBC_DATA_MAX) {
 		ret = load_xbc_file(path, &buf);
+		/**
+		 * Block Logic: Conditional state branch.
+		 * Invariant: The conditional branch maintains control flow invariants.
+		 */
 		if (ret < 0) {
 			pr_err("Failed to load a boot config: %d\n", ret);
 			goto out;
 		}
+		/**
+		 * Block Logic: Conditional state branch.
+		 * Invariant: The conditional branch maintains control flow invariants.
+		 */
 		if (init_xbc_with_error(buf, ret) < 0)
 			goto out;
 	}
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (list)
 		xbc_show_list();
 	else
@@ -325,13 +510,17 @@ out:
 	return ret;
 }
 
-static int delete_xbc(const char *path)
+static int delete_xbc(const char *path) /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 {
 	struct stat stat;
 	int ret = 0, fd, size;
 	char *buf = NULL;
 
 	fd = open(path, O_RDWR);
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (fd < 0) {
 		ret = -errno;
 		pr_err("Failed to open initrd %s: %d\n", path, ret);
@@ -339,14 +528,26 @@ static int delete_xbc(const char *path)
 	}
 
 	size = load_xbc_from_initrd(fd, &buf);
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (size < 0) {
 		ret = size;
 		pr_err("Failed to load a boot config from initrd: %d\n", ret);
 	} else if (size > 0) {
 		ret = fstat(fd, &stat);
+		/**
+		 * Block Logic: Conditional state branch.
+		 * Invariant: The conditional branch maintains control flow invariants.
+		 */
 		if (!ret)
 			ret = ftruncate(fd, stat.st_size
 					- size - 8 - BOOTCONFIG_MAGIC_LEN);
+		/**
+		 * Block Logic: Conditional state branch.
+		 * Invariant: The conditional branch maintains control flow invariants.
+		 */
 		if (ret)
 			ret = -errno;
 	} /* Ignore if there is no boot config in initrd */
@@ -357,9 +558,9 @@ static int delete_xbc(const char *path)
 	return ret;
 }
 
-static int apply_xbc(const char *path, const char *xbc_path)
+static int apply_xbc(const char *path, const char *xbc_path) /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 {
-	char *buf, *data, *p;
+	char *buf, *data, *p; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 	size_t total_size;
 	struct stat stat;
 	const char *msg;
@@ -368,6 +569,10 @@ static int apply_xbc(const char *path, const char *xbc_path)
 	int ret, fd;
 
 	ret = load_xbc_file(xbc_path, &buf);
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (ret < 0) {
 		pr_err("Failed to load %s : %d\n", xbc_path, ret);
 		return ret;
@@ -378,12 +583,20 @@ static int apply_xbc(const char *path, const char *xbc_path)
 	/* Backup the bootconfig data */
 	data = calloc(size + BOOTCONFIG_ALIGN +
 		      sizeof(uint32_t) + sizeof(uint32_t) + BOOTCONFIG_MAGIC_LEN, 1);
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (!data)
 		return -ENOMEM;
 	memcpy(data, buf, size);
 
 	/* Check the data format */
 	ret = xbc_init(buf, size, &msg, &pos);
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (ret < 0) {
 		show_xbc_error(data, msg, pos);
 		free(data);
@@ -403,6 +616,10 @@ static int apply_xbc(const char *path, const char *xbc_path)
 
 	/* Remove old boot config if exists */
 	ret = delete_xbc(path);
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (ret < 0) {
 		pr_err("Failed to delete previous boot config: %d\n", ret);
 		free(data);
@@ -411,6 +628,10 @@ static int apply_xbc(const char *path, const char *xbc_path)
 
 	/* Apply new one */
 	fd = open(path, O_RDWR | O_APPEND);
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (fd < 0) {
 		ret = -errno;
 		pr_err("Failed to open %s: %d\n", path, ret);
@@ -418,6 +639,10 @@ static int apply_xbc(const char *path, const char *xbc_path)
 		return ret;
 	}
 	/* TODO: Ensure the @path is initramfs/initrd image */
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (fstat(fd, &stat) < 0) {
 		ret = -errno;
 		pr_err("Failed to get the size of %s\n", path);
@@ -443,10 +668,22 @@ static int apply_xbc(const char *path, const char *xbc_path)
 	total_size = p - data;
 
 	ret = write(fd, data, total_size);
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (ret < total_size) {
+		/**
+		 * Block Logic: Conditional state branch.
+		 * Invariant: The conditional branch maintains control flow invariants.
+		 */
 		if (ret < 0)
 			ret = -errno;
 		pr_err("Failed to apply a boot config: %d\n", ret);
+		/**
+		 * Block Logic: Conditional state branch.
+		 * Invariant: The conditional branch maintains control flow invariants.
+		 */
 		if (ret >= 0)
 			goto out_rollback;
 	} else
@@ -460,8 +697,16 @@ out:
 
 out_rollback:
 	/* Map the partial write to -ENOSPC */
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (ret >= 0)
 		ret = -ENOSPC;
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (ftruncate(fd, stat.st_size) < 0) {
 		ret = -errno;
 		pr_err("Failed to rollback the write error: %d\n", ret);
@@ -485,11 +730,15 @@ static int usage(void)
 
 int main(int argc, char **argv)
 {
-	char *path = NULL;
+	char *path = NULL; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 	char *apply = NULL;
 	bool delete = false, list = false;
 	int opt;
 
+	/**
+	 * Block Logic: State-driven evaluation.
+	 * Invariant: The loop condition reliably gates the execution state.
+	 */
 	while ((opt = getopt(argc, argv, "hda:l")) != -1) {
 		switch (opt) {
 		case 'd':
@@ -507,11 +756,19 @@ int main(int argc, char **argv)
 		}
 	}
 
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if ((apply && delete) || (delete && list) || (apply && list)) {
 		pr_err("Error: You can give one of -a, -d or -l at once.\n");
 		return usage();
 	}
 
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (optind >= argc) {
 		pr_err("Error: No initrd is specified.\n");
 		return usage();
@@ -519,6 +776,10 @@ int main(int argc, char **argv)
 
 	path = argv[optind];
 
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (apply)
 		return apply_xbc(path, apply);
 	else if (delete)

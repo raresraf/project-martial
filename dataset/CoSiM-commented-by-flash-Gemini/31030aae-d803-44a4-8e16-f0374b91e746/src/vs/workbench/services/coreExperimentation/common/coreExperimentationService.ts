@@ -3,6 +3,18 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/**
+ * @31030aae-d803-44a4-8e16-f0374b91e746/src/vs/workbench/services/coreExperimentation/common/coreExperimentationService.ts
+ * @brief Lightweight local experimentation framework for VS Code startup optimizations.
+ * 
+ * Functional Intent: Manages the assignment of users to experimental cohorts during 
+ * the application's initial launch phase. It uses a percentage-based rollout 
+ * strategy to evaluate new startup experiences (e.g., chat layouts) without 
+ * relying on external service connectivity, ensuring immediate assignment on day zero.
+ * 
+ * Domain: A/B Testing, Feature Rollout, Client-side Experimentation.
+ */
+
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { IProductService } from '../../../../platform/product/common/productService.js';
@@ -16,7 +28,7 @@ export const startupExpContext = new RawContextKey<string>('coreExperimentation.
 
 interface IExperiment {
 	cohort: number;
-	subCohort: number; // Optional for future use
+	subCohort: number; 
 	experimentGroup: StartupExperimentGroup;
 	iteration: number;
 	isInExperiment: boolean;
@@ -54,7 +66,6 @@ const EXPERIMENT_CONFIGURATIONS: Record<string, ExperimentConfiguration> = {
 		experimentName: STARTUP_EXPERIMENT_NAME,
 		targetPercentage: 100,
 		groups: [
-			// Bump the iteration each time we change group allocations
 			{ name: StartupExperimentGroup.Control, min: 0.0, max: 0.0, iteration: 1 },
 			{ name: StartupExperimentGroup.MaximizedChat, min: 0.0, max: 1.0, iteration: 1 },
 			{ name: StartupExperimentGroup.SplitEmptyEditorChat, min: 0.0, max: 0.0, iteration: 1 },
@@ -65,7 +76,6 @@ const EXPERIMENT_CONFIGURATIONS: Record<string, ExperimentConfiguration> = {
 		experimentName: STARTUP_EXPERIMENT_NAME,
 		targetPercentage: 20,
 		groups: [
-			// Bump the iteration each time we change group allocations
 			{ name: StartupExperimentGroup.Control, min: 0.0, max: 0.25, iteration: 1 },
 			{ name: StartupExperimentGroup.MaximizedChat, min: 0.25, max: 0.5, iteration: 1 },
 			{ name: StartupExperimentGroup.SplitEmptyEditorChat, min: 0.5, max: 0.75, iteration: 1 },
@@ -74,6 +84,9 @@ const EXPERIMENT_CONFIGURATIONS: Record<string, ExperimentConfiguration> = {
 	}
 };
 
+/**
+ * @brief Primary implementation of the client-side experimentation logic.
+ */
 export class CoreExperimentationService extends Disposable implements ICoreExperimentationService {
 	declare readonly _serviceBrand: undefined;
 
@@ -89,36 +102,37 @@ export class CoreExperimentationService extends Disposable implements ICoreExper
 		this.initializeExperiments();
 	}
 
+	/**
+	 * initializeExperiments - Orchestrates the assignment lifecycle on service creation.
+	 * 
+	 * Block Logic: Candidate eligibility and persistence checks.
+	 * Logic: 
+	 * 1. Restricts assignments to "fresh" installs (first session < 24h old).
+	 * 2. Checks persistent storage to ensure sticky assignments across restarts.
+	 * 3. On successful assignment: Records telemetry and binds group ID to 
+	 *    UI context keys for conditional layout rendering.
+	 */
 	private initializeExperiments(): void {
 
 		const firstSessionDateString = this.storageService.get(firstSessionDateStorageKey, StorageScope.APPLICATION) || new Date().toUTCString();
 		const daysSinceFirstSession = ((+new Date()) - (+new Date(firstSessionDateString))) / 1000 / 60 / 60 / 24;
-		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
-		// Invariant: State condition that holds true before and after each iteration/execution
+
 		if (daysSinceFirstSession > 1) {
-			// not a startup exp candidate.
 			return;
 		}
 
 		const experimentConfig = this.getExperimentConfiguration();
-		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
-		// Invariant: State condition that holds true before and after each iteration/execution
 		if (!experimentConfig) {
 			return;
 		}
 
-		// also check storage to see if this user has already seen the startup experience
 		const storageKey = `coreExperimentation.${experimentConfig.experimentName}`;
 		const storedExperiment = this.storageService.get(storageKey, StorageScope.APPLICATION);
-		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
-		// Invariant: State condition that holds true before and after each iteration/execution
 		if (storedExperiment) {
 			return;
 		}
 
 		const experiment = this.createStartupExperiment(experimentConfig.experimentName, experimentConfig);
-		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
-		// Invariant: State condition that holds true before and after each iteration/execution
 		if (experiment) {
 			this.experiments.set(experimentConfig.experimentName, experiment);
 			this.sendExperimentTelemetry(experimentConfig.experimentName, experiment);
@@ -134,28 +148,31 @@ export class CoreExperimentationService extends Disposable implements ICoreExper
 
 	private getExperimentConfiguration(): ExperimentConfiguration | undefined {
 		const quality = this.productService.quality;
-		// if (!quality) {
-		// 	return undefined;
-		// }
 		return EXPERIMENT_CONFIGURATIONS[quality || 'stable'];
 	}
 
+	/**
+	 * createStartupExperiment - Probabilistic assignment engine.
+	 * 
+	 * Algorithm: Uniform random cohort mapping.
+	 * Logic: 
+	 * 1. Generates a random float [0, 1].
+	 * 2. Evaluates against 'targetPercentage' to decide if the user participates.
+	 * 3. Normalizes the participant's value to the [0, 1] range.
+	 * 4. Maps the normalized value to a specific group's [min, max] interval.
+	 * 
+	 * Invariant: Exactly one group is assigned for participants.
+	 */
 	private createStartupExperiment(experimentName: string, experimentConfig: ExperimentConfiguration): IExperiment | undefined {
 		const cohort = Math.random();
 
-		// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
-		// Invariant: State condition that holds true before and after each iteration/execution
 		if (cohort >= experimentConfig.targetPercentage / 100) {
 			return undefined;
 		}
 
-		// Normalize the cohort to the experiment range [0, targetPercentage/100]
 		const normalizedCohort = cohort / (experimentConfig.targetPercentage / 100);
 
-		// Find which group this user falls into
 		for (const group of experimentConfig.groups) {
-			// Block Logic: Describe purpose of this block, e.g., iteration, conditional execution
-			// Invariant: State condition that holds true before and after each iteration/execution
 			if (normalizedCohort >= group.min && normalizedCohort < group.max) {
 				return {
 					cohort,
@@ -169,6 +186,9 @@ export class CoreExperimentationService extends Disposable implements ICoreExper
 		return undefined;
 	}
 
+	/**
+	 * @brief Dispatches assignment metadata to the global telemetry collector.
+	 */
 	private sendExperimentTelemetry(experimentName: string, experiment: IExperiment): void {
 		type ExperimentCohortClassification = {
 			owner: 'bhavyaus';

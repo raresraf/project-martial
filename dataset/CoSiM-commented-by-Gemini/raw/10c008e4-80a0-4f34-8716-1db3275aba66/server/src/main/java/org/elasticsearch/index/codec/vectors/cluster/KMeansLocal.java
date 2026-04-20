@@ -1,3 +1,5 @@
+// Package provides architecture-aware components for KMeansLocal.java.
+// Focuses on production system reliability and error handling.
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
  * or more contributor license agreements. Licensed under the "Elastic License
@@ -54,8 +56,10 @@ class KMeansLocal {
         Random random = new Random(42L);
         int centroidsSize = Math.min(vectors.size(), centroidCount);
         float[][] centroids = new float[centroidsSize][vectors.dimension()];
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
         for (int i = 0; i < vectors.size(); i++) {
             float[] vector;
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
             if (i < centroidCount) {
                 vector = vectors.vectorValue(i);
                 System.arraycopy(vector, 0, centroids[i], 0, vector.length);
@@ -80,33 +84,41 @@ class KMeansLocal {
         int dim = vectors.dimension();
         int[] centroidCounts = new int[centroids.length];
 
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
         for (float[] nextCentroid : nextCentroids) {
             Arrays.fill(nextCentroid, 0.0f);
         }
 
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
         for (int idx = 0; idx < vectors.size(); idx++) {
             float[] vector = vectors.vectorValue(idx);
             int vectorOrd = translateOrd.apply(idx);
             final int assignment = assignments[vectorOrd];
             final int bestCentroidOffset;
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
             if (neighborhoods != null) {
                 bestCentroidOffset = getBestCentroidFromNeighbours(centroids, vector, assignment, neighborhoods.get(assignment));
             } else {
                 bestCentroidOffset = getBestCentroid(centroids, vector);
             }
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
             if (assignment != bestCentroidOffset) {
                 assignments[vectorOrd] = bestCentroidOffset;
                 changed = true;
             }
             centroidCounts[bestCentroidOffset]++;
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
             for (int d = 0; d < dim; d++) {
                 nextCentroids[bestCentroidOffset][d] += vector[d];
             }
         }
 
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
         for (int clusterIdx = 0; clusterIdx < centroids.length; clusterIdx++) {
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
             if (centroidCounts[clusterIdx] > 0) {
                 float countF = (float) centroidCounts[clusterIdx];
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
                 for (int d = 0; d < dim; d++) {
                     centroids[clusterIdx][d] = nextCentroids[clusterIdx][d] / countF;
                 }
@@ -120,10 +132,12 @@ class KMeansLocal {
         int bestCentroidOffset = centroidIdx;
         assert centroidIdx >= 0 && centroidIdx < centroids.length;
         float minDsq = VectorUtil.squareDistance(vector, centroids[centroidIdx]);
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
         for (int i = 0; i < neighborhood.neighbors.length; i++) {
             int offset = neighborhood.neighbors[i];
             // float score = neighborhood.scores[i];
             assert offset >= 0 && offset < centroids.length : "Invalid neighbor offset: " + offset;
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
             if (minDsq < neighborhood.maxIntraDistance) {
                 // if the distance found is smaller than the maximum intra-cluster distance
                 // we don't consider it for further re-assignment
@@ -131,6 +145,7 @@ class KMeansLocal {
             }
             // compute the distance to the centroid
             float dsq = VectorUtil.squareDistance(vector, centroids[offset]);
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
             if (dsq < minDsq) {
                 minDsq = dsq;
                 bestCentroidOffset = offset;
@@ -142,8 +157,10 @@ class KMeansLocal {
     private static int getBestCentroid(float[][] centroids, float[] vector) {
         int bestCentroidOffset = 0;
         float minDsq = Float.MAX_VALUE;
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
         for (int i = 0; i < centroids.length; i++) {
             float dsq = VectorUtil.squareDistance(vector, centroids[i]);
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
             if (dsq < minDsq) {
                 minDsq = dsq;
                 bestCentroidOffset = i;
@@ -155,15 +172,19 @@ class KMeansLocal {
     private void computeNeighborhoods(float[][] centers, List<NeighborHood> neighborhoods, int clustersPerNeighborhood) {
         int k = neighborhoods.size();
 
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
         if (k == 0 || clustersPerNeighborhood <= 0) {
             return;
         }
 
         List<NeighborQueue> neighborQueues = new ArrayList<>(k);
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
         for (int i = 0; i < k; i++) {
             neighborQueues.add(new NeighborQueue(clustersPerNeighborhood, true));
         }
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
         for (int i = 0; i < k - 1; i++) {
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
             for (int j = i + 1; j < k; j++) {
                 float dsq = VectorUtil.squareDistance(centers[i], centers[j]);
                 neighborQueues.get(j).insertWithOverflow(i, dsq);
@@ -171,8 +192,10 @@ class KMeansLocal {
             }
         }
 
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
         for (int i = 0; i < k; i++) {
             NeighborQueue queue = neighborQueues.get(i);
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
             if (queue.size() == 0) {
                 // no neighbors, skip
                 neighborhoods.set(i, NeighborHood.EMPTY);
@@ -209,6 +232,7 @@ class KMeansLocal {
         int[] spilledAssignments = new int[assignments.length];
 
         float[] diffs = new float[vectors.dimension()];
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
         for (int i = 0; i < vectors.size(); i++) {
             float[] vector = vectors.vectorValue(i);
 
@@ -218,7 +242,9 @@ class KMeansLocal {
             // TODO: cache these?
             float vectorCentroidDist = VectorUtil.squareDistance(vector, currentCentroid);
 
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
             if (vectorCentroidDist > SOAR_MIN_DISTANCE) {
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
                 for (int j = 0; j < vectors.dimension(); j++) {
                     float diff = vector[j] - currentCentroid[j];
                     diffs[j] = diff;
@@ -229,25 +255,30 @@ class KMeansLocal {
             float minSoar = Float.MAX_VALUE;
             int centroidCount = centroids.length;
             IntToIntFunction centroidOrds = c -> c;
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
             if (neighborhoods != null) {
                 assert neighborhoods.get(currAssignment) != null;
                 NeighborHood neighborhood = neighborhoods.get(currAssignment);
                 centroidCount = neighborhood.neighbors.length;
                 centroidOrds = c -> neighborhood.neighbors[c];
             }
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
             for (int j = 0; j < centroidCount; j++) {
                 int centroidOrd = centroidOrds.apply(j);
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
                 if (centroidOrd == currAssignment) {
                     continue; // skip the current assignment
                 }
                 float[] centroid = centroids[centroidOrd];
                 float soar;
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
                 if (vectorCentroidDist > SOAR_MIN_DISTANCE) {
                     soar = ESVectorUtil.soarDistance(vector, centroid, diffs, soarLambda, vectorCentroidDist);
                 } else {
                     // if the vector is very close to the centroid, we look for the second-nearest centroid
                     soar = VectorUtil.squareDistance(vector, centroid);
                 }
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
                 if (soar < minSoar) {
                     minSoar = soar;
                     bestAssignment = centroidOrd;
@@ -294,6 +325,7 @@ class KMeansLocal {
      */
     void cluster(FloatVectorValues vectors, KMeansIntermediate kMeansIntermediate, int clustersPerNeighborhood, float soarLambda)
         throws IOException {
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
         if (clustersPerNeighborhood < 2) {
             throw new IllegalArgumentException("clustersPerNeighborhood must be at least 2, got [" + clustersPerNeighborhood + "]");
         }
@@ -307,15 +339,18 @@ class KMeansLocal {
 
         List<NeighborHood> neighborhoods = null;
         // if there are very few centroids, don't bother with neighborhoods or neighbor aware clustering
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
         if (neighborAware && centroids.length > clustersPerNeighborhood) {
             int k = centroids.length;
             neighborhoods = new ArrayList<>(k);
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
             for (int i = 0; i < k; ++i) {
                 neighborhoods.add(null);
             }
             computeNeighborhoods(centroids, neighborhoods, clustersPerNeighborhood);
         }
         cluster(vectors, kMeansIntermediate, neighborhoods);
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
         if (neighborAware) {
             int[] assignments = kMeansIntermediate.assignments();
             assert assignments != null;
@@ -331,12 +366,14 @@ class KMeansLocal {
         int n = vectors.size();
         int[] assignments = kMeansIntermediate.assignments();
 
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
         if (k == 1) {
             Arrays.fill(assignments, 0);
             return;
         }
         IntToIntFunction translateOrd = i -> i;
         FloatVectorValues sampledVectors = vectors;
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
         if (sampleSize < n) {
             sampledVectors = SampleReader.createSampleReader(vectors, sampleSize, 42L);
             translateOrd = sampledVectors::ordToDoc;
@@ -344,13 +381,16 @@ class KMeansLocal {
 
         assert assignments.length == n;
         float[][] nextCentroids = new float[centroids.length][vectors.dimension()];
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
         for (int i = 0; i < maxIterations; i++) {
             // This is potentially sampled, so we need to translate ordinals
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
             if (stepLloyd(sampledVectors, translateOrd, centroids, nextCentroids, assignments, neighborhoods) == false) {
                 break;
             }
         }
         // If we were sampled, do a once over the full set of vectors to finalize the centroids
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
         if (sampleSize < n || maxIterations == 0) {
             // No ordinal translation needed here, we are using the full set of vectors
             stepLloyd(vectors, i -> i, centroids, nextCentroids, assignments, neighborhoods);

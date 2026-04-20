@@ -1,23 +1,49 @@
+/**
+ * @file solver_blas.c
+ * @brief BLAS-based optimized matrix solver computing $C = A \times B \times B^T + A^T \times A$.
+ * Algorithm: Relies on optimized numerical linear algebra kernels (DGEMM, DTRMM).
+ * Time Complexity: $O(N^3)$ due to dense matrix multiplications.
+ * Space Complexity: $O(N^2)$ for storing the result matrix C.
+ */
 
 #include <string.h>
 #include <stdlib.h>
 #include "utils.h"
 #include "cblas.h"
 
+/**
+ * @brief Computes C = A * B * B^T + A^T * A.
+ * @param N Matrix dimension.
+ * @param A Input matrix A.
+ * @param B Input matrix B.
+ * @return Pointer to resulting matrix C.
+ */
 double* my_solver(int N, double *A, double *B) {
 	int i, j;
 	double *C = calloc(N * N, sizeof(*C));
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (C == NULL) {
 		exit(EXIT_FAILURE);
 	}
 
 	double *AB = calloc(N * N, sizeof(*AB ));
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (AB == NULL) {
 		exit(EXIT_FAILURE);
 	}
 
 
 	double *A_tA = calloc(N * N, sizeof(*A_tA));
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (A_tA == NULL) {
 		exit(EXIT_FAILURE);
 	}
@@ -63,7 +89,15 @@ double* my_solver(int N, double *A, double *B) {
 	);
 
 	
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for (i = 0; i < N; i++) {
+		/**
+		 * Block Logic: Iterative processing loop.
+		 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+		 */
 		for (j = 0; j < N; j++) {
 			C[i * N + j] += A_tA[i * N + j];
 		}

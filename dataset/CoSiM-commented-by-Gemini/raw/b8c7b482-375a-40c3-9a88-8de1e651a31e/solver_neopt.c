@@ -1,3 +1,10 @@
+/**
+ * @file solver_neopt.c
+ * @brief Unoptimized standard implementation to compute $C = A \times B \times B^T + A^T \times A$.
+ * Algorithm: Naive multi-loop dense matrix multiplication with upper triangular conditions.
+ * Time Complexity: $O(N^3)$.
+ * Space Complexity: $O(N^2)$ to store the intermediate matrices.
+ */
 
 #include "utils.h"
 
@@ -9,8 +16,16 @@
 void transpose(int N, double *a, double *res)
 {
     int i, j;
+    /**
+     * Block Logic: Iterative processing loop.
+     * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+     */
     for (i = 0; i < N; i++)
     {
+        /**
+         * Block Logic: Iterative processing loop.
+         * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+         */
         for (j = 0; j < N; j++)
         {
             res[i * N + j] = a[j * N + i];
@@ -23,11 +38,23 @@ void mul(int N, double *a, double *b, double *res)
 {
 
     int i, j, k;
+    /**
+     * Block Logic: Iterative processing loop.
+     * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+     */
     for (i = 0; i < N; i++)
     {
+        /**
+         * Block Logic: Iterative processing loop.
+         * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+         */
         for (j = 0; j < N; j++)
         {
             res[i * N + j] = 0.0;
+            /**
+             * Block Logic: Iterative processing loop.
+             * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+             */
             for (k = 0; k < N; k++)
             {
                 res[i * N + j] += a[i * N + k] * b[k * N + j];
@@ -40,8 +67,16 @@ void mul(int N, double *a, double *b, double *res)
 void add_sq_m(int N, double *a, double *b)
 {
     int i, j;
+    /**
+     * Block Logic: Iterative processing loop.
+     * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+     */
     for (i = 0; i < N; i++)
     {
+        /**
+         * Block Logic: Iterative processing loop.
+         * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+         */
         for (j = 0; j < N; j++)
         {
             a[i * N + j] += b[i * N + j];
@@ -53,14 +88,26 @@ void add_sq_m(int N, double *a, double *b)
 void at_a_mul(int N, double *at, double *res)
 {
     int i, j, k;
+    /**
+     * Block Logic: Iterative processing loop.
+     * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+     */
     for (i = 0; i < N; i++)
     {
+        /**
+         * Block Logic: Iterative processing loop.
+         * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+         */
         for (j = 0; j < N; j++)
         {
             res[i * N + j] = 0.0;
 
             int max = (i < j) ? i : j;
 
+            /**
+             * Block Logic: Iterative processing loop.
+             * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+             */
             for (k = 0; k <= max; k++)
             {
                 res[i * N + j] += at[i * N + k] * at[j * N + k];
@@ -73,11 +120,23 @@ void at_a_mul(int N, double *at, double *res)
 void sup_tri_mul(int N, double *a, double *b, double *res)
 {
     int i, j, k;
+    /**
+     * Block Logic: Iterative processing loop.
+     * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+     */
     for (i = 0; i < N; i++)
     {
+        /**
+         * Block Logic: Iterative processing loop.
+         * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+         */
         for (j = 0; j < N; j++)
         {
             res[i * N + j] = 0.0;
+            /**
+             * Block Logic: Iterative processing loop.
+             * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+             */
             for (k = i; k < N; k++)
             {
                 res[i * N + j] += a[i * N + k] * b[k * N + j];
@@ -90,11 +149,23 @@ void sup_tri_mul(int N, double *a, double *b, double *res)
 void regular_x_trans(int N, double *a, double *res)
 {
     int i, j, k;
+    /**
+     * Block Logic: Iterative processing loop.
+     * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+     */
     for (i = 0; i < N; i++)
     {
+        /**
+         * Block Logic: Iterative processing loop.
+         * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+         */
         for (j = 0; j < N; j++)
         {
             res[i * N + j] = 0.0;
+            /**
+             * Block Logic: Iterative processing loop.
+             * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+             */
             for (k = 0; k < N; k++)
             {
                 res[i * N + j] += a[i * N + k] * a[j * N + k];
@@ -103,6 +174,13 @@ void regular_x_trans(int N, double *a, double *res)
     }
 }
 
+/**
+ * @brief Computes C = A * B * B^T + A^T * A.
+ * @param N Matrix dimension.
+ * @param A Input matrix A.
+ * @param B Input matrix B.
+ * @return Pointer to resulting matrix C.
+ */
 double *my_solver(int N, double *a, double *b)
 {
     printf("NEOPT SOLVER\n");

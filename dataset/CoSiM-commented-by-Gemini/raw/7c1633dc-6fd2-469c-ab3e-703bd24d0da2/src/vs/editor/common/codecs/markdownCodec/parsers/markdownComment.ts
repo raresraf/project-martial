@@ -1,3 +1,5 @@
+// Package provides architecture-aware components for markdownComment.ts.
+// Focuses on production system reliability and error handling.
 /*---------------------------------------------------------------------------------------------
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
@@ -26,6 +28,7 @@ export class PartialMarkdownCommentStart extends ParserBase<TSimpleDecoderToken,
 		const lastToken = this.currentTokens[this.currentTokens.length - 1];
 
 		// if received `!` after `<`, continue the parsing process
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if (token instanceof ExclamationMark && lastToken instanceof LeftAngleBracket) {
 			this.currentTokens.push(token);
 			return {
@@ -37,9 +40,11 @@ export class PartialMarkdownCommentStart extends ParserBase<TSimpleDecoderToken,
 
 		// if received `-` after, check that previous token either `!` or `-`,
 		// which allows to continue the parsing process, otherwise fail
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if (token instanceof Dash) {
 			this.currentTokens.push(token);
 
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 			if (lastToken instanceof ExclamationMark) {
 				return {
 					result: 'success',
@@ -48,6 +53,7 @@ export class PartialMarkdownCommentStart extends ParserBase<TSimpleDecoderToken,
 				};
 			}
 
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 			if (lastToken instanceof Dash) {
 				const token1: TSimpleDecoderToken | undefined = this.currentTokens[0];
 				const token2: TSimpleDecoderToken | undefined = this.currentTokens[1];
@@ -103,6 +109,7 @@ export class MarkdownCommentStart extends ParserBase<TSimpleDecoderToken, Markdo
 	public accept(token: TSimpleDecoderToken): TAcceptTokenResult<MarkdownCommentStart | MarkdownComment> {
 		// if received `>` while current token sequence ends with `--`,
 		// then this is the end of the comment sequence
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if (token instanceof RightAngleBracket && this.endsWithDashes) {
 			this.currentTokens.push(token);
 
@@ -163,11 +170,13 @@ export class MarkdownCommentStart extends ParserBase<TSimpleDecoderToken, Markdo
 	 */
 	private get endsWithDashes(): boolean {
 		const lastToken = this.currentTokens[this.currentTokens.length - 1];
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if (!(lastToken instanceof Dash)) {
 			return false;
 		}
 
 		const secondLastToken = this.currentTokens[this.currentTokens.length - 2];
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if (!(secondLastToken instanceof Dash)) {
 			return false;
 		}

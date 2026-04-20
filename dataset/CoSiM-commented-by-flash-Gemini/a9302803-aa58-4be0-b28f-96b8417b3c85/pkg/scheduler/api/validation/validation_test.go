@@ -14,9 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package validation_test contains unit tests for the scheduler API validation logic.
-// These tests ensure that the Policy and ExtenderConfig structures adhere to expected rules
-// and handle various valid and invalid configurations correctly.
+/**
+ * @a9302803-aa58-4be0-b28f-96b8417b3c85/pkg/scheduler/api/validation/validation_test.go
+ * @brief Unit tests for Kubernetes scheduler policy validation logic.
+ * 
+ * Functional Intent: Ensures the structural and semantic integrity of scheduler 
+ * policies. Validates constraints on priority weights, extender configurations, 
+ * binding implementations, and managed resource naming conventions.
+ */
 package validation
 
 import (
@@ -27,79 +32,64 @@ import (
 	"k8s.io/kubernetes/pkg/scheduler/api"
 )
 
+/**
+ * TestValidatePolicy - Entry point for policy validation test suite.
+ * Logic: Employs table-driven testing to verify various edge cases and failure 
+ * modes in scheduler policies, including weight overflows and duplicate configurations.
+ */
 func TestValidatePolicy(t *testing.T) {
-	// Defines a series of test cases for `ValidatePolicy` to ensure various policy configurations
-	// are correctly validated, including priority weights, extender configurations, and resource names.
+	// Block Logic: Definition of test vectors for policy validation.
+	// Invariant: Each test case maps a policy configuration to its expected error outcome.
 	tests := []struct {
 		policy   api.Policy
 		expected error
 		name     string
 	}{
-		// Test case: Verifies that a priority policy without a defined weight (implicitly zero or negative)
-		// results in an error, as weights must be positive.
 		{
 			name:     "no weight defined in policy",
 			policy:   api.Policy{Priorities: []api.PriorityPolicy{{Name: "NoWeightPriority"}}},
 			expected: errors.New("Priority NoWeightPriority should have a positive weight applied to it or it has overflown"),
 		},
-		// Test case: Ensures that a priority policy with an explicitly set zero weight
-		// generates an error, reinforcing the requirement for positive weights.
 		{
 			name:     "policy weight is not positive",
 			policy:   api.Policy{Priorities: []api.PriorityPolicy{{Name: "NoWeightPriority", Weight: 0}}},
 			expected: errors.New("Priority NoWeightPriority should have a positive weight applied to it or it has overflown"),
 		},
-		// Test case: Confirms that a priority policy with a valid positive weight
-		// passes validation without any errors.
 		{
 			name:     "valid weight priority",
 			policy:   api.Policy{Priorities: []api.PriorityPolicy{{Name: "WeightPriority", Weight: 2}}},
 			expected: nil,
 		},
-		// Test case: Validates that a priority policy with a negative weight
-		// correctly triggers an error, as negative weights are not allowed.
 		{
 			name:     "invalid negative weight policy",
 			policy:   api.Policy{Priorities: []api.PriorityPolicy{{Name: "WeightPriority", Weight: -2}}},
 			expected: errors.New("Priority WeightPriority should have a positive weight applied to it or it has overflown"),
 		},
-		// Test case: Checks that a priority policy with a weight exceeding the maximum allowed value
-		// results in an error, ensuring weight constraints are enforced.
 		{
 			name:     "policy weight exceeds maximum",
 			policy:   api.Policy{Priorities: []api.PriorityPolicy{{Name: "WeightPriority", Weight: api.MaxWeight}}},
 			expected: errors.New("Priority WeightPriority should have a positive weight applied to it or it has overflown"),
 		},
-		// Test case: Verifies that an extender configuration with a valid positive weight
-		// for prioritization passes validation.
 		{
 			name:     "valid weight in policy extender config",
 			policy:   api.Policy{ExtenderConfigs: []api.ExtenderConfig{{URLPrefix: "http://127.0.0.1:8081/extender", PrioritizeVerb: "prioritize", Weight: 2}}},
 			expected: nil,
 		},
-		// Test case: Ensures that an extender configuration with a negative weight for prioritization
-		// correctly triggers an error.
 		{
 			name:     "invalid negative weight in policy extender config",
 			policy:   api.Policy{ExtenderConfigs: []api.ExtenderConfig{{URLPrefix: "http://127.0.0.1:8081/extender", PrioritizeVerb: "prioritize", Weight: -2}}},
 			expected: errors.New("Priority for extender http://127.0.0.1:8081/extender should have a positive weight applied to it"),
 		},
-		// Test case: Confirms that an extender configuration with a valid filter verb and URL prefix
-		// passes validation.
 		{
 			name:     "valid filter verb and url prefix",
 			policy:   api.Policy{ExtenderConfigs: []api.ExtenderConfig{{URLPrefix: "http://127.0.0.1:8081/extender", FilterVerb: "filter"}}},
 			expected: nil,
 		},
-		// Test case: Validates that an extender configuration with a valid preempt verb and URL prefix
-		// passes validation.
 		{
 			name:     "valid preemt verb and urlprefix",
 			policy:   api.Policy{ExtenderConfigs: []api.ExtenderConfig{{URLPrefix: "http://127.0.0.1:8081/extender", PreemptVerb: "preempt"}}},
 			expected: nil,
 		},
-		// Test case: Ensures that defining multiple extenders with the "bind" verb
-		// results in an error, as only one extender can handle binding.
 		{
 			name: "invalid multiple extenders",
 			policy: api.Policy{
@@ -109,8 +99,6 @@ func TestValidatePolicy(t *testing.T) {
 				}},
 			expected: errors.New("Only one extender can implement bind, found 2"),
 		},
-		// Test case: Checks that duplicate managed resource names across different extenders
-		// correctly trigger an error.
 		{
 			name: "invalid duplicate extender resource name",
 			policy: api.Policy{
@@ -120,8 +108,6 @@ func TestValidatePolicy(t *testing.T) {
 				}},
 			expected: errors.New("Duplicate extender managed resource name foo.com/bar"),
 		},
-		// Test case: Verifies that an invalid extended resource name (e.g., using "kubernetes.io" prefix)
-		// results in an error.
 		{
 			name: "invalid extended resource name",
 			policy: api.Policy{
@@ -132,8 +118,9 @@ func TestValidatePolicy(t *testing.T) {
 		},
 	}
 
-	// Iterates through each defined test case, executes the `ValidatePolicy` function,
-	// and compares the actual result with the expected error.
+	// Block Logic: Execution of the test battery.
+	// Logic: Iterates through each test case, invokes the validator, and performs 
+	// string-based comparison of error messages to confirm behavioral correctness.
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			actual := ValidatePolicy(test.policy)

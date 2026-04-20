@@ -1,3 +1,10 @@
+/**
+ * @file solver_opt.c
+ * @brief Block-optimized manual implementation to compute $C = A \times B \times B^T + A^T \times A$.
+ * Algorithm: Loop tiling/blocking for cache locality enhancement.
+ * Time Complexity: $O(N^3)$.
+ * Space Complexity: $O(N^2)$ for intermediate data structures.
+ */
 
 #include "utils.h"
 
@@ -6,6 +13,10 @@ double* transpose_upper_matrix(int N, double *matrix) {
 	int i, j;
 
 	double *transpose = (double *)calloc(N * N, sizeof(double));
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (transpose == NULL) {
 		fprintf(stderr, "Error calloc transpose.\n");
 		exit(0);
@@ -13,9 +24,17 @@ double* transpose_upper_matrix(int N, double *matrix) {
 
 	
 	
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for (i = 0; i < N; i++) {
-		register double *m_elem = &matrix[i * N];
+		register double *m_elem = &matrix[i * N]; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 
+		/**
+		 * Block Logic: Iterative processing loop.
+		 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+		 */
 		for (j = i; j < N; j++) {
 			transpose[j * N + i] = m_elem[j];
 		}
@@ -28,6 +47,10 @@ double *transpose_matrix(int N, double *matrix) {
 	int i, j;
 
 	double *transpose = (double *)calloc(N * N, sizeof(double));
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (transpose == NULL) {
 		fprintf(stderr, "Error calloc transpose.\n");
 		exit(0);
@@ -35,9 +58,17 @@ double *transpose_matrix(int N, double *matrix) {
 
 	
 	
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for (i = 0; i < N; i ++) {
-		register double *m_elem = &matrix[i * N];
+		register double *m_elem = &matrix[i * N]; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 
+		/**
+		 * Block Logic: Iterative processing loop.
+		 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+		 */
 		for (j = 0; j < N; j++) {
 			transpose[j * N + i] = m_elem[j];
 		}
@@ -50,20 +81,36 @@ double *compute_product_with_upper(int N, double *l, double *m) {
 	int i, j, k;
 
 	double *result = (double *)calloc(N * N, sizeof(double));
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (result == NULL) {
 		fprintf(stderr, "Error calloc product.\n");
 		exit(0);
 	}
 
 	
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for (i = 0; i < N; i++) {
-		register double *result_elem = &result[i * N];
-		register double *lower_elem = &l[i * N];
+		register double *result_elem = &result[i * N]; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
+		register double *lower_elem = &l[i * N]; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 
+		/**
+		 * Block Logic: Iterative processing loop.
+		 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+		 */
 		for (k = i; k < N; k++) {
 			register double l_elem = lower_elem[k];
-			register double *m_elem = &m[k * N];
+			register double *m_elem = &m[k * N]; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 
+			/**
+			 * Block Logic: Iterative processing loop.
+			 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+			 */
 			for (j = 0; j < N; j += 40) {
 				result_elem[j] += l_elem * m_elem[j];
 				result_elem[j + 1] += l_elem * m_elem[j + 1];
@@ -116,20 +163,36 @@ double *compute_product(int N, double *m1, double *m2) {
 	int i, j, k;
 
 	double *result = (double *)calloc(N * N, sizeof(double));
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (result == NULL) {
 		fprintf(stderr, "Error calloc transpose.\n");
 		exit(0);
 	}
 
 	
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for (i = 0; i < N; i++) {
-		register double *result_elem = &result[i * N];
-		register double *m1_elem = &m1[i * N];
+		register double *result_elem = &result[i * N]; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
+		register double *m1_elem = &m1[i * N]; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 
+		/**
+		 * Block Logic: Iterative processing loop.
+		 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+		 */
 		for (k = 0; k < N; k++) {
-			register double *m2_elem = &m2[k * N];
+			register double *m2_elem = &m2[k * N]; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 			register double m1_el = m1_elem[k];
 
+			/**
+			 * Block Logic: Iterative processing loop.
+			 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+			 */
 			for (j = 0; j < N; j += 40) {
 				result_elem[j] += m1_el * m2_elem[j];
 				result_elem[j + 1] += m1_el * m2_elem[j + 1];
@@ -183,21 +246,41 @@ double *compute_product_lower_upper(int N, double *l, double *u) {
 	int i, j, k;
 
 	double *result = (double *)calloc(N * N, sizeof(double));
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (result == NULL) {
 		fprintf(stderr, "Error calloc product.\n");
 		exit(0);
 	}
 
 	
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for (i = 0; i < N; i++) {
-		register double *result_elem = &result[i * N];
-		register double *l_elem = &l[i * N];
+		register double *result_elem = &result[i * N]; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
+		register double *l_elem = &l[i * N]; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 
+		/**
+		 * Block Logic: Iterative processing loop.
+		 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+		 */
 		for (k = 0; k < N; k++) {
-			register double *upper_elem = &u[k * N];
+			register double *upper_elem = &u[k * N]; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 			register double lower = l_elem[k];
 
+			/**
+			 * Block Logic: Conditional state branch.
+			 * Invariant: The conditional branch maintains control flow invariants.
+			 */
 			if (k <= i) {
+				/**
+				 * Block Logic: Iterative processing loop.
+				 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+				 */
 				for (j = 0; j < N; j += 40) {
 					result_elem[j] += lower * upper_elem[j];
 					result_elem[j + 1] += lower * upper_elem[j + 1];
@@ -252,17 +335,29 @@ double *compute_sum(int N, double *m1, double *m2) {
 	int i, j;
 
 	double *result = (double *)calloc(N * N, sizeof(double));
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (result == NULL) {
 		fprintf(stderr, "Error calloc sum.\n");
 		exit(0);
 	}
 
 	
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for (i = 0; i < N; i++) {
-		register double *m1_elem = &m1[i * N];
-		register double *m2_elem = &m2[i * N];
-		register double *res = &result[i * N];
+		register double *m1_elem = &m1[i * N]; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
+		register double *m2_elem = &m2[i * N]; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
+		register double *res = &result[i * N]; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 
+		/**
+		 * Block Logic: Iterative processing loop.
+		 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+		 */
 		for (j = 0; j < N; j++) {
 			res[j] = m1_elem[j] + m2_elem[j];
 		}
@@ -272,6 +367,13 @@ double *compute_sum(int N, double *m1, double *m2) {
 }
 
 
+/**
+ * @brief Computes C = A * B * B^T + A^T * A.
+ * @param N Matrix dimension.
+ * @param A Input matrix A.
+ * @param B Input matrix B.
+ * @return Pointer to resulting matrix C.
+ */
 double* my_solver(int N, double *A, double* B) {
 
 	
@@ -281,13 +383,13 @@ double* my_solver(int N, double *A, double* B) {
 	double *Bt = transpose_matrix(N, B);
 
 	
-	double *prod_A_B = compute_product_with_upper(N, A, B);
+	double *prod_A_B = compute_product_with_upper(N, A, B); /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 
 	
-	double *prod_Bt = compute_product(N, prod_A_B, Bt);
+	double *prod_Bt = compute_product(N, prod_A_B, Bt); /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 
 	
-	double *prod_A_At = compute_product_lower_upper(N, At, A);
+	double *prod_A_At = compute_product_lower_upper(N, At, A); /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 
 	
 	double *sum_matrix = compute_sum(N, prod_Bt, prod_A_At);

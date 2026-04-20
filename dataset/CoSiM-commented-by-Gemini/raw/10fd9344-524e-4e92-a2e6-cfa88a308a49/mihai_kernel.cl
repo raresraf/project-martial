@@ -1,3 +1,11 @@
+/**
+ * @raw/10fd9344-524e-4e92-a2e6-cfa88a308a49/mihai_kernel.cl
+ * @brief OpenCL kernel and host code for block-based texture compression (similar to ETC1/DXT).
+ * * Domain-Specific Awareness: Integrates OpenCL memory allocation, host-device transfers, 
+ *   and kernel execution with block-level color quantization. The kernel compresses 4x4 pixel 
+ *   blocks using differential color encoding and luminance modulation tables to achieve low 
+ *   memory footprint and cache-friendly access patterns on the GPU.
+ */
 
 #define ALIGNAS(X)	__attribute__((aligned(X)))
 #define ALIGNMENT 16
@@ -180,6 +188,11 @@ void getAverageColor(Color *src, float *avg_color)
 	avg_color[2] = convert_float(sum_r) * kInv8;
 }
 
+/**
+ * @brief Selects the optimal luminance modulation table and encodes the pixel block.
+ * * Logic: Evaluates all luminance combinations against the base color to minimize the 
+ *   perceived or absolute color error, then packs the result into the output block.
+ */
 ulong computeLuminance( uchar *block, Color* src,Color *base,int sub_block_id,__constant  uchar *idx_to_num_tab,ulong threshold)
 {
 	uint best_tbl_err;
@@ -339,6 +352,12 @@ bool tryCompressSolidBlock( uchar *dst, Color *src, ulong *error)
 	return true;
 }
 
+/**
+ * @brief Main block compression routine evaluating normal vs. differential encoding.
+ * * Logic: Splits the 4x4 block horizontally or vertically, determines base colors, 
+ *   chooses between independent (444) or differential (555) quantization based on the 
+ *   color variance, and dispatches the optimal configuration to luminance modulation.
+ */
 ulong compressBlock( uchar *dst,Color *ver_src, Color *hor_src, ulong threshold)
 {
 	ulong solid_error;
@@ -449,6 +468,12 @@ void memcpy(void *bdst,void *bsrc, int len)
 		dst[i] = src[i];
 	}
 }
+
+/**
+ * @brief GPU entry point for compressing an image matrix tile by tile.
+ * * Logic: Resolves global coordinates to memory locations, fetches a 4x4 contiguous 
+ *   pixel patch, delegates to compressBlock, and writes the resulting encoded 8-byte chunk.
+ */
 __kernel void compress(__global uchar *src, __global uchar *dst, __global int *dims)
 {
 	uint width = dims[0];
@@ -667,6 +692,12 @@ void gpu_find(cl_device_id &device,
 	delete[] device_list;
 }
 
+/**
+ * @brief Orchestrates the host-side OpenCL setup and kernel dispatch.
+ * * Logic: Creates contexts and command queues, loads the kernel source, sets up 
+ *   device buffers, dispatches the NDRange computation, and finally blocks to read 
+ *   back the compressed results.
+ */
 void gpu_execute_kernel(cl_device_id device, const uint8_t *src, uint8_t *dst, int width, int height)
 {
 	string kernel_src;

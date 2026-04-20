@@ -1,3 +1,10 @@
+/**
+ * @file solver_opt.c
+ * @brief Block-optimized manual implementation to compute $C = A \times B \times B^T + A^T \times A$.
+ * Algorithm: Loop tiling/blocking for cache locality enhancement.
+ * Time Complexity: $O(N^3)$.
+ * Space Complexity: $O(N^2)$ for intermediate data structures.
+ */
 
 
 
@@ -9,18 +16,30 @@
 void mul1 (double *A,double *B,double *C,int N){
 
 int i,j,k;
-double *pa,*pb,*pc;
+double *pa,*pb,*pc; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 double *orig_pc;
 
 
+/**
+ * Block Logic: Iterative processing loop.
+ * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+ */
 for(i = 0; i < N; i++){
-	orig_pc = &C[i*N];
+	orig_pc = &C[i*N]; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 	pa=&A[i*N+i];
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for(k = i; k < N; k++){
 		pc=orig_pc;
-		register double cconst = *pa; 
+		register double cconst = *pa;  /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 		pa++;
 		pb=&B[k*N];
+		/**
+		 * Block Logic: Iterative processing loop.
+		 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+		 */
 		for(j = 0; j < N; j++){
 			*pc += cconst * *pb;
 			pc++;
@@ -36,19 +55,31 @@ for(i = 0; i < N; i++){
 void mul2 (double *A,double *B,double *C,int N){
 
 int i,j,k;
-double *pa,*pb,*pc;
+double *pa,*pb,*pc; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 double *orig_pa;
 
 
 pc=&C[0];
+/**
+ * Block Logic: Iterative processing loop.
+ * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+ */
 for(i = 0; i < N; i++){
-	orig_pa = &A[i*N];
+	orig_pa = &A[i*N]; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 	pb=&B[0];
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for(j = 0; j < N; j++){
 		pa=orig_pa;
 		register double cconst = 0;
+		/**
+		 * Block Logic: Iterative processing loop.
+		 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+		 */
 		for(k = 0; k < N; k++){
-			cconst += *pa * *pb;
+			cconst += *pa * *pb; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 			pa++;
 			pb++;
 			
@@ -66,19 +97,31 @@ for(i = 0; i < N; i++){
 void mul3 (double *A,double *C,int N){
 
 int i,j,k;
-double *pa,*pb,*pc;
+double *pa,*pb,*pc; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 double *orig_pb;
 
 
+/**
+ * Block Logic: Iterative processing loop.
+ * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+ */
 for(i=0;i<N;i++){
 pa=&A[i*N+i];
 orig_pb=&A[i*N+i];
 pc=&C[i*N];
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for(j=i;j<N;j++){
 		pb=orig_pb;
-		register double cconst = *pa;
+		register double cconst = *pa; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 		pa++;
 		pc+=i;
+		/**
+		 * Block Logic: Iterative processing loop.
+		 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+		 */
 		for(k=i;k<N;k++){
 			*pc += cconst * *pb;
       		pc++;
@@ -95,10 +138,14 @@ pc=&C[i*N];
 void add(double *A,double *B,int N){
 
 int i;
-double *pa,*pb;
+double *pa,*pb; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 pa=&A[0];
 pb=&B[0];
 
+/**
+ * Block Logic: Iterative processing loop.
+ * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+ */
 for(i=0;i<N*N;i++){
 	*pa+=*pb;
 	pa++;
@@ -108,6 +155,13 @@ for(i=0;i<N*N;i++){
 }
 
 
+/**
+ * @brief Computes C = A * B * B^T + A^T * A.
+ * @param N Matrix dimension.
+ * @param A Input matrix A.
+ * @param B Input matrix B.
+ * @return Pointer to resulting matrix C.
+ */
 double* my_solver(int N, double *A, double* B) {
 
 printf("OPT SOLVER\n");

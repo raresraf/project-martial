@@ -1,3 +1,5 @@
+// Package provides architecture-aware components for HierarchicalKMeansTests.java.
+// Focuses on production system reliability and error handling.
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
  * or more contributor license agreements. Licensed under the "Elastic License
@@ -38,9 +40,11 @@ public class HierarchicalKMeansTests extends ESTestCase {
 
         assertEquals(Math.min(nClusters, nVectors), centroids.length, 8);
         assertEquals(nVectors, assignments.length);
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
         if (centroids.length > 1 && centroids.length < nVectors) {
             assertEquals(nVectors, soarAssignments.length);
             // verify no duplicates exist
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
             for (int i = 0; i < assignments.length; i++) {
                 assert assignments[i] != soarAssignments[i];
             }
@@ -53,15 +57,19 @@ public class HierarchicalKMeansTests extends ESTestCase {
         List<float[]> vectors = new ArrayList<>(nSamples);
         float[][] centroids = new float[nClusters][nDims];
         // Generate random centroids
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
         for (int i = 0; i < nClusters; i++) {
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
             for (int j = 0; j < nDims; j++) {
                 centroids[i][j] = random().nextFloat() * 100;
             }
         }
         // Generate data points around centroids
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
         for (int i = 0; i < nSamples; i++) {
             int cluster = random().nextInt(nClusters);
             float[] vector = new float[nDims];
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
             for (int j = 0; j < nDims; j++) {
                 vector[j] = centroids[cluster][j] + random().nextFloat() * 10 - 5;
             }

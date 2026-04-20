@@ -5,6 +5,14 @@
 //! Liberally derived from the [Firefox JS implementation](http://mxr.mozilla.org/mozilla-central/source/toolkit/devtools/server/actors/webconsole.js).
 //! Handles interaction with the remote web console on network events (HTTP requests, responses) in Servo.
 
+/**
+ * @raw/0ea0245b-b701-4128-8661-8d743e2532cf/components/devtools/actors/network_event.rs
+ * @brief Manages the DevTools state for a single HTTP network request/response lifecycle.
+ * * Architectural Intent: Acts as a stateful DevTools Actor that accumulates telemetry 
+ *   (timings, headers, body, cookies) about a network event and fulfills asynchronous 
+ *   inspection queries from the remote DevTools frontend.
+ */
+
 use std::net::TcpStream;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -197,6 +205,11 @@ impl Actor for NetworkEventActor {
         self.name.clone()
     }
 
+    /**
+     * @brief Maps incoming DevTools JSON messages to network event data queries.
+     * * Logic: Parses the "msg_type" command and replies by serializing the requested 
+     *   subset of cached HTTP data (headers, cookies, body, timings) back onto the TCP stream.
+     */
     fn handle_message(
         &self,
         _registry: &ActorRegistry,
@@ -374,6 +387,11 @@ impl NetworkEventActor {
         }
     }
 
+    /**
+     * @brief Incorporates outgoing request properties into the actor's state.
+     * * Logic: Parses timings, headers, and payload from the network layer to cache 
+     *   them for subsequent inspection by the remote console.
+     */
     pub fn add_request(&mut self, request: DevtoolsHttpRequest) {
         self.is_xhr = request.is_xhr;
         self.request_cookies = Some(Self::request_cookies(&request));
@@ -388,6 +406,11 @@ impl NetworkEventActor {
         self.request_headers_raw = Some(request.headers.clone());
     }
 
+    /**
+     * @brief Incorporates incoming response properties into the actor's state.
+     * * Logic: Aggregates the returned payload, HTTP status, and response headers 
+     *   into the DevTools-consumable format.
+     */
     pub fn add_response(&mut self, response: DevtoolsHttpResponse) {
         self.response_headers = Some(Self::response_headers(&response));
         self.response_cookies = Some(Self::response_cookies(&response));

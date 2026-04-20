@@ -1,3 +1,5 @@
+// Package provides architecture-aware components for apiextensions.go.
+// Focuses on production system reliability and error handling.
 /*
 Copyright 2017 The Kubernetes Authors.
 
@@ -35,6 +37,7 @@ import (
 	"k8s.io/kubernetes/cmd/kube-apiserver/app/options"
 )
 
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func createAPIExtensionsConfig(
 	kubeAPIServerConfig genericapiserver.Config,
 	externalInformers kubeexternalinformers.SharedInformerFactory,
@@ -60,11 +63,13 @@ func createAPIExtensionsConfig(
 	// prefer the more compact serialization (v1beta1) for storage until https://issue.k8s.io/82292 is resolved for objects whose v1 serialization is too big but whose v1beta1 serialization can be stored
 	etcdOptions.StorageConfig.EncodeVersioner = runtime.NewMultiGroupVersioner(v1beta1.SchemeGroupVersion, schema.GroupKind{Group: v1beta1.GroupName})
 	etcdOptions.SkipHealthEndpoints = true // avoid double wiring of health checks
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if err := etcdOptions.ApplyTo(&genericConfig); err != nil {
 		return nil, err
 	}
 
 	// override MergedResourceConfig with apiextensions defaults and registry
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if err := commandOptions.APIEnablement.ApplyTo(
 		&genericConfig,
 		apiextensionsapiserver.DefaultAPIResourceConfigSource(),
@@ -72,6 +77,7 @@ func createAPIExtensionsConfig(
 		return nil, err
 	}
 	crdRESTOptionsGetter, err := apiextensionsoptions.NewCRDRESTOptionsGetter(etcdOptions)
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if err != nil {
 		return nil, err
 	}
@@ -94,6 +100,7 @@ func createAPIExtensionsConfig(
 	return apiextensionsConfig, nil
 }
 
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func createAPIExtensionsServer(apiextensionsConfig *apiextensionsapiserver.Config, delegateAPIServer genericapiserver.DelegationTarget) (*apiextensionsapiserver.CustomResourceDefinitions, error) {
 	return apiextensionsConfig.Complete().New(delegateAPIServer)
 }

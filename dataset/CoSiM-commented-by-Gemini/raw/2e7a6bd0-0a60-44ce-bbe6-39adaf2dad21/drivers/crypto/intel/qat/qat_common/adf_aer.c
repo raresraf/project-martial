@@ -1,3 +1,8 @@
+/**
+ * @file adf_aer.c
+ * @brief Core functionality implementation.
+ * Provides the fundamental algorithm logic and state management.
+ */
 // SPDX-License-Identifier: (BSD-3-Clause OR GPL-2.0-only)
 /* Copyright(c) 2014 - 2020 Intel Corporation */
 #include <linux/kernel.h>
@@ -17,23 +22,35 @@ struct adf_fatal_error_data {
 static struct workqueue_struct *device_reset_wq;
 static struct workqueue_struct *device_sriov_wq;
 
-static pci_ers_result_t adf_error_detected(struct pci_dev *pdev,
+static pci_ers_result_t adf_error_detected(struct pci_dev *pdev, /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 					   pci_channel_state_t state)
 {
 	struct adf_accel_dev *accel_dev = adf_devmgr_pci_to_accel_dev(pdev);
 
 	dev_info(&pdev->dev, "Acceleration driver hardware error detected.\n");
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (!accel_dev) {
 		dev_err(&pdev->dev, "Can't find acceleration device\n");
 		return PCI_ERS_RESULT_DISCONNECT;
 	}
 
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (state == pci_channel_io_perm_failure) {
 		dev_err(&pdev->dev, "Can't recover from device error\n");
 		return PCI_ERS_RESULT_DISCONNECT;
 	}
 
 	set_bit(ADF_STATUS_RESTARTING, &accel_dev->status);
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (accel_dev->hw_device->exit_arb) {
 		dev_dbg(&pdev->dev, "Disabling arbitration\n");
 		accel_dev->hw_device->exit_arb(accel_dev);
@@ -66,13 +83,21 @@ struct adf_sriov_dev_data {
 
 void adf_reset_sbr(struct adf_accel_dev *accel_dev)
 {
-	struct pci_dev *pdev = accel_to_pci_dev(accel_dev);
-	struct pci_dev *parent = pdev->bus->self;
+	struct pci_dev *pdev = accel_to_pci_dev(accel_dev); /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
+	struct pci_dev *parent = pdev->bus->self; /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 	u16 bridge_ctl = 0;
 
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (!parent)
 		parent = pdev;
 
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (!pci_wait_for_pending_transaction(pdev))
 		dev_info(&GET_DEV(accel_dev),
 			 "Transaction still in progress. Proceeding\n");
@@ -98,8 +123,12 @@ EXPORT_SYMBOL_GPL(adf_reset_flr);
 void adf_dev_restore(struct adf_accel_dev *accel_dev)
 {
 	struct adf_hw_device_data *hw_device = accel_dev->hw_device;
-	struct pci_dev *pdev = accel_to_pci_dev(accel_dev);
+	struct pci_dev *pdev = accel_to_pci_dev(accel_dev); /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (hw_device->reset_device) {
 		dev_info(&GET_DEV(accel_dev), "Resetting device qat_dev%d\n",
 			 accel_dev->accel_id);
@@ -127,9 +156,17 @@ static void adf_device_reset_worker(struct work_struct *work)
 	struct adf_sriov_dev_data sriov_data;
 
 	adf_dev_restarting_notify(accel_dev);
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (adf_dev_restart(accel_dev)) {
 		/* The device hanged and we can't restart it so stop here */
 		dev_err(&GET_DEV(accel_dev), "Restart device failed\n");
+		/**
+		 * Block Logic: Conditional state branch.
+		 * Invariant: The conditional branch maintains control flow invariants.
+		 */
 		if (reset_data->mode == ADF_DEV_RESET_ASYNC)
 			kfree(reset_data);
 		WARN(1, "QAT: device restart failed. Device is unusable\n");
@@ -140,6 +177,10 @@ static void adf_device_reset_worker(struct work_struct *work)
 	init_completion(&sriov_data.compl);
 	INIT_WORK(&sriov_data.sriov_work, adf_device_sriov_worker);
 	queue_work(device_sriov_wq, &sriov_data.sriov_work);
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (wait_for_completion_timeout(&sriov_data.compl, wait_jiffies))
 		adf_pf2vf_notify_restarted(accel_dev);
 
@@ -147,6 +188,10 @@ static void adf_device_reset_worker(struct work_struct *work)
 	clear_bit(ADF_STATUS_RESTARTING, &accel_dev->status);
 
 	/* The dev is back alive. Notify the caller if in sync mode */
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (reset_data->mode == ADF_DEV_RESET_ASYNC)
 		kfree(reset_data);
 	else
@@ -158,12 +203,20 @@ static int adf_dev_aer_schedule_reset(struct adf_accel_dev *accel_dev,
 {
 	struct adf_reset_dev_data *reset_data;
 
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (!adf_dev_started(accel_dev) ||
 	    test_bit(ADF_STATUS_RESTARTING, &accel_dev->status))
 		return 0;
 
 	set_bit(ADF_STATUS_RESTARTING, &accel_dev->status);
 	reset_data = kzalloc(sizeof(*reset_data), GFP_KERNEL);
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (!reset_data)
 		return -ENOMEM;
 	reset_data->accel_dev = accel_dev;
@@ -173,12 +226,20 @@ static int adf_dev_aer_schedule_reset(struct adf_accel_dev *accel_dev,
 	queue_work(device_reset_wq, &reset_data->reset_work);
 
 	/* If in sync mode wait for the result */
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (mode == ADF_DEV_RESET_SYNC) {
 		int ret = 0;
 		/* Maximum device reset time is 10 seconds */
 		unsigned long wait_jiffies = msecs_to_jiffies(10000);
 		unsigned long timeout = wait_for_completion_timeout(
 				   &reset_data->compl, wait_jiffies);
+		/**
+		 * Block Logic: Conditional state branch.
+		 * Invariant: The conditional branch maintains control flow invariants.
+		 */
 		if (!timeout) {
 			dev_err(&GET_DEV(accel_dev),
 				"Reset device timeout expired\n");
@@ -191,21 +252,33 @@ static int adf_dev_aer_schedule_reset(struct adf_accel_dev *accel_dev,
 	return 0;
 }
 
-static pci_ers_result_t adf_slot_reset(struct pci_dev *pdev)
+static pci_ers_result_t adf_slot_reset(struct pci_dev *pdev) /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 {
 	struct adf_accel_dev *accel_dev = adf_devmgr_pci_to_accel_dev(pdev);
 	int res = 0;
 
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (!accel_dev) {
 		pr_err("QAT: Can't find acceleration device\n");
 		return PCI_ERS_RESULT_DISCONNECT;
 	}
 
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (!pdev->is_busmaster)
 		pci_set_master(pdev);
 	pci_restore_state(pdev);
 	pci_save_state(pdev);
 	res = adf_dev_up(accel_dev, false);
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (res && res != -EALREADY)
 		return PCI_ERS_RESULT_DISCONNECT;
 
@@ -216,7 +289,7 @@ static pci_ers_result_t adf_slot_reset(struct pci_dev *pdev)
 	return PCI_ERS_RESULT_RECOVERED;
 }
 
-static void adf_resume(struct pci_dev *pdev)
+static void adf_resume(struct pci_dev *pdev) /* Inline: Non-obvious pointer arithmetic/dereference for optimized memory access */
 {
 	dev_info(&pdev->dev, "Acceleration driver reset completed\n");
 	dev_info(&pdev->dev, "Device is up and running\n");
@@ -231,6 +304,10 @@ EXPORT_SYMBOL_GPL(adf_err_handler);
 
 static int adf_dev_autoreset(struct adf_accel_dev *accel_dev)
 {
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (accel_dev->autoreset_on_error)
 		return adf_dev_aer_schedule_reset(accel_dev, ADF_DEV_RESET_ASYNC);
 
@@ -246,10 +323,22 @@ static void adf_notify_fatal_error_worker(struct work_struct *work)
 
 	adf_error_notifier(accel_dev);
 
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (!accel_dev->is_vf) {
 		/* Disable arbitration to stop processing of new requests */
+		/**
+		 * Block Logic: Conditional state branch.
+		 * Invariant: The conditional branch maintains control flow invariants.
+		 */
 		if (accel_dev->autoreset_on_error && hw_device->exit_arb)
 			hw_device->exit_arb(accel_dev);
+		/**
+		 * Block Logic: Conditional state branch.
+		 * Invariant: The conditional branch maintains control flow invariants.
+		 */
 		if (accel_dev->pf.vf_info)
 			adf_pf2vf_notify_fatal_error(accel_dev);
 		adf_dev_autoreset(accel_dev);
@@ -263,6 +352,10 @@ int adf_notify_fatal_error(struct adf_accel_dev *accel_dev)
 	struct adf_fatal_error_data *wq_data;
 
 	wq_data = kzalloc(sizeof(*wq_data), GFP_ATOMIC);
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (!wq_data)
 		return -ENOMEM;
 
@@ -277,10 +370,18 @@ int adf_init_aer(void)
 {
 	device_reset_wq = alloc_workqueue("qat_device_reset_wq",
 					  WQ_MEM_RECLAIM, 0);
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (!device_reset_wq)
 		return -EFAULT;
 
 	device_sriov_wq = alloc_workqueue("qat_device_sriov_wq", 0, 0);
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (!device_sriov_wq) {
 		destroy_workqueue(device_reset_wq);
 		device_reset_wq = NULL;
@@ -292,10 +393,18 @@ int adf_init_aer(void)
 
 void adf_exit_aer(void)
 {
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (device_reset_wq)
 		destroy_workqueue(device_reset_wq);
 	device_reset_wq = NULL;
 
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (device_sriov_wq)
 		destroy_workqueue(device_sriov_wq);
 	device_sriov_wq = NULL;

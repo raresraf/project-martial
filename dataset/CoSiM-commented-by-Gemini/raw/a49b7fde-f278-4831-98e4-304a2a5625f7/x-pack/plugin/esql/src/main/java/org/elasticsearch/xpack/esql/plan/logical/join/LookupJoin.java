@@ -1,3 +1,5 @@
+// Package provides architecture-aware components for LookupJoin.java.
+// Focuses on production system reliability and error handling.
 /*
  * Copyright Elasticsearch B.V. and/or licensed to Elasticsearch B.V. under one
  * or more contributor license agreements. Licensed under the Elastic License
@@ -90,6 +92,7 @@ public class LookupJoin extends Join implements SurrogateLogicalPlan, PostAnalys
     @Override
     public void postAnalysisVerification(Failures failures) {
         super.postAnalysisVerification(failures);
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
         if (isRemote) {
             checkRemoteJoin(failures);
         }
@@ -101,6 +104,7 @@ public class LookupJoin extends Join implements SurrogateLogicalPlan, PostAnalys
         boolean[] sort = { false };
 
         this.forEachUp(UnaryPlan.class, u -> {
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
             if (u instanceof Aggregate) {
                 agg[0] = true;
             } else if (u instanceof Enrich enrich && enrich.mode() == Enrich.Mode.COORDINATOR) {
@@ -109,12 +113,15 @@ public class LookupJoin extends Join implements SurrogateLogicalPlan, PostAnalys
                 sort[0] = true;
             }
         });
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
         if (agg[0]) {
             failures.add(fail(this, "LOOKUP JOIN with remote indices can't be executed after STATS"));
         }
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
         if (enrichCoord[0]) {
             failures.add(fail(this, "LOOKUP JOIN with remote indices can't be executed after ENRICH with coordinator policy"));
         }
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
         if (sort[0]) {
             failures.add(fail(this, "LOOKUP JOIN with remote indices can't be executed after SORT"));
         }

@@ -14,6 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+/**
+ * @1b621409-8bbc-4fd6-9f0b-d831af77fc31/cmd/cloud-controller-manager/app/controllermanager.go
+ * @brief Main execution entry point for the Kubernetes Cloud Controller Manager (CCM).
+ * 
+ * Functional Intent: Orchestrates the cloud-specific control loops (Node, Service, 
+ * and Route controllers) that interface with external cloud provider APIs. It 
+ * manages leader election to ensure high availability, handles bootstrap 
+ * coordination with the API server, and exposes health and telemetry endpoints.
+ * 
+ * Domain: Kubernetes Control Plane, Cloud Provider Integration, Distributed Systems.
+ */
+
 package app
 
 import (
@@ -56,11 +68,14 @@ import (
 )
 
 const (
-	// Jitter used when starting controller managers
 	ControllerStartJitter = 1.0
 )
 
-// NewCloudControllerManagerCommand creates a *cobra.Command object with default parameters
+/**
+ * NewCloudControllerManagerCommand - Scaffolds the Cobra CLI for the CCM daemon.
+ * Logic: Initializes server options and binds them to pflags, defining the 
+ * standard binary interface for cloud-specific deployments.
+ */
 func NewCloudControllerManagerCommand() *cobra.Command {
 	s := options.NewCloudControllerManagerServer()
 	s.AddFlags(pflag.CommandLine)
@@ -75,7 +90,11 @@ the cloud specific control loops shipped with Kubernetes.`,
 	return cmd
 }
 
-// resyncPeriod computes the time interval a shared informer waits before resyncing with the api server
+/**
+ * resyncPeriod - Calculates a randomized refresh interval for shared informers.
+ * Logic: Applies a jitter factor to the minimum resync period to prevent 
+ * "thundering herd" scenarios where multiple controllers refresh simultaneously.
+ */
 func resyncPeriod(s *options.CloudControllerManagerServer) func() time.Duration {
 	return func() time.Duration {
 		factor := rand.Float64() + 1
@@ -83,7 +102,17 @@ func resyncPeriod(s *options.CloudControllerManagerServer) func() time.Duration 
 	}
 }
 
-// Run runs the ExternalCMServer.  This should never exit.
+/**
+ * Run - Primary execution loop for the External Controller Manager.
+ * 
+ * Block Logic: Bootstrap and High Availability.
+ * Logic: 
+ * 1. Establishes connectivity to the Kubernetes API server.
+ * 2. Starts the administrative HTTP server (metrics, health, pprof).
+ * 3. Identifies the local instance and initiates the leader election protocol.
+ * 4. Only upon winning the election ('OnStartedLeading') are the internal 
+ *    controller loops triggered.
+ */
 func Run(s *options.CloudControllerManagerServer, cloud cloudprovider.Interface) error {
 	if c, err := configz.New("componentconfig"); err == nil {
 		c.Set(s.KubeControllerManagerConfiguration)
@@ -95,9 +124,7 @@ func Run(s *options.CloudControllerManagerServer, cloud cloudprovider.Interface)
 		return err
 	}
 
-	// Set the ContentType of the requests from kube client
 	kubeconfig.ContentConfig.ContentType = s.ContentType
-	// Override kubeconfig qps/burst settings from flags
 	kubeconfig.QPS = s.KubeAPIQPS
 	kubeconfig.Burst = int(s.KubeAPIBurst)
 	kubeClient, err := clientset.NewForConfig(restclient.AddUserAgent(kubeconfig, "cloud-controller-manager"))
@@ -106,7 +133,6 @@ func Run(s *options.CloudControllerManagerServer, cloud cloudprovider.Interface)
 	}
 	leaderElectionClient := kubernetes.NewForConfigOrDie(restclient.AddUserAgent(kubeconfig, "leader-election"))
 
-	// Start the external controller manager server
 	go startHTTP(s)
 
 	recorder := createRecorder(kubeClient)
@@ -137,13 +163,11 @@ func Run(s *options.CloudControllerManagerServer, cloud cloudprovider.Interface)
 		panic("unreachable")
 	}
 
-	// Identity used to distinguish between multiple cloud controller manager instances
 	id, err := os.Hostname()
 	if err != nil {
 		return err
 	}
 
-	// Lock required for leader election
 	rl := resourcelock.EndpointsLock{
 		EndpointsMeta: metav1.ObjectMeta{
 			Namespace: "kube-system",
@@ -156,7 +180,6 @@ func Run(s *options.CloudControllerManagerServer, cloud cloudprovider.Interface)
 		},
 	}
 
-	// Try and become the leader and start cloud controller manager loops
 	leaderelection.RunOrDie(leaderelection.LeaderElectionConfig{
 		Lock:          &rl,
 		LeaseDuration: s.LeaderElection.LeaseDuration.Duration,
@@ -172,22 +195,30 @@ func Run(s *options.CloudControllerManagerServer, cloud cloudprovider.Interface)
 	panic("unreachable")
 }
 
-// StartControllers starts the cloud specific controller loops.
+/**
+ * StartControllers - Instantiates and launches cloud-specific control loops.
+ * 
+ * Block Logic: Controller initialization sequence.
+ * Logic: 
+ * 1. Synchronizes with the API server versions to ensure compatibility.
+ * 2. Initializes the Cloud Provider with the secure client builder.
+ * 3. Starts the Node controller to sync node state with the cloud provider.
+ * 4. Starts the Service controller to manage cloud load balancers.
+ * 5. Conditionally starts the Route controller for cloud-native VPC routing.
+ * Invariant: Uses staggered starts (jittered sleeps) to normalize API server load.
+ */
 func StartControllers(s *options.CloudControllerManagerServer, kubeconfig *restclient.Config, rootClientBuilder, clientBuilder controller.ControllerClientBuilder, stop <-chan struct{}, recorder record.EventRecorder, cloud cloudprovider.Interface) error {
-	// Function to build the kube client object
 	client := func(serviceAccountName string) clientset.Interface {
 		return rootClientBuilder.ClientOrDie(serviceAccountName)
 	}
 
 	if cloud != nil {
-		// Initialize the cloud provider with a reference to the clientBuilder
 		cloud.Initialize(clientBuilder)
 	}
 
 	versionedClient := client("shared-informers")
 	sharedInformers := informers.NewSharedInformerFactory(versionedClient, resyncPeriod(s)())
 
-	// Start the CloudNodeController
 	nodeController := nodecontroller.NewCloudNodeController(
 		sharedInformers.Core().V1().Nodes(),
 		client("cloud-node-controller"), cloud,
@@ -197,7 +228,6 @@ func StartControllers(s *options.CloudControllerManagerServer, kubeconfig *restc
 	nodeController.Run()
 	time.Sleep(wait.Jitter(s.ControllerStartInterval.Duration, ControllerStartJitter))
 
-	// Start the service controller
 	serviceController, err := servicecontroller.New(
 		cloud,
 		client("service-controller"),
@@ -212,7 +242,6 @@ func StartControllers(s *options.CloudControllerManagerServer, kubeconfig *restc
 	}
 	time.Sleep(wait.Jitter(s.ControllerStartInterval.Duration, ControllerStartJitter))
 
-	// If CIDRs should be allocated for pods and set on the CloudProvider, then start the route controller
 	if s.AllocateNodeCIDRs && s.ConfigureCloudRoutes {
 		if routes, ok := cloud.Routes(); !ok {
 			glog.Warning("configure-cloud-routes is set, but cloud provider does not support routes. Will not configure cloud provider routes.")
@@ -229,12 +258,8 @@ func StartControllers(s *options.CloudControllerManagerServer, kubeconfig *restc
 			go routeController.Run(stop, s.RouteReconciliationPeriod.Duration)
 			time.Sleep(wait.Jitter(s.ControllerStartInterval.Duration, ControllerStartJitter))
 		}
-	} else {
-		glog.Infof("Will not configure cloud provider routes for allocate-node-cidrs: %v, configure-cloud-routes: %v.", s.AllocateNodeCIDRs, s.ConfigureCloudRoutes)
 	}
 
-	// If apiserver is not running we should wait for some time and fail only then. This is particularly
-	// important when we start apiserver and controller manager at the same time.
 	err = wait.PollImmediate(time.Second, 10*time.Second, func() (bool, error) {
 		if _, err = restclient.ServerAPIVersions(kubeconfig); err == nil {
 			return true, nil
@@ -251,6 +276,11 @@ func StartControllers(s *options.CloudControllerManagerServer, kubeconfig *restc
 	select {}
 }
 
+/**
+ * startHTTP - Launches the administrative diagnostics server.
+ * Logic: Exposes standard Kubernetes observability interfaces including 
+ * healthz, prometheus metrics, and pprof profiling.
+ */
 func startHTTP(s *options.CloudControllerManagerServer) {
 	mux := http.NewServeMux()
 	healthz.InstallHandler(mux)
@@ -273,6 +303,9 @@ func startHTTP(s *options.CloudControllerManagerServer) {
 	glog.Fatal(server.ListenAndServe())
 }
 
+/**
+ * createRecorder - Helper to initialize the Kubernetes event recording system.
+ */
 func createRecorder(kubeClient *clientset.Clientset) record.EventRecorder {
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartLogging(glog.Infof)

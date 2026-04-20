@@ -1,11 +1,23 @@
 # SPDX-License-Identifier: GPL-2.0
-# Makefile for net selftests
+# @f68e21da-4977-4cd0-a15c-2ab47647c4d4/tools/testing/selftests/net/Makefile
+# @brief Build configuration for Linux Kernel Networking (net) selftests.
+#
+# Functional Intent: Orchestrates the compilation of a vast array of networking 
+# test utilities and the execution of high-level integration scripts. It covers 
+# diverse protocols and features including TCP, UDP, IPv6, BPF, NAT, SRv6, 
+# and hardware offloads. It integrates with the kselftest framework for 
+# automated regression testing of the kernel storage and networking stack.
+#
+# Domain: Kernel Networking, Protocol Testing, Performance Benchmarking.
 
+# Functional Utility: Global compilation flags for networking test artifacts.
+# Includes standard UAPI headers and local test framework headers.
 CFLAGS +=  -Wall -Wl,--no-as-needed -O2 -g
 CFLAGS += -I../../../../usr/include/ $(KHDR_INCLUDES)
-# Additional include paths needed by kselftest.h
 CFLAGS += -I../
 
+# Block Logic: Definition of standard test programs.
+# TEST_PROGS: Shell and Python scripts representing high-level test scenarios.
 TEST_PROGS := run_netsocktests run_afpackettests test_bpf.sh netdevice.sh \
 	      rtnetlink.sh xfrm_policy.sh
 TEST_PROGS += fib_tests.sh fib-onlink-tests.sh pmtu.sh udpgso.sh ip_defrag.sh
@@ -64,6 +76,10 @@ TEST_PROGS += rps_default_mask.sh
 TEST_PROGS += big_tcp.sh
 TEST_PROGS += netns-sysctl.sh
 TEST_PROGS += netdev-l2addr.sh
+
+# Block Logic: Definition of generated test artifacts.
+# TEST_GEN_FILES: Compiled object files or binaries used by the test scripts.
+# TEST_GEN_PROGS: Standalone binaries capable of being executed as tests directly.
 TEST_PROGS_EXTENDED := toeplitz_client.sh toeplitz.sh xfrm_policy_add_speed.sh
 TEST_GEN_FILES =  socket nettest
 TEST_GEN_FILES += psock_fanout psock_tpacket msg_zerocopy reuseport_addr_any
@@ -117,7 +133,7 @@ TEST_GEN_FILES += tfo
 TEST_PROGS += tfo_passive.sh
 TEST_PROGS += broadcast_pmtu.sh
 
-# YNL files, must be before "include ..lib.mk"
+# Functional Utility: Includes generated BPF and Netlink (YNL) artifacts.
 YNL_GEN_FILES := busy_poller netlink-dumps
 TEST_GEN_FILES += $(YNL_GEN_FILES)
 
@@ -128,12 +144,14 @@ TEST_GEN_FILES += $(patsubst %.c,%.o,$(wildcard *.bpf.c))
 
 TEST_INCLUDES := forwarding/lib.sh
 
+# Block Logic: Final assembly and external build integration.
 include ../lib.mk
 
 # YNL build
 YNL_GENS := netdev
 include ynl.mk
 
+# Block Logic: Target-specific library linking.
 $(OUTPUT)/epoll_busy_poll: LDLIBS += -lcap
 $(OUTPUT)/reuseport_bpf_numa: LDLIBS += -lnuma
 $(OUTPUT)/tcp_mmap: LDLIBS += -lpthread -lcrypto

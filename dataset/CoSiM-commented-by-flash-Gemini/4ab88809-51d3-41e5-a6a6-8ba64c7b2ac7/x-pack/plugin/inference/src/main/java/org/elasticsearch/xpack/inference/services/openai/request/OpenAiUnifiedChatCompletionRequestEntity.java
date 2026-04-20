@@ -20,34 +20,22 @@ import java.util.Objects;
 
 /**
  * @4ab88809-51d3-41e5-a6a6-8ba64c7b2ac7/x-pack/plugin/inference/src/main/java/org/elasticsearch/xpack/inference/services/openai/request/OpenAiUnifiedChatCompletionRequestEntity.java
- * @brief Represents a request entity for OpenAI's unified chat completion, adapting a generic
- * unified request to OpenAI-specific requirements, including model settings and user information.
- *
- * This class serves as a wrapper that takes a generic `UnifiedChatInput` and an
- * `OpenAiChatCompletionModel` to construct a request body suitable for OpenAI's
- * chat completion API, while also conforming to Elasticsearch's `ToXContentObject`
- * for serialization.
+ * @brief OpenAI-specific serializer for unified chat completion requests.
+ * 
+ * Functional Intent: Adapts generic chat completion inputs to conform to the 
+ * OpenAI API specification. It manages model-specific settings, user identifiers, 
+ * and token limits during the serialization process.
  */
 public class OpenAiUnifiedChatCompletionRequestEntity implements ToXContentObject {
 
-    /**
-     * @brief Field name for the user identifier in the serialized request.
-     */
     public static final String USER_FIELD = "user";
-    /**
-     * @brief The OpenAI chat completion model associated with this request.
-     */
     private final OpenAiChatCompletionModel model;
-    /**
-     * @brief The underlying unified chat completion request entity.
-     */
     private final UnifiedChatCompletionRequestEntity unifiedRequestEntity;
 
     /**
-     * @brief Constructs a new `OpenAiUnifiedChatCompletionRequestEntity`.
-     * @param unifiedChatInput The unified chat input containing messages and other generic settings.
-     * @param model The specific OpenAI chat completion model to be used for this request.
-     * @throws NullPointerException if the provided model is null.
+     * @brief Constructs an OpenAI request entity.
+     * @param unifiedChatInput The source chat data.
+     * @param model The target model configuration containing service and task settings.
      */
     public OpenAiUnifiedChatCompletionRequestEntity(UnifiedChatInput unifiedChatInput, OpenAiChatCompletionModel model) {
         this.unifiedRequestEntity = new UnifiedChatCompletionRequestEntity(unifiedChatInput);
@@ -55,32 +43,33 @@ public class OpenAiUnifiedChatCompletionRequestEntity implements ToXContentObjec
     }
 
     /**
-     * @brief Converts this object into an XContent (Elasticsearch's content format) representation.
-     * This method serializes the unified request entity and optionally adds a user field
-     * based on the model's task settings.
-     * @param builder The XContentBuilder to write the content to.
-     * @param params Additional parameters for XContent serialization.
-     * @return The XContentBuilder instance after writing the object's content.
-     * @throws IOException If an I/O error occurs during XContent building.
+     * Block Logic: Serializes the request into an OpenAI-compatible JSON object.
+     * Logic: 
+     * 1. Initiates the JSON object structure.
+     * 2. Delegates core field serialization while injecting model-specific limits (max tokens).
+     * 3. Conditionally appends the 'user' metadata if defined in task settings.
+     * 
+     * @param builder The XContentBuilder to populate.
+     * @param params Base serialization parameters.
+     * @return The populated builder.
+     * @throws IOException If serialization fails.
      */
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
-        // Block Logic: Starts a new JSON object for the request.
         builder.startObject();
-        // Block Logic: Delegates the serialization of the core unified request entity.
-        // It injects the model's ID into the serialization parameters for max completion tokens.
+        
+        // Functional Utility: Injects model-specific constraints into the unified serialization path.
         unifiedRequestEntity.toXContent(
             builder,
             UnifiedCompletionRequest.withMaxCompletionTokensTokens(model.getServiceSettings().modelId(), params)
         );
 
-        // Block Logic: Conditionally adds the user field to the request if it is not null or empty
-        // in the model's task settings.
+        // Block Logic: Inclusion of user attribution for safety and auditing.
+        // Invariant: Only writes the field if a non-empty user identifier is present.
         if (Strings.isNullOrEmpty(model.getTaskSettings().user()) == false) {
             builder.field(USER_FIELD, model.getTaskSettings().user());
         }
 
-        // Block Logic: Ends the JSON object.
         builder.endObject();
 
         return builder;

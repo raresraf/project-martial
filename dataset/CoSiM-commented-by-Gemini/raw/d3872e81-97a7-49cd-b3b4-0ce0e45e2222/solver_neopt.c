@@ -1,3 +1,10 @@
+/**
+ * @file solver_neopt.c
+ * @brief Unoptimized standard implementation to compute $C = A \times B \times B^T + A^T \times A$.
+ * Algorithm: Naive multi-loop dense matrix multiplication with upper triangular conditions.
+ * Time Complexity: $O(N^3)$.
+ * Space Complexity: $O(N^2)$ to store the intermediate matrices.
+ */
 
 #include "utils.h"
 
@@ -7,6 +14,10 @@
 
 int min(int x, int y)
 {
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (x > y)
 		return y;
 	return x;
@@ -18,7 +29,15 @@ double *add_matrix(double *mat1, double *mat2, int N)
 	int i, j;
 	double *mat_sum = malloc(N * N * sizeof(double));
 
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for (i = 0; i < N; i++)
+        /**
+         * Block Logic: Iterative processing loop.
+         * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+         */
         for (j = 0; j < N; j++)
 		    mat_sum[i * N + j] = mat1[i * N + j] + mat2[i * N + j];
 
@@ -31,8 +50,20 @@ double *multiply_simple_matrix(double *mat1, double *mat2, int N)
 	int i, j, k;
 	double *mat_mult = calloc(N * N, sizeof(double));
 
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for (i = 0; i < N; i++) {
+		/**
+		 * Block Logic: Iterative processing loop.
+		 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+		 */
 		for (j = 0; j < N; j++) {
+			/**
+			 * Block Logic: Iterative processing loop.
+			 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+			 */
 			for (k = i; k < N; k++)
 				mat_mult[i * N + j] += mat1[i * N + k] * mat2[k * N + j];
 		}
@@ -47,8 +78,20 @@ double *multiply_matrix_transpose(double *mat1, double *mat2, int N)
 	int i, j, k;
 	double *mat_mult = calloc(N * N, sizeof(double));
 
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for (i = 0; i < N; i++) {
+		/**
+		 * Block Logic: Iterative processing loop.
+		 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+		 */
 		for (j = 0; j < N; j++) {
+			/**
+			 * Block Logic: Iterative processing loop.
+			 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+			 */
 			for (k = 0; k < N; k++)
 				mat_mult[i * N + j] += mat1[i * N + k] * mat2[j * N + k];
 		}
@@ -62,10 +105,22 @@ double *multiply_transpose_matrix(double *mat1, double *mat2, int N)
 	int i, j, k, min_index;
 	double *mat_mult = calloc(N * N, sizeof(double));
 
+	/**
+	 * Block Logic: Iterative processing loop.
+	 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+	 */
 	for (i = 0; i < N; i++) {
+		/**
+		 * Block Logic: Iterative processing loop.
+		 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+		 */
 		for (j = 0; j < N; j++) {
 			min_index = min(i, j) + 1;
 
+			/**
+			 * Block Logic: Iterative processing loop.
+			 * Invariant: Maintains sequence integrity while progressing through the defined bounds.
+			 */
 			for (k = 0; k < min_index; k++)
 				mat_mult[i * N + j] += mat1[k * N + i] * mat2[k * N + j];
 		}
@@ -74,6 +129,13 @@ double *multiply_transpose_matrix(double *mat1, double *mat2, int N)
 	return mat_mult;
 }
 
+/**
+ * @brief Computes C = A * B * B^T + A^T * A.
+ * @param N Matrix dimension.
+ * @param A Input matrix A.
+ * @param B Input matrix B.
+ * @return Pointer to resulting matrix C.
+ */
 double* my_solver(int N, double *A, double* B) {
 	printf("NEOPT SOLVER\n");
 

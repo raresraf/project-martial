@@ -1,8 +1,25 @@
 #!/bin/sh
+# @31204581-54b5-4634-abb2-57abb80a38db/tools/testing/selftests/ftrace/test.d/dynevent/add_remove_fprobe.tc
+# @brief Validation suite for the fprobe dynamic event interface in the Linux kernel.
+#
+# Functional Intent: Verifies the ability to dynamically create, enable, and remove 
+# fprobe-based trace events. Validates that attaching events to functions correctly 
+# updates the 'enabled_functions' count and that cleanup logic restores the system state.
+#
+# Logic Flow:
+# 1. Define target functions for probing.
+# 2. Add multiple fprobe events (standard and return-based).
+# 3. Verify event registration in 'dynamic_events'.
+# 4. Sequentially enable events and monitor 'enabled_functions' for correct reference counting.
+# 5. Remove events and ensure corresponding descriptors and system counts are purged.
+#
 # SPDX-License-Identifier: GPL-2.0
 # description: Generic dynamic event - add/remove fprobe events
 # requires: dynamic_events "f[:[<group>/][<event>]] <func-name>[%return] [<args>]":README
 
+# Block Logic: Global initialization of the trace environment.
+# Pre-condition: ftrace filesystem must be mounted and available.
+# Invariant: Starts from a clean state with all events disabled.
 echo 0 > events/enable
 echo > dynamic_events
 
@@ -10,62 +27,73 @@ PLACE=$FUNCTION_FORK
 PLACE2="kmem_cache_free"
 PLACE3="schedule_timeout"
 
-# Some functions may have BPF programs attached, therefore
-# count already enabled_functions before tests start
+# Block Logic: Establishing baseline for enabled functions.
+# Logic: Captures the number of functions already being traced (e.g., by BPF) 
+# to ensure our delta calculations are accurate.
 ocnt=`cat enabled_functions | wc -l`
 
+# Block Logic: Dynamic event registration.
+# Logic: Appends new fprobe definitions to the 'dynamic_events' control file.
 echo "f:myevent1 $PLACE" >> dynamic_events
-
 echo "f:myevent2 $PLACE%return" >> dynamic_events
-
-# add another event
 echo "f:myevent3 $PLACE2" >> dynamic_events
 
+# Block Logic: Verification of event existence in the ftrace hierarchy.
 grep -q myevent1 dynamic_events
 grep -q myevent2 dynamic_events
 grep -q myevent3 dynamic_events
 test -d events/fprobes/myevent1
 test -d events/fprobes/myevent2
 
+# Block Logic: Validation of event activation.
+# Pre-condition: myevent1 must be registered.
+# Logic: Enables the first event and verifies that exactly one new function is being traced.
 echo 1 > events/fprobes/myevent1/enable
-# Make sure the event is attached and is the only one
 grep -q $PLACE enabled_functions
 cnt=`cat enabled_functions | wc -l`
 if [ $cnt -ne $((ocnt + 1)) ]; then
 	exit_fail
 fi
 
+# Block Logic: Testing shared function probes.
+# Logic: Enables a return probe on the same function and verifies that the 
+# underlying attachment count (enabled_functions) does not increment redundantly.
 echo 1 > events/fprobes/myevent2/enable
-# It should till be the only attached function
 cnt=`cat enabled_functions | wc -l`
 if [ $cnt -ne $((ocnt + 1)) ]; then
 	exit_fail
 fi
 
+# Block Logic: Testing distinct function probes.
+# Logic: Enables a probe on a different function and verifies the attachment count increments.
 echo 1 > events/fprobes/myevent3/enable
-# If the function is different, the attached function should be increased
 grep -q $PLACE2 enabled_functions
 cnt=`cat enabled_functions | wc -l`
 if [ $cnt -ne $((ocnt + 2)) ]; then
 	exit_fail
 fi
 
+# Block Logic: Selective event removal.
+# Logic: Disables and unregisters a specific event while ensuring others persist.
 echo 0 > events/fprobes/myevent2/enable
 echo "-:myevent2" >> dynamic_events
 
 grep -q myevent1 dynamic_events
 ! grep -q myevent2 dynamic_events
 
-# should still have 2 left
+# Block Logic: State verification after partial cleanup.
+# Invariant: The attachment count should reflect the remaining active probes.
 cnt=`cat enabled_functions | wc -l`
 if [ $cnt -ne $((ocnt + 2)) ]; then
 	exit_fail
 fi
 
+# Block Logic: Global cleanup and restoration.
+# Logic: Disables all fprobe events and clears the dynamic event list to return to baseline.
 echo 0 > events/fprobes/enable
 echo > dynamic_events
 
-# Should have none left
+# Invariant: The count of enabled functions must return to the initial baseline (ocnt).
 cnt=`cat enabled_functions | wc -l`
 if [ $cnt -ne $ocnt ]; then
 	exit_fail
@@ -83,7 +111,7 @@ fi
 echo 0 > events/fprobes/enable
 echo > dynamic_events
 
-# Should have none left
+# Final verification of total state restoration.
 cnt=`cat enabled_functions | wc -l`
 if [ $cnt -ne $ocnt ]; then
 	exit_fail

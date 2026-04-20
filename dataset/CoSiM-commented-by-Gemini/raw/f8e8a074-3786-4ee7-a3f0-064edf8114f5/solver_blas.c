@@ -1,22 +1,48 @@
+/**
+ * @file solver_blas.c
+ * @brief BLAS-based optimized matrix solver computing $C = A \times B \times B^T + A^T \times A$.
+ * Algorithm: Relies on optimized numerical linear algebra kernels (DGEMM, DTRMM).
+ * Time Complexity: $O(N^3)$ due to dense matrix multiplications.
+ * Space Complexity: $O(N^2)$ for storing the result matrix C.
+ */
 
 #include <string.h>
 #include <stdlib.h>
 #include "utils.h"
 #include "cblas.h"
 
+/**
+ * @brief Computes C = A * B * B^T + A^T * A.
+ * @param N Matrix dimension.
+ * @param A Input matrix A.
+ * @param B Input matrix B.
+ * @return Pointer to resulting matrix C.
+ */
 double* my_solver(int N, double *A, double *B) {
 	double *final = calloc(N * N, sizeof(*final));
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (final == NULL) {
 		exit(-1);
 	}
 
 	double *multiply = calloc(N * N, sizeof(*multiply));
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (multiply == NULL) {
 		exit(-1);
 	}
 
 
 	double *a_t = calloc(N * N, sizeof(*a_t));
+	/**
+	 * Block Logic: Conditional state branch.
+	 * Invariant: The conditional branch maintains control flow invariants.
+	 */
 	if (a_t == NULL) {
 		exit(-1);
 	}

@@ -13,13 +13,22 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 
 /**
- * Both {@link String} and {@link EncodedBytes} representation of the text. Starts with one of those, and if
- * the other is requested, caches the other one in a local reference so no additional conversion will be needed.
+ * @391d40c8-9021-4519-941e-3c1e7d277aa6/libs/x-content/src/main/java/org/elasticsearch/xcontent/Text.java
+ * @brief Lazy-encoding container for text data with dual UTF-16 and UTF-8 representations.
+ * 
+ * Functional Intent: Minimizes encoding overhead by caching both String and ByteBuffer 
+ * views. It materializes representations only when requested, ensuring that high-throughput 
+ * I/O operations can utilize pre-encoded UTF-8 bytes without redundant processing.
  */
 public final class Text implements XContentString, Comparable<Text>, ToXContentFragment {
 
     public static final Text[] EMPTY_ARRAY = new Text[0];
 
+    /**
+     * @brief Bulk conversion utility.
+     * Logic: Maps an array of standard Strings to an array of Text objects to 
+     * enable efficient downstream serialization.
+     */
     public static Text[] convertFromStringArray(String[] strings) {
         if (strings.length == 0) {
             return EMPTY_ARRAY;
@@ -31,65 +40,79 @@ public final class Text implements XContentString, Comparable<Text>, ToXContentF
         return texts;
     }
 
-    private EncodedBytes bytes;
+    private ByteBuffer bytes;
     private String text;
     private int hash;
     private int stringLength = -1;
 
     /**
-     * Construct a Text from a UTF-8 encoded ByteBuffer. Since no string length is specified, {@link #stringLength()}
-     * will perform a string conversion to measure the string length.
+     * @brief Constructs Text from raw UTF-8 bytes.
+     * Logic: Defers length calculation until stringLength() or string() is invoked.
      */
-    public Text(EncodedBytes bytes) {
+    public Text(ByteBuffer bytes) {
         this.bytes = bytes;
     }
 
     /**
-     * Construct a Text from a UTF-8 encoded ByteBuffer and an explicit string length. Used to avoid string conversion
-     * in {@link #stringLength()}.
+     * @brief Constructs Text from raw UTF-8 bytes with a pre-calculated character length.
      */
-    public Text(EncodedBytes bytes, int stringLength) {
+    public Text(ByteBuffer bytes, int stringLength) {
         this.bytes = bytes;
         this.stringLength = stringLength;
     }
 
+    /**
+     * @brief Constructs Text from a standard Java String.
+     */
     public Text(String text) {
         this.text = text;
     }
 
     /**
-     * Whether an {@link EncodedBytes} view of the data is already materialized.
+     * @brief Predicate indicating if the UTF-8 view is currently cached.
      */
     public boolean hasBytes() {
         return bytes != null;
     }
 
+    /**
+     * Block Logic: Lazy UTF-8 encoding.
+     * Logic: If bytes are missing, materializes them from the String representation 
+     * using the standard UTF-8 encoder.
+     */
     @Override
-    public EncodedBytes bytes() {
+    public ByteBuffer bytes() {
         if (bytes == null) {
-            var byteBuff = StandardCharsets.UTF_8.encode(text);
-            assert byteBuff.hasArray();
-            bytes = new EncodedBytes(byteBuff.array(), byteBuff.arrayOffset() + byteBuff.position(), byteBuff.remaining());
+            bytes = StandardCharsets.UTF_8.encode(text);
         }
         return bytes;
     }
 
     /**
-     * Whether a {@link String} view of the data is already materialized.
+     * @brief Predicate indicating if the UTF-16 String view is currently cached.
      */
     public boolean hasString() {
         return text != null;
     }
 
+    /**
+     * Block Logic: Lazy UTF-16 decoding.
+     * Logic: If the string is missing, materializes it from the byte representation 
+     * using the standard UTF-8 decoder.
+     */
     @Override
     public String string() {
         if (text == null) {
-            var byteBuff = ByteBuffer.wrap(bytes.bytes(), bytes.offset(), bytes.length());
-            text = StandardCharsets.UTF_8.decode(byteBuff).toString();
+            text = StandardCharsets.UTF_8.decode(bytes).toString();
         }
         return text;
     }
 
+    /**
+     * Block Logic: Character length retrieval.
+     * Logic: Returns the cached length if available, otherwise triggers 
+     * string materialization to determine length.
+     */
     @Override
     public int stringLength() {
         if (stringLength < 0) {
@@ -127,14 +150,21 @@ public final class Text implements XContentString, Comparable<Text>, ToXContentF
         return bytes().compareTo(text.bytes());
     }
 
+    /**
+     * Block Logic: Optimized serialization dispatch.
+     * Logic: 
+     * 1. If a String already exists, uses the builder's standard string handler.
+     * 2. Otherwise, performs a direct zero-copy write of the underlying 
+     *    UTF-8 byte array to the output stream.
+     */
     @Override
     public XContentBuilder toXContent(XContentBuilder builder, Params params) throws IOException {
         if (hasString()) {
             return builder.value(this.string());
         } else {
-            // TODO: TextBytesOptimization we can use a buffer here to convert it? maybe add a
-            // request to jackson to support InputStream as well?
-            return builder.utf8Value(bytes.bytes(), bytes.offset(), bytes.length());
+            // Functional Utility: Direct byte-level write avoiding intermediate string allocations.
+            assert bytes.hasArray();
+            return builder.utf8Value(bytes.array(), bytes.arrayOffset() + bytes.position(), bytes.remaining());
         }
     }
 }

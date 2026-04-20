@@ -1,16 +1,4 @@
 /*
-@file meta_proxier.go
-@brief Dual-stack network proxy dispatcher for Kubernetes.
-This module implements a "Meta Proxier" using the Composite design pattern. It 
-wraps two independent proxy providers (IPv4 and IPv6) and orchestrates the 
-dispatching of cluster events (Services, Nodes, EndpointSlices) to both stacks. 
-It ensures that dual-stack networking state is consistently maintained across 
-different address families within the Kubernetes data plane.
-
-Domain: Cloud Orchestration, Kubernetes Networking, Dual-Stack Proxies.
-*/
-
-/*
 Copyright 2019 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,6 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+/**
+ * @fb5eff03-743e-4ad2-a7dc-6a98f996139c/pkg/proxy/metaproxier/meta_proxier.go
+ * @brief Dual-stack network proxy dispatcher utilizing the Composite pattern.
+ * 
+ * Functional Intent: Orchestrates the synchronization of networking rules across 
+ * independent IPv4 and IPv6 stacks. It acts as a transparent router for cluster 
+ * events (Services, Nodes, EndpointSlices), ensuring that dual-stack configurations 
+ * are consistently realized in the underlying data plane by delegating to family-specific 
+ * providers.
+ * 
+ * Domain: Kubernetes Networking, Dual-Stack Proxies, Composite Design Pattern.
+ */
+
 package metaproxier
 
 import (
@@ -36,23 +37,17 @@ import (
 )
 
 /**
- * @type metaProxier
- * @brief Internal implementation of the composite proxy provider.
- * Functional Utility: Decouples high-level event notification from family-specific 
- * implementation details by wrapping dual Provider instances.
+ * @brief Internal container for the dual backend proxy providers.
  */
 type metaProxier struct {
-	ipv4Proxier proxy.Provider // Backend provider for IPv4 traffic rules.
-	ipv6Proxier proxy.Provider // Backend provider for IPv6 traffic rules.
+	ipv4Proxier proxy.Provider
+	ipv6Proxier proxy.Provider
 }
 
 /**
- * @brief Factory function for a dual-stack meta-proxier.
- * Architectural Intent: Returns an opaque interface that handles multi-stack 
- * rule synchronization transparently to the caller.
- * @param ipv4Proxier The provider instance for IPv4 addresses.
- * @param ipv6Proxier The provider instance for IPv6 addresses.
- * @return Integrated proxy.Provider implementation.
+ * NewMetaProxier - Factory for a unified dual-stack proxy provider.
+ * Logic: Aggregates family-specific providers into a single interface compliant 
+ * with the standard Kubernetes proxy.Provider.
  */
 func NewMetaProxier(ipv4Proxier, ipv6Proxier proxy.Provider) proxy.Provider {
 	return proxy.Provider(&metaProxier{
@@ -62,8 +57,7 @@ func NewMetaProxier(ipv4Proxier, ipv6Proxier proxy.Provider) proxy.Provider {
 }
 
 /**
- * @brief Triggers an immediate state-to-rule synchronization.
- * Logic: Sequentially executes flush/synchronization for both protocol families.
+ * Sync - Triggers immediate rule reconciliation for both stacks.
  */
 func (proxier *metaProxier) Sync() {
 	proxier.ipv4Proxier.Sync()
@@ -71,21 +65,16 @@ func (proxier *metaProxier) Sync() {
 }
 
 /**
- * @brief Orchestrates periodic rule maintenance.
- * Logic: Launches the IPv6 maintenance loop in a dedicated goroutine while 
- * blocking the current thread on the IPv4 loop. This ensures both stacks 
- * are continuously serviced.
+ * SyncLoop - Orchestrates continuous background rule maintenance.
+ * Logic: Parallelizes stack maintenance by launching the IPv6 loop in a 
+ * separate goroutine while the IPv4 loop occupies the primary thread.
  */
 func (proxier *metaProxier) SyncLoop() {
-	go proxier.ipv6Proxier.SyncLoop() // Asynchronous background loop for IPv6.
-	proxier.ipv4Proxier.SyncLoop()    // Primary blocking loop for IPv4.
+	go proxier.ipv6Proxier.SyncLoop()
+	proxier.ipv4Proxier.SyncLoop()
 }
 
-/* --- Service Event Handlers --- */
-
-// Logic for Service handlers: Propagates all service-level metadata changes 
-// (creation, modification, deletion) to both stacks, as service definitions 
-// may contain both address families.
+/* --- Service Event Delegation Logic --- */
 
 func (proxier *metaProxier) OnServiceAdd(service *v1.Service) {
 	proxier.ipv4Proxier.OnServiceAdd(service)
@@ -107,12 +96,13 @@ func (proxier *metaProxier) OnServiceSynced() {
 	proxier.ipv6Proxier.OnServiceSynced()
 }
 
-/* --- EndpointSlice Event Handlers --- */
+/* --- EndpointSlice Event Routing Logic --- */
 
-// Logic for EndpointSlice handlers: Unlike Services, EndpointSlices are 
-// scoped to a specific AddressType. The meta-proxier performs a family-check 
-// (IPv4 vs IPv6) to route the update to the correct underlying provider.
-
+/**
+ * Block Logic: Type-aware event dispatching.
+ * Logic: Routes EndpointSlice updates based on their AddressType (IPv4 vs IPv6), 
+ * as EndpointSlices are inherently single-family resources.
+ */
 func (proxier *metaProxier) OnEndpointSliceAdd(endpointSlice *discovery.EndpointSlice) {
 	switch endpointSlice.AddressType {
 	case discovery.AddressTypeIPv4:
@@ -151,11 +141,7 @@ func (proxier *metaProxier) OnEndpointSlicesSynced() {
 	proxier.ipv6Proxier.OnEndpointSlicesSynced()
 }
 
-/* --- Node Event Handlers --- */
-
-// Logic for Node handlers: Nodes participate in the dual-stack fabric. 
-// Membership changes are broadcast to both providers to maintain reachability 
-// information for cluster egress and ingress.
+/* --- Node Event Delegation Logic --- */
 
 func (proxier *metaProxier) OnNodeAdd(node *v1.Node) {
 	proxier.ipv4Proxier.OnNodeAdd(node)
@@ -178,7 +164,7 @@ func (proxier *metaProxier) OnNodeSynced() {
 }
 
 /**
- * @brief Notifies providers of cluster-wide CIDR changes.
+ * OnServiceCIDRsChanged - Broadcasts subnet reconfigurations to both providers.
  */
 func (proxier *metaProxier) OnServiceCIDRsChanged(cidrs []string) {
 	proxier.ipv4Proxier.OnServiceCIDRsChanged(cidrs)

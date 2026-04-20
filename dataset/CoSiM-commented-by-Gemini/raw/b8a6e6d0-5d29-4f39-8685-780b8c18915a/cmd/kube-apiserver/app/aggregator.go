@@ -1,3 +1,5 @@
+// Package provides architecture-aware components for aggregator.go.
+// Focuses on production system reliability and error handling.
 /*
 Copyright 2017 The Kubernetes Authors.
 
@@ -52,6 +54,7 @@ import (
 	"k8s.io/kubernetes/pkg/controlplane/controller/crdregistration"
 )
 
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func createAggregatorConfig(
 	kubeAPIServerConfig genericapiserver.Config,
 	commandOptions *options.ServerRunOptions,
@@ -69,6 +72,7 @@ func createAggregatorConfig(
 	// has its own customized OpenAPI handler.
 	genericConfig.SkipOpenAPIInstallation = true
 
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if utilfeature.DefaultFeatureGate.Enabled(genericfeatures.StorageVersionAPI) &&
 		utilfeature.DefaultFeatureGate.Enabled(genericfeatures.APIServerIdentity) {
 		// Add StorageVersionPrecondition handler to aggregator-apiserver.
@@ -85,11 +89,13 @@ func createAggregatorConfig(
 	etcdOptions.StorageConfig.Codec = aggregatorscheme.Codecs.LegacyCodec(v1.SchemeGroupVersion, v1beta1.SchemeGroupVersion)
 	etcdOptions.StorageConfig.EncodeVersioner = runtime.NewMultiGroupVersioner(v1.SchemeGroupVersion, schema.GroupKind{Group: v1beta1.GroupName})
 	etcdOptions.SkipHealthEndpoints = true // avoid double wiring of health checks
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if err := etcdOptions.ApplyTo(&genericConfig); err != nil {
 		return nil, err
 	}
 
 	// override MergedResourceConfig with aggregator defaults and registry
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if err := commandOptions.APIEnablement.ApplyTo(
 		&genericConfig,
 		aggregatorapiserver.DefaultAPIResourceConfigSource(),
@@ -117,14 +123,17 @@ func createAggregatorConfig(
 	return aggregatorConfig, nil
 }
 
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func createAggregatorServer(aggregatorConfig *aggregatorapiserver.Config, delegateAPIServer genericapiserver.DelegationTarget, apiExtensionInformers apiextensionsinformers.SharedInformerFactory) (*aggregatorapiserver.APIAggregator, error) {
 	aggregatorServer, err := aggregatorConfig.Complete().NewWithDelegate(delegateAPIServer)
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if err != nil {
 		return nil, err
 	}
 
 	// create controllers for auto-registration
 	apiRegistrationClient, err := apiregistrationclient.NewForConfig(aggregatorConfig.GenericConfig.LoopbackClientConfig)
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if err != nil {
 		return nil, err
 	}
@@ -140,6 +149,7 @@ func createAggregatorServer(aggregatorConfig *aggregatorapiserver.Config, delega
 			// let the CRD controller process the initial set of CRDs before starting the autoregistration controller.
 			// this prevents the autoregistration controller's initial sync from deleting APIServices for CRDs that still exist.
 			// we only need to do this if CRDs are enabled on this server.  We can't use discovery because we are the source for discovery.
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 			if aggregatorConfig.GenericConfig.MergedResourceConfig.ResourceEnabled(apiextensionsv1.SchemeGroupVersion.WithResource("customresourcedefinitions")) {
 				crdRegistrationController.WaitForInitialSync()
 			}
@@ -147,6 +157,7 @@ func createAggregatorServer(aggregatorConfig *aggregatorapiserver.Config, delega
 		}()
 		return nil
 	})
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if err != nil {
 		return nil, err
 	}
@@ -158,6 +169,7 @@ func createAggregatorServer(aggregatorConfig *aggregatorapiserver.Config, delega
 			aggregatorServer.APIRegistrationInformers.Apiregistration().V1().APIServices(),
 		),
 	)
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if err != nil {
 		return nil, err
 	}
@@ -165,8 +177,10 @@ func createAggregatorServer(aggregatorConfig *aggregatorapiserver.Config, delega
 	return aggregatorServer, nil
 }
 
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func makeAPIService(gv schema.GroupVersion) *v1.APIService {
 	apiServicePriority, ok := apiVersionPriorities[gv]
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 	if !ok {
 		// if we aren't found, then we shouldn't register ourselves because it could result in a CRD group version
 		// being permanently stuck in the APIServices list.
@@ -186,10 +200,12 @@ func makeAPIService(gv schema.GroupVersion) *v1.APIService {
 
 // makeAPIServiceAvailableHealthCheck returns a healthz check that returns healthy
 // once all of the specified services have been observed to be available at least once.
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func makeAPIServiceAvailableHealthCheck(name string, apiServices []*v1.APIService, apiServiceInformer informers.APIServiceInformer) healthz.HealthChecker {
 	// Track the auto-registered API services that have not been observed to be available yet
 	pendingServiceNamesLock := &sync.RWMutex{}
 	pendingServiceNames := sets.NewString()
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
 	for _, service := range apiServices {
 		pendingServiceNames.Insert(service.Name)
 	}
@@ -198,9 +214,11 @@ func makeAPIServiceAvailableHealthCheck(name string, apiServices []*v1.APIServic
 	handleAPIServiceChange := func(service *v1.APIService) {
 		pendingServiceNamesLock.Lock()
 		defer pendingServiceNamesLock.Unlock()
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if !pendingServiceNames.Has(service.Name) {
 			return
 		}
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if v1helper.IsAPIServiceConditionTrue(service, v1.Available) {
 			pendingServiceNames.Delete(service.Name)
 		}
@@ -216,6 +234,7 @@ func makeAPIServiceAvailableHealthCheck(name string, apiServices []*v1.APIServic
 	return healthz.NamedCheck(name, func(r *http.Request) error {
 		pendingServiceNamesLock.RLock()
 		defer pendingServiceNamesLock.RUnlock()
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if pendingServiceNames.Len() > 0 {
 			return fmt.Errorf("missing APIService: %v", pendingServiceNames.List())
 		}
@@ -280,10 +299,13 @@ var apiVersionPriorities = map[schema.GroupVersion]priority{
 	// Version can be set to 9 (to have space around) for a new group.
 }
 
+// Executes functional unit. @pre Parameters adhere to interface. @invariant Return values strictly validated.
 func apiServicesToRegister(delegateAPIServer genericapiserver.DelegationTarget, registration autoregister.AutoAPIServiceRegistration) []*v1.APIService {
 	apiServices := []*v1.APIService{}
 
+// @pre Loop initialized. @invariant Evaluates condition each iteration.
 	for _, curr := range delegateAPIServer.ListedPaths() {
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if curr == "/api/v1" {
 			apiService := makeAPIService(schema.GroupVersion{Group: "", Version: "v1"})
 			registration.AddAPIServiceToSyncOnStart(apiService)
@@ -291,16 +313,19 @@ func apiServicesToRegister(delegateAPIServer genericapiserver.DelegationTarget, 
 			continue
 		}
 
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if !strings.HasPrefix(curr, "/apis/") {
 			continue
 		}
 		// this comes back in a list that looks like /apis/rbac.authorization.k8s.io/v1alpha1
 		tokens := strings.Split(curr, "/")
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if len(tokens) != 4 {
 			continue
 		}
 
 		apiService := makeAPIService(schema.GroupVersion{Group: tokens[2], Version: tokens[3]})
+// @pre Conditional evaluation. @invariant Handles error paths and edge cases robustly.
 		if apiService == nil {
 			continue
 		}

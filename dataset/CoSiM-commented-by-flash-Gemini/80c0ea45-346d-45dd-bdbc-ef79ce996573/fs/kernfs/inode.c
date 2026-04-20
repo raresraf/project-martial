@@ -1,7 +1,16 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * fs/kernfs/inode.c - kernfs inode implementation
- *
+ * @80c0ea45-346d-45dd-bdbc-ef79ce996573/fs/kernfs/inode.c
+ * @brief Inode lifecycle and attribute management for the kernfs virtual filesystem.
+ * 
+ * Functional Intent: Orchestrates the mapping between engine-internal kernfs_nodes 
+ * and VFS-level inodes. It manages persistent and on-demand attribute allocation 
+ * (UID, GID, timestamps, permissions), handles metadata updates (setattr/getattr), 
+ * and provides specialized initialization for directories, files, and symlinks 
+ * within the kernfs hierarchy.
+ * 
+ * Domain: Virtual Filesystems, Linux VFS, Kernel Infrastructure.
+ * 
  * Copyright (c) 2001-3 Patrick Mochel
  * Copyright (c) 2007 SUSE Linux Products GmbH
  * Copyright (c) 2007, 2013 Tejun Heo <tj@kernel.org>
@@ -17,6 +26,9 @@
 
 #include "kernfs-internal.h"
 
+/**
+ * kernfs_iops - VFS entry points for standard inode operations.
+ */
 static const struct inode_operations kernfs_iops = {
 	.permission	= kernfs_iop_permission,
 	.setattr	= kernfs_iop_setattr,
@@ -24,6 +36,19 @@ static const struct inode_operations kernfs_iops = {
 	.listxattr	= kernfs_iop_listxattr,
 };
 
+/**
+ * __kernfs_iattrs - Lazy allocator for extended inode attributes.
+ * @kn: Target kernfs node.
+ * @alloc: Predicate indicating if missing attributes should be instantiated.
+ * 
+ * Block Logic: Atomic attribute binding.
+ * Logic: 
+ * 1. Performs a non-blocking check for existing attributes.
+ * 2. On miss: Initializes a new attribute set with system defaults (root ownership, 
+ *    current monotonic time).
+ * 3. Uses cmpxchg to safely bind the set to the node, resolving races between 
+ *    concurrent readers/writers.
+ */
 static struct kernfs_iattrs *__kernfs_iattrs(struct kernfs_node *kn, bool alloc)
 {
 	struct kernfs_iattrs *ret __free(kfree) = NULL;
@@ -42,6 +67,7 @@ static struct kernfs_iattrs *__kernfs_iattrs(struct kernfs_node *kn, bool alloc)
 	ret->ia_gid = GLOBAL_ROOT_GID;
 
 	ktime_get_real_ts64(&ret->ia_atime);
+	ret->ia_mtime = ret->ia_atime;
 	ret->ia_mtime = ret->ia_atime;
 	ret->ia_ctime = ret->ia_atime;
 
@@ -66,6 +92,11 @@ static struct kernfs_iattrs *kernfs_iattrs_noalloc(struct kernfs_node *kn)
 	return __kernfs_iattrs(kn, false);
 }
 
+/**
+ * __kernfs_setattr - Internal metadata update engine.
+ * Logic: Propagates VFS attribute changes (bitmask-driven) into the 
+ * node-specific iattrs structure or directly to the node (for file modes).
+ */
 int __kernfs_setattr(struct kernfs_node *kn, const struct iattr *iattr)
 {
 	struct kernfs_iattrs *attrs;
@@ -91,11 +122,8 @@ int __kernfs_setattr(struct kernfs_node *kn, const struct iattr *iattr)
 }
 
 /**
- * kernfs_setattr - set iattr on a node
- * @kn: target node
- * @iattr: iattr to set
- *
- * Return: %0 on success, -errno on failure.
+ * kernfs_setattr - External API to update node attributes.
+ * Pre-condition: Synchronized via the root node's RW semaphore.
  */
 int kernfs_setattr(struct kernfs_node *kn, const struct iattr *iattr)
 {
@@ -108,6 +136,9 @@ int kernfs_setattr(struct kernfs_node *kn, const struct iattr *iattr)
 	return ret;
 }
 
+/**
+ * kernfs_iop_setattr - VFS callback for attribute modification.
+ */
 int kernfs_iop_setattr(struct mnt_idmap *idmap, struct dentry *dentry,
 		       struct iattr *iattr)
 {
@@ -165,6 +196,11 @@ static inline void set_inode_attr(struct inode *inode,
 	inode_set_ctime_to_ts(inode, attrs->ia_ctime);
 }
 
+/**
+ * kernfs_refresh_inode - Synchronizes VFS inode state with engine-internal node state.
+ * Logic: Updates file modes and links. If specialized attributes exist on the node, 
+ * they are propagated into the standard inode structure.
+ */
 static void kernfs_refresh_inode(struct kernfs_node *kn, struct inode *inode)
 {
 	struct kernfs_iattrs *attrs;
@@ -198,6 +234,13 @@ int kernfs_iop_getattr(struct mnt_idmap *idmap,
 	return 0;
 }
 
+/**
+ * kernfs_init_inode - Bootstraps a new VFS inode based on a kernfs_node's identity.
+ * 
+ * Block Logic: Type-specific initialization.
+ * Logic: Configures function pointer tables (inode and file ops) based on 
+ * whether the target represents a directory, regular file, or symbolic link.
+ */
 static void kernfs_init_inode(struct kernfs_node *kn, struct inode *inode)
 {
 	kernfs_get(kn);
@@ -239,12 +282,6 @@ static void kernfs_init_inode(struct kernfs_node *kn, struct inode *inode)
  *	Get inode for @kn.  If such inode doesn't exist, a new inode is
  *	allocated and basics are initialized.  New inode is returned
  *	locked.
- *
- *	Locking:
- *	Kernel thread context (may sleep).
- *
- *	Return:
- *	Pointer to allocated inode on success, %NULL on failure.
  */
 struct inode *kernfs_get_inode(struct super_block *sb, struct kernfs_node *kn)
 {

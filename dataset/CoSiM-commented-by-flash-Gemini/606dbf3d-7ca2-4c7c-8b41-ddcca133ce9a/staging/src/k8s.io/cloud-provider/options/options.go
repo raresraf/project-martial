@@ -14,6 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+/**
+ * @606dbf3d-7ca2-4c7c-8b41-ddcca133ce9a/staging/src/k8s.io/cloud-provider/options/options.go
+ * @brief Configuration schema and lifecycle management for the Cloud Controller Manager (CCM).
+ * 
+ * Functional Intent: Defines the complete set of parameters required to initialize 
+ * and run the CCM. It aggregates generic controller settings with cloud-specific 
+ * shared options, security (authentication/authorization) configurations, and 
+ * networking parameters. It provides the 'ApplyTo' logic to hydrate a runtime 
+ * configuration object from CLI flags and environment variables.
+ * 
+ * Domain: Kubernetes Infrastructure, Configuration Management, Cloud Providers.
+ */
+
 package options
 
 import (
@@ -52,7 +65,12 @@ const (
 	CloudControllerManagerUserAgent = "cloud-controller-manager"
 )
 
-// CloudControllerManagerOptions is the main context object for the controller manager.
+/**
+ * CloudControllerManagerOptions - Root context for CCM daemon configuration.
+ * @Generic: Standard controller-manager parameters (e.g., leader election, resync).
+ * @SecureServing: Configuration for the administrative HTTPS server.
+ * @NodeStatusUpdateFrequency: Temporal cadence for heartbeating node state to the cloud.
+ */
 type CloudControllerManagerOptions struct {
 	Generic           *cmoptions.GenericControllerManagerConfigurationOptions
 	KubeCloudShared   *KubeCloudSharedOptions
@@ -65,11 +83,14 @@ type CloudControllerManagerOptions struct {
 	Master     string
 	Kubeconfig string
 
-	// NodeStatusUpdateFrequency is the frequency at which the controller updates nodes' status
 	NodeStatusUpdateFrequency metav1.Duration
 }
 
-// NewCloudControllerManagerOptions creates a new ExternalCMServer with a default config.
+/**
+ * NewCloudControllerManagerOptions - Constructs a default configuration baseline.
+ * Logic: Merges internal component defaults with standard Kubernetes system defaults 
+ * (e.g., system namespaces, well-known port 10258).
+ */
 func NewCloudControllerManagerOptions() (*CloudControllerManagerOptions, error) {
 	componentConfig, err := NewDefaultComponentConfig()
 	if err != nil {
@@ -91,7 +112,6 @@ func NewCloudControllerManagerOptions() (*CloudControllerManagerOptions, error) 
 	s.Authentication.RemoteKubeConfigFileOptional = true
 	s.Authorization.RemoteKubeConfigFileOptional = true
 
-	// Set the PairName but leave certificate directory blank to generate in-memory by default
 	s.SecureServing.ServerCert.CertDirectory = ""
 	s.SecureServing.ServerCert.PairName = "cloud-controller-manager"
 	s.SecureServing.BindPort = cloudprovider.CloudControllerManagerPort
@@ -102,7 +122,9 @@ func NewCloudControllerManagerOptions() (*CloudControllerManagerOptions, error) 
 	return &s, nil
 }
 
-// NewDefaultComponentConfig returns cloud-controller manager configuration object.
+/**
+ * NewDefaultComponentConfig - Bootstraps the internal versioned configuration object.
+ */
 func NewDefaultComponentConfig() (*ccmconfig.CloudControllerManagerConfiguration, error) {
 	versioned := &ccmconfigv1alpha1.CloudControllerManagerConfiguration{}
 	ccmconfigscheme.Scheme.Default(versioned)
@@ -114,7 +136,10 @@ func NewDefaultComponentConfig() (*ccmconfig.CloudControllerManagerConfiguration
 	return internal, nil
 }
 
-// Flags returns flags for a specific APIServer by section name
+/**
+ * Flags - Defines and binds CLI flags to the options structure.
+ * Logic: Sections the flags into groups (Generic, Security, Misc) for a clean help output.
+ */
 func (o *CloudControllerManagerOptions) Flags(allControllers, disabledByDefaultControllers []string) cliflag.NamedFlagSets {
 	fss := cliflag.NamedFlagSets{}
 	o.Generic.AddFlags(&fss, allControllers, disabledByDefaultControllers)
@@ -135,13 +160,19 @@ func (o *CloudControllerManagerOptions) Flags(allControllers, disabledByDefaultC
 	return fss
 }
 
-// ApplyTo fills up cloud controller manager config with options.
+/**
+ * ApplyTo - Materializes the runtime Config from validated options.
+ * 
+ * Block Logic: Infrastructure bootstrapping.
+ * Logic: 
+ * 1. Early-evaluates kubeconfig to prevent leaking goroutines on initialization failure.
+ * 2. Populates internal component configurations.
+ * 3. Initializes the high-throughput Kubernetes client and event broadcaster.
+ * 4. Configures the shared informer factory with randomized jitter to spread API load.
+ */
 func (o *CloudControllerManagerOptions) ApplyTo(c *config.Config, userAgent string) error {
 	var err error
 
-	// Build kubeconfig first to so that if it fails, it doesn't cause leaking
-	// goroutines (started from initializing secure serving - which underneath
-	// creates a queue which in its constructor starts a goroutine).
 	c.Kubeconfig, err = clientcmd.BuildConfigFromFlags(o.Master, o.Kubeconfig)
 	if err != nil {
 		return err
@@ -195,14 +226,14 @@ func (o *CloudControllerManagerOptions) ApplyTo(c *config.Config, userAgent stri
 	c.VersionedClient = rootClientBuilder.ClientOrDie("shared-informers")
 	c.SharedInformers = informers.NewSharedInformerFactory(c.VersionedClient, resyncPeriod(c)())
 
-	// sync back to component config
-	// TODO: find more elegant way than syncing back the values.
 	c.ComponentConfig.NodeStatusUpdateFrequency = o.NodeStatusUpdateFrequency
 
 	return nil
 }
 
-// Validate is used to validate config before launching the cloud controller manager
+/**
+ * @brief Validates the logical consistency of aggregated options.
+ */
 func (o *CloudControllerManagerOptions) Validate(allControllers, disabledByDefaultControllers []string) error {
 	errors := []error{}
 
@@ -220,7 +251,9 @@ func (o *CloudControllerManagerOptions) Validate(allControllers, disabledByDefau
 	return utilerrors.NewAggregate(errors)
 }
 
-// resyncPeriod computes the time interval a shared informer waits before resyncing with the api server
+/**
+ * @brief Logic: Injects randomized jitter into the resync cycle for API server fairness.
+ */
 func resyncPeriod(c *config.Config) func() time.Duration {
 	return func() time.Duration {
 		factor := rand.Float64() + 1
@@ -228,7 +261,11 @@ func resyncPeriod(c *config.Config) func() time.Duration {
 	}
 }
 
-// Config return a cloud controller manager config objective
+/**
+ * Config - Finalizes the configuration and prepares self-signed certificates for secure serving.
+ * Logic: Performs validation, generates temporary in-memory certs if needed, 
+ * and materializes the finalized runtime configuration.
+ */
 func (o *CloudControllerManagerOptions) Config(allControllers, disabledByDefaultControllers []string) (*config.Config, error) {
 	if err := o.Validate(allControllers, disabledByDefaultControllers); err != nil {
 		return nil, err

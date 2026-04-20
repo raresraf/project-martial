@@ -15,87 +15,77 @@
 # limitations under the License.
 
 """
-@file verify-flags-underscore.py
-@brief This script verifies that command-line flags declared in Go files
-adhere to a naming convention disallowing underscores.
+@0ab85a66-81f1-4001-9961-4592a6d41de6/hack/verify-flags-underscore.py
+@brief Linter for enforcing hyphen-separated command-line flags in Go source files.
 
-Functional Utility: Enforces a consistent code style for command-line flags
-within a Go codebase, preventing issues that might arise from different
-platforms or tools interpreting flag names with underscores inconsistently.
-It helps maintain code quality and readability by ensuring flags use hyphens
-instead of underscores.
+Functional Intent: Scans the codebase to ensure that all Go flag declarations 
+follow the convention of using hyphens instead of underscores. This promotes 
+consistency across CLI tools and avoids potential cross-platform shell issues.
 
 Algorithm:
-1. Argument Parsing: Handles command-line arguments to specify files to check
-   or to check all relevant files if none are specified.
-2. File Filtering: Recursively collects all non-binary, non-excluded files.
-3. Excluded Flags Loading: Reads a list of explicitly allowed flags (that contain
-   underscores) from a file.
-4. Regex Matching: Uses regular expressions to identify flag declarations in Go files.
-5. Underscore Check: For each identified flag, it checks if an underscore is present.
-6. Violation Reporting: If a flag with an underscore is found and not in the
-   excluded list, it's reported as a violation, and the script exits with an error.
+1. File Discovery: Recursively crawls the project root, skipping build artifacts 
+   and version control directories.
+2. Content Filtering: Identifies and ignores binary files using null-byte detection.
+3. Policy Enforcement:
+   - Loads a whitelist of 'excluded' flags allowed to have underscores.
+   - Uses regex patterns to find flag definitions (StringVar, Int, etc.).
+   - Flag names containing underscores (and not in the whitelist) trigger a failure.
 
-Time Complexity: O(F * (L_read + R_count * L_regex)), where F is the number of
-files, L_read is the average file read time, R_count is the number of regexes,
-and L_regex is the average regex matching time. In essence, it's proportional
-to the total size of scanned Go files.
-Space Complexity: O(F_go + L_exclude + S_file), where F_go is the list of Go files,
-L_exclude is the list of excluded flags, and S_file is the content of the largest
-file read at once.
+Time Complexity: $O(N \times M)$ where N is the total number of lines in non-binary 
+files and M is the number of flag-matching regex patterns.
+Space Complexity: $O(F + E)$ where F is the file path list and E is the size 
+of the excluded-flags set.
 """
 
 from __future__ import print_function
 
-import argparse # For parsing command-line arguments.
-import os # For interacting with the operating system (e.g., path manipulation, directory traversal).
-import re # For regular expression operations.
-import sys # For system-specific parameters and functions (e.g., exiting the script).
+import argparse
+import os
+import re
+import sys
 
-# Functional Utility: Set up command-line argument parser.
+# Functional Utility: CLI configuration.
+# Allows targeted checks on specific files or full-tree sweeps.
 parser = argparse.ArgumentParser()
-parser.add_argument("filenames", help="list of files to check, all files if unspecified", nargs='*') # Argument for specifying files.
-args = parser.parse_args() # Parse the arguments.
+parser.add_argument("filenames", help="list of files to check, all files if unspecified", nargs='*')
+args = parser.parse_args()
 
-# Cargo culted from http://stackoverflow.com/questions/898669/how-can-i-detect-if-a-file-is-binary-non-text-in-python
 def is_binary(pathname):
     """
-    @brief Detects if a given file is binary by checking for null bytes.
-    Functional Utility: Prevents attempts to apply text-based regex searches on
-    binary files, which could lead to errors or incorrect results.
-    @param pathname (str): The path to the file.
-    @return (bool): `True` if the file is likely binary (contains null bytes or cannot be read), `False` otherwise.
-    @raise EnvironmentError: if the file does not exist or cannot be accessed.
-    @attention: found @ http://bytes.com/topic/python/answers/21222-determine-file-type-binary-text on 6/08/2010
-    @author: Trent Mick <TrentM@ActiveState.com>
-    @author: Jorge Orpinel <jorge@orpinel.com>
+    @brief Heuristic check for binary file types.
+    Logic: Samples the file in chunks; if any null byte is encountered, the file 
+    is treated as binary to prevent regex mismatch errors.
+    @param pathname: Target file path.
+    @return: True if the file is likely binary.
     """
     try:
-        with open(pathname, 'r') as f: # Open file in text mode.
-            CHUNKSIZE = 1024 # Read in chunks to efficiently check large files.
-            while True: # Block Logic: Iterate through file chunks.
-                chunk = f.read(CHUNKSIZE) # Read a chunk.
-                if '\0' in chunk: # If null byte is found.
-                    return True # File is binary.
-                if len(chunk) < CHUNKSIZE: # If chunk is smaller than CHUNKSIZE, end of file reached.
-                    break # Done reading.
-    except: # Block Logic: Handle errors during file access, assuming binary if an error occurs.
+        with open(pathname, 'r') as f:
+            CHUNKSIZE = 1024
+            while True:
+                chunk = f.read(CHUNKSIZE)
+                if '\0' in chunk:
+                    return True
+                if len(chunk) < CHUNKSIZE:
+                    break
+    except:
+        # Block Logic: Error fallback.
+        # If the file cannot be read as text, treat it as binary/inaccessible.
         return True
 
-    return False # No null bytes found, considered text.
+    return False
 
 def get_all_files(rootdir):
     """
-    @brief Recursively collects paths of all non-binary files under a given root directory, excluding specific directories.
-    Functional Utility: Prepares a list of files that need to be scanned for flag declarations,
-    optimizing the process by ignoring irrelevant or unreadable files.
-    @param rootdir (str): The root directory to start scanning from.
-    @return (list): A list of absolute file paths (strings).
+    @brief Collects relevant source files for scanning.
+    Logic: Performs a directory walk while pruning high-volume/irrelevant 
+    directories (vendor, build outputs, git metadata) to optimize performance.
+    @param rootdir: Search entry point.
+    @return: List of paths to non-binary files.
     """
     all_files = []
-    # Block Logic: Walk the directory tree, excluding specified directories for efficiency.
+    # Block Logic: Tree traversal with pruning.
+    # Invariant: Only visits directories not explicitly removed from 'dirs'.
     for root, dirs, files in os.walk(rootdir):
-        # Don't visit certain directories (e.g., build artifacts, dependencies, version control).
         if 'vendor' in dirs:
             dirs.remove('vendor')
         if 'staging' in dirs:
@@ -110,31 +100,32 @@ def get_all_files(rootdir):
             dirs.remove('.git')
         if '.make' in dirs:
             dirs.remove('.make')
-        if 'BUILD' in files: # Remove BUILD file to avoid processing.
+        if 'BUILD' in files:
            files.remove('BUILD')
 
-        for name in files: # Block Logic: Iterate through files in the current directory.
-            pathname = os.path.join(root, name) # Construct full path.
-            if is_binary(pathname): # If file is binary, skip it.
+        for name in files:
+            pathname = os.path.join(root, name)
+            if is_binary(pathname):
                 continue
-            all_files.append(pathname) # Add non-binary file to the list.
+            all_files.append(pathname)
     return all_files
 
 def check_underscore_in_flags(rootdir, files):
     """
-    @brief Checks if Go flag declarations contain underscores, enforcing a naming convention.
-    Functional Utility: Identifies and reports Go flag declarations that use underscores
-    instead of hyphens, excluding a predefined list of allowed exceptions. This helps
-    enforce a consistent command-line interface style.
-    @param rootdir (str): The root directory of the project, used to locate the excluded flags file.
-    @param files (list): A list of file paths to check.
+    @brief Core validation engine for flag naming conventions.
+    Logic: 
+    1. Loads the exception list from 'hack/verify-flags/excluded-flags.txt'.
+    2. Applies regex patterns to capture flag name arguments from Go source.
+    3. Cross-references matches against the exception list and underscore presence.
+    @param rootdir: Project root for locating configuration.
+    @param files: List of files to analyze.
     """
-    # preload the 'known' flags which don't follow the - standard
-    pathname = os.path.join(rootdir, "hack/verify-flags/excluded-flags.txt") # Path to the file containing excluded flags.
+    # Block Logic: Exception list loading.
+    pathname = os.path.join(rootdir, "hack/verify-flags/excluded-flags.txt")
     f = open(pathname, 'r')
-    excluded_flags = set(f.read().splitlines()) # Read excluded flags into a set for efficient lookup.
+    excluded_flags = set(f.read().splitlines())
     f.close()
 
-    # Functional Utility: Define regular expressions to capture flag names from Go code.
-    # These regexes target common Go flag declaration patterns (e.g., `flag.StringVarP`, `flag.IntP`).
+    # Block Logic: Regex pattern definition.
+    # Functional Intent: Targets standard 'flag' package and 'pflag' patterns.
     regexs = [ re.compile('Var[P]?\([^,]*, "([^"]*)"'), # Matches patterns like `Var(

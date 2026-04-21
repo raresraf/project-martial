@@ -3,7 +3,7 @@
 This driver evaluates the similarity of computer programs by analyzing NLP comments
 annotated by Gemini. It uses the Universal Sentence Encoder (USE) to compute
 embeddings for sequences of comments and identifies several similarity metrics.
-It uses ProcessPoolExecutor for true parallelism.
+It uses ProcessPoolExecutor for true parallelism and implements robust checkpointing.
 """
 
 import os
@@ -11,6 +11,9 @@ import json
 import re
 import threading
 import concurrent.futures
+import signal
+import sys
+import tempfile
 from absl import app
 from absl import flags
 import numpy as np
@@ -28,6 +31,30 @@ flags.DEFINE_string("output", "comments_cosim_results.json", "Output file for th
 flags.DEFINE_integer("limit", 1000000, "Limit number of pairs to process")
 flags.DEFINE_integer("workers", 4, "Number of parallel worker processes")
 flags.DEFINE_bool("use_smaller_sample", False, "Use only a small sample for testing (e.g., 10 pairs from each)")
+
+# Global results dictionary and its lock for thread-safe updates in the main process
+global_results = {}
+results_lock = threading.Lock()
+
+def atomic_save(data, filepath):
+    """Saves data to a JSON file atomically using a temporary file."""
+    fd, temp_path = tempfile.mkstemp(dir=os.path.dirname(filepath))
+    try:
+        with os.fdopen(fd, 'w') as f:
+            json.dump(data, f)
+        os.replace(temp_path, filepath)
+    except Exception as e:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+        print(f"Error during atomic save: {e}")
+
+def signal_handler(sig, frame):
+    """Handles interruption signals to save current progress before exiting."""
+    print("\nInterruption received. Saving current progress...")
+    with results_lock:
+        atomic_save(global_results, FLAGS.checkpoint)
+    print("Progress saved. Exiting.")
+    sys.exit(0)
 
 def extract_comments_regex(text):
     """Extracts comments from source code using a language-agnostic regex-based approach."""
@@ -57,7 +84,7 @@ def extract_comments_regex(text):
                 findings.append((stripped, current_line))
             current_line += 1
             
-    # Match ''' ''' or """ """ for Python docstrings
+    # Python docstrings
     for match in re.finditer(r"'''(.*?)'''", text, re.DOTALL):
         comment_text = match.group(1)
         start_pos = match.start()
@@ -80,6 +107,13 @@ def extract_comments_regex(text):
 
     return findings
 
+def is_uuid_processed(uuid, base_dir):
+    """Checks if a UUID directory contains a .checkpoint file."""
+    uuid_dir = os.path.join(base_dir, uuid)
+    if not os.path.isdir(uuid_dir):
+        return False
+    return os.path.exists(os.path.join(uuid_dir, ".checkpoint"))
+
 def get_all_comments_for_uuid(uuid, base_dir):
     uuid_dir = os.path.join(base_dir, uuid)
     if not os.path.isdir(uuid_dir):
@@ -99,13 +133,11 @@ def get_all_comments_for_uuid(uuid, base_dir):
                 print(f"Error reading {file_path}: {e}")
     return all_findings
 
-# Global variable to hold the CommentsAnalysis object in each worker process
 worker_ca = None
 
 def init_worker():
     """Initializes the CommentsAnalysis object for the worker process."""
     global worker_ca
-    # We need to set the config before initializing
     import modules.comments_config as worker_config
     worker_config.config.set_enable_use(True)
     from modules.comments import CommentsAnalysis
@@ -116,6 +148,9 @@ def process_single_pair(pair_id, pair_uuids, label, commented_dir):
     global worker_ca
     
     u1, u2 = pair_uuids
+    if not is_uuid_processed(u1, commented_dir) or not is_uuid_processed(u2, commented_dir):
+        return None, None
+
     findings1 = get_all_comments_for_uuid(u1, commented_dir)
     findings2 = get_all_comments_for_uuid(u2, commented_dir)
     
@@ -126,24 +161,19 @@ def process_single_pair(pair_id, pair_uuids, label, commented_dir):
     avg_best_match_sim = 0.0
     holistic_sim = 0.0
     coverage_sim = 0.0
-    
     threshold = 0.8
 
-    # USE approach using the process-global worker_ca
     seq1 = worker_ca.comm_to_seq_use(findings1)
     seq2 = worker_ca.comm_to_seq_use(findings2)
     
     if seq1 and seq2:
-        # Convert tensors to numpy arrays
         emb1 = [s[2].numpy().reshape(512) for s in seq1]
         emb2 = [s[2].numpy().reshape(512) for s in seq2]
-        
         arr1 = np.vstack(emb1)
         arr2 = np.vstack(emb2)
-        
         sim_matrix = cosine_similarity(arr1, arr2)
-        max_sim = float(np.max(sim_matrix))
         
+        max_sim = float(np.max(sim_matrix))
         best_matches_A = np.max(sim_matrix, axis=1)
         avg_best_match_sim = float(np.mean(best_matches_A))
         
@@ -151,7 +181,6 @@ def process_single_pair(pair_id, pair_uuids, label, commented_dir):
         mean2 = np.mean(arr2, axis=0).reshape(1, -1)
         holistic_sim = float(cosine_similarity(mean1, mean2)[0][0])
 
-        # Coverage Similarity
         from modules.comments_helpers import generate_comm_sequences
         indices_seq1 = generate_comm_sequences(range(len(findings1)), 6)
         indices_seq2 = generate_comm_sequences(range(len(findings2)), 6)
@@ -185,6 +214,10 @@ def process_single_pair(pair_id, pair_uuids, label, commented_dir):
     return res_key, result_data
 
 def main(_):
+    # Set up signal handling
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+
     # Load datasets
     print(f"Loading datasets from {FLAGS.simdataset} and {FLAGS.notsimdataset}...")
     try:
@@ -192,9 +225,7 @@ def main(_):
         if os.path.exists(FLAGS.simdataset):
             with open(FLAGS.simdataset, 'r') as f:
                 sim_data = json.load(f)
-        else:
-            print(f"Warning: {FLAGS.simdataset} not found.")
-            
+        
         notsim_data = {}
         if os.path.exists(FLAGS.notsimdataset):
             with open(FLAGS.notsimdataset, 'r') as f:
@@ -204,19 +235,19 @@ def main(_):
             try:
                 out = subprocess.check_output(["cat", FLAGS.notsimdataset])
                 notsim_data = json.loads(out)
-            except Exception as e:
-                print(f"Error: Could not load {FLAGS.notsimdataset}: {e}")
+            except:
+                notsim_data = {}
     except Exception as e:
         print(f"Error loading datasets: {e}")
         return
     
-    # Load checkpoint
-    results = {}
+    # Load checkpoint into global results
+    global global_results
     if os.path.exists(FLAGS.checkpoint):
         try:
             with open(FLAGS.checkpoint, 'r') as f:
-                results = json.load(f)
-            print(f"Loaded {len(results)} results from checkpoint.")
+                global_results = json.load(f)
+            print(f"Loaded {len(global_results)} results from checkpoint.")
         except:
             print("Checkpoint corrupted or empty, starting fresh.")
     
@@ -237,82 +268,68 @@ def main(_):
     total = min(len(pairs_to_process), FLAGS.limit)
     pairs_to_process = pairs_to_process[:total]
     
-    print(f"Starting parallel processing with {FLAGS.workers} worker processes...")
-    # Note: Using spawn if possible for cleaner TF behavior on some platforms
-    with concurrent.futures.ProcessPoolExecutor(
-        max_workers=FLAGS.workers, 
-        initializer=init_worker
-    ) as executor:
-        future_to_pair = {
-            executor.submit(process_single_pair, pid, puuids, lbl, FLAGS.commented_dir): (pid, puuids, lbl)
-            for pid, puuids, lbl in pairs_to_process if f"{lbl}_{pid}" not in results
-        }
-        
-        count_already_done = len(results)
-        for future in concurrent.futures.as_completed(future_to_pair):
-            try:
-                res_key, result_data = future.result()
-                if res_key:
-                    results[res_key] = result_data
-                    count_finished = len(results)
-                    if count_finished % 10 == 0:
-                        print(f"Progress: {count_finished}/{total} (Latest: {res_key}, Sim: {result_data['coverage_similarity']:.4f})")
-                    if count_finished % 100 == 0:
-                        with open(FLAGS.checkpoint, 'w') as f:
-                            json.dump(results, f)
-            except Exception as e:
-                pair = future_to_pair[future]
-                print(f"Error processing pair {pair}: {e}")
+    # Filter out already processed pairs
+    remaining_pairs = [p for p in pairs_to_process if f"{p[2]}_{p[0]}" not in global_results]
+    print(f"Total pairs to evaluate: {total}. Remaining: {len(remaining_pairs)}")
+    
+    if not remaining_pairs:
+        print("No new pairs to process.")
+    else:
+        print(f"Starting parallel processing with {FLAGS.workers} worker processes...")
+        with concurrent.futures.ProcessPoolExecutor(
+            max_workers=FLAGS.workers, 
+            initializer=init_worker
+        ) as executor:
+            future_to_pair = {
+                executor.submit(process_single_pair, pid, puuids, lbl, FLAGS.commented_dir): (pid, puuids, lbl)
+                for pid, puuids, lbl in remaining_pairs
+            }
+            
+            for future in concurrent.futures.as_completed(future_to_pair):
+                try:
+                    res_key, result_data = future.result()
+                    if res_key:
+                        with results_lock:
+                            global_results[res_key] = result_data
+                            count_finished = len(global_results)
+                            if count_finished % 10 == 0:
+                                print(f"Progress: {count_finished}/{total} (Latest: {res_key}, Sim: {result_data['coverage_similarity']:.4f})")
+                            if count_finished % 100 == 0:
+                                atomic_save(global_results, FLAGS.checkpoint)
+                except Exception as e:
+                    pair = future_to_pair[future]
+                    print(f"Error processing pair {pair}: {e}")
 
     # Final save and analysis
     print(f"\nSaving final results to {FLAGS.output}")
-    save_results_and_analyze(results, FLAGS.output)
-    
-    with open(FLAGS.checkpoint, 'w') as f:
-        json.dump(results, f)
-    
+    save_results_and_analyze(global_results, FLAGS.output)
+    with results_lock:
+        atomic_save(global_results, FLAGS.checkpoint)
     print("Done!")
 
 def save_results_and_analyze(results, output_path):
     from sklearn.metrics import confusion_matrix, classification_report
-    
     with open(output_path, 'w') as f:
         json.dump(results, f, indent=4)
     
-    if not results:
-        return
-
+    if not results: return
     y_true = [r['label'] for r in results.values()]
-    
-    metrics_to_test = [
-        ('max_similarity', 'Max Similarity'),
-        ('avg_best_match_similarity', 'Aggregated (Avg Best Match) Similarity'),
-        ('holistic_similarity', 'Holistic Similarity'),
-        ('coverage_similarity', 'Coverage Similarity')
-    ]
+    metrics = ['max_similarity', 'avg_best_match_similarity', 'holistic_similarity', 'coverage_similarity']
     
     analysis = {}
     print("\n--- Model Performance Analysis ---")
-    for metric_key, metric_name in metrics_to_test:
-        print(f"\nMetric: {metric_name}")
-        analysis[metric_key] = {}
-        y_scores = [r.get(metric_key, 0.0) for r in results.values()]
-        
-        threshold = 0.8
-        y_pred = [1 if s >= threshold else 0 for s in y_scores]
-        
-        print(f"Evaluation at threshold {threshold}:")
+    for m in metrics:
+        print(f"\nMetric: {m}")
+        y_scores = [r.get(m, 0.0) for r in results.values()]
+        y_pred = [1 if s >= 0.8 else 0 for s in y_scores]
         try:
             print(confusion_matrix(y_true, y_pred))
             print(classification_report(y_true, y_pred))
-            report = classification_report(y_true, y_pred, output_dict=True)
-            analysis[metric_key][f"threshold_{threshold}"] = report
-        except Exception as e:
-            print(f"Error computing metrics for {metric_key}: {e}")
+            analysis[m] = classification_report(y_true, y_pred, output_dict=True)
+        except: pass
 
     with open(output_path.replace(".json", "_summary.json"), "w") as f:
         json.dump(analysis, f, indent=4)
 
 if __name__ == "__main__":
-    # Needed for multiprocessing on some systems
     app.run(main)

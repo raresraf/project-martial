@@ -6,17 +6,12 @@ import datetime
 from rapidfuzz import fuzz
 from grammars.go.GoLexer import GoLexer, FileStream
 import tempfile
-import en_core_web_lg
 from modules.comments_helpers import strip_comment_line_and_append_line_number
 import modules.comments_helpers as comments_helpers
 import modules.comments_config as comments_config
 from sklearn.metrics.pairwise import cosine_similarity
-from simple_elmo import ElmoModel
 from spacy.tokens import Doc
 import numpy as np
-import tensorflow as tf
-import tensorflow_hub as hub
-from sentence_transformers import SentenceTransformer, util
 
 enable_is_similar_log = False
 
@@ -29,20 +24,25 @@ class CommentsAnalysis():
 
         self.enable_word2vec = comments_config.config.enable_word2vec()
         if self.enable_word2vec:
+            import en_core_web_lg
             self.spacy_core_web = en_core_web_lg.load()
 
         self.enable_elmo = comments_config.config.enable_elmo()
         if self.enable_elmo:
+            import tensorflow as tf
+            from simple_elmo import ElmoModel
             tf.compat.v1.reset_default_graph()
             self.elmo = ElmoModel()
             self.elmo.load("/Users/raresraf/code/project-martial/209")
 
         self.enable_roberta = comments_config.config.enable_roberta()
         if self.enable_roberta:
+            from sentence_transformers import SentenceTransformer
             self.roberta = SentenceTransformer('stsb-roberta-large')
 
         self.enable_use = comments_config.config.enable_use()
         if self.enable_use:
+            import tensorflow_hub as hub
             module_url = "https://tfhub.dev/google/universal-sentence-encoder/4"
             self.use = hub.load(module_url)
 
@@ -192,6 +192,7 @@ class CommentsAnalysis():
 
     def comm_to_seq_elmo(self, file):
         """Similar to comm_to_seq but returns the Doc(commentary) instead of commentary: string."""
+        import tensorflow as tf
         resp = comments_helpers.comm_to_seq_default(file, 1)
         ret = []
         for long_comm, coming_from in resp:
@@ -202,6 +203,7 @@ class CommentsAnalysis():
         return ret
 
     def roberta_similarity(self, f1, f2):
+        from sentence_transformers import util
         similarity = util.pytorch_cos_sim(f1[2], f2[2]).item()
         return similarity > comments_config.config.threshold_roberta(), similarity
 

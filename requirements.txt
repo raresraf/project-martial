@@ -1,0 +1,17 @@
+# Core dependencies
+absl-py
+numpy
+scikit-learn
+rapidfuzz
+antlr4-python3-runtime
+
+# NLP and Machine Learning
+tensorflow
+tensorflow-hub
+spacy
+sentence-transformers
+simple-elmo
+
+# API and UI support
+flask
+flask-cors

@@ -56,21 +56,12 @@ p {
     color: var(--text-color-light);
   }
 
-  .results-display h3 {
-    color: var(--text-color-light);
-    border-bottom-color: var(--border-color-light);
-  }
-
   .result-item .label {
     color: var(--text-color-light);
   }
 
   .result-item .value {
     color: var(--text-color-light);
-  }
-
-  .result-item:first-of-type .value {
-    color: var(--gcp-blue);
   }
 
   p {

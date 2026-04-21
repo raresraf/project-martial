@@ -1,12 +1,7 @@
 mat-grid-tile {
-    background: var(--controls-bg-light);
+    background: #FDFDFD;
 }
 
 .file-input {
     display: none;
-}
-
-.upload-button {
-    width: 300px !important;
-    min-width: unset !important;
 }

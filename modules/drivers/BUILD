@@ -45,3 +45,13 @@ py_binary(
   ],
   srcs = ["rcomplexity_gradient_descent.py"],
 )
+
+py_binary(
+  name = "comments_cosim_driver",
+  deps = [
+    "//modules:comments",
+    "//modules:comments_api",
+    "//modules:comments_config",
+  ],
+  srcs = ["comments_cosim_driver.py"],
+)
